@@ -1,2 +1,1 @@
-# cov-tiles
-Cloud optimized vector tiles
+# Cloud Optimized Vector Tiles (COVTiles)
