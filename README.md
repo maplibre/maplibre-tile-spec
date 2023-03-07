@@ -9,7 +9,7 @@ For improving the decoding performance SIMD instructions will be used as
 for example described in the paper “Decoding billions of integers per second through vectorization” 
 or "Lightweight Data Compression Algorithms: An Experimental Survey".
 In addition the tiles should be "cloud optimized" which means that also only specific layer of a tile can be queried
-via HTTP range reqeusts.
+via HTTP range requests.
 
 The main goals of COVTiles are:
 - Minimize the tile size and thereby the network latency -> currently up to 7x in some zoom levels -> 10x possible?

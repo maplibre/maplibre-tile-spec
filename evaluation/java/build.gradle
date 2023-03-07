@@ -1,0 +1,24 @@
+plugins {
+    id 'java'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.apache.parquet:parquet-column:1.11.0'
+    implementation 'org.apache.orc:orc-core:1.8.1'
+    implementation 'me.lemire.integercompression:JavaFastPFOR:0.1.12'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.10.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+test {
+    useJUnitPlatform()
+}
