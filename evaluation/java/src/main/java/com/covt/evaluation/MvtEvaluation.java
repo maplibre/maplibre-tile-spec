@@ -1,8 +1,11 @@
 package com.covt.evaluation;
 
 import com.covt.evaluation.compression.IntegerCompression;
+import com.google.common.collect.Iterables;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.MvtReader;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.TagKeyValueMapConverter;
+import org.davidmoten.hilbert.HilbertCurve;
+import org.davidmoten.hilbert.SmallHilbertCurve;
 import org.locationtech.jts.geom.*;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 
@@ -11,6 +14,8 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
 public class MvtEvaluation {
@@ -35,7 +40,7 @@ public class MvtEvaluation {
         }
     }
 
-    private static void analyzeGeometry(Layer layer){
+    private static void analyzeGeometry(Layer layer) throws IOException {
         var name = layer.name();
         if(!name.equals("transportation")){
             return;
@@ -49,27 +54,175 @@ public class MvtEvaluation {
          * -> Delta Encode Index Buffer?
          * */
 
+        //14 bits -> 8192 in two directions
+        var numCoordinatesPerQuadrant = 8192;
+        SmallHilbertCurve hilbertCurve =
+                HilbertCurve.small().bits(14).dimensions(2);
+        var vertexMap = new TreeMap<Integer, Vertex>();
+        var features = layer.features();
+        for(var feature : features){
+            //var geometryType = GEOMETRY_TYPES.get(feature.geometry().getGeometryType());
+            var geometryType = feature.geometry().getGeometryType();
+
+            switch(geometryType){
+                case "Point":
+                    break;
+                case "LineString": {
+                    var lineString = (LineString) feature.geometry();
+                    var vertices = lineString.getCoordinates();
+                    for (var vertex : vertices) {
+                        /* shift origin to have no negative coordinates */
+                        var x = numCoordinatesPerQuadrant + (int) vertex.x;
+                        var y = numCoordinatesPerQuadrant + (int) vertex.y;
+                        var index = (int) hilbertCurve.index(x, y);
+                        if (!vertexMap.containsKey(index)) {
+                            vertexMap.put(index, new Vertex(x, y));
+                        }
+                    }
+
+                    break;
+                }
+                case "Polygon":
+                    break;
+                case "MultiPoint":
+                    throw new IllegalArgumentException("Geometry type MultiPoint is not supported yet.");
+                case "MultiLineString":{
+                    var multiLineString = ((MultiLineString)feature.geometry());
+                    var numLineStrings = multiLineString.getNumGeometries();
+                    for(var i = 0; i < numLineStrings; i++){
+                        var lineString =  (LineString)multiLineString.getGeometryN(i);
+                        var vertices = lineString.getCoordinates();
+                        for (var vertex : vertices) {
+                            /* shift origin to have no negative coordinates */
+                            var x = numCoordinatesPerQuadrant + (int) vertex.x;
+                            var y = numCoordinatesPerQuadrant + (int) vertex.y;
+                            var index = (int) hilbertCurve.index(x, y);
+                            if (!vertexMap.containsKey(index)) {
+                                vertexMap.put(index, new Vertex(x, y));
+                            }
+                        }
+                    }
+                    break;
+                }
+                case "MultiPolygon":
+                    break;
+                default:
+                    throw new IllegalArgumentException("GeometryCollection not supported.");
+            }
+        }
+
+
+        Set<Map.Entry<Integer, Vertex>> vertexSet = vertexMap.entrySet();
+        var vertexOffsets = new ArrayList<Integer>();
+        for(var feature : features){
+            var geometryType = feature.geometry().getGeometryType();
+            switch(geometryType){
+                case "LineString": {
+                    var lineString = (LineString) feature.geometry();
+                    var vertices = lineString.getCoordinates();
+                    for (var vertex : vertices) {
+                        var x = numCoordinatesPerQuadrant + (int) vertex.x;
+                        var y = numCoordinatesPerQuadrant + (int) vertex.y;
+                        var hilbertIndex = (int) hilbertCurve.index(x, y);
+                        var vertexOffset = Iterables.indexOf(vertexSet,v -> v.getKey().equals(hilbertIndex));
+                        vertexOffsets.add(vertexOffset);
+                    }
+
+                    break;
+                }
+                case "MultiLineString":{
+                    var multiLineString = ((MultiLineString)feature.geometry());
+                    var numLineStrings = multiLineString.getNumGeometries();
+                    for(var i = 0; i < numLineStrings; i++){
+                        var lineString =  (LineString)multiLineString.getGeometryN(i);
+                        var vertices = lineString.getCoordinates();
+                        for (var vertex : vertices) {
+                            /* shift origin to have no negative coordinates */
+                            var x = numCoordinatesPerQuadrant + (int) vertex.x;
+                            var y = numCoordinatesPerQuadrant + (int) vertex.y;
+                            var hilbertIndex = (int) hilbertCurve.index(x, y);
+                            var vertexOffset = Iterables.indexOf(vertexSet,v -> v.getKey().equals(hilbertIndex));
+                            vertexOffsets.add(vertexOffset);
+                        }
+                    }
+                    break;
+                }
+                default:
+                    throw new IllegalArgumentException("Geometry type not supported.");
+            }
+        }
+
+        var vertexBuffer = vertexSet.stream().flatMap(v -> {
+            var coord = v.getValue();
+            var x = coord.x();
+            var y = coord.y();
+            return Stream.of(x,y);
+        }).mapToInt(i->i).toArray();
+        var vertexOffsetsArr = vertexOffsets.stream().mapToInt(i->i).toArray();
+
+        var vertexBufferParquetDelta = IntegerCompression.parquetDeltaEncoding(vertexBuffer);
+        var vertexBufferORCRleV2 = IntegerCompression.orcRleEncodingV2(Arrays.stream(vertexBuffer).mapToLong(i -> i).toArray());
+        var vertexOffsetsParquetDelta = IntegerCompression.parquetDeltaEncoding(vertexOffsetsArr);
+        var vertexOffsetsORCRleV2 = IntegerCompression.orcRleEncodingV2(Arrays.stream(vertexOffsetsArr).mapToLong(i -> i).toArray());
+        System.out.println("Ratio: " + ((double)vertexOffsetsArr.length / vertexBuffer.length));
+        System.out.println("VertexBuffer Parquet Delta: " + vertexBufferParquetDelta.length / 1024);
+        System.out.println("VertexBuffer ORC RLEV2: " + vertexBufferORCRleV2.length / 1024);
+        System.out.println("VertexOffsets Parquet Delta: " + vertexOffsetsParquetDelta.length / 1024);
+        System.out.println("VertexOffsets ORC RLEV2: " + vertexOffsetsORCRleV2.length / 1024);
+
+        /**
+         * Sorting the full vertexOffsets not working -> only the offsets of a LineString collection can be sorted
+         * -> but in Transportation most of the time only 2 vertices
+         * -> LineString -> PartOffsets (e.g. vertex 0 to 10) -> VertexOffsets (int to coordinates) -> VertexBuffer
+         * -> LineString -> PartOffsets (e.g. vertex 0 to 10) -> HilbertIndices
+         */
+        Collections.sort(vertexOffsets);
+        var sortedDeltaEncodedVertexOffsets = new long[vertexOffsetsArr.length];
+        var previousValue = 0;
+        for(var i = 0; i < vertexOffsets.size(); i++){
+            var value = vertexOffsets.get(i);
+            var delta = value - previousValue;
+            sortedDeltaEncodedVertexOffsets[i] = delta;
+            previousValue = value;
+        }
+        var sortedVertexOffsetsArr = vertexOffsets.stream().mapToInt(i->i).toArray();
+        var sortedVertexOffsetsParquetDelta = IntegerCompression.parquetDeltaEncoding(sortedVertexOffsetsArr);
+        var sortedVertexOffsetsORCRleV2 = IntegerCompression.orcRleEncodingV2(Arrays.stream(sortedVertexOffsetsArr).mapToLong(i -> i).toArray());
+        var sortedDeltaVertexOffsetsParquetDelta = IntegerCompression.parquetDeltaEncoding(Arrays.stream(sortedDeltaEncodedVertexOffsets).mapToInt(i -> (int)i).toArray());
+        var sortedDeltaVertexOffsetsORCRleV2 = IntegerCompression.orcRleEncodingV2(sortedDeltaEncodedVertexOffsets);
+        System.out.println("Sorted VertexOffsets Parquet Delta: " + sortedVertexOffsetsParquetDelta.length / 1024);
+        System.out.println("Sorted VertexOffsets ORC RLEV2: " + sortedVertexOffsetsORCRleV2.length / 1024);
+        System.out.println("Delta Sorted VertexOffsets Parquet Delta: " + sortedDeltaVertexOffsetsParquetDelta.length / 1024);
+        System.out.println("Delta Sorted VertexOffsets ORC RLEV2: " + sortedDeltaVertexOffsetsORCRleV2.length / 1024);
+
+        /*var deltaEncodedVertexOffsets = new long[vertexOffsetsArr.length];
+        var previousValue = 0;
+        for(var i = 0; i < vertexOffsetsArr.length; i++){
+            var value = vertexOffsetsArr[i];
+            var delta = value - previousValue;
+            deltaEncodedVertexOffsets[i] = delta;
+            previousValue = value;
+        }
+        var deltaEncodedVertexOffsetsParquetDelta = IntegerCompression.parquetDeltaEncoding(Arrays.stream(deltaEncodedVertexOffsets).mapToInt(i -> (int)i).toArray());
+        var deltaEncodedVertexOffsetsORCRleV2 = IntegerCompression.orcRleEncodingV2(deltaEncodedVertexOffsets);
+        System.out.println("Delta VertexOffsets Parquet Delta: " + deltaEncodedVertexOffsetsParquetDelta.length / 1024);
+        System.out.println("Delta Vertex Offsets ORC RLEV2: " + deltaEncodedVertexOffsetsORCRleV2.length / 1024);*/
     }
 
     private static void analyzeTopology(Layer layer) throws IOException {
-        /**
-         * Depending on the geometry type the topology column has the following streams:
-         * - Point: no stream
-         * - LineString: Part offsets
-         * - Polygon: Part offsets (Polygon), Ring offsets (LinearRing)
-         * - MultiPoint: Geometry offsets -> array of offsets indicate where the vertices of each MultiPoint start
-         * - MultiLineString: Geometry offsets, Part offsets (LineString)
-         * - MultiPolygon -> Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing)
-         */
-
         var name = layer.name();
         if(!name.equals("transportation")){
             return;
         }
 
-        var features = layer.features();
-
         /*
+        * Depending on the geometry type the topology column has the following streams:
+        * - Point: no stream
+        * - LineString: Part offsets
+        * - Polygon: Part offsets (Polygon), Ring offsets (LinearRing)
+        * - MultiPoint: Geometry offsets -> array of offsets indicate where the vertices of each MultiPoint start
+        * - MultiLineString: Geometry offsets, Part offsets (LineString)
+        * - MultiPolygon -> Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing)
         * Currently for all geometry types all streams hava an entry -> later flags should be used to
         * reduce memory footprint in the client after RLE decoding
         * -> If GeometrieOffsets >= 1 -> MulitPartGeometry
@@ -102,6 +255,7 @@ public class MvtEvaluation {
         *   -> GeometryOffsets, PartOffsets, RingOffsets, VertexOffsets
         *  */
 
+        var features = layer.features();
         var geometryOffsets = new ArrayList<Integer>();
         var partOffsets = new ArrayList<Integer>();
         var ringOffsets = new ArrayList<Integer>();
@@ -337,6 +491,7 @@ public class MvtEvaluation {
         var connection = DriverManager.getConnection("jdbc:sqlite:C:\\mapdata\\europe.mbtiles");
         var stmt = connection .createStatement();
         ResultSet rs = stmt.executeQuery( "SELECT tile_data FROM tiles WHERE tile_column = 16 AND tile_row = 21 AND zoom_level = 5;");
+        //ResultSet rs = stmt.executeQuery( "SELECT tile_data FROM tiles WHERE tile_column = 16 AND tile_row = 20 AND zoom_level = 5;");
         rs.next();
         var blob = rs.getBytes("tile_data");
         rs.close();
