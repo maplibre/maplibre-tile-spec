@@ -1,0 +1,41 @@
+{
+  "name": "cov-tiles",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint --max-warnings=0 --fix --ext .ts src",
+    "format": "prettier --write \"**/*.ts\""
+  },
+  "dependencies": {
+    "@mapbox/vector-tile": "^1.3.1",
+    "@types/earcut": "^2.1.1",
+    "apache-arrow": "^9.0.0",
+    "brotli": "^1.3.3",
+    "earcut": "^2.2.4",
+    "hilbert-curve": "^2.0.5",
+    "node-bitarray": "^0.1.0",
+    "parquet-wasm": "^0.4.0-beta.5",
+    "pbf": "^3.2.1",
+    "sqlite3": "^5.0.2",
+    "varint": "^6.0.0",
+    "zlib": "^1.0.5"
+  },
+  "devDependencies": {
+    "@types/benchmark": "^2.1.2",
+    "@types/brotli": "^1.3.1",
+    "@types/jest": "^29.0.0",
+    "@types/node": "^18.7.23",
+    "@types/sqlite3": "^3.1.8",
+    "@types/varint": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.8.1",
+    "@typescript-eslint/parser": "^5.8.1",
+    "benchmark": "^2.1.4",
+    "eslint": "^7.30.0",
+    "jest": "^26.6.3",
+    "prettier": "^2.5.1",
+    "ts-jest": "^26.5.5",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.2.4"
+  }
+}
