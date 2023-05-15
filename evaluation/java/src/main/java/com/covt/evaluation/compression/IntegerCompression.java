@@ -2,6 +2,7 @@ package com.covt.evaluation.compression;
 
 import me.lemire.integercompression.*;
 import org.apache.orc.impl.OutStream;
+import org.apache.orc.impl.RunLengthByteWriter;
 import org.apache.orc.impl.RunLengthIntegerWriter;
 import org.apache.orc.impl.RunLengthIntegerWriterV2;
 import org.apache.orc.impl.writer.StreamOptions;
@@ -15,7 +16,6 @@ import java.util.Arrays;
 import java.util.zip.GZIPOutputStream;
 
 public class IntegerCompression {
-
 
     public static byte[] gzipCompress(byte[] buffer) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -88,6 +88,19 @@ public class IntegerCompression {
         var testOutputCatcher = new TestOutputCatcher();
         var writer =
                 new RunLengthIntegerWriter(new OutStream("test", new StreamOptions(1), testOutputCatcher), signed);
+
+        for(var value: values) {
+            writer.write(value);
+        }
+
+        writer.flush();
+        return testOutputCatcher.getBuffer();
+    }
+
+    public static byte[] orcRleByteEncodingV1(byte[] values) throws IOException {
+        var testOutputCatcher = new TestOutputCatcher();
+        var writer =
+                new RunLengthByteWriter(new OutStream("test", new StreamOptions(1), testOutputCatcher));
 
         for(var value: values) {
             writer.write(value);
