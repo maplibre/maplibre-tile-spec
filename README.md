@@ -1,27 +1,58 @@
 # Cloud Optimized Vector Tiles (COVTiles)
 
-The main idea of COVTiles is to use a column oriented layout like the state of the art big data formats Parquet and ORC
-or the in-memory format Apache Arrow instead of the row oriented approach on which Mapbox Vector Tiles (MVT) is based on.
-This enables the usage of custom lightweight compression schemes on a specific column in addition to a tile wide data agnostic compression like Gzip or Brotli.
-This can significantly improve the compression ratio.
-For improving the decoding performance SIMD instructions are used.
-In addition the tiles are "cloud optimized" which means that also only specific layers of a tile can be requested 
-from a cloud storage via HTTP range requests.
-
+COVTiles is a case study of how the next generation of vector tiles could look like.  
 The main goals of COVTiles are:
-- Minimize the tile size and thereby the network latency (currently up to 5x in some zoom levels compared to MVT)
-- Faster decoding through vectorization (SIMD)
-- Using the concepts of the cloud optimized file formats to enable the filtering of only specific layers of a tile via HTTP range requests from a cloud storage (Predicate Pushdown)
+- **Improve compression ratio**: minimize the tile size and thereby the network latency (currently up to 5x in some zoom levels compared to MVT)
+- **Improve performance**: faster decoding and processing of the tiles (currently up to 3 times faster on selected tiles compared to MVT)
+- **Support for fast (cloud optimized) filtering**: Support fast filtering of specific layers and specific property columns like in Parquet
+  (predicate and projection pushdown) also in a cloud optimized way via HTTP range requests to reduce the transferred amount of data
+- **3D coordinates**: Add support for z coordinates for the geometries of a feature
+- **M coordinates**: Add support for per vertex measurement values so for instance every vertex of a LinesString can have a specific
+  measurement value
+- **Nested properties of a feature**: based on the Dremel encoding
 
-## Mapbox Vector Tiles (MVT)
-[Mapbox Vector Tiles (MVT)](https://github.com/mapbox/vector-tile-spec) are the state of the art way
-of storing and visualizing planet scale spatial vector tilesets.
-They are optimized in size through the usage of a local tile coordinate system, delta and Base128 Varint encoding
-for the geometries as well as dictionary encoding for the keys and values of the feature properties.
+
+## Comparison with Mapbox Vector Tiles
+
+### Compression ratio
+In the following the sizes of Covt and MVT tiles are compared based on a selected set of tiles.
+In the first reduction column, RLE encoding is uesed for the toplology streams.
+For the second reduction column patched bitpacking based on SIMD-FastPFOR 128 is used for the topology streams,
+which is a way harder to implement and doesn't play that well in combination with a heavyweight compression scheme.
+
+| Zoom level | Tile indices <br/>(minX,maxX,minY,maxY) | Reduction 1 (%)  | Reduction 2(%) |
+|------------|----------------------------------------|------------------|----------------|
+| 2          | 2,2,2,2                                | 36               | 39             | 
+| 3          | 4,4,5,5                                | 29                | 32             |
+| 4          |                                        | 71               | 73             | 
+| 5          | 16,17,20,21                            | 74               | 75             | 
+| 6          | 32,34,41,42                            | 69               | 70             | 
+| 7          | 66,68,83,85                            | 68               | 68             | 
+| 8          | 132, 135, 170, 171                     | 68               | 68             | 
+| 9          | 264, 266, 340, 342                     | 62               |                | 
+| 10         | 530, 533, 682, 684                     | 54               |                | 
+| 11         | 1062, 1065, 1366, 1368                 | 53               |                | 
+| 12         | 2130, 2134, 2733, 2734                 | 54               |                | 
+| 13         | 4264, 4267, 5467, 5468                 | 44 (without ICE) |                | 
+| 14         | 8296, 8300, 10748, 10749               | 51 (without ICE) |                | 
+
+### Decoding performance
+Comparing the decoding performance of a Covt tile with a MVT tile for selected tiles, currently still without 
+the usage of SIMD instructions:    
+
+| Zoom level |  Decoding performance (COVT/MVT)  |      
+|------------|:---------------------------------:|          
+| 4          |               2.36                | 
+| 5          |               2.74                |
 
 
-## File Layout
-The COVTiles format is based on a colum oriented layout with custom lightweight compression schemes per column.
+## Physical File Layout
+
+The main idea of COVTiles is to use a column oriented layout like the state of the art big data formats Parquet and ORC
+or the in-memory format Apache Arrow instead of the row oriented approach on which Mapbox Vector Tiles (MVT) is (implicit) based on.
+This enables the usage of custom lightweight compression schemes on a specific column in addition to a tile wide data agnostic compression like Gzip or Brotli.
+This can significantly improve the compression ratio. The file layout should be designed SIMD-friendly 
+to enable the usage of vectorization to significantly improve the decoding performance.
 
 The basic design of a COVT tile is inspired by the MVT layout and is based on the concepts
 of a ``layer``and a collection of ``features``.
@@ -29,91 +60,102 @@ of a ``layer``and a collection of ``features``.
 - Feature -> Id, Geometry, Properties
 - Geometry -> Based on the Simple Feature Access Model (SFA) of the OGC
 
+A layer can consist of the following columns.
+
 ### Id Column
+| Datatype |        Encodings         |      
+|--------|:------------------------:|          
+| Uint64 | Plain, Delta Varint, RLE |
 
-### Geometry Columns
 
-The information about the geometry of a feature is separated in a ``geometryType``, ``topology``, ``indexBuffer`` and ``vertexBuffer`` column.
-Using separate columns for describing the geometry of a feature enables a better optimization of the compression.
+### Geometry Column
 
-#### GeometryType Column
+The information about the geometry of the features is separated in different streams and is inspired
+by the [geoarrow](https://github.com/geoarrow/geoarrow) format. Using separate streams for describing the geometry of a feature enables a 
+better optimization of the compression and faster processing.  
+A geometry column can consist of the following streams:
 
-The geometryType column encodes one of the ``OGC Simple Feature Access Model`` specified geometry types.
+| Stream name     | Data type |   encoding   |       
+|-----------------|:---------:|:------------:|           
+| GeometryType    |   Byte    |   Byte RLE   |
+| GeometryOffsets |  UInt32   |     RLE      |
+| PartOffsets     |  UInt32   |     RLE      |
+| RingsOffsets    |  UInt32   |     RLE      |
+| VertexOffsets   |  UInt32   | Delta Varint |
+| VertexBuffer    |   Int32   | Delta Varint |
+
+#### GeometryType Stream
+
+The geometryType stream encodes one of the ``OGC Simple Feature Access Model`` specified geometry types.
 A layer can have different geometry types, but as most layer contain only geometries of a single type.
-By using a separate column, the geometry can be efficiently compressed with [RLE / Bit-Packing Hybrid](https://parquet.apache.org/docs/file-format/data-pages/encodings/#a-namerlearun-length-encoding--bit-packing-hybrid-rle--3) encoding
-of the Parquet format -> This column could be completely omitted when in the topology column a fixed layout is used
+By using a separate stream, the geometry can be efficiently compressed with a RLE encoding inspired by 
+the [ORC](https://orc.apache.org/specification/ORCv1/) file format.
+The GeometryType stream could be omitted when a fixed layout is used but is currently maintained
+to enable a variable number of streams and to simply the processing.
 
-#### Topology Column
-The ``topology`` column uses different streams (inspired by the ORC file format) depending on the used geometry type for describing the structure of a geometry.  
-The layout of the topology column is inspired by the [GeoArrow](https://github.com/geoarrow/geoarrow/blob/main/format.md) format.
-In the topology column only the offsets to the vertices are stored.   
-This for example has the advantage when COVT is used in combination with the Mapbox Style specification, where features are often filtered from a source-layer based on the properties.
-Enabling fast/random access to specific features of a layer can improve the decoding performance.   
-For reducing the size of the topology column a combination of delta encoding and the [RLE / Bit-Packing Hybrid](https://parquet.apache.org/docs/file-format/data-pages/encodings/#a-namerlearun-length-encoding--bit-packing-hybrid-rle--3) encoding of the Parquet format is used.
+#### Topology Streams
+Different topology streams are used to describe the structure of a geometry depending on the type of the geometry.  
+The layout of the topology streams is inspired by the [GeoArrow](https://github.com/geoarrow/geoarrow/blob/main/format.md) format.
+In the topology streams only the offsets to the vertices are stored.   
+This enables fast/random access to specific geometries of a layer and can improve the decoding/processing performance.  
+For reducing the size of the topology column, RLE encoding inspired by
+the [ORC](https://orc.apache.org/specification/ORCv1/) file format is used.
+A combination of delta encoding and the [RLE / Bit-Packing Hybrid](https://parquet.apache.org/docs/file-format/data-pages/encodings/#a-namerlearun-length-encoding--bit-packing-hybrid-rle--3) 
+encoding of the Parquet format has shown even better results in the evaluation but would increase complexity by introducing a 
+additional RLE encoding.
 
-Depending on the geometry type the topology column has the following streams:
-- Point: no stream
-- LineString: Part offsets
-- Polygon: Part offsets (Polygon), Ring offsets (LinearRing)
-- MultiPoint: Geometry offsets
-- MultiLineString: Geometry offsets, Part offsets (LineString)
-- MultiPolygon: Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing)
-
-#### IndexBuffer Column (optional)
+#### VertexOffsets Stream (optional)
 Used in combination with the [Indexed Coordinate Encoding (ICE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#a8bf).
-Stores the index to a coordinate in the Vertex Buffer.
+Stores the index to a vertex in the Vertex Buffer.
 This can minimize the size of the VertexBuffer when LineString or Polygon geometries share the same vertices.
 In the OpenMapTiles scheme this is for example the case for the ``transportation`` layer, where in some zoom levels the number of vertices
 can be reduced by factor 5.
-The vertices are sorted on a ``Hilbert curve`` and delta encoded with a patched encoding.
-For the IndexBuffer delta encoding and bitpacking is used.
 
-#### VertexBuffer Column
-In the ``vertexBuffer`` the vertices of the geometry are stored.
-Depending on structure of the geometry one of the following encodings can be used.
-- Points
-  - Order on a hilbert curve and delta encode with bitpacking -> using the hilbert index instead of the coordinate pairs
-- LineString
-  - Order the LineStrings with minimal distance to each other and delta encode also for consecutive features with PFOR-Delta encoding
-  - Indexed Coordinate Encoding (ICE) e.g. for OSM layers like transportation
-  - Topological Arc Encoding (TAE)
-- Polygon
-    - Indexed Coordinate Encoding (ICE)
-    - Topological Arc Encoding (TAE)
-    - Shape encoding -> e.g. using the information that lots of buildings are rectangular to use a specific kind of delta encoding or affine transformation
+#### VertexBuffer Stream
+In the ``VertexBuffer`` the vertices of the geometry are stored.
+By having the vertices in a continuous vertex buffer enables fast processing and in some cases zero copy to format which can be consumed by the GPU.
+When the plain encoding is ued for the VertexBuffer, the vertex coordinates are delta and Varint encoded per geometry. 
+When ICE encoding is used the vertices are sorted on a ``Hilbert curve`` and all vertices are delta and Varint encoded.
+A patched bitpacking method like FastPfor128 has shown even better results in the evaluation but would increase complexity by introducing a
+additional encoding.
 
-### Feature Properties Column
+Depending on the type of geometry the geometry column can have the following streams:
+- Point: VertexBuffer
+- LineString: Part offsets, Vertex offsets, VertexBuffer
+- Polygon: Part offsets (Polygon), Ring offsets (LinearRing), Vertex offsets, VertexBuffer
+- MultiPoint: Geometry offsets, VertexBuffer
+- MultiLineString: Geometry offsets, Part offsets (LineString), Vertex offsets, VertexBuffer
+- MultiPolygon: Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing), Vertex offsets, VertexBuffer
 
-Inspired by the ORC format which uses different streams for encoding the properties in an efficient way.
+### Property Columns
+
+The layout for the properties of a Feature is inspired by the ORC format, which uses different streams for encoding the properties in an efficient way.
 Depending on the data type of the value of the feature property different streams are used.
 For all data types a `Present` stream is used for effectively compressing sparse property columns.
 Sparse columns are very common especially in OSM datasets for example the name:* property of a feature.
 
-Property data types
-- String
-  - Plain encoding
-    - Parquet quote: "If the dictionary grows too big, whether in size or number of distinct values, the encoding will fall back to the plain encoding"
-      -> in the tests with osm data on properties with high entropy the plain fallback doesn't show any real advantages -> really needed?
-  - Dictionary encoding
-    - Data
-      - streams: length and data
-    - Index
-      - Bitpacking
-      - RLE Encoding and Bitpacking
-- Integer (int, uint, sint)
-  - Plain
-  - Base 128 Varint
-  - RLE Bitpacking
-  - PFOR-Delta
-  - Dictionary Coding?
-- Boolean
-  - RLE Bit-Vector encoding
-- Float/Double
-  - Plain
-  - Dictionary Coding?
+| Data type |                    Encoding                    |              Streams              |       
+|-----------|:----------------------------------------------:|:---------------------------------:|           
+| Boolean   |              Bitset and Byte RLE               |           Present, Data           |
+| Uint64    |                 Varint or RLE                  |           Present, Data           |
+| Int64     |                 Varint or RLE                  |           Present, Data           |
+| Float     |                                                |           Present, Data           |
+| Double    |                                                |           Present, Data           |
+| String    | Plain, Dictionary or <br/>Localized Dictionary | Present, Data, Length, Dictionary |
+
+The localized dictionary encoding of string columns shares a common dictionary over different localized columns.
+For example the values of the name:* columns of a OSM dataset can be identical across columns.
+Therefore, this encoding enables the efficient compression of localized values. 
+
+## Logical File Layout
+The internal layout after decoding is inspired by the Apache Arrow memory format.  
+In the future COVTiles could be directly converted in the Arrow format, to allow
+fast processing of the tile.
 
 
-## Compression
+
+
+## Encodings
 
 In a COVT tile a lot of data are stored in the form of arrays of integers.
 For example the coordinates of a geometry or the dictionary indices are stored as integers.
@@ -154,20 +196,25 @@ The ORC and Parquet file format already offer the following effective encodings 
 Vectorized RLE, Delta and Dictionary coding -> https://wwwdb.inf.tu-dresden.de/wp-content/uploads/T_2014_Master_Patrick_Damme.pdf
 
 ### Id compression
-In the following different integer compression algorithms for the `Id` column of an OSM dataset has been evaluated:  
+In the following different integer compression algorithms for the `Id` column of an OSM dataset has been evaluated:
 ![id compression](assets/Osm_zoom5_transportation_compression.png)
 
 ### Geometry compression
-The following approaches have been evaluated:
-- Delta encode between vertices of a geometry
-- Delta encode between geometries
-  - SFC ordering -> Point and Polygon
-  - Minimal Distance Ordering -> LineString
-- [Indexed Coordinate Encoding (ICE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#a8bf)
-- [Topological Arc Encoding (TAE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#8620)
-- Shape coding -> building
-- Using hilbert index instead of coordinate pairs
 
+Depending on the structure of the geometry the following evaluated approaches improves the overall tile size:
+- Points
+  - Order on a hilbert curve and delta encode with patched bitpacking
+  - Using the hilbert index instead of the coordinate pairs
+- LineString
+  - Order the LineStrings with minimal distance to each other and delta encode also for consecutive features with PFOR-Delta encoding
+  - [Indexed Coordinate Encoding (ICE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#a8bf) e.g. for OSM layers like transportation
+  - [Topological Arc Encoding (TAE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#8620)
+- Polygon
+  - Indexed Coordinate Encoding (ICE)
+  - Topological Arc Encoding (TAE)
+  - Shape encoding -> e.g. using the information that lots of buildings are rectangular to use a specific kind of delta encoding or affine transformation
+  
+Because of the additional complexity and relatively smaller savings in size not all encodings are used in the current version.
 
 ## Tile processing performance 
 
@@ -188,7 +235,12 @@ The goal is to build only a cross-platform COVTiles decoding library in Rust whi
 for the usage in a browser.
 
 
-## Cloud optimized filtering -> Predicate Pushdown
+## Filtering
+
+COVTiles should enable fast filtering of specific layers and specific property columns like in Parquet
+(predicate and projection pushdown).
+
+### Cloud optimized filtering (Predicate Pushdown)
 
 Only specific layers of a tile based on the used style can be requested.
 Depending on the style only a subset of a tile may be needed, for example a light theme like the OpenMapTiles `Positron` style
@@ -199,17 +251,12 @@ from a tileset hosted on an cloud object storage or an CDN. CDNs like AWS CloudF
 so the latency and costs shouldn't be that much higher for fetching a tile, nevertheless a overhead for an additional index (maybe as an sidecar)
 on a cloud optimized format like COMTiles would be created.  
 
-
-## First Results
-Current compression ratios for munich and surroundings with using only some of the above described encodings yet:
-![results](assets/results.png)
-
-
 ### Existing formats
 Evaluation of building COVT based on the following existing formats:
 - ORC
-- Parquet
+- Parquet -> first tests showed a significantly worse compression ratio
 - Protobuf
+
 
 
 ### References
