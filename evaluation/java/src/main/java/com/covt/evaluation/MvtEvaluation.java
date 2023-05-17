@@ -1166,6 +1166,7 @@ public class MvtEvaluation {
         try{
             var rleV1EncodedGeometryTypes = IntegerCompression.orcRleEncodingV1(geometryTypes);
             var rleV2EncodedGeometryTypes = IntegerCompression.orcRleEncodingV2(geometryTypes);
+            var rleV1ByteEncodedGeometryTypes = IntegerCompression.orcRleByteEncodingV1(toByteArray(geometryTypes));
             var rleV1EncodedDeltaGeometryTypes = IntegerCompression.orcRleEncodingV1(deltaGeometryTypes);
             var rleV2EncodedDeltaGeometryTypes = IntegerCompression.orcRleEncodingV2(deltaGeometryTypes);
             var geometryIntTypes = Arrays.stream(geometryTypes).mapToInt(j -> (int) j).toArray();
@@ -1182,6 +1183,7 @@ public class MvtEvaluation {
             System.out.println("Values: " + geometryTypeJoiner.toString());
             System.out.println("Delta Values: " + deltaGeometryTypeJoiner.toString());
             System.out.println("RLE V1: " + rleV1EncodedGeometryTypes.length);
+            System.out.println("RLE V1 Byte: " + rleV1ByteEncodedGeometryTypes.length);
             System.out.println("RLE V2: " + rleV2EncodedGeometryTypes.length);
             System.out.println("RLE V1 Delta : " + rleV1EncodedDeltaGeometryTypes.length);
             System.out.println("RLE V2 Delta : " + rleV2EncodedDeltaGeometryTypes.length);
@@ -1193,6 +1195,15 @@ public class MvtEvaluation {
         catch(Exception e){
             System.out.println(e);
         }
+    }
+
+    private static byte[] toByteArray(long[] longArray) {
+        var arr = new byte[longArray.length];
+        var i = 0;
+        for (long value : longArray) {
+            arr[i++] = (byte)value;
+        }
+        return arr;
     }
 
     private static void analyzeIds(Layer layer) throws IOException {
