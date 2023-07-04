@@ -161,7 +161,7 @@ public class IntegerCompressionEvaluation {
         return  totalSize;
     }
 
-    private static int fastPfor128Encode(int[] values){
+    public static int fastPfor128Encode(int[] values){
         /*
          * Note that this does not use differential coding: if you are working on sorted * lists,
          * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
@@ -177,6 +177,38 @@ public class IntegerCompressionEvaluation {
         return totalSize;
     }
 
+    public static byte[] fastPfor128EncodeBuffer(int[] values){
+        /*
+         * Note that this does not use differential coding: if you are working on sorted * lists,
+         * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
+         * */
+        //TODO: also test VectorFastPFOR -> patched version which should be faster
+
+        var fastPfor = new FastPFOR128();
+        IntWrapper inputoffset = new IntWrapper(0);
+        IntWrapper outputoffset = new IntWrapper(0);
+        int [] compressed = new int[values.length+1024];
+        fastPfor.compress(values, inputoffset, values.length, compressed, outputoffset);
+        var totalSize = outputoffset.intValue()*4;
+
+        var compressedBuffer = new byte[totalSize];
+        var valueCounter = 0;
+        for(var i = 0; i < totalSize; i+=4){
+            var value = compressed[valueCounter++];
+            var val1 = (byte)(value >>> 24);
+            var val2 = (byte)(value >>> 16);
+            var val3 = (byte)(value >>> 8);
+            var val4 = (byte)value;
+
+            compressedBuffer[i] = val1;
+            compressedBuffer[i+1] = val2;
+            compressedBuffer[i+2] = val3;
+            compressedBuffer[i+3] = val4;
+        }
+
+        return compressedBuffer;
+    }
+
     private static int binaryPacking(int[] values){
         IntWrapper inputoffset = new IntWrapper(0);
         IntWrapper outputoffset = new IntWrapper(0);
@@ -187,7 +219,7 @@ public class IntegerCompressionEvaluation {
         return totalSize;
     }
 
-    private static int netPFDEncode(int[] values){
+    public static int netPFDEncode(int[] values){
         var newPFD = new NewPFD();
         IntWrapper inputoffset = new IntWrapper(0);
         IntWrapper outputoffset = new IntWrapper(0);
@@ -196,7 +228,7 @@ public class IntegerCompressionEvaluation {
         return outputoffset.intValue()*4;
     }
 
-    private static int optPFDEncode(int[] values){
+    public static int optPFDEncode(int[] values){
         var optPFD = new OptPFD();
         IntWrapper inputoffset = new IntWrapper(0);
         IntWrapper outputoffset = new IntWrapper(0);
