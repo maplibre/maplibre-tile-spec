@@ -72,17 +72,19 @@ A layer can consist of the following columns.
 
 The information about the geometry of the features is separated in different streams and is inspired
 by the [geoarrow](https://github.com/geoarrow/geoarrow) format. Using separate streams for describing the geometry of a feature enables a 
-better optimization of the compression and faster processing.  
+better optimization of the compression and faster processing. In addition, pre-tessellated meshes of polygons 
+can be stored directly in the file to avoid the time-consuming triangulation step.  
 A geometry column can consist of the following streams:
 
-| Stream name     | Data type |   encoding   |       
-|-----------------|:---------:|:------------:|           
-| GeometryType    |   Byte    |   Byte RLE   |
-| GeometryOffsets |  UInt32   |     RLE      |
-| PartOffsets     |  UInt32   |     RLE      |
-| RingsOffsets    |  UInt32   |     RLE      |
-| VertexOffsets   |  UInt32   | Delta Varint |
-| VertexBuffer    |   Int32   | Delta Varint |
+| Stream name     | Data type |         encoding          |       
+|-----------------|:---------:|:-------------------------:|           
+| GeometryType    |   Byte    |         Byte RLE          |
+| GeometryOffsets |  UInt32   |            RLE            |
+| PartOffsets     |  UInt32   |            RLE            |
+| RingsOffsets    |  UInt32   |            RLE            |
+| VertexOffsets   |  UInt32   |       Delta Varint        |
+| IndexBuffer     |  UInt32   | Delta Patched Bitpacking? |
+| VertexBuffer    |   Int32   |       Delta Varint        |
 
 #### GeometryType Stream
 
@@ -111,6 +113,15 @@ This can minimize the size of the VertexBuffer when LineString or Polygon geomet
 In the OpenMapTiles scheme this is for example the case for the ``transportation`` layer, where in some zoom levels the number of vertices
 can be reduced by factor 5.
 
+#### IndexBuffer Stream (optional)
+The ``IndexBuffer`` stream stores the indices of the triangulated polygons.
+Performing benchmarks on an OSM dataset showed that even with the fast polygon triangulation library [earcut](https://github.com/mapbox/earcut),
+polygon tessellation can take up to 100 milliseconds or more at some zoom levels.
+In combination with the `VertexBuffer` this can allow zero-copy of polygon geometries with direct upload to GPUs,
+inspired by the glTF format used in the 3DTiles specification. 
+The best encoding for the compression has yet to be evaluated, but is likely a combination of delta encoding 
+with a patched binary packing like FastPfor128.
+
 #### VertexBuffer Stream
 In the ``VertexBuffer`` the vertices of the geometry are stored.
 By having the vertices in a continuous vertex buffer enables fast processing and in some cases zero copy to format which can be consumed by the GPU.
@@ -122,10 +133,10 @@ additional encoding.
 Depending on the type of geometry the geometry column can have the following streams:
 - Point: VertexBuffer
 - LineString: Part offsets, Vertex offsets, VertexBuffer
-- Polygon: Part offsets (Polygon), Ring offsets (LinearRing), Vertex offsets, VertexBuffer
+- Polygon: Part offsets (Polygon), Ring offsets (LinearRing), Vertex offsets, IndexBuffer, VertexBuffer
 - MultiPoint: Geometry offsets, VertexBuffer
 - MultiLineString: Geometry offsets, Part offsets (LineString), Vertex offsets, VertexBuffer
-- MultiPolygon: Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing), Vertex offsets, VertexBuffer
+- MultiPolygon: Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing), Vertex offsets, IndexBuffer, VertexBuffer
 
 ### Property Columns
 
@@ -151,9 +162,6 @@ Therefore, this encoding enables the efficient compression of localized values.
 The internal layout after decoding is inspired by the Apache Arrow memory format.  
 In the future COVTiles could be directly converted in the Arrow format, to allow
 fast processing of the tile.
-
-
-
 
 ## Encodings
 
