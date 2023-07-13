@@ -6,9 +6,7 @@ The main goals of COVTiles are:
 - **Improve performance**: faster decoding and processing of the tiles (currently up to 3 times faster on selected tiles compared to MVT)
 - **Support for fast (cloud optimized) filtering**: Support fast filtering of specific layers and specific property columns like in Parquet
   (predicate and projection pushdown) also in a cloud optimized way via HTTP range requests to reduce the transferred amount of data
-- **3D coordinates**: Add support for z coordinates for the geometries of a feature
-- **M coordinates**: Add support for per vertex measurement values so for instance every vertex of a LinesString can have a specific
-  measurement value
+- **M values**: Add support for any number of per vertex values. For example, every vertex of a LinesString representing a road can additionally have an elevation (i.e. a Z value in 3D), lane width, curvature, timestamp, and any other extra values.
 - **Nested properties of a feature**: based on the Dremel encoding
 
 
@@ -16,29 +14,29 @@ The main goals of COVTiles are:
 
 ### Compression ratio
 In the following the sizes of Covt and MVT tiles are compared based on a selected set of tiles.
-In the first reduction column, RLE encoding is uesed for the toplology streams.
+In the first reduction column, RLE encoding is used for the topology streams.
 For the second reduction column patched bitpacking based on SIMD-FastPFOR 128 is used for the topology streams,
 which is a way harder to implement and doesn't play that well in combination with a heavyweight compression scheme.
 
 | Zoom level | Tile indices <br/>(minX,maxX,minY,maxY) | Reduction 1 (%)  | Reduction 2(%) |
-|------------|----------------------------------------|------------------|----------------|
-| 2          | 2,2,2,2                                | 36               | 39             | 
-| 3          | 4,4,5,5                                | 29                | 32             |
-| 4          |                                        | 71               | 73             | 
-| 5          | 16,17,20,21                            | 74               | 75             | 
-| 6          | 32,34,41,42                            | 69               | 70             | 
-| 7          | 66,68,83,85                            | 68               | 68             | 
-| 8          | 132, 135, 170, 171                     | 68               | 68             | 
-| 9          | 264, 266, 340, 342                     | 62               |                | 
-| 10         | 530, 533, 682, 684                     | 54               |                | 
-| 11         | 1062, 1065, 1366, 1368                 | 53               |                | 
-| 12         | 2130, 2134, 2733, 2734                 | 54               |                | 
-| 13         | 4264, 4267, 5467, 5468                 | 44 (without ICE) |                | 
-| 14         | 8296, 8300, 10748, 10749               | 51 (without ICE) |                | 
+|------------|-----------------------------------------|------------------|----------------|
+| 2          | 2,2,2,2                                 | 36               | 39             | 
+| 3          | 4,4,5,5                                 | 29               | 32             |
+| 4          |                                         | 71               | 73             | 
+| 5          | 16,17,20,21                             | 74               | 75             | 
+| 6          | 32,34,41,42                             | 69               | 70             | 
+| 7          | 66,68,83,85                             | 68               | 68             | 
+| 8          | 132, 135, 170, 171                      | 68               | 68             | 
+| 9          | 264, 266, 340, 342                      | 62               |                | 
+| 10         | 530, 533, 682, 684                      | 54               |                | 
+| 11         | 1062, 1065, 1366, 1368                  | 53               |                | 
+| 12         | 2130, 2134, 2733, 2734                  | 54               |                | 
+| 13         | 4264, 4267, 5467, 5468                  | 44 (without ICE) |                | 
+| 14         | 8296, 8300, 10748, 10749                | 51 (without ICE) |                | 
 
 ### Decoding performance
-Comparing the decoding performance of a Covt tile with a MVT tile for selected tiles, currently still without 
-the usage of SIMD instructions:    
+Comparing the decoding performance of a Covt tile with a MVT tile for selected tiles, currently still without
+the usage of SIMD instructions:
 
 | Zoom level |  Decoding performance (COVT/MVT)  |      
 |------------|:---------------------------------:|          
@@ -51,7 +49,7 @@ the usage of SIMD instructions:
 The main idea of COVTiles is to use a column oriented layout like the state of the art big data formats Parquet and ORC
 or the in-memory format Apache Arrow instead of the row oriented approach on which Mapbox Vector Tiles (MVT) is (implicit) based on.
 This enables the usage of custom lightweight compression schemes on a specific column in addition to a tile wide data agnostic compression like Gzip or Brotli.
-This can significantly improve the compression ratio. The file layout should be designed SIMD-friendly 
+This can significantly improve the compression ratio. The file layout should be designed SIMD-friendly
 to enable the usage of vectorization to significantly improve the decoding performance.
 
 The basic design of a COVT tile is inspired by the MVT layout and is based on the concepts
@@ -64,15 +62,15 @@ A layer can consist of the following columns.
 
 ### Id Column
 | Datatype |        Encodings         |      
-|--------|:------------------------:|          
-| Uint64 | Plain, Delta Varint, RLE |
+|----------|:------------------------:|          
+| Uint64   | Plain, Delta Varint, RLE |
 
 
 ### Geometry Column
 
 The information about the geometry of the features is separated in different streams and is inspired
-by the [geoarrow](https://github.com/geoarrow/geoarrow) format. Using separate streams for describing the geometry of a feature enables a 
-better optimization of the compression and faster processing. In addition, pre-tessellated meshes of polygons 
+by the [geoarrow](https://github.com/geoarrow/geoarrow) format. Using separate streams for describing the geometry of a feature enables a
+better optimization of the compression and faster processing. In addition, pre-tessellated meshes of polygons
 can be stored directly in the file to avoid the time-consuming triangulation step.  
 A geometry column can consist of the following streams:
 
@@ -90,7 +88,7 @@ A geometry column can consist of the following streams:
 
 The geometryType stream encodes one of the ``OGC Simple Feature Access Model`` specified geometry types.
 A layer can have different geometry types, but as most layer contain only geometries of a single type.
-By using a separate stream, the geometry can be efficiently compressed with a RLE encoding inspired by 
+By using a separate stream, the geometry can be efficiently compressed with an RLE encoding inspired by
 the [ORC](https://orc.apache.org/specification/ORCv1/) file format.
 The GeometryType stream could be omitted when a fixed layout is used but is currently maintained
 to enable a variable number of streams and to simply the processing.
@@ -102,8 +100,8 @@ In the topology streams only the offsets to the vertices are stored.
 This enables fast/random access to specific geometries of a layer and can improve the decoding/processing performance.  
 For reducing the size of the topology column, RLE encoding inspired by
 the [ORC](https://orc.apache.org/specification/ORCv1/) file format is used.
-A combination of delta encoding and the [RLE / Bit-Packing Hybrid](https://parquet.apache.org/docs/file-format/data-pages/encodings/#a-namerlearun-length-encoding--bit-packing-hybrid-rle--3) 
-encoding of the Parquet format has shown even better results in the evaluation but would increase complexity by introducing a 
+A combination of delta encoding and the [RLE / Bit-Packing Hybrid](https://parquet.apache.org/docs/file-format/data-pages/encodings/#a-namerlearun-length-encoding--bit-packing-hybrid-rle--3)
+encoding of the Parquet format has shown even better results in the evaluation but would increase complexity by introducing an
 additional RLE encoding.
 
 #### VertexOffsets Stream (optional)
@@ -118,16 +116,16 @@ The ``IndexBuffer`` stream stores the indices of the triangulated polygons.
 Performing benchmarks on an OSM dataset showed that even with the fast polygon triangulation library [earcut](https://github.com/mapbox/earcut),
 polygon tessellation can take up to 100 milliseconds or more at some zoom levels.
 In combination with the `VertexBuffer` this can allow zero-copy of polygon geometries with direct upload to GPUs,
-inspired by the glTF format used in the 3DTiles specification. 
-The best encoding for the compression has yet to be evaluated, but is likely a combination of delta encoding 
+inspired by the glTF format used in the 3DTiles specification.
+The best encoding for the compression has yet to be evaluated, but is likely a combination of delta encoding
 with a patched binary packing like FastPfor128.
 
 #### VertexBuffer Stream
 In the ``VertexBuffer`` the vertices of the geometry are stored.
 By having the vertices in a continuous vertex buffer enables fast processing and in some cases zero copy to format which can be consumed by the GPU.
-When the plain encoding is ued for the VertexBuffer, the vertex coordinates are delta and Varint encoded per geometry. 
+When the plain encoding is ued for the VertexBuffer, the vertex coordinates are delta and Varint encoded per geometry.
 When ICE encoding is used the vertices are sorted on a ``Hilbert curve`` and all vertices are delta and Varint encoded.
-A patched bitpacking method like FastPfor128 has shown even better results in the evaluation but would increase complexity by introducing a
+A patched bitpacking method like FastPfor128 has shown even better results in the evaluation but would increase complexity by introducing an
 additional encoding.
 
 Depending on the type of geometry the geometry column can have the following streams:
@@ -155,8 +153,8 @@ Sparse columns are very common especially in OSM datasets for example the name:*
 | String    | Plain, Dictionary or <br/>Localized Dictionary | Present, Data, Length, Dictionary |
 
 The localized dictionary encoding of string columns shares a common dictionary over different localized columns.
-For example the values of the name:* columns of a OSM dataset can be identical across columns.
-Therefore, this encoding enables the efficient compression of localized values. 
+For example the values of the name:* columns of an OSM dataset can be identical across columns.
+Therefore, this encoding enables the efficient compression of localized values.
 
 ## Logical File Layout
 The internal layout after decoding is inspired by the Apache Arrow memory format.  
@@ -169,7 +167,7 @@ In a COVT tile a lot of data are stored in the form of arrays of integers.
 For example the coordinates of a geometry or the dictionary indices are stored as integers.
 Finding an efficient and fast algorithms for compressing arrays of integers is crucial.
 To achieve a good compression ratio a logical and physical level compression technique for null suppression are used
-in most columns.    
+in most columns.
 
 ### Logical level
 The following logical level techniques can be used for the compression of the different columns:
@@ -180,14 +178,14 @@ The following logical level techniques can be used for the compression of the di
 ### Physical level
 The following null suppression techniques have been evaluated:
 - Byte aligned
-  - Base 128 Varint
+    - Base 128 Varint
 - Bit aligned
-  - SIMD-BP128
-  - FastPfor128 
-  - NetPFD
-  - OptPFD
+    - SIMD-BP128
+    - FastPfor128
+    - NetPFD
+    - OptPFD
 
-In the evaluation the bit aligned null suppression algorithms for the integer compression showed a better compression ratio for the column of a COVT tile 
+In the evaluation the bit aligned null suppression algorithms for the integer compression showed a better compression ratio for the column of a COVT tile
 compared to the byte aligned encodings.
 
 ### Combination
@@ -211,20 +209,20 @@ In the following different integer compression algorithms for the `Id` column of
 
 Depending on the structure of the geometry the following evaluated approaches improves the overall tile size:
 - Points
-  - Order on a hilbert curve and delta encode with patched bitpacking
-  - Using the hilbert index instead of the coordinate pairs
+    - Order on a hilbert curve and delta encode with patched bitpacking
+    - Using the hilbert index instead of the coordinate pairs
 - LineString
-  - Order the LineStrings with minimal distance to each other and delta encode also for consecutive features with PFOR-Delta encoding
-  - [Indexed Coordinate Encoding (ICE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#a8bf) e.g. for OSM layers like transportation
-  - [Topological Arc Encoding (TAE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#8620)
+    - Order the LineStrings with minimal distance to each other and delta encode also for consecutive features with PFOR-Delta encoding
+    - [Indexed Coordinate Encoding (ICE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#a8bf) e.g. for OSM layers like transportation
+    - [Topological Arc Encoding (TAE)](https://towardsdatascience.com/2022-051-better-compression-of-gis-features-9f38a540bda5#8620)
 - Polygon
-  - Indexed Coordinate Encoding (ICE)
-  - Topological Arc Encoding (TAE)
-  - Shape encoding -> e.g. using the information that lots of buildings are rectangular to use a specific kind of delta encoding or affine transformation
-  
+    - Indexed Coordinate Encoding (ICE)
+    - Topological Arc Encoding (TAE)
+    - Shape encoding -> e.g. using the information that lots of buildings are rectangular to use a specific kind of delta encoding or affine transformation
+
 Because of the additional complexity and relatively smaller savings in size not all encodings are used in the current version.
 
-## Tile processing performance 
+## Tile processing performance
 
 In the following important aspects for fast data decoding are listed.
 These topics are also main considerations in the different in-memory and serialization formats like Apache Arrow, Cap'n Proto and FlatBuffers.
@@ -234,7 +232,7 @@ These topics are also main considerations in the different in-memory and seriali
 - Pipelining
 - Zero-Copy   
   -> hard to achieve in the modern cartography compared to real 3D geospatial data formats like GLTF/3DTiles    
--> Use Apache Arrow as in memory representation for the tile processing
+  -> Use Apache Arrow as in memory representation for the tile processing
 
 ### Vectorization
 Using SIMD capable encodings to accelerate the decoding time.
@@ -255,9 +253,9 @@ Depending on the style only a subset of a tile may be needed, for example a ligh
 does not render the POI layer, the `Basic` style on the other hand does.
 This has the advantage that only one tileset for different styles is needed and still only the required data can be requested.
 The basic idea is to make a vector tile "cloud optimized", so that specific combinations of layers can be fetched via HTTP range requests
-from a tileset hosted on an cloud object storage or an CDN. CDNs like AWS CloudFront also support multipart ranges,
-so the latency and costs shouldn't be that much higher for fetching a tile, nevertheless a overhead for an additional index (maybe as an sidecar)
-on a cloud optimized format like COMTiles would be created.  
+from a tileset hosted on a cloud object storage or an CDN. CDNs like AWS CloudFront also support multipart ranges,
+so the latency and costs shouldn't be that much higher for fetching a tile, nevertheless an overhead for an additional index (maybe as a sidecar)
+on a cloud optimized format like COMTiles would be created.
 
 ### Existing formats
 Evaluation of building COVT based on the following existing formats:
