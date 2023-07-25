@@ -1,0 +1,17 @@
+{
+  "name": "spec",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "generate-types": "protoc --ts_out=types --proto_path proto metadata.proto"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "protoc": "^1.1.3"
+  },
+  "devDependencies": {
+    "@protobuf-ts/plugin": "^2.9.0"
+  }
+}

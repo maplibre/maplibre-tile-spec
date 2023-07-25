@@ -13,7 +13,8 @@ The main goals of COVTiles are:
 ## Comparison with Mapbox Vector Tiles
 
 ### Compression ratio
-In the following the sizes of Covt and MVT tiles are compared based on a selected set of tiles.
+In the following the raw tile sizes of Covt and MVT are compared based on a selected set of tiles 
+of an OSM dataset (OpenMapTiles profile) without the usage of a heavyweight compression like Gzip. 
 In the first reduction column, RLE encoding is used for the topology streams.
 For the second reduction column patched bitpacking based on SIMD-FastPFOR 128 is used for the topology streams,
 which is a way harder to implement and doesn't play that well in combination with a heavyweight compression scheme.
@@ -49,8 +50,9 @@ the usage of SIMD instructions:
 The main idea of COVTiles is to use a column oriented layout like the state of the art big data formats Parquet and ORC
 or the in-memory format Apache Arrow instead of the row oriented approach on which Mapbox Vector Tiles (MVT) is (implicit) based on.
 This enables the usage of custom lightweight compression schemes on a specific column in addition to a tile wide data agnostic compression like Gzip or Brotli.
-This can significantly improve the compression ratio. The file layout should be designed SIMD-friendly
-to enable the usage of vectorization to significantly improve the decoding performance.
+This can significantly improve the compression ratio.
+The contiguous format enables vectorisation and the use of SIMD operations to significantly improve the decoding and
+processing performance.
 
 The basic design of a COVT tile is inspired by the MVT layout and is based on the concepts
 of a ``layer``and a collection of ``features``.
@@ -58,7 +60,55 @@ of a ``layer``and a collection of ``features``.
 - Feature -> Id, Geometry, Properties
 - Geometry -> Based on the Simple Feature Access Model (SFA) of the OGC
 
-A layer can consist of the following columns.
+
+### Metadata
+
+How to store the metadata:
+- custom binary
+  - no schema 
+- flatbuffers
+  - also used by Apache Arrow to store the metadata
+  - no varint encoding
+- protobuf 
+  - schema
+  - varint encoding
+  - overhead based on tags?
+  - Backward compatible schema change 
+    -> The tag number ensures the forward and the backward compatibility
+    -> New fields can be added and the old code will just ignore them
+  - proto3 decoder in js?
+
+
+  
+Every COVTile starts with the following header:
+| Datatype |        Encodings         |      
+|----------|:------------------------:|          
+| Uint64   | Plain, Delta Varint, RLE |
+-> version: uint32 (varint), numLayers: uint32 (varint)
+
+
+A layer consists of the following sections:
+- Metadata
+- FeatureTable
+
+-> LayerTable
+
+Every layer is structured as a table. -> featureTable, GpuTable
+
+The id and property columns are optional. 
+If an id column is present it has to be the first column in the file.
+Only one geometry column per layer is supported which has to be the first
+or second column in a layer depending on the presence of the id column.
+Every layer start with a header which has a metdata section which 
+describes the columns.
+-> Thi id column has to have the column name ``id``.
+
+Every column of a layer has the following metadata:
+
+
+
+### FeatureTable
+A FeatureTable can consist of the following columns.
 
 ### Id Column
 | Datatype |        Encodings         |      
@@ -127,6 +177,12 @@ When the plain encoding is ued for the VertexBuffer, the vertex coordinates are 
 When ICE encoding is used the vertices are sorted on a ``Hilbert curve`` and all vertices are delta and Varint encoded.
 A patched bitpacking method like FastPfor128 has shown even better results in the evaluation but would increase complexity by introducing an
 additional encoding.
+
+TODO: describe
+-> x, y and z are interleaved 
+-> As the components of a vertex are concurrently accessed Array of structures (AoS) makes sense, 
+since the successive reads of x, y, z components will be contiguous and usually contained within the same cache line
+-> question is if z should be also rendered or is only a property
 
 Depending on the type of geometry the geometry column can have the following streams:
 - Point: VertexBuffer

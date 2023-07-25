@@ -1,0 +1,56 @@
+syntax = "proto3";
+package covt;
+
+message TileHeader {
+  uint32 version = 1;
+  uint32 numLayers = 2;
+}
+
+message LayerMetadata{
+    string name = 1;
+    uint32 numFeatures = 2;
+    repeated ColumnMetadata columnMetadata = 3;
+
+    message ColumnMetadata{
+        string name = 1;
+        ColumnDataType dataType = 2;
+        ColumnEncoding encoding = 3;
+        map <string, StreamMetadata> streamMetadata = 4;
+    }
+
+    enum ColumnDataType{
+        STRING = 0;
+        FLOAT = 1;
+        DOUBLE = 2;
+        INT_64 = 3;
+        UINT_64 = 4;
+        BOOLEAN = 5;
+        GEOMETRY = 6;
+        GEOMETRY_M = 7;
+        GEOMETRY_Z = 8;
+        GEOMETRY_ZM = 9;
+    }
+
+    enum ColumnEncoding {
+        /*
+            * String -> no dictionary coding
+            * Geometry -> standard unsorted encoding
+            * */
+        PLAIN = 0;
+        VARINT = 1;
+        DELTA_VARINT = 2;
+        RLE = 3;
+        BOOLEAN_RLE = 4;
+        BYTE_RLE = 5;
+        DICTIONARY = 6;
+        LOCALIZED_DICTIONARY = 7;
+        ORDERED_GEOMETRY_ENCODING = 8;
+        INDEXED_COORDINATE_ENCODING = 9;
+    }
+
+    message StreamMetadata {
+        uint32 numValues = 1;
+        uint32 byteLength = 2;
+    }
+}
+
