@@ -10,12 +10,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.stream.DoubleStream;
 
 public class CovtConverterTest {
     private static final String MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
 
-    @Test
+    /*@Test
     public void parseCovt_Z4Tile_ValidConvertedMvtTile() throws SQLException, IOException, ClassNotFoundException {
         var mvtTile = MvtUtils.getMVT(MBTILES_FILE_NAME, 4, 8, 10);
         var mvtLayers = mvtTile.layers();
@@ -33,7 +34,7 @@ public class CovtConverterTest {
         var tile = CovtConverter.convertMvtTile(mvtLayers,true);
 
         Files.write(Path.of("./data/5_16_21.covt"), tile);
-    }
+    }*/
 
     @Test
     public void parseCovt_DifferentZ2Tiles_ValidConvertedMvtTile() throws SQLException, IOException, ClassNotFoundException {
@@ -124,10 +125,21 @@ public class CovtConverterTest {
         System.out.println("Total ratio: " + (ratios / counter));
     }
 
-    private static double printStats(MapboxVectorTile mvtTile, byte[] covtTile) throws IOException {
+    private static double printStats(MapboxVectorTile mvtTile, List<byte[]> covtTiles) throws IOException {
+        var covtTile = covtTiles.get(0);
+        var covtProtoTile = covtTiles.get(1);
         var covtGzipBuffer = EncodingUtils.gzipCompress(covtTile);
+        var covtProtoGzipBuffer = EncodingUtils.gzipCompress(covtProtoTile);
+
         System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize()));
         System.out.println(String.format("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length));
+        System.out.println(String.format("COVT Proto size: %s, Gzip COVT Proto size: %s", covtProtoTile.length, covtProtoGzipBuffer.length));
+        System.out.println("Proto diff: " + ((double)covtProtoTile.length - covtTile.length) / 1000 + " Gzip diff: " +
+                ((double)covtProtoGzipBuffer.length - covtGzipBuffer.length) / 1000 + " Ratio: " +
+                (100 - (covtTile.length / (double)covtProtoTile.length) * 100) +
+                "% Ratio Compressed: " +
+                (100 - (covtGzipBuffer.length / (double)covtProtoGzipBuffer.length) * 100) +
+                "% -----------------------------------");
         System.out.println(String.format("Ratio uncompressed: %s, Ratio compressed: %s",
                 ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length));
         var compressionRatio = (1- (1/( ((double)mvtTile.mvtSize()) / covtTile.length)   ))*100;

@@ -1,5 +1,6 @@
 package com.covt.converter;
 
+import com.covt.Metadata;
 import com.covt.converter.geometry.GeometryType;
 import com.covt.converter.geometry.Vertex;
 import com.covt.converter.mvt.Feature;
@@ -16,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 record GeometryColumData(ColumnMetadata columnMetadata, byte[] geometryColumn){}
 
@@ -80,10 +82,12 @@ public class CovtConverter {
     public static final String DICTIONARY_STREAM_NAME = "dictionary";
     private static String GEOMETRY_TYPES_STREAM_NAME = "geometry_types";
 
-    public static byte[] convertMvtTile(List<Layer> layers, boolean useIce) throws IOException {
+    public static List<byte[]> convertMvtTile(List<Layer> layers, boolean useIce) throws IOException {
+        var protoStream = new ByteArrayOutputStream();
         try(ByteArrayOutputStream stream = new ByteArrayOutputStream()){
             var header = convertHeader(layers);
             stream.write(header);
+            protoStream.write(header);
 
             for(var layer : layers){
                 var layerName = layer.name();
@@ -109,15 +113,184 @@ public class CovtConverter {
                 var propertyColumns = propertyColumnData.propertyColumns();
 
                 var layerMetadata = convertLayerMetadata(layerName, idMetadata, geometryMetadata, propertyMetadata);
+                var protoLayerMetadata = convertLayerMetadataToProto(layerName, idMetadata, geometryMetadata, propertyMetadata);
+                var protoMetadata = Metadata.LayerMetadata.parseFrom(protoLayerMetadata);
+                //System.out.println("Binary size: " + layerMetadata.length + " , Proto size: " + protoLayerMetadata.length);
+                assert protoMetadata.getName().equals(layerName);
+                compareColumnMetadata(protoMetadata.getColumnMetadata(0), idMetadata);
+                compareColumnMetadata(protoMetadata.getColumnMetadata(1), geometryMetadata);
+
+
+                var expectedPropertyMetadata = Stream.of(propertyMetadata.booleanMetadata(), propertyMetadata.longMetadata(),
+                                propertyMetadata.stringDictionaryMetadata(), propertyMetadata.localizedStringDictionaryMetadata())
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.toList());
+                var i = 2;
+                for(var expectedMetadata : expectedPropertyMetadata){
+                    var actualColumnMetadata = protoMetadata.getColumnMetadata(i++);
+                    compareColumnMetadata(actualColumnMetadata, expectedMetadata.columnMetadata());
+                }
 
                 stream.write(layerMetadata);
                 stream.write(idColumn);
                 stream.write(geometryColumn);
                 stream.write(propertyColumns);
+
+                protoStream.write(protoLayerMetadata);
+                protoStream.write(idColumn);
+                protoStream.write(geometryColumn);
+                protoStream.write(propertyColumns);
             }
 
-            return stream.toByteArray();
+            //System.out.println("Binary size: " + stream.toByteArray().length + ", Proto size: " + protoStream.toByteArray().length);
+            return List.of(stream.toByteArray(), protoStream.toByteArray());
         }
+    }
+
+    private static void compareColumnMetadata(Metadata.LayerMetadata.ColumnMetadata actualMetadata, ColumnMetadata expectedMetadata){
+        assert actualMetadata.getDataType().ordinal() == expectedMetadata.columnDataType().ordinal();
+        assert actualMetadata.getEncoding().ordinal() == expectedMetadata.columnEncoding().ordinal();
+        assert actualMetadata.getStreamMetadataMap().size() == expectedMetadata.streams().size();
+        for(var stream : actualMetadata.getStreamMetadataMap().entrySet()){
+            var actualStreamName = stream.getKey();
+            var expectedStream = expectedMetadata.streams().get(actualStreamName);
+            assert stream.getValue().getByteLength() == expectedStream.byteLength();
+            assert stream.getValue().getNumValues() == expectedStream.numValues();
+        }
+    }
+
+    private static byte[] convertLayerMetadataToProto(String layerName, ColumnMetadata idMetadata, ColumnMetadata geometryMetadata,
+                                               PropertyColumnsMetadata propertyColumnData){
+        var metadataBuilder = Metadata.LayerMetadata.newBuilder();
+        metadataBuilder.setName(layerName);
+        var numFeatures = geometryMetadata.streams().get(GEOMETRY_TYPES_STREAM_NAME).numValues();
+        metadataBuilder.setNumFeatures(numFeatures);
+
+        /* Create Id Metadata */
+        var idColumMetadataBuilder = Metadata.LayerMetadata.ColumnMetadata.newBuilder();
+        idColumMetadataBuilder.setName(ID_COLUMN_NAME);
+        idColumMetadataBuilder.setDataType(Metadata.LayerMetadata.ColumnDataType.UINT_64);
+        var idColumnEncoding = idMetadata.columnEncoding();
+        if(ColumnEncoding.PLAIN.equals(idColumnEncoding)){
+            idColumMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.PLAIN);
+        }
+        else if(ColumnEncoding.DELTA_VARINT.equals(idColumnEncoding)){
+            idColumMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.DELTA_VARINT);
+        }
+        else{
+            idColumMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.RLE);
+        }
+        var idStreamMetadataBuilder  = Metadata.LayerMetadata.StreamMetadata.newBuilder();
+        var idDataStream = idMetadata.streams().get(DATA_STREAM_NAME);
+        idStreamMetadataBuilder.setNumValues(idDataStream.numValues());
+        idStreamMetadataBuilder.setByteLength(idDataStream.byteLength());
+        idColumMetadataBuilder.putStreamMetadata(DATA_STREAM_NAME, idStreamMetadataBuilder.build());
+        metadataBuilder.addColumnMetadata(idColumMetadataBuilder.build());
+
+        /* Create Geometry Metadata */
+        var geometryColumnMetadataBuilder = Metadata.LayerMetadata.ColumnMetadata.newBuilder();
+        geometryColumnMetadataBuilder.setName(GEOMETRY_COLUMN_NAME);
+        geometryColumnMetadataBuilder.setDataType(Metadata.LayerMetadata.ColumnDataType.GEOMETRY);
+        if(geometryMetadata.columnEncoding().equals(ColumnEncoding.PLAIN)){
+            geometryColumnMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.PLAIN);
+        }
+        else{
+            geometryColumnMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.INDEXED_COORDINATE_ENCODING);
+        }
+        for(var geometryStream : geometryMetadata.streams().entrySet()){
+            var streamName = geometryStream.getKey();
+            var streamData = geometryStream.getValue();
+            var geometryStreamMetadataBuilder  = Metadata.LayerMetadata.StreamMetadata.newBuilder();
+            geometryStreamMetadataBuilder.setNumValues(streamData.numValues());
+            geometryStreamMetadataBuilder.setByteLength(streamData.byteLength());
+            geometryColumnMetadataBuilder.putStreamMetadata(streamName, geometryStreamMetadataBuilder.build());
+        }
+        metadataBuilder.addColumnMetadata(geometryColumnMetadataBuilder.build());
+
+        /* Create Property Metadata */
+        for(var booleanColumnMetadata : propertyColumnData.booleanMetadata()){
+            var booleanColumnMetadataBuilder = Metadata.LayerMetadata.ColumnMetadata.newBuilder();
+            booleanColumnMetadataBuilder.setName(booleanColumnMetadata.columnName());
+            booleanColumnMetadataBuilder.setDataType(Metadata.LayerMetadata.ColumnDataType.BOOLEAN);
+            booleanColumnMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.BYTE_RLE);
+
+            for(var propertyStream : booleanColumnMetadata.columnMetadata().streams().entrySet()){
+                var streamName = propertyStream.getKey();
+                var streamData = propertyStream.getValue();
+                var propertyStreamMetadataBuilder  = Metadata.LayerMetadata.StreamMetadata.newBuilder();
+                propertyStreamMetadataBuilder.setNumValues(streamData.numValues());
+                propertyStreamMetadataBuilder.setByteLength(streamData.byteLength());
+                booleanColumnMetadataBuilder.putStreamMetadata(streamName, propertyStreamMetadataBuilder.build());
+            }
+
+            metadataBuilder.addColumnMetadata(booleanColumnMetadataBuilder.build());
+        }
+
+        for(var longColumnMetadata : propertyColumnData.longMetadata()){
+            var longColumnMetadataBuilder = Metadata.LayerMetadata.ColumnMetadata.newBuilder();
+            longColumnMetadataBuilder.setName(longColumnMetadata.columnName());
+            longColumnMetadataBuilder.setDataType(Metadata.LayerMetadata.ColumnDataType.INT_64);
+
+            var encoding = longColumnMetadata.columnMetadata().columnEncoding();
+            if(encoding.equals(ColumnEncoding.VARINT)){
+                longColumnMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.VARINT);
+            }
+            else if(encoding.equals(ColumnEncoding.DELTA_VARINT)){
+                longColumnMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.DELTA_VARINT);
+            }
+            else{
+                throw new RuntimeException("Encoding for long not supported");
+            }
+
+            for(var propertyStream : longColumnMetadata.columnMetadata().streams().entrySet()){
+                var streamName = propertyStream.getKey();
+                var streamData = propertyStream.getValue();
+                var propertyStreamMetadataBuilder  = Metadata.LayerMetadata.StreamMetadata.newBuilder();
+                propertyStreamMetadataBuilder.setNumValues(streamData.numValues());
+                propertyStreamMetadataBuilder.setByteLength(streamData.byteLength());
+                longColumnMetadataBuilder.putStreamMetadata(streamName, propertyStreamMetadataBuilder.build());
+            }
+
+            metadataBuilder.addColumnMetadata(longColumnMetadataBuilder.build());
+        }
+
+        for(var stringDictionaryColumnMetadata : propertyColumnData.stringDictionaryMetadata()){
+            var stringDictionaryColumnMetadataBuilder = Metadata.LayerMetadata.ColumnMetadata.newBuilder();
+            stringDictionaryColumnMetadataBuilder.setName(stringDictionaryColumnMetadata.columnName());
+            stringDictionaryColumnMetadataBuilder.setDataType(Metadata.LayerMetadata.ColumnDataType.STRING);
+            stringDictionaryColumnMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.DICTIONARY);
+
+            for(var propertyStream : stringDictionaryColumnMetadata.columnMetadata().streams().entrySet()){
+                var streamName = propertyStream.getKey();
+                var streamData = propertyStream.getValue();
+                var propertyStreamMetadataBuilder  = Metadata.LayerMetadata.StreamMetadata.newBuilder();
+                propertyStreamMetadataBuilder.setNumValues(streamData.numValues());
+                propertyStreamMetadataBuilder.setByteLength(streamData.byteLength());
+                stringDictionaryColumnMetadataBuilder.putStreamMetadata(streamName, propertyStreamMetadataBuilder.build());
+            }
+
+            metadataBuilder.addColumnMetadata(stringDictionaryColumnMetadataBuilder.build());
+        }
+
+        for(var localizedStringDictionaryColumnMetadata : propertyColumnData.localizedStringDictionaryMetadata()){
+            var localizedStringDictionaryColumnMetadataBuilder = Metadata.LayerMetadata.ColumnMetadata.newBuilder();
+            localizedStringDictionaryColumnMetadataBuilder.setName(localizedStringDictionaryColumnMetadata.columnName());
+            localizedStringDictionaryColumnMetadataBuilder.setDataType(Metadata.LayerMetadata.ColumnDataType.STRING);
+            localizedStringDictionaryColumnMetadataBuilder.setEncoding(Metadata.LayerMetadata.ColumnEncoding.LOCALIZED_DICTIONARY);
+
+            for(var propertyStream : localizedStringDictionaryColumnMetadata.columnMetadata().streams().entrySet()){
+                var streamName = propertyStream.getKey();
+                var streamData = propertyStream.getValue();
+                var propertyStreamMetadataBuilder  = Metadata.LayerMetadata.StreamMetadata.newBuilder();
+                propertyStreamMetadataBuilder.setNumValues(streamData.numValues());
+                propertyStreamMetadataBuilder.setByteLength(streamData.byteLength());
+                localizedStringDictionaryColumnMetadataBuilder.putStreamMetadata(streamName, propertyStreamMetadataBuilder.build());
+            }
+
+            metadataBuilder.addColumnMetadata(localizedStringDictionaryColumnMetadataBuilder.build());
+        }
+
+        return metadataBuilder.build().toByteArray();
     }
 
     private static byte[] convertLayerMetadata(String layerName, ColumnMetadata idMetadata, ColumnMetadata geometryMetadata,
