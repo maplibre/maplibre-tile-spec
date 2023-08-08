@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.DoubleStream;
 
@@ -107,7 +108,7 @@ public class CovtConverterTest {
     }
 
     private static void runTest(int zoom, int minX, int maxX, int minY, int maxY) throws SQLException, IOException, ClassNotFoundException {
-        var ratios = 0d;
+        var ratios = Arrays.asList(0.0, 0.0, 0.0, 0.0, 0.0);
         var counter = 0;
         for (var x = minX; x <= maxX; x++) {
             for (var y = minY; y <= maxY; y++) {
@@ -115,35 +116,48 @@ public class CovtConverterTest {
                 var mvtLayers = mvtTile.layers();
 
                 var useIce = zoom != 13 && zoom != 14;
-                var covtTile = CovtConverter.convertMvtTile(mvtLayers, useIce);
+                try{
+                    var covtTile = CovtConverter.convertMvtTile(mvtLayers, useIce);
 
-                ratios += printStats(mvtTile, covtTile);
-                counter++;
+                    var stats = printStats(mvtTile, covtTile);
+                    ratios.set(0, ratios.get(0) + stats.get(0));
+                    ratios.set(1, ratios.get(1) + stats.get(1));
+                    ratios.set(2, ratios.get(2) + stats.get(2));
+                    ratios.set(3, ratios.get(3) + stats.get(3));
+                    ratios.set(4, ratios.get(4) + stats.get(4));
+                    counter++;
+
+                }
+                catch (AssertionError e){
+                    System.out.println(e);
+                }
             }
         }
 
-        System.out.println("Total ratio: " + (ratios / counter));
+        System.out.println("Total ratio: " + (ratios.get(0) / counter));
+        System.out.println("Diff uncompressed: " + (ratios.get(1) / counter) + ", Diff compressed: " + (ratios.get(2) / counter)
+            + ", Ratio uncompressed: " + (ratios.get(3) / counter) + "%, Ratio compressed: " + (ratios.get(4) / counter) + "%");
     }
 
-    private static double printStats(MapboxVectorTile mvtTile, List<byte[]> covtTiles) throws IOException {
+    private static List<Double> printStats(MapboxVectorTile mvtTile, List<byte[]> covtTiles) throws IOException {
         var covtTile = covtTiles.get(0);
         var covtProtoTile = covtTiles.get(1);
         var covtGzipBuffer = EncodingUtils.gzipCompress(covtTile);
         var covtProtoGzipBuffer = EncodingUtils.gzipCompress(covtProtoTile);
 
-        System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize()));
+        var protoDiff = ((double)covtProtoTile.length - covtTile.length) / 1000;
+        var gzipDiff =  ((double)covtProtoGzipBuffer.length - covtGzipBuffer.length) / 1000;
+        var ratio = (100 - (covtTile.length / (double)covtProtoTile.length) * 100);
+        var compressedRatio = (100 - (covtGzipBuffer.length / (double)covtProtoGzipBuffer.length) * 100);
+        /*System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize()));
         System.out.println(String.format("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length));
         System.out.println(String.format("COVT Proto size: %s, Gzip COVT Proto size: %s", covtProtoTile.length, covtProtoGzipBuffer.length));
-        System.out.println("Proto diff: " + ((double)covtProtoTile.length - covtTile.length) / 1000 + " Gzip diff: " +
-                ((double)covtProtoGzipBuffer.length - covtGzipBuffer.length) / 1000 + " Ratio: " +
-                (100 - (covtTile.length / (double)covtProtoTile.length) * 100) +
-                "% Ratio Compressed: " +
-                (100 - (covtGzipBuffer.length / (double)covtProtoGzipBuffer.length) * 100) +
-                "% -----------------------------------");
+        System.out.println("Proto diff: " +  protoDiff + " Gzip diff: " + gzipDiff
+               + " Ratio: " + ratio +  "% Ratio Compressed: " + compressedRatio + "% -----------------------------------");
         System.out.println(String.format("Ratio uncompressed: %s, Ratio compressed: %s",
-                ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length));
+                ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length));*/
         var compressionRatio = (1- (1/( ((double)mvtTile.mvtSize()) / covtTile.length)   ))*100;
-        System.out.println(String.format("Ratio compressed: %s", compressionRatio));
-        return compressionRatio;
+        //System.out.println(String.format("Ratio compressed: %s", compressionRatio));
+        return List.of(compressionRatio, protoDiff, gzipDiff, ratio, compressedRatio);
     }
 }
