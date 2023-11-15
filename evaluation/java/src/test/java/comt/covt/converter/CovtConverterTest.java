@@ -5,12 +5,10 @@ import com.covt.converter.EncodingUtils;
 import com.covt.converter.mvt.MapboxVectorTile;
 import com.covt.converter.mvt.MvtUtils;
 import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.util.stream.DoubleStream;
 
 public class CovtConverterTest {
     private static final String MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";

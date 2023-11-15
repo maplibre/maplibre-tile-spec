@@ -167,6 +167,7 @@ export class LayerTable implements Iterable<Feature> {
                         this.vertexOffsetsOffset,
                         vertexOffsetsEndOffset,
                     );
+                    this.partOffsetsOffset = endPartOffsetsOffset;
                     this.vertexOffsetsOffset = vertexOffsetsEndOffset;
                     return new IceMultiLineString(vertexBuffer, partOffsetsSlice, vertexOffsetSlice);
                 } else {

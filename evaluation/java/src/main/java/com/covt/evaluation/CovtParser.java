@@ -88,6 +88,7 @@ public class CovtParser {
             }
         }
         else if(columnMetadata.columnType() == ColumnDataType.STRING){
+            //TODO: also decode localized dictionary
             /* String streams: present (BitVector), data (ORC RLE V1), length (ORC RLE V1), data_dictionary */
             if(!columnMetadata.columnEncoding().equals(ColumnEncoding.DICTIONARY)){
                 throw new IllegalArgumentException("Currently only dictionary encoding is supported for String.");
@@ -247,7 +248,7 @@ public class CovtParser {
                 }
                 else if(geometryType.equals(GeometryType.LINESTRING)){
                     var numVertices = (int)partOffsets[partOffsetCounter++];
-                    var vertices = getLineString(covtBuffer, pos, numVertices);
+                    var vertices = getLineString(covtBuffer, pos, numVertices, false);
                     geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
                 }
                 else if(geometryType.equals(GeometryType.POLYGON)){
@@ -265,7 +266,7 @@ public class CovtParser {
                     var lineStrings = new LineString[numLineStrings];
                     for(var i = 0; i < numLineStrings; i++){
                         var numVertices = (int)partOffsets[partOffsetCounter++];;
-                        var vertices = getLineString(covtBuffer, pos, numVertices);
+                        var vertices = getLineString(covtBuffer, pos, numVertices, false);
                         lineStrings[i] = geometryFactory.createLineString(vertices);
                     }
                     geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
@@ -344,12 +345,12 @@ public class CovtParser {
     }
 
     private static LinearRing getLinearRing(byte[] covtBuffer, IntWrapper pos, int numVertices, GeometryFactory geometryFactory){
-        var linearRing = getLineString(covtBuffer, pos, numVertices);
+        var linearRing = getLineString(covtBuffer, pos, numVertices, true);
         return geometryFactory.createLinearRing(linearRing);
     }
 
-    private static Coordinate[] getLineString(byte[] covtBuffer, IntWrapper pos, int numVertices){
-        var vertices = new Coordinate[numVertices];
+    private static Coordinate[] getLineString(byte[] covtBuffer, IntWrapper pos, int numVertices, boolean closeLineString){
+        var vertices = new Coordinate[closeLineString? numVertices+1 : numVertices];
         var previousX = 0;
         var previousY = 0;
         for(var i = 0; i < numVertices; i++){
@@ -363,6 +364,8 @@ public class CovtParser {
             previousX = x;
             previousY = y;
         }
+
+        vertices[vertices.length -1] = vertices[0];
         return vertices;
     }
 

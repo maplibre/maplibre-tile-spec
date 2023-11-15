@@ -4,7 +4,6 @@ import { CovtDecoder } from "../../../src/decoder/covtDecoder";
 
 const COVT_FILE_NAME = "./data/5_16_21.covt";
 const MVT_FILE_NAME = "./data/5_16_21.mvt";
-
 const COVT_FILE_NAME2 = "./data/4_8_10.covt";
 const MVT_FILE_NAME2 = "./data/4_8_10.mvt";
 
@@ -33,19 +32,11 @@ describe("CovtDecoder", () => {
                     properties: mvtProperties,
                 } = mvtLayer.features[mvtFeatureId++];
 
-                console.info(mvtId);
-                //if (mvtLayer.name !== "transportation") {
-                try {
-                    expect(covtGeometry.format()).toEqual(mvtGeometry);
-                } catch (e) {
-                    console.info(mvtId);
-                }
-                //}
-
+                //TODO: fix false id based on a false encoded delta in the place layer beginning at index 190
                 if (mvtLayer.name !== "place") {
                     expect(covtId).toEqual(mvtId);
                 }
-
+                expect(covtGeometry.format()).toEqual(mvtGeometry);
                 const transformedMvtProperties = mapMvtProperties(mvtProperties);
                 expect(covtProperties).toEqual(transformedMvtProperties);
             }
@@ -76,15 +67,15 @@ describe("CovtDecoder", () => {
                     properties: mvtProperties,
                 } = mvtLayer.features[mvtFeatureId++];
 
-                if (mvtLayer.name !== "boundary") {
-                    expect(covtGeometry.format()).toEqual(mvtGeometry);
-                }
-
+                //TODO: fix false id based on a false encoded delta in the place layer beginning at index 190
                 if (mvtLayer.name !== "place") {
                     expect(covtId).toEqual(mvtId);
-
+                }
+                expect(covtGeometry.format()).toEqual(mvtGeometry);
+                //TODO: fix false property in boundary layer
+                if (mvtLayer.name !== "boundary") {
                     const transformedMvtProperties = mapMvtProperties(mvtProperties);
-                    //expect(covtProperties).toEqual(transformedMvtProperties);
+                    expect(covtProperties).toEqual(transformedMvtProperties);
                 }
             }
         }
@@ -94,18 +85,19 @@ describe("CovtDecoder", () => {
 function mapMvtProperties(mvtProperties: Map<string, unknown>): Map<string, unknown> {
     const transformedMvtProperties = new Map<string, unknown>();
     for (const [key, value] of mvtProperties) {
-        if (key.includes("_")) {
-            const comps = key.split("_");
-            const transformedKey = `${comps[0]}:${comps[1]}`;
-            transformedMvtProperties.set(transformedKey, value);
-        } else if (value === undefined) {
+        if (value === undefined) {
             continue;
-        } else if (Number.isInteger(value)) {
-            //TODO: get rid of BigInt
-            transformedMvtProperties.set(key, BigInt(value as number));
-        } else {
-            transformedMvtProperties.set(key, value);
         }
+
+        let transformedKey = key;
+        if (key.includes("name_")) {
+            const comps = key.split("_");
+            transformedKey = `${comps[0]}:${comps[1]}`;
+        }
+
+        //TODO: get rid of BigInt
+        const convertedValue = Number.isInteger(value) ? BigInt(value as number) : value;
+        transformedMvtProperties.set(transformedKey, convertedValue);
     }
 
     return transformedMvtProperties;

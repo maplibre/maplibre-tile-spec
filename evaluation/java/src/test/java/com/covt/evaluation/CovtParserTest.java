@@ -26,9 +26,6 @@ public class CovtParserTest {
         var mvtLayers = mvtTile.layers();
         var covtTile = MvtConverter.createCovtTile(mvtLayers, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING, REMOVE_CLOSING_POLYGON_VERTEX);
 
-        /*Path path = Paths.get("5_16_21.covt");
-        Files.write(path, covtTile);*/
-
         var covtLayers = CovtParser.parseCovt(covtTile, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING);
 
         compareTiles(mvtLayers, covtLayers);

@@ -1,7 +1,6 @@
 import {
     decodeByteRle,
     decodeDeltaNumberVarints,
-    decodeDeltaUint64Varints,
     decodeDeltaVarints,
     decodeInt64Rle,
     decodeInt64Varints,
@@ -400,7 +399,8 @@ export class CovtDecoder {
                 }
 
                 if (i % 2 === 0) {
-                    const [nextPresentStream, dataOffset] = decodeByteRle(buffer, streamData.byteLength - 1, offset);
+                    const numBytes = Math.ceil(numFeatures / 8);
+                    const [nextPresentStream, dataOffset] = decodeByteRle(buffer, numBytes, offset);
                     presentStream = nextPresentStream;
                     offset = dataOffset;
                 } else {
@@ -424,6 +424,8 @@ export class CovtDecoder {
                 const [dataStream, nextColumnOffset] = decodeByteRle(
                     buffer,
                     columnMetadata.streams.get("data").numValues,
+                    //TODO: verify changes
+                    //numBytes,
                     dataOffset,
                 );
 
