@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
 
@@ -33,35 +34,51 @@ public class MvtUtils {
             }
         }
 
-        try(var inputStream = new ByteArrayInputStream(gzipCompressedMvt)){
+        return decodeCompressedMvt(gzipCompressedMvt);
+    }
+
+    public static MapboxVectorTile decodeCompressedMvt(byte[] gzipCompressedMvtTile) throws IOException {
+        try(var inputStream = new ByteArrayInputStream(gzipCompressedMvtTile)){
             try(var gZIPInputStream = new GZIPInputStream(inputStream)){
                 var mvtTile = gZIPInputStream.readAllBytes();
-
-                var result = MvtReader.loadMvt(
-                        new ByteArrayInputStream(mvtTile),
-                        MvtUtils.createGeometryFactory(),
-                        new TagKeyValueMapConverter(false, ID_KEY));
-                final var mvtLayers = result.getLayers();
-
-                var layers = new ArrayList<Layer>();
-                for(var layer : mvtLayers){
-                    var name = layer.getName();
-                    var mvtFeatures = layer.getGeometries();
-                    var features = new ArrayList<Feature>();
-                    for(var mvtFeature : mvtFeatures){
-                        var properties = ((LinkedHashMap)mvtFeature.getUserData());
-                        var id = (long)properties.get(ID_KEY);
-                        properties.remove(ID_KEY);
-                        var feature = new Feature(id, mvtFeature, properties);
-                        features.add(feature);
-                    }
-
-                    layers.add(new Layer(name, features));
-                }
-
-                return new MapboxVectorTile(layers, gzipCompressedMvt.length, mvtTile.length);
+                return decodeMvt(mvtTile);
             }
         }
+    }
+
+    public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
+        var result = MvtReader.loadMvt(new ByteArrayInputStream(mvtTile), MvtUtils.createGeometryFactory(),
+                new TagKeyValueMapConverter(false, ID_KEY));
+        final var mvtLayers = result.getLayers();
+
+        var layers = new ArrayList<Layer>();
+        for(var layer : mvtLayers){
+            var name = layer.getName();
+            var mvtFeatures = layer.getGeometries();
+            var features = new ArrayList<Feature>();
+            for(var mvtFeature : mvtFeatures){
+                var properties = ((LinkedHashMap<String, Object>)mvtFeature.getUserData());
+                var id = (long)properties.get(ID_KEY);
+                properties.remove(ID_KEY);
+
+                //TODO: fix -> currently no floats are supported
+                for(var property: properties.entrySet()){
+                    var value = property.getValue();
+                    if(value instanceof Float){
+                        //System.out.println(property.getKey() + "  " + property.getValue());
+                        property.setValue(Long.valueOf(Math.round(((Float)value).floatValue())));
+                    }
+                }
+
+                var feature = new Feature(id, mvtFeature, properties);
+                features.add(feature);
+            }
+
+            layers.add(new Layer(name, features));
+        }
+
+        //TODO: fix as gzip is not used here
+        return new MapboxVectorTile(layers, mvtTile.length, mvtTile.length);
     }
 
     private static GeometryFactory createGeometryFactory() {

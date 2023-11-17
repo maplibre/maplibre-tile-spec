@@ -8,17 +8,18 @@ import { CovtDecoder } from "../../src/decoder/covtDecoder";
 
 const MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
 //const COVT_FILE_NAME = "./data/5_16_21.covt";
-const COVT_FILE_NAME = "./data/4_8_10.covt";
+/*const COVT_FILE_NAME = "./data/4_8_10.covt";*/
+const COVT_FILE_NAME = "./data/6-32-22.covt";
 const covtBenchmarks = [];
 const mvtBenchmarks = [];
 const suiteRuns = 10;
 
 (async () => {
-    const mbTilesRepository = await MbTilesRepository.create(MBTILES_FILE_NAME);
+    //const mbTilesRepository = await MbTilesRepository.create(MBTILES_FILE_NAME);
     //const gzipCompressedMvtTile = await mbTilesRepository.getTile({ z: 5, x: 16, y: 21 });
-    const gzipCompressedMvtTile = await mbTilesRepository.getTile({ z: 4, x: 8, y: 10 });
-
-    const mvtTile = zlib.unzipSync(gzipCompressedMvtTile);
+    //const gzipCompressedMvtTile = await mbTilesRepository.getTile({ z: 4, x: 8, y: 10 });
+    //const mvtTile = zlib.unzipSync(gzipCompressedMvtTile);
+    const mvtTile = fs.readFileSync("./data/6-32-22.mvt");
     const covTile = fs.readFileSync(COVT_FILE_NAME);
 
     /*for (let i = 0; i < 100; i++) {
