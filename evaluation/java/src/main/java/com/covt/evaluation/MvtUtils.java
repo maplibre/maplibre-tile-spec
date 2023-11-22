@@ -41,7 +41,7 @@ public class MvtUtils {
         var gZIPInputStream = new GZIPInputStream(inputStream);
         var mvtTile = gZIPInputStream.readAllBytes();
 
-        /*Path path = Paths.get("5_16_21.mvt");
+        /*Path path = Paths.get("../../tests/fixtures/mvt_omt/5_16_21.mvt");
         Files.write(path, mvtTile);*/
 
         var result = MvtReader.loadMvt(

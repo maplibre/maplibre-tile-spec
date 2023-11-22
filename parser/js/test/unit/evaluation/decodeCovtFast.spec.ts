@@ -6,7 +6,7 @@ import { parseMvtTile, parseMvtTileFast } from "../../../src/mvtUtils";
 import { decodeCovtFast } from "../../../src/evaluation/covtConverterFast";
 
 const MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
-const COVT_FILE_NAME = "./data/5_16_21.covt";
+const COVT_FILE_NAME = "../../tests/fixtures/covt_omt/5_16_21.covt";
 
 describe("decodeCovtFast", () => {
     it("should decode a COVT tile", async () => {

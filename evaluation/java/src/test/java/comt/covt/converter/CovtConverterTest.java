@@ -20,7 +20,7 @@ public class CovtConverterTest {
 
         var tile = CovtConverter.convertMvtTile(mvtLayers, true);
 
-        Files.write(Path.of("./data/4_8_10.covt"), tile);
+        Files.write(Path.of("../../tests/fixtures/mvt_omt/4_8_10.covt"), tile);
     }
 
     @Test
@@ -30,7 +30,7 @@ public class CovtConverterTest {
 
         var tile = CovtConverter.convertMvtTile(mvtLayers,true);
 
-        Files.write(Path.of("./data/5_16_21.covt"), tile);
+        Files.write(Path.of("../../tests/fixtures/covt_omt/5_16_21.covt"), tile);
     }
 
     @Test

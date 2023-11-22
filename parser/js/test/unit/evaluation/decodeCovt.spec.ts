@@ -5,7 +5,7 @@ import MbTilesRepository from "../../../src/evaluation/mbTilesRepository";
 import { parseMvtTile } from "../../../src/mvtUtils";
 
 const MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
-const COVT_FILE_NAME = "./data/5_16_21.covt";
+const COVT_FILE_NAME = "../../tests/fixtures/covt_omt/5_16_21.covt";
 
 describe("decodeCovt", () => {
     it("should decode a COVT tile", async () => {
