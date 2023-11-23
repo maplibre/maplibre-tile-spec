@@ -110,25 +110,21 @@ public class CovtConverter {
                 var idColumn = convertIdColumn(features, idColumEncoding);
                 //TODO: id and geometry has to be the first columns in the metadata
                 var idMetadata = new ColumnMetadata(ColumnDataType.UINT_64, idColumEncoding,
-                        new LinkedHashMap<>(Map.of(DATA_STREAM_NAME ,
+                        new LinkedHashMap<>(Map.of(DATA_STREAM_NAME,
                                 new StreamMetadata(features.size(), idColumn.length))));
 
                 var geometryColumnData = ICE_ENCODED_LAYER_NAMES.contains(layerName) && useIce ?
                         convertIceCodedGeometryColumn(features) :
                         convertUnorderedGeometryColumn(features);
-                var geometryColumn = geometryColumnData.geometryColumn();
-                var geometryMetadata = geometryColumnData.columnMetadata();
 
                 var propertyColumnData = convertPropertyColumns(features, propertyColumnMetadata);
-                var propertyMetadata = propertyColumnData.metadata();
-                var propertyColumns = propertyColumnData.propertyColumns();
 
-                var layerMetadata = convertLayerMetadata(layerName, idMetadata, geometryMetadata, propertyMetadata);
+                var layerMetadata = convertLayerMetadata(layerName, idMetadata, geometryColumnData.columnMetadata(), propertyColumnData.metadata());
 
                 stream.write(layerMetadata);
                 stream.write(idColumn);
-                stream.write(geometryColumn);
-                stream.write(propertyColumns);
+                stream.write(geometryColumnData.geometryColumn());
+                stream.write(propertyColumnData.propertyColumns());
             }
 
             return stream.toByteArray();
