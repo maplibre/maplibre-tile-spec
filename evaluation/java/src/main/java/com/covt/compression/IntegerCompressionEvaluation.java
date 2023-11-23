@@ -3,7 +3,12 @@ package com.covt.compression;
 import com.covt.compression.geometry.Point;
 import com.covt.compression.utils.TestOutputCatcher;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import me.lemire.integercompression.*;
+import me.lemire.integercompression.BinaryPacking;
+import me.lemire.integercompression.FastPFOR128;
+import me.lemire.integercompression.IntWrapper;
+import me.lemire.integercompression.NewPFD;
+import me.lemire.integercompression.OptPFD;
+import me.lemire.integercompression.VariableByte;
 import org.apache.orc.impl.OutStream;
 import org.apache.orc.impl.RunLengthIntegerWriter;
 import org.apache.orc.impl.RunLengthIntegerWriterV2;
@@ -12,7 +17,6 @@ import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForInteger;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesWriter;
 
-import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,7 +24,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
-import java.util.zip.GZIPOutputStream;
 
 public class IntegerCompressionEvaluation {
     private static final Map<String, String> geometryFileNames = Map.of("Transportation_DeltaFeature_IdSorted",
@@ -72,33 +75,33 @@ public class IntegerCompressionEvaluation {
             InputStream inputStream = new FileInputStream(fileName);
             var values = new ObjectMapper().readValue(inputStream, int[].class);
 
-            System.out.println(String.format("%s -----------------------------------", fileName));
+            System.out.printf("%s -----------------------------------%n", fileName);
             final var varintSize = varintEncode(values);
-            System.out.println(String.format("Varint Encoding: %s kb", (double)varintSize / 1024));
+            System.out.printf("Varint Encoding: %s kb%n", (double)varintSize / 1024);
 
             final var orcRleEncoding = IntegerCompressionEvaluation.orcRleEncodingV1(values);
-            System.out.println(String.format("ORC RLE V1 Encoding: %s kb", (double)orcRleEncoding / 1024));
+            System.out.printf("ORC RLE V1 Encoding: %s kb%n", (double)orcRleEncoding / 1024);
 
             final var orcRleEncoding2 = IntegerCompressionEvaluation.orcRleEncodingV2(values);
-            System.out.println(String.format("ORC RLE V2 Encoding: %s kb", (double)orcRleEncoding2 / 1024));
+            System.out.printf("ORC RLE V2 Encoding: %s kb%n", (double)orcRleEncoding2 / 1024);
 
             final var parquetRleSize = IntegerCompressionEvaluation.parquetRLEBitpackingHybridEncoding(values);
-            System.out.println(String.format("Parquet RLE Bitpacking Hybrid Encoding: %s kb", (double)parquetRleSize / 1024));
+            System.out.printf("Parquet RLE Bitpacking Hybrid Encoding: %s kb%n", (double)parquetRleSize / 1024);
 
             final var parquetDeltaSize = IntegerCompressionEvaluation.parquetDeltaEncoding(values);
-            System.out.println(String.format("Parquet Delta Encoding: %s kb", (double)parquetDeltaSize / 1024));
+            System.out.printf("Parquet Delta Encoding: %s kb%n", (double)parquetDeltaSize / 1024);
 
             final var fastPfor128Size = IntegerCompressionEvaluation.fastPfor128Encode(values);
-            System.out.println(String.format("FastPfor128 Encoding: %s kb", (double)fastPfor128Size / 1024));
+            System.out.printf("FastPfor128 Encoding: %s kb%n", (double)fastPfor128Size / 1024);
 
             final var binaryPackingPointSize = IntegerCompressionEvaluation.binaryPacking(values);
-            System.out.println(String.format("Binary Packing Encoding: %s kb", (double)binaryPackingPointSize / 1024));
+            System.out.printf("Binary Packing Encoding: %s kb%n", (double)binaryPackingPointSize / 1024);
 
             final var netPfdSize = IntegerCompressionEvaluation.netPFDEncode(values);
-            System.out.println(String.format("NetPFD Encoding: %s kb", (double)netPfdSize / 1024));
+            System.out.printf("NetPFD Encoding: %s kb%n", (double)netPfdSize / 1024);
 
             final var optPfdSize = IntegerCompressionEvaluation.optPFDEncode(values);
-            System.out.println(String.format("OptPFD Encoding: %s kb", (double)optPfdSize / 1024));
+            System.out.printf("OptPFD Encoding: %s kb%n", (double)optPfdSize / 1024);
         }
     }
 
@@ -115,36 +118,38 @@ public class IntegerCompressionEvaluation {
                 return IntStream.of(x, y);
             }).toArray();
 
-            System.out.println(String.format("%s -----------------------------------", fileName));
+            System.out.printf("%s -----------------------------------%n", fileName);
             final var varintSize = varintEncodePoints(vertices);
-            System.out.println(String.format("Varint Encoding: %s kb", varintSize));
+            System.out.printf("Varint Encoding: %s kb%n", varintSize);
 
             final var fastPfor128Size = IntegerCompressionEvaluation.fastPfor128EncodePoints(vertices);
-            System.out.println(String.format("FastPfor128 Encoding: %s kb", fastPfor128Size));
+            System.out.printf("FastPfor128 Encoding: %s kb%n", fastPfor128Size);
 
-            /*final var orcRleEncoding = IntegerCompressionEvaluation.orcRleEncodingV1(values);
-            System.out.println(String.format("ORC RLE V1 Encoding: %s kb", orcRleEncoding));
+            /*
+            final var orcRleEncoding = IntegerCompressionEvaluation.orcRleEncodingV1(values);
+            System.out.printf("ORC RLE V1 Encoding: %s kb%n", orcRleEncoding);
 
             final var orcRleEncoding2 = IntegerCompressionEvaluation.orcRleEncodingV2(values);
-            System.out.println(String.format("ORC RLE V2 Encoding: %s kb", orcRleEncoding2));
+            System.out.printf("ORC RLE V2 Encoding: %s kb%n", orcRleEncoding2);
 
             final var parquetRleSize = IntegerCompressionEvaluation.parquetRLEBitpackingHybridEncoding(values);
-            System.out.println(String.format("Parquet RLE Bitpacking Hybrid Encoding: %s kb", parquetRleSize));
+            System.out.printf("Parquet RLE Bitpacking Hybrid Encoding: %s kb%n", parquetRleSize);
 
             final var parquetDeltaSize = IntegerCompressionEvaluation.parquetDeltaEncoding(values);
-            System.out.println(String.format("Parquet Delta Encoding: %s kb", parquetDeltaSize));
+            System.out.printf("Parquet Delta Encoding: %s kb%n", parquetDeltaSize);
 
             final var fastPfor128Size = IntegerCompressionEvaluation.fastPfor128Encode(values);
-            System.out.println(String.format("FastPfor128 Encoding: %s kb", fastPfor128Size));
+            System.out.printf("FastPfor128 Encoding: %s kb%n", fastPfor128Size);
 
             final var binaryPackingPointSize = IntegerCompressionEvaluation.binaryPacking(values);
-            System.out.println(String.format("Binary Packing Encoding: %s kb", binaryPackingPointSize));
+            System.out.printf("Binary Packing Encoding: %s kb%n", binaryPackingPointSize);
 
             final var netPfdSize = IntegerCompressionEvaluation.netPFDEncode(values);
-            System.out.println(String.format("NetPFD Encoding: %s kb", netPfdSize));
+            System.out.printf("NetPFD Encoding: %s kb%n", netPfdSize);
 
             final var optPfdSize = IntegerCompressionEvaluation.optPFDEncode(values);
-            System.out.println(String.format("OptPFD Encoding: %s kb", optPfdSize));*/
+            System.out.printf("OptPFD Encoding: %s kb%n", optPfdSize);
+            */
         }
     }
 

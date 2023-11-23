@@ -3,7 +3,9 @@ package com.covt.evaluation;
 import com.covt.evaluation.compression.IntegerCompression;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.orc.impl.*;
+import org.apache.orc.impl.BufferChunk;
+import org.apache.orc.impl.RunLengthByteReader;
+import org.apache.orc.impl.RunLengthIntegerReader;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 
@@ -11,6 +13,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+
+import static org.apache.orc.impl.InStream.create;
 
 public class ConversionUtils {
 
@@ -183,7 +187,7 @@ public class ConversionUtils {
     }
 
     public static long[] decodeOrcRleEncodingV1(byte[] buffer, int numValues, IntWrapper pos) throws IOException {
-        var inStream = InStream.create
+        var inStream = create
                 ("test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
         var reader =
                 new RunLengthIntegerReader(inStream, false);
@@ -258,7 +262,7 @@ public class ConversionUtils {
     }
 
     public static byte[] decodeOrcRleByteEncodingV1(byte[] buffer, int numValues, IntWrapper pos) throws IOException {
-        var inStream = InStream.create
+        var inStream = create
                 ("test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
         var reader =
                 new RunLengthByteReader(inStream);

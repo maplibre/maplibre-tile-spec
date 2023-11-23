@@ -10,12 +10,27 @@ import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.ArrayUtils;
 import org.davidmoten.hilbert.HilbertCurve;
 import org.davidmoten.hilbert.SmallHilbertCurve;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -477,22 +492,22 @@ public class MvtConverter {
             presentStreams.add(presentStream);
 
             /* For boolean values */
-            if(dataBooleanStream.size() > 0){
+            if(!dataBooleanStream.isEmpty()){
                 dataBooleanStreams.add(dataBooleanStream);
             }
 
             /* For int and plain string encoding */
-            if(dataStream.size() > 0){
+            if(!dataStream.isEmpty()){
                 dataStreams.add(dataStream);
             }
 
             /* String plain and dictionary coding */
-            if(lengthStream.size() > 0){
+            if(!lengthStream.isEmpty()){
                 lengthStreams.add(lengthStream);
             }
 
             /* String dictionary encoding */
-            if(dataDictionaryStream.size() > 0){
+            if(!dataDictionaryStream.isEmpty()){
                 dataDictionaryStreams.add(dataDictionaryStream);
                 dataDictionarySets.add(dataDictionarySet);
             }
@@ -615,7 +630,7 @@ public class MvtConverter {
                 }
             }
 
-        if(localizedDataDictionary.size() > 0){
+        if(!localizedDataDictionary.isEmpty()){
             var lengthStream = localizedLengthStream.stream().mapToLong(i -> i).toArray();
             var encodedLengthStream = IntegerCompression.orcRleEncodingV1(lengthStream);
             columnBuffer = ArrayUtils.addAll(columnBuffer, encodedLengthStream);
@@ -890,7 +905,7 @@ public class MvtConverter {
                     }
                     default:
                         //TODO: fix this when a polygon geometry is part of the layer
-                        System.err.println(String.format("Geometry type %s not supported for ICE Encoding.", geometryType));
+                        System.err.printf("Geometry type %s not supported for ICE Encoding.%n", geometryType);
                         //throw new IllegalArgumentException(String.format("Geometry type %s not supported for ICE Encoding.", geometryType));
                 }
             }

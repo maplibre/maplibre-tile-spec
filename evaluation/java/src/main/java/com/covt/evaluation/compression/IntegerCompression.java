@@ -1,6 +1,7 @@
 package com.covt.evaluation.compression;
 
-import me.lemire.integercompression.*;
+import me.lemire.integercompression.IntWrapper;
+import me.lemire.integercompression.VariableByte;
 import org.apache.orc.impl.OutStream;
 import org.apache.orc.impl.RunLengthByteWriter;
 import org.apache.orc.impl.RunLengthIntegerWriter;

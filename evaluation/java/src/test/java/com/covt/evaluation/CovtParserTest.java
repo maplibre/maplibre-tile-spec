@@ -130,10 +130,10 @@ public class CovtParserTest {
             totalUncompressedRatio += ratio[0];
             totalCompressedRatio += ratio[1];
         }
-        System.out.println(String.format("Total ratio uncompressed: %s, Total ratio compressed: %s",
+        System.out.printf("Total ratio uncompressed: %s, Total ratio compressed: %s%n",
                 (1 - 1 / (totalUncompressedRatio / ratios.size())) * 100,
                 (1 - 1 / (totalCompressedRatio / ratios.size())) * 100
-        ));
+        );
     }
 
     private static double[] getRatio(MapboxVectorTile mvtTile, byte[] covtTile) throws IOException {
@@ -145,10 +145,10 @@ public class CovtParserTest {
 
     private static void printStats(MapboxVectorTile mvtTile, byte[] covtTile) throws IOException {
         var covtGzipBuffer = IntegerCompression.gzipCompress(covtTile);
-        System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize()));
-        System.out.println(String.format("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length));
-        System.out.println(String.format("Ratio uncompressed: %s, Ratio compressed: %s",
-                ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length));
+        System.out.printf("MVT size: %s, Gzip MVT size: %s%n", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize());
+        System.out.printf("COVT size: %s, Gzip COVT size: %s%n", covtTile.length, covtGzipBuffer.length);
+        System.out.printf("Ratio uncompressed: %s, Ratio compressed: %s%n",
+                ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length);
     }
 
     private static void compareTiles(List<Layer> mvtLayers, List<Layer> covtLayers){
