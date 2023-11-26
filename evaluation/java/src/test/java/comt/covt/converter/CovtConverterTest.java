@@ -20,7 +20,7 @@ public class CovtConverterTest {
 
         var tile = CovtConverter.convertMvtTile(mvtLayers, true);
 
-        Files.write(Path.of("./data/4_8_10.covt"), tile);
+        Files.write(Path.of("../../tests/fixtures/covt_omt/4_8_10.covt"), tile);
     }
 
     @Test
@@ -30,7 +30,7 @@ public class CovtConverterTest {
 
         var tile = CovtConverter.convertMvtTile(mvtLayers,true);
 
-        Files.write(Path.of("./data/5_16_21.covt"), tile);
+        Files.write(Path.of("../../tests/fixtures/covt_omt/5_16_21.covt"), tile);
     }
 
     @Test
@@ -124,12 +124,12 @@ public class CovtConverterTest {
 
     private static double printStats(MapboxVectorTile mvtTile, byte[] covtTile) throws IOException {
         var covtGzipBuffer = EncodingUtils.gzipCompress(covtTile);
-        System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize()));
-        System.out.println(String.format("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length));
-        System.out.println(String.format("Ratio uncompressed: %s, Ratio compressed: %s",
-                ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length));
+        System.out.printf("MVT size: %s, Gzip MVT size: %s%n", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize());
+        System.out.printf("COVT size: %s, Gzip COVT size: %s%n", covtTile.length, covtGzipBuffer.length);
+        System.out.printf("Ratio uncompressed: %s, Ratio compressed: %s%n",
+                ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length);
         var compressionRatio = (1- (1/( ((double)mvtTile.mvtSize()) / covtTile.length)   ))*100;
-        System.out.println(String.format("Ratio compressed: %s", compressionRatio));
+        System.out.printf("Ratio compressed: %s%n", compressionRatio);
         return compressionRatio;
     }
 }

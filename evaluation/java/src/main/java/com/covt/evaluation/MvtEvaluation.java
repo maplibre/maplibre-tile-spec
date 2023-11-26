@@ -9,7 +9,12 @@ import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.TagKeyValueMapConverter;
 import org.apache.commons.lang3.ArrayUtils;
 import org.davidmoten.hilbert.HilbertCurve;
 import org.davidmoten.hilbert.SmallHilbertCurve;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 
 import java.io.ByteArrayInputStream;
@@ -18,10 +23,21 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.sql.*;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringJoiner;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -153,13 +169,13 @@ public class MvtEvaluation {
         }
 
         System.out.println("----------------------------------------------------------");
-        System.out.println(String.format("plain: %s, dictionary: %s, varint dictionary: %s, parquet: %s, orc v1: %s, orc v2: %s",
+        System.out.printf("plain: %s, dictionary: %s, varint dictionary: %s, parquet: %s, orc v1: %s, orc v2: %s%n",
                 plainStreamBuffer.size(),  dictionaryStreamBuffer.size(), varintDictionaryStreamBuffer.size(), parquetRleDictionaryStreamBuffer.size(),
-                orcV1RleDictionaryStreamBuffer.size(), orcV2RleDictionaryStreamBuffer.size()));
-        System.out.println(String.format("plain Gzip: %s, dictionary Gzip: %s, varint dictionary Gzip: %s, " +
-                        "parquet Gzip: %s, orc v1 Gzip: %s, orc v2 Gzip: %s",
+                orcV1RleDictionaryStreamBuffer.size(), orcV2RleDictionaryStreamBuffer.size());
+        System.out.printf("plain Gzip: %s, dictionary Gzip: %s, varint dictionary Gzip: %s, " +
+                        "parquet Gzip: %s, orc v1 Gzip: %s, orc v2 Gzip: %s%n",
                 toGzip(plainStreamBuffer).length, toGzip(dictionaryStreamBuffer).length, toGzip(varintDictionaryStreamBuffer).length,
-                toGzip(parquetRleDictionaryStreamBuffer).length, toGzip(orcV1RleDictionaryStreamBuffer).length, toGzip(orcV2RleDictionaryStreamBuffer).length));
+                toGzip(parquetRleDictionaryStreamBuffer).length, toGzip(orcV1RleDictionaryStreamBuffer).length, toGzip(orcV2RleDictionaryStreamBuffer).length);
         System.out.println("----------------------------------------------------------");
     }
 
@@ -213,8 +229,7 @@ public class MvtEvaluation {
             for(var feature : features){
                 var properties = feature.properties();
                 var propertyValue = properties.get(property);
-                if(propertyValue instanceof String){
-                    var value = (String)propertyValue;
+                if(propertyValue instanceof String value){
                     var buffer = ArrayUtils.toObject(value.getBytes(StandardCharsets.UTF_8));
                     plainStream.addAll(Arrays.asList(buffer));
                     values.add(value);
@@ -243,13 +258,13 @@ public class MvtEvaluation {
         var varintDictionaryStream = dictionaryVarintEncode(values);
         var rleDictionaryStreams = rleDictionaryEncode(values);
         System.out.println("----------------------------------------------------------");
-        System.out.println(String.format("plain: %s, dictionary: %s, varint dictionary: %s, parquet: %s, orc v1: %s, orc v2: %s",
+        System.out.printf("plain: %s, dictionary: %s, varint dictionary: %s, parquet: %s, orc v1: %s, orc v2: %s%n",
                     plainStream.size(),  dictionarySteam.size(), varintDictionaryStream.size(), rleDictionaryStreams.get(0).size(),
-                    rleDictionaryStreams.get(1).size(), rleDictionaryStreams.get(2).size()));
-        System.out.println(String.format("plain Gzip: %s, dictionary Gzip: %s, varint dictionary Gzip: %s, " +
-                            "parquet Gzip: %s, orc v1 Gzip: %s, orc v2 Gzip: %s",
+                    rleDictionaryStreams.get(1).size(), rleDictionaryStreams.get(2).size());
+        System.out.printf("plain Gzip: %s, dictionary Gzip: %s, varint dictionary Gzip: %s, " +
+                        "parquet Gzip: %s, orc v1 Gzip: %s, orc v2 Gzip: %s%n",
                     toGzip(plainStream).length, toGzip(dictionarySteam).length, toGzip(varintDictionaryStream).length,
-                    toGzip(rleDictionaryStreams.get(0)).length, toGzip(rleDictionaryStreams.get(1)).length, toGzip(rleDictionaryStreams.get(2)).length));
+                    toGzip(rleDictionaryStreams.get(0)).length, toGzip(rleDictionaryStreams.get(1)).length, toGzip(rleDictionaryStreams.get(2)).length);
         System.out.println("----------------------------------------------------------");
     }
 
@@ -355,13 +370,13 @@ public class MvtEvaluation {
             var varintDictionaryStream = dictionaryVarintEncode(values);
             var rleDictionaryStreams = rleDictionaryEncode(values);
             System.out.println(propertyColumn.getKey() + " ----------------------------------------------------------");
-            System.out.println(String.format("plain: %s, dictionary: %s, varint dictionary: %s, parquet: %s, orc v1: %s, orc v2: %s",
+            System.out.printf("plain: %s, dictionary: %s, varint dictionary: %s, parquet: %s, orc v1: %s, orc v2: %s%n",
                     plainStream.size(),  dictionarySteam.size(), varintDictionaryStream.size(), rleDictionaryStreams.get(0).size(),
-                    rleDictionaryStreams.get(1).size(), rleDictionaryStreams.get(2).size()));
-            System.out.println(String.format("plain Gzip: %s, dictionary Gzip: %s, varint dictionary Gzip: %s, " +
-                            "parquet Gzip: %s, orc v1 Gzip: %s, orc v2 Gzip: %s",
+                    rleDictionaryStreams.get(1).size(), rleDictionaryStreams.get(2).size());
+            System.out.printf("plain Gzip: %s, dictionary Gzip: %s, varint dictionary Gzip: %s, " +
+                            "parquet Gzip: %s, orc v1 Gzip: %s, orc v2 Gzip: %s%n",
                     toGzip(plainStream).length, toGzip(dictionarySteam).length, toGzip(varintDictionaryStream).length,
-                    toGzip(rleDictionaryStreams.get(0)).length, toGzip(rleDictionaryStreams.get(1)).length, toGzip(rleDictionaryStreams.get(2)).length));
+                    toGzip(rleDictionaryStreams.get(0)).length, toGzip(rleDictionaryStreams.get(1)).length, toGzip(rleDictionaryStreams.get(2)).length);
             System.out.println("----------------------------------------------------------");
         }
     }
@@ -1180,8 +1195,8 @@ public class MvtEvaluation {
 
             System.out.println(name + " -----------------------------------------");
             System.out.println("Num Types: " +  geometryTypes.length);
-            System.out.println("Values: " + geometryTypeJoiner.toString());
-            System.out.println("Delta Values: " + deltaGeometryTypeJoiner.toString());
+            System.out.println("Values: " + geometryTypeJoiner);
+            System.out.println("Delta Values: " + deltaGeometryTypeJoiner);
             System.out.println("RLE V1: " + rleV1EncodedGeometryTypes.length);
             System.out.println("RLE V1 Byte: " + rleV1ByteEncodedGeometryTypes.length);
             System.out.println("RLE V2: " + rleV2EncodedGeometryTypes.length);
@@ -1234,8 +1249,8 @@ public class MvtEvaluation {
 
         System.out.println(name + " -----------------------------------------");
         System.out.println("Num Ids: " +  ids.length);
-        System.out.println("Values: " + idJoiner.toString());
-        System.out.println("Delta Values: " + deltaIdJoiner.toString());
+        System.out.println("Values: " + idJoiner);
+        System.out.println("Delta Values: " + deltaIdJoiner);
         System.out.println("RLE V1: " + rleV1EncodedIds.length);
         System.out.println("RLE V2: " + rleV2EncodedIds.length);
         System.out.println("RLE V1 Delta : " + rleV1EncodedDeltaIds.length);

@@ -1,12 +1,26 @@
 package com.covt.evaluation;
 
-import com.covt.evaluation.file.*;
+import com.covt.evaluation.file.ColumnDataType;
+import com.covt.evaluation.file.ColumnEncoding;
+import com.covt.evaluation.file.ColumnMetadata;
+import com.covt.evaluation.file.GeometryType;
+import com.covt.evaluation.file.Header;
+import com.covt.evaluation.file.LayerMetadata;
 import me.lemire.integercompression.IntWrapper;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.Polygon;
+
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class CovtParser {
@@ -409,5 +423,4 @@ public class CovtParser {
         var numLayers = ConversionUtils.decodeVarint(covtBuffer, pos)[0];
         return new Header(version, numLayers);
     }
-
 }

@@ -2,10 +2,10 @@ import * as fs from "fs";
 import { parseMvtTile } from "../../../src/mvtUtils";
 import { CovtDecoder } from "../../../src/decoder/covtDecoder";
 
-const COVT_FILE_NAME = "./data/5_16_21.covt";
-const MVT_FILE_NAME = "./data/5_16_21.mvt";
-const COVT_FILE_NAME2 = "./data/4_8_10.covt";
-const MVT_FILE_NAME2 = "./data/4_8_10.mvt";
+const COVT_FILE_NAME = "../../tests/fixtures/covt_omt/5_16_21.covt";
+const MVT_FILE_NAME = "../../tests/fixtures/mvt_omt/5_16_21.mvt";
+const COVT_FILE_NAME2 = "../../tests/fixtures/covt_omt/4_8_10.covt";
+const MVT_FILE_NAME2 = "../../tests/fixtures/mvt_omt/4_8_10.mvt";
 
 describe("CovtDecoder", () => {
     it("should decode a COVT tile in zoom level 5", async () => {

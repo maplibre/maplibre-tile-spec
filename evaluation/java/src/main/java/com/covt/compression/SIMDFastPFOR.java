@@ -6,7 +6,7 @@ import me.lemire.integercompression.FastPFOR128;
 import me.lemire.integercompression.IntWrapper;
 import me.lemire.integercompression.OptPFD;
 import me.lemire.integercompression.VariableByte;
-import me.lemire.integercompression.differential.*;
+import me.lemire.integercompression.differential.IntegratedIntCompressor;
 import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForInteger;
 
