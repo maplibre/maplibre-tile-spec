@@ -1,19 +1,22 @@
 package com.covt.converter.mvt;
 
+import com.covt.converter.EncodingUtils;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.MvtReader;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.TagKeyValueMapConverter;
+import no.ecc.vectortile.VectorTileDecoder;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
 
@@ -21,7 +24,7 @@ public class MvtUtils {
     private static final String ID_KEY = "id";
     private static final String TILE_DATA_KEY = "tile_data";
 
-    public static MapboxVectorTile getMVT(String mbTilesFileName, int zoom, int x, int y) throws SQLException, IOException, ClassNotFoundException {
+    public static MapboxVectorTile decodeMvt(String mbTilesFileName, int zoom, int x, int y) throws SQLException, IOException, ClassNotFoundException {
         Class.forName("org.sqlite.JDBC");
         byte[] gzipCompressedMvt;
         try(var connection = DriverManager.getConnection("jdbc:sqlite:" + mbTilesFileName)) {
@@ -37,18 +40,28 @@ public class MvtUtils {
         return decodeCompressedMvt(gzipCompressedMvt);
     }
 
+    public static MapboxVectorTile decodeMvt(Path mvtFilePath) throws IOException {
+        var mvt = Files.readAllBytes(mvtFilePath);
+        return decodeMvt(mvt, EncodingUtils.gzipCompress(mvt).length);
+    }
+
+    public static MapboxVectorTile decodeMvt2(Path mvtFilePath) throws IOException {
+        var mvt = Files.readAllBytes(mvtFilePath);
+        return decodeMvt2(mvt, EncodingUtils.gzipCompress(mvt).length);
+    }
+
     public static MapboxVectorTile decodeCompressedMvt(byte[] gzipCompressedMvtTile) throws IOException {
         try(var inputStream = new ByteArrayInputStream(gzipCompressedMvtTile)){
             try(var gZIPInputStream = new GZIPInputStream(inputStream)){
                 var mvtTile = gZIPInputStream.readAllBytes();
-                return decodeMvt(mvtTile);
+                return decodeMvt2(mvtTile, gzipCompressedMvtTile.length);
             }
         }
     }
 
-    public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
+    private static MapboxVectorTile decodeMvt(byte[] mvtTile, int compressedMvtSize) throws IOException {
         var result = MvtReader.loadMvt(new ByteArrayInputStream(mvtTile), MvtUtils.createGeometryFactory(),
-                new TagKeyValueMapConverter(false, ID_KEY));
+                new TagKeyValueMapConverter(true, ID_KEY));
         final var mvtLayers = result.getLayers();
 
         var layers = new ArrayList<Layer>();
@@ -60,16 +73,6 @@ public class MvtUtils {
                 var properties = ((LinkedHashMap<String, Object>)mvtFeature.getUserData());
                 var id = (long)properties.get(ID_KEY);
                 properties.remove(ID_KEY);
-
-                //TODO: fix -> currently no floats are supported
-                for(var property: properties.entrySet()){
-                    var value = property.getValue();
-                    if(value instanceof Float){
-                        //System.out.println(property.getKey() + "  " + property.getValue());
-                        property.setValue(Long.valueOf(Math.round(((Float)value).floatValue())));
-                    }
-                }
-
                 var feature = new Feature(id, mvtFeature, properties);
                 features.add(feature);
             }
@@ -77,8 +80,51 @@ public class MvtUtils {
             layers.add(new Layer(name, features));
         }
 
-        //TODO: fix as gzip is not used here
-        return new MapboxVectorTile(layers, mvtTile.length, mvtTile.length);
+        //TODO: evaluate tile extent
+        return new MapboxVectorTile(layers, compressedMvtSize, mvtTile.length, 8192);
+    }
+
+    private static MapboxVectorTile decodeMvt2(byte[] mvtTile, int compressedMvtSize) throws IOException {
+        VectorTileDecoder mvtDecoder = new VectorTileDecoder();
+        mvtDecoder.setAutoScale(false);
+        var tile = mvtDecoder.decode(mvtTile);
+        var mvtFeatures = tile.asList();
+        var layers = new ArrayList<Layer>();
+        var tileExtent = 0;
+        for(var layerName : tile.getLayerNames()){
+            var layerFeatures =
+                    mvtFeatures.stream().filter(f -> f.getLayerName().equals(layerName)).collect(Collectors.toList());
+
+            var features = new ArrayList<Feature>();
+            for(var mvtFeature : layerFeatures){
+                var properties = new HashMap(mvtFeature.getAttributes());
+                var id = 0l;
+                if(properties.containsKey(ID_KEY)){
+                    if(properties.get(ID_KEY) instanceof  String){
+                        /* Rename the id property as it is a reserved column name in the COVT format */
+                        properties.put("_" + ID_KEY, properties.get(ID_KEY));
+                        properties.remove(ID_KEY);
+                    }
+                    else{
+                        throw new RuntimeException("Only a string datatype for the id in the properties supported.");
+                    }
+                }
+
+                var geometry = mvtFeature.getGeometry();
+                var feature = new Feature(id, geometry, properties);
+                features.add(feature);
+
+                var featureTileExtent = mvtFeature.getExtent();
+                if(featureTileExtent > tileExtent){
+                    tileExtent = featureTileExtent;
+                }
+            }
+
+            layers.add(new Layer(layerName, features));
+        }
+
+        /* Start with one extent per tile not per layer like in MVT */
+        return new MapboxVectorTile(layers, compressedMvtSize, mvtTile.length, tileExtent);
     }
 
     private static GeometryFactory createGeometryFactory() {

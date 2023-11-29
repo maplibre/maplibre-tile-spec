@@ -1,6 +1,7 @@
 package com.covt.evaluation;
 
 
+import com.covt.decoder.CovtParser;
 import com.covt.evaluation.compression.IntegerCompression;
 import org.junit.jupiter.api.Test;
 

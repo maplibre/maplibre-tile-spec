@@ -37,9 +37,14 @@ public class MvtUtils {
             }
         }
 
+        long start = System.nanoTime();
+        //long start = System.currentTimeMillis();
         var inputStream = new ByteArrayInputStream(gzipCompressedMvt);
         var gZIPInputStream = new GZIPInputStream(inputStream);
         var mvtTile = gZIPInputStream.readAllBytes();
+        //long elapsedTimeMillis = System.currentTimeMillis()-start;
+        var elapsedTime = (System.nanoTime() - start) / Math.pow(10, 6);
+
 
         /*Path path = Paths.get("5_16_21.mvt");
         Files.write(path, mvtTile);*/

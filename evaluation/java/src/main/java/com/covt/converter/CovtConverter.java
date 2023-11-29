@@ -6,8 +6,6 @@ import com.covt.converter.mvt.Feature;
 import com.covt.converter.mvt.Layer;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.davidmoten.hilbert.HilbertCurve;
 import org.davidmoten.hilbert.SmallHilbertCurve;
 import org.locationtech.jts.geom.*;
@@ -18,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 record GeometryColumData(ColumnMetadata columnMetadata, byte[] geometryColumn){}
 
@@ -36,9 +35,7 @@ record PropertyColumData(PropertyColumnsMetadata metadata, byte[] propertyColumn
                 -> ColumnMetadata, Map<LocalizedStreamData>
         *       ->
         */
-record BooleanColumnData(ColumnMetadata columnMetadata, List<Boolean> presentStream, List<Boolean> dataStream){}
-
-record LongColumnData(ColumnMetadata columnMetadata, List<Boolean> presentStream, List<Long> dataStream){}
+record PrimitiveColumnData<T>(ColumnMetadata columnMetadata, List<Boolean> presentStream, List<T> dataStream){}
 
 record StringDictionaryColumnData(ColumnMetadata columnMetadata, List<Boolean> presentStream, List<Integer> dataStream,
                                   List<Integer> lengthStream, List<String> dictionaryStream){}
@@ -49,6 +46,7 @@ record StringLocalizedDictionaryColumnData(ColumnMetadata columnMetadata, List<I
 record LocalizedStringDictionaryStreamData(List<Boolean> presentStream, List<Integer> dataStream){}
 
 record PropertyColumnsMetadata(List<NamedColumnMetadata> booleanMetadata, List<NamedColumnMetadata> longMetadata,
+                               List<NamedColumnMetadata> floatMetadata,
                                 List<NamedColumnMetadata> stringDictionaryMetadata,
                                 List<NamedColumnMetadata> localizedStringDictionaryMetadata){}
 
@@ -66,15 +64,42 @@ interface TriFunction<T, U, V, R> {
 }
 
 public class CovtConverter {
+
+    public enum GeometryEncoding{
+        PLAIN,
+        PLAIN_MORTON,
+        /* use a dictionary for the coordinates*/
+        ICE,
+        /* use a vertex dictionary and transform the 2D coordinates to morton codes */
+        ICE_MORTON
+    }
+
+    public enum VertexBufferCompression {
+        VARINT_DELTA,
+        FAST_PFOR_DELTA
+    }
+
+    public enum TopologyStreamsCompression {
+        RLE,
+        FAST_PFOR_DELTA
+    }
+
     /* 14 bits -> 8192 in two directions */
-    private static final int NUM_COORDINATES_PER_QUADRANT = 8192;
+    //private static final int NUM_COORDINATES_PER_QUADRANT = 8192;
     private static final String ID_COLUMN_NAME = "id";
     private static final String GEOMETRY_COLUMN_NAME = "geometry";
 
     private static final List<String> LOCALIZED_COLUM_NAME_PREFIXES = Arrays.asList("name");
     private static final Set<String> RLE_ENCODED_INT_LAYER_NAMES = new HashSet<>(List.of("building"));
     private static final Set<String> DELTA_ENCODED_ID_LAYER_NAMES = new HashSet<>(List.of("building", "poi", "place"));
-    private static final Set<String>  ICE_ENCODED_LAYER_NAMES = new HashSet<>(List.of("transportation", "boundary", "road", "road_hd")); //, "reserve"));
+    //private static final Set<String>  ICE_ENCODED_LAYER_NAMES = new HashSet<>(List.of("transportation", "boundary", "road",
+    //        "road_hd", "railway"));
+    //private static final Set<String>  ICE_ENCODED_LAYER_NAMES = new HashSet<>(List.of("transportation", "boundary", "road",
+    //    "road_hd", "railway", "landcover", "hillshade", "landuse", "admin"));
+    //TODO: check amazon layer keys
+    private static final Set<String>  ICE_ENCODED_LAYER_NAMES = new HashSet<>(List.of("transportation", "boundary", "road",
+            "road_hd", "railway", "hillshade", "landuse", "Road", "Biome", "Admin0", "Vegetation small scale",
+            "reserve", "water_feature"));
     private static final Set<String>  LOCALIZE_DELIMITER = new HashSet<>(List.of(":", "_"));
     private static String PRESENT_STREAM_NAME = "present";
     private static String DATA_STREAM_NAME = "data";
@@ -82,18 +107,13 @@ public class CovtConverter {
     public static final String DICTIONARY_STREAM_NAME = "dictionary";
     private static String GEOMETRY_TYPES_STREAM_NAME = "geometry_types";
 
-    public enum GeometryEncoding{
-        PLAIN,
-        ICE,
-        ICE_DICTIONARY
-    }
-
-    public static byte[] convertMvtTile(List<Layer> layers, GeometryEncoding geometryEncoding, boolean includeIds) throws IOException {
+    public static byte[] convertMvtTile(List<Layer> layers, int tileExtent, GeometryEncoding geometryEncoding,
+                                        VertexBufferCompression vertexBufferCompression, TopologyStreamsCompression topologyStreamsCompression,
+                                        boolean includeIds) throws IOException {
         try(ByteArrayOutputStream stream = new ByteArrayOutputStream()){
             var header = convertHeader(layers);
             stream.write(header);
 
-            System.out.println("------------------------------------------------------------");
             for(var layer : layers){
                 var layerName = layer.name();
                 var features = layer.features();
@@ -111,10 +131,11 @@ public class CovtConverter {
                                     new StreamMetadata(features.size(), idColumn.length))));
                 }
 
-                var geometryColumnData = ICE_ENCODED_LAYER_NAMES.contains(layerName) && (
-                        geometryEncoding == GeometryEncoding.ICE || geometryEncoding == GeometryEncoding.ICE_DICTIONARY) ?
-                        convertIceCodedGeometryColumn(features, geometryEncoding == GeometryEncoding.ICE_DICTIONARY) :
-                        convertUnorderedGeometryColumn(features);
+                var geometryColumnData = ICE_ENCODED_LAYER_NAMES.contains(layerName) &&
+                        (geometryEncoding == GeometryEncoding.ICE || geometryEncoding == GeometryEncoding.ICE_MORTON) ?
+                        convertIceCodedGeometryColumn(features, tileExtent, geometryEncoding, vertexBufferCompression, topologyStreamsCompression) :
+                        convertUnorderedGeometryColumn(features, geometryEncoding, vertexBufferCompression, topologyStreamsCompression);
+                //System.out.println(layerName + " geometry size: " + geometryColumnData.geometryColumn().length / 1024d);
 
                 var geometryColumn = geometryColumnData.geometryColumn();
                 var geometryMetadata = geometryColumnData.columnMetadata();
@@ -122,6 +143,7 @@ public class CovtConverter {
                 var propertyColumnData = convertPropertyColumns(features, propertyColumnMetadata);
                 var propertyMetadata = propertyColumnData.metadata();
                 var propertyColumns = propertyColumnData.propertyColumns();
+                //System.out.println(layerName + " property size: " + propertyColumnData.propertyColumns().length / 1024d);
 
                 var layerMetadata = convertLayerMetadata(layerName, idMetadata, geometryMetadata, propertyMetadata);
 
@@ -131,9 +153,6 @@ public class CovtConverter {
                 }
                 stream.write(geometryColumn);
                 stream.write(propertyColumns);
-
-
-                System.out.println(String.format("layer name: %s, geometry: %s, properties: %s", layerName, geometryColumn.length / 1000f, propertyColumns.length / 1000f));
             }
 
             return stream.toByteArray();
@@ -154,14 +173,17 @@ public class CovtConverter {
         * */
         var numFeatures = geometryMetadata.streams().get(GEOMETRY_TYPES_STREAM_NAME).numValues();
         var numColumns = propertyColumnData.booleanMetadata().size() + propertyColumnData.longMetadata().size() +
-                propertyColumnData.stringDictionaryMetadata().size() + propertyColumnData.localizedStringDictionaryMetadata().size() + 2;
-        var metadata = ArrayUtils.addAll(EncodingUtils.encodeString(layerName), EncodingUtils.encodeVarints(new long[]{numFeatures, numColumns}));
+                propertyColumnData.floatMetadata().size() +
+                propertyColumnData.stringDictionaryMetadata().size() + propertyColumnData.localizedStringDictionaryMetadata().size() +
+                (idMetadata != null ? 2 : 1) ;
+        var metadata = ArrayUtils.addAll(EncodingUtils.encodeString(layerName),
+                EncodingUtils.encodeVarints(new long[]{numFeatures, numColumns}, false, false));
 
         if(idMetadata != null){
             metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(ID_COLUMN_NAME));
             metadata  = ArrayUtils.addAll(metadata, (byte)ColumnDataType.UINT_64.ordinal());
             metadata = ArrayUtils.addAll(metadata, (byte) idMetadata.columnEncoding().ordinal());
-            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{1}));
+            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{1}, false, false));
             metadata = addStreamMetadata(metadata, DATA_STREAM_NAME,  idMetadata.streams().get(DATA_STREAM_NAME));
         }
 
@@ -169,13 +191,14 @@ public class CovtConverter {
         metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(GEOMETRY_COLUMN_NAME));
         metadata  = ArrayUtils.addAll(metadata, (byte) ColumnDataType.GEOMETRY.ordinal());
         metadata = ArrayUtils.addAll(metadata, (byte) geometryMetadata.columnEncoding().ordinal());
-        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{geometryStreams.size()}));
+        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{geometryStreams.size()}, false, false));
         for(var geometryStream : geometryStreams.entrySet()){
             metadata = addStreamMetadata(metadata, geometryStream.getKey(), geometryStream.getValue());
         }
 
         metadata = addNamedColumnMetadata(metadata, propertyColumnData.booleanMetadata());
         metadata = addNamedColumnMetadata(metadata, propertyColumnData.longMetadata());
+        metadata = addNamedColumnMetadata(metadata, propertyColumnData.floatMetadata());
         metadata = addNamedColumnMetadata(metadata, propertyColumnData.stringDictionaryMetadata());
         return addNamedColumnMetadata(metadata, propertyColumnData.localizedStringDictionaryMetadata());
     }
@@ -186,7 +209,7 @@ public class CovtConverter {
             metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(column.columnName()));
             metadata = ArrayUtils.addAll(metadata, (byte)columnMetadata.columnDataType().ordinal());
             metadata = ArrayUtils.addAll(metadata, (byte)columnMetadata.columnEncoding().ordinal());
-            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{columnMetadata.streams().size()}));
+            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{columnMetadata.streams().size()}, false, false));
 
             for(var stream : columnMetadata.streams().entrySet()){
                 metadata = addStreamMetadata(metadata, stream.getKey(), stream.getValue());
@@ -198,8 +221,8 @@ public class CovtConverter {
 
     private static byte[] addStreamMetadata(byte[] metadata, String streamName, StreamMetadata streamMetadata) throws IOException {
         metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(streamName));
-        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.numValues()}));
-        return ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.byteLength()}));
+        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.numValues()}, false, false));
+        return ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.byteLength()}, false, false));
     }
 
     private static byte[] convertHeader(List<Layer> layers) {
@@ -210,7 +233,7 @@ public class CovtConverter {
         var version = 1;
         var numLayers = layers.size();
 
-        return EncodingUtils.encodeVarints(new long[]{version, numLayers});
+        return EncodingUtils.encodeVarints(new long[]{version, numLayers}, false, false);
     }
 
     private static LinkedHashMap<String, ColumnMetadata> getPropertyColumnMetadata(List<Feature> features){
@@ -235,6 +258,7 @@ public class CovtConverter {
             var properties = feature.properties();
             for(var property : properties.entrySet()){
                 var columnName = property.getKey();
+
                 if(columnMetadata.containsKey(columnName)){
                     continue;
                 }
@@ -242,8 +266,9 @@ public class CovtConverter {
                 var propertyValue = property.getValue();
                 if(propertyValue instanceof String){
                     if(LOCALIZED_COLUM_NAME_PREFIXES.stream().anyMatch(prefix -> columnName.contains(prefix))){
-                        /* a feature with localized properties has to use : or _ as seperator*/
-                        var columnNameComponents = columnName.split(":|_");
+                        /* a feature with localized properties has to use : or _ as separator*/
+                        var columnNameComponents = Arrays.stream(columnName.split(":|_"))
+                                .filter(e -> !e.isEmpty()).toArray(String[]::new);
                         var baseColumnName = columnNameComponents[0];
                         var streamName = columnNameComponents.length > 1 ? columnNameComponents[1] : columnName;
                         var localizedColumn = columnMetadata.get(baseColumnName);
@@ -276,7 +301,8 @@ public class CovtConverter {
                     columnMetadata.put(columnName, metadata);
                 }
                 else if(propertyValue instanceof Float){
-                    throw new IllegalArgumentException("Float currently not supported as property data type.");
+                    var metadata = new ColumnMetadata(ColumnDataType.FLOAT, ColumnEncoding.PLAIN, new LinkedHashMap<>());
+                    columnMetadata.put(columnName, metadata);
                 }
                 else if(propertyValue instanceof Double){
                     throw new IllegalArgumentException("Double currently not supported as property data type.");
@@ -300,10 +326,10 @@ public class CovtConverter {
         var ids = features.stream().map(feature -> feature.id()).mapToLong(i -> i).toArray();
 
         if(ColumnEncoding.PLAIN.equals(encoding)){
-            return EncodingUtils.encodeVarints(ids);
+            return EncodingUtils.encodeVarints(ids, false, false);
         }
         if(ColumnEncoding.DELTA_VARINT.equals(encoding)){
-            return EncodingUtils.encodeDeltaVarints(ids);
+            return EncodingUtils.encodeVarints(ids, true, true);
         }
         if(ColumnEncoding.RLE.equals(encoding)){
             return EncodingUtils.encodeRle(ids, false);
@@ -312,16 +338,17 @@ public class CovtConverter {
         throw new IllegalArgumentException("The specified encoding for the id column is not supported.");
     }
 
-    private static GeometryColumData convertUnorderedGeometryColumn(List<Feature> features) throws IOException {
+    private static GeometryColumData convertUnorderedGeometryColumn(List<Feature> features, GeometryEncoding geometryEncoding,
+                                                                    VertexBufferCompression vertexBufferCompression,
+                                                                    TopologyStreamsCompression topologyStreamsCompression) throws IOException {
         var geometryTypes = new ArrayList<Integer>();
         var partOffsets = new ArrayList<Integer>();
         var ringOffsets = new ArrayList<Integer>();
         var geometryOffsets = new ArrayList<Integer>();
-        var vertexBuffer = new byte[0];
+        var vertexBuffer = new ArrayList<Integer>();
         var numVertices = 0;
 
-        var testVertexBuffer = new int [0];
-
+        //TODO: if not sorted after id sort the geometries -> points based on HilbertCurve
         for(var feature : features){
             var geometryType = feature.geometry().getGeometryType();
 
@@ -337,8 +364,8 @@ public class CovtConverter {
             if(geometryType.equals("Point")){
                 geometryTypes.add(GeometryType.POINT.ordinal());
                 var point = (Point)feature.geometry();
-                var pointBuffer = EncodingUtils.encodeZigZagVarints(new int[]{(int)point.getX(), (int)point.getY()});
-                vertexBuffer = ArrayUtils.addAll(vertexBuffer, pointBuffer);
+                vertexBuffer.add((int)point.getX());
+                vertexBuffer.add((int)point.getY());
                 numVertices++;
             }
             else if(geometryType.equals("MultiPoint")) {
@@ -348,9 +375,7 @@ public class CovtConverter {
                 geometryTypes.add(GeometryType.LINESTRING.ordinal());
                 var lineString = (LineString) feature.geometry();
                 partOffsets.add(lineString.getCoordinates().length);
-                var deltaVertices = deltaCodeLineString(lineString);
-                var varintVertices = EncodingUtils.encodeZigZagVarints(deltaVertices);
-                vertexBuffer = ArrayUtils.addAll(vertexBuffer, varintVertices);
+                vertexBuffer.addAll(flatLineString(lineString));
                 numVertices+= lineString.getCoordinates().length;
             }
             else if(geometryType.equals("MultiLineString")){
@@ -361,20 +386,17 @@ public class CovtConverter {
                 for(var i = 0; i < numLineStrings; i++){
                     var lineString =  (LineString)multiLineString.getGeometryN(i);
                     partOffsets.add(lineString.getCoordinates().length);
-                    var deltaVertices = deltaCodeLineString(lineString);
-                    var varintVertices = EncodingUtils.encodeZigZagVarints(deltaVertices);
-                    vertexBuffer = ArrayUtils.addAll(vertexBuffer, varintVertices);
-                    numVertices += (deltaVertices.length / 2);
+                    var vertices = flatLineString(lineString);
+                    vertexBuffer.addAll(vertices);
+                    numVertices += (vertices.size() / 2);
                 }
             }
             else if(geometryType.equals("Polygon")){
                 geometryTypes.add( GeometryType.POLYGON.ordinal());
                 var polygon = (Polygon)feature.geometry();
-                var deltaVertices = deltaCodePolygon(polygon, partOffsets, ringOffsets);
-                ArrayUtils.addAll(testVertexBuffer, deltaVertices);
-                var varintVertices = EncodingUtils.encodeZigZagVarints(deltaVertices);
-                vertexBuffer = ArrayUtils.addAll(vertexBuffer, varintVertices);
-                numVertices += (deltaVertices.length / 2);
+                var vertices = flatPolygon(polygon, partOffsets, ringOffsets);
+                vertexBuffer.addAll(vertices);
+                numVertices += (vertices.size() / 2);
             }
             else if(geometryType.equals("MultiPolygon")){
                 geometryTypes.add( GeometryType.MULTIPOLYGON.ordinal());
@@ -383,11 +405,9 @@ public class CovtConverter {
                 geometryOffsets.add(numPolygons);
                 for(var i = 0; i < numPolygons; i++){
                     var polygon = (Polygon)multiPolygon.getGeometryN(i);
-                    var deltaVertices = deltaCodePolygon(polygon, partOffsets, ringOffsets);
-                    //testVertexBuffer = ArrayUtils.addAll(testVertexBuffer, deltaVertices);
-                    var varintVertices = EncodingUtils.encodeZigZagVarints(deltaVertices);
-                    vertexBuffer = ArrayUtils.addAll(vertexBuffer, varintVertices);
-                    numVertices += (deltaVertices.length / 2);
+                    var vertices = flatPolygon(polygon, partOffsets, ringOffsets);
+                    vertexBuffer.addAll(vertices);
+                    numVertices += (vertices.size() / 2);
                 }
             }
             else{
@@ -396,32 +416,50 @@ public class CovtConverter {
         }
 
         var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.PLAIN, new LinkedHashMap<>());
-        var geometryColumn = convertTopologyStreams(geometryTypes, geometryOffsets, partOffsets, ringOffsets, columnMetadata);
-        geometryColumn = ArrayUtils.addAll(geometryColumn, vertexBuffer);
-        columnMetadata.streams().put("vertex_buffer", new StreamMetadata(numVertices, vertexBuffer.length));
-
+        var geometryColumn = convertTopologyStreams(geometryTypes, geometryOffsets, partOffsets, ringOffsets, columnMetadata, topologyStreamsCompression);
+        var zigZagDeltaCodedVertexBufer = EncodingUtils.encodeZigZagDeltaCoordinates(vertexBuffer);
+        var encodedVertexBuffer = vertexBufferCompression == VertexBufferCompression.FAST_PFOR_DELTA ?
+                EncodingUtils.encodeFastPfor128(zigZagDeltaCodedVertexBufer, false, false) :
+                EncodingUtils.encodeVarints(Arrays.stream(zigZagDeltaCodedVertexBufer).mapToLong(v -> v).toArray(), false, false);
+        //TODO: add encoding of the stream
+        columnMetadata.streams().put("vertex_buffer", new StreamMetadata(numVertices, encodedVertexBuffer.length));
         return new GeometryColumData(columnMetadata, geometryColumn);
     }
 
-    private static GeometryColumData convertIceCodedGeometryColumn(List<Feature> features, boolean useDeltaDictionary) throws IOException {
-        SmallHilbertCurve hilbertCurve =
-                HilbertCurve.small().bits(14).dimensions(2);
-        var vertexDictionary = createVertexDictionary(features, hilbertCurve);
+    private static GeometryColumData convertIceCodedGeometryColumn(List<Feature> features, int tileExtent, GeometryEncoding geometryEncoding,
+                                                                   VertexBufferCompression vertexBufferCompression,
+                                                                   TopologyStreamsCompression topologyStreamsCompression) throws IOException {
+        if(tileExtent != 2<<11 && tileExtent != 2<<12){
+            throw new RuntimeException("The specified tile extent is not (yet) supported.");
+        }
+        var numBits = tileExtent == 2<<11 ? 13 : 14;
+        var hilbertCurve = HilbertCurve.small().bits(numBits).dimensions(2);
+        Function<Vertex, Integer> sfcIdGenerator = geometryEncoding == GeometryEncoding.ICE_MORTON ?
+                    vertex -> GeometryUtils.encodeMorton(vertex.x(), vertex.y(), numBits):
+                    vertex -> GeometryUtils.getHilbertIndex(hilbertCurve, vertex, numBits);
+        var vertexDictionary = createVertexDictionary(features, sfcIdGenerator);
 
         var geometryTypes = new ArrayList<Integer>();
         var partOffsets = new ArrayList<Integer>();
         var ringOffsets = new ArrayList<Integer>();
         var geometryOffsets = new ArrayList<Integer>();
         var vertexOffsets = new ArrayList<Integer>();
-
-        var testVertexBuffer = new ArrayList<Coordinate>();
         for(var feature : features){
             var geometryType = feature.geometry().getGeometryType();
-            if(geometryType.equals("LineString")){
+            //TODO: verify if this is working
+            if(geometryType.equals("Point")){
+                geometryTypes.add(GeometryType.POINT.ordinal());
+                var point = (Point) feature.geometry();
+                var vertex = new Vertex((int)point.getX(), (int)point.getY());
+                var sfcId = sfcIdGenerator.apply(vertex);
+                var offset = Iterables.indexOf(vertexDictionary.entrySet(), v -> v.getKey().equals(sfcId));
+                vertexOffsets.add(offset);
+            }
+            else if(geometryType.equals("LineString")){
                 geometryTypes.add(GeometryType.LINESTRING.ordinal());
                 var lineString = (LineString) feature.geometry();
                 partOffsets.add(lineString.getCoordinates().length);
-                var offsets = getVertexOffsets(lineString, vertexDictionary, hilbertCurve);
+                var offsets = getVertexOffsets(lineString, vertexDictionary, sfcIdGenerator);
                 vertexOffsets.addAll(offsets);
             }
             else if(geometryType.equals("MultiLineString")){
@@ -432,7 +470,7 @@ public class CovtConverter {
                 for(var i = 0; i < numLineStrings; i++){
                     var lineString =  (LineString)multiLineString.getGeometryN(i);
                     partOffsets.add(lineString.getCoordinates().length);
-                    var offsets = getVertexOffsets(lineString, vertexDictionary, hilbertCurve);
+                    var offsets = getVertexOffsets(lineString, vertexDictionary, sfcIdGenerator);
                     vertexOffsets.addAll(offsets);
                 }
             }
@@ -445,11 +483,8 @@ public class CovtConverter {
                 for(var i = 0; i < numRings; i++){
                     LinearRing linearRing = i == 0 ? polygon.getExteriorRing() : polygon.getInteriorRingN(i-1);
                     ringOffsets.add(linearRing.getCoordinates().length);
-                    var offsets = getVertexOffsets(linearRing, vertexDictionary, hilbertCurve);
+                    var offsets = getVertexOffsets(linearRing, vertexDictionary, sfcIdGenerator);
                     vertexOffsets.addAll(offsets);
-
-
-                    testVertexBuffer.addAll(Arrays.stream(linearRing.getCoordinates()).toList());
                 }
 
             }
@@ -465,67 +500,51 @@ public class CovtConverter {
                     for(var j = 0; j < numRings; j++){
                         LinearRing linearRing = j == 0 ? polygon.getExteriorRing() : polygon.getInteriorRingN(j-1);
                         ringOffsets.add(linearRing.getCoordinates().length);
-                        var offsets = getVertexOffsets(linearRing, vertexDictionary, hilbertCurve);
+                        var offsets = getVertexOffsets(linearRing, vertexDictionary, sfcIdGenerator);
                         vertexOffsets.addAll(offsets);
-
-
-                        testVertexBuffer.addAll(Arrays.stream(linearRing.getCoordinates()).toList());
                     }
                 }
             }
             else{
-                throw new IllegalArgumentException("Geometry type not supported.");
+                throw new IllegalArgumentException(String.format("Geometry type %s not supported.", geometryType));
             }
         }
 
         var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.INDEXED_COORDINATE_ENCODING, new LinkedHashMap<>());
-        var geometryColumn = convertTopologyStreams(geometryTypes, geometryOffsets, partOffsets, ringOffsets, columnMetadata);
+        var geometryColumn = convertTopologyStreams(geometryTypes, geometryOffsets, partOffsets, ringOffsets, columnMetadata, topologyStreamsCompression);
 
-        if(useDeltaDictionary){
-            var pair = encodeDeltaVertexDictionary(vertexDictionary, vertexOffsets);
-            var deltaVertexOffsets = pair.left;
-            var vertexBuffer = pair.middle;
-            var numDeltaVertexValues = pair.right;
-            geometryColumn = ArrayUtils.addAll(geometryColumn, deltaVertexOffsets);
-            geometryColumn = ArrayUtils.addAll(geometryColumn, vertexBuffer);
-            //TODO: is numValues here valid?
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(), deltaVertexOffsets.length));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(numDeltaVertexValues, vertexBuffer.length));
-        }
-        else{
-            //var vertexOffsetsStreamDeltaRle = EncodingUtils.encodeDeltaRle(longVertexOffsets);
-            //var vertexOffsetsStream = EncodingUtils.encodeDeltaFastPfor128(longVertexOffsets);
-            /*System.out.println("vertexOffsets FastPfor Delta: " + vertexOffsetsStreamDeltaFastPfor.length / 1000d + " Delta Rle: "
-                + vertexOffsetsStreamDeltaRle.length / 1000d + " Varint Delta: " + vertexOffsetsStream.length / 1000d);*/
+        var useFastPforDelta = vertexBufferCompression == VertexBufferCompression.FAST_PFOR_DELTA;
+        var vertexOffsetsStream = useFastPforDelta ?
+                EncodingUtils.encodeFastPfor128(vertexOffsets.stream().mapToInt(i -> i).toArray(), true, true) :
+                EncodingUtils.encodeVarints(vertexOffsets.stream().mapToLong(i -> i).toArray(), true, true);
 
-            var vertexOffsetsStream = EncodingUtils.encodeDeltaVarints(vertexOffsets.stream().mapToLong(i -> i).toArray());
-            var vertexBuffer = encodeVertexDictionary(vertexDictionary);
-            geometryColumn = ArrayUtils.addAll(geometryColumn, vertexOffsetsStream);
-            geometryColumn = ArrayUtils.addAll(geometryColumn, vertexBuffer);
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(), vertexOffsetsStream.length));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), vertexBuffer.length));
-        }
-
+        var vertexBuffer = geometryEncoding == GeometryEncoding.ICE_MORTON ?
+                encodeVertexDictionaryWithMortonId(vertexDictionary, sfcIdGenerator, useFastPforDelta) :
+                encodeVertexDictionary(vertexDictionary, useFastPforDelta);
+        geometryColumn = ArrayUtils.addAll(geometryColumn, vertexOffsetsStream);
+        geometryColumn = ArrayUtils.addAll(geometryColumn, vertexBuffer);
+        //TODO: add encoding -> FastPforDelta or VarintDelta
+        columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(), vertexOffsetsStream.length));
+        columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), vertexBuffer.length));
         return new GeometryColumData(columnMetadata, geometryColumn);
     }
 
-    private static TreeMap<Integer, Vertex> createVertexDictionary(List<Feature> features, SmallHilbertCurve hilbertCurve){
+    private static TreeMap<Integer, Vertex> createVertexDictionary(List<Feature> features, Function<Vertex, Integer> sfcIdGenerator){
         var vertexDictionary = new TreeMap<Integer, Vertex>();
         for(var feature : features){
             var geometry = feature.geometry();
             var coordinates = geometry.getCoordinates();
             for(var coordinate : coordinates){
                 var vertex = new Vertex((int)coordinate.x, (int)coordinate.y);
-                var hilbertIndex = getHilbertIndex(hilbertCurve, vertex);
-                vertexDictionary.put(hilbertIndex, vertex);
+                var sfcId = sfcIdGenerator.apply(vertex);
+                vertexDictionary.put(sfcId, vertex);
             }
         }
-
         return vertexDictionary;
     }
 
     private static byte [] convertTopologyStreams(List<Integer> geometryTypes, List<Integer> geometryOffsets, List<Integer> partOffsets,
-                            List<Integer> ringOffsets, ColumnMetadata columnMetadata) throws IOException {
+                            List<Integer> ringOffsets, ColumnMetadata columnMetadata, TopologyStreamsCompression compression) throws IOException {
         var streams = columnMetadata.streams();
 
         var geometryTypeStream = EncodingUtils.encodeByteRle(
@@ -533,151 +552,123 @@ public class CovtConverter {
         streams.put(GEOMETRY_TYPES_STREAM_NAME, new StreamMetadata(geometryTypes.size(), geometryTypeStream.length));
         var geometryColumn = geometryTypeStream;
 
+        var useFastPforDelta = compression == TopologyStreamsCompression.FAST_PFOR_DELTA;
         if(geometryOffsets.size() > 0){
-            var longGeometryOffsets  = geometryOffsets.stream().mapToLong(i -> i).toArray();
-            //var geometryOffsetsStreamRle = EncodingUtils.encodeDeltaFastPfor128(longGeometryOffsets);
-            var geometryOffsetsStreamRle = EncodingUtils.encodeRle(longGeometryOffsets, false);
-            /*System.out.println("geometry Offsets FastPfor Delta: " + geometryOffsetsStreamDeltaFastPfor.length / 1000d + " Rle: "
-                    + geometryOffsetsStreamRle.length / 1000d);*/
-
-            streams.put("geometry_offsets", new StreamMetadata(geometryOffsets.size(), geometryOffsetsStreamRle.length));
-            geometryColumn = ArrayUtils.addAll(geometryColumn, geometryOffsetsStreamRle);
+            //TODO: add encoding of the topology streams to the metadata
+            var rleOffsets= EncodingUtils.encodeRle(geometryOffsets.stream().mapToLong(i -> i).toArray(), false);
+            if(!useFastPforDelta){
+                return rleOffsets;
+            }
+            var fastPforDeltaOffsets = EncodingUtils.encodeFastPfor128(
+                    geometryOffsets.stream().mapToInt(i -> i).toArray(), true, true);
+            var geometryOffsetsStream = fastPforDeltaOffsets.length < rleOffsets.length?
+                    fastPforDeltaOffsets : rleOffsets;
+            streams.put("geometry_offsets", new StreamMetadata(geometryOffsets.size(), geometryOffsetsStream.length));
+            geometryColumn = ArrayUtils.addAll(geometryColumn, geometryOffsetsStream);
         }
 
         if(partOffsets.size() > 0){
-            var longPartOffsets  = partOffsets.stream().mapToLong(i -> i).toArray();
-            //var partOffsetsStreamRle = EncodingUtils.encodeDeltaFastPfor128(longPartOffsets);
-            var partOffsetsStreamRle = EncodingUtils.encodeRle(longPartOffsets, false);
-            /*System.out.println("partOffsets FastPfor Delta: " + partOffsetsStreamDeltaFastPfor.length / 1000d + " Rle: "
-                    + partOffsetsStreamRle.length / 1000d);*/
-
-            streams.put("part_offsets", new StreamMetadata(partOffsets.size(), partOffsetsStreamRle.length));
-            geometryColumn = ArrayUtils.addAll(geometryColumn, partOffsetsStreamRle);
+            //TODO: add encoding of the topology streams to the metadata
+            var rleOffsets= EncodingUtils.encodeRle(partOffsets.stream().mapToLong(i -> i).toArray(), false);
+            if(!useFastPforDelta){
+                return rleOffsets;
+            }
+            var fastPforDeltaOffsets = EncodingUtils.encodeFastPfor128(
+                   partOffsets.stream().mapToInt(i -> i).toArray(), true, true);
+            var partOffsetsStream = fastPforDeltaOffsets.length < rleOffsets.length?
+                    fastPforDeltaOffsets : rleOffsets;
+            streams.put("part_offsets", new StreamMetadata(partOffsets.size(), partOffsetsStream.length));
+            geometryColumn = ArrayUtils.addAll(geometryColumn, partOffsetsStream);
         }
 
         if(ringOffsets.size() > 0){
-            var longRingOffsets = ringOffsets.stream().mapToLong(i -> i).toArray();
-            //var ringOffsetsStreamRle = EncodingUtils.encodeDeltaFastPfor128(longRingOffsets);
-            var ringOffsetsStreamRle = EncodingUtils.encodeRle(longRingOffsets, false);
-            /*System.out.println("ringOffsets FastPfor Delta: " + ringOffsetsStreamDeltaFastPfor.length / 1000d + " Rle: "
-                    + ringOffsetsStreamRle.length / 1000d);*/
-
-            streams.put("ring_offsets", new StreamMetadata(ringOffsets.size(), ringOffsetsStreamRle.length));
-            geometryColumn = ArrayUtils.addAll(geometryColumn, ringOffsetsStreamRle);
+            //TODO: add encoding of the topology streams to the metadata
+            var rleOffsets= EncodingUtils.encodeRle(ringOffsets.stream().mapToLong(i -> i).toArray(), false);
+            if(!useFastPforDelta){
+                return rleOffsets;
+            }
+            var fastPforDeltaOffsets = EncodingUtils.encodeFastPfor128(
+                    ringOffsets.stream().mapToInt(i -> i).toArray(), true, true);
+            var ringOffsetsStream = fastPforDeltaOffsets.length < rleOffsets.length?
+                    fastPforDeltaOffsets : rleOffsets;
+            streams.put("ring_offsets", new StreamMetadata(ringOffsets.size(), ringOffsetsStream.length));
+            geometryColumn = ArrayUtils.addAll(geometryColumn, ringOffsetsStream);
         }
 
+        //TODO: currently the used encoding for the topology streams is not specified in the metadata
         return geometryColumn;
     }
 
-    private static byte[] encodeVertexDictionary(Map<Integer, Vertex> vertexDictionary){
-        var previousX = 0;
-        var previousY = 0;
-        var vertices = new int[vertexDictionary.size() * 2];
-        var i = 0;
-        for(var vertex : vertexDictionary.values()){
-            var x = vertex.x() - previousX;
-            var y = vertex.y() - previousY;
-            vertices[i++] = x;
-            vertices[i++] = y;
+    private static byte[] encodeVertexDictionary(Map<Integer, Vertex> vertexDictionary, boolean useFastPfor){
+        var vertices = vertexDictionary.values().stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().
+                collect(Collectors.toList());
+        var zigZagDeltaVertices = EncodingUtils.encodeZigZagDeltaCoordinates(vertices);
 
-            previousX = vertex.x();
-            previousY = vertex.y();
+        var varintEncodedVertexBuffer = EncodingUtils.encodeVarints(Arrays.stream(zigZagDeltaVertices).mapToLong(i -> i).toArray(),
+                false, false);
+        if(!useFastPfor){
+            return varintEncodedVertexBuffer;
         }
-        //EncodingUtils.encodeDeltaFastPfor128()
-        return EncodingUtils.encodeZigZagVarints(vertices);
-        //return EncodingUtils.encodeZigZagFastPfor128(vertices);
+        var fastPforEncodedVertexBuffer =  EncodingUtils.encodeFastPfor128(zigZagDeltaVertices, false, false);
+        //TODO: add to the stream metadata which encoding is used
+        return fastPforEncodedVertexBuffer.length < varintEncodedVertexBuffer.length?
+                fastPforEncodedVertexBuffer:
+                varintEncodedVertexBuffer;
     }
 
-    private static ImmutableTriple<byte[], byte[], Integer> encodeDeltaVertexDictionary(Map<Integer, Vertex> vertexDictionary, List<Integer> vertexOffsets){
-        var previousX = 0;
-        var previousY = 0;
-        var deltaVertices = new long[vertexDictionary.size() * 2];
-        var deltaVertices2 = new int[vertexDictionary.size() * 2];
-        var i = 0;
-        for(var vertex : vertexDictionary.values()){
-            var x = vertex.x() - previousX;
-            var y = vertex.y() - previousY;
-            deltaVertices[i++] = x;
-            deltaVertices[i++] = y;
-
-            deltaVertices2[i-2] = x;
-            deltaVertices2[i-1] = y;
-
-            previousX = vertex.x();
-            previousY = vertex.y();
+    private static byte[] encodeVertexDictionaryWithMortonId(Map<Integer, Vertex> vertexDictionary, Function<Vertex, Integer> sfcIdGenerator, boolean useFastPfor){
+        var mortonCodes = vertexDictionary.entrySet().stream().map(v -> sfcIdGenerator.apply(v.getValue())).mapToLong(i -> i).toArray();
+        var varintDeltaMortonCodes = EncodingUtils.encodeVarints(mortonCodes, false, true);
+        if(!useFastPfor){
+            return varintDeltaMortonCodes;
         }
-
-        var deltaVertexDictionary = Arrays.stream(deltaVertices).distinct().toArray();
-
-        //var deltaVertexOffsetsCompressed = EncodingUtils.encodeZigZagVarints(deltaVertexOffsets);
-        var deltaVertexOffsetsCompressed = new byte[0];
-        var deltaVertexDictionaryCompressed = EncodingUtils.encodeZigZagVarints(deltaVertices);
-        var deltaVertexDictionaryCompressed2 = EncodingUtils.encodeZigZagFastPfor128(deltaVertices2);
-
-        return ImmutableTriple.of(deltaVertexOffsetsCompressed, deltaVertexDictionaryCompressed, deltaVertexDictionary.length);
+        var fastPforDeltaMortonCodes = EncodingUtils.encodeFastPfor128(Arrays.stream(mortonCodes).mapToInt(i -> (int)i).toArray(),
+                false, true);
+        return fastPforDeltaMortonCodes.length < varintDeltaMortonCodes.length? fastPforDeltaMortonCodes : varintDeltaMortonCodes;
     }
 
-    private static List<Integer> getVertexOffsets(LineString lineString, TreeMap<Integer, Vertex> vertexDictionary, SmallHilbertCurve hilbertCurve){
+    private static List<Integer> getVertexOffsets(LineString lineString, TreeMap<Integer, Vertex> vertexDictionary, Function<Vertex, Integer> sfcIdGenerator){
         return Arrays.stream(lineString.getCoordinates()).map(coordinate -> {
             var vertex = new Vertex((int)coordinate.x, (int)coordinate.y);
-            var hilbertIndex = getHilbertIndex(hilbertCurve, vertex);
-            return Iterables.indexOf(vertexDictionary.entrySet(), v -> v.getKey().equals(hilbertIndex));
+            var sfcIndex = sfcIdGenerator.apply(vertex);
+            return Iterables.indexOf(vertexDictionary.entrySet(), v -> v.getKey().equals(sfcIndex));
         }).collect(Collectors.toList());
     }
 
-    private static int getHilbertIndex(SmallHilbertCurve curve, Vertex vertex){
-        var shiftedX = NUM_COORDINATES_PER_QUADRANT + vertex.x();
-        var shiftedY = NUM_COORDINATES_PER_QUADRANT + vertex.y();
-        return (int) curve.index(shiftedX, shiftedY);
-    }
-
-    private static int[] deltaCodePolygon(Polygon polygon, List<Integer> partOffsets, List<Integer> ringOffsets){
-        var vertexBuffer = new int[0];
+    private static List<Integer> flatPolygon(Polygon polygon, List<Integer> partOffsets, List<Integer> ringOffsets) {
+        var vertexBuffer = new ArrayList<Integer>();
         var numRings = polygon.getNumInteriorRing() + 1;
         partOffsets.add(numRings);
 
         var exteriorRing = polygon.getExteriorRing();
         var shell = new GeometryFactory().createLineString(Arrays.copyOf(exteriorRing.getCoordinates(),
-                        exteriorRing.getCoordinates().length - 1));
-        var shellVertices = deltaCodeLineString(shell);
-        vertexBuffer = ArrayUtils.addAll(vertexBuffer, shellVertices);
+                exteriorRing.getCoordinates().length - 1));
+        var shellVertices = flatLineString(shell);
+        vertexBuffer.addAll(shellVertices);
         ringOffsets.add(shell.getNumPoints());
 
-        for(var i = 0; i < polygon.getNumInteriorRing(); i++){
+        for (var i = 0; i < polygon.getNumInteriorRing(); i++) {
             var interiorRing = polygon.getInteriorRingN(i);
             var ring = new GeometryFactory().createLineString(Arrays.copyOf(interiorRing.getCoordinates(),
-                            interiorRing.getCoordinates().length - 1));
+                    interiorRing.getCoordinates().length - 1));
 
-            var ringVertices = deltaCodeLineString(ring);
-            vertexBuffer = ArrayUtils.addAll(vertexBuffer, ringVertices);
+            var ringVertices = flatLineString(ring);
+            vertexBuffer.addAll(ringVertices);
             ringOffsets.add(ring.getNumPoints());
         }
 
         return vertexBuffer;
     }
 
-    private static int[] deltaCodeLineString(LineString lineString){
-        var vertices = lineString.getCoordinates();
-        var previousVertexX = 0;
-        var previousVertexY = 0;
-        var deltaVertices = new int[vertices.length * 2];
-        var i = 0;
-        for (var vertex : vertices) {
-            var deltaX = (int) vertex.x - previousVertexX;
-            var deltaY = (int) vertex.y - previousVertexY;
-            deltaVertices[i++] = deltaX;
-            deltaVertices[i++] = deltaY;
-
-            previousVertexX = (int)vertex.x;
-            previousVertexY = (int)vertex.y;
-        }
-
-        return deltaVertices;
+    private static List<Integer> flatLineString(LineString lineString){
+        return Arrays.stream(lineString.getCoordinates()).flatMapToInt(v -> IntStream.of((int)v.x, (int)v.y)).boxed().
+                collect(Collectors.toList());
     }
 
     private static PropertyColumData convertPropertyColumns(List<Feature> features, LinkedHashMap<String, ColumnMetadata> columnMetadata) throws IOException {
-        var booleanColumns = new HashMap<String, BooleanColumnData>();
-        var longColumns = new HashMap<String, LongColumnData>();
+        var booleanColumns = new HashMap<String, PrimitiveColumnData<Boolean>>();
+        var longColumns = new HashMap<String, PrimitiveColumnData<Long>>();
+        var floatColumns = new HashMap<String, PrimitiveColumnData<Float>>();
         var stringDictionaryColumns = new HashMap<String, StringDictionaryColumnData>();
         var stringLocalizedDictionaryColumns = new HashMap<String, StringLocalizedDictionaryColumnData>();
 
@@ -715,13 +706,13 @@ public class CovtConverter {
             switch (columnDataType){
                 case BOOLEAN:
                     var booleanColumn = convertPropertyColumn(columnName, metadata, features,
-                            (ColumnMetadata m, List<Boolean> p, List<Boolean> d) -> new BooleanColumnData(m, p, d));
+                            (ColumnMetadata m, List<Boolean> p, List<Boolean> d) -> new PrimitiveColumnData(m, p, d));
                     booleanColumns.put(columnName, booleanColumn);
                     break;
                 case INT_64:
                 case UINT_64:
                     var longColumn = convertPropertyColumn(columnName, metadata, features,
-                            (ColumnMetadata m, List<Boolean> p, List<Long> d) -> new LongColumnData(m, p, d));
+                            (ColumnMetadata m, List<Boolean> p, List<Long> d) -> new PrimitiveColumnData(m, p, d));
                     longColumns.put(columnName, longColumn);
                     break;
                 case STRING:
@@ -734,6 +725,11 @@ public class CovtConverter {
                         var stringDictionaryColumn = convertStringDictionaryColumn(columnName, metadata, features);
                         stringDictionaryColumns.put(columnName, stringDictionaryColumn);
                     }
+                    break;
+                case FLOAT:
+                    var floatColumn = convertPropertyColumn(columnName, metadata, features,
+                            (ColumnMetadata m, List<Boolean> p, List<Float> d) -> new PrimitiveColumnData(m, p, d));
+                    floatColumns.put(columnName, floatColumn);
                     break;
                 default:
                     throw new IllegalArgumentException("Column data type currently not supported.");
@@ -769,9 +765,31 @@ public class CovtConverter {
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedPresentStream);
 
                 var data = dataStream.stream().mapToLong(i -> i).toArray();
-                //TODO: depending on the datatype is signed true or false
+                //TODO: add supporrt for UInt64 -> depending on the datatype is signed true or false
                 var encodedData = ColumnEncoding.RLE.equals(metadata.columnEncoding()) ?
-                        EncodingUtils.encodeRle(data, true) : EncodingUtils.encodeZigZagVarints(data);
+                        EncodingUtils.encodeRle(data, true) : EncodingUtils.encodeVarints(data, true, false);
+                columnBuffer = ArrayUtils.addAll(columnBuffer, encodedData);
+
+                metadata.streams().put(PRESENT_STREAM_NAME, new StreamMetadata(presentStream.size(), encodedPresentStream.length));
+                metadata.streams().put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), encodedData.length));
+            }
+        }
+
+        if(floatColumns.size() > 0){
+            for(var column : floatColumns.entrySet()){
+                var floatColumn = column.getValue();
+                var presentStream = floatColumn.presentStream();
+                var dataStream = floatColumn.dataStream();
+                var metadata = floatColumn.columnMetadata();
+
+                var encodedPresentStream = EncodingUtils.encodeBooleans(presentStream);
+                columnBuffer = ArrayUtils.addAll(columnBuffer, encodedPresentStream);
+
+                var data = new float[dataStream.size()];
+                for(var i = 0; i < dataStream.size(); i++){
+                    data[i] = dataStream.get(i);
+                }
+                var encodedData = EncodingUtils.encodeFloatsLE(data);
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedData);
 
                 metadata.streams().put(PRESENT_STREAM_NAME, new StreamMetadata(presentStream.size(), encodedPresentStream.length));
@@ -793,7 +811,7 @@ public class CovtConverter {
 
                 var encodedDataStream = EncodingUtils.encodeRle(dataStream.stream().mapToLong(i -> i).toArray(), false);
                 var encodedLengthStream = EncodingUtils.encodeRle(lengthStream.stream().mapToLong(i -> i).toArray(), false);
-                var encodedDictionary = concatByteArrays(dictionaryStream.stream().
+                var encodedDictionary = CollectionUtils.concatByteArrays(dictionaryStream.stream().
                         map(s -> s.getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList()));
 
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDataStream);
@@ -876,7 +894,7 @@ public class CovtConverter {
                 }
 
                 var encodedLengthStream = EncodingUtils.encodeRle(columnData.lengthStream().stream().mapToLong(i -> i).toArray(), false);
-                var encodedDictionary = concatByteArrays(columnData.dictionaryStream().stream().
+                var encodedDictionary = CollectionUtils.concatByteArrays(columnData.dictionaryStream().stream().
                         map(s -> s.getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList()));
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedLengthStream);
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDictionary);
@@ -891,11 +909,13 @@ public class CovtConverter {
                 c.getValue().columnMetadata())).collect(Collectors.toList());
         var longColumnMetadata = longColumns.entrySet().stream().map(c -> new NamedColumnMetadata(c.getKey(),
                 c.getValue().columnMetadata())).collect(Collectors.toList());
+        var floatColumnMetadata = floatColumns.entrySet().stream().map(c -> new NamedColumnMetadata(c.getKey(),
+                c.getValue().columnMetadata())).collect(Collectors.toList());
         var stringDictionaryColumnMetadata = stringDictionaryColumns.entrySet().stream().map(c -> new NamedColumnMetadata(c.getKey(),
                 c.getValue().columnMetadata())).collect(Collectors.toList());
         var localizedStringDictionaryColumnMetadata = stringLocalizedDictionaryColumns.entrySet().stream().map(c -> new NamedColumnMetadata(c.getKey(),
                 c.getValue().columnMetadata())).collect(Collectors.toList());
-        var columnsMetadata = new PropertyColumnsMetadata(booleanColumnMetadata, longColumnMetadata, stringDictionaryColumnMetadata, localizedStringDictionaryColumnMetadata);
+        var columnsMetadata = new PropertyColumnsMetadata(booleanColumnMetadata, longColumnMetadata, floatColumnMetadata, stringDictionaryColumnMetadata, localizedStringDictionaryColumnMetadata);
 
         return new PropertyColumData(columnsMetadata, columnBuffer);
     }
@@ -1006,6 +1026,7 @@ public class CovtConverter {
                                                   TriFunction<ColumnMetadata, List<Boolean>, List<T>, U> columnDataFunc){
         var presentStream = new ArrayList<Boolean>();
         var dataStream = new ArrayList<T>();
+
         for(var feature : features){
             var properties = feature.properties();
             var propertyValue = properties.get(columnName);
@@ -1022,11 +1043,4 @@ public class CovtConverter {
         return columnDataFunc.apply(metadata, presentStream, dataStream);
     }
 
-    private static byte[] concatByteArrays(List<byte[]> values){
-        var buffer = new byte[0];
-        for(var value : values){
-            buffer = ArrayUtils.addAll(buffer, value);
-        }
-        return buffer;
-    }
 }

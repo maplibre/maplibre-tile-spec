@@ -14,6 +14,7 @@ public class CovtCliAdapter {
     private static final String ZOOM_LEVEL_ARG = "z";
     private static final String X_COORDINATE_ARG = "x";
     private static final String Y_COORDINATE_ARG = "y";
+    private static final int NUM_COORDINATES_PER_QUADRANT = 8192;
 
     public static void main(String... args) throws ParseException, IOException, SQLException, ClassNotFoundException {
         Options options = new Options();
@@ -29,9 +30,12 @@ public class CovtCliAdapter {
         var x = Integer.parseInt(commandLine.getOptionValue(X_COORDINATE_ARG));
         var y = Integer.parseInt(commandLine.getOptionValue(Y_COORDINATE_ARG));
 
-        var mvtTile = MvtUtils.getMVT(fileName, z, x, y);
+        var mvtTile = MvtUtils.decodeMvt(fileName, z, x, y);
         var mvtLayers = mvtTile.layers();
-        var tile = CovtConverter.convertMvtTile(mvtLayers, CovtConverter.GeometryEncoding.ICE, true);
+
+        var tile = CovtConverter.convertMvtTile(mvtLayers, NUM_COORDINATES_PER_QUADRANT,
+                CovtConverter.GeometryEncoding.ICE, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
+                CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, true);
 
         var covtFileName = String.format("%s_%s_%s.covt", z, x, y);
         Files.write(Path.of(covtFileName), tile);

@@ -12,15 +12,15 @@ import java.util.stream.Collectors;
 public class CovtParser {
 
     /*
-    * COVT file structure:
-    * - Header -> Version (UInt32 (Varint)) | numLayers (UInt32 (Varint))
-    * - Layer metadata -> Name | Extent | numFeatures | numColumns | (columnName, columnType (byte), columnEncoding (byte))[]
-    * - Feature -> Id (Varint)
-    * */
+     * COVT file structure:
+     * - Header -> Version (UInt32 (Varint)) | numLayers (UInt32 (Varint))
+     * - Layer metadata -> Name | Extent | numFeatures | numColumns | (columnName, columnType (byte), columnEncoding (byte))[]
+     * - Feature -> Id (Varint)
+     * */
     /*
-    * TODO:
-    *  - support not SFA conform polygon where closing vertex is missing
-    * */
+     * TODO:
+     *  - support not SFA conform polygon where closing vertex is missing
+     * */
     public static List<Layer> parseCovt(byte[] covtBuffer, boolean useIceEncoding, boolean useFastPfor, boolean useStringDictionaryCoding) throws IOException {
         var pos = new IntWrapper(0);
         var header = decodeHeader(covtBuffer, pos);
@@ -88,7 +88,6 @@ public class CovtParser {
             }
         }
         else if(columnMetadata.columnType() == ColumnDataType.STRING){
-            //TODO: also decode localized dictionary
             /* String streams: present (BitVector), data (ORC RLE V1), length (ORC RLE V1), data_dictionary */
             if(!columnMetadata.columnEncoding().equals(ColumnEncoding.DICTIONARY)){
                 throw new IllegalArgumentException("Currently only dictionary encoding is supported for String.");
@@ -147,12 +146,12 @@ public class CovtParser {
 
     private static Geometry[] decodeGeometries(byte[] covtBuffer, int numFeatures, ColumnMetadata columnMetadata, IntWrapper pos) throws IOException {
         /*
-        * - Geometry column streams -> geometryType, geometryOffsets, ringOffsets, partOffsets, vertexOffsets, vertexBuffer
-        * - geometryType -> Byte, for test ORC RLE V1 but in general parquetRLEBitpackingHybridEncoding -> Bitpacking Hybrid 23 bytes vs ORC RLE V1 1kb vs ORC RLE V2 370 bytes
-        * - geometryOffsets, ringOffsets, partOffsets -> ORC RLE V1
-        * - vertexOffsets -> delta, zig-zag, varint encoded
-        * - vertexBuffer ICE -> delta, zig-zag, varint encoded
-        * */
+         * - Geometry column streams -> geometryType, geometryOffsets, ringOffsets, partOffsets, vertexOffsets, vertexBuffer
+         * - geometryType -> Byte, for test ORC RLE V1 but in general parquetRLEBitpackingHybridEncoding -> Bitpacking Hybrid 23 bytes vs ORC RLE V1 1kb vs ORC RLE V2 370 bytes
+         * - geometryOffsets, ringOffsets, partOffsets -> ORC RLE V1
+         * - vertexOffsets -> delta, zig-zag, varint encoded
+         * - vertexBuffer ICE -> delta, zig-zag, varint encoded
+         * */
 
         //TODO: quick and dirty -> get rid of this loop and use a better compression algorithm
         var geometryTypes = Arrays.stream(ConversionUtils.decodeOrcRleEncodingV1(covtBuffer, numFeatures, pos))
@@ -163,18 +162,18 @@ public class CovtParser {
         //var numRingOffsets = 0;
         for(var geometryType : geometryTypes){
             /*
-            * - Depending on the geometryType and encoding read geometryOffsets, partOffsets, ringOffsets and vertexOffsets
-            * - geometryOffsets, partOffsets, ringOffsets and vertexOffsets streams are zigZag, Delta, Varint encoded
-            * Logical Representation
-            * - Point: no stream
-            * - LineString: Part offsets
-            * - Polygon: Part offsets (Polygon), Ring offsets (LinearRing)
-            * - MultiPoint: Geometry offsets -> array of offsets indicate where the vertices of each MultiPoint start
-            * - MultiLineString: Geometry offsets, Part offsets (LineString)
-            * - MultiPolygon -> Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing)
-            * -> In addition when Indexed Coordinate Encoding (ICE) is used Vertex offsets stream is added
-            * Physical Representation
-            * */
+             * - Depending on the geometryType and encoding read geometryOffsets, partOffsets, ringOffsets and vertexOffsets
+             * - geometryOffsets, partOffsets, ringOffsets and vertexOffsets streams are zigZag, Delta, Varint encoded
+             * Logical Representation
+             * - Point: no stream
+             * - LineString: Part offsets
+             * - Polygon: Part offsets (Polygon), Ring offsets (LinearRing)
+             * - MultiPoint: Geometry offsets -> array of offsets indicate where the vertices of each MultiPoint start
+             * - MultiLineString: Geometry offsets, Part offsets (LineString)
+             * - MultiPolygon -> Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing)
+             * -> In addition when Indexed Coordinate Encoding (ICE) is used Vertex offsets stream is added
+             * Physical Representation
+             * */
 
             if(geometryType.equals(GeometryType.MULTIPOINT) || geometryType.equals(GeometryType.MULTILINESTRING) ||
                     geometryType.equals(GeometryType.MULTIPOLYGON)){
@@ -209,8 +208,8 @@ public class CovtParser {
         //TODO: refactor to improve performance
         if(numGeometryOffsets > 0 && !geometryTypes.stream().anyMatch(g -> g.equals(GeometryType.MULTIPOINT))){
             /* Case for MultiPolygon and MultiLineString
-            * -> Add the Multi* count to the simple features
-            * */
+             * -> Add the Multi* count to the simple features
+             * */
             numPartOffsets += (int)Arrays.stream(geometryOffsets).sum();
         }
         var partOffsets = ConversionUtils.decodeOrcRleEncodingV1(covtBuffer, numPartOffsets, pos);
@@ -222,17 +221,17 @@ public class CovtParser {
         }
 
         /*
-        * Construct Geometry
-        * -> Point
-        *   -> numFeatures
-        *   -> if delta coded
-        * -> LineString
-        *   -> numFeatures -> number of partOffsets
-        *   -> VertexBuffer
-        *   -> if ICE encoded
-        * -> Polygon
-        *       -> numFeatures -> number of partOffsets
-        * */
+         * Construct Geometry
+         * -> Point
+         *   -> numFeatures
+         *   -> if delta coded
+         * -> LineString
+         *   -> numFeatures -> number of partOffsets
+         *   -> VertexBuffer
+         *   -> if ICE encoded
+         * -> Polygon
+         *       -> numFeatures -> number of partOffsets
+         * */
         var geometries = new Geometry[numFeatures];
         var partOffsetCounter = 0;
         var ringOffsetsCounter = 0;
@@ -248,7 +247,7 @@ public class CovtParser {
                 }
                 else if(geometryType.equals(GeometryType.LINESTRING)){
                     var numVertices = (int)partOffsets[partOffsetCounter++];
-                    var vertices = getLineString(covtBuffer, pos, numVertices, false);
+                    var vertices = getLineString(covtBuffer, pos, numVertices);
                     geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
                 }
                 else if(geometryType.equals(GeometryType.POLYGON)){
@@ -266,7 +265,7 @@ public class CovtParser {
                     var lineStrings = new LineString[numLineStrings];
                     for(var i = 0; i < numLineStrings; i++){
                         var numVertices = (int)partOffsets[partOffsetCounter++];;
-                        var vertices = getLineString(covtBuffer, pos, numVertices, false);
+                        var vertices = getLineString(covtBuffer, pos, numVertices);
                         lineStrings[i] = geometryFactory.createLineString(vertices);
                     }
                     geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
@@ -345,12 +344,12 @@ public class CovtParser {
     }
 
     private static LinearRing getLinearRing(byte[] covtBuffer, IntWrapper pos, int numVertices, GeometryFactory geometryFactory){
-        var linearRing = getLineString(covtBuffer, pos, numVertices, true);
+        var linearRing = getLineString(covtBuffer, pos, numVertices);
         return geometryFactory.createLinearRing(linearRing);
     }
 
-    private static Coordinate[] getLineString(byte[] covtBuffer, IntWrapper pos, int numVertices, boolean closeLineString){
-        var vertices = new Coordinate[closeLineString? numVertices+1 : numVertices];
+    private static Coordinate[] getLineString(byte[] covtBuffer, IntWrapper pos, int numVertices){
+        var vertices = new Coordinate[numVertices];
         var previousX = 0;
         var previousY = 0;
         for(var i = 0; i < numVertices; i++){
@@ -364,8 +363,6 @@ public class CovtParser {
             previousX = x;
             previousY = y;
         }
-
-        vertices[vertices.length -1] = vertices[0];
         return vertices;
     }
 
