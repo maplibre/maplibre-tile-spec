@@ -7,8 +7,6 @@ import com.covt.evaluation.file.*;
 import me.lemire.integercompression.IntWrapper;
 import org.locationtech.jts.geom.*;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,7 +22,7 @@ public class CovtParser {
     * TODO:
     *  - support not SFA conform polygon where closing vertex is missing
     * */
-    public static List<Layer> parseCovt(byte[] covtBuffer, boolean useIceEncoding, boolean useFastPfor, boolean useStringDictionaryCoding) throws IOException {
+    public static List<Layer> parseCovt(byte[] covtBuffer) throws IOException {
         var pos = new IntWrapper(0);
         var header = decodeHeader(covtBuffer, pos);
         var layers = new ArrayList<Layer>();

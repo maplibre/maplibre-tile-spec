@@ -1,4 +1,4 @@
-package comt.covt.converter;
+package com.covt.converter;
 
 import com.covt.converter.CovtConverter;
 import com.covt.converter.EncodingUtils;
@@ -43,8 +43,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
-                CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -73,8 +72,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
-                CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -100,8 +98,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
-                CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -175,14 +172,12 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
-                CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, false);
+                CovtConverter.GeometryEncoding.ICE_MORTON, true, true, false);
         assertTrue(covTile.length > 0);
         printStats(mvtTile, covTile);
 
         var covTile2 = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE_MORTON, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
-                CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, false);
+                CovtConverter.GeometryEncoding.ICE, true, true, false);
         assertTrue(covTile2.length > 0);
         printStats(mvtTile, covTile2);
 
@@ -281,8 +276,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
-                CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -304,8 +298,7 @@ public class CovtConverterTest {
                 var geometryEncoding = (zoom != 13 && zoom != 14) ? CovtConverter.GeometryEncoding.ICE :
                         CovtConverter.GeometryEncoding.PLAIN;
                 var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                        CovtConverter.GeometryEncoding.ICE, CovtConverter.VertexBufferCompression.FAST_PFOR_DELTA,
-                        CovtConverter.TopologyStreamsCompression.FAST_PFOR_DELTA, true);
+                        CovtConverter.GeometryEncoding.ICE_MORTON, true, true, true);
 
                 assertTrue(covTile.length > 0);
 

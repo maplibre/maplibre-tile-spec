@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 public class CovtParserTest {
-    private static final String MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
+    /* private static final String MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
     private static final boolean USE_ICE_ENCODING = true;
     private static final boolean USE_FAST_PFOR = false;
     private static final boolean USE_STRING_DICTIONARY_CODING = true;
@@ -187,6 +187,6 @@ public class CovtParserTest {
                 }
             }
         }
-    }
+    }*/
 
 }

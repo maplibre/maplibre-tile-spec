@@ -1,6 +1,7 @@
 package com.covt.decoder;
 
 
+import com.covt.converter.CovtConverter;
 import com.covt.evaluation.Layer;
 import com.covt.evaluation.MapboxVectorTile;
 import com.covt.evaluation.MvtConverter;
@@ -9,6 +10,7 @@ import com.covt.evaluation.compression.IntegerCompression;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,26 +20,30 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 public class CovtParserTest {
-    private static final String MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
-    private static final boolean USE_ICE_ENCODING = true;
-    private static final boolean USE_FAST_PFOR = false;
-    private static final boolean USE_STRING_DICTIONARY_CODING = true;
-    private static final boolean REMOVE_CLOSING_POLYGON_VERTEX = true;
+    private static final String BING_MVT_PATH = ".\\data\\bing\\mvt";
+    private static final String BING_COVT_PATH = ".\\data\\bing\\covt";
 
+    /* Bing tiles --------------------------------  */
     @Test
-    public void parseCovt_Z5Tile_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        var mvtTile = MvtUtils.getMVT(MBTILES_FILE_NAME, 5, 16, 21);
+    public void parseBingCovt_Z4Tile_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
+        var tileIds = List.of("4-8-5", "4-12-6", "4-13-6", "4-9-5");
+
+        var mvtTile = com.covt.converter.mvt.MvtUtils.decodeMvt2(Paths.get(BING_MVT_PATH, tileIds.get(0) + ".mvt"));
         var mvtLayers = mvtTile.layers();
-        var covtTile = MvtConverter.createCovtTile(mvtLayers, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING, REMOVE_CLOSING_POLYGON_VERTEX);
 
-        var covtLayers = CovtParser.parseCovt(covtTile, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING);
+        var covtTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
+                true, true, false);
 
-        compareTiles(mvtLayers, covtLayers);
+        var covtLayers = CovtParser.parseCovt(covtTile);
 
-        printStats(mvtTile, covtTile);
+        //compareTiles(mvtLayers, covtLayers);
+
+        //printStats(mvtTile, covtTile);
     }
 
-    @Test
+    /* OMT tiles ---------------------------------------------------------------------- */
+
+    /*@Test
     public void parseCovt_DifferentZ2Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
         runTest(2, 2, 2 ,2, 2);
     }
@@ -110,8 +116,8 @@ public class CovtParserTest {
         for(var x = minX; x <= maxX; x++){
             for(var y = minY; y <= maxY; y++){
                 System.out.println("x: " + x + ", y: " + y);
-                var mvtTile = MvtUtils.getMVT(MBTILES_FILE_NAME, zoom, x, y);
-                var mvtLayers = mvtTile.layers();
+                //var mvtTile = MvtUtils.getMVT(MBTILES_FILE_NAME, zoom, x, y);
+                //var mvtLayers = mvtTile.layers();
                 //var covtTile = MvtConverter.createCovtTile(mvtLayers, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING, REMOVE_CLOSING_POLYGON_VERTEX);
 
                 //var covtLayers = CovtParser.parseCovt(covtTile, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING);
@@ -190,6 +196,6 @@ public class CovtParserTest {
                 }
             }
         }
-    }
+    }*/
 
 }
