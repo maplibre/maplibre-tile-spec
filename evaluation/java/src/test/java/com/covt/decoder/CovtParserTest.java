@@ -1,31 +1,22 @@
 package com.covt.decoder;
 
-
 import com.covt.converter.CovtConverter;
-import com.covt.evaluation.Layer;
-import com.covt.evaluation.MapboxVectorTile;
-import com.covt.evaluation.MvtConverter;
-import com.covt.evaluation.MvtUtils;
-import com.covt.evaluation.compression.IntegerCompression;
+import com.covt.converter.mvt.Layer;
 import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-
 public class CovtParserTest {
     private static final String BING_MVT_PATH = ".\\data\\bing\\mvt";
-    private static final String BING_COVT_PATH = ".\\data\\bing\\covt";
 
     /* Bing tiles --------------------------------  */
+
     @Test
-    public void parseBingCovt_Z4Tile_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
+    public void parseBingCovt_Z4Tile_ValidParsedTile() throws IOException{
         var tileIds = List.of("4-8-5", "4-12-6", "4-13-6", "4-9-5");
 
         var mvtTile = com.covt.converter.mvt.MvtUtils.decodeMvt2(Paths.get(BING_MVT_PATH, tileIds.get(0) + ".mvt"));
@@ -34,11 +25,46 @@ public class CovtParserTest {
         var covtTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
                 true, true, false);
 
-        var covtLayers = CovtParser.parseCovt(covtTile);
+        var covtLayers = CovtParser.decodeCovt(covtTile);
 
-        //compareTiles(mvtLayers, covtLayers);
+        compareTiles(mvtLayers, covtLayers);
+    }
 
-        //printStats(mvtTile, covtTile);
+    private static void compareTiles(List<Layer> mvtLayers, List<Layer> covtLayers){
+        assertEquals(mvtLayers.size(), covtLayers.size());
+        for(var i = 0; i < mvtLayers.size(); i++){
+            var mvtLayer = mvtLayers.get(i);
+            var covtLayer = covtLayers.get(i);
+
+            assertEquals(mvtLayer.name(), covtLayer.name());
+
+            var mvtFeatures = mvtLayer.features();
+            var covtFeatures = covtLayer.features();
+            for(var j = 0; j < mvtFeatures.size(); j++){
+                var mvtFeature = mvtFeatures.get(j);
+                var covtFeature = covtFeatures.get(j);
+
+                assertEquals(mvtFeature.id(), covtFeature.id());
+                assertEquals(mvtFeature.geometry(), covtFeature.geometry());
+
+                /*var mvtProperties = mvtFeature.properties();
+                var covtProperties = covtFeature.properties();
+                for(var propertyKey : covtProperties.keySet()){
+                    var mvtProperty = mvtProperties.get(propertyKey);
+                    var optionalCovtProperty = ((Optional)covtProperties.get(propertyKey));
+                    var covtProperty = optionalCovtProperty.isPresent() ? optionalCovtProperty.get() : null;
+
+                    //TODO: handle long values properly in the conversion
+                    if(mvtProperty instanceof Long){
+                        var intMvtProperty = ((Long)mvtProperty).intValue();
+                        assertEquals(intMvtProperty, covtProperty);
+                    }
+                    else{
+                        assertEquals(mvtProperty, covtProperty);
+                    }
+                }*/
+            }
+        }
     }
 
     /* OMT tiles ---------------------------------------------------------------------- */

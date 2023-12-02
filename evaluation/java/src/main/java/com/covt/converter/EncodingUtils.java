@@ -75,7 +75,7 @@ public class EncodingUtils {
         var previousValue = 0l;
         for(var i = 0; i < values.length; i++){
             var value = values[i];
-            deltaValues[i++] = value - previousValue;
+            deltaValues[i] = value - previousValue;
             previousValue = value;
         }
         return  deltaValues;
@@ -86,7 +86,7 @@ public class EncodingUtils {
         var previousValue = 0;
         for(var i = 0; i < values.length; i++){
             var value = values[i];
-            deltaValues[i++] = value - previousValue;
+            deltaValues[i] = value - previousValue;
             previousValue = value;
         }
         return  deltaValues;

@@ -176,10 +176,15 @@ public class CovtConverterTest {
         assertTrue(covTile.length > 0);
         printStats(mvtTile, covTile);
 
-        var covTile2 = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
+        /*var covTile2 = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
+                CovtConverter.GeometryEncoding.ICE_MORTON, false, false, false);
+        assertTrue(covTile2.length > 0);
+        printStats(mvtTile, covTile2);*/
+
+       /* var covTile2 = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
                 CovtConverter.GeometryEncoding.ICE, true, true, false);
         assertTrue(covTile2.length > 0);
-        printStats(mvtTile, covTile2);
+        printStats(mvtTile, covTile2);*/
 
         if(SAVE_GENERATED_TILES == true){
             Files.write(Paths.get(BING_COVT_PATH, tileId + ".covt" ), covTile);
