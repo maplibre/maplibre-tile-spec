@@ -3,7 +3,6 @@ package com.covt.decoder;
 import com.covt.converter.*;
 import com.covt.converter.mvt.Feature;
 import com.covt.converter.mvt.Layer;
-import com.covt.evaluation.ConversionUtils;
 import me.lemire.integercompression.IntWrapper;
 import org.locationtech.jts.geom.*;
 import java.io.IOException;
@@ -39,6 +38,9 @@ public class CovtParser {
     private static final String RING_OFFSETS_STREAM_NAME = "ring_offsets";
     private static final String  VERTEX_OFFSETS_STREAM_NAME = "vertex_offsets";
     private static final String  VERTEX_BUFFER_STREAM_NAME = "vertex_buffer";
+    public static final String PRESENT_STREAM_NAME = "present";
+    private static final String DATA_STREAM_NAME = "data";
+    public static final String DICTIONARY_STREAM_NAME = "dictionary";
 
     /*
     * COVT file structure:
@@ -57,36 +59,51 @@ public class CovtParser {
         for(var i = 0; i < header.numLayers(); i++){
             var layerMetadata = decodeLayerMetadata(covtBuffer, pos);
 
-            var columns = new HashMap<String, List<Optional>>();
             var columId = 0;
+            long[] ids = null;
+            Geometry[] geometries = null;
+            var features = new ArrayList<Feature>();
+            var properties = new HashMap<String, List<Optional>>();
             for(var columnMetadataEntry : layerMetadata.columnMetadata().entrySet()){
                 var columnMetadata = columnMetadataEntry.getValue();
-                var columName = columnMetadataEntry.getKey();
-                if(columId++ == 0 && !columName.equals(ID_COLUMN_NAME ) && !columName.equals(GEOMETRY_COLUMN_NAME)){
+                var columnName = columnMetadataEntry.getKey();
+                if(columId++ == 0 && !columnName.equals(ID_COLUMN_NAME ) && !columnName.equals(GEOMETRY_COLUMN_NAME)){
                     throw new IllegalArgumentException("Id or geometry has to be the first column in a tile.");
                 }
 
-                long[] ids;
-                if(columName.equals(ID_COLUMN_NAME )){
+                if(columnName.equals(ID_COLUMN_NAME )){
                     var idDataStream = columnMetadata.streams().get(0);
                     ids = decodedIds(covtBuffer, idDataStream.numValues(), idDataStream.streamEncoding(), pos);
                 }
-                else if(columName.equals(GEOMETRY_COLUMN_NAME)) {
+                else if(columnName.equals(GEOMETRY_COLUMN_NAME)) {
                     var geometryColumn = decodeGeometryColumn(covtBuffer,
                             columnMetadata, pos, 32 - Integer.numberOfLeadingZeros(layerMetadata.extent()));
 
-                    var geometries = convertGeometryColumn(geometryColumn, layerMetadata.numFeatures());
-                    var features = new ArrayList<Feature>();
-                    for(var j = 0; j < geometries.length; j++){
-                        var feature = new Feature(0, geometries[j], null);
-                        features.add(feature);
-                    }
-                    layers.add(new Layer(layerMetadata.layerName(), features));
+                    geometries = convertGeometryColumn(geometryColumn, layerMetadata.numFeatures());
                 }
                 else{
-                    //decodePropertyColumn(covtBuffer, layerMetadata.numFeatures(), columnMetadata, pos);
+                    var propertyColumn = decodePropertyColumn(covtBuffer, layerMetadata.numFeatures(), columnMetadata, pos);
+                    properties.put(columnName, propertyColumn);
                 }
             }
+
+            for(var j = 0; j < layerMetadata.numFeatures(); j++){
+                var featureProperties = new HashMap<String, Object>();
+                for(var columnMetadataEntry : layerMetadata.columnMetadata().entrySet()) {
+                    var columnName = columnMetadataEntry.getKey();
+                    if (!columnName.equals(ID_COLUMN_NAME) && !columnName.equals(GEOMETRY_COLUMN_NAME)) {
+                        var propertyValue = properties.get(columnName).get(j);
+                        featureProperties.put(columnName, propertyValue);
+                    }
+                }
+
+                var id = ids == null? 0 : ids[j];
+                var feature = new Feature(id, geometries[j], featureProperties);
+                features.add(feature);
+            }
+
+            layers.add(new Layer(layerMetadata.layerName(), features));
+
             /*var columns = new HashMap<String, List<Optional>>();
                 if(columnMetadata.length > 2){
                     //TODO: refactor -> remove array creation
@@ -261,17 +278,59 @@ public class CovtParser {
 
     private static List<Optional> decodePropertyColumn(byte[] covtBuffer, int numFeatures, ColumnMetadata columnMetadata, IntWrapper pos) throws IOException {
         var propertyColumnValues = new ArrayList<Optional>();
+        var dataStreamMetadata  = columnMetadata.streams().get(DATA_STREAM_NAME);
+        if(columnMetadata.columnDataType() == ColumnDataType.BOOLEAN){
+            var rleDecodedColumn = DecodingUtils.decodeByteRle(covtBuffer, dataStreamMetadata.numValues(), pos,
+                    dataStreamMetadata.byteLength());
+            var decodedColumn = BitSet.valueOf(rleDecodedColumn);
+            for(var i = 0; i < numFeatures; i++){
+                propertyColumnValues.add(Optional.of(decodedColumn.get(i)));
+            }
+
+            return propertyColumnValues;
+        }
+
         /* decode present stream */
         var numBytes = (int)Math.ceil(numFeatures / 8d);
-        var presentStream = DecodingUtils.decodeByteRle(covtBuffer, numBytes, pos);
+        var presentStream = DecodingUtils.decodeByteRle(covtBuffer, numBytes, pos, columnMetadata.streams().
+                get(PRESENT_STREAM_NAME).byteLength());
         var bitSet = BitSet.valueOf(presentStream);
         if(columnMetadata.columnDataType() == ColumnDataType.INT_64){
+            long[] decodedDataColumn;
+            if(dataStreamMetadata.streamEncoding() == StreamEncoding.RLE){
+                decodedDataColumn = DecodingUtils.decodeRle(covtBuffer, dataStreamMetadata.numValues(), pos, true);
+            }
+            else if(dataStreamMetadata.streamEncoding() == StreamEncoding.VARINT_ZIG_ZAG){
+                //TODO: refactor to use long instead of int
+                var values = DecodingUtils.decodeZigZagVarint(covtBuffer,  pos, dataStreamMetadata.numValues());
+                decodedDataColumn = Arrays.stream(values).mapToLong(i -> i).toArray();
+            }
+            else if(dataStreamMetadata.streamEncoding() == StreamEncoding.VARINT_DELTA_ZIG_ZAG){
+                //TODO: refactor to use long instead of int
+                var values = DecodingUtils.decodeZigZagDeltaVarint(covtBuffer, pos, dataStreamMetadata.numValues());
+                decodedDataColumn = Arrays.stream(values).mapToLong(i -> i).toArray();
+            }
+            else{
+                throw new IllegalArgumentException("The specified encoding for the long data stream is not supported.");
+            }
+
+            //TODO: this evaluation should happen when accessing the properties based on random access
+            var j = 0;
             for(var i = 0; i < numFeatures; i++){
                 if(bitSet.get(i)){
-                    //TODO: replace int with long
-                    /* Varint zig-zag decode */
-                    var value = ConversionUtils.decodeZigZagVarint(covtBuffer, pos);
-                    propertyColumnValues.add(Optional.of(value));
+                    propertyColumnValues.add(Optional.of(decodedDataColumn[j++]));
+                }
+                else{
+                    propertyColumnValues.add(Optional.empty());
+                }
+            }
+        }
+        else if(columnMetadata.columnDataType() == ColumnDataType.FLOAT){
+            var decodedDataColumn = DecodingUtils.decodeFloatsLE(covtBuffer, pos, dataStreamMetadata.numValues());
+            var j = 0;
+            for(var i = 0; i < numFeatures; i++){
+                if(bitSet.get(i)){
+                    propertyColumnValues.add(Optional.of(decodedDataColumn[j++]));
                 }
                 else{
                     propertyColumnValues.add(Optional.empty());
@@ -280,17 +339,14 @@ public class CovtParser {
         }
         else if(columnMetadata.columnDataType() == ColumnDataType.STRING){
             //TODO: also decode localized dictionary
-            /* String streams: present (BitVector), data (ORC RLE V1), length (ORC RLE V1), data_dictionary */
+            /* String streams: present (BitVector), data (RLE), length (RLE), data_dictionary */
             if(!columnMetadata.columnEncoding().equals(ColumnEncoding.DICTIONARY)){
                 throw new IllegalArgumentException("Currently only dictionary encoding is supported for String.");
             }
 
-            var numPresentValues = getNumberOfPresentValues(bitSet, numFeatures);
-            /*if(numFeatures == 256 && columnMetadata.columnName().equals("name:nonlatin")){
-                numPresentValues = 12;
-            }*/
-            var data = ConversionUtils.decodeOrcRleEncodingV1(covtBuffer, numPresentValues, pos);
-            var dictionaryData = getStringDictionary(covtBuffer, data, pos);
+            var numDictionaryEntries = columnMetadata.streams().get(DICTIONARY_STREAM_NAME).numValues();
+            var data = DecodingUtils.decodeRle(covtBuffer, dataStreamMetadata.numValues(), pos, false);
+            var dictionaryData = getStringDictionary(covtBuffer, numDictionaryEntries, pos);
 
             var dataCounter = 0;
             for(var i = 0; i < numFeatures; i++){
@@ -322,15 +378,13 @@ public class CovtParser {
         return numPresentValues;
     }
 
-    private static String[] getStringDictionary(byte[] covtBuffer, long[] data, IntWrapper pos) throws IOException {
-        //TODO: add numDistinctValues as Varint for faster decdoing
-        var numDictionaryEntries = Arrays.stream(data).distinct().toArray().length;
-        var lengthStream = ConversionUtils.decodeOrcRleEncodingV1(covtBuffer, numDictionaryEntries, pos);
+    private static String[] getStringDictionary(byte[] covtBuffer, int numDictionaryEntries, IntWrapper pos) throws IOException {
+        var lengthStream = DecodingUtils.decodeRle(covtBuffer, numDictionaryEntries, pos, false);
 
         var dictionaryData = new String[numDictionaryEntries];
-        for(var i = 0; i < lengthStream.length; i++){
+        for(var i = 0; i < numDictionaryEntries; i++){
             var length = (int)lengthStream[i];
-            dictionaryData[i] = ConversionUtils.decodeString(covtBuffer, pos, length);
+            dictionaryData[i] = DecodingUtils.decodeString(covtBuffer, pos, length);
         }
 
         return dictionaryData;
@@ -350,7 +404,7 @@ public class CovtParser {
         /* Decode topology streams */
         //TODO: quick and dirty -> get rid of this loop and use int instead of long
         var geometryTypesMetadata = columnMetadata.streams().get(GEOMETRY_TYPES_STREAM_NAME);
-        var decodedGeometryTypes = DecodingUtils.decodeByteRle(covtBuffer, geometryTypesMetadata.numValues(), pos);
+        var decodedGeometryTypes = DecodingUtils.decodeByteRle(covtBuffer, geometryTypesMetadata.numValues(), pos, geometryTypesMetadata.byteLength());
         var geometryTypes = new GeometryType[geometryTypesMetadata.numValues()];
         for(var j = 0; j < geometryTypes.length; j++){
             geometryTypes[j] = GeometryType.values()[decodedGeometryTypes[j]];
@@ -413,7 +467,7 @@ public class CovtParser {
         if(vertexOffsetMetadata != null){
             var encoding = vertexOffsetMetadata.streamEncoding();
             if(encoding == StreamEncoding.VARINT_DELTA_ZIG_ZAG){
-                vertexOffsets = DecodingUtils.decodeVarintZigZagDelta(covtBuffer, pos, vertexOffsetMetadata.numValues());
+                vertexOffsets = DecodingUtils.decodeZigZagDeltaVarint(covtBuffer, pos, vertexOffsetMetadata.numValues());
             }
             else if(encoding == StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG){
                 vertexOffsets = DecodingUtils.decodeFastPfor128ZigZagDelta(covtBuffer, vertexOffsetMetadata.numValues(), vertexOffsetMetadata.byteLength(), pos);
@@ -503,8 +557,16 @@ public class CovtParser {
 
         if(encoding == StreamEncoding.VARINT){
             //TODO: optimize this decoding step and test
-            return DecodingUtils.decodeLongVarint(covtBuffer, pos);
+            //TODO: use long
+            return Arrays.stream(DecodingUtils.decodeVarint(covtBuffer, pos, numFeatures)).mapToLong(i -> i).toArray();
         }
+
+        if(encoding == StreamEncoding.VARINT_DELTA_ZIG_ZAG){
+            //TODO: optimize this decoding step and test
+            //TODO: use long
+            return Arrays.stream(DecodingUtils.decodeZigZagDeltaVarint(covtBuffer, pos, numFeatures)).mapToLong(i -> i).toArray();
+        }
+
 
         //TODO: add VarintZigZagDelta encoding
         throw new IllegalArgumentException("The specified encoding for the id column is not supported (yet).");
@@ -512,9 +574,9 @@ public class CovtParser {
 
     private static LayerMetadata decodeLayerMetadata(byte[] covtBuffer, IntWrapper pos) throws IOException {
         var layerName = DecodingUtils.decodeString(covtBuffer, pos);
-        var extent = DecodingUtils.decodeVarint(covtBuffer, pos)[0];
-        var numFeatures = DecodingUtils.decodeVarint(covtBuffer, pos)[0];
-        var numColumns = DecodingUtils.decodeVarint(covtBuffer, pos)[0];
+        var extent = DecodingUtils.decodeVarint(covtBuffer, pos, 1)[0];
+        var numFeatures = DecodingUtils.decodeVarint(covtBuffer, pos, 1)[0];
+        var numColumns = DecodingUtils.decodeVarint(covtBuffer, pos, 1)[0];
 
         var columnMetadata = new LinkedHashMap<String, ColumnMetadata>();
         for(var i = 0; i < numColumns; i++){
@@ -523,15 +585,15 @@ public class CovtParser {
             pos.increment();
             var columnEncoding = ColumnEncoding.values()[covtBuffer[pos.get()]];
             pos.increment();
-            var numStreams = DecodingUtils.decodeVarint(covtBuffer, pos)[0];
+            var numStreams = DecodingUtils.decodeVarint(covtBuffer, pos, 1)[0];
 
             var streams = new  LinkedHashMap<String, StreamMetadata>();
             columnMetadata.put(columnName, new ColumnMetadata(columnType, columnEncoding, streams));
             for(var j = 0; j < numStreams; j++){
                 var streamName = DecodingUtils.decodeString(covtBuffer, pos);
-                var numValues = DecodingUtils.decodeVarint(covtBuffer, pos)[0];
-                var byteLength = DecodingUtils.decodeVarint(covtBuffer, pos)[0];
-                var intEncoding = DecodingUtils.decodeVarint(covtBuffer, pos)[0];
+                var numValues = DecodingUtils.decodeVarint(covtBuffer, pos , 1)[0];
+                var byteLength = DecodingUtils.decodeVarint(covtBuffer, pos, 1)[0];
+                var intEncoding = DecodingUtils.decodeVarint(covtBuffer, pos, 1)[0];
                 var encoding = Arrays.stream(StreamEncoding.values())
                         .filter(p -> p.ordinal() == intEncoding)
                         .findFirst().get();
@@ -543,8 +605,8 @@ public class CovtParser {
     }
 
     private static Header decodeHeader(byte[] covtBuffer, IntWrapper pos){
-        var version = ConversionUtils.decodeVarint(covtBuffer, pos)[0];
-        var numLayers = ConversionUtils.decodeVarint(covtBuffer, pos)[0];
+        var version = DecodingUtils.decodeVarint(covtBuffer, pos, 1)[0];
+        var numLayers = DecodingUtils.decodeVarint(covtBuffer, pos,1)[0];
         return new Header(version, numLayers);
     }
 

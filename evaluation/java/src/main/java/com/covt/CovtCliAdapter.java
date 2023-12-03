@@ -34,7 +34,7 @@ public class CovtCliAdapter {
         var mvtLayers = mvtTile.layers();
 
         var tile = CovtConverter.convertMvtTile(mvtLayers, NUM_COORDINATES_PER_QUADRANT,
-                CovtConverter.GeometryEncoding.ICE, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true,true);
 
         var covtFileName = String.format("%s_%s_%s.covt", z, x, y);
         Files.write(Path.of(covtFileName), tile);

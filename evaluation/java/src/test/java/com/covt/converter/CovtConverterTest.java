@@ -1,7 +1,5 @@
 package com.covt.converter;
 
-import com.covt.converter.CovtConverter;
-import com.covt.converter.EncodingUtils;
 import com.covt.converter.mvt.MapboxVectorTile;
 import com.covt.converter.mvt.MvtUtils;
 import org.junit.jupiter.api.Test;
@@ -43,7 +41,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -72,7 +70,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -98,7 +96,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -113,82 +111,69 @@ public class CovtConverterTest {
     @Test
     public void convert_BingMaps_Z4Tile() throws IOException {
         var fileNames = List.of("4-8-5", "4-12-6", "4-13-6", "4-9-5");
-
-        for(var fileName : fileNames){
-            runBingTests(fileName);
-        }
+        runBingTests(fileNames);
     }
 
     @Test
     public void convert_BingMaps_Z5Tiles() throws IOException {
         var fileNames = List.of("5-16-11", "5-17-11", "5-17-10", "5-25-13", "5-26-13", "5-8-12", "5-15-10");
-
-        for(var fileName : fileNames){
-           runBingTests(fileName);
-        }
+        runBingTests(fileNames);
     }
 
     @Test
     public void convert_BingMaps_Z6Tiles() throws IOException {
         var fileNames = List.of("6-32-22", "6-33-22", "6-32-23", "6-32-21");
-
-        for(var fileName : fileNames){
-            runBingTests(fileName);
-        }
+        runBingTests(fileNames);
     }
 
     @Test
     public void convert_BingMaps_Z7Tiles() throws IOException {
         var fileNames = List.of("7-65-43", "7-64-44", "7-66-43", "7-66-44", "7-65-42", "7-66-42", "7-67-43");
-
-        for(var fileName : fileNames){
-           runBingTests(fileName);
-        }
+        runBingTests(fileNames);
     }
 
     @Test
     public void convert_BingMaps_Z9Tiles() throws IOException {
         var fileNames = List.of("9-259-176", "9-265-170", "9-266-170", "9-266-171");
-
-        for(var fileName : fileNames){
-            runBingTests(fileName);
-        }
+        runBingTests(fileNames);
     }
 
     @Test
     public void convert_BingMaps_Z11Tiles() throws IOException {
         var fileNames = List.of("11-603-769");
-
-        for(var fileName : fileNames){
-            runBingTests(fileName);
-        }
+        runBingTests(fileNames);
     }
 
+    private void runBingTests(List<String> fileNames) throws IOException {
+        var compressionRatios = 0d;
+        for(var fileName : fileNames){
+            compressionRatios += runBingTest(fileName);
+        }
 
-    private void runBingTests(String tileId) throws IOException {
+        System.out.printf("Total Compression Ratio Without Gzip: %s", compressionRatios / fileNames.size());
+    }
+
+    private double runBingTest(String tileId) throws IOException {
         System.out.println(tileId + " ------------------------------------------");
         var mvtTile = MvtUtils.decodeMvt2(Paths.get(BING_MVT_PATH, tileId + ".mvt"));
         //var mvtTile2 = MvtUtils.decodeMvt(Paths.get(BING_MVT_PATH, tileId + ".mvt"));
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE_MORTON, true, true, false);
+                CovtConverter.GeometryEncoding.ICE_MORTON, false, false, true, false);
         assertTrue(covTile.length > 0);
-        printStats(mvtTile, covTile);
+        var compressionRatio = printStats(mvtTile, covTile);
 
         /*var covTile2 = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
                 CovtConverter.GeometryEncoding.ICE_MORTON, false, false, false);
         assertTrue(covTile2.length > 0);
         printStats(mvtTile, covTile2);*/
 
-       /* var covTile2 = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, false);
-        assertTrue(covTile2.length > 0);
-        printStats(mvtTile, covTile2);*/
-
         if(SAVE_GENERATED_TILES == true){
             Files.write(Paths.get(BING_COVT_PATH, tileId + ".covt" ), covTile);
         }
+
+        return compressionRatio;
     }
 
     /* OpenMapTiles Tests --------------------------------------------------------- */
@@ -281,7 +266,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -300,10 +285,8 @@ public class CovtConverterTest {
                 var mvtTile = MvtUtils.decodeMvt(mvtFilePath);
                 var mvtLayers = mvtTile.layers();
 
-                var geometryEncoding = (zoom != 13 && zoom != 14) ? CovtConverter.GeometryEncoding.ICE :
-                        CovtConverter.GeometryEncoding.PLAIN;
                 var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                        CovtConverter.GeometryEncoding.ICE_MORTON, true, true, true);
+                        CovtConverter.GeometryEncoding.ICE_MORTON, true, true, true, true);
 
                 assertTrue(covTile.length > 0);
 
@@ -328,7 +311,6 @@ public class CovtConverterTest {
         var compressionRatio = (1-(1/(((double)mvtTile.mvtSize())/covtTile.length)))*100;
         var compressionRatioCompressed = (1-(1/(((double)mvtTile.gzipCompressedMvtSize())/covtGzipBuffer.length)))*100;
         System.out.println(String.format("Reduction uncompressed: %s%%, Reduction compressed: %s%%", compressionRatio, compressionRatioCompressed));
-        System.out.println("------------------------------------------------------------");
         return compressionRatio;
     }
 

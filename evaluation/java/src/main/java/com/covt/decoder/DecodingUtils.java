@@ -18,29 +18,39 @@ import java.util.Arrays;
 public final class DecodingUtils {
     private DecodingUtils(){}
 
-    public static String decodeString(byte[] content, IntWrapper pos) throws IOException {
+    public static String decodeString(byte[] content, IntWrapper pos) {
         var stringLength = decodeVarint(content, pos)[0];
         var str = new String(content, pos.get(), stringLength, StandardCharsets.UTF_8);
         pos.set(pos.get() + stringLength);
         return str;
     }
 
+    public static String decodeString(byte[] content, IntWrapper pos, int numChars) {
+        var str = new String(content, pos.get(), numChars, StandardCharsets.UTF_8);
+        pos.set(pos.get() + numChars);
+        return str;
+    }
+
     //TODO: quick and dirty -> optimize for performance
-    public static int[] decodeVarint(byte[] src, IntWrapper pos){
-        var values = new int[1];
-        var offset = decodeVarint(src, pos.get(), values);
-        pos.set(offset);
+    public static int[] decodeVarint(byte[] src, IntWrapper pos, int numValues){
+        var values = new int[numValues];
+        for(var i = 0; i < numValues; i++){
+            var offset = decodeVarint(src, pos.get(), values);
+            pos.set(offset);
+        }
         return values;
     }
 
-    public static long[] decodeLongVarint(byte[] src, IntWrapper pos){
-        var values = new long[1];
-        var offset = decodeVarint(src, pos.get(), values);
-        pos.set(pos.get() + offset);
+    public static int[] decodeZigZagVarint(byte[] covtBuffer, IntWrapper pos, int numValues){
+        var values = new int[numValues];
+        for(var i = 0; i < numValues; i++){
+            values[i] = decodeZigZagVarint(covtBuffer, pos);
+        }
+
         return values;
     }
 
-    public static int[] decodeVarintZigZagDelta(byte[] covtBuffer, IntWrapper pos, int numValues){
+    public static int[] decodeZigZagDeltaVarint(byte[] covtBuffer, IntWrapper pos, int numValues){
         var values = new int[numValues];
         var previousValue = 0;
         for(var i = 0; i < numValues; i++){
@@ -53,40 +63,50 @@ public final class DecodingUtils {
         return values;
     }
 
-    public static long[] decodeLongVarintZigZagDelta(byte[] covtBuffer, IntWrapper pos, int numValues){
+    /*public static long[] decodeLongVarint(byte[] src, IntWrapper pos, int numValues, int byteSize){
+        //TODO: get rid of that byte buffer creation
         var values = new long[numValues];
-        var previousValue = 0;
         for(var i = 0; i < numValues; i++){
-            var delta = decodeZigZagVarint(covtBuffer, pos);
-            var value = previousValue + delta;
-            values[i] = value;
-            previousValue = value;
+            values[i] = decodeLongVarint(ByteBuffer.wrap(src, pos.get() ));
+
         }
 
+        //TODO: refactor -> get byte size from decoding
+        pos.set(pos.get() + byteSize);
         return values;
     }
 
-    public static int decodeZigZagVarint(byte[] src, IntWrapper pos){
-        var value = decodeVarint(src, pos);
-        return decodeZigZag(value[0]);
-    }
+    public static long[] decodeZigZagLongVarint(byte[] src, IntWrapper pos, int numValues, int byteSize){
+        //TODO: get rid of that byte buffer creation
+        var values = new long[numValues];
+        for(var i = 0; i < numValues; i++){
+            var varint = decodeLongVarint(ByteBuffer.wrap())
+            values[i] = decodeZigZagLongVarint(ByteBuffer.wrap(src));
 
-    public static int decodeZigZag(int encoded) {
-        return (encoded >>> 1) ^ (-(encoded & 1));
-    }
+        }
 
-    private static int decodeVarint(byte[] src, int offset, long[] dst) {
-        int result = 0;
-        int shift = 0;
-        int b;
-        do {
-            // Get 7 bits from next byte
-            b = src[offset++];
-            result |= (b & 0x7F) << shift;
-            shift += 7;
-        } while ((b & 0x80) != 0);
-        dst[0] = result;
-        return offset;
+        //TODO: refactor -> get byte size from decoding
+        pos.set(pos.get() + byteSize);
+        return values;
+    }*/
+
+    public static int[] decodeZigZagDeltaVarintCoordinates(byte[] covtBuffer, IntWrapper pos, int numValues){
+        var values = new int[numValues];
+        var previousValueX = 0;
+        var previousValueY = 0;
+        for(var i = 0; i < numValues; i+=2){
+            var deltaX = decodeZigZagVarint(covtBuffer, pos);
+            var deltaY = decodeZigZagVarint(covtBuffer, pos);
+            var x = previousValueX + deltaX;
+            var y = previousValueY + deltaY;
+            values[i] = x;
+            values[i+1] = y;
+
+            previousValueX = x;
+            previousValueY = y;
+        }
+
+        return values;
     }
 
     //Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
@@ -132,23 +152,72 @@ public final class DecodingUtils {
         return offset;
     }
 
-    public static int[] decodeZigZagDeltaVarintCoordinates(byte[] covtBuffer, IntWrapper pos, int numValues){
-        var values = new int[numValues];
-        var previousValueX = 0;
-        var previousValueY = 0;
-        for(var i = 0; i < numValues; i+=2){
-            var deltaX = decodeZigZagVarint(covtBuffer, pos);
-            var deltaY = decodeZigZagVarint(covtBuffer, pos);
-            var x = previousValueX + deltaX;
-            var y = previousValueY + deltaY;
-            values[i] = x;
-            values[i+1] = y;
-
-            previousValueX = x;
-            previousValueY = y;
-        }
-
+    //TODO: quick and dirty -> optimize for performance
+    private static int[] decodeVarint(byte[] src, IntWrapper pos){
+        var values = new int[1];
+        var offset = decodeVarint(src, pos.get(), values);
+        pos.set(offset);
         return values;
+    }
+
+    /* Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java */
+    private static long decodeLongVarint(ByteBuffer src) {
+        long tmp;
+        if ((tmp = src.get()) >= 0) {
+            return tmp;
+        }
+        long result = tmp & 0x7f;
+        if ((tmp = src.get()) >= 0) {
+            result |= tmp << 7;
+        } else {
+            result |= (tmp & 0x7f) << 7;
+            if ((tmp = src.get()) >= 0) {
+                result |= tmp << 14;
+            } else {
+                result |= (tmp & 0x7f) << 14;
+                if ((tmp = src.get()) >= 0) {
+                    result |= tmp << 21;
+                } else {
+                    result |= (tmp & 0x7f) << 21;
+                    if ((tmp = src.get()) >= 0) {
+                        result |= tmp << 28;
+                    } else {
+                        result |= (tmp & 0x7f) << 28;
+                        if ((tmp = src.get()) >= 0) {
+                            result |= tmp << 35;
+                        } else {
+                            result |= (tmp & 0x7f) << 35;
+                            if ((tmp = src.get()) >= 0) {
+                                result |= tmp << 42;
+                            } else {
+                                result |= (tmp & 0x7f) << 42;
+                                if ((tmp = src.get()) >= 0) {
+                                    result |= tmp << 49;
+                                } else {
+                                    result |= (tmp & 0x7f) << 49;
+                                    if ((tmp = src.get()) >= 0) {
+                                        result |= tmp << 56;
+                                    } else {
+                                        result |= (tmp & 0x7f) << 56;
+                                        result |= ((long) src.get()) << 63;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    private static int decodeZigZagVarint(byte[] src, IntWrapper pos){
+        var value = decodeVarint(src, pos);
+        return decodeZigZag(value[0]);
+    }
+
+    private static int decodeZigZag(int encoded) {
+        return (encoded >>> 1) ^ (-(encoded & 1));
     }
 
     /* Based on ORC RLE V1 encoding */
@@ -170,7 +239,7 @@ public final class DecodingUtils {
     }
 
     /* Based on ORC Byte RLE V1 encoding */
-    public static byte[] decodeByteRle(byte[] buffer, int numValues, IntWrapper pos) throws IOException {
+    public static byte[] decodeByteRle(byte[] buffer, int numValues, IntWrapper pos, int byteLength) throws IOException {
         var inStream = InStream.create
                 ("test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
         var reader =
@@ -181,14 +250,8 @@ public final class DecodingUtils {
             values[i] = reader.next();
         }
 
-        //TODO: get rid of that
-        var size = getRleChunkSize(values);
-        pos.set(pos.get() + size);
+        pos.set(pos.get() + byteLength);
         return values;
-    }
-
-    private static int getRleChunkSize(byte[] values) throws IOException {
-        return EncodingUtils.encodeByteRle(values).length;
     }
 
     private static int getRleChunkSize(long[] values, boolean signed) throws IOException {
@@ -323,5 +386,14 @@ public final class DecodingUtils {
         }
 
         return vertices;
+    }
+
+    public static float[] decodeFloatsLE(byte[] encodedValues, IntWrapper pos, int numValues){
+        var fb = ByteBuffer.wrap(encodedValues, pos.get(), numValues * 4).
+                order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+        pos.set(pos.get() + numValues * 4);
+        var decodedValues = new float[fb.limit()];
+        fb.get(decodedValues);
+        return decodedValues;
     }
 }

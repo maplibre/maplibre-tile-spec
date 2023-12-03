@@ -88,7 +88,9 @@ public class CovtConverter {
     public static byte[] convertMvtTile(List<Layer> layers, int tileExtent, GeometryEncoding geometryEncoding,
                                         boolean allowFastPforForTopologyStreams,
                                         boolean allowFastPforForVertexBuffer,
-                                        boolean includeIds) throws IOException {
+                                        boolean allowLocalizedStringDictionary,
+                                        boolean includeIds
+                                        ) throws IOException {
         try(ByteArrayOutputStream stream = new ByteArrayOutputStream()){
             var header = convertHeader(layers);
             stream.write(header);
@@ -96,7 +98,7 @@ public class CovtConverter {
             for(var layer : layers){
                 var layerName = layer.name();
                 var features = layer.features();
-                var propertyColumnMetadata = getPropertyColumnMetadata(features);
+                var propertyColumnMetadata = getPropertyColumnMetadata(features, allowLocalizedStringDictionary);
 
                 ColumnMetadata idMetadata = null;
                 byte[] idColumn = null;
@@ -145,8 +147,7 @@ public class CovtConverter {
                     stream.write(idColumn);
                 }
                 stream.write(geometryColumn);
-                //TODO: add again
-                //stream.write(propertyColumns);
+                stream.write(propertyColumns);
             }
 
             return stream.toByteArray();
@@ -232,7 +233,7 @@ public class CovtConverter {
         return EncodingUtils.encodeVarints(new long[]{version, numLayers}, false, false);
     }
 
-    private static LinkedHashMap<String, ColumnMetadata> getPropertyColumnMetadata(List<Feature> features){
+    private static LinkedHashMap<String, ColumnMetadata> getPropertyColumnMetadata(List<Feature> features, boolean allowLocalizedStringDictionary){
         /*
          * Layer header:
          * -> Metadata -> Name (String) | NumFeatures (UInt32 | Varint) | NumColumns (UInt32 | Varint) | Struct Column Metadata []
@@ -261,7 +262,7 @@ public class CovtConverter {
 
                 var propertyValue = property.getValue();
                 if(propertyValue instanceof String){
-                    if(LOCALIZED_COLUM_NAME_PREFIXES.stream().anyMatch(prefix -> columnName.contains(prefix))){
+                    if(LOCALIZED_COLUM_NAME_PREFIXES.stream().anyMatch(prefix -> columnName.contains(prefix)) && allowLocalizedStringDictionary){
                         /* a feature with localized properties has to use : or _ as separator*/
                         var columnNameComponents = Arrays.stream(columnName.split(":|_"))
                                 .filter(e -> !e.isEmpty()).toArray(String[]::new);
@@ -617,8 +618,6 @@ public class CovtConverter {
         return Pair.of(columnMetadata, ArrayUtils.addAll(encodedVertexOffsets, fastPforDeltaMortonVertexBuffer));
     }
 
-    private static void getVertexOffsets(){}
-
     private static TreeMap<Integer, Vertex> createVertexDictionary(List<Feature> features, Function<Vertex, Integer> sfcIdGenerator){
         var vertexDictionary = new TreeMap<Integer, Vertex>();
         for(var feature : features){
@@ -825,16 +824,10 @@ public class CovtConverter {
         if(booleanColumns.size() > 0){
             for(var column : booleanColumns.entrySet()){
                 var booleanColumn = column.getValue();
-                var presentStream = booleanColumn.presentStream();
                 var dataStream = booleanColumn.dataStream();
-
-                var encodedPresentStream = EncodingUtils.encodeBooleans(presentStream);
                 var encodedData = EncodingUtils.encodeBooleans(dataStream);
-                columnBuffer = ArrayUtils.addAll(columnBuffer, encodedPresentStream);
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedData);
-
                 var metadata = booleanColumn.columnMetadata();
-                metadata.streams().put(PRESENT_STREAM_NAME, new StreamMetadata(presentStream.size(), encodedPresentStream.length, StreamEncoding.BOOLEAN_RLE));
                 metadata.streams().put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), encodedData.length, StreamEncoding.BOOLEAN_RLE));
             }
         }
@@ -910,6 +903,7 @@ public class CovtConverter {
                 var encodedPresentStream = EncodingUtils.encodeBooleans(presentStream);
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedPresentStream);
 
+                //TODO: test different encodings like delta encoding
                 var encodedDataStream = EncodingUtils.encodeRle(dataStream.stream().mapToLong(i -> i).toArray(), false);
                 var encodedLengthStream = EncodingUtils.encodeRle(lengthStream.stream().mapToLong(i -> i).toArray(), false);
                 var encodedDictionary = CollectionUtils.concatByteArrays(dictionaryStream.stream().

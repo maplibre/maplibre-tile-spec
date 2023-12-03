@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -18,176 +19,42 @@ public class CovtParserTest {
     @Test
     public void parseBingCovt_Z4Tile_ValidParsedTile() throws IOException{
         var tileIds = List.of("4-8-5", "4-12-6", "4-13-6", "4-9-5");
-
-        var mvtTile = com.covt.converter.mvt.MvtUtils.decodeMvt2(Paths.get(BING_MVT_PATH, tileIds.get(0) + ".mvt"));
-        var mvtLayers = mvtTile.layers();
-
-        var covtTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
-                true, true, false);
-
-        var covtLayers = CovtParser.decodeCovt(covtTile);
-
-        compareTiles(mvtLayers, covtLayers);
+        runBingTests(tileIds);
     }
 
-    private static void compareTiles(List<Layer> mvtLayers, List<Layer> covtLayers){
-        assertEquals(mvtLayers.size(), covtLayers.size());
-        for(var i = 0; i < mvtLayers.size(); i++){
-            var mvtLayer = mvtLayers.get(i);
-            var covtLayer = covtLayers.get(i);
+    @Test
+    public void parseBingCovt_Z5Tile_ValidParsedTile() throws IOException{
+        var tileIds = List.of("5-16-11", "5-17-11", "5-17-10", "5-25-13", "5-26-13", "5-8-12", "5-15-10");
+        runBingTests(tileIds);
+    }
 
-            assertEquals(mvtLayer.name(), covtLayer.name());
+    @Test
+    public void parseBingCovt_Z6Tile_ValidParsedTile() throws IOException{
+        var tileIds = List.of("6-32-22", "6-33-22", "6-32-23", "6-32-21");
+        runBingTests(tileIds);
+    }
 
-            var mvtFeatures = mvtLayer.features();
-            var covtFeatures = covtLayer.features();
-            for(var j = 0; j < mvtFeatures.size(); j++){
-                var mvtFeature = mvtFeatures.get(j);
-                var covtFeature = covtFeatures.get(j);
+    @Test
+    public void parseBingCovt_Z7Tile_ValidParsedTile() throws IOException{
+        var tileIds = List.of("7-65-43", "7-64-44", "7-66-43", "7-66-44", "7-65-42", "7-66-42", "7-67-43");
+        runBingTests(tileIds);
+    }
 
-                assertEquals(mvtFeature.id(), covtFeature.id());
-                assertEquals(mvtFeature.geometry(), covtFeature.geometry());
+    private void runBingTests(List<String> tileIds) throws IOException {
+        for(var tileId : tileIds){
+            var mvtTile = com.covt.converter.mvt.MvtUtils.decodeMvt2(Paths.get(BING_MVT_PATH, tileId + ".mvt"));
+            var mvtLayers = mvtTile.layers();
 
-                /*var mvtProperties = mvtFeature.properties();
-                var covtProperties = covtFeature.properties();
-                for(var propertyKey : covtProperties.keySet()){
-                    var mvtProperty = mvtProperties.get(propertyKey);
-                    var optionalCovtProperty = ((Optional)covtProperties.get(propertyKey));
-                    var covtProperty = optionalCovtProperty.isPresent() ? optionalCovtProperty.get() : null;
+            var covtTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
+                    true, true, false, false);
 
-                    //TODO: handle long values properly in the conversion
-                    if(mvtProperty instanceof Long){
-                        var intMvtProperty = ((Long)mvtProperty).intValue();
-                        assertEquals(intMvtProperty, covtProperty);
-                    }
-                    else{
-                        assertEquals(mvtProperty, covtProperty);
-                    }
-                }*/
-            }
+            var covtLayers = CovtParser.decodeCovt(covtTile);
+
+            compareTiles(mvtLayers, covtLayers);
         }
     }
 
-    /* OMT tiles ---------------------------------------------------------------------- */
-
-    /*@Test
-    public void parseCovt_DifferentZ2Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(2, 2, 2 ,2, 2);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ3Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(3, 4, 4 ,5, 5);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ4Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(4, 8, 8 ,10, 10);
-        runTest(4, 3, 3 ,9, 9);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ5Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        //runTest(5, 15, 17, 20, 22);
-        runTest(5, 16, 17, 20, 21);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ6Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        //runTest(6, 32, 36, 41, 42);
-        runTest(6, 32, 34, 41, 42);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ7Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(7, 66, 68, 83, 85);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ8Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(8, 132, 135, 170, 171);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ9Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(9, 264, 266, 340, 342);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ10Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(10, 530, 533, 682, 684);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ11Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(11, 1062, 1065, 1366, 1368);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ12Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(12, 2130, 2134, 2733, 2734);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ13Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(13, 4264, 4267, 5467, 5468);
-    }
-
-    @Test
-    public void parseCovt_DifferentZ14Tiles_ValidParsedTile() throws SQLException, IOException, ClassNotFoundException {
-        runTest(14, 8296, 8300, 10748, 10749);
-    }
-
-    private static void runTest(int zoom, int minX, int maxX, int minY, int maxY) throws SQLException, IOException, ClassNotFoundException {
-        var ratios = new ArrayList<double[]>();
-        for(var x = minX; x <= maxX; x++){
-            for(var y = minY; y <= maxY; y++){
-                System.out.println("x: " + x + ", y: " + y);
-                //var mvtTile = MvtUtils.getMVT(MBTILES_FILE_NAME, zoom, x, y);
-                //var mvtLayers = mvtTile.layers();
-                //var covtTile = MvtConverter.createCovtTile(mvtLayers, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING, REMOVE_CLOSING_POLYGON_VERTEX);
-
-                //var covtLayers = CovtParser.parseCovt(covtTile, USE_ICE_ENCODING, USE_FAST_PFOR, USE_STRING_DICTIONARY_CODING);
-
-                //compareTiles(mvtLayers, covtLayers);
-
-                //printStats(mvtTile, covtTile);
-                //var ratio = getRatio(mvtTile, covtTile);
-                //ratios.add(ratio);
-            }
-        }
-
-        printAverageStats(ratios);
-    }
-
-    private static void printAverageStats(ArrayList<double[]> ratios){
-        var totalUncompressedRatio = 0d;
-        var totalCompressedRatio = 0d;
-        for(var ratio : ratios){
-            totalUncompressedRatio += ratio[0];
-            totalCompressedRatio += ratio[1];
-        }
-        System.out.println(String.format("Total ratio uncompressed: %s, Total ratio compressed: %s",
-                (1 - 1 / (totalUncompressedRatio / ratios.size())) * 100,
-                (1 - 1 / (totalCompressedRatio / ratios.size())) * 100
-        ));
-    }
-
-    private static double[] getRatio(MapboxVectorTile mvtTile, byte[] covtTile) throws IOException {
-        var covtGzipBuffer = IntegerCompression.gzipCompress(covtTile);
-        var uncompressedRatio = ((double)mvtTile.mvtSize()) / covtTile.length;
-        var compressedRatio = ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length;
-        return new double[]{uncompressedRatio, compressedRatio};
-    }
-
-    private static void printStats(MapboxVectorTile mvtTile, byte[] covtTile) throws IOException {
-        var covtGzipBuffer = IntegerCompression.gzipCompress(covtTile);
-        System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize()));
-        System.out.println(String.format("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length));
-        System.out.println(String.format("Ratio uncompressed: %s, Ratio compressed: %s",
-                ((double)mvtTile.mvtSize()) / covtTile.length, ((double)mvtTile.gzipCompressedMvtSize()) / covtGzipBuffer.length));
-    }
-
-    private static void compareTiles(List<Layer> mvtLayers, List<Layer> covtLayers){
+    private void compareTiles(List<Layer> mvtLayers, List<Layer> covtLayers){
         assertEquals(mvtLayers.size(), covtLayers.size());
         for(var i = 0; i < mvtLayers.size(); i++){
             var mvtLayer = mvtLayers.get(i);
@@ -206,22 +73,15 @@ public class CovtParserTest {
 
                 var mvtProperties = mvtFeature.properties();
                 var covtProperties = covtFeature.properties();
-                for(var propertyKey : covtProperties.keySet()){
+                for(var propertyKey : mvtProperties.keySet()){
                     var mvtProperty = mvtProperties.get(propertyKey);
                     var optionalCovtProperty = ((Optional)covtProperties.get(propertyKey));
                     var covtProperty = optionalCovtProperty.isPresent() ? optionalCovtProperty.get() : null;
 
-                    //TODO: handle long values properly in the conversion
-                    if(mvtProperty instanceof Long){
-                        var intMvtProperty = ((Long)mvtProperty).intValue();
-                        assertEquals(intMvtProperty, covtProperty);
-                    }
-                    else{
-                        assertEquals(mvtProperty, covtProperty);
-                    }
+                    assertEquals(mvtProperty, covtProperty);
                 }
             }
         }
-    }*/
+    }
 
 }
