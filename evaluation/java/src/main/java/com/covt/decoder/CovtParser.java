@@ -4,9 +4,20 @@ import com.covt.converter.*;
 import com.covt.converter.mvt.Feature;
 import com.covt.converter.mvt.Layer;
 import me.lemire.integercompression.IntWrapper;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.Polygon;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.LinkedHashMap;
 
 record Header(int version, int numLayers) { }
 

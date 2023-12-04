@@ -12,7 +12,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CovtParserTest {
-    private static final String BING_MVT_PATH = ".\\data\\bing\\mvt";
+    private static final String BING_MVT_PATH = "..\\..\\test\\fixtures\\bing\\mvt";
 
     /* Bing tiles --------------------------------  */
 

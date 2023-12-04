@@ -12,16 +12,16 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CovtConverterTest {
-    private static final String BING_MVT_PATH = ".\\data\\bing\\mvt";
-    private static final String BING_COVT_PATH = ".\\data\\bing\\covt";
-    private static final String OMT_MVT_PATH = ".\\data\\omt\\mvt";
-    private static final String OMT_COVT_PATH = ".\\data\\omt\\covt";
-    private static final String MAPBOX_MVT_PATH = ".\\data\\mapbox\\mvt";
-    private static final String MAPBOX_COVT_PATH = ".\\data\\mapbox\\covt";
-    private static final String AMAZON_MVT_PATH = ".\\data\\amazon\\mvt";
-    private static final String AMAZON_COVT_PATH = ".\\data\\amazon\\covt";
-    private static final String AMAZON_HERE_MVT_PATH = ".\\data\\amazon_here\\mvt";
-    private static final String AMAZON_HERE_COVT_PATH = ".\\data\\amazon_here\\covt";
+    private static final String BING_MVT_PATH = "..\\..\\test\\fixtures\\bing\\mvt";
+    private static final String BING_COVT_PATH = "..\\..\\test\\fixtures\\bing\\covt";
+    private static final String OMT_MVT_PATH = "..\\..\\test\\fixtures\\omt\\mvt";
+    private static final String OMT_COVT_PATH = "..\\..\\test\\fixtures\\omt\\covt";
+    private static final String MAPBOX_MVT_PATH = "..\\..\\test\\fixtures\\mapbox\\mvt";
+    private static final String MAPBOX_COVT_PATH = "..\\..\\test\\fixtures\\mapbox\\covt";
+    private static final String AMAZON_MVT_PATH = "..\\..\\test\\fixtures\\amazon\\mvt";
+    private static final String AMAZON_COVT_PATH = "..\\..\\test\\fixtures\\amazon\\covt";
+    private static final String AMAZON_HERE_MVT_PATH = "..\\..\\test\\fixtures\\amazon_here\\mvt";
+    private static final String AMAZON_HERE_COVT_PATH = "..\\..\\test\\fixtures\\amazon_here\\covt";
     private static final boolean SAVE_GENERATED_TILES = true;
 
     /* Amazon Here Tile Tests ---------------------------------- */
@@ -160,7 +160,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE_MORTON, false, false, true, false);
+                CovtConverter.GeometryEncoding.ICE_MORTON, true, true, true, false);
         assertTrue(covTile.length > 0);
         var compressionRatio = printStats(mvtTile, covTile);
 
@@ -304,26 +304,26 @@ public class CovtConverterTest {
 
     private static double printStats(MapboxVectorTile mvtTile, byte[] covtTile) throws IOException {
         var covtGzipBuffer = EncodingUtils.gzipCompress(covtTile);
-        System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize()));
-        System.out.println(String.format("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length));
-        System.out.println(String.format("Ratio uncompressed: %s, Ratio compressed: %s",
-                ((double)mvtTile.mvtSize())/covtTile.length, ((double)mvtTile.gzipCompressedMvtSize())/covtGzipBuffer.length));
+        System.out.printf("MVT size: %s, Gzip MVT size: %s%n", mvtTile.mvtSize(), mvtTile.gzipCompressedMvtSize());
+        System.out.printf("COVT size: %s, Gzip COVT size: %s%n", covtTile.length, covtGzipBuffer.length);
+        System.out.printf("Ratio uncompressed: %s, Ratio compressed: %s%n",
+                ((double)mvtTile.mvtSize())/covtTile.length, ((double)mvtTile.gzipCompressedMvtSize())/covtGzipBuffer.length);
         var compressionRatio = (1-(1/(((double)mvtTile.mvtSize())/covtTile.length)))*100;
         var compressionRatioCompressed = (1-(1/(((double)mvtTile.gzipCompressedMvtSize())/covtGzipBuffer.length)))*100;
-        System.out.println(String.format("Reduction uncompressed: %s%%, Reduction compressed: %s%%", compressionRatio, compressionRatioCompressed));
+        System.out.printf("Reduction uncompressed: %s%%, Reduction compressed: %s%% %n", compressionRatio, compressionRatioCompressed);
         return compressionRatio;
     }
 
     private static double printStats2(MapboxVectorTile mvtTile, byte[] covtTile, byte[] mvtTileBuffer) throws IOException {
         var covtGzipBuffer = EncodingUtils.gzipCompress(covtTile);
         var mvtGzipBuffer = EncodingUtils.gzipCompress(mvtTileBuffer);
-        System.out.println(String.format("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtGzipBuffer.length));
-        System.out.println(String.format("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length));
-        System.out.println(String.format("Ratio uncompressed: %s, Ratio compressed: %s",
-                ((double)mvtTile.mvtSize())/covtTile.length, ((double)mvtTile.gzipCompressedMvtSize())/covtGzipBuffer.length));
+        System.out.printf("MVT size: %s, Gzip MVT size: %s", mvtTile.mvtSize(), mvtGzipBuffer.length);
+        System.out.printf("COVT size: %s, Gzip COVT size: %s", covtTile.length, covtGzipBuffer.length);
+        System.out.printf("Ratio uncompressed: %s, Ratio compressed: %s",
+                ((double)mvtTile.mvtSize())/covtTile.length, ((double)mvtTile.gzipCompressedMvtSize())/covtGzipBuffer.length);
         var compressionRatio = (1-(1/(((double)mvtTile.mvtSize())/covtTile.length)))*100;
         var compressionRatioCompressed = (1-(1/(((double)mvtTile.gzipCompressedMvtSize())/covtGzipBuffer.length)))*100;
-        System.out.println(String.format("Reduction uncompressed: %s%%, Reduction compressed: %s%%", compressionRatio, compressionRatioCompressed));
+        System.out.printf("Reduction uncompressed: %s%%, Reduction compressed: %s%%%n", compressionRatio, compressionRatioCompressed);
         System.out.println("------------------------------------------------------------");
         return compressionRatio;
     }

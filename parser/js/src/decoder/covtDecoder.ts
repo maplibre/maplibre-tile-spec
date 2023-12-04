@@ -16,6 +16,7 @@ import {
 import { GeometryColumn, LayerTable, PropertyColumn } from "./layerTable";
 import { ColumnDataType, ColumnEncoding, ColumnMetadata, LayerMetadata, StreamMetadata } from "./covtMetadata";
 import { GeometryType } from "./geometry";
+import ieee754 from "ieee754";
 
 export class CovtDecoder {
     private static readonly ID_COLUMN_NAME = "id";
@@ -37,12 +38,13 @@ export class CovtDecoder {
             const { name: layerName, numFeatures, numColumns, columnMetadata } = layerMetadata;
 
             let idColumn;
+            offset = layerDataOffset;
             if (columnMetadata[0].columnName === CovtDecoder.ID_COLUMN_NAME) {
                 const idMetadata = columnMetadata.shift();
                 /* This solution is limited to 53 bits but this is also the case in the mapbox vector-tile-js lib */
                 const [ids, geometryOffset] = this.decodeIdColumn(
                     covTile,
-                    layerDataOffset,
+                    offset,
                     numFeatures,
                     idMetadata.columnEncoding,
                 );
@@ -57,6 +59,7 @@ export class CovtDecoder {
                     "The geometry column has to be the first or second column in the file depending on the presence ot the id column.",
                 );
             }
+
             const { geometryColumn, offset: nextOffset } = this.decodeGeometryColumn(
                 covTile,
                 offset,
@@ -178,7 +181,6 @@ export class CovtDecoder {
         columnMetadata: ColumnMetadata,
     ): { geometryColumn: GeometryColumn; offset: number } {
         const geometryStreams = columnMetadata.streams;
-
         const [geometryTypes, topologyStreamsOffset] = decodeByteRle(buffer, numFeatures, offset);
         offset = topologyStreamsOffset;
 
@@ -219,6 +221,7 @@ export class CovtDecoder {
             return { geometryColumn: geometries, offset };
         }
 
+        //TODO: refactor -> decode like in ICE encoding now without VertexOffset stream
         let ringOffsets: Uint32Array;
         const ringOffsetsMetadata = geometryStreams.get(CovtDecoder.RING_OFFSETS_STREAM_NAME);
         if (ringOffsetsMetadata) {
@@ -417,18 +420,11 @@ export class CovtDecoder {
             return { data: { dictionaryStream, localizedStreams }, offset: nextColumnOffset };
         }
 
-        const numBytes = Math.ceil(numFeatures / 8);
-        const [presentStream, dataOffset] = decodeByteRle(buffer, numBytes, offset);
+        const numBytesPresentStream = Math.ceil(numFeatures / 8);
+        const [presentStream, dataOffset] = decodeByteRle(buffer, numBytesPresentStream, offset);
         switch (columnMetadata.columnType) {
             case ColumnDataType.BOOLEAN: {
-                const [dataStream, nextColumnOffset] = decodeByteRle(
-                    buffer,
-                    columnMetadata.streams.get("data").numValues,
-                    //TODO: verify changes
-                    //numBytes,
-                    dataOffset,
-                );
-
+                const [dataStream, nextColumnOffset] = decodeByteRle(buffer, numBytesPresentStream, dataOffset);
                 return { data: { presentStream, dataStream }, offset: nextColumnOffset };
             }
             case ColumnDataType.INT_64:
@@ -455,6 +451,20 @@ export class CovtDecoder {
                 } else {
                     throw new Error("Specified encoding not supported for a int property type.");
                 }
+            }
+            case ColumnDataType.FLOAT: {
+                const numPropertyValues = columnMetadata.streams.get("data").numValues;
+                const dataStream = new Float32Array(numPropertyValues);
+                let offset = dataOffset;
+                for (let i = 0; i < numPropertyValues; i++) {
+                    dataStream[i] = ieee754.read(buffer, offset, true, 23, Float32Array.BYTES_PER_ELEMENT);
+                    offset += Float32Array.BYTES_PER_ELEMENT;
+                }
+
+                return {
+                    data: { presentStream, dataStream },
+                    offset,
+                };
             }
             case ColumnDataType.STRING: {
                 const numDataValues = columnMetadata.streams.get("data").numValues;

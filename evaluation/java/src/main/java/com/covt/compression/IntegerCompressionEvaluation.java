@@ -3,7 +3,12 @@ package com.covt.compression;
 import com.covt.compression.geometry.Point;
 import com.covt.compression.utils.TestOutputCatcher;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import me.lemire.integercompression.*;
+import me.lemire.integercompression.BinaryPacking;
+import me.lemire.integercompression.FastPFOR128;
+import me.lemire.integercompression.IntWrapper;
+import me.lemire.integercompression.NewPFD;
+import me.lemire.integercompression.OptPFD;
+import me.lemire.integercompression.VariableByte;
 import org.apache.orc.impl.OutStream;
 import org.apache.orc.impl.RunLengthIntegerWriter;
 import org.apache.orc.impl.RunLengthIntegerWriterV2;
@@ -11,8 +16,6 @@ import org.apache.orc.impl.writer.StreamOptions;
 import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesWriterForInteger;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesWriter;
-
-import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,7 +23,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
-import java.util.zip.GZIPOutputStream;
 
 public class IntegerCompressionEvaluation {
     private static final Map<String, String> geometryFileNames = Map.of("Transportation_DeltaFeature_IdSorted",

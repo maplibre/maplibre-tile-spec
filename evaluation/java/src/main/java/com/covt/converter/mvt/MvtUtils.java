@@ -37,29 +37,30 @@ public class MvtUtils {
             }
         }
 
-        return decodeCompressedMvt(gzipCompressedMvt);
+        return  decodeMvt(unzip(gzipCompressedMvt), gzipCompressedMvt);
     }
 
     public static MapboxVectorTile decodeMvt(Path mvtFilePath) throws IOException {
         var mvt = Files.readAllBytes(mvtFilePath);
-        return decodeMvt(mvt, EncodingUtils.gzipCompress(mvt).length);
+        return decodeMvt(mvt, EncodingUtils.gzipCompress(mvt));
     }
 
     public static MapboxVectorTile decodeMvt2(Path mvtFilePath) throws IOException {
         var mvt = Files.readAllBytes(mvtFilePath);
-        return decodeMvt2(mvt, EncodingUtils.gzipCompress(mvt).length);
+
+        var compressedMVT = EncodingUtils.gzipCompress(mvt);
+        return decodeMvt2(mvt, compressedMVT);
     }
 
-    public static MapboxVectorTile decodeCompressedMvt(byte[] gzipCompressedMvtTile) throws IOException {
-        try(var inputStream = new ByteArrayInputStream(gzipCompressedMvtTile)){
+    public static byte[] unzip(byte[] buffer) throws IOException {
+        try(var inputStream = new ByteArrayInputStream(buffer)){
             try(var gZIPInputStream = new GZIPInputStream(inputStream)){
-                var mvtTile = gZIPInputStream.readAllBytes();
-                return decodeMvt2(mvtTile, gzipCompressedMvtTile.length);
+                return gZIPInputStream.readAllBytes();
             }
         }
     }
 
-    private static MapboxVectorTile decodeMvt(byte[] mvtTile, int compressedMvtSize) throws IOException {
+    private static MapboxVectorTile decodeMvt(byte[] mvtTile, byte[] compressedMvt) throws IOException {
         var result = MvtReader.loadMvt(new ByteArrayInputStream(mvtTile), MvtUtils.createGeometryFactory(),
                 new TagKeyValueMapConverter(true, ID_KEY));
         final var mvtLayers = result.getLayers();
@@ -80,11 +81,12 @@ public class MvtUtils {
             layers.add(new Layer(name, features));
         }
 
+        var decompressionTime = getGzipDecompressionTime(compressedMvt);
         //TODO: evaluate tile extent
-        return new MapboxVectorTile(layers, compressedMvtSize, mvtTile.length, 8192);
+        return new MapboxVectorTile(layers, compressedMvt.length, mvtTile.length, 8192, decompressionTime);
     }
 
-    private static MapboxVectorTile decodeMvt2(byte[] mvtTile, int compressedMvtSize) throws IOException {
+    private static MapboxVectorTile decodeMvt2(byte[] mvtTile, byte[] compressedMvt) throws IOException {
         VectorTileDecoder mvtDecoder = new VectorTileDecoder();
         mvtDecoder.setAutoScale(false);
         var tile = mvtDecoder.decode(mvtTile);
@@ -123,8 +125,17 @@ public class MvtUtils {
             layers.add(new Layer(layerName, features));
         }
 
+
+        var decompressionTime = getGzipDecompressionTime(compressedMvt);
         /* Start with one extent per tile not per layer like in MVT */
-        return new MapboxVectorTile(layers, compressedMvtSize, mvtTile.length, tileExtent);
+        return new MapboxVectorTile(layers, compressedMvt.length, mvtTile.length, tileExtent, decompressionTime);
+    }
+
+    private static double getGzipDecompressionTime(byte[] compressedMvt) throws IOException {
+        long start = System.nanoTime();
+        unzip(compressedMvt);
+        long finish = System.nanoTime();
+        return (finish - start) / 1_000_000d;
     }
 
     private static GeometryFactory createGeometryFactory() {
