@@ -36,9 +36,10 @@ public class OmtCovtDemo {
                 var zoom = Integer.parseInt(tileId.split("/")[0]);
 
                 if(previousFileZoomLevel != -1 && previousFileZoomLevel != zoom){
-                    System.out.printf("-----------------------------------------------------------------------%n");
+                    System.out.printf("------------------------------------------------------------------------------------------%n");
                     System.out.printf("Total reduction for zoom %d: %d%%%n", previousFileZoomLevel,
                             Math.round(peerZoomReduction / tilesPerZoom));
+                    System.out.printf("------------------------------------------------------------------------------------------%n");
                     tilesPerZoom = 0;
                     peerZoomReduction = 0;
                 }
