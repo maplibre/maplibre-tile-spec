@@ -47,7 +47,7 @@ export interface LocalizedStringDictionaryColumn extends StringColumn {
 
 export interface PrimitiveTypeColumn {
     presentStream: Uint8Array;
-    dataStream: Uint8Array | BigUint64Array | BigInt64Array;
+    dataStream: Uint8Array | Float32Array | BigUint64Array | BigInt64Array;
 }
 
 export type PropertyColumn = PrimitiveTypeColumn | StringDictionaryColumn | LocalizedStringDictionaryColumn;
@@ -94,7 +94,7 @@ export class LayerTable implements Iterable<Feature> {
     }
 
     private getId(): number {
-        return this.idColumn[this.featureOffset];
+        return this.idColumn?.[this.featureOffset];
     }
 
     private getGeometry(): Geometry {
@@ -167,6 +167,7 @@ export class LayerTable implements Iterable<Feature> {
                         this.vertexOffsetsOffset,
                         vertexOffsetsEndOffset,
                     );
+                    this.partOffsetsOffset = endPartOffsetsOffset;
                     this.vertexOffsetsOffset = vertexOffsetsEndOffset;
                     return new IceMultiLineString(vertexBuffer, partOffsetsSlice, vertexOffsetSlice);
                 } else {

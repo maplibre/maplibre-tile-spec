@@ -370,11 +370,15 @@ export function decodeNumberRle(buffer: Uint8Array, numValues: number, offset = 
 }
 
 //TODO: implement next method so that not all rle values have to be duplicated
-export function decodeByteRle(buffer: Uint8Array, numBytes: number, offset = 0): [values: Uint8Array, offset: number] {
-    const values = new Uint8Array(numBytes);
+export function decodeByteRle(
+    buffer: Uint8Array,
+    numBytesResult: number,
+    offset = 0,
+): [values: Uint8Array, offset: number] {
+    const values = new Uint8Array(numBytesResult);
 
     let valueOffset = 0;
-    while (valueOffset < numBytes) {
+    while (valueOffset < numBytesResult) {
         const header = buffer[offset++];
 
         /* Runs */

@@ -12,7 +12,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-public class ConversionUtils {
+public final class ConversionUtils {
+    private ConversionUtils(){}
 
     //Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
     public static byte[] varintEncode(int[] values) {

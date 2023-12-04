@@ -1,92 +1,55 @@
 import * as fs from "fs";
-import { parseMvtTile } from "../../../src/mvtUtils";
+import { MVTLayer, parseMvtTile } from "../../../src/mvtUtils";
 import { CovtDecoder } from "../../../src/decoder/covtDecoder";
+import * as Path from "path";
+import { toBeDeepCloseTo, toMatchCloseTo } from "jest-matcher-deep-close-to";
+expect.extend({ toBeDeepCloseTo, toMatchCloseTo });
 
-const COVT_FILE_NAME = "./data/5_16_21.covt";
-const MVT_FILE_NAME = "./data/5_16_21.mvt";
-
-const COVT_FILE_NAME2 = "./data/4_8_10.covt";
-const MVT_FILE_NAME2 = "./data/4_8_10.mvt";
+const tilesDir = "./data";
 
 describe("CovtDecoder", () => {
-    it("should decode a COVT tile in zoom level 5", async () => {
-        const covTile = fs.readFileSync(COVT_FILE_NAME);
-        const mvtTile = fs.readFileSync(MVT_FILE_NAME);
-        const mvtLayers = parseMvtTile(mvtTile);
+    it("should decode Amazon based tiles", async () => {
+        const tiles = getTiles(Path.join(tilesDir, "amazon"));
 
-        const covtDecoder = new CovtDecoder(covTile);
+        for (const tile of tiles) {
+            console.info(tile.covt);
+            const covTile = fs.readFileSync(tile.covt);
+            const mvtTile = fs.readFileSync(tile.mvt);
+            const mvtLayers = parseMvtTile(mvtTile);
 
-        let mvtLayerId = 0;
-        for (const covtLayerName of covtDecoder.layerNames) {
-            const covtLayer = covtDecoder.getLayerTable(covtLayerName);
-            const mvtLayer = mvtLayers[mvtLayerId++];
-            if (mvtLayer.name === "place") {
-                mvtLayer.features.sort((a, b) => a.id - b.id);
-            }
+            const covtDecoder = new CovtDecoder(covTile);
 
-            let mvtFeatureId = 0;
-            for (const covtFeature of covtLayer) {
-                const { id: covtId, geometry: covtGeometry, properties: covtProperties } = covtFeature;
-                const {
-                    id: mvtId,
-                    geometry: mvtGeometry,
-                    properties: mvtProperties,
-                } = mvtLayer.features[mvtFeatureId++];
-
-                console.info(mvtId);
-                //if (mvtLayer.name !== "transportation") {
-                try {
-                    expect(covtGeometry.format()).toEqual(mvtGeometry);
-                } catch (e) {
-                    console.info(mvtId);
-                }
-                //}
-
-                if (mvtLayer.name !== "place") {
-                    expect(covtId).toEqual(mvtId);
-                }
-
-                const transformedMvtProperties = mapMvtProperties(mvtProperties);
-                expect(covtProperties).toEqual(transformedMvtProperties);
-            }
+            compareTiles(covtDecoder, mvtLayers, true);
         }
     });
 
-    it("should decode a COVT tile in zoom level 4", async () => {
-        const covTile = fs.readFileSync(COVT_FILE_NAME2);
-        const mvtTile = fs.readFileSync(MVT_FILE_NAME2);
-        const mvtLayers = parseMvtTile(mvtTile);
+    it("should decode Bing Map based tiles", async () => {
+        const tiles = getTiles(Path.join(tilesDir, "bing"));
 
-        const covtDecoder = new CovtDecoder(covTile);
+        for (const tile of tiles) {
+            console.info(tile.covt);
+            const covTile = fs.readFileSync(tile.covt);
+            const mvtTile = fs.readFileSync(tile.mvt);
+            const mvtLayers = parseMvtTile(mvtTile);
 
-        let mvtLayerId = 0;
-        for (const covtLayerName of covtDecoder.layerNames) {
-            const covtLayer = covtDecoder.getLayerTable(covtLayerName);
-            const mvtLayer = mvtLayers[mvtLayerId++];
-            if (mvtLayer.name === "place") {
-                mvtLayer.features.sort((a, b) => a.id - b.id);
-            }
+            const covtDecoder = new CovtDecoder(covTile);
 
-            let mvtFeatureId = 0;
-            for (const covtFeature of covtLayer) {
-                const { id: covtId, geometry: covtGeometry, properties: covtProperties } = covtFeature;
-                const {
-                    id: mvtId,
-                    geometry: mvtGeometry,
-                    properties: mvtProperties,
-                } = mvtLayer.features[mvtFeatureId++];
+            /* The features of Bing tiles have no ids */
+            compareTiles(covtDecoder, mvtLayers, false);
+        }
+    });
 
-                if (mvtLayer.name !== "boundary") {
-                    expect(covtGeometry.format()).toEqual(mvtGeometry);
-                }
+    it("should decode OpenMapTiles schema based tiles", async () => {
+        const tiles = getTiles(Path.join(tilesDir, "omt"));
 
-                if (mvtLayer.name !== "place") {
-                    expect(covtId).toEqual(mvtId);
+        for (const tile of tiles) {
+            const covTile = fs.readFileSync(tile.covt);
+            const mvtTile = fs.readFileSync(tile.mvt);
+            const mvtLayers = parseMvtTile(mvtTile);
 
-                    const transformedMvtProperties = mapMvtProperties(mvtProperties);
-                    //expect(covtProperties).toEqual(transformedMvtProperties);
-                }
-            }
+            const covtDecoder = new CovtDecoder(covTile);
+
+            compareTiles(covtDecoder, mvtLayers);
         }
     });
 });
@@ -94,19 +57,77 @@ describe("CovtDecoder", () => {
 function mapMvtProperties(mvtProperties: Map<string, unknown>): Map<string, unknown> {
     const transformedMvtProperties = new Map<string, unknown>();
     for (const [key, value] of mvtProperties) {
-        if (key.includes("_")) {
-            const comps = key.split("_");
-            const transformedKey = `${comps[0]}:${comps[1]}`;
-            transformedMvtProperties.set(transformedKey, value);
-        } else if (value === undefined) {
+        if (value === undefined) {
             continue;
-        } else if (Number.isInteger(value)) {
-            //TODO: get rid of BigInt
-            transformedMvtProperties.set(key, BigInt(value as number));
-        } else {
-            transformedMvtProperties.set(key, value);
         }
+
+        /* Bing Maps tiles contain id in the feature properties and the feature id is set to 0.
+         * The Java MVT decoder used for the generation of the COVTiles ignores this id while the js decoder inserts the id in the feature properties.
+         * */
+        if (key.includes("id")) {
+            //console.info("remove id property: ", value);
+            continue;
+        }
+
+        let transformedKey = key;
+        if (key.includes("name_")) {
+            const comps = key.split("_");
+            transformedKey = `${comps[0]}:${comps[1]}`;
+        }
+
+        //TODO: get rid of BigInt
+        const convertedValue = Number.isInteger(value) ? BigInt(value as number) : value;
+        transformedMvtProperties.set(transformedKey, convertedValue);
     }
 
     return transformedMvtProperties;
+}
+
+function getTiles(dir: string): { mvt: string; covt: string }[] {
+    const tiles = fs.readdirSync(dir).sort();
+    const mappedTiles = [];
+    for (let i = 0; i < tiles.length; i += 2) {
+        mappedTiles.push({ covt: Path.join(dir, tiles[i]), mvt: Path.join(dir, tiles[i + 1]) });
+    }
+    return mappedTiles;
+}
+
+function compareTiles(covtDecoder: CovtDecoder, mvtLayers: MVTLayer[], compareIds = true) {
+    //let mvtLayerId = 0;
+    for (const covtLayerName of covtDecoder.layerNames) {
+        const covtLayer = covtDecoder.getLayerTable(covtLayerName);
+        //const mvtLayer = mvtLayers[mvtLayerId++];
+        //Depending on the used MVT decoding library the layer can be in different order
+        const mvtLayer = mvtLayers.find((l) => l.name === covtLayer.layerMetadata.name);
+
+        //console.info(covtLayerName);
+
+        /* the following layers are sorted based on the id in COVTiles */
+        if (["building", "poi", "place"].indexOf(covtLayerName) !== -1) {
+            mvtLayer.features.sort((a, b) => a.id - b.id);
+        }
+
+        Array.from(covtLayer).forEach((covtFeature, i) => {
+            const { id: covtId, geometry: covtGeometry, properties: covtProperties } = covtFeature;
+            const { id: mvtId, geometry: mvtGeometry, properties: mvtProperties } = mvtLayer.features[i];
+
+            //TODO: fix id issue in place layer
+            if (covtLayerName !== "place" && compareIds) {
+                expect(covtId).toEqual(mvtId);
+            }
+
+            /*if (covtLayerName === "water_feature") {
+                try {
+                    expect(covtGeometry.format()).toEqual(mvtGeometry);
+                } catch (e) {
+                    console.error("error ", covtLayerName);
+                }
+            }*/
+
+            expect(covtGeometry.format()).toEqual(mvtGeometry);
+
+            const transformedMvtProperties = mapMvtProperties(mvtProperties);
+            (expect(covtProperties) as any).toMatchCloseTo(transformedMvtProperties, 8);
+        });
+    }
 }
