@@ -12,15 +12,15 @@ import java.util.stream.Collectors;
 public class CovtParser {
 
     /*
-    * COVT file structure:
-    * - Header -> Version (UInt32 (Varint)) | numLayers (UInt32 (Varint))
-    * - Layer metadata -> Name | Extent | numFeatures | numColumns | (columnName, columnType (byte), columnEncoding (byte))[]
-    * - Feature -> Id (Varint)
-    * */
+     * COVT file structure:
+     * - Header -> Version (UInt32 (Varint)) | numLayers (UInt32 (Varint))
+     * - Layer metadata -> Name | Extent | numFeatures | numColumns | (columnName, columnType (byte), columnEncoding (byte))[]
+     * - Feature -> Id (Varint)
+     * */
     /*
-    * TODO:
-    *  - support not SFA conform polygon where closing vertex is missing
-    * */
+     * TODO:
+     *  - support not SFA conform polygon where closing vertex is missing
+     * */
     public static List<Layer> parseCovt(byte[] covtBuffer, boolean useIceEncoding, boolean useFastPfor, boolean useStringDictionaryCoding) throws IOException {
         var pos = new IntWrapper(0);
         var header = decodeHeader(covtBuffer, pos);
@@ -146,12 +146,12 @@ public class CovtParser {
 
     private static Geometry[] decodeGeometries(byte[] covtBuffer, int numFeatures, ColumnMetadata columnMetadata, IntWrapper pos) throws IOException {
         /*
-        * - Geometry column streams -> geometryType, geometryOffsets, ringOffsets, partOffsets, vertexOffsets, vertexBuffer
-        * - geometryType -> Byte, for test ORC RLE V1 but in general parquetRLEBitpackingHybridEncoding -> Bitpacking Hybrid 23 bytes vs ORC RLE V1 1kb vs ORC RLE V2 370 bytes
-        * - geometryOffsets, ringOffsets, partOffsets -> ORC RLE V1
-        * - vertexOffsets -> delta, zig-zag, varint encoded
-        * - vertexBuffer ICE -> delta, zig-zag, varint encoded
-        * */
+         * - Geometry column streams -> geometryType, geometryOffsets, ringOffsets, partOffsets, vertexOffsets, vertexBuffer
+         * - geometryType -> Byte, for test ORC RLE V1 but in general parquetRLEBitpackingHybridEncoding -> Bitpacking Hybrid 23 bytes vs ORC RLE V1 1kb vs ORC RLE V2 370 bytes
+         * - geometryOffsets, ringOffsets, partOffsets -> ORC RLE V1
+         * - vertexOffsets -> delta, zig-zag, varint encoded
+         * - vertexBuffer ICE -> delta, zig-zag, varint encoded
+         * */
 
         //TODO: quick and dirty -> get rid of this loop and use a better compression algorithm
         var geometryTypes = Arrays.stream(ConversionUtils.decodeOrcRleEncodingV1(covtBuffer, numFeatures, pos))
@@ -162,18 +162,18 @@ public class CovtParser {
         //var numRingOffsets = 0;
         for(var geometryType : geometryTypes){
             /*
-            * - Depending on the geometryType and encoding read geometryOffsets, partOffsets, ringOffsets and vertexOffsets
-            * - geometryOffsets, partOffsets, ringOffsets and vertexOffsets streams are zigZag, Delta, Varint encoded
-            * Logical Representation
-            * - Point: no stream
-            * - LineString: Part offsets
-            * - Polygon: Part offsets (Polygon), Ring offsets (LinearRing)
-            * - MultiPoint: Geometry offsets -> array of offsets indicate where the vertices of each MultiPoint start
-            * - MultiLineString: Geometry offsets, Part offsets (LineString)
-            * - MultiPolygon -> Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing)
-            * -> In addition when Indexed Coordinate Encoding (ICE) is used Vertex offsets stream is added
-            * Physical Representation
-            * */
+             * - Depending on the geometryType and encoding read geometryOffsets, partOffsets, ringOffsets and vertexOffsets
+             * - geometryOffsets, partOffsets, ringOffsets and vertexOffsets streams are zigZag, Delta, Varint encoded
+             * Logical Representation
+             * - Point: no stream
+             * - LineString: Part offsets
+             * - Polygon: Part offsets (Polygon), Ring offsets (LinearRing)
+             * - MultiPoint: Geometry offsets -> array of offsets indicate where the vertices of each MultiPoint start
+             * - MultiLineString: Geometry offsets, Part offsets (LineString)
+             * - MultiPolygon -> Geometry offsets, Part offsets (Polygon), Ring offsets (LinearRing)
+             * -> In addition when Indexed Coordinate Encoding (ICE) is used Vertex offsets stream is added
+             * Physical Representation
+             * */
 
             if(geometryType.equals(GeometryType.MULTIPOINT) || geometryType.equals(GeometryType.MULTILINESTRING) ||
                     geometryType.equals(GeometryType.MULTIPOLYGON)){
@@ -208,8 +208,8 @@ public class CovtParser {
         //TODO: refactor to improve performance
         if(numGeometryOffsets > 0 && !geometryTypes.stream().anyMatch(g -> g.equals(GeometryType.MULTIPOINT))){
             /* Case for MultiPolygon and MultiLineString
-            * -> Add the Multi* count to the simple features
-            * */
+             * -> Add the Multi* count to the simple features
+             * */
             numPartOffsets += (int)Arrays.stream(geometryOffsets).sum();
         }
         var partOffsets = ConversionUtils.decodeOrcRleEncodingV1(covtBuffer, numPartOffsets, pos);
@@ -221,17 +221,17 @@ public class CovtParser {
         }
 
         /*
-        * Construct Geometry
-        * -> Point
-        *   -> numFeatures
-        *   -> if delta coded
-        * -> LineString
-        *   -> numFeatures -> number of partOffsets
-        *   -> VertexBuffer
-        *   -> if ICE encoded
-        * -> Polygon
-        *       -> numFeatures -> number of partOffsets
-        * */
+         * Construct Geometry
+         * -> Point
+         *   -> numFeatures
+         *   -> if delta coded
+         * -> LineString
+         *   -> numFeatures -> number of partOffsets
+         *   -> VertexBuffer
+         *   -> if ICE encoded
+         * -> Polygon
+         *       -> numFeatures -> number of partOffsets
+         * */
         var geometries = new Geometry[numFeatures];
         var partOffsetCounter = 0;
         var ringOffsetsCounter = 0;
