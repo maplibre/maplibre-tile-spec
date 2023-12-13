@@ -14,7 +14,7 @@ public class CovtParser {
     /*
      * COVT file structure:
      * - Header -> Version (UInt32 (Varint)) | numLayers (UInt32 (Varint))
-     * - Layer metadata -> Name | Extent | numFeatures | numColumns | (columnName, columnType (byte), columnEncoding (byte))[]
+     * - Layer metadata -> Name | Extent | numFeatures | numColumns | (columnName, columnType (byte), columnType (byte))[]
      * - Feature -> Id (Varint)
      * */
     /*
