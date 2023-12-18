@@ -13,6 +13,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "src/util/fetchBingTile.js"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }
