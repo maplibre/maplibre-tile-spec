@@ -1,3 +1,9 @@
+/* WARNING: 
+   This file is provided for academic purpose only.
+   Any other usage is prohibited.
+   There is no guarantee that any of the APIs in this file will remain functioning.
+ */
+
 export type TileCoordinate = {
     x: number;
     y: number;
