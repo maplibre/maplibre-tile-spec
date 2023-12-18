@@ -1,12 +1,14 @@
-/* WARNING: 
-   This file is provided for academic purpose only.
-   Any other usage is prohibited.
-   There is no guarantee that any of the APIs in this file will remain functioning.
- */
-
 import * as MapHelper from "./MapHelper";
 import PathNameSpace from "path";
 import fs from "fs";
+
+const showUsage = () => {
+    console.log("Notice all '&' chars in URL need to be escaped.");
+    console.log("For example:\r\n");
+    console.log(
+        "npx ts-node fetchMVTTile.ts -center newyork -minZoom 10 -maxZoom 10 -urlTemplate https://foo.com/{x}-{y}-{z}?parameter1=p1^parameter2=p2",
+    );
+};
 
 const locationDictionary = {
     seattle: {
@@ -73,17 +75,13 @@ const fetchUrlAndSave = (url: string, savePath: string): Promise<string> => {
     return resultPromise;
 };
 
-const showUsage = () => {
-    console.log("Fetch bing tile util example");
-    console.log("npx ts-node fetchBingTile.ts -center newyork -minZoom 10 -maxZoom 10");
-};
-
+console.log(process.argv);
 const currentPath = PathNameSpace.parse(process.argv[1]);
 const bingTilePath = PathNameSpace.resolve(currentPath.dir, "../../../../test/fixtures/bing/mvt");
 let minZoom = 2;
 let maxZoom = 20;
 
-if (process.argv.length < 4) {
+if (process.argv.length < 6) {
     console.log(process.argv);
     showUsage();
 } else {
@@ -98,6 +96,8 @@ if (process.argv.length < 4) {
         const argMin = argsDict["-minZoom"] as string;
         const argMax = argsDict["-maxZoom"] as string;
 
+        const urlTemplate = argsDict["-urlTemplate"] as string;
+
         if (argMin) {
             minZoom = parseInt(argMin);
         }
@@ -110,15 +110,15 @@ if (process.argv.length < 4) {
             maxZoom = minZoom;
         }
 
-        if (!center) {
-            console.log("Center value must be one of these valuse: ");
-            console.log(Object.keys(locationDictionary));
-        } else {
-            const urlTemplate =
-                "https://t.ssl.ak.dynamic.tiles.virtualearth.net/" +
-                "comp/ch/{mvtFileName}" +
-                "?mkt=en-US&it=G,LC,AP,L,LA&jp=0&js=1&tj=1&ur=us&cstl=s23&mvt=1&features=mvt,mvttxtmaxw,mvtfcall&og=2359&st=bld|v:0_g|pv:1&sv=9.27";
+        const urlTemplateValid =
+            urlTemplate &&
+            urlTemplate.indexOf("{x}") > -1 &&
+            urlTemplate.indexOf("{y}") > -1 &&
+            urlTemplate.indexOf("{z}") > -1;
 
+        if (!center || !urlTemplateValid) {
+            showUsage();
+        } else {
             const allUrls = {};
             for (let z = minZoom; z <= maxZoom; z++) {
                 const resultTileSet = MapHelper.getViewTileSets(
@@ -131,7 +131,10 @@ if (process.argv.length < 4) {
 
                 for (const tile of resultTileSet) {
                     const mvtFileName = `${tile.z}-${tile.x}-${tile.y}.mvt`;
-                    const url = urlTemplate.replace("{mvtFileName}", mvtFileName);
+                    const url = urlTemplate
+                        .replace("{x}", tile.x.toString())
+                        .replace("{y}", tile.y.toString())
+                        .replace("{z}", tile.z.toString());
                     allUrls[mvtFileName] = url;
                 }
             }
