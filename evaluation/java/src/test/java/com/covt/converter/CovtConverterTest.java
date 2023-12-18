@@ -16,8 +16,6 @@ public class CovtConverterTest {
     private static final String BING_COVT_PATH = "..\\..\\test\\fixtures\\bing\\covt";
     private static final String OMT_MVT_PATH = "..\\..\\test\\fixtures\\omt\\mvt";
     private static final String OMT_COVT_PATH = "..\\..\\test\\fixtures\\omt\\covt";
-    private static final String MAPBOX_MVT_PATH = "..\\..\\test\\fixtures\\mapbox\\mvt";
-    private static final String MAPBOX_COVT_PATH = "..\\..\\test\\fixtures\\mapbox\\covt";
     private static final String AMAZON_MVT_PATH = "..\\..\\test\\fixtures\\amazon\\mvt";
     private static final String AMAZON_COVT_PATH = "..\\..\\test\\fixtures\\amazon\\covt";
     private static final String AMAZON_HERE_MVT_PATH = "..\\..\\test\\fixtures\\amazon_here\\mvt";
@@ -41,7 +39,8 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true,
+                true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -70,39 +69,13 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true, true, true);
 
         assertTrue(covTile.length > 0);
 
         printStats(mvtTile, covTile);
         if(SAVE_GENERATED_TILES == true){
             Files.write(Paths.get(AMAZON_COVT_PATH, tileId + ".covt" ), covTile);
-        }
-    }
-
-    /* Mapbox Tile Tests ---------------------------------- */
-
-    @Test
-    public void convert_MapboxTiles() throws IOException {
-        var fileNames = List.of("5_17_11", "6_33_21", "6_33_22", "7_67_44", "8_135_89", "9_273_178");
-
-        for(var fileName : fileNames){
-            runMapboxTests(fileName);
-        }
-    }
-
-    private void runMapboxTests(String tileId) throws IOException {
-        var mvtTile = MvtUtils.decodeMvt2(Paths.get(MAPBOX_MVT_PATH, tileId + ".pbf"));
-        var mvtLayers = mvtTile.layers();
-
-        var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
-
-        assertTrue(covTile.length > 0);
-
-        printStats(mvtTile, covTile);
-        if(SAVE_GENERATED_TILES == true){
-            Files.write(Paths.get(MAPBOX_COVT_PATH, tileId + ".covt" ), covTile);
         }
     }
 
@@ -160,7 +133,8 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE_MORTON, true, true, true, false);
+                CovtConverter.GeometryEncoding.ICE_MORTON, true, true,
+                true, false, true);
         assertTrue(covTile.length > 0);
         var compressionRatio = printStats(mvtTile, covTile);
 
@@ -266,7 +240,7 @@ public class CovtConverterTest {
         var mvtLayers = mvtTile.layers();
 
         var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                CovtConverter.GeometryEncoding.ICE, true, true, true, true);
+                CovtConverter.GeometryEncoding.ICE, true, true, true, true, true);
 
         assertTrue(covTile.length > 0);
 
@@ -286,7 +260,7 @@ public class CovtConverterTest {
                 var mvtLayers = mvtTile.layers();
 
                 var covTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(),
-                        CovtConverter.GeometryEncoding.ICE_MORTON, true, true, true, true);
+                        CovtConverter.GeometryEncoding.ICE_MORTON, true, true, true, true, true);
 
                 assertTrue(covTile.length > 0);
 

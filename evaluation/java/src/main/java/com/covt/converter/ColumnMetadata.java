@@ -1,7 +1,7 @@
 package com.covt.converter;
 
-import java.util.LinkedHashMap;
+import java.util.TreeMap;
 
-public record ColumnMetadata(ColumnDataType columnDataType, ColumnEncoding columnEncoding,
-                             LinkedHashMap<String, StreamMetadata> streams){
+public record ColumnMetadata(ColumnDataType columnDataType, ColumnType columnType,
+                             TreeMap<StreamType, StreamMetadata> streams){
 }

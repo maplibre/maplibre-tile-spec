@@ -2,10 +2,11 @@ package com.covt.decoder;
 
 import com.covt.converter.CovtConverter;
 import com.covt.converter.mvt.Layer;
+import com.covt.converter.tilejson.TileJson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,12 +46,16 @@ public class CovtParserTest {
             var mvtTile = com.covt.converter.mvt.MvtUtils.decodeMvt2(Paths.get(BING_MVT_PATH, tileId + ".mvt"));
             var mvtLayers = mvtTile.layers();
 
-            var covtTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
-                    true, true, false, false);
+            var data = CovtConverter.convertMvtTile2(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
+                    true, true, false, false, true);
 
-            var covtLayers = CovtParser.decodeCovt(covtTile);
+            var objectMapper = new ObjectMapper();
+            var tileJson = objectMapper.readValue(data.getLeft(), TileJson.class);
+
+            var covtLayers = CovtParser.decodeCovt(data.getRight(), tileJson);
 
             compareTiles(mvtLayers, covtLayers);
+            System.out.println("Tiles are equal");
         }
     }
 

@@ -60,7 +60,6 @@ public class OmtCovtDemo {
         System.out.printf("------------------------------------------------------------------------------------------%n");
     }
 
-    @NotNull
     private String getTilIdFromFilename(File file) {
         var tileId = file.getName().split("\\.")[0].replace("_", "/");
         return tileId;
@@ -84,13 +83,13 @@ public class OmtCovtDemo {
         var mvtLayers = mvtTile.layers();
 
         var covtTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
-                true, true, true, true);
+                true, true, true, true, true);
         var varintEncodedCovtTile = CovtConverter.convertMvtTile(mvtLayers, mvtTile.tileExtent(), CovtConverter.GeometryEncoding.ICE_MORTON,
-                false, false, true, true);
+                false, false, true, true, true);
 
         var gzipCovtSize = EncodingUtils.gzipCompress(covtTile).length;
         var varintGzipCovtSize = EncodingUtils.gzipCompress(varintEncodedCovtTile).length;
         return new TileStats(mvtTile.mvtSize(), covtTile.length, mvtTile.gzipCompressedMvtSize(),
-                gzipCovtSize < varintGzipCovtSize? gzipCovtSize : varintGzipCovtSize, mvtTile.gzipDecompressionTime());
+                gzipCovtSize < varintGzipCovtSize? gzipCovtSize : varintGzipCovtSize, mvtTile.gzipDecompressionTime(), 0, 0);
     }
 }
