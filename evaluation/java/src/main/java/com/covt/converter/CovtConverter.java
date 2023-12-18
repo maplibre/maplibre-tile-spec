@@ -4,8 +4,12 @@ import com.covt.converter.geometry.GeometryType;
 import com.covt.converter.geometry.Vertex;
 import com.covt.converter.mvt.Feature;
 import com.covt.converter.mvt.Layer;
+import com.covt.converter.tilejson.TileJson;
+import com.covt.converter.tilejson.VectorLayer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.davidmoten.hilbert.HilbertCurve;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -19,17 +23,7 @@ import org.locationtech.jts.geom.LinearRing;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -90,29 +84,23 @@ public class CovtConverter {
         ICE_MORTON
     }
 
-    private static final String ID_COLUMN_NAME = "id";
-    private static final String GEOMETRY_COLUMN_NAME = "geometry";
+    private static final byte FILE_VERSION = 1;
     private static final List<String> LOCALIZED_COLUM_NAME_PREFIXES = Arrays.asList("name");
     private static final Set<String>  LOCALIZE_DELIMITER = new HashSet<>(List.of(":", "_"));
-    private static String PRESENT_STREAM_NAME = "present";
-    private static String DATA_STREAM_NAME = "data";
-    private static String LENGTH_STREAM_NAME = "length";
-    public static final String DICTIONARY_STREAM_NAME = "dictionary";
-    private static String GEOMETRY_TYPES_STREAM_NAME = "geometry_types";
 
     //TODO: use a extent per layer instead of tile
     public static byte[] convertMvtTile(List<Layer> layers, int tileExtent, GeometryEncoding geometryEncoding,
                                         boolean allowFastPforForTopologyStreams,
                                         boolean allowFastPforForVertexBuffer,
                                         boolean allowLocalizedStringDictionary,
-                                        boolean includeIds
-                                        ) throws IOException {
+                                        boolean includeIds,
+                                        boolean optimizeMetadata
+    ) throws IOException {
+        var vectorLayers = new ArrayList<VectorLayer>();
         try(ByteArrayOutputStream stream = new ByteArrayOutputStream()){
-            var header = convertHeader(layers);
-            stream.write(header);
-
+            var totalLayerMetadataSize = 0;
+            var layerId = 0;
             for(var layer : layers){
-                var layerName = layer.name();
                 var features = layer.features();
                 var propertyColumnMetadata = getPropertyColumnMetadata(features, allowLocalizedStringDictionary);
 
@@ -120,14 +108,14 @@ public class CovtConverter {
                 byte[] idColumn = null;
                 if(includeIds == true) {
                     var allowReordering = false;
-                    var idColumnData = convertIdColumn(features, allowReordering);
+                    /*var idColumnData = convertIdColumn(features, allowReordering);
                     idColumn = idColumnData.getRight();
                     //TODO: id and geometry has to be the first columns in the metadata
-                    idMetadata = new ColumnMetadata(ColumnDataType.UINT_64, ColumnEncoding.PLAIN,
+                    idMetadata = new ColumnMetadata(ColumnDataType.UINT_64, ColumnType.PLAIN,
                             new LinkedHashMap<>(Map.of(
                                     DATA_STREAM_NAME,
-                                    new StreamMetadata(features.size(), idColumn.length, idColumnData.getLeft())
-                            )));
+                                    new StreamMetadata(features.size(), idColumn.length, idColumnData.getLeft(), StreamType.DATA)
+                            )));*/
                 }
 
                 //TODO: if features are not sorted based on id sort the geometry
@@ -147,16 +135,36 @@ public class CovtConverter {
                             iceCodedGeometryColumnData : unorderedGeometryColumnData;
                 }
 
-                //System.out.println(layerName + " geometry size: " + geometryColumnData.geometryColumn().length / 1024d);
                 var geometryColumn = geometryColumnData.geometryColumn();
                 var geometryMetadata = geometryColumnData.columnMetadata();
 
                 var propertyColumnData = convertPropertyColumns(features, propertyColumnMetadata);
                 var propertyMetadata = propertyColumnData.metadata();
                 var propertyColumns = propertyColumnData.propertyColumns();
-                //System.out.println(layerName + " property size: " + propertyColumnData.propertyColumns().length / 1024d);
+                //System.out.println(layerName + " property size: " + propertyColumnData.propertyColumns().length / 1000d);
 
-                var layerMetadata = convertLayerMetadata(layerName, idMetadata, geometryMetadata, propertyMetadata, tileExtent);
+                byte[] layerMetadata = null;
+                if(optimizeMetadata){
+                    layerMetadata = convertOptimizedLayerMetadata(layerId++, idMetadata, geometryMetadata, propertyMetadata, tileExtent);
+
+                    var vectorLayer = new VectorLayer();
+                    vectorLayer.id = layer.name();
+                    vectorLayer.fields = new LinkedHashMap<>();
+                    for(var property : propertyMetadata.floatMetadata()){
+                        var columnName = property.columnName();
+                        var columnMetadata = property.columnMetadata().columnDataType();
+                        //TODO: add real data type
+                        vectorLayer.fields.put(columnName, "String");
+                    }
+                    vectorLayers.add(vectorLayer);
+                }
+                else{
+                    throw new RuntimeException("Currently only the optimized metadata mode is supported.");
+                }
+
+
+                //System.out.println(layerName + " metadata size: " + layerMetadata.length / 1000d);
+                totalLayerMetadataSize += layerMetadata.length;
 
                 stream.write(layerMetadata);
                 if(includeIds == true){
@@ -166,106 +174,315 @@ public class CovtConverter {
                 stream.write(propertyColumns);
             }
 
+            //System.out.println("------------------------------------------------------------");
+            //System.out.println("Total Layer Metadata Size: " + totalLayerMetadataSize);
+            //System.out.printf("Contribution of metadata to the total file size: %f%%%n", (1d / (stream.toByteArray().length / (double)totalLayerMetadataSize ))  * 100);
+            //System.out.println("------------------------------------------------------------");
+
+
+            var tileJson = new TileJson();
+            tileJson.vectorLayers = vectorLayers;
+            ObjectMapper mapper = new ObjectMapper();
+            var tileJsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(tileJson);
+
             return stream.toByteArray();
         }
     }
 
-    private static byte[] convertLayerMetadata(String layerName, ColumnMetadata idMetadata, ColumnMetadata geometryMetadata,
-                                           PropertyColumnsMetadata propertyColumnData, int layerExtent) throws IOException {
+    public static Pair<String, byte[]> convertMvtTile2(List<Layer> layers, int tileExtent, GeometryEncoding geometryEncoding,
+                                        boolean allowFastPforForTopologyStreams,
+                                        boolean allowFastPforForVertexBuffer,
+                                        boolean allowLocalizedStringDictionary,
+                                        boolean includeIds,
+                                        boolean optimizeMetadata
+    ) throws IOException {
+        var vectorLayers = new ArrayList<VectorLayer>();
+        try(ByteArrayOutputStream stream = new ByteArrayOutputStream()){
+            var totalLayerMetadataSize = 0;
+            var layerId = 0;
+            for(var layer : layers){
+                var features = layer.features();
+                var propertyColumnMetadata = getPropertyColumnMetadata(features, allowLocalizedStringDictionary);
+
+                ColumnMetadata idMetadata = null;
+                byte[] idColumn = null;
+                if(includeIds == true) {
+                    var allowReordering = false;
+                    throw new RuntimeException("Id columns currently not supported.");
+                    /*var idColumnData = convertIdColumn(features, allowReordering);
+                    idColumn = idColumnData.getRight();
+                    //TODO: id and geometry has to be the first columns in the metadata
+                    idMetadata = new ColumnMetadata(ColumnDataType.UINT_64, ColumnType.PLAIN,
+                            new LinkedHashMap<>(Map.of(
+                                    DATA_STREAM_NAME,
+                                    new StreamMetadata(features.size(), idColumn.length, idColumnData.getLeft(), StreamType.DATA)
+                            )));*/
+                }
+
+                //TODO: if features are not sorted based on id sort the geometry
+                //for example part_offsets when ICE is used or point geometries without ICE
+                var allowIceEncodig = geometryEncoding == GeometryEncoding.ICE ||
+                        geometryEncoding == GeometryEncoding.ICE_MORTON;
+                GeometryColumData geometryColumnData;
+                var unorderedGeometryColumnData = convertUnorderedGeometryColumn(features,
+                        allowFastPforForTopologyStreams, allowFastPforForVertexBuffer);
+                if(!allowIceEncodig){
+                    geometryColumnData = unorderedGeometryColumnData;
+                }
+                else{
+                    var iceCodedGeometryColumnData = convertIceCodedGeometryColumn(features, tileExtent,
+                            geometryEncoding, allowFastPforForTopologyStreams, allowFastPforForVertexBuffer);
+                    geometryColumnData = iceCodedGeometryColumnData.geometryColumn().length < unorderedGeometryColumnData.geometryColumn().length?
+                            iceCodedGeometryColumnData : unorderedGeometryColumnData;
+                }
+
+                var geometryColumn = geometryColumnData.geometryColumn();
+                var geometryMetadata = geometryColumnData.columnMetadata();
+
+                var propertyColumnData = convertPropertyColumns(features, propertyColumnMetadata);
+                var propertyMetadata = propertyColumnData.metadata();
+                var propertyColumns = propertyColumnData.propertyColumns();
+                //System.out.println(layerName + " property size: " + propertyColumnData.propertyColumns().length / 1000d);
+
+                byte[] layerMetadata = null;
+                if(optimizeMetadata){
+                    layerMetadata = convertOptimizedLayerMetadata(layerId++, idMetadata, geometryMetadata, propertyMetadata, tileExtent);
+
+                    var vectorLayer = new VectorLayer();
+                    vectorLayer.id = layer.name();
+                    vectorLayer.fields = new LinkedHashMap<>();
+                    var metadata = new ArrayList<>(propertyMetadata.booleanMetadata());
+                    metadata.addAll(propertyMetadata.longMetadata());
+                    metadata.addAll(propertyMetadata.floatMetadata());
+                    metadata.addAll(propertyMetadata.stringDictionaryMetadata());
+                    metadata.addAll(propertyMetadata.localizedStringDictionaryMetadata());
+                    for(var property : metadata){
+                        var columnName = property.columnName();
+                        var columnMetadata = property.columnMetadata().columnDataType();
+                        //TODO: add real data type
+                        vectorLayer.fields.put(columnName, "String");
+                    }
+                    vectorLayers.add(vectorLayer);
+                }
+                else{
+                    layerMetadata = convertLayerMetadata(layer.name(), idMetadata, geometryMetadata, propertyMetadata, tileExtent);
+                }
+
+
+                //System.out.println(layerName + " metadata size: " + layerMetadata.length / 1000d);
+                totalLayerMetadataSize += layerMetadata.length;
+
+                stream.write(layerMetadata);
+                if(includeIds == true){
+                    stream.write(idColumn);
+                }
+                stream.write(geometryColumn);
+                stream.write(propertyColumns);
+            }
+
+            //System.out.println("------------------------------------------------------------");
+            //System.out.println("Total Layer Metadata Size: " + totalLayerMetadataSize);
+            //System.out.printf("Contribution of metadata to the total file size: %f%%%n", (1d / (stream.toByteArray().length / (double)totalLayerMetadataSize ))  * 100);
+            //System.out.println("------------------------------------------------------------");
+
+
+            var tileJson = new TileJson();
+            tileJson.vectorLayers = vectorLayers;
+            ObjectMapper mapper = new ObjectMapper();
+            var tileJsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(tileJson);
+
+            return new ImmutablePair<>(tileJsonStr, stream.toByteArray());
+        }
+
+
+    }
+
+    private static byte[] convertOptimizedLayerMetadata(int layerId, ColumnMetadata idMetadata, ColumnMetadata geometryMetadata,
+                                                        PropertyColumnsMetadata propertyColumnData, int layerExtent) {
         /*
-        * -> LayerHeader -> LayerName, NumFeatures, NumColumns, ColumnMetadata[]
-        * -> ColumnMetadata -> ColumnName, DataType, ColumnEncoding, numStreams, GeometryMetadata | PrimitiveTypeMetadata | StringDictionaryMetadata | LocalizedStringDictionaryMetadata
-        * -> StreamMetadata -> StreamName, NumValues, ByteLength, StreamEncoding
+        * -> LayerHeader -> version (7 bits), optimizeMetadata (1 bit), name (String | u32), layerExtent (u32),
+        *                   numFeatures (u32), numColumns (u32), ColumnMetadata[]
+        * -> ColumnMetadata -> columnName(String | u32), required(1 bit), dataType (4 bit), columnType (3 bit),
+        *                      GeometryMetadata | PrimitiveTypeMetadata | StringDictionaryMetadata | LocalizedStringDictionaryMetadata
+        * -> StreamMetadata -> streamType (4 bits), streamEncoding(4 bits), streamName (optional), numValues (u32), byteLength (u32)
         * -> IdMetadata -> PrimitiveTypeMetadata -> StreamMetadata[1]
-        * -> GeometryMetadata -> StreamMetadata[max 6],
+        * -> GeometryMetadata -> StreamMetadata[max 6 vor geometries plus z- and m-values]
         * -> PrimitiveTypeMetadata -> StreamMetadata[2]
-        * -> StringDictionaryMetadata -> StreamMetadata[4]
+        * -> StringDictionaryMetadata -> StreamMetadata[4] -> order: present, data, length, dictionary
         * -> LocalizedStringDictionaryMetadata -> StreamMetadata[n]
         * */
-        var numFeatures = geometryMetadata.streams().get(GEOMETRY_TYPES_STREAM_NAME).numValues();
+
+        /* id colum is optional but geometry column is required */
+        var numColumnsBeforePropertyColumns = idMetadata != null ? 2 : 1;
+
+        var numFeatures = geometryMetadata.streams().get(StreamType.GEOMETRY_TYPES).numValues();
         var numColumns = propertyColumnData.booleanMetadata().size() + propertyColumnData.longMetadata().size() +
                 propertyColumnData.floatMetadata().size() +
                 propertyColumnData.stringDictionaryMetadata().size() + propertyColumnData.localizedStringDictionaryMetadata().size() +
-                (idMetadata != null ? 2 : 1) ;
-        /* layerName, layerExtent, numFeatures, numColumns */
-        var metadata = ArrayUtils.addAll(EncodingUtils.encodeString(layerName),
-                EncodingUtils.encodeVarints(new long[]{layerExtent, numFeatures, numColumns}, false, false));
+                numColumnsBeforePropertyColumns;
+
+        /* version and optimizeMetadata flag */
+        var encodedVersion = (byte) (FILE_VERSION << 1 | 1);
+        var metadata = ArrayUtils.addAll(new byte[]{encodedVersion},
+                EncodingUtils.encodeVarints(new long[]{layerId, layerExtent, numFeatures, numColumns}, false, false));
 
         if(idMetadata != null){
-            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(ID_COLUMN_NAME));
-            metadata  = ArrayUtils.addAll(metadata, (byte)ColumnDataType.UINT_64.ordinal());
-            metadata = ArrayUtils.addAll(metadata, (byte) idMetadata.columnEncoding().ordinal());
+            /*//metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(ID_COLUMN_NAME));
+            //metadata  = ArrayUtils.addAll(metadata, (byte)ColumnDataType.UINT_64.ordinal());
+            metadata = ArrayUtils.addAll(metadata, (byte) idMetadata.columnType().ordinal());
             metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{1}, false, false));
-            metadata = addStreamMetadata(metadata, DATA_STREAM_NAME,  idMetadata.streams().get(DATA_STREAM_NAME));
+            //metadata = addStreamMetadata(metadata, DATA_STREAM_NAME,  idMetadata.streams().get(DATA_STREAM_NAME));*/
+            throw new RuntimeException("Id column currently no supported.");
         }
 
         var geometryStreams = geometryMetadata.streams();
-        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(GEOMETRY_COLUMN_NAME));
-        metadata  = ArrayUtils.addAll(metadata, (byte) ColumnDataType.GEOMETRY.ordinal());
-        metadata = ArrayUtils.addAll(metadata, (byte) geometryMetadata.columnEncoding().ordinal());
-        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{geometryStreams.size()}, false, false));
+        var geometryColumnId = 1;
+        metadata = addOptimizedColumnHeader(metadata, geometryMetadata, geometryColumnId);
         for(var geometryStream : geometryStreams.entrySet()){
-            metadata = addStreamMetadata(metadata, geometryStream.getKey(), geometryStream.getValue());
+            //TODO: add support for z-values and m-values
+            metadata = addOptimizedStreamMetadata(metadata, geometryStream.getValue(), geometryStream.getKey());
+        }
+
+        /* column id 0 and 1 is always reserved for id and geometry independent of the presence of the id column */
+        var nextColumnId = 2;
+        metadata = addOptimizedNamedColumnMetadata(metadata, propertyColumnData.booleanMetadata(), nextColumnId);
+        nextColumnId += propertyColumnData.booleanMetadata().size();
+        metadata = addOptimizedNamedColumnMetadata(metadata, propertyColumnData.longMetadata(), nextColumnId);
+        nextColumnId += propertyColumnData.longMetadata().size();
+        metadata = addOptimizedNamedColumnMetadata(metadata, propertyColumnData.floatMetadata(), nextColumnId);
+        nextColumnId += propertyColumnData.floatMetadata().size();
+        metadata = addOptimizedNamedColumnMetadata(metadata, propertyColumnData.stringDictionaryMetadata(), nextColumnId);
+        //nextColumnId += propertyColumnData.stringDictionaryMetadata().size();
+        //return addOptimizedNamedColumnMetadata(metadata, propertyColumnData.localizedStringDictionaryMetadata(), nextColumnId);
+
+        if(propertyColumnData.localizedStringDictionaryMetadata().size() > 0){
+            throw new RuntimeException("Localized Dictionary currently not supported.");
+        }
+
+        return metadata;
+    }
+
+    private static byte[] convertLayerMetadata(String layerName, ColumnMetadata idMetadata, ColumnMetadata geometryMetadata,
+                                                        PropertyColumnsMetadata propertyColumnData, int layerExtent) throws IOException {
+        /*
+         * -> LayerHeader -> version (7 bits), optimizeMetadata (1 bit), name (String | u32), layerExtent (u32),
+         *                   numFeatures (u32), numColumns (u32), ColumnMetadata[]
+         * -> ColumnMetadata -> columnName(String | u32), required(1 bit), dataType (4 bit), columnType (3 bit),
+         *                      GeometryMetadata | PrimitiveTypeMetadata | StringDictionaryMetadata | LocalizedStringDictionaryMetadata
+         * -> StreamMetadata -> streamType (4 bits), streamEncoding(4 bits), streamName (optional), numValues (u32), byteLength (u32)
+         * -> IdMetadata -> PrimitiveTypeMetadata -> StreamMetadata[1]
+         * -> GeometryMetadata -> StreamMetadata[max 6 vor geometries plus z- and m-values]
+         * -> PrimitiveTypeMetadata -> StreamMetadata[2]
+         * -> StringDictionaryMetadata -> StreamMetadata[4] -> order: present, data, length, dictionary
+         * -> LocalizedStringDictionaryMetadata -> StreamMetadata[n]
+         * */
+
+        /* id colum is optional but geometry column is required */
+        var numColumnsBeforePropertyColumns = idMetadata != null ? 2 : 1;
+
+        var numFeatures = geometryMetadata.streams().get(StreamType.GEOMETRY_TYPES).numValues();
+        var numColumns = propertyColumnData.booleanMetadata().size() + propertyColumnData.longMetadata().size() +
+                propertyColumnData.floatMetadata().size() +
+                propertyColumnData.stringDictionaryMetadata().size() + propertyColumnData.localizedStringDictionaryMetadata().size() +
+                numColumnsBeforePropertyColumns;
+
+        /* version and optimizeMetadata flag */
+        var encodedVersion = (byte) (FILE_VERSION << 1 | 0);
+        var metadata = ArrayUtils.addAll(new byte[]{encodedVersion}, EncodingUtils.encodeString(layerName));
+        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{layerExtent, numFeatures, numColumns},
+                false, false));
+
+        if(idMetadata != null){
+            /*//metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(ID_COLUMN_NAME));
+            //metadata  = ArrayUtils.addAll(metadata, (byte)ColumnDataType.UINT_64.ordinal());
+            metadata = ArrayUtils.addAll(metadata, (byte) idMetadata.columnType().ordinal());
+            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{1}, false, false));
+            //metadata = addStreamMetadata(metadata, DATA_STREAM_NAME,  idMetadata.streams().get(DATA_STREAM_NAME));*/
+            throw new RuntimeException("Id column currently no supported.");
+        }
+
+        var geometryStreams = geometryMetadata.streams();
+        var geometryColumnId = 1;
+        metadata = addOptimizedColumnHeader(metadata, geometryMetadata, geometryColumnId);
+        for(var geometryStream : geometryStreams.entrySet()){
+            //TODO: add support for z-values and m-values
+            metadata = addOptimizedStreamMetadata(metadata, geometryStream.getValue(), geometryStream.getKey());
         }
 
         metadata = addNamedColumnMetadata(metadata, propertyColumnData.booleanMetadata());
         metadata = addNamedColumnMetadata(metadata, propertyColumnData.longMetadata());
         metadata = addNamedColumnMetadata(metadata, propertyColumnData.floatMetadata());
         metadata = addNamedColumnMetadata(metadata, propertyColumnData.stringDictionaryMetadata());
-        return addNamedColumnMetadata(metadata, propertyColumnData.localizedStringDictionaryMetadata());
+        //nextColumnId += propertyColumnData.stringDictionaryMetadata().size();
+        //return addOptimizedNamedColumnMetadata(metadata, propertyColumnData.localizedStringDictionaryMetadata(), nextColumnId);
+
+        if(propertyColumnData.localizedStringDictionaryMetadata().size() > 0){
+            throw new RuntimeException("Localized Dictionary currently not supported.");
+        }
+
+        return metadata;
     }
 
-    private static byte[] addNamedColumnMetadata(byte[] metadata, List<NamedColumnMetadata> namedMetadata) throws IOException {
+    private static byte[] addOptimizedNamedColumnMetadata(byte[] metadata, List<NamedColumnMetadata> namedMetadata, int nextId){
         for(var column : namedMetadata){
             var columnMetadata = column.columnMetadata();
-            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(column.columnName()));
-            metadata = ArrayUtils.addAll(metadata, (byte)columnMetadata.columnDataType().ordinal());
-            metadata = ArrayUtils.addAll(metadata, (byte)columnMetadata.columnEncoding().ordinal());
-            metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{columnMetadata.streams().size()}, false, false));
+            metadata = addOptimizedColumnHeader(metadata, columnMetadata, nextId++);
 
             for(var stream : columnMetadata.streams().entrySet()){
-                metadata = addStreamMetadata(metadata, stream.getKey(), stream.getValue());
+                var streamType = stream.getKey();
+                var streamMetadata = stream.getValue();
+                if(streamType == StreamType.PRESENT){
+                    continue;
+                }
+
+                metadata = addOptimizedStreamMetadata(metadata, streamMetadata, streamType);
             }
         }
 
         return metadata;
     }
 
-    private static byte[] addStreamMetadata(byte[] metadata, String streamName, StreamMetadata streamMetadata) throws IOException {
-        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(streamName));
-        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.numValues()}, false, false));
-        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.byteLength()}, false, false));
-        return ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.streamEncoding().ordinal()}, false, false));
+    private static byte[] addOptimizedColumnHeader(byte[] metadata, ColumnMetadata columnMetadata, int columnId) {
+        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{columnId}, false, false));
+        var columnDesc = columnMetadata.columnDataType().ordinal() << 3 | columnMetadata.columnType().ordinal();
+        /* required (0 == false), dataType and columnType */
+        return ArrayUtils.addAll(metadata, (byte)columnDesc);
     }
 
-    private static byte[] convertHeader(List<Layer> layers) {
-        /*
-         * -> Version: UInt32 (Varint)
-         * -> Num Layers: UInt32 (Varint)
-         * */
-        var version = 1;
-        var numLayers = layers.size();
+    private static byte[] addNamedColumnMetadata(byte[] metadata, List<NamedColumnMetadata> namedMetadata) throws IOException {
+        for(var column : namedMetadata){
+            var columnMetadata = column.columnMetadata();
+            metadata = addColumnHeader(metadata, columnMetadata, column.columnName());
 
-        return EncodingUtils.encodeVarints(new long[]{version, numLayers}, false, false);
+            for(var stream : columnMetadata.streams().entrySet()){
+                var streamType = stream.getKey();
+                var streamMetadata = stream.getValue();
+                if(streamType == StreamType.PRESENT){
+                    continue;
+                }
+
+                metadata = addOptimizedStreamMetadata(metadata, streamMetadata, streamType);
+            }
+        }
+
+        return metadata;
+    }
+
+    private static byte[] addColumnHeader(byte[] metadata, ColumnMetadata columnMetadata, String columnName) throws IOException {
+        metadata = ArrayUtils.addAll(metadata, EncodingUtils.encodeString(columnName));
+        var columnDesc = columnMetadata.columnDataType().ordinal() << 3 | columnMetadata.columnType().ordinal();
+        /* required (0 == false), dataType and columnType */
+        return ArrayUtils.addAll(metadata, (byte)columnDesc);
+    }
+
+    private static byte[] addOptimizedStreamMetadata(byte[] metadata, StreamMetadata streamMetadata, StreamType streamType) {
+        var streamTypeAndEncoding = streamType.ordinal() << 4 | streamMetadata.streamEncoding().ordinal();
+        metadata = ArrayUtils.addAll(metadata, new byte[]{(byte)streamTypeAndEncoding});
+        return ArrayUtils.addAll(metadata, EncodingUtils.encodeVarints(new long[]{streamMetadata.numValues(),
+                streamMetadata.byteLength()}, false, false));
     }
 
     private static LinkedHashMap<String, ColumnMetadata> getPropertyColumnMetadata(List<Feature> features, boolean allowLocalizedStringDictionary){
-        /*
-         * Layer header:
-         * -> Metadata -> Name (String) | NumFeatures (UInt32 | Varint) | NumColumns (UInt32 | Varint) | Struct Column Metadata []
-         * -> Column Metadata Struct -> Column name (String), data type (Byte), encoding (Byte), Struct Stream Metadata []
-         * -> Stream Metadata Struct -> name (String), numValues (UInt32 | Varint), byteLength (UInt32 | Varint), encoding (UInt32, Varint)
-         * -> Streams per column type
-         *   -> id -> data stream -> no present stream because when id colum is present the values are of the column are not optional
-         *   -> geometry -> up to 6 streams -> geometryTypes, geometryOffsets, partOffsets, ringOffsets, vertexOffsets, vertexBuffer
-         *   -> properties
-         *       -> boolean -> present and data stream
-         *       -> int -> present and data stream
-         *       -> string
-         *           -> plain -> present, length, data
-         *           -> dictionary -> present, data, length, dictionary
-         *           -> localized dictionary -> present, en, present, ge, ...., length, dictionary
-         * */
         var columnMetadata = new LinkedHashMap<String, ColumnMetadata>();
         for(var feature : features){
             var properties = feature.properties();
@@ -285,35 +502,36 @@ public class CovtConverter {
                         var baseColumnName = columnNameComponents[0];
                         var streamName = columnNameComponents.length > 1 ? columnNameComponents[1] : columnName;
                         var localizedColumn = columnMetadata.get(baseColumnName);
+                        throw new RuntimeException("implement");
                         /* Used as a placeholder since can only be filled after the compression of the columns */
-                        var emptyStreamData = new StreamMetadata(0,0, StreamEncoding.PLAIN);
+                        /*var emptyStreamData = new StreamMetadata(StreamEncoding.PLAIN, 0,0);
                         if(localizedColumn == null){
                             var metadata = new ColumnMetadata(ColumnDataType.STRING,
-                                    ColumnEncoding.LOCALIZED_DICTIONARY, new LinkedHashMap<>(Map.of(streamName, emptyStreamData)));
+                                    ColumnType.LOCALIZED_DICTIONARY, new TreeMap<StreamType, StreamMetadata>(Map.of(streamName, emptyStreamData)));
                             columnMetadata.put(baseColumnName, metadata);
                         }
                         else{
                             if(!localizedColumn.streams().containsKey(streamName)){
                                 localizedColumn.streams().put(streamName, emptyStreamData);
                             }
-                        }
+                        }*/
                     }
                     else{
-                        var metadata = new ColumnMetadata(ColumnDataType.STRING, ColumnEncoding.DICTIONARY, new LinkedHashMap<>());
+                        var metadata = new ColumnMetadata(ColumnDataType.STRING, ColumnType.DICTIONARY, new TreeMap<>());
                         columnMetadata.put(columnName, metadata);
                     }
                 }
                 else if(propertyValue instanceof Boolean){
-                    var metadata = new ColumnMetadata(ColumnDataType.BOOLEAN, ColumnEncoding.PLAIN, new LinkedHashMap<>());
+                    var metadata = new ColumnMetadata(ColumnDataType.BOOLEAN, ColumnType.PLAIN, new TreeMap<>());
                     columnMetadata.put(columnName, metadata);
                 }
                 //TODO: also handle unsigned int and long to avoid zigZag coding
                 else if(propertyValue instanceof Integer || propertyValue instanceof  Long){
-                    var metadata = new ColumnMetadata(ColumnDataType.INT_64, ColumnEncoding.PLAIN, new LinkedHashMap<>());
+                    var metadata = new ColumnMetadata(ColumnDataType.INT_64, ColumnType.PLAIN, new TreeMap<>());
                     columnMetadata.put(columnName, metadata);
                 }
                 else if(propertyValue instanceof Float){
-                    var metadata = new ColumnMetadata(ColumnDataType.FLOAT, ColumnEncoding.PLAIN, new LinkedHashMap<>());
+                    var metadata = new ColumnMetadata(ColumnDataType.FLOAT, ColumnType.PLAIN, new TreeMap<>());
                     columnMetadata.put(columnName, metadata);
                 }
                 else if(propertyValue instanceof Double){
@@ -421,7 +639,7 @@ public class CovtConverter {
         }
 
         var numVertices = vertexBuffer.size();
-        var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.PLAIN, new LinkedHashMap<>());
+        var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.PLAIN, new TreeMap<>());
         var geometryColumn = convertTopologyStreams(geometryTypes, geometryOffsets, partOffsets, ringOffsets,
                 columnMetadata, allowFastPforForTopologyStreams);
 
@@ -429,22 +647,22 @@ public class CovtConverter {
         var varintZigZagDeltaVertexBuffer = EncodingUtils.encodeVarints(Arrays.stream(zigZagDeltaCodedVertexBuffer).mapToLong(v -> v).toArray(),
                 false, false);
         if(!allowFastPforForVertexBuffer){
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(numVertices, varintZigZagDeltaVertexBuffer.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    numVertices, varintZigZagDeltaVertexBuffer.length));
             geometryColumn = ArrayUtils.addAll(geometryColumn, varintZigZagDeltaVertexBuffer);
             return new GeometryColumData(columnMetadata, geometryColumn);
         }
 
         var fastPforZigZagDeltaVertexBuffer = EncodingUtils.encodeFastPfor128(zigZagDeltaCodedVertexBuffer, false, false);
         if(fastPforZigZagDeltaVertexBuffer.length <= varintZigZagDeltaVertexBuffer.length){
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(numVertices, fastPforZigZagDeltaVertexBuffer.length,
-                    StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG,
+                    numVertices, fastPforZigZagDeltaVertexBuffer.length));
             geometryColumn = ArrayUtils.addAll(geometryColumn, fastPforZigZagDeltaVertexBuffer);
             return new GeometryColumData(columnMetadata, geometryColumn);
         }
         else{
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(numVertices, varintZigZagDeltaVertexBuffer.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    numVertices, varintZigZagDeltaVertexBuffer.length));
             geometryColumn = ArrayUtils.addAll(geometryColumn, varintZigZagDeltaVertexBuffer);
             return new GeometryColumData(columnMetadata, geometryColumn);
         }
@@ -550,32 +768,30 @@ public class CovtConverter {
         var varintDeltaOffsets = EncodingUtils.encodeVarints(vertexOffsets.stream().mapToLong(i -> i).toArray(), true, true);
         var varintDeltaVertexBuffer = encodeVertexDictionary(vertexDictionary, false);
         if(!allowFastPforDelta && !allowMortonEncoding){
-            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.ICE, new LinkedHashMap<>());
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(), varintDeltaOffsets.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), varintDeltaVertexBuffer.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
+            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.ICE, new TreeMap<>());
+            columnMetadata.streams().put(StreamType.VERTEX_OFFSETS, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    vertexOffsets.size(), varintDeltaOffsets.length));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    vertexDictionary.size(), varintDeltaVertexBuffer.length));
             return Pair.of(columnMetadata, ArrayUtils.addAll(varintDeltaOffsets, varintDeltaVertexBuffer));
         }
 
         var fastPforOffsets = EncodingUtils.encodeFastPfor128(vertexOffsets.stream().mapToInt(i -> i).toArray(), true, true);
         var fastPforVertexBuffer = encodeVertexDictionary(vertexDictionary, true);
         if(allowFastPforDelta  && !allowMortonEncoding){
-            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.ICE, new LinkedHashMap<>());
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(), fastPforOffsets.length,
-                    StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), fastPforVertexBuffer.length,
-                    StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG));
+            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.ICE, new TreeMap<>());
+            columnMetadata.streams().put(StreamType.VERTEX_OFFSETS, new StreamMetadata(StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG, vertexOffsets.size(), fastPforOffsets.length));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG, vertexDictionary.size(), fastPforVertexBuffer.length));
             return Pair.of(columnMetadata, ArrayUtils.addAll(fastPforOffsets, fastPforVertexBuffer));
         }
 
         var varintDeltaMortonVertexBuffer = encodeVertexDictionaryVarintWithMortonId(vertexDictionary, sfcIdGenerator);
         if(!allowFastPforDelta && allowMortonEncoding){
-            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.ICE_MORTON_CODE, new LinkedHashMap<>());
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(), varintDeltaOffsets.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), varintDeltaMortonVertexBuffer.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
+            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.ICE_MORTON_CODE, new TreeMap<>());
+            columnMetadata.streams().put(StreamType.VERTEX_OFFSETS, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    vertexOffsets.size(), varintDeltaOffsets.length));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    vertexDictionary.size(), varintDeltaMortonVertexBuffer.length));
             return Pair.of(columnMetadata, ArrayUtils.addAll(varintDeltaOffsets, varintDeltaMortonVertexBuffer));
         }
 
@@ -598,39 +814,39 @@ public class CovtConverter {
         var fastPforDeltaMortonGeometryColumSize = fastPforDeltaMortonVertexBuffer.length;
         if(varintDeltaGeometryColumSize < fastPforDeltaMortonGeometryColumSize && varintDeltaGeometryColumSize < fastPforDeltaGeometryColumnSize &&
                 varintDeltaGeometryColumSize < varintDeltaMortonGeometryColumnSize){
-            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.ICE, new LinkedHashMap<>());
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(),  encodedVertexOffsets.length,
-                    vertexOffsetsEncoding));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), varintDeltaVertexBuffer.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
+            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.ICE, new TreeMap<>());
+            columnMetadata.streams().put(StreamType.VERTEX_OFFSETS, new StreamMetadata(vertexOffsetsEncoding,
+                    vertexOffsets.size(),  encodedVertexOffsets.length));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    vertexDictionary.size(), varintDeltaVertexBuffer.length));
             return Pair.of(columnMetadata, ArrayUtils.addAll(encodedVertexOffsets, varintDeltaVertexBuffer));
         }
 
         if(fastPforDeltaGeometryColumnSize < varintDeltaGeometryColumSize && fastPforDeltaGeometryColumnSize < varintDeltaMortonGeometryColumnSize &&
             fastPforDeltaGeometryColumnSize < fastPforDeltaMortonGeometryColumSize){
-            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.ICE, new LinkedHashMap<>());
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(), encodedVertexOffsets.length,
-                    vertexOffsetsEncoding));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), fastPforVertexBuffer.length,
-                    StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG));
+            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.ICE, new TreeMap<>());
+            columnMetadata.streams().put(StreamType.VERTEX_OFFSETS, new StreamMetadata(vertexOffsetsEncoding,
+                    vertexOffsets.size(), encodedVertexOffsets.length));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG,
+                    vertexDictionary.size(), fastPforVertexBuffer.length));
             return Pair.of(columnMetadata, ArrayUtils.addAll(encodedVertexOffsets, fastPforVertexBuffer));
         }
 
         if(varintDeltaMortonGeometryColumnSize < varintDeltaGeometryColumSize && varintDeltaMortonGeometryColumnSize < fastPforDeltaGeometryColumnSize
             && varintDeltaMortonGeometryColumnSize < fastPforDeltaMortonGeometryColumSize){
-            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.ICE_MORTON_CODE, new LinkedHashMap<>());
-            columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(),  encodedVertexOffsets.length,
-                    vertexOffsetsEncoding));
-            columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), varintDeltaMortonVertexBuffer.length,
-                    StreamEncoding.VARINT_DELTA_ZIG_ZAG));
+            var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.ICE_MORTON_CODE, new TreeMap<>());
+            columnMetadata.streams().put(StreamType.VERTEX_OFFSETS, new StreamMetadata(vertexOffsetsEncoding,
+                    vertexOffsets.size(),  encodedVertexOffsets.length));
+            columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                    vertexDictionary.size(), varintDeltaMortonVertexBuffer.length));
             return Pair.of(columnMetadata, ArrayUtils.addAll(encodedVertexOffsets, varintDeltaMortonVertexBuffer));
         }
 
-        var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnEncoding.ICE_MORTON_CODE, new LinkedHashMap<>());
-        columnMetadata.streams().put("vertex_offsets", new StreamMetadata(vertexOffsets.size(),  encodedVertexOffsets.length,
-                vertexOffsetsEncoding));
-        columnMetadata.streams().put("vertex_buffer", new StreamMetadata(vertexDictionary.size(), fastPforDeltaMortonVertexBuffer.length,
-                StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG));
+        var columnMetadata = new ColumnMetadata(ColumnDataType.GEOMETRY, ColumnType.ICE_MORTON_CODE, new TreeMap<>());
+        columnMetadata.streams().put(StreamType.VERTEX_OFFSETS, new StreamMetadata(vertexOffsetsEncoding,
+                vertexOffsets.size(),  encodedVertexOffsets.length));
+        columnMetadata.streams().put(StreamType.VERTEX_BUFFER, new StreamMetadata(StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG,
+                vertexDictionary.size(), fastPforDeltaMortonVertexBuffer.length));
         return Pair.of(columnMetadata, ArrayUtils.addAll(encodedVertexOffsets, fastPforDeltaMortonVertexBuffer));
     }
 
@@ -654,33 +870,33 @@ public class CovtConverter {
 
         var geometryTypeStream = EncodingUtils.encodeByteRle(
                 ArrayUtils.toPrimitive(geometryTypes.stream().map(g -> g.byteValue()).toArray(Byte[]::new)));
-        streams.put(GEOMETRY_TYPES_STREAM_NAME, new StreamMetadata(geometryTypes.size(), geometryTypeStream.length, StreamEncoding.BYTE_RLE));
+        streams.put(StreamType.GEOMETRY_TYPES, new StreamMetadata(StreamEncoding.BYTE_RLE, geometryTypes.size(), geometryTypeStream.length));
         var geometryColumn = geometryTypeStream;
 
         if(geometryOffsets.size() > 0){
             geometryColumn = addOffsets(geometryOffsets, allowFastPforDelta,
-                    "geometry_offsets", streams, geometryColumn);
+                    streams, geometryColumn, StreamType.GEOMETRY_OFFSETS);
         }
 
         if(partOffsets.size() > 0){
             geometryColumn = addOffsets(partOffsets, allowFastPforDelta,
-                    "part_offsets", streams, geometryColumn);
+                    streams, geometryColumn, StreamType.PART_OFFSETS);
         }
 
         if(ringOffsets.size() > 0){
             geometryColumn = addOffsets(ringOffsets, allowFastPforDelta,
-                    "ring_offsets", streams, geometryColumn);
+                    streams, geometryColumn, StreamType.RING_OFFSETS);
         }
 
         return geometryColumn;
     }
 
-    private static byte[] addOffsets(List<Integer> offsets, Boolean useFastPforDelta, String streamName,
-                              LinkedHashMap<String, StreamMetadata> streams, byte[] geometryColumn) throws IOException {
+    private static byte[] addOffsets(List<Integer> offsets, Boolean useFastPforDelta,
+                                     TreeMap<StreamType, StreamMetadata> streams, byte[] geometryColumn,
+                                     StreamType streamType) throws IOException {
         var rleOffsets= EncodingUtils.encodeRle(offsets.stream().mapToLong(i -> i).toArray(), false);
         if(!useFastPforDelta){
-            streams.put(streamName, new StreamMetadata(offsets.size(), rleOffsets.length,
-                    StreamEncoding.RLE));
+            streams.put(streamType, new StreamMetadata(StreamEncoding.RLE, offsets.size(), rleOffsets.length));
             return ArrayUtils.addAll(geometryColumn, rleOffsets);
         }
 
@@ -688,13 +904,12 @@ public class CovtConverter {
                 offsets.stream().mapToInt(i -> i).toArray(), true, true);
 
         if(fastPforDeltaOffsets.length <= rleOffsets.length){
-            streams.put(streamName, new StreamMetadata(offsets.size(), fastPforDeltaOffsets.length,
-                    StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG));
+            streams.put(streamType, new StreamMetadata(StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG, offsets.size(),
+                    fastPforDeltaOffsets.length));
             return ArrayUtils.addAll(geometryColumn, fastPforDeltaOffsets);
         }
         else{
-            streams.put(streamName, new StreamMetadata(offsets.size(), rleOffsets.length,
-                    StreamEncoding.RLE));
+            streams.put(streamType, new StreamMetadata(StreamEncoding.RLE, offsets.size(), rleOffsets.length));
             return ArrayUtils.addAll(geometryColumn, rleOffsets);
         }
     }
@@ -816,7 +1031,7 @@ public class CovtConverter {
                     longColumns.put(columnName, longColumn);
                     break;
                 case STRING:
-                    if(ColumnEncoding.LOCALIZED_DICTIONARY.equals(metadata.columnEncoding())) {
+                    if(ColumnType.LOCALIZED_DICTIONARY.equals(metadata.columnType())) {
                         var stringLocalizedDictionaryColumn =
                                 convertLocalizedStringDictionaryColumn(columnName, metadata, features);
                         stringLocalizedDictionaryColumns.put(columnName, stringLocalizedDictionaryColumn);
@@ -844,7 +1059,7 @@ public class CovtConverter {
                 var encodedData = EncodingUtils.encodeBooleans(dataStream);
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedData);
                 var metadata = booleanColumn.columnMetadata();
-                metadata.streams().put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), encodedData.length, StreamEncoding.BOOLEAN_RLE));
+                metadata.streams().put(StreamType.DATA, new StreamMetadata(StreamEncoding.BOOLEAN_RLE, dataStream.size(), encodedData.length));
             }
         }
 
@@ -864,22 +1079,22 @@ public class CovtConverter {
                 var deltaVarintValues = EncodingUtils.encodeVarints(data, true, true);
                 var rleValues = EncodingUtils.encodeRle(data, true);
 
-                metadata.streams().put(PRESENT_STREAM_NAME, new StreamMetadata(presentStream.size(), encodedPresentStream.length,
-                        StreamEncoding.BOOLEAN_RLE));
+                metadata.streams().put(StreamType.PRESENT, new StreamMetadata(StreamEncoding.BOOLEAN_RLE,
+                        presentStream.size(), encodedPresentStream.length));
                 if(rleValues.length < varintValues.length && rleValues.length < deltaVarintValues.length){
                     columnBuffer = ArrayUtils.addAll(columnBuffer, rleValues);
-                    metadata.streams().put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), rleValues.length,
-                            StreamEncoding.RLE));
+                    metadata.streams().put(StreamType.DATA, new StreamMetadata(StreamEncoding.RLE,
+                            dataStream.size(), rleValues.length));
                 }
                 else if(deltaVarintValues.length < rleValues.length && deltaVarintValues.length < varintValues.length){
                     columnBuffer = ArrayUtils.addAll(columnBuffer, deltaVarintValues);
-                    metadata.streams().put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), deltaVarintValues.length,
-                            StreamEncoding.VARINT_DELTA_ZIG_ZAG));
+                    metadata.streams().put(StreamType.DATA, new StreamMetadata(StreamEncoding.VARINT_DELTA_ZIG_ZAG,
+                            dataStream.size(), deltaVarintValues.length));
                 }
                 else{
                     columnBuffer = ArrayUtils.addAll(columnBuffer, varintValues);
-                    metadata.streams().put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), varintValues.length,
-                            StreamEncoding.VARINT_ZIG_ZAG));
+                    metadata.streams().put(StreamType.DATA, new StreamMetadata(StreamEncoding.VARINT_ZIG_ZAG,
+                            dataStream.size(), varintValues.length));
                 }
             }
         }
@@ -902,8 +1117,8 @@ public class CovtConverter {
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedData);
 
                 //TODO: add also encoding for floats like XOR-based compression
-                metadata.streams().put(PRESENT_STREAM_NAME, new StreamMetadata(presentStream.size(), encodedPresentStream.length, StreamEncoding.PLAIN));
-                metadata.streams().put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), encodedData.length, StreamEncoding.PLAIN));
+                metadata.streams().put(StreamType.PRESENT, new StreamMetadata(StreamEncoding.PLAIN, presentStream.size(), encodedPresentStream.length));
+                metadata.streams().put(StreamType.DATA, new StreamMetadata(StreamEncoding.PLAIN, dataStream.size(), encodedData.length));
             }
         }
 
@@ -930,63 +1145,21 @@ public class CovtConverter {
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDictionary);
 
                 var streams = metadata.streams();
-                streams.put(PRESENT_STREAM_NAME, new StreamMetadata(presentStream.size(), encodedPresentStream.length, StreamEncoding.BOOLEAN_RLE));
-                streams.put(DATA_STREAM_NAME, new StreamMetadata(dataStream.size(), encodedDataStream.length, StreamEncoding.RLE));
-                streams.put(LENGTH_STREAM_NAME, new StreamMetadata(dictionaryStream.size(), encodedLengthStream.length, StreamEncoding.RLE));
-                streams.put(DICTIONARY_STREAM_NAME, new StreamMetadata(dictionaryStream.size(), encodedDictionary.length, StreamEncoding.PLAIN));
+                streams.put(StreamType.PRESENT, new StreamMetadata(StreamEncoding.BOOLEAN_RLE,
+                        presentStream.size(), encodedPresentStream.length));
+                streams.put(StreamType.DATA, new StreamMetadata(StreamEncoding.RLE, dataStream.size(), encodedDataStream.length));
+                streams.put(StreamType.LENGTH, new StreamMetadata(StreamEncoding.RLE,
+                        dictionaryStream.size(), encodedLengthStream.length));
+                streams.put(StreamType.DICTIONARY, new StreamMetadata(StreamEncoding.PLAIN,
+                        dictionaryStream.size(), encodedDictionary.length));
             }
         }
 
-        /*if(stringLocalizedDictionaryColumns.size() > 0){
-            for(var column : stringLocalizedDictionaryColumns.entrySet()){
-                var columnData = column.getValue();
-                columnData.columnMetadata().streams().clear();
-                for(var stream : columnData.streamData().entrySet()){
-                    var streamName = stream.getKey();
-                    var streamData = stream.getValue();
-                    var presentStream = streamData.presentStream();
-                    var dataStream = streamData.dataStream();
-
-                    var encodedPresentStream = EncodingUtils.encodeBooleans(presentStream);
-                    columnBuffer = ArrayUtils.addAll(columnBuffer, encodedPresentStream);
-                    var encodedDataStream = EncodingUtils.encodeRle(dataStream.stream().mapToLong(i -> i).toArray(), false);
-                    columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDataStream);
-
-                    var streams = columnData.columnMetadata().streams();
-                    streams.put(PRESENT_STREAM_NAME + "_" + streamName, new StreamMetadata(presentStream.size(), encodedPresentStream.length));
-                    streams.put(streamName, new StreamMetadata(dataStream.size(), encodedDataStream.length));
-                }
-
-                var encodedLengthStream = EncodingUtils.encodeRle(columnData.lengthStream().stream().mapToLong(i -> i).toArray(), false);
-                var encodedDictionary = concatByteArrays(columnData.dictionaryStream().stream().
-                        map(s -> s.getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList()));
-                columnBuffer = ArrayUtils.addAll(columnBuffer, encodedLengthStream);
-                columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDictionary);
-
-                var streams = columnData.columnMetadata().streams();
-                var numValues = columnData.dictionaryStream().size();
-                //TODO: quick and dirty -> leads to collisions when length or dictionary are feature properties
-                streams.put(LENGTH_STREAM_NAME, new StreamMetadata(numValues, encodedLengthStream.length));
-                streams.put(DICTIONARY_STREAM_NAME, new StreamMetadata(numValues, encodedDictionary.length));
-            }
-        }*/
-
         if(stringLocalizedDictionaryColumns.size() > 0){
-            for(var column : stringLocalizedDictionaryColumns.entrySet()){
+            throw new RuntimeException("Localized Dictionary encoding currently not supported.");
+            /*for(var column : stringLocalizedDictionaryColumns.entrySet()){
                 var columnData = column.getValue();
                 columnData.columnMetadata().streams().clear();
-
-                /*var encodedLengthStream = EncodingUtils.encodeRle(columnData.lengthStream().stream().mapToLong(i -> i).toArray(), false);
-                var encodedDictionary = concatByteArrays(columnData.dictionaryStream().stream().
-                        map(s -> s.getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList()));
-                columnBuffer = ArrayUtils.addAll(columnBuffer, encodedLengthStream);
-                columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDictionary);
-
-                var streams = columnData.columnMetadata().streams();
-                var numValues = columnData.dictionaryStream().size();
-                //TODO: quick and dirty -> leads to collisions when length or dictionary are feature properties
-                streams.put(LENGTH_STREAM_NAME, new StreamMetadata(numValues, encodedLengthStream.length));
-                streams.put(DICTIONARY_STREAM_NAME, new StreamMetadata(numValues, encodedDictionary.length));*/
 
                 var streams = columnData.columnMetadata().streams();
                 for(var stream : columnData.streamData().entrySet()){
@@ -1000,8 +1173,11 @@ public class CovtConverter {
                     var encodedDataStream = EncodingUtils.encodeRle(dataStream.stream().mapToLong(i -> i).toArray(), false);
                     columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDataStream);
 
-                    streams.put(PRESENT_STREAM_NAME + "_" + streamName, new StreamMetadata(presentStream.size(), encodedPresentStream.length, StreamEncoding.BOOLEAN_RLE));
-                    streams.put(streamName, new StreamMetadata(dataStream.size(), encodedDataStream.length, StreamEncoding.RLE));
+                    //TODO: add the metadata ids for the name streams
+                    streams.put(PRESENT_STREAM_ID + "_" + streamName, new StreamMetadata(presentStream.size(), encodedPresentStream.length,
+                            StreamEncoding.BOOLEAN_RLE, StreamType.PRESENT));
+                    streams.put(streamName, new StreamMetadata(dataStream.size(), encodedDataStream.length,
+                            StreamEncoding.RLE, StreamType.DATA));
                 }
 
                 var encodedLengthStream = EncodingUtils.encodeRle(columnData.lengthStream().stream().mapToLong(i -> i).toArray(), false);
@@ -1011,9 +1187,11 @@ public class CovtConverter {
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedDictionary);
                 var numValues = columnData.dictionaryStream().size();
                 //TODO: quick and dirty -> leads to collisions when length or dictionary are feature properties
-                streams.put(LENGTH_STREAM_NAME, new StreamMetadata(numValues, encodedLengthStream.length, StreamEncoding.RLE));
-                streams.put(DICTIONARY_STREAM_NAME, new StreamMetadata(numValues, encodedDictionary.length, StreamEncoding.PLAIN));
-            }
+                streams.put(LENGTH_STREAM_NAME, new StreamMetadata(numValues, encodedLengthStream.length, StreamEncoding.RLE,
+                        StreamType.LENGTH));
+                streams.put(DICTIONARY_STREAM_NAME, new StreamMetadata(numValues, encodedDictionary.length, StreamEncoding.PLAIN,
+                        StreamType.DICTIONARY));
+            }*/
         }
 
         var booleanColumnMetadata = booleanColumns.entrySet().stream().map(c -> new NamedColumnMetadata(c.getKey(),
@@ -1095,7 +1273,8 @@ public class CovtConverter {
                 }
             }
 
-           streamData.put(streamName, new LocalizedStringDictionaryStreamData(presentStream, dataStream));
+            throw new RuntimeException("implement");
+           //streamData.put(streamName, new LocalizedStringDictionaryStreamData(presentStream, dataStream));
         }
 
         return new StringLocalizedDictionaryColumnData(metadata, lengthStream, dictionaryStream, streamData);

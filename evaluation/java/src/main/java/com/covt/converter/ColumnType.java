@@ -1,6 +1,6 @@
 package com.covt.converter;
 
-public enum ColumnEncoding {
+public enum ColumnType {
     PLAIN,
     DICTIONARY,
     LOCALIZED_DICTIONARY,

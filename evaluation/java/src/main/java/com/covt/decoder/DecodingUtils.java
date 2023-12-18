@@ -34,8 +34,10 @@ public final class DecodingUtils {
     //TODO: quick and dirty -> optimize for performance
     public static int[] decodeVarint(byte[] src, IntWrapper pos, int numValues){
         var values = new int[numValues];
+        var dstOffset = 0;
         for(var i = 0; i < numValues; i++){
-            var offset = decodeVarint(src, pos.get(), values);
+            var offset = decodeVarint(src, pos.get(), values, dstOffset);
+            dstOffset++;
             pos.set(offset);
         }
         return values;
@@ -122,6 +124,37 @@ public final class DecodingUtils {
     private static int decodeVarint(byte[] src, int offset, int[] dst) {
         var dstOffset = 0;
 
+        /*
+         * Max 4 bytes supported.
+         * */
+        var b= src[offset++];
+        var value = b & 0x7f;
+        if ((b & 0x80) == 0) {
+            dst[dstOffset] = value;
+            return offset;
+        }
+
+        b = src[offset++];
+        value |= (b & 0x7f) << 7;
+        if ((b & 0x80) == 0) {
+            dst[dstOffset] = value;
+            return offset;
+        }
+
+        b = src[offset++];
+        value |= (b & 0x7f) << 14;
+        if ((b & 0x80) == 0) {
+            dst[dstOffset] = value;
+            return offset;
+        }
+
+        b = src[offset++];
+        value |= (b & 0x7f) << 21;
+        dst[dstOffset] = value;
+        return offset;
+    }
+
+    private static int decodeVarint(byte[] src, int offset, int[] dst, int dstOffset) {
         /*
          * Max 4 bytes supported.
          * */
@@ -254,8 +287,30 @@ public final class DecodingUtils {
         return values;
     }
 
+    public static byte[] decodeByteRle(byte[] buffer, int numValues, IntWrapper pos) throws IOException {
+
+        var inStream = InStream.create
+                ("test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
+        var reader =
+                new RunLengthByteReader(inStream);
+
+        var values = new byte[numValues];
+        for(var i = 0; i < numValues; i++){
+            values[i] = reader.next();
+        }
+
+        //TODO: get rid of that hack
+        var size = getByteRleChunkSize(values);
+        pos.set(pos.get() + size);
+        return values;
+    }
+
     private static int getRleChunkSize(long[] values, boolean signed) throws IOException {
         return EncodingUtils.encodeRle(values, signed).length;
+    }
+
+    private static int getByteRleChunkSize(byte[] values) throws IOException {
+        return EncodingUtils.encodeByteRle(values).length;
     }
 
     public static int[] decodeFastPfor128ZigZagDelta(byte[] encodedValues, int numValues, int byteLength, IntWrapper pos){
