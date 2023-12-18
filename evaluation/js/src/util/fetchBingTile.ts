@@ -75,7 +75,7 @@ const fetchUrlAndSave = (url: string, savePath: string): Promise<string> => {
 
 const showUsage = () => {
     console.log("Fetch bing tile util example");
-    console.log("npx ts-node src/util/fetchBingTile.ts -center newyork -minZoom 10 -maxZoom 10");
+    console.log("npx ts-node fetchBingTile.ts -center newyork -minZoom 10 -maxZoom 10");
 };
 
 const currentPath = PathNameSpace.parse(process.argv[1]);
