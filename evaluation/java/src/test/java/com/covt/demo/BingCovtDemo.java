@@ -80,6 +80,7 @@ public class BingCovtDemo {
 
                     previousFileZoomLevel = zoom;
                     tilesPerZoom++;
+
                     csvBuilder.append(file.getName() + "," + // column A
                             zoom + "," + // column B
                             stats.mvtSize() + "," + // column C
@@ -91,8 +92,9 @@ public class BingCovtDemo {
                             stats.unoptimizedCovtSize() + "," +
                             stats.unoptimizedGzipCovtSize() + "\r\n");
                     rowCounter++;
-                } catch (Error e) {
-                    System.err.println("Tests failed.");
+                }
+                catch(Error e){
+                    System.err.println("Test failed.");
                 }
             }
         }

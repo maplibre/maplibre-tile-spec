@@ -276,8 +276,10 @@ public class CovtParser {
     private static List<Optional> decodePropertyColumn(byte[] covtBuffer, int numFeatures, ColumnMetadata columnMetadata, IntWrapper pos) throws IOException {
         var propertyColumnValues = new ArrayList<Optional>();
         var dataStreamMetadata  = columnMetadata.streams().get(StreamType.DATA);
+        var numBytes = (int)Math.ceil(numFeatures / 8d);
         if(columnMetadata.columnDataType() == ColumnDataType.BOOLEAN){
-            var rleDecodedColumn = DecodingUtils.decodeByteRle(covtBuffer, dataStreamMetadata.numValues(), pos,
+            //var rleDecodedColumn = DecodingUtils.decodeByteRle(covtBuffer, dataStreamMetadata.numValues(), pos,
+            var rleDecodedColumn = DecodingUtils.decodeByteRle(covtBuffer, numBytes, pos,
                     dataStreamMetadata.byteLength());
             var decodedColumn = BitSet.valueOf(rleDecodedColumn);
             for(var i = 0; i < numFeatures; i++){
@@ -290,7 +292,6 @@ public class CovtParser {
         /* decode present stream */
         //TODO: check if values are required -> no present stream if column values are required
         //TODO: get rid of the byte length hack in the byte rle decoding
-        var numBytes = (int)Math.ceil(numFeatures / 8d);
         var presentStream = DecodingUtils.decodeByteRle(covtBuffer, numBytes, pos);
         var bitSet = BitSet.valueOf(presentStream);
         if(columnMetadata.columnDataType() == ColumnDataType.INT_64){
