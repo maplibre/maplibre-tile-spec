@@ -724,8 +724,11 @@ public class CovtConverter {
                 partOffsets.add(numRings);
                 for(var i = 0; i < numRings; i++){
                     LinearRing linearRing = i == 0 ? polygon.getExteriorRing() : polygon.getInteriorRingN(i-1);
-                    ringOffsets.add(linearRing.getCoordinates().length);
-                    var offsets = getVertexOffsets(linearRing, vertexDictionary, sfcIdGenerator);
+                    //TODO: refactor -> store length without closing points also when ICE encoding is not used
+                    ringOffsets.add(linearRing.getCoordinates().length - 1);
+                    var ring = new GeometryFactory().createLineString(Arrays.copyOf(linearRing.getCoordinates(),
+                            linearRing.getCoordinates().length - 1));
+                    var offsets = getVertexOffsets(ring, vertexDictionary, sfcIdGenerator);
                     vertexOffsets.addAll(offsets);
                 }
 
@@ -741,8 +744,10 @@ public class CovtConverter {
                     partOffsets.add(numRings);
                     for(var j = 0; j < numRings; j++){
                         LinearRing linearRing = j == 0 ? polygon.getExteriorRing() : polygon.getInteriorRingN(j-1);
-                        ringOffsets.add(linearRing.getCoordinates().length);
-                        var offsets = getVertexOffsets(linearRing, vertexDictionary, sfcIdGenerator);
+                        ringOffsets.add(linearRing.getCoordinates().length -1);
+                        var ring = new GeometryFactory().createLineString(Arrays.copyOf(linearRing.getCoordinates(),
+                                linearRing.getCoordinates().length - 1));
+                        var offsets = getVertexOffsets(ring, vertexDictionary, sfcIdGenerator);
                         vertexOffsets.addAll(offsets);
                     }
                 }
@@ -1056,7 +1061,13 @@ public class CovtConverter {
             for(var column : booleanColumns.entrySet()){
                 var booleanColumn = column.getValue();
                 var dataStream = booleanColumn.dataStream();
-                var encodedData = EncodingUtils.encodeBooleans(dataStream);
+                var values = new ArrayList<Boolean>();
+                var i = 0;
+                for(var present : booleanColumn.presentStream()){
+                    var value = present ? dataStream.get(i++) : false;
+                    values.add(value);
+                }
+                var encodedData = EncodingUtils.encodeBooleans(values);
                 columnBuffer = ArrayUtils.addAll(columnBuffer, encodedData);
                 var metadata = booleanColumn.columnMetadata();
                 metadata.streams().put(StreamType.DATA, new StreamMetadata(StreamEncoding.BOOLEAN_RLE, dataStream.size(), encodedData.length));
