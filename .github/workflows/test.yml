@@ -1,0 +1,31 @@
+name: test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-evaluation-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/Iron'
+          cache: 'npm'
+      - run: npm ci --prefix evaluation/js
+      - run: npm run build --prefix evaluation/js
+      - run: npm test --prefix evaluation/js
+  test-parser-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/Iron'
+          cache: 'npm'
+      - run: npm ci --prefix parser/js
+      - run: npm run build --prefix parser/js
+      - run: npm test --prefix parser/js
