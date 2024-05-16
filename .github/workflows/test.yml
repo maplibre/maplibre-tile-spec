@@ -9,23 +9,31 @@ on:
 jobs:
   test-evaluation-js:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 'evaluation/js'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 'lts/Iron'
           cache: 'npm'
-      - run: npm ci --prefix evaluation/js
-      - run: npm run build --prefix evaluation/js
-      - run: npm test --prefix evaluation/js
+          cache-dependency-path: '**/**/package-lock.json'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
   test-parser-js:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 'parser/js'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 'lts/Iron'
           cache: 'npm'
-      - run: npm ci --prefix parser/js
-      - run: npm run build --prefix parser/js
-      - run: npm test --prefix parser/js
+          cache-dependency-path: '**/**/package-lock.json'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
