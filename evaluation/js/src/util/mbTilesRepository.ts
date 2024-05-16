@@ -79,7 +79,7 @@ export default class MbTilesRepository {
                         return;
                     }
 
-                    resolve(row.tile_data);
+                    resolve((row as any).tile_data);
                 },
             );
         });
