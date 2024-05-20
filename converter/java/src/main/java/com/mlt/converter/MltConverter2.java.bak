@@ -1,0 +1,228 @@
+package com.mlt.converter;
+
+import com.mlt.converter.encodings.*;
+import com.mlt.converter.metadata.stream.PhysicalLevelTechnique;
+import com.mlt.converter.mvt.Feature;
+import com.mlt.converter.mvt.MapboxVectorTile;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.tuple.Triple;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.mlt.metadata.MaplibreTileMetadata.*;
+
+public class MltConverter2 {
+    private static byte VERSION = 1;
+    private static String ID_COLUMN_NAME = "id";
+    private static String GEOMETRY_COLUMN_NAME = "geometry";
+
+    /*
+    *
+    * Converts a MVT file to a MLT file.
+    *
+    * */
+    public static byte[] convertMvt(MapboxVectorTile mvt, ConversionConfig config, TileMetadata tileMetadata) throws IOException {
+        var mapLibreTile = new byte[0];
+        /*
+        * - parse MVT
+        * - create proto schema file -> can be created afterwards or during conversion when the full tile is scanned
+        *   - create from tilejson
+        *   - collect it from the tile data since tilejson has no distinction between int and float
+        * - specify fields which should be nested with prefix and delimiter -> in config file
+        * - determine which encoding to use
+        *   - Id
+        *   - Geometry
+        *       -> geometryType -> rle
+        *       -> topology streams
+        *           -> rle and delta varint/fastpfor
+        *           -> used with heavyweight compression -> varint
+        *           -> default -> FastPFOR
+        *           -> also use rle?
+        *       -> vertexBuffer -> FastPFOR or
+        *       -> Tests
+        *           -> use VertexDictionary -> use Morton or Coordinates
+        *           -> use rle for topology streams
+        *           -> use varint or fastpfor
+        *   - Properties
+        *       - String
+        *           - Plain
+        *           - Fsst
+        *           - Dictionary
+        *           - Fsst Dictionary
+        * */
+        var layerId = 0;
+        for(var mvtLayer : mvt.layers()){
+            var mvtFeatures = mvtLayer.features();
+
+            /* Layout FeatureTableMetadata header (all u32 types are varint encoded):
+            *  version: u8 | (externalSchema: u8) | layerId: u32 | layerExtent: u32 | maxLayerExtent: u32 | numFeatures: u32
+            *  */
+            var layerMetadata = tileMetadata.getLayers(layerId);
+
+            var featureTableOptimizations = config.optimizations().get(mvtLayer.name());
+            var geometries = mvtFeatures.stream().map(f -> f.geometry()).collect(Collectors.toList());
+
+            if(featureTableOptimizations != null){
+                if(!config.includeIds() && featureTableOptimizations.allowSorting()){
+                    /** Sort geometries */
+                }else{
+                    if(featureTableOptimizations.allowSorting()
+                            && !featureTableOptimizations.allowIdRegeneration()){
+                        /** Sort after ids */
+                        mvtFeatures = mvtFeatures.stream().sorted().collect(Collectors.toList());
+                    }
+                    else if(featureTableOptimizations.allowSorting()
+                            && featureTableOptimizations.allowIdRegeneration()){
+                        /** Sort geometries and reassign new Ids to the features  */
+                        var ids = mvtFeatures.stream().map(f -> f.id()).sorted().collect(Collectors.toList());
+                        //TODO: check for allow encoding
+                        var geometryColumn = GeometryEncoder.encodeGeometryColumn(geometries, PhysicalLevelTechnique.FAST_PFOR,
+                                mvtLayer.tileExtent(), ids);
+                        var encodedGeometryFieldMetadata = EncodingUtils.encodeVarints(new long[]{geometryColumn.getLeft()}, false, false);
+                        for(var newId : ids){
+                            var f = mvtFeatures.stream().filter(fe -> fe.id() == newId).findFirst().get();
+                            sortedFeatures.add(f);
+                        }
+                    }
+                    else{
+                        /* Only reassign new Ids to the features */
+                    }
+                }
+            }
+
+
+
+
+
+
+            Triple<Integer, byte[], Integer> geometryColumn = null;
+            byte[] encodedGeometryFieldMetadata;
+            List<Long> ids;
+            var sortedFeatures = new ArrayList<Feature>();
+
+            if(mvtLayer.name().equals("building") || mvtLayer.name().equals("poi")){
+                ids = mvtFeatures.stream().map(f -> f.id()).sorted().collect(Collectors.toList());
+                geometryColumn = GeometryEncoder.encodeGeometryColumn(geometries, PhysicalLevelTechnique.FAST_PFOR,
+                        mvtLayer.tileExtent(), ids);
+                encodedGeometryFieldMetadata = EncodingUtils.encodeVarints(new long[]{geometryColumn.getLeft()}, false, false);
+                for(var newId : ids){
+                    var f = mvtFeatures.stream().filter(fe -> fe.id() == newId).findFirst().get();
+                    sortedFeatures.add(f);
+                }
+            }
+            else{
+                //TODO: quick and dirty -> check if id is present
+                ids = new ArrayList<>(mvtFeatures.stream().map(f -> f.id()).collect(Collectors.toList()));
+                geometryColumn = GeometryEncoder.encodeGeometryColumn(geometries, PhysicalLevelTechnique.FAST_PFOR,
+                        mvtLayer.tileExtent(), ids);
+                encodedGeometryFieldMetadata = EncodingUtils.encodeVarints(new long[]{geometryColumn.getLeft()}, false, false);
+
+                for(var newId : ids){
+                    var f = mvtFeatures.stream().filter(fe -> fe.id() == newId).findFirst().get();
+                    sortedFeatures.add(f);
+                }
+            }
+
+            /*var featureScopedPropertyColumns = PropertyEncoder.encodeProperties(features, layerMetadata,
+                    config.physicalLevelTechnique(), columnMappings, config.useSharedDictionaryEncoding());*/
+            var featureScopedPropertyColumns = PropertyEncoder.encodePropertyColumns(sortedFeatures, layerMetadata,
+                    config.physicalLevelTechnique(), columnMappings, config.useSharedDictionaryEncoding());
+
+            var encodedLayerInfo = EncodingUtils.encodeVarints(new long[]{layerId++, mvtLayer.tileExtent(), geometryColumn.getRight(),
+                    mvtFeatures.size()}, false, false);
+            mapLibreTile = CollectionUtils.concatByteArrays(mapLibreTile, new byte[]{VERSION}, encodedLayerInfo);
+            if(config.includeIds() && !mvtLayer.name().equals("transportation")){
+            //if(config.includeIds()){
+                /* if ids are encoded sort the ids */
+                //TODO: sort ids
+                var idMetadata = layerMetadata.getFieldsList().stream().
+                        filter(f -> f.getName().equals(ID_COLUMN_NAME)).findFirst().get();
+                //var idColumn = enocdeIdColumn(features, config.physicalLevelTechnique(), idMetadata);
+                var idColumn = enocdeIdColumnTest(ids, config.physicalLevelTechnique(), idMetadata);
+                //TODO: check if nullable so that we can get rid of the present stream in som cases
+                var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[]{2}, false, false);
+                mapLibreTile = CollectionUtils.concatByteArrays(mapLibreTile, encodedFieldMetadata, idColumn);
+
+                System.out.println(tileMetadata.getLayers(layerId-1).getName() + " Id: " + idColumn.length / 1000d + ", geometry: " + geometryColumn.getMiddle().length / 1000d
+                        + ", properties: " + featureScopedPropertyColumns.length / 1000d);
+            }
+            mapLibreTile = CollectionUtils.concatByteArrays(mapLibreTile, encodedGeometryFieldMetadata, geometryColumn.getMiddle());
+            mapLibreTile = ArrayUtils.addAll(mapLibreTile, featureScopedPropertyColumns);
+
+        }
+
+        return mapLibreTile;
+    }
+
+    private static byte[] encodeIdColumn(List<Feature> features, PhysicalLevelTechnique physicalLevelTechnique, FieldMetadata fieldMetadata) throws IOException {
+        /* Id column has to be of type unsigned int or long to allow efficient encoding
+         * and has to be the first column in a layer if present.
+         *  */
+        var ids = features.stream().map(f -> f.id()).collect(Collectors.toList());
+        var idPresent = features.stream().map(f -> true).collect(Collectors.toList());
+        var idPresentStream = BooleanEncoder.encodeBooleanStream(idPresent, StreamType.PRESENT);
+        /*
+         * Convert the long values to integer values if possible for the usage in the FastPFOR compression
+         * which is currently limited to 32 bit encodings.
+         * */
+        if(physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR && fieldMetadata.getDataType() == DataType.UINT_32){
+            var intIds = CollectionUtils.toIntList(ids);
+            byte[] idDataStream;
+            if(intIds.isPresent()){
+                idDataStream = IntegerEncoder.encodeIntStream(intIds.get(), PhysicalLevelTechnique.FAST_PFOR,
+                        false, StreamType.DATA);
+            }
+            else{
+                idDataStream = IntegerEncoder.encodeLongStream(ids, false, StreamType.DATA);
+            }
+            return ArrayUtils.addAll(idPresentStream, idDataStream);
+        }
+        else if(physicalLevelTechnique == PhysicalLevelTechnique.VARINT && fieldMetadata.getDataType() == DataType.UINT_32){
+            var intIds = CollectionUtils.toIntList(ids);
+            var idDataStream = IntegerEncoder.encodeIntStream(intIds.get(), PhysicalLevelTechnique.VARINT,
+                    false, StreamType.DATA);
+            return ArrayUtils.addAll(idPresentStream, idDataStream);
+        }
+        else{
+            var idDataStream = IntegerEncoder.encodeLongStream(ids, false, StreamType.DATA);
+            return ArrayUtils.addAll(idPresentStream, idDataStream);
+        }
+    }
+
+    private static byte[] enocdeIdColumnTest(List<Long> ids, PhysicalLevelTechnique physicalLevelTechnique, FieldMetadata fieldMetadata) throws IOException {
+        /* Id column has to be of type unsigned int or long to allow efficient encoding
+         * and has to be the first column in a layer if present.
+         *  */
+        var idPresent = ids.stream().map(f -> true).collect(Collectors.toList());
+        var idPresentStream = BooleanEncoder.encodeBooleanStream(idPresent, StreamType.PRESENT);
+        /*
+         * Convert the long values to integer values if possible for the usage in the FastPFOR compression
+         * which is currently limited to 32 bit encodings.
+         * */
+        if(physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR && fieldMetadata.getDataType() == DataType.UINT_32){
+            var intIds = CollectionUtils.toIntList(ids);
+            byte[] idDataStream;
+            if(intIds.isPresent()){
+                idDataStream = IntegerEncoder.encodeIntStream(intIds.get(), PhysicalLevelTechnique.FAST_PFOR,
+                        false, StreamType.DATA);
+            }
+            else{
+                idDataStream = IntegerEncoder.encodeLongStream(ids, false, StreamType.DATA);
+            }
+            return ArrayUtils.addAll(idPresentStream, idDataStream);
+        }
+        else if(physicalLevelTechnique == PhysicalLevelTechnique.VARINT && fieldMetadata.getDataType() == DataType.UINT_32){
+            var intIds = CollectionUtils.toIntList(ids);
+            var idDataStream = IntegerEncoder.encodeIntStream(intIds.get(), PhysicalLevelTechnique.VARINT,
+                    false, StreamType.DATA);
+            return ArrayUtils.addAll(idPresentStream, idDataStream);
+        }
+        else{
+            var idDataStream = IntegerEncoder.encodeLongStream(ids, false, StreamType.DATA);
+            return ArrayUtils.addAll(idPresentStream, idDataStream);
+        }
+    }
+
+}

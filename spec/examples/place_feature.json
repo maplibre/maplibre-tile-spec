@@ -1,0 +1,28 @@
+{
+  "title": "Place Feature",
+  "type": "object",
+  "properties": {
+    "id": { "type": "integer" },
+    "geometry": { "type": "MultiPolygon" },
+	 "properties": {
+		"type": "object", 
+		"properties": {
+			"speed": { "type": "number" },
+			"rank": { "type": "integer" },
+			"name": { 
+				"type": "object", 
+				"properties": {
+					"en": { "type": "string" },
+					"de": { "type": "string" }
+					
+				},
+				"required": ["en"]
+			}
+		}
+    }
+  },
+  "required": ["geometry"]
+}
+
+
+

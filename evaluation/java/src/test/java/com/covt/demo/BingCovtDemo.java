@@ -130,15 +130,11 @@ public class BingCovtDemo {
          * Math.round(stats.unoptimizedCovtSize()/1000), unoptimizedMetadataReduction);
          */
 
-        /*
-         * var gzipReduction = (1-(1/((stats.gzipMvtSize())/
-         * stats.gzipCovtSize())))*100;
-         * System.out.
-         * printf("Gzip MVT size: %dkb, Optimized Metadata Gzip COVT size: %dkb, Gzip Reduction: %.2f%%%n"
-         * , Math.round(stats.gzipMvtSize()/1000),
-         * Math.round(stats.gzipCovtSize()/1000),
-         * gzipReduction);
-         */
+         var gzipReduction = (1-(1/((stats.gzipMvtSize())/
+         stats.gzipCovtSize())))*100;
+         System.out.printf("Gzip MVT size: %dkb, Optimized Metadata Gzip COVT size: %dkb, Gzip Reduction: %.2f%%%n",
+                         Math.round(stats.gzipMvtSize()/1000), Math.round(stats.gzipCovtSize()/1000), gzipReduction);
+
 
         /*
          * var unoptimizedGzipReduction = (1-(1/((stats.gzipMvtSize())/
@@ -154,6 +150,11 @@ public class BingCovtDemo {
         // (stats.gzipMvtSize() - stats.covtSize()) / 1000,
         // stats.gzipMvtDecompressionTime());
 
+        var gzipOptimizedGzipReduction = (1-(1/((stats.gzipCovtSize() / stats.unoptimizedGzipCovtSize()))))*100;
+        var gzipOptimizedGzipToMvtReduction = (1-(1/((stats.gzipMvtSize() / stats.unoptimizedGzipCovtSize()))))*100;
+        System.out.printf("Optimized Gzip COVT ratio %.2f%%%n", gzipOptimizedGzipReduction);
+        System.out.printf("Optimized Gzip COVT to MVT ratio %.2f%%%n", gzipOptimizedGzipToMvtReduction);
+
         return reduction;
     }
 
@@ -168,14 +169,18 @@ public class BingCovtDemo {
         var objectMapper = new ObjectMapper();
         var tileJson = objectMapper.readValue(data.getLeft(), TileJson.class);
 
-        var covtLayers = CovtParser.decodeCovt(covtTile, tileJson);
+        //var covtLayers = CovtParser.decodeCovt(covtTile, tileJson);
 
-        compareTiles(mvtLayers, covtLayers);
-        System.out.println("Tests passed. Tiles contain the same information");
+        //compareTiles(mvtLayers, covtLayers);
+        //System.out.println("Tests passed. Tiles contain the same information");
 
         var unoptimizedData = CovtConverter.convertMvtTile2(mvtLayers, mvtTile.tileExtent(),
                 CovtConverter.GeometryEncoding.ICE_MORTON,
                 true, true, false, false, false);
+
+        var gzipOptimizedData = CovtConverter.convertMvtTile2(mvtLayers, mvtTile.tileExtent(),
+                CovtConverter.GeometryEncoding.ICE_MORTON,
+                false, false, false, false, false);
 
         var gzipCovtSize = EncodingUtils.gzipCompress(covtTile).length;
         /*
@@ -186,9 +191,12 @@ public class BingCovtDemo {
          * gzipCovtSize < varintGzipCovtSize? gzipCovtSize : varintGzipCovtSize,
          * mvtTile.gzipDecompressionTime());
          */
-        return new TileStats(mvtTile.mvtSize(), covtTile.length, mvtTile.gzipCompressedMvtSize(), gzipCovtSize,
+        /*return new TileStats(mvtTile.mvtSize(), covtTile.length, mvtTile.gzipCompressedMvtSize(), gzipCovtSize,
                 mvtTile.gzipDecompressionTime(), unoptimizedData.getRight().length,
-                EncodingUtils.gzipCompress(unoptimizedData.getRight()).length);
+                EncodingUtils.gzipCompress(unoptimizedData.getRight()).length);*/
+        return new TileStats(mvtTile.mvtSize(), covtTile.length, mvtTile.gzipCompressedMvtSize(), gzipCovtSize,
+                mvtTile.gzipDecompressionTime(), gzipOptimizedData.getRight().length,
+                EncodingUtils.gzipCompress(gzipOptimizedData.getRight()).length);
     }
 
     private void compareTiles(List<Layer> mvtLayers, List<Layer> covtLayers) {
