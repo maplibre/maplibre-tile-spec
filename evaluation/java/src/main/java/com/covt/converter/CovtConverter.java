@@ -899,7 +899,9 @@ public class CovtConverter {
     private static byte[] addOffsets(List<Integer> offsets, Boolean useFastPforDelta,
                                      TreeMap<StreamType, StreamMetadata> streams, byte[] geometryColumn,
                                      StreamType streamType) throws IOException {
+        //TODO: change again
         var rleOffsets= EncodingUtils.encodeRle(offsets.stream().mapToLong(i -> i).toArray(), false);
+        //var rleOffsets= EncodingUtils.encodeVarints(offsets.stream().mapToLong(i -> i).toArray(), true, true);
         if(!useFastPforDelta){
             streams.put(streamType, new StreamMetadata(StreamEncoding.RLE, offsets.size(), rleOffsets.length));
             return ArrayUtils.addAll(geometryColumn, rleOffsets);
@@ -907,6 +909,11 @@ public class CovtConverter {
 
         var fastPforDeltaOffsets = EncodingUtils.encodeFastPfor128(
                 offsets.stream().mapToInt(i -> i).toArray(), true, true);
+
+
+        if(rleOffsets.length > 50){
+            System.out.printf("Fast Pfor Offsests: %s, RLE Offsets: %s\n", fastPforDeltaOffsets.length, rleOffsets.length);
+        }
 
         if(fastPforDeltaOffsets.length <= rleOffsets.length){
             streams.put(streamType, new StreamMetadata(StreamEncoding.FAST_PFOR_DELTA_ZIG_ZAG, offsets.size(),

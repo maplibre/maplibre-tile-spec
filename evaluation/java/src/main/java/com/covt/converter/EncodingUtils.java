@@ -119,7 +119,6 @@ public class EncodingUtils {
         return ArrayUtils.addAll(stringLength, utf8Data);
     }
 
-
     public static byte[] encodeRle(long[] values, boolean signed) throws IOException {
         var testOutputCatcher = new TestOutputCatcher();
         var writer =
