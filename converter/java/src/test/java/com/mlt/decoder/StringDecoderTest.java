@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class StringDecoderTest {
-    private static final String OMT_MVT_PATH = "..\\..\\test\\fixtures\\omt\\mvt";
+    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     @Test
     public void decodeSharedDictionary_FsstDictionaryEncoded() throws IOException {

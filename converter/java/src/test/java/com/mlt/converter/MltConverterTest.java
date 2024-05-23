@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class MltConverterTest { ;
     private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
     private static final String BING_MVT_PATH = Paths.get("..","..","test","fixtures","bing","mvt").toString();
+    private static final String AMZ_HERE_MVT_PATH = Paths.get("..","..","test","fixtures","amazon_here","mvt").toString();
 
     @Test
     public void createTileMetadata_Omt_ValidMetadata() throws IOException {
@@ -99,7 +100,7 @@ public class MltConverterTest { ;
 
     @Test
     public void convert_AmazonRandomZLevels_ValidMLtTile() throws IOException {
-        var tiles = Stream.of(new File("..\\..\\test\\fixtures\\amazon_here\\mvt").listFiles())
+        var tiles = Stream.of(new File(AMZ_HERE_MVT_PATH).listFiles())
                 .filter(file -> !file.isDirectory())
                 .map(File::getAbsoluteFile)
                 .collect(Collectors.toSet());
@@ -113,7 +114,7 @@ public class MltConverterTest { ;
 
     @Test
     public void convert_OmtRandomZLevels_ValidMLtTile() throws IOException {
-        var tiles = Stream.of(new File("..\\..\\test\\fixtures\\omt2").listFiles())
+        var tiles = Stream.of(new File(OMT_MVT_PATH).listFiles())
                 .filter(file -> !file.isDirectory())
                 .map(File::getAbsoluteFile)
                 .collect(Collectors.toSet());

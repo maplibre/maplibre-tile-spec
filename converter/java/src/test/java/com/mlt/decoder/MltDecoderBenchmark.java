@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class MltDecoderBenchmark {
-    private static final String OMT_MVT_PATH = "..\\..\\test\\fixtures\\omt\\mvt";
+    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     @Test
     public void decodeMlTile_Z4() throws IOException {
