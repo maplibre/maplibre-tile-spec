@@ -26,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MltConverterTest { ;
-    private static final String OMT_MVT_PATH = "..\\..\\test\\fixtures\\omt\\mvt";
-    private static final String BING_MVT_PATH = "..\\..\\test\\fixtures\\bing\\mvt";
+    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
+    private static final String BING_MVT_PATH = Paths.get("..","..","test","fixtures","bing","mvt").toString();
 
     @Test
     public void createTileMetadata_Omt_ValidMetadata() throws IOException {
