@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 import static com.mlt.converter.encodings.LinearRegression.*;
 
 public class LinearRegressionTest {
-    private static final String OMT_MVT_PATH = "..\\..\\test\\fixtures\\omt\\mvt";
+    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     @Test
     public void test() throws IOException {
