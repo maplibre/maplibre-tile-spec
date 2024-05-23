@@ -21,7 +21,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MltDecoderTest {
-    private static final String OMT_MVT_PATH = "..\\..\\test\\fixtures\\omt\\mvt";
+    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     /** Decode tiles in an in-memory format optimized for sequential access */
 
