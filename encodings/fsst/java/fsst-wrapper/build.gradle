@@ -1,0 +1,37 @@
+plugins {
+    id 'java-library'
+}
+
+
+group 'com.fsst'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+task compileWrapper(type: Exec) {
+    doFirst {
+        if (System.properties['os.name'].toLowerCase().contains('linux')) {
+            throw new GradleException("Linking the fsst wrapper is currently only supported for windows platforms.")
+        }
+        executable "./resources/compile.bat"
+    }
+}
+
+compileJava.dependsOn compileWrapper
