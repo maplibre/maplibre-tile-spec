@@ -10,8 +10,8 @@ if [[ $(uname -s) = "Darwin" ]]; then
     export JNI_INCLUDE="-I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include -I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include/darwin"
     export LINKFLAGS="-bundle"
 else
-    ls /usr/lib/jvm/
-    export JNI_INCLUDE="-I/usr/lib/jvm/java-8-oracle/include"
+    ls /usr/lib/jvm/temurin-17-jdk-amd64/
+    export JNI_INCLUDE="-I/usr/lib/jvm/temurin-17-jdk-amd64/include"
     export LINKFLAGS="-shared"
 fi
 
