@@ -49,5 +49,5 @@ This repository has the following directory structure:
   (between 2x and 3x even without the usage of SIMD) decoding performance compared to MVT.
   Since the previous focus was on the Java POC encoder and decoder, the js decoder is not 
   yet updated to the newest changes in the specification, which will cause all unit tests to fail.
-- ``evaluaiton``: Different benchmarks and evaluations for finding the best encodings and file layout.
-
+- ``evaluation``: Different benchmarks and evaluations for finding the best encodings and file layout.
+- ``encodings``: Contains encoding schemas (ex. FastPFor)
