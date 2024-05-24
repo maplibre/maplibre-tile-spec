@@ -6,6 +6,7 @@
     "start": "node dist/src/index.js",
     "build": "tsc",
     "build:start": "npm run build && npm start",
+    "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src",
     "format": "prettier --write \"**/*.ts\""
   },
