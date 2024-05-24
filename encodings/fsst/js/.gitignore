@@ -4,4 +4,3 @@ coverage/
 .vscode/
 .idea/
 *.log
-package-lock.json
