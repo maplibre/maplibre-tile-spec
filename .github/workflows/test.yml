@@ -7,11 +7,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test-java-converter:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  test-java-converter-ubuntu:
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: 'converter/java'
@@ -23,3 +20,16 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
       - run: ./gradlew test
+  test-java-converter-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: 'converter/java'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v3
+      - run: .\gradlew.bat test
