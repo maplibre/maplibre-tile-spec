@@ -1,0 +1,28 @@
+{
+  "name": "fsst-decoder",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/src/index.js",
+    "build": "tsc",
+    "build:start": "npm run build && npm start",
+    "lint": "eslint --max-warnings=0 --fix --ext .ts src",
+    "format": "prettier --write \"**/*.ts\""
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "eslint": "^8.35.0",
+    "eslint-config-airbnb-typescript": "^12.3.1",
+    "eslint-config-prettier": "^8.7.0",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-prettier": "^3.4.1",
+    "eslint-plugin-promise": "^6.1.1",
+    "jest": "^29.7.0",
+    "prettier": "^3.2.5",
+    "ts-jest": "^29.1.3"
+  },
+  "dependencies": {
+    "typescript": "^5.4.5"
+  }
+}
