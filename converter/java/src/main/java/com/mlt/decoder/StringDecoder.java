@@ -1,6 +1,6 @@
 package com.mlt.decoder;
 
-import com.fsst.FsstEncoder;
+// import com.fsst.FsstEncoder;
 import com.mlt.metadata.stream.DictionaryType;
 import com.mlt.metadata.stream.LengthType;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
@@ -77,8 +77,9 @@ public class StringDecoder {
 
         List<String> dictionary = null;
         if(symbolTableStream != null){
-            var utf8Values = FsstEncoder.decode(symbolTableStream, symbolLengthStream.stream().mapToInt(i -> i).toArray(), dictionaryStream);
-            dictionary = decodeDictionary(dictionaryLengthStream, utf8Values);
+            System.out.println("symbolTableStream cannot be used as FSST is currently disabled");
+            // var utf8Values = FsstEncoder.decode(symbolTableStream, symbolLengthStream.stream().mapToInt(i -> i).toArray(), dictionaryStream);
+            // dictionary = decodeDictionary(dictionaryLengthStream, utf8Values);
         }
         else {
             dictionary = decodeDictionary(dictionaryLengthStream, dictionaryStream);
@@ -194,10 +195,12 @@ public class StringDecoder {
         }
 
         if(symbolTableStream != null){
-            var utf8Values = FsstEncoder.decode(symbolTableStream, symbolLengthStream.stream().mapToInt(i -> i).toArray(), dictionaryStream);
-            return Triple.of(numValues, presentStream, decodeDictionary(presentStream, dictionaryLengthStream, utf8Values, offsetStream, numValues));
+            System.out.println("symbolTableStream cannot be used as FSST is currently disabled");
+            // var utf8Values = FsstEncoder.decode(symbolTableStream, symbolLengthStream.stream().mapToInt(i -> i).toArray(), dictionaryStream);
+            // return Triple.of(numValues, presentStream, decodeDictionary(presentStream, dictionaryLengthStream, utf8Values, offsetStream, numValues));
         }
-        else if(dictionaryStream != null){
+        // else if(dictionaryStream != null){
+        if(dictionaryStream != null){
             return Triple.of(numValues, presentStream, decodeDictionary(presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, numValues));
         }
         else{
@@ -252,49 +255,49 @@ public class StringDecoder {
         return values;
     }
 
-    public static List<String> decodeFsstDictionaryEncodedStringColumn(byte[] data, IntWrapper offset) throws IOException {
-        /* FsstDictionary -> SymbolTable, SymbolLength, CompressedCorups, Length, Data */
-        //TODO: get rid of that IntWrapper creation
-        var symbolTableOffset = new IntWrapper(offset.get());
-        var symbolTableMetadata = StreamMetadataDecoder.decode(data, symbolTableOffset);
-        var symbolLengthOffset = new IntWrapper(symbolTableOffset.get() + symbolTableMetadata.byteLength());
-        var symbolLengthMetadata = StreamMetadataDecoder.decode(data, symbolLengthOffset);
-        var compressedCorpusOffset = new IntWrapper(symbolLengthOffset.get() + symbolLengthMetadata.byteLength());
-        var compressedCorpusMetadata = StreamMetadataDecoder.decode(data, compressedCorpusOffset);
-        var lengthOffset = new IntWrapper(compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
-        var lengthMetadata = StreamMetadataDecoder.decode(data, lengthOffset);
-        var dataOffset = new IntWrapper(lengthOffset.get() + lengthMetadata.byteLength());
-        var dataMetadata = StreamMetadataDecoder.decode(data, dataOffset);
+    // public static List<String> decodeFsstDictionaryEncodedStringColumn(byte[] data, IntWrapper offset) throws IOException {
+    //     /* FsstDictionary -> SymbolTable, SymbolLength, CompressedCorups, Length, Data */
+    //     //TODO: get rid of that IntWrapper creation
+    //     var symbolTableOffset = new IntWrapper(offset.get());
+    //     var symbolTableMetadata = StreamMetadataDecoder.decode(data, symbolTableOffset);
+    //     var symbolLengthOffset = new IntWrapper(symbolTableOffset.get() + symbolTableMetadata.byteLength());
+    //     var symbolLengthMetadata = StreamMetadataDecoder.decode(data, symbolLengthOffset);
+    //     var compressedCorpusOffset = new IntWrapper(symbolLengthOffset.get() + symbolLengthMetadata.byteLength());
+    //     var compressedCorpusMetadata = StreamMetadataDecoder.decode(data, compressedCorpusOffset);
+    //     var lengthOffset = new IntWrapper(compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
+    //     var lengthMetadata = StreamMetadataDecoder.decode(data, lengthOffset);
+    //     var dataOffset = new IntWrapper(lengthOffset.get() + lengthMetadata.byteLength());
+    //     var dataMetadata = StreamMetadataDecoder.decode(data, dataOffset);
 
-        //TODO: get rid of that copy by refactoring the fsst decoding function
-        var symbols = Arrays.copyOfRange(data, symbolTableOffset.get(), symbolTableOffset.get()
-                + symbolTableMetadata.byteLength());
-        var symbolLength = IntegerDecoder.decodeIntStream(data, symbolLengthOffset, symbolLengthMetadata, false);
-        var compressedCorpus = Arrays.copyOfRange(data, compressedCorpusOffset.get(),
-                compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
-        var values = FsstEncoder.decode(symbols, symbolLength.stream().mapToInt(i -> i).toArray(), compressedCorpus);
+    //     //TODO: get rid of that copy by refactoring the fsst decoding function
+    //     var symbols = Arrays.copyOfRange(data, symbolTableOffset.get(), symbolTableOffset.get()
+    //             + symbolTableMetadata.byteLength());
+    //     var symbolLength = IntegerDecoder.decodeIntStream(data, symbolLengthOffset, symbolLengthMetadata, false);
+    //     var compressedCorpus = Arrays.copyOfRange(data, compressedCorpusOffset.get(),
+    //             compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
+    //     var values = FsstEncoder.decode(symbols, symbolLength.stream().mapToInt(i -> i).toArray(), compressedCorpus);
 
-        var length = IntegerDecoder.decodeIntStream(data, lengthOffset, lengthMetadata, false);
-        var decodedData = IntegerDecoder.decodeIntStream(data, dataOffset, dataMetadata, false);
+    //     var length = IntegerDecoder.decodeIntStream(data, lengthOffset, lengthMetadata, false);
+    //     var decodedData = IntegerDecoder.decodeIntStream(data, dataOffset, dataMetadata, false);
 
-        var decodedDictionary = new ArrayList<String>();
-        var strStart = 0;
-        for(var l : length){
-            var v = Arrays.copyOfRange(values, strStart, strStart + l);
-            decodedDictionary.add(new String(v, StandardCharsets.UTF_8));
-            strStart += l;
-        }
+    //     var decodedDictionary = new ArrayList<String>();
+    //     var strStart = 0;
+    //     for(var l : length){
+    //         var v = Arrays.copyOfRange(values, strStart, strStart + l);
+    //         decodedDictionary.add(new String(v, StandardCharsets.UTF_8));
+    //         strStart += l;
+    //     }
 
-        var decodedValues = new ArrayList<String>(decodedData.size());
-        for(var dictionaryOffset : decodedData){
-            var value = decodedDictionary.get(dictionaryOffset);
-            decodedValues.add(value);
-        }
+    //     var decodedValues = new ArrayList<String>(decodedData.size());
+    //     for(var dictionaryOffset : decodedData){
+    //         var value = decodedDictionary.get(dictionaryOffset);
+    //         decodedValues.add(value);
+    //     }
 
-        //TODO: check -> is this correct?
-        offset.set(dataOffset.get());
+    //     //TODO: check -> is this correct?
+    //     offset.set(dataOffset.get());
 
-        return decodedValues;
-    }
+    //     return decodedValues;
+    // }
 
 }

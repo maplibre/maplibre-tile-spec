@@ -1,6 +1,6 @@
 package com.mlt.converter.encodings;
 
-import com.fsst.FsstEncoder;
+//import com.fsst.FsstEncoder;
 import com.mlt.converter.CollectionUtils;
 import com.mlt.metadata.stream.*;
 import org.apache.commons.lang3.tuple.Pair;
@@ -61,9 +61,10 @@ public class StringEncoder {
         }
 
         var encodedSharedDictionary = encodeDictionary(dictionary, physicalLevelTechnique, false, true);
-        var encodedSharedFsstDictionary = encodeFsstDictionary(dictionary, physicalLevelTechnique, false, true);
-        var sharedDictionary = encodedSharedFsstDictionary.length < encodedSharedDictionary.length?
-                encodedSharedFsstDictionary : encodedSharedDictionary;
+        var sharedDictionary = encodedSharedDictionary;
+        // var encodedSharedFsstDictionary = encodeFsstDictionary(dictionary, physicalLevelTechnique, false, true);
+        // var sharedDictionary = encodedSharedFsstDictionary.length < encodedSharedDictionary.length?
+        //         encodedSharedFsstDictionary : encodedSharedDictionary;
         /*if(encodedSharedFsstDictionary.length < encodedSharedDictionary.length){
             System.out.println("Use FsstDictionary, reduction: " + (encodedSharedDictionary.length - encodedSharedFsstDictionary.length ));
         }*/
@@ -89,7 +90,8 @@ public class StringEncoder {
         }
 
         //TODO: make present stream optional
-        var numStreams = (encodedSharedFsstDictionary.length < encodedSharedDictionary.length? 5 : 3) + values.size() * 2;
+        // var numStreams = (encodedSharedFsstDictionary.length < encodedSharedDictionary.length? 5 : 3) + values.size() * 2;
+        var numStreams = 3 + values.size() * 2;
         return Pair.of(numStreams, sharedDictionary);
     }
 
@@ -109,70 +111,73 @@ public class StringEncoder {
         var dictionaryEncodedColumn = encodeDictionary(values, physicalLevelTechnique, true, false);
         if(!useFsstEncoding){
             return Pair.of(3, dictionaryEncodedColumn);
+        } else {
+            System.out.println("useFsstEncoding cannot be used as FSST is currently disabled");
         }
 
-        var fsstEncodedDictionary = encodeFsstDictionary(values, physicalLevelTechnique, true, false);
-        return dictionaryEncodedColumn.length <= fsstEncodedDictionary.length?
-                Pair.of(3, dictionaryEncodedColumn): Pair.of(5, fsstEncodedDictionary);
+        //var fsstEncodedDictionary = encodeFsstDictionary(values, physicalLevelTechnique, true, false);
+        // return dictionaryEncodedColumn.length <= fsstEncodedDictionary.length?
+        //         Pair.of(3, dictionaryEncodedColumn): Pair.of(5, fsstEncodedDictionary);
+        return Pair.of(3, dictionaryEncodedColumn);
     }
 
-    private static byte[] encodeFsstDictionary(List<String> values, PhysicalLevelTechnique physicalLevelTechnique,
-                                               boolean encodeDataStream, boolean isSharedDictionary) {
-        var dataStream = new ArrayList<Integer>(values.size());
-        var lengthStream = new ArrayList<Integer>();
-        var dictionary = new ArrayList<String>();
-        for(var value : values){
-            if(!dictionary.contains(value)){
-                dictionary.add(value);
-                var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
-                lengthStream.add(utf8EncodedData.length);
-                var index = dictionary.size() - 1;
-                dataStream.add(index);
-            }
-            else{
-                var index = dictionary.indexOf(value);
-                dataStream.add(index);
-            }
-        }
+    // private static byte[] encodeFsstDictionary(List<String> values, PhysicalLevelTechnique physicalLevelTechnique,
+    //                                            boolean encodeDataStream, boolean isSharedDictionary) {
+    //     var dataStream = new ArrayList<Integer>(values.size());
+    //     var lengthStream = new ArrayList<Integer>();
+    //     var dictionary = new ArrayList<String>();
+    //     for(var value : values){
+    //         if(!dictionary.contains(value)){
+    //             dictionary.add(value);
+    //             var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
+    //             lengthStream.add(utf8EncodedData.length);
+    //             var index = dictionary.size() - 1;
+    //             dataStream.add(index);
+    //         }
+    //         else{
+    //             var index = dictionary.indexOf(value);
+    //             dataStream.add(index);
+    //         }
+    //     }
 
-        var symbolTable = encodeFsst(dictionary, physicalLevelTechnique, false);
+    //     var symbolTable = encodeFsst(dictionary, physicalLevelTechnique, false);
 
-        if(encodeDataStream == false){
-            return symbolTable;
-        }
+    //     if(encodeDataStream == false){
+    //         return symbolTable;
+    //     }
 
-        var encodedDataStream = IntegerEncoder.encodeIntStream(dataStream, physicalLevelTechnique, false,
-                PhysicalStreamType.OFFSET, new LogicalStreamType(OffsetType.STRING));
-        return CollectionUtils.concatByteArrays(symbolTable, encodedDataStream);
-    }
+    //     var encodedDataStream = IntegerEncoder.encodeIntStream(dataStream, physicalLevelTechnique, false,
+    //             PhysicalStreamType.OFFSET, new LogicalStreamType(OffsetType.STRING));
+    //     return CollectionUtils.concatByteArrays(symbolTable, encodedDataStream);
+    // }
 
-    private static byte[] encodeFsst(List<String> values, PhysicalLevelTechnique physicalLevelTechnique, boolean isSharedDictionary) {
-        var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
-        var symbolTable = FsstEncoder.encode(joinedValues);
+    // private static byte[] encodeFsst(List<String> values, PhysicalLevelTechnique physicalLevelTechnique, boolean isSharedDictionary) {
+    //     var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
+    //     var symbolTable = FsstEncoder.encode(joinedValues);
 
-        var encodedSymbols = symbolTable.symbols();
-        var compressedCorpus = symbolTable.compressedData();
+    //     var encodedSymbols = symbolTable.symbols();
+    //     var compressedCorpus = symbolTable.compressedData();
 
-        var symbolLengths = Arrays.stream(symbolTable.symbolLengths()).boxed().collect(Collectors.toList());
-        var encodedSymbolLengths = IntegerEncoder.encodeIntStream(symbolLengths, physicalLevelTechnique, false,
-                PhysicalStreamType.LENGTH, new LogicalStreamType(LengthType.SYMBOL));
-        var symbolTableMetadata = new StreamMetadata(PhysicalStreamType.DATA, new LogicalStreamType(DictionaryType.FSST),
-                LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, PhysicalLevelTechnique.NONE,
-                //TODO: numValues in this context not needed -> set 0 to save space -> only 1 byte with varint?
-                symbolLengths.size(), encodedSymbols.length).encode();
-        var lengthStream = values.stream().map(v -> v.getBytes(StandardCharsets.UTF_8).length).collect(Collectors.toList());
-        var encodedLengthStream = IntegerEncoder.encodeIntStream(lengthStream, physicalLevelTechnique, false,
-                PhysicalStreamType.LENGTH, new LogicalStreamType(LengthType.DICTIONARY));
-        var compressedCorpusStreamMetadata = new StreamMetadata(PhysicalStreamType.DATA,
-                new LogicalStreamType(isSharedDictionary? DictionaryType.SHARED : DictionaryType.SINGLE),
-                LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, PhysicalLevelTechnique.NONE,
-                values.size(), compressedCorpus.length).encode();
+    //     var symbolLengths = Arrays.stream(symbolTable.symbolLengths()).boxed().collect(Collectors.toList());
+    //     var encodedSymbolLengths = IntegerEncoder.encodeIntStream(symbolLengths, physicalLevelTechnique, false,
+    //             PhysicalStreamType.LENGTH, new LogicalStreamType(LengthType.SYMBOL));
+    //     var symbolTableMetadata = new StreamMetadata(PhysicalStreamType.DATA, new LogicalStreamType(DictionaryType.FSST),
+    //             LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, PhysicalLevelTechnique.NONE,
+    //             //TODO: numValues in this context not needed -> set 0 to save space -> only 1 byte with varint?
+    //             symbolLengths.size(), encodedSymbols.length).encode();
+    //     var lengthStream = values.stream().map(v -> v.getBytes(StandardCharsets.UTF_8).length).collect(Collectors.toList());
+    //     var encodedLengthStream = IntegerEncoder.encodeIntStream(lengthStream, physicalLevelTechnique, false,
+    //             PhysicalStreamType.LENGTH, new LogicalStreamType(LengthType.DICTIONARY));
+    //     var compressedCorpusStreamMetadata = new StreamMetadata(PhysicalStreamType.DATA,
+    //             new LogicalStreamType(isSharedDictionary? DictionaryType.SHARED : DictionaryType.SINGLE),
+    //             LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, PhysicalLevelTechnique.NONE,
+    //             values.size(), compressedCorpus.length).encode();
 
-        //TODO: how to name the streams and how to order? -> symbol_table, length, data, length
-        /* SymbolLength, SymbolTable, Value Length, Compressed Corpus */
-        return CollectionUtils.concatByteArrays(encodedSymbolLengths, symbolTableMetadata, symbolTable.symbols(),
-                encodedLengthStream, compressedCorpusStreamMetadata, compressedCorpus);
-    }
+    //     //TODO: how to name the streams and how to order? -> symbol_table, length, data, length
+    //     /* SymbolLength, SymbolTable, Value Length, Compressed Corpus */
+    //     return CollectionUtils.concatByteArrays(encodedSymbolLengths, symbolTableMetadata, symbolTable.symbols(),
+    //             encodedLengthStream, compressedCorpusStreamMetadata, compressedCorpus);
+    // }
 
     private static byte[] encodeDictionary(List<String> values, PhysicalLevelTechnique physicalLevelTechnique,
                                            boolean encodeOffsetStream, boolean isSharedDictionary) {

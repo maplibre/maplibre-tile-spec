@@ -138,7 +138,7 @@ public class MltConverterTest { ;
         var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
         //TODO: fix -> either add columMappings per layer or global like when creating the scheme
         var optimizations = Map.of("place", optimization, "water_name", optimization);
-        var conversionConfig = new ConversionConfig(true, true, optimizations);
+        var conversionConfig = new ConversionConfig(true, false, optimizations);
         var mlTile = MltConverter.convertMvt(mvTile, conversionConfig, tileMetadata);
 
         var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
@@ -252,7 +252,7 @@ public class MltConverterTest { ;
         var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
         //TODO: fix -> either add columMappings per layer or global like when creating the scheme
         var optimizations = Map.of("place", optimization, "water_name", optimization);
-        var conversionConfig = new ConversionConfig(true, true, optimizations);
+        var conversionConfig = new ConversionConfig(true, false, optimizations);
         var mlTile = MltConverter.convertMvt(mvTile, conversionConfig, tileMetadata);
 
         //var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
@@ -286,7 +286,7 @@ public class MltConverterTest { ;
                     var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
                     //TODO: fix -> either add columMappings per layer or global like when creating the scheme
                     var optimizations = Map.of("place", optimization, "water_name", optimization);
-                    var conversionConfig = new ConversionConfig(true, true, optimizations);
+                    var conversionConfig = new ConversionConfig(true, false, optimizations);
                     var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
 
                     //var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
@@ -408,7 +408,7 @@ public class MltConverterTest { ;
         var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
         //TODO: fix -> either add columMappings per layer or global like when creating the scheme
         var optimizations = Map.of("place", optimization, "water_name", optimization);
-        var conversionConfig = new ConversionConfig(true, true, optimizations);
+        var conversionConfig = new ConversionConfig(true, false, optimizations);
         var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
 
         var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);

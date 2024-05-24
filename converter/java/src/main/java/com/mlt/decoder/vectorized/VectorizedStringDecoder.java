@@ -10,8 +10,8 @@ import com.mlt.vector.dictionary.DictionaryDataVector;
 import com.mlt.vector.dictionary.StringDictionaryVector;
 import com.mlt.vector.dictionary.StringSharedDictionaryVector;
 import com.mlt.vector.flat.StringFlatVector;
-import com.mlt.vector.fsstdictionary.StringFsstDictionaryVector;
-import com.mlt.vector.fsstdictionary.StringSharedFsstDictionaryVector;
+// import com.mlt.vector.fsstdictionary.StringFsstDictionaryVector;
+// import com.mlt.vector.fsstdictionary.StringSharedFsstDictionaryVector;
 import me.lemire.integercompression.IntWrapper;
 
 import java.io.IOException;
@@ -71,10 +71,12 @@ public class VectorizedStringDecoder {
         }
 
         if(symbolTableStream != null){
-            return decodeFsstDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream,
-                    symbolLengthStream, symbolTableStream);
+            System.out.println("symbolTableStream cannot be used as FSST is currently disabled");
+            // return decodeFsstDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream,
+            //         symbolLengthStream, symbolTableStream);
         }
-        else if(dictionaryStream != null){
+        // else if(dictionaryStream != null){
+        if(dictionaryStream != null){
             return decodeDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream);
         }
 
@@ -125,10 +127,12 @@ public class VectorizedStringDecoder {
         }
 
         if(symbolTableStream != null){
-            return decodeFsstDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream,
-                    symbolLengthStream, symbolTableStream);
+            System.out.println("symbolTableStream cannot be used as FSST is currently disabled");
+            // return decodeFsstDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream,
+            //         symbolLengthStream, symbolTableStream);
         }
-        else if(dictionaryStream != null){
+        // else if(dictionaryStream != null){
+        if(dictionaryStream != null){
             return decodeDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream);
         }
 
@@ -198,9 +202,14 @@ public class VectorizedStringDecoder {
             fieldVectors[i++] = dataVector;
         }
 
-        return symbolTableBuffer != null? new StringSharedFsstDictionaryVector(column.getName(), dictionaryLengthBuffer,
-                dictionaryBuffer, symbolLengthBuffer, symbolTableBuffer, fieldVectors) :
-                new StringSharedDictionaryVector(column.getName(), dictionaryLengthBuffer, dictionaryBuffer, fieldVectors);
+        if (symbolTableBuffer != null) {
+            System.out.println("symbolTableBuffer cannot be used as FSST is currently disabled");
+            // return new StringSharedFsstDictionaryVector(column.getName(), dictionaryLengthBuffer,
+            // dictionaryBuffer, symbolLengthBuffer, symbolTableBuffer, fieldVectors);
+        }
+        // } else {
+        return new StringSharedDictionaryVector(column.getName(), dictionaryLengthBuffer, dictionaryBuffer, fieldVectors);
+        // }
     }
 
     public static Vector decodeSharedDictionaryToRandomAccessFormat(
@@ -270,9 +279,14 @@ public class VectorizedStringDecoder {
             fieldVectors[i++] = dataVector;
         }
 
-        return symbolTableBuffer != null? new StringSharedFsstDictionaryVector(column.getName(), dictionaryLengthBuffer,
-                dictionaryBuffer, symbolLengthBuffer, symbolTableBuffer, fieldVectors) :
-                new StringSharedDictionaryVector(column.getName(), dictionaryLengthBuffer, dictionaryBuffer, fieldVectors);
+        if (symbolTableBuffer != null) {
+            System.out.println("symbolTableBuffer cannot be used as FSST is currently disabled");
+            // return new StringSharedFsstDictionaryVector(column.getName(), dictionaryLengthBuffer,
+            // dictionaryBuffer, symbolLengthBuffer, symbolTableBuffer, fieldVectors);
+        }
+        // } else {
+        return new StringSharedDictionaryVector(column.getName(), dictionaryLengthBuffer, dictionaryBuffer, fieldVectors);
+        // }
     }
 
     private static StringFlatVector decodePlain(String name, BitVector nullabilityVector, IntBuffer lengthStream,
@@ -285,12 +299,12 @@ public class VectorizedStringDecoder {
         return new StringDictionaryVector(name, nullabilityVector, dictionaryOffsets, lengthStream, utf8Values);
     }
 
-    private static StringFsstDictionaryVector decodeFsstDictionary(String name, BitVector nullabilityVector,
-                                                               IntBuffer dictionaryOffsets, IntBuffer lengthStream,
-                                                               ByteBuffer utf8Values, IntBuffer symbolLengthStream,
-                                                               ByteBuffer symbolTable){
-        return new StringFsstDictionaryVector(name, nullabilityVector, dictionaryOffsets, lengthStream,
-                utf8Values, symbolLengthStream, symbolTable);
-    }
+    // private static StringFsstDictionaryVector decodeFsstDictionary(String name, BitVector nullabilityVector,
+    //                                                            IntBuffer dictionaryOffsets, IntBuffer lengthStream,
+    //                                                            ByteBuffer utf8Values, IntBuffer symbolLengthStream,
+    //                                                            ByteBuffer symbolTable){
+    //     return new StringFsstDictionaryVector(name, nullabilityVector, dictionaryOffsets, lengthStream,
+    //             utf8Values, symbolLengthStream, symbolTable);
+    // }
 
 }

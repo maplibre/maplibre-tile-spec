@@ -24,7 +24,7 @@ dependencies {
     implementation 'org.apache.orc:orc-core:1.8.1'
     implementation 'com.github.davidmoten:hilbert-curve:0.2.2'
     implementation 'org.roaringbitmap:RoaringBitmap:0.9.38'
-    implementation files('libs/fsst-1.0-SNAPSHOT.jar')
+    // implementation files('libs/fsst-1.0-SNAPSHOT.jar')
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'

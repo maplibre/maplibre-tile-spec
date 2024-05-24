@@ -20,25 +20,25 @@ import java.util.Optional;
 public class StringDecoderTest {
     private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
-    @Test
-    public void decodeSharedDictionary_FsstDictionaryEncoded() throws IOException {
-        var values1 = List.of("TestTestTestTestTestTest", "TestTestTestTestTestTest1", "TestTestTestTestTestTest2",
-                "TestTestTestTestTestTest2", "TestTestTestTestTestTest4");
-        var values2 = List.of("TestTestTestTestTestTest6", "TestTestTestTestTestTest5", "TestTestTestTestTestTest8",
-                "TestTestTestTestTestTes9", "TestTestTestTestTestTest10");
-        var values = List.of(values1, values2);
-        var encodedValues = StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
+    // @Test
+    // public void decodeSharedDictionary_FsstDictionaryEncoded() throws IOException {
+    //     var values1 = List.of("TestTestTestTestTestTest", "TestTestTestTestTestTest1", "TestTestTestTestTestTest2",
+    //             "TestTestTestTestTestTest2", "TestTestTestTestTestTest4");
+    //     var values2 = List.of("TestTestTestTestTestTest6", "TestTestTestTestTestTest5", "TestTestTestTestTestTest8",
+    //             "TestTestTestTestTestTes9", "TestTestTestTestTestTest10");
+    //     var values = List.of(values1, values2);
+    //     var encodedValues = StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
 
-        var tileMetadata = MltTilesetMetadata.Column.newBuilder().setName("Test").setNullable(true).
-                setScalarType(MltTilesetMetadata.ScalarColumn.newBuilder().setPhysicalType(MltTilesetMetadata.ScalarType.STRING)).build();
+    //     var tileMetadata = MltTilesetMetadata.Column.newBuilder().setName("Test").setNullable(true).
+    //             setScalarType(MltTilesetMetadata.ScalarColumn.newBuilder().setPhysicalType(MltTilesetMetadata.ScalarType.STRING)).build();
 
-        var decodedValues = StringDecoder.
-                decodeSharedDictionary(encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+    //     var decodedValues = StringDecoder.
+    //             decodeSharedDictionary(encodedValues.getRight(), new IntWrapper(0), tileMetadata);
 
-        var v = decodedValues.getRight();
-        Assert.equals(values1, v.get(":Test"));
-        Assert.equals(values2, v.get(":Test2"));
-    }
+    //     var v = decodedValues.getRight();
+    //     Assert.equals(values1, v.get(":Test"));
+    //     Assert.equals(values2, v.get(":Test2"));
+    // }
 
     @Test
     public void decodeSharedDictionary_DictonaryEncoded() throws IOException {
@@ -102,47 +102,47 @@ public class StringDecoderTest {
         Assert.equals(values2, v.get(":Test2"));
     }
 
-    @Test
-    public void decodeSharedDictionary_NullValues_FsstDictonaryEncoded() throws IOException {
-        var values1 = Arrays.asList(null, null, null, null, "TestTestTestTestTestTest", "TestTestTestTestTestTest1",
-                null, "TestTestTestTestTestTest2", "TestTestTestTestTestTest2", "TestTestTestTestTestTest4");
-        var values2 = Arrays.asList("TestTestTestTestTestTest6", null, "TestTestTestTestTestTest5", "TestTestTestTestTestTest8",
-                "TestTestTestTestTestTes9", null, "TestTestTestTestTestTest10");
-        var values = List.of(values1, values2);
-        var encodedValues = StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
+    // @Test
+    // public void decodeSharedDictionary_NullValues_FsstDictonaryEncoded() throws IOException {
+    //     var values1 = Arrays.asList(null, null, null, null, "TestTestTestTestTestTest", "TestTestTestTestTestTest1",
+    //             null, "TestTestTestTestTestTest2", "TestTestTestTestTestTest2", "TestTestTestTestTestTest4");
+    //     var values2 = Arrays.asList("TestTestTestTestTestTest6", null, "TestTestTestTestTestTest5", "TestTestTestTestTestTest8",
+    //             "TestTestTestTestTestTes9", null, "TestTestTestTestTestTest10");
+    //     var values = List.of(values1, values2);
+    //     var encodedValues = StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
 
-        var test = MltTilesetMetadata.Field.newBuilder().setName("Test").setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder().setPhysicalType(MltTilesetMetadata.ScalarType.STRING).build());
-        var test2 = MltTilesetMetadata.Field.newBuilder().setName("Test2").setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder().setPhysicalType(MltTilesetMetadata.ScalarType.STRING).build());
-        var tileMetadata = MltTilesetMetadata.Column.newBuilder().setName("Parent").setNullable(true).setComplexType(
-                MltTilesetMetadata.ComplexColumn.newBuilder().addChildren(test).addChildren(test2).build()).build();
+    //     var test = MltTilesetMetadata.Field.newBuilder().setName("Test").setScalarField(
+    //             MltTilesetMetadata.ScalarField.newBuilder().setPhysicalType(MltTilesetMetadata.ScalarType.STRING).build());
+    //     var test2 = MltTilesetMetadata.Field.newBuilder().setName("Test2").setScalarField(
+    //             MltTilesetMetadata.ScalarField.newBuilder().setPhysicalType(MltTilesetMetadata.ScalarType.STRING).build());
+    //     var tileMetadata = MltTilesetMetadata.Column.newBuilder().setName("Parent").setNullable(true).setComplexType(
+    //             MltTilesetMetadata.ComplexColumn.newBuilder().addChildren(test).addChildren(test2).build()).build();
 
-        var decodedValues = StringDecoder.
-                decodeSharedDictionary(encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+    //     var decodedValues = StringDecoder.
+    //             decodeSharedDictionary(encodedValues.getRight(), new IntWrapper(0), tileMetadata);
 
-        var v = decodedValues.getRight();
+    //     var v = decodedValues.getRight();
 
-        var actualValues1 = v.get(":Test");
-        var p1 = decodedValues.getMiddle().get(":Test");
-        var decodedV1 = new ArrayList<String>();
-        var counter = 0;
-        for(var i = 0; i < decodedValues.getMiddle().size(); i++){
-            var a = p1.get(i)? actualValues1.get(counter++) : null;
-            decodedV1.add(a);
-        }
-        var actualValues2 = v.get(":Test2");
-        var p2 = decodedValues.getMiddle().get(":Test2");
-        var decodedV2 = new ArrayList<String>();
-        var counter2 = 0;
-        for(var i = 0; i < decodedValues.getMiddle().size(); i++){
-            var a = p2.get(i)? actualValues2.get(counter2++) : null;
-            decodedV2.add(a);
-        }
+    //     var actualValues1 = v.get(":Test");
+    //     var p1 = decodedValues.getMiddle().get(":Test");
+    //     var decodedV1 = new ArrayList<String>();
+    //     var counter = 0;
+    //     for(var i = 0; i < decodedValues.getMiddle().size(); i++){
+    //         var a = p1.get(i)? actualValues1.get(counter++) : null;
+    //         decodedV1.add(a);
+    //     }
+    //     var actualValues2 = v.get(":Test2");
+    //     var p2 = decodedValues.getMiddle().get(":Test2");
+    //     var decodedV2 = new ArrayList<String>();
+    //     var counter2 = 0;
+    //     for(var i = 0; i < decodedValues.getMiddle().size(); i++){
+    //         var a = p2.get(i)? actualValues2.get(counter2++) : null;
+    //         decodedV2.add(a);
+    //     }
 
-        Assert.equals(values1, v.get(":Test"));
-        Assert.equals(values2, v.get(":Test2"));
-    }
+    //     Assert.equals(values1, v.get(":Test"));
+    //     Assert.equals(values2, v.get(":Test2"));
+    // }
 
     @Test
     public void decodeSharedDictionary_Mvt() throws IOException {
