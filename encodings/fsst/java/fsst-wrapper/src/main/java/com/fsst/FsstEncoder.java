@@ -3,12 +3,21 @@ package com.fsst;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.FileSystems;
 import java.io.ByteArrayOutputStream;
 
 public class FsstEncoder {
 
     static {
-        System.loadLibrary("FsstWrapper");
+        String modulePath = FileSystems.getDefault()
+                    .getPath("build/FsstWrapper.so")
+                    .normalize().toAbsolutePath().toString();
+        try {
+            System.load(modulePath);
+            System.out.println("Loaded native library: " + modulePath);
+        } catch (UnsatisfiedLinkError e) {
+            System.out.println("Error: " + e.getMessage() + " - " + modulePath);
+        }
     }
 
     public static SymbolTable encode(byte[] data){
