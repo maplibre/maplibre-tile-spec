@@ -16,7 +16,7 @@ SymbolTableStruct fsstCompress(std::vector<unsigned char> inputBytes) {
     unsigned long n = 1;
     auto **srcBuf = (uint8_t **) calloc(n, sizeof(uint8_t *));
     auto **dstBuf = (uint8_t **) calloc(n, sizeof(uint8_t *));
-    auto *srcLen = (uint64_t *) calloc(n, sizeof(uint64_t));
+    auto *srcLen = (size_t *) calloc(n, sizeof(size_t));
     auto *dstLen = (size_t *) calloc(n, sizeof(size_t));
 
     srcBuf[0] = inputBytes.data();
