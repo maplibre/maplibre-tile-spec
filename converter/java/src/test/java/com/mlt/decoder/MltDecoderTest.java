@@ -76,7 +76,7 @@ public class MltDecoderTest {
         var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
         //TODO: fix -> either add columMappings per layer or global like when creating the scheme
         var optimizations = Map.of("place", optimization, "water_name", optimization, "transportation", optimization);
-        var mlTile = MltConverter.convertMvt(mvTile, new ConversionConfig(true, true, optimizations),
+        var mlTile = MltConverter.convertMvt(mvTile, new ConversionConfig(true, false, optimizations),
                 tileMetadata);
 
         var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
@@ -161,7 +161,7 @@ public class MltDecoderTest {
         var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
         //TODO: fix -> either add columMappings per layer or global like when creating the scheme
         var optimizations = Map.of("place", optimization, "water_name", optimization, "transportation", optimization);
-        var mlTile = MltConverter.convertMvt(mvTile, new ConversionConfig(true, true, optimizations),
+        var mlTile = MltConverter.convertMvt(mvTile, new ConversionConfig(true, false, optimizations),
                 tileMetadata);
 
         var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
