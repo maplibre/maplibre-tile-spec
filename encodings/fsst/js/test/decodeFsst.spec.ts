@@ -1,4 +1,4 @@
-import { FsstDecoder } from "../src/fsstDecoder";
+import { decodeFsst } from "../src/decodeFsst";
 
 describe("FsstDecoder", () => {
     const expectedOutput: string = "AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC";
@@ -10,14 +10,14 @@ describe("FsstDecoder", () => {
     ]);
 
     it("decodes compressed data correctly", () => {
-        const decodedData = FsstDecoder.decode(symbols, symbolLengths, compressedData);
+        const decodedData = decodeFsst(symbols, symbolLengths, compressedData);
         const decoder = new TextDecoder("utf-8");
         const decodedDataString = decoder.decode(decodedData);
         expect(decodedDataString).toStrictEqual(expectedOutput);
     });
 
     it("returns an empty array when compressed data is empty", () => {
-        const decodedData = FsstDecoder.decode(symbols, symbolLengths, new Uint8Array([]));
+        const decodedData = decodeFsst(symbols, symbolLengths, new Uint8Array([]));
         expect(decodedData).toEqual(new Uint8Array([]));
     });
 });
