@@ -1,0 +1,1 @@
+TODO: Link the [FSST](https://github.com/cwida/fsst) project and automate the build of the binaries.
