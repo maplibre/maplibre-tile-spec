@@ -24,7 +24,7 @@ SymbolTableStruct fsstCompress(std::vector<unsigned char> inputBytes) {
     uint64_t before_size = inputBytes.size();
 
     unsigned char serialized_encoder_buf[FSST_MAXHEADER];
-    fsst_encoder_t *encoder = fsst_create(n, srcLen, srcBuf, 0);
+    fsst_encoder_t *encoder = fsst_create(n, srcLen, const_cast<const uint8_t **>(srcBuf), 0);
     fsst_export(encoder, serialized_encoder_buf);
 
     // the first 8 bytes of serialized_encoder_buf is where the version field is stored
@@ -41,7 +41,7 @@ SymbolTableStruct fsstCompress(std::vector<unsigned char> inputBytes) {
     unsigned long output_buffer_size = 7 + 4 * before_size; //1024 * 1024 * 1024
     auto output_buffer = (uint8_t *) calloc(output_buffer_size, sizeof(uint8_t));
 
-    fsst_compress(encoder, n, srcLen, srcBuf, output_buffer_size, output_buffer, dstLen, dstBuf);
+    fsst_compress(encoder, n, srcLen, const_cast<const uint8_t **>(srcBuf), output_buffer_size, output_buffer, dstLen, dstBuf);
     size_t compressedDataLength = *dstLen;
 
     fsst_decoder_t decoder;
