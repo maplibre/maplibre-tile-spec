@@ -1,14 +1,27 @@
-import { decodeFsst } from "./decodeFsst";
+/**
+ * Decode FSST compressed data
+ *
+ * @param symbols           Array of symbols, where each symbol can be between 1 and 8 bytes
+ * @param symbolLengths     Array of symbol lengths, length of each symbol in symbols array
+ * @param compressedData    FSST Compressed data, where each entry is an index to the symbols array
+ * @returns                 Decoded data as Uint8Array
+ */
+export function decodeFsst(symbols: Uint8Array, symbolLengths: number[], compressedData: Uint8Array): Uint8Array {
+    let decodedData: number[] = [];
+    let symbolOffsets: number[] = new Array(symbolLengths.length).fill(0);
 
-let symbols: Uint8Array = new Uint8Array([65, 65, 0, 65, 69, 100, 67, 102, 66]);
-let symbolLengths: number[] = [2, 1, 1, 1, 1, 1, 1, 1];
-let compressedData: Uint8Array = new Uint8Array([
-    0, 0, 0, 2, 7, 7, 7, 0, 2, 5, 5, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 6, 6, 6, 3, 3, 3, 3, 0, 0, 2, 4, 4, 4, 4, 5, 5,
-]);
+    for (let i = 1; i < symbolLengths.length; i++) {
+        symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
+    }
 
-let decodedData: Uint8Array = decodeFsst(symbols, symbolLengths, compressedData);
-
-let textDecoder: TextDecoder = new TextDecoder("utf-8");
-let decodedDataString: string = textDecoder.decode(decodedData);
-
-console.log(decodedDataString);
+    for (let i = 0; i < compressedData.length; i++) {
+        if (compressedData[i] === 255) {
+            decodedData.push(compressedData[++i]);
+        } else {
+            for (let j = 0; j < symbolLengths[compressedData[i]]; j++) {
+                decodedData.push(symbols[symbolOffsets[compressedData[i]] + j]);
+            }
+        }
+    }
+    return new Uint8Array(decodedData);
+}
