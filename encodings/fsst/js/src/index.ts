@@ -8,7 +8,7 @@
  */
 export function decodeFsst(symbols: Uint8Array, symbolLengths: number[], compressedData: Uint8Array): Uint8Array {
     let decodedData: number[] = [];
-    let symbolOffsets: number[] = new Array(symbolLengths.length).fill(0);
+    const symbolOffsets: number[] = new Array(symbolLengths.length).fill(0);
 
     for (let i = 1; i < symbolLengths.length; i++) {
         symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
@@ -18,8 +18,10 @@ export function decodeFsst(symbols: Uint8Array, symbolLengths: number[], compres
         if (compressedData[i] === 255) {
             decodedData.push(compressedData[++i]);
         } else {
-            for (let j = 0; j < symbolLengths[compressedData[i]]; j++) {
-                decodedData.push(symbols[symbolOffsets[compressedData[i]] + j]);
+            const symbolLength = symbolLengths[compressedData[i]];
+            const symbolOffset = symbolOffsets[compressedData[i]];
+            for (let j = 0; j < symbolLength; j++) {
+                decodedData.push(symbols[symbolOffset + j]);
             }
         }
     }
