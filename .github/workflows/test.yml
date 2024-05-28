@@ -54,9 +54,9 @@ jobs:
       - name: Java tests
         shell: bash
         run: |
-           if [[ "$RUNNER_OS" == "Windows" ]];
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
               GRADLE_COMMAND=".\gradlew.bat"
-           else
+          else
               GRADLE_COMMAND="./gradlew"
-           fi
-           ${GRADLE_COMMAND} test
+          fi
+          ${GRADLE_COMMAND} test
