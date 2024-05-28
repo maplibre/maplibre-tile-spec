@@ -51,12 +51,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Java tests
+      - name: Set gradle command
         shell: bash
+        id: vars
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-              GRADLE_COMMAND=".\gradlew.bat"
+              echo GRADLE_COMMAND=".\gradlew.bat" >> $GITHUB_OUTPUT
           else
-              GRADLE_COMMAND="./gradlew"
+              echo GRADLE_COMMAND="./gradlew" >> $GITHUB_OUTPUT
           fi
-          ${GRADLE_COMMAND} test
+      - name: Java encoding tests
+        run: ${GRADLE_COMMAND} test --tests "com.mlt.converter.encodings.*"
+      - name: Vector tests
+        run: ${GRADLE_COMMAND} test --tests "com.mlt.vector.*"
+      - name: Decoding tests
+        run: ${GRADLE_COMMAND} test --tests "com.mlt.decoder.MltDecoderTest"
