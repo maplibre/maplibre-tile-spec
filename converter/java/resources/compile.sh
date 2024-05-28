@@ -3,7 +3,7 @@ set -euo pipefail
 
 CURRENT_DIR=$(pwd)
 
-export CXXFLAGS="-g -std=c++17 -fPIC"
+export CXXFLAGS="-g -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -O3"
 
 if [[ $(uname -s) = "Darwin" ]]; then
     export CXXFLAGS="${CXXFLAGS} -arch arm64 -arch x86_64"
@@ -16,17 +16,18 @@ else
 fi
 
 if [[ ! -f build/libfsst.a ]]; then
-   mkdir -p ${CURRENT_DIR}/build
-   cd ${CURRENT_DIR}/build
-   if [[ ! -d cwida-fsst-ef52cb3 ]]; then
+    mkdir -p ${CURRENT_DIR}/build
+    cd ${CURRENT_DIR}/build
+    if [[ ! -d cwida-fsst-ef52cb3 ]]; then
         curl -L https://github.com/cwida/fsst/tarball/ef52cb3 -o fsst.tar.gz
         tar -xvf fsst.tar.gz
-        cd cwida-fsst-ef52cb3/
-   fi
-   cp ${CURRENT_DIR}/../../cpp/Makefile .
-   make
-   cp libfsst.a ${CURRENT_DIR}/build/
-   cp fsst.h ${CURRENT_DIR}/build/
+    fi
+    cd ${CURRENT_DIR}/build/cwida-fsst-ef52cb3/
+    echo "Building fsst in $(pwd)"
+    cp ${CURRENT_DIR}/resources/Makefile .
+    make
+    cp libfsst.a ${CURRENT_DIR}/build/
+    cp fsst.h ${CURRENT_DIR}/build/
 fi
 
 cd ${CURRENT_DIR}

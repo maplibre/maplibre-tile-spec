@@ -1,6 +1,6 @@
 package com.mlt.converter.encodings;
 
-import com.fsst.FsstEncoder;
+import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.converter.CollectionUtils;
 import com.mlt.metadata.stream.*;
 import org.apache.commons.lang3.tuple.Pair;

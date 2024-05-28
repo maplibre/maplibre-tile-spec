@@ -1,6 +1,6 @@
 package com.mlt.decoder;
 
-import com.fsst.FsstEncoder;
+import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.metadata.stream.DictionaryType;
 import com.mlt.metadata.stream.LengthType;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
