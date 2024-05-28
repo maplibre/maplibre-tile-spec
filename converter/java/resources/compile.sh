@@ -11,7 +11,7 @@ if [[ $(uname -s) = "Darwin" ]]; then
     export LINKFLAGS="-bundle"
 elif [[ $(uname -s) = "Linux" ]]; then
     ls /usr/lib/jvm/
-    export JNI_INCLUDE="-I/usr/lib/jvm/microsoft-17-jdk-amd64/include -I/usr/lib/jvm/microsoft-17-jdk-amd64/include/linux -I/usr/lib/jvm/microsoft-17-jdk-amd64/include/linux/x86_64"
+    export JNI_INCLUDE="-I/usr/lib/jvm/temurin-17-jdk-amd64/include -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux/x86_64"
     export LINKFLAGS="-shared"
 else
     which c++
