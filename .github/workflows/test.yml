@@ -57,7 +57,11 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
               echo gradle_cmd=".\gradlew.bat" >> $GITHUB_OUTPUT
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+              brew install microsoft-openjdk@17
+              echo gradle_cmd="./gradlew" >> $GITHUB_OUTPUT
           else
+              apt-get install openjdk-17-jdk
               echo gradle_cmd="./gradlew" >> $GITHUB_OUTPUT
           fi
       - name: Java encoding tests
