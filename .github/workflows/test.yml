@@ -66,7 +66,7 @@ jobs:
               echo gradle_cmd="./gradlew" >> $GITHUB_OUTPUT
           fi
       - if: runner.os == 'Windows'
-        uses: egor-tensin/setup-mingw@v2
+        uses: e-t-l/setup-mingw@patch-1
       - name: Java encoding tests
         run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.converter.encodings.*"
       - name: Vector tests
