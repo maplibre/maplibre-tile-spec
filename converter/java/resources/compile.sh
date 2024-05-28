@@ -9,8 +9,14 @@ if [[ $(uname -s) = "Darwin" ]]; then
     export CXXFLAGS="${CXXFLAGS} -arch arm64 -arch x86_64"
     export JNI_INCLUDE="-I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include -I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include/darwin"
     export LINKFLAGS="-bundle"
+elif [[ $(uname -s) = "Linux" ]]; then
+    ls /usr/lib/jvm/
+    export JNI_INCLUDE="-I/usr/lib/jvm/microsoft-17-jdk-amd64/include -I/usr/lib/jvm/microsoft-17-jdk-amd64/include/linux -I/usr/lib/jvm/microsoft-17-jdk-amd64/include/linux/x86_64"
+    export LINKFLAGS="-shared"
 else
-    ls /usr/lib/jvm/temurin-17-jdk-amd64/include/
+    which c++
+    which g++
+    ls /usr/lib/jvm/
     export JNI_INCLUDE="-I/usr/lib/jvm/temurin-17-jdk-amd64/include -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux/x86_64"
     export LINKFLAGS="-shared"
 fi

@@ -65,6 +65,8 @@ jobs:
               sudo apt-get install openjdk-17-jdk
               echo gradle_cmd="./gradlew" >> $GITHUB_OUTPUT
           fi
+      - if: runner.os == 'Windows'
+        uses: egor-tensin/setup-mingw@v2
       - name: Java encoding tests
         run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.converter.encodings.*"
       - name: Vector tests

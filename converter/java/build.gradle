@@ -44,11 +44,11 @@ java {
 
 task compileWrapper(type: Exec) {
     doFirst {
-        if (System.properties['os.name'].toLowerCase().contains('windows')) {
-            executable "./resources/compile.bat"
-        } else {
+        // if (System.properties['os.name'].toLowerCase().contains('windows')) {
+        //     executable "./resources/compile.bat"
+        // } else {
             executable "./resources/compile.sh"
-        }
+        // }
     }
 }
 
