@@ -2,6 +2,7 @@ package com.mlt.decoder.vectorized;
 
 import com.mlt.metadata.stream.DictionaryType;
 import com.mlt.metadata.stream.LengthType;
+import com.mlt.metadata.stream.RleEncodedStreamMetadata;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.BitVector;
@@ -82,18 +83,19 @@ public class VectorizedStringDecoder {
     }
 
     public static Vector decodeToRandomAccessFormat(String name, byte[] data, IntWrapper offset, int numStreams,
-                                                    BitVector bitVector, int numFeatures)  {
+                                                    BitVector bitVector)  {
         //TODO: handle ConstVector
         IntBuffer dictionaryLengthStream = null;
         IntBuffer offsetStream = null;
         ByteBuffer dictionaryStream = null;
         IntBuffer symbolLengthStream = null;
+
         ByteBuffer symbolTableStream = null;
         for(var i = 0; i < numStreams; i++){
             var streamMetadata = StreamMetadataDecoder.decode(data, offset);
             switch (streamMetadata.physicalStreamType()){
                 case OFFSET:{
-                    boolean isNullable = streamMetadata.numValues() != numFeatures;
+                    boolean isNullable = bitVector != null;
                     offsetStream = isNullable?
                             VectorizedIntegerDecoder.decodeNullableIntStream(data, offset, streamMetadata, false, bitVector) :
                             VectorizedIntegerDecoder.decodeIntStream(data, offset, streamMetadata, false);
@@ -125,14 +127,14 @@ public class VectorizedStringDecoder {
         }
 
         if(symbolTableStream != null){
-            return decodeFsstDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream,
+            return StringFsstDictionaryVector.createFromOffsetBuffer(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream,
                     symbolLengthStream, symbolTableStream);
         }
         else if(dictionaryStream != null){
-            return decodeDictionary(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream);
+            return StringDictionaryVector.createFromOffsetBuffer(name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream);
         }
 
-        return decodePlain(name, bitVector, offsetStream, dictionaryStream);
+        return StringFlatVector.createFromOffsetBuffer(name, bitVector, offsetStream, dictionaryStream);
     }
 
     //TODO: create baseclass for shared dictionary
@@ -205,9 +207,9 @@ public class VectorizedStringDecoder {
 
     public static Vector decodeSharedDictionaryToRandomAccessFormat(
             byte[] data, IntWrapper offset,  MltTilesetMetadata.Column column, int numFeatures){
-        IntBuffer dictionaryLengthBuffer = null;
+        IntBuffer dictionaryOffsetBuffer = null;
         ByteBuffer dictionaryBuffer = null;
-        IntBuffer symbolLengthBuffer = null;
+        IntBuffer symbolOffsetBuffer = null;
         ByteBuffer symbolTableBuffer = null;
 
         //TODO: refactor to be spec compliant -> start by decoding the FieldMetadata, StreamMetadata and PresentStream
@@ -217,11 +219,11 @@ public class VectorizedStringDecoder {
             switch (streamMetadata.physicalStreamType()){
                 case LENGTH:{
                     if(LengthType.DICTIONARY.equals(streamMetadata.logicalStreamType().lengthType())){
-                        dictionaryLengthBuffer = VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(data, offset,
+                        dictionaryOffsetBuffer = VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(data, offset,
                                 streamMetadata);
                     }
                     else{
-                        symbolLengthBuffer = VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(data, offset,
+                        symbolOffsetBuffer = VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(data, offset,
                                 streamMetadata);
                     }
                     break;
@@ -243,10 +245,10 @@ public class VectorizedStringDecoder {
             }
         }
 
-        var chieldFields = column.getComplexType().getChildrenList();
-        var fieldVectors = new DictionaryDataVector[chieldFields.size()];
+        var childFields = column.getComplexType().getChildrenList();
+        var fieldVectors = new DictionaryDataVector[childFields.size()];
         var i = 0;
-        for(var childField : chieldFields){
+        for(var childField : childFields){
             var numStreams = VectorizedDecodingUtils.decodeVarint(data, offset, 1).get(0);
             if(numStreams != 2 || childField.hasComplexField() || childField.getScalarField().getPhysicalType() != MltTilesetMetadata.ScalarType.STRING){
                 throw new IllegalArgumentException("Currently only optional string fields are implemented for a struct.");
@@ -256,7 +258,10 @@ public class VectorizedStringDecoder {
             //TODO: check if ConstVector
             var presentStream = VectorizedDecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(), offset);
             var offsetStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            boolean isNullable = offsetStreamMetadata.numValues() != numFeatures;
+            //TODO: get rid of that check for rle encoding by using numValues as the number of values independent of the encoding
+            boolean isNullable = (offsetStreamMetadata instanceof RleEncodedStreamMetadata?
+                    ((RleEncodedStreamMetadata)offsetStreamMetadata).numRleValues() :
+                    offsetStreamMetadata.numValues()) != numFeatures;
             var offsetStream = isNullable?
                     VectorizedIntegerDecoder.decodeNullableIntStream(data, offset, offsetStreamMetadata, false,
                             new BitVector(presentStream, presentStreamMetadata.numValues())) :
@@ -270,9 +275,9 @@ public class VectorizedStringDecoder {
             fieldVectors[i++] = dataVector;
         }
 
-        return symbolTableBuffer != null? new StringSharedFsstDictionaryVector(column.getName(), dictionaryLengthBuffer,
-                dictionaryBuffer, symbolLengthBuffer, symbolTableBuffer, fieldVectors) :
-                new StringSharedDictionaryVector(column.getName(), dictionaryLengthBuffer, dictionaryBuffer, fieldVectors);
+        return symbolTableBuffer != null? StringSharedFsstDictionaryVector.createFromOffsetBuffer(column.getName(), dictionaryOffsetBuffer,
+                dictionaryBuffer, symbolOffsetBuffer, symbolTableBuffer, fieldVectors) :
+                StringSharedDictionaryVector.createFromOffsetBuffer(column.getName(), dictionaryOffsetBuffer, dictionaryBuffer, fieldVectors);
     }
 
     private static StringFlatVector decodePlain(String name, BitVector nullabilityVector, IntBuffer lengthStream,

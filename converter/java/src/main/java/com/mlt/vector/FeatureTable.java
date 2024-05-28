@@ -1,12 +1,14 @@
 package com.mlt.vector;
 
 import com.mlt.converter.mvt.Feature;
+import com.mlt.vector.flat.IntFlatVector;
 import com.mlt.vector.geometry.GeometryVector;
+import org.locationtech.jts.geom.Geometry;
 
-import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Optional;
 
+/** In-Memory representation of MLT storage format for efficient processing */
 public class FeatureTable implements Iterable<Feature>{
     private final String name;
     private final Vector idColumn;
@@ -30,6 +32,7 @@ public class FeatureTable implements Iterable<Feature>{
     public Iterator<Feature> iterator() {
         return new Iterator<>() {
             private int index = 0;
+            private  Iterator<Geometry> geometryIterator = geometryColumn.iterator();
 
             @Override
             public boolean hasNext() {
@@ -38,9 +41,23 @@ public class FeatureTable implements Iterable<Feature>{
 
             @Override
             public Feature next() {
-                var id = (long)idColumn.getValue(index++).get();
-                //var geometry = geometryColumn
-                return new Feature(id, null, null);
+                var id = idColumn instanceof IntFlatVector? ((Integer)idColumn.getValue(index).get()).longValue() :
+                        (Long)idColumn.getValue(index).get();
+                var geometry = geometryIterator.next();
+
+                var properties = new HashMap<String, Object>();
+                for(var i = 0; i < propertyColumns.length; i++){
+                    var propertyColumnVector = propertyColumns[i];
+                    var columnName = propertyColumnVector.getName();
+                    var propertyValue = propertyColumnVector.getValue(index);
+                    if(propertyValue.isPresent()){
+                        var value = propertyValue.get();
+                        properties.put(columnName, value);
+                    }
+                }
+
+                index++;
+                return new Feature(id, geometry, properties);
             }
         };
     }

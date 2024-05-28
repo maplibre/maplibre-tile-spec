@@ -16,12 +16,6 @@ import me.lemire.integercompression.IntWrapper;
 
 import java.io.IOException;
 
-enum BufferType{
-    CONST,
-    SEQUENCE,
-    FLAT
-}
-
 public class VectorizedPropertyDecoder {
     private VectorizedPropertyDecoder(){}
 
@@ -88,21 +82,33 @@ public class VectorizedPropertyDecoder {
     }
 
     public static Vector decodeToRandomAccessFormat(byte[] data, IntWrapper offset, MltTilesetMetadata.Column column,
-                                                          int numStreams, int numFeatures) throws IOException {
+                                                          int numStreams, int numFeatures) {
         StreamMetadata presentStreamMetadata;
         if(column.hasScalarType()){
             BitVector nullabilityBuffer = null;
             var numValues = 0;
-            if(numStreams > 1){
+            if(numStreams == 0){
+                /** The absence of an entire column can be identified by a zero value for the number of streams. */
+                return null;
+            }
+            else if(numStreams > 1){
                 presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
                 //TODO: get rid of that check by not including the present stream if not nullable
                 var vectorType = VectorizedDecodingUtils.getVectorTypeBooleanStream(numFeatures, presentStreamMetadata.byteLength());
                 /** If vector type equals const create vector without a nullabilityBuffer which specifies
-                 *  that the column is not nullable */
-                if(vectorType == VectorType.FLAT){
+                 *  that the column is not nullable
+                 *  The absence of a column can be specified by a zero value for numValues
+                 *  */
+                if(vectorType == VectorType.FLAT ){
                     numValues = presentStreamMetadata.numValues();
                     var presentVector = VectorizedDecodingUtils.decodeBooleanRle(data, numValues, offset);
                     nullabilityBuffer = new BitVector(presentVector, presentStreamMetadata.numValues());
+                }else {
+                    /** Const vector -> all values are present so this is a not nullable column, since if all values
+                     * are not present, the absence of the full column is specified with a zero value for the
+                     * number of streams.
+                     * */
+                    offset.add(presentStreamMetadata.byteLength());
                 }
             }
 
@@ -111,7 +117,7 @@ public class VectorizedPropertyDecoder {
                 case BOOLEAN: {
                     var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
                     var vectorType = VectorizedDecodingUtils.getVectorTypeBooleanStream(numFeatures, dataStreamMetadata.byteLength());
-                    boolean isNullable = dataStreamMetadata.numValues() != numFeatures;
+                    boolean isNullable = nullabilityBuffer != null;
                     if(vectorType.equals(VectorType.FLAT)){
                         if(!isNullable){
                             var dataStream = VectorizedDecodingUtils.decodeBooleanRle(data, dataStreamMetadata.numValues(), offset);
@@ -131,17 +137,12 @@ public class VectorizedPropertyDecoder {
                 case INT_32: {
                     var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
                     var vectorType = VectorizedDecodingUtils.getVectorTypeIntStream(dataStreamMetadata);
-                    boolean isNullable = dataStreamMetadata.numValues() != numFeatures;
                     var isSigned = scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_32;
+                    var isNullable = nullabilityBuffer != null;
                     if(vectorType.equals(VectorType.FLAT)){
-                        if(!isNullable){
-                            var dataStream = VectorizedIntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata,
-                                    isSigned);
-                            return new IntFlatVector(column.getName(), dataStream);
-                        }
-
-                        var dataStream = VectorizedIntegerDecoder.decodeNullableIntStream(data, offset, dataStreamMetadata,
-                                isSigned, nullabilityBuffer);
+                        var dataStream = isNullable? VectorizedIntegerDecoder.decodeNullableIntStream
+                                (data, offset, dataStreamMetadata, isSigned, nullabilityBuffer) :
+                                VectorizedIntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, isSigned);
                         return new IntFlatVector(column.getName(), nullabilityBuffer, dataStream);
                     }
                     else{
@@ -156,8 +157,8 @@ public class VectorizedPropertyDecoder {
                 case INT_64: {
                     var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
                     var vectorType = VectorizedDecodingUtils.getVectorTypeIntStream(dataStreamMetadata);
-                    boolean isNullable = dataStreamMetadata.numValues() != numFeatures;
-                    var isSigned = scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_32;
+                    var isNullable = nullabilityBuffer != null;
+                    var isSigned = scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_64;
                     if(vectorType.equals(VectorType.FLAT)){
                         if(!isNullable){
                             var dataStream = VectorizedIntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata,
@@ -165,8 +166,9 @@ public class VectorizedPropertyDecoder {
                             return new LongFlatVector(column.getName(), dataStream);
                         }
 
-                        var dataStream = VectorizedIntegerDecoder.decodeNullableLongStream(data, offset, dataStreamMetadata,
-                                isSigned, nullabilityBuffer);
+                        var dataStream = nullabilityBuffer != null? VectorizedIntegerDecoder.decodeNullableLongStream
+                                (data, offset, dataStreamMetadata, isSigned, nullabilityBuffer) :
+                                VectorizedIntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, isSigned);
                         return new LongFlatVector(column.getName(), nullabilityBuffer, dataStream);
                     }
                     else{
@@ -178,15 +180,11 @@ public class VectorizedPropertyDecoder {
                     }
                 }
                 case FLOAT:{
+                    //TODO: add rle encoding and ConstVector
                     var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-                    boolean isNullable = dataStreamMetadata.numValues() != numFeatures;
-                    if(!isNullable){
-                        var dataStream = VectorizedFloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
-                        return new FloatFlatVector(column.getName(), dataStream);
-                    }
-
-                    var dataStream = VectorizedFloatDecoder.decodeNullableFloatStream(data, offset, dataStreamMetadata,
-                            nullabilityBuffer);
+                    var dataStream = nullabilityBuffer != null? VectorizedFloatDecoder.
+                            decodeNullableFloatStream(data, offset, dataStreamMetadata, nullabilityBuffer):
+                            VectorizedFloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
                     return new FloatFlatVector(column.getName(), nullabilityBuffer, dataStream);
                 }
                 /*case DOUBLE:{
@@ -194,7 +192,7 @@ public class VectorizedPropertyDecoder {
                 }*/
                 case STRING: {
                     return VectorizedStringDecoder.decodeToRandomAccessFormat(
-                            column.getName(), data, offset, numStreams - 1, nullabilityBuffer, numFeatures);
+                            column.getName(), data, offset, numStreams - 1, nullabilityBuffer);
                 }
                 default:
                     throw new IllegalArgumentException("The specified data type for the field is currently not supported.");
