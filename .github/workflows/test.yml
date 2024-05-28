@@ -56,13 +56,13 @@ jobs:
         id: vars
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-              echo GRADLE_COMMAND=".\gradlew.bat" >> $GITHUB_OUTPUT
+              echo gradle_cmd=".\gradlew.bat" >> $GITHUB_OUTPUT
           else
-              echo GRADLE_COMMAND="./gradlew" >> $GITHUB_OUTPUT
+              echo gradle_cmd="./gradlew" >> $GITHUB_OUTPUT
           fi
       - name: Java encoding tests
-        run: ${GRADLE_COMMAND} test --tests "com.mlt.converter.encodings.*"
+        run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.converter.encodings.*"
       - name: Vector tests
-        run: ${GRADLE_COMMAND} test --tests "com.mlt.vector.*"
+        run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.vector.*"
       - name: Decoding tests
-        run: ${GRADLE_COMMAND} test --tests "com.mlt.decoder.MltDecoderTest"
+        run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.decoder.MltDecoderTest"
