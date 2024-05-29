@@ -23,7 +23,8 @@ else
     export INC_BASE="C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64"
     ls ${INC_BASE}
     ls ${INC_BASE}/include
-    export JNI_INCLUDE="-I${INC_BASE}/include"
+    ls ${INC_BASE}/include/win32
+    export JNI_INCLUDE="-I${INC_BASE}/include -I${INC_BASE}/include/win32 -I${INC_BASE}/include/win32/x86_64"
     export LINKFLAGS="-shared"
 fi
 
