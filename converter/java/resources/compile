@@ -50,7 +50,6 @@ fi
 
 cd ${CURRENT_DIR}
 
-# -Wl,-rpath,'$ORIGIN' is used to set the rpath to the current directory
 MODULE_BUILD="c++ ${CXXFLAGS} ${OPTIMIZATION_FLAGS} -I${JNI_INCLUDE}/include -I${JNI_INCLUDE}/include/${JNI_PLATFORM} -I./build -I./resources ./resources/FsstWrapper.cpp ./build/libfsst.a ${LINKFLAGS} -o ./build/FsstWrapper.so"
 echo "Building FsstWrapper.so"
 echo ${MODULE_BUILD}
