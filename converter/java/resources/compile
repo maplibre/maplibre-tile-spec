@@ -11,13 +11,13 @@ if [[ $(uname -s) = "Darwin" ]]; then
     export LINKFLAGS="-bundle"
 elif [[ $(uname -s) = "Linux" ]]; then
     ls /usr/lib/jvm/
-    export JNI_INCLUDE="-I/usr/lib/jvm/temurin-17-jdk-amd64/include -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux/x86_64"
+    export JNI_INCLUDE="-IC:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64/include -IC:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64/include/linux -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux/x86_64"
     export LINKFLAGS="-shared"
 else
     which c++
     which g++
-    ls /usr/lib/jvm/
-    export JNI_INCLUDE="-I/usr/lib/jvm/temurin-17-jdk-amd64/include -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux/x86_64"
+    ls C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64
+    export JNI_INCLUDE="-IC:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64/include"
     export LINKFLAGS="-shared"
 fi
 
