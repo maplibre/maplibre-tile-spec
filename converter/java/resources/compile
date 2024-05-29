@@ -27,11 +27,11 @@ fi
 if [[ ! -f build/libfsst.a ]]; then
     mkdir -p ${CURRENT_DIR}/build
     cd ${CURRENT_DIR}/build
-    if [[ ! -d cwida-fsst-ef52cb3 ]]; then
-        curl -L https://github.com/cwida/fsst/tarball/ef52cb3 -o fsst.tar.gz
+    if [[ ! -d springmeyer-fsst-afd69ed ]]; then
+        curl -L https://github.com/springmeyer/fsst/tarball/afd69ed -o fsst.tar.gz
         tar -xvf fsst.tar.gz
     fi
-    cd ${CURRENT_DIR}/build/cwida-fsst-ef52cb3/
+    cd ${CURRENT_DIR}/build/springmeyer-fsst-afd69ed/
     echo "Building fsst in $(pwd)"
     cp ${CURRENT_DIR}/resources/Makefile .
     make
