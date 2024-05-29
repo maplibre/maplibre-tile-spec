@@ -10,8 +10,11 @@ if [[ $(uname -s) = "Darwin" ]]; then
     export JNI_INCLUDE="-I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include -I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include/darwin"
     export LINKFLAGS="-bundle"
 elif [[ $(uname -s) = "Linux" ]]; then
-    ls /usr/lib/jvm/
-    export JNI_INCLUDE="-IC:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64/include -IC:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64/include/linux -I/usr/lib/jvm/temurin-17-jdk-amd64/include/linux/x86_64"
+    export LINUX_INC_BASE="/usr/lib/jvm/temurin-17-jdk-amd64"
+    ls {LINUX_INC_BASE}/include
+    ls {LINUX_INC_BASE}/include/linux | true
+    ls {LINUX_INC_BASE}/include/linux/x86_64 | true
+    export JNI_INCLUDE="-I${LINUX_INC_BASE}/include -I${LINUX_INC_BASE}/include/linux -I${LINUX_INC_BASE}/include/linux/x86_64"
     export LINKFLAGS="-shared"
 else
     which c++
