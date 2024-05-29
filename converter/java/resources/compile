@@ -8,23 +8,18 @@ export CXXFLAGS="-g -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hi
 if [[ $(uname -s) == "Darwin" ]]; then
     echo "Detected macOS"
     export CXXFLAGS="${CXXFLAGS} -arch arm64 -arch x86_64"
-    export JNI_INCLUDE="-I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include -I/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home/include/darwin"
+    export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home"
+    export JNI_PLATFORM="darwin"
     export LINKFLAGS="-bundle"
 elif [[ $(uname -s) == "Linux" ]]; then
     echo "Detected Linux"
-    export INC_BASE="/usr/lib/jvm/temurin-17-jdk-amd64"
-    ls ${INC_BASE}/include || true
-    ls ${INC_BASE}/include/linux || true
-    ls ${INC_BASE}/include/linux/x86_64 || true
-    export JNI_INCLUDE="-I${INC_BASE}/include -I${INC_BASE}/include/linux -I${INC_BASE}/include/linux/x86_64"
+    export JNI_INCLUDE="/usr/lib/jvm/temurin-17-jdk-amd64"
+    export JNI_PLATFORM="linux"
     export LINKFLAGS="-shared"
 else
     echo "Detected Windows"
-    export INC_BASE="C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64"
-    ls ${INC_BASE}
-    ls ${INC_BASE}/include
-    ls ${INC_BASE}/include/win32
-    export JNI_INCLUDE="-I${INC_BASE}/include -I${INC_BASE}/include/win32 -I${INC_BASE}/include/win32/x86_64"
+    export JNI_INCLUDE="C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64"
+    export JNI_PLATFORM="win32"
     export LINKFLAGS="-shared"
 fi
 
@@ -46,7 +41,7 @@ fi
 cd ${CURRENT_DIR}
 
 # -Wl,-rpath,'$ORIGIN' is used to set the rpath to the current directory
-MODULE_BUILD="c++ ${CXXFLAGS} ${JNI_INCLUDE} -I./build -I./resources ./resources/FsstWrapper.cpp ./build/libfsst.a ${LINKFLAGS} -o ./build/FsstWrapper.so"
+MODULE_BUILD="c++ ${CXXFLAGS} -I${JNI_INCLUDE}/include -I${JNI_INCLUDE}/include/${JNI_PLATFORM} -I./build -I./resources ./resources/FsstWrapper.cpp ./build/libfsst.a ${LINKFLAGS} -o ./build/FsstWrapper.so"
 echo "Building FsstWrapper.so"
 echo ${MODULE_BUILD}
 ${MODULE_BUILD}
