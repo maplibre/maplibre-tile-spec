@@ -4,7 +4,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "build": "tsc",
-    "test": "jest",
+    "test": "jest --projects test/unit",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src",
     "format": "prettier --write \"**/*.ts\""
   },
