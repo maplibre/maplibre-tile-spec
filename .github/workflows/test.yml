@@ -60,7 +60,7 @@ jobs:
         uses: egor-tensin/setup-mingw@v2
       - if: runner.os == 'macOS'
         run: brew install microsoft-openjdk@17
-      - if: runner.os == 'macOS'
+      - if: runner.os == 'Linux'
         run: sudo apt-get install openjdk-17-jdk
       - name: Java encoding tests
         run: ./gradlew test --tests "com.mlt.converter.encodings.*"
