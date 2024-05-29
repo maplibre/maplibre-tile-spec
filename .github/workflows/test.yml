@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'parser/js/.nvmrc'
           cache: 'npm'
           cache-dependency-path: 'parser/js/package-lock.json'
       - run: npm ci
