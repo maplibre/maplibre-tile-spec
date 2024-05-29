@@ -66,7 +66,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get install openjdk-17-jdk
       - name: Java encoding tests
-        run: ./gradlew test --tests "com.mlt.converter.encodings.*" --stacktrace
+        run: ./gradlew test --tests "com.mlt.converter.encodings.*"
       - name: Vector tests
         run: ./gradlew test --tests "com.mlt.vector.*"
       - name: Decoding tests
