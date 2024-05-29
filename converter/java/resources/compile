@@ -11,9 +11,9 @@ if [[ $(uname -s) = "Darwin" ]]; then
     export LINKFLAGS="-bundle"
 elif [[ $(uname -s) = "Linux" ]]; then
     export LINUX_INC_BASE="/usr/lib/jvm/temurin-17-jdk-amd64"
-    ls {LINUX_INC_BASE}/include
-    ls {LINUX_INC_BASE}/include/linux | true
-    ls {LINUX_INC_BASE}/include/linux/x86_64 | true
+    ls ${LINUX_INC_BASE}/include | true
+    ls ${LINUX_INC_BASE}/include/linux | true
+    ls ${LINUX_INC_BASE}/include/linux/x86_64 | true
     export JNI_INCLUDE="-I${LINUX_INC_BASE}/include -I${LINUX_INC_BASE}/include/linux -I${LINUX_INC_BASE}/include/linux/x86_64"
     export LINKFLAGS="-shared"
 else
