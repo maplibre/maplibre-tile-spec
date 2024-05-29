@@ -11,42 +11,41 @@ defaults:
     shell: bash
 
 jobs:
-  # test-js-fsst:
-  #   runs-on: ubuntu-latest
-  #   defaults:
-  #     run:
-  #       working-directory: 'encodings/fsst/js'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 'lts/Iron'
-  #         cache: 'npm'
-  #         cache-dependency-path: '**/**/**/package-lock.json'
-  #     - run: npm ci
-  #     - run: npm run test
-  # test-js-fastpfor:
-  #   runs-on: ubuntu-latest
-  #   defaults:
-  #     run:
-  #       working-directory: 'encodings/fastpfor/js'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 'lts/Iron'
-  #         cache: 'npm'
-  #         cache-dependency-path: '**/**/**/package-lock.json'
-  #     - run: npm ci
-  #     - run: npm run build
-  #     - run: npm run test:unit
+  test-js-fsst:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 'encodings/fsst/js'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/Iron'
+          cache: 'npm'
+          cache-dependency-path: '**/**/**/package-lock.json'
+      - run: npm ci
+      - run: npm run test
+  test-js-fastpfor:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 'encodings/fastpfor/js'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/Iron'
+          cache: 'npm'
+          cache-dependency-path: '**/**/**/package-lock.json'
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:unit
   test-java-converter:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # os: [ubuntu-latest, windows-latest, macos-latest]
-        os: [windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
       run:
         working-directory: 'converter/java'
@@ -59,8 +58,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - if: runner.os == 'Windows'
         uses: e-t-l/setup-mingw@patch-1
-      - if: runner.os == 'Windows'
-        run: ./resources/compile-windows.bat
       - if: runner.os == 'macOS'
         run: brew install microsoft-openjdk@17
       - if: runner.os == 'Linux'
