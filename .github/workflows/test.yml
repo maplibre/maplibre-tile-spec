@@ -60,7 +60,5 @@ jobs:
       # when the issue is fixed: https://github.com/egor-tensin/setup-mingw/pull/16
       - if: runner.os == 'Windows'
         uses: e-t-l/setup-mingw@patch-1
-      - if: runner.os == 'macOS'
-        run: brew install microsoft-openjdk@17
       - name: Java converter tests
         run: ./gradlew test

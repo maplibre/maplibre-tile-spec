@@ -8,11 +8,8 @@ export CXXFLAGS="-g -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hi
 if [[ $(uname -s) == "Darwin" ]]; then
     echo "Detected macOS"
     export CXXFLAGS="${CXXFLAGS} -arch arm64 -arch x86_64"
-    ls /Library/Java/JavaVirtualMachines/ || true
-    find / -name '*temurin*'
-    ls /usr/lib/jvm/ || true
-    ls /usr/lib/jvm/temurin-17-jdk-amd64/ || true
-    export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home"
+    ls -l /Library/Java/JavaVirtualMachines/Temurin-Hotspot-17.jdk/ || true
+    export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/Temurin-Hotspot-17.jdk/Contents/Home"
     export JNI_PLATFORM="darwin"
     export LINKFLAGS="-bundle"
 elif [[ $(uname -s) == "Linux" ]]; then
