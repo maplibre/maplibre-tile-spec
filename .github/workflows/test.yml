@@ -56,15 +56,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
+      # Note: switch back to egor-tensin/setup-mingw@v2
+      # when the issue is fixed: https://github.com/egor-tensin/setup-mingw/pull/16
       - if: runner.os == 'Windows'
         uses: e-t-l/setup-mingw@patch-1
       - if: runner.os == 'macOS'
         run: brew install microsoft-openjdk@17
-      - if: runner.os == 'Linux'
-        run: sudo apt-get install openjdk-17-jdk
-      - name: Java encoding tests
-        run: ./gradlew test --tests "com.mlt.converter.encodings.*"
-      - name: Vector tests
-        run: ./gradlew test --tests "com.mlt.vector.*"
-      - name: Decoding tests
-        run: ./gradlew test --tests "com.mlt.decoder.MltDecoderTest"
+      - name: Java converter tests
+        run: ./gradlew test
