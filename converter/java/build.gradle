@@ -47,7 +47,7 @@ task compileWrapper(type: Exec) {
         // if (System.properties['os.name'].toLowerCase().contains('windows')) {
         //     executable "./resources/compile.bat"
         // } else {
-            executable "./resources/compile.sh"
+            executable "./resources/compile"
         // }
     }
 }

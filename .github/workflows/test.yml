@@ -59,9 +59,7 @@ jobs:
       - if: runner.os == 'Windows'
         uses: e-t-l/setup-mingw@patch-1
       - if: runner.os == 'Windows'
-        run: |
-          ./resources/compile.sh | true
-          bash ./resources/compile.sh | true
+        run: ./resources/compile
       - if: runner.os == 'macOS'
         run: brew install microsoft-openjdk@17
       - if: runner.os == 'Linux'
