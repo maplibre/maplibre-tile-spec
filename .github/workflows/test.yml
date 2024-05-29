@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test-js-fsst:
     runs-on: ubuntu-latest
@@ -52,24 +56,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Set gradle command
-        shell: bash
-        id: vars
-        run: |
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-              echo gradle_cmd=".\gradlew.bat" >> $GITHUB_OUTPUT
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-              brew install microsoft-openjdk@17
-              echo gradle_cmd="./gradlew" >> $GITHUB_OUTPUT
-          else
-              sudo apt-get install openjdk-17-jdk
-              echo gradle_cmd="./gradlew" >> $GITHUB_OUTPUT
-          fi
       - if: runner.os == 'Windows'
-        uses: e-t-l/setup-mingw@patch-1
+        uses: egor-tensin/setup-mingw@v2
+      - if: runner.os == 'macOS'
+        run: brew install microsoft-openjdk@17
+      - if: runner.os == 'macOS'
+        run: sudo apt-get install openjdk-17-jdk
       - name: Java encoding tests
-        run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.converter.encodings.*"
+        run: ./gradlew test --tests "com.mlt.converter.encodings.*"
       - name: Vector tests
-        run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.vector.*"
+        run: ./gradlew test --tests "com.mlt.vector.*"
       - name: Decoding tests
-        run: ${{ steps.vars.outputs.gradle_cmd }} test --tests "com.mlt.decoder.MltDecoderTest"
+        run: ./gradlew test --tests "com.mlt.decoder.MltDecoderTest"
