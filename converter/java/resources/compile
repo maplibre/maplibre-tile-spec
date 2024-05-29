@@ -8,6 +8,7 @@ export CXXFLAGS="-g -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hi
 if [[ $(uname -s) == "Darwin" ]]; then
     echo "Detected macOS"
     export CXXFLAGS="${CXXFLAGS} -arch arm64 -arch x86_64"
+    ls /Library/Java/JavaVirtualMachines/ || true
     find / -name '*temurin*'
     ls /usr/lib/jvm/ || true
     ls /usr/lib/jvm/temurin-17-jdk-amd64/ || true
