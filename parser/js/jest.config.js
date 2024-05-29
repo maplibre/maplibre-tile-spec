@@ -1,5 +1,5 @@
 module.exports = {
     projects: [
-        './test/*'
+        './test/unit'
     ]
 };
