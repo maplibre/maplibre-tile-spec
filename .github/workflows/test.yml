@@ -20,7 +20,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'parser/js/package-lock.json'
       - run: npm ci
-      - run: npm run test
+      - run: npm test
   test-js-fsst:
     runs-on: ubuntu-latest
     defaults:
