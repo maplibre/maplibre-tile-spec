@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test-js-fsst:
     runs-on: ubuntu-latest
@@ -36,34 +40,12 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run test:unit
-  test-java-fsst-ubuntu:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'encodings/fsst/java/fsst-wrapper'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v3
-      - run: ./gradlew test
-  test-java-fsst-windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: 'encodings/fsst/java/fsst-wrapper'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v3
-      - run: .\gradlew.bat test
-  test-java-converter-ubuntu:
-    runs-on: ubuntu-latest
+  test-java-converter:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
       run:
         working-directory: 'converter/java'
@@ -74,17 +56,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - run: ./gradlew test
-  test-java-converter-windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: 'converter/java'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v3
-      - run: .\gradlew.bat test
+      # Note: switch back to egor-tensin/setup-mingw@v2
+      # when the issue is fixed: https://github.com/egor-tensin/setup-mingw/pull/16
+      - if: runner.os == 'Windows'
+        uses: e-t-l/setup-mingw@patch-1
+      - name: Java converter tests
+        run: ./gradlew test

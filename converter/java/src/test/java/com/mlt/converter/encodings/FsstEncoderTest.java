@@ -1,7 +1,7 @@
-package com.fsst;
+package com.mlt.converter.encodings;
 
 import org.junit.jupiter.api.Test;
-
+import com.mlt.converter.encodings.fsst.FsstEncoder;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 

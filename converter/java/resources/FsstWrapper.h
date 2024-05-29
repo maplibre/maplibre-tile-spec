@@ -12,7 +12,8 @@ extern "C" {
  * Method:    compress
  * Signature: ([B)LSymbolTable;
  */
-JNIEXPORT jobject JNICALL Java_com_fsst_FsstEncoder_compress
+
+JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstEncoder_compress
   (JNIEnv *, jclass, jbyteArray);
 
 #ifdef __cplusplus
