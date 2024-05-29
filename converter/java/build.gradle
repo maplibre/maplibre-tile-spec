@@ -44,11 +44,7 @@ java {
 
 task compileWrapper(type: Exec) {
     doFirst {
-        if (System.properties['os.name'].toLowerCase().contains('windows')) {
-            executable "./resources/compile-windows.bat"
-        } else {
-            executable "./resources/compile"
-        }
+        executable "bash ./resources/compile"
     }
 }
 
