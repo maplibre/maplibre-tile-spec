@@ -3,13 +3,22 @@ set -euo pipefail
 
 CURRENT_DIR=$(pwd)
 
-export CXXFLAGS="-g -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -O3"
+# Note: CXXFLAGS are inherited by the Makefile, which needs to build one of the fsst sources
+# with -O1, so we pass -O3 separately and only to the JNI compile.
+export CXXFLAGS="-g -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -DNDEBUG -Wall"
+# Note: these are pass
+export OPTIMIZATION_FLAGS="-O3"
 
 if [[ $(uname -s) == "Darwin" ]]; then
     echo "Detected macOS"
     export CXXFLAGS="${CXXFLAGS} -arch arm64 -arch x86_64"
-    ls -l /Library/Java/JavaVirtualMachines/Temurin-Hotspot-17.jdk/ || true
-    export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/Temurin-Hotspot-17.jdk/Contents/Home"
+    if [[ -d /Library/Java/JavaVirtualMachines/temurin-17.jdk ]]; then
+        # brew install temurin@17
+        export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home"
+    else
+        # github macOS runner
+        export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/Temurin-Hotspot-17.jdk/Contents/Home"
+    fi
     export JNI_PLATFORM="darwin"
     export LINKFLAGS="-bundle"
 elif [[ $(uname -s) == "Linux" ]]; then
@@ -42,7 +51,7 @@ fi
 cd ${CURRENT_DIR}
 
 # -Wl,-rpath,'$ORIGIN' is used to set the rpath to the current directory
-MODULE_BUILD="c++ ${CXXFLAGS} -I${JNI_INCLUDE}/include -I${JNI_INCLUDE}/include/${JNI_PLATFORM} -I./build -I./resources ./resources/FsstWrapper.cpp ./build/libfsst.a ${LINKFLAGS} -o ./build/FsstWrapper.so"
+MODULE_BUILD="c++ ${CXXFLAGS} ${OPTIMIZATION_FLAGS} -I${JNI_INCLUDE}/include -I${JNI_INCLUDE}/include/${JNI_PLATFORM} -I./build -I./resources ./resources/FsstWrapper.cpp ./build/libfsst.a ${LINKFLAGS} -o ./build/FsstWrapper.so"
 echo "Building FsstWrapper.so"
 echo ${MODULE_BUILD}
 ${MODULE_BUILD}
