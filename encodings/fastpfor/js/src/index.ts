@@ -9,7 +9,7 @@
 
 import ByteBuffer from 'bytebuffer';
 
-import { fastunpack } from './BitPacking';
+import { fastunpack } from './bitpacking';
 import { arraycopy, greatestMultiple } from './util';
 
 export class FastPFOR {

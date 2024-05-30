@@ -37,9 +37,9 @@ public class VectorizedIntegerDecoder {
                 VectorizedDecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
 
         /** Only RLE encoding can currently produce an ConstVector */
-        var numValues = ((RleEncodedStreamMetadata)streamMetadata).numRleValues();
-        return isSigned? VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array())
-                : VectorizedDecodingUtils.decodeZigZagConstRLE(values.array());
+        //var numValues = ((RleEncodedStreamMetadata)streamMetadata).numRleValues();
+        return isSigned? VectorizedDecodingUtils.decodeZigZagConstRLE(values.array()) :
+                VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array());
     }
 
     public static LongBuffer decodeLongStream(byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned){
@@ -49,10 +49,9 @@ public class VectorizedIntegerDecoder {
 
     public static long decodeConstLongStream(byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned){
         var values = VectorizedDecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
-
         /** Only RLE encoding can currently produce an ConstVector */
-        return isSigned? VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array())
-                : VectorizedDecodingUtils.decodeZigZagConstRLE(values.array());
+        return isSigned? VectorizedDecodingUtils.decodeZigZagConstRLE(values.array()) :
+                VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array());
     }
 
     private static IntBuffer decodeIntBuffer(int[] values, StreamMetadata streamMetadata, boolean isSigned){
@@ -138,8 +137,33 @@ public class VectorizedIntegerDecoder {
     private static IntBuffer decodeLengthToOffsetBuffer(int[] values, StreamMetadata streamMetadata){
         if(streamMetadata.logicalLevelTechnique1().equals(LogicalLevelTechnique.DELTA)
             && streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.NONE)){
-                var decodedValues = VectorizedDecodingUtils.deltaOfDeltaDecoding(values);
+                var decodedValues = VectorizedDecodingUtils.zigZagDeltaOfDeltaDecoding(values);
                 return IntBuffer.wrap(decodedValues);
+        }
+
+        if(streamMetadata.logicalLevelTechnique1().equals(LogicalLevelTechnique.RLE)
+                && streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.NONE)){
+            var rleMetadata = (RleEncodedStreamMetadata)streamMetadata;
+            var decodedValues = VectorizedDecodingUtils.rleDeltaDecoding(values, rleMetadata.runs(), rleMetadata.numRleValues());
+            return decodedValues;
+        }
+
+        if(streamMetadata.logicalLevelTechnique1().equals(LogicalLevelTechnique.NONE)
+                && streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.NONE)){
+            //TODO: optimize performance
+            Delta.fastinverseDelta(values);
+            var offsets = new int[streamMetadata.numValues() + 1];
+            offsets[0] = 0;
+            System.arraycopy(values, 0, offsets, 1, streamMetadata.numValues());
+            return IntBuffer.wrap(offsets);
+        }
+
+        if(streamMetadata.logicalLevelTechnique1().equals(LogicalLevelTechnique.DELTA)
+                && streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)){
+            var rleMetadata = (RleEncodedStreamMetadata)streamMetadata;
+            var decodedValues = VectorizedDecodingUtils.zigZagRleDeltaDecoding(values, rleMetadata.runs(), rleMetadata.numRleValues());
+            Delta.fastinverseDelta(decodedValues.array());
+            return decodedValues;
         }
 
         throw new IllegalArgumentException("Only delta encoding is supported for transforming length to offset streams yet.");
@@ -180,14 +204,11 @@ public class VectorizedIntegerDecoder {
                 if(streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)){
                     var rleMetadata = (RleEncodedStreamMetadata)streamMetadata;
                     values = VectorizedDecodingUtils.decodeUnsignedRLE(values, rleMetadata.runs(), rleMetadata.numRleValues()).array();
-                    /** Currently delta values are always ZigZag encoded */
-                    //VectorizedDecodingUtils.decodeZigZagDeltaOfDelta(values);
-                    return IntBuffer.wrap(values);
                 }
+                /** Currently delta values are always ZigZag encoded */
                 //TODO: check if zigzag encoding is needed -> if values are sorted in ascending order no need for zigzag
-                //for only delta decoding without zigzag use Delta.fastinverseDelta(values) from Lemire
-                VectorizedDecodingUtils.decodeNullableZigZagDelta(bitVector, values);
-                return IntBuffer.wrap(values);
+                var decodedValues = VectorizedDecodingUtils.decodeNullableZigZagDelta(bitVector, values);
+                return IntBuffer.wrap(decodedValues);
             case RLE:
                 /** Currently no second logical level technique is used in combination with Rle */
                 return VectorizedDecodingUtils.decodeNullableRle(values, streamMetadata, isSigned, bitVector);
@@ -200,11 +221,12 @@ public class VectorizedIntegerDecoder {
                 Delta.fastinverseDelta(values);
                 return IntBuffer.wrap(values);
             case COMPONENTWISE_DELTA:
-                /** Currently only Vec2 is supported */
+                /** Currently only Vec2 is supported -> no null values are supported currently in this encoding */
                 VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(values);
                 return IntBuffer.wrap(values);
             case NONE:
-                values = VectorizedDecodingUtils.padWithZeros(bitVector, values);
+                values = isSigned? VectorizedDecodingUtils.padZigZagWithZeros(bitVector, values) :
+                        VectorizedDecodingUtils.padWithZeros(bitVector, values);
                 return IntBuffer.wrap(values);
         }
 
@@ -226,23 +248,22 @@ public class VectorizedIntegerDecoder {
                 if(streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)){
                     var rleMetadata = (RleEncodedStreamMetadata)streamMetadata;
                     values = VectorizedDecodingUtils.decodeUnsignedRLE(values, rleMetadata.runs(), rleMetadata.numRleValues()).array();
-                    /** Currently delta values are always ZigZag encoded */
-                    VectorizedDecodingUtils.decodeNullableZigZagDelta(bitVector, values);
-                    return LongBuffer.wrap(values);
                 }
-                VectorizedDecodingUtils.decodeZigZagDelta(values);
-                return LongBuffer.wrap(values);
+
+                /** Currently delta values are always ZigZag encoded */
+                var decodedValues = VectorizedDecodingUtils.decodeNullableZigZagDelta(bitVector, values);
+                return LongBuffer.wrap(decodedValues);
             case RLE:
                 /** Currently no second logical level technique is used in combination with Rle */
                 return VectorizedDecodingUtils.decodeNullableRle(values, streamMetadata, isSigned, bitVector);
             case NONE:
-                values = VectorizedDecodingUtils.padWithZeros(bitVector, values);
+                values = isSigned? VectorizedDecodingUtils.padZigZagWithZeros(bitVector, values) :
+                        VectorizedDecodingUtils.padWithZeros(bitVector, values);
                 return LongBuffer.wrap(values);
         }
 
         throw new IllegalArgumentException("The specified Logical level technique is not supported");
     }
-
 
     /** Decode length streams to offsets streams for random access by adding an additional delta decoding step ----- */
 }

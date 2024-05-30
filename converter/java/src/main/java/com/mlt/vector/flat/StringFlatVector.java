@@ -12,7 +12,7 @@ import java.util.Iterator;
 //string as ByteBuffer -> new String(buffer, StandardCharsets.US_ASCII);
 //Or String as CharBuffer -> buffer.subequence(2, 10).toString() -> lazy evaluation for filtering
 public class StringFlatVector extends VariableSizeVector<String> implements Iterable<String> {
-    private IntBuffer offsets;
+    private IntBuffer offsetBuffer;
 
     public StringFlatVector(String name, IntBuffer lengthBuffer, ByteBuffer dataBuffer) {
         super(name, lengthBuffer, dataBuffer);
@@ -22,9 +22,11 @@ public class StringFlatVector extends VariableSizeVector<String> implements Iter
         super(name, nullabilityBuffer, lengthBuffer, dataBuffer);
     }
 
-    private void decodeLengthBuffer(){
-        Delta.fastinverseDelta(lengthBuffer.array());
-        offsets = lengthBuffer;
+    public static StringFlatVector createFromOffsetBuffer(String name, BitVector nullabilityBuffer,
+                                                    IntBuffer offsetBuffer, ByteBuffer dataBuffer){
+        var vector = new StringFlatVector(name, nullabilityBuffer, null, dataBuffer);
+        vector.offsetBuffer = offsetBuffer;
+        return vector;
     }
 
     /*
@@ -41,14 +43,19 @@ public class StringFlatVector extends VariableSizeVector<String> implements Iter
      * */
     @Override
     protected String getValueFromBuffer(int index) {
-        if (offsets == null){
+        if (offsetBuffer == null){
             decodeLengthBuffer();
         }
 
-        var start = offsets.get(index);
-        var length = offsets.get(index + 1) - start;
+        var start = offsetBuffer.get(index);
+        var length = offsetBuffer.get(index + 1) - start;
         var strBuffer =  dataBuffer.slice(start, length).array();
         return new String(strBuffer, StandardCharsets.UTF_8);
+    }
+
+    private void decodeLengthBuffer(){
+        Delta.fastinverseDelta(lengthBuffer.array());
+        offsetBuffer = lengthBuffer;
     }
 
     @Override
@@ -64,7 +71,7 @@ public class StringFlatVector extends VariableSizeVector<String> implements Iter
 
             @Override
             public String next() {
-                if(offsets != null){
+                if(offsetBuffer != null){
                     return getValueFromBuffer(index++);
                 }
 

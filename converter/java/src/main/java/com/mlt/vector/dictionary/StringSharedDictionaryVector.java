@@ -3,19 +3,18 @@ package com.mlt.vector.dictionary;
 import com.mlt.vector.VariableSizeVector;
 import me.lemire.integercompression.differential.Delta;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.NotImplementedException;
 
-import javax.naming.OperationNotSupportedException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-public class StringSharedDictionaryVector extends VariableSizeVector<String> {
+public class StringSharedDictionaryVector extends VariableSizeVector<Map<String, String>> {
     /** Specifies where a specific string starts in the data buffer for a given index */
     private int[] dictionaryOffsetBuffer;
-    //private int[] lazyOffsetBuffer;
     private final DictionaryDataVector[] dictionaryDataVectors;
     private Map<String, DictionaryDataVector> decodedDictionaryDataVectors;
 
@@ -25,9 +24,20 @@ public class StringSharedDictionaryVector extends VariableSizeVector<String> {
         this.dictionaryDataVectors = dictionaryDataVectors;
     }
 
+    public static  StringSharedDictionaryVector createFromOffsetBuffer(String name, IntBuffer offsetBuffer,
+                                                                       ByteBuffer dictionaryBuffer,
+                                                                       DictionaryDataVector[] dictionaryDataVectors) {
+        var vector = new StringSharedDictionaryVector(name, null, dictionaryBuffer, dictionaryDataVectors);
+        vector.dictionaryOffsetBuffer = offsetBuffer.array();
+        return vector;
+    }
+
     @Override
-    protected String getValueFromBuffer(int index) {
-        throw new UnsupportedOperationException("Method not supported for shared dictionary vectors");
+    protected Map<String, String> getValueFromBuffer(int index) {
+        var values = new HashMap<String, String>();
+        Arrays.stream(dictionaryDataVectors).forEach(vector -> values.put(vector.name(),
+                getPresentValue(vector.name(), index)));
+        return values;
     }
 
     public String getValue(String name, int index){
@@ -35,12 +45,24 @@ public class StringSharedDictionaryVector extends VariableSizeVector<String> {
             return null;
         }
 
-        if (dictionaryOffsetBuffer  == null){
+        return getPresentValue(name, index);
+    }
+
+    private String getPresentValue(String name, int index){
+        if (dictionaryOffsetBuffer == null){
             decodeLengthBuffer();
+        }
+
+        if(decodedDictionaryDataVectors == null){
             createDataVectorsMap();
         }
 
-        var indexBuffer = decodedDictionaryDataVectors.get(name).offsetBuffer();
+        var dataVector = decodedDictionaryDataVectors.get(name);
+        if(!dataVector.nullabilityBuffer().get(index)){
+            return null;
+        }
+
+        var indexBuffer = dataVector.offsetBuffer();
         var offset = indexBuffer.get(index);
         var start = dictionaryOffsetBuffer[offset];
         var length = dictionaryOffsetBuffer[offset + 1] - start;

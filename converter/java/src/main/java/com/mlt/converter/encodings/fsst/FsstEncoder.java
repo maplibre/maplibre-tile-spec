@@ -1,4 +1,4 @@
-package com.fsst;
+package com.mlt.converter.encodings.fsst;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -14,7 +14,6 @@ public class FsstEncoder {
                     .normalize().toAbsolutePath().toString();
         try {
             System.load(modulePath);
-            System.out.println("Loaded native library: " + modulePath);
         } catch (UnsatisfiedLinkError e) {
             System.out.println("Error: " + e.getMessage() + " - " + modulePath);
         }
