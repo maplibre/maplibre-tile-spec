@@ -53,3 +53,16 @@ task compileWrapper(type: Exec) {
 }
 
 compileJava.dependsOn compileWrapper
+
+task cli(type: Jar) {
+    archiveBaseName = 'mvt2mlt'
+    manifest {
+        attributes 'Implementation-Title': 'MVT2MLT Converter',
+                    'Implementation-Version': archiveVersion,
+                    'Main-Class': 'com.mlt.converter.MltCliAdapter'
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    manifest.from jar.manifest
+    with jar
+}
