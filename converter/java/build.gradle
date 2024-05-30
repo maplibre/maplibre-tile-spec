@@ -33,6 +33,7 @@ test {
     testLogging {
         outputs.upToDateWhen {false}
         showStandardStreams = true
+        exceptionFormat "full"
     }
 }
 
