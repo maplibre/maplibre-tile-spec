@@ -52,4 +52,10 @@ task compileWrapper(type: Exec) {
     }
 }
 
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << "-Xlint:unchecked"
+    }
+}
+
 compileJava.dependsOn compileWrapper
