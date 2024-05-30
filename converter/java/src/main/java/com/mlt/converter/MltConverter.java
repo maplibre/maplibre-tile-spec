@@ -74,38 +74,38 @@ public class MltConverter {
                     /* MVT can only contain scalar types */
                     var scalarType = getScalarType(property);
 
-                    // if(columnMappings.isPresent()){
-                    //     if(columnMappings.get().stream().anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix())) &&
-                    //             !complexPropertyColumnSchemes.containsKey(mvtPropertyName)){
-                    //         /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
-                    //          *  In this case the field is mapped to the name default. */
-                    //         var childField = createScalarFieldScheme("default", true, scalarType);
-                    //         var fieldMetadataBuilder = createComplexColumnBuilder(childField);
-                    //         complexPropertyColumnSchemes.put(mvtPropertyName, fieldMetadataBuilder);
-                    //         continue;
-                    //     }
-                    //     else if (columnMappings.get().stream().anyMatch(m -> mvtPropertyName.contains(m.mvtPropertyPrefix() + m.mvtDelimiterSign()))){
-                    //         var columnMapping = columnMappings.get().stream().
-                    //                 filter(m ->  mvtPropertyName.contains(m.mvtPropertyPrefix() + m.mvtDelimiterSign())).findFirst().get();
-                    //         var columnName = columnMapping.mvtPropertyPrefix();
-                    //         var fieldName = mvtPropertyName.split(columnMapping.mvtDelimiterSign())[1];
-                    //         var children = createScalarFieldScheme(fieldName, true, scalarType);
-                    //         if(complexPropertyColumnSchemes.containsKey(columnName)){
-                    //             /* add the nested properties to the parent like the name:* properties to the name parent struct */
-                    //             if(!complexPropertyColumnSchemes.get(columnName).getChildrenList().stream().
-                    //                     anyMatch(c -> c.getName().equals(fieldName))){
-                    //                 complexPropertyColumnSchemes.get(columnName).addChildren(children);
-                    //             }
-                    //         }
-                    //         else{
-                    //             /* Case where there is no explicit property available which serves as the name
-                    //              * for the top-level field. For example there is no name property only name:* */
-                    //             var complexColumnBuilder = createComplexColumnBuilder(children);
-                    //             complexPropertyColumnSchemes.put(mvtPropertyName, complexColumnBuilder);
-                    //         }
-                    //         continue;
-                    //     }
-                    // }
+                    if(columnMappings.isPresent()){
+                        if(columnMappings.get().stream().anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix())) &&
+                                !complexPropertyColumnSchemes.containsKey(mvtPropertyName)){
+                            /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
+                             *  In this case the field is mapped to the name default. */
+                            var childField = createScalarFieldScheme("default", true, scalarType);
+                            var fieldMetadataBuilder = createComplexColumnBuilder(childField);
+                            complexPropertyColumnSchemes.put(mvtPropertyName, fieldMetadataBuilder);
+                            continue;
+                        }
+                        else if (columnMappings.get().stream().anyMatch(m -> mvtPropertyName.contains(m.mvtPropertyPrefix() + m.mvtDelimiterSign()))){
+                            var columnMapping = columnMappings.get().stream().
+                                    filter(m ->  mvtPropertyName.contains(m.mvtPropertyPrefix() + m.mvtDelimiterSign())).findFirst().get();
+                            var columnName = columnMapping.mvtPropertyPrefix();
+                            var fieldName = mvtPropertyName.split(columnMapping.mvtDelimiterSign())[1];
+                            var children = createScalarFieldScheme(fieldName, true, scalarType);
+                            if(complexPropertyColumnSchemes.containsKey(columnName)){
+                                /* add the nested properties to the parent like the name:* properties to the name parent struct */
+                                if(!complexPropertyColumnSchemes.get(columnName).getChildrenList().stream().
+                                        anyMatch(c -> c.getName().equals(fieldName))){
+                                    complexPropertyColumnSchemes.get(columnName).addChildren(children);
+                                }
+                            }
+                            else{
+                                /* Case where there is no explicit property available which serves as the name
+                                 * for the top-level field. For example there is no name property only name:* */
+                                var complexColumnBuilder = createComplexColumnBuilder(children);
+                                complexPropertyColumnSchemes.put(mvtPropertyName, complexColumnBuilder);
+                            }
+                            continue;
+                        }
+                    }
 
                     var columnScheme = createScalarColumnScheme(mvtPropertyName, true, scalarType);
                     featureTableScheme.put(mvtPropertyName, columnScheme);
