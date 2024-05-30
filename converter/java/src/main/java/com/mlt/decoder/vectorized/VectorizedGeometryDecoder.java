@@ -2,7 +2,6 @@ package com.mlt.decoder.vectorized;
 
 import com.mlt.metadata.stream.DictionaryType;
 import com.mlt.metadata.stream.MortonEncodedStreamMetadata;
-import com.mlt.metadata.stream.StreamMetadata;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
 import com.mlt.vector.VectorType;
 import com.mlt.vector.geometry.GeometryVector;
@@ -14,10 +13,8 @@ import java.nio.IntBuffer;
 import java.util.Optional;
 
 public class VectorizedGeometryDecoder {
-    public record MortonSettings(int numBits, int coordinateShift){}
-
     public record GeometryColumn(IntBuffer geometryTypes, IntBuffer numGeometries, IntBuffer numParts, IntBuffer numRings,
-                          IntBuffer vertexOffsets, IntBuffer vertexBuffer, Optional<MortonSettings> mortonInfo){}
+                          IntBuffer vertexOffsets, IntBuffer vertexBuffer, Optional<GeometryVector.MortonSettings> mortonSettings){}
 
     private VectorizedGeometryDecoder(){}
 
@@ -31,7 +28,7 @@ public class VectorizedGeometryDecoder {
         IntBuffer numRings = null;
         IntBuffer vertexOffsets = null;
         IntBuffer vertexBuffer = null;
-        Optional<MortonSettings> mortonSettings = Optional.empty();
+        Optional<GeometryVector.MortonSettings> mortonSettings = Optional.empty();
         for(var i = 0; i < numStreams - 1; i++){
             var geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
             switch (geometryStreamMetadata.physicalStreamType()){
@@ -59,7 +56,7 @@ public class VectorizedGeometryDecoder {
                     }
                     else{
                         var mortonMetadata = (MortonEncodedStreamMetadata)geometryStreamMetadata;
-                        mortonSettings = Optional.of(new MortonSettings(mortonMetadata.numBits(), mortonMetadata.coordinateShift()));
+                        mortonSettings = Optional.of(new GeometryVector.MortonSettings(mortonMetadata.numBits(), mortonMetadata.coordinateShift()));
                         vertexBuffer = VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
                     }
                     break;
@@ -80,7 +77,7 @@ public class VectorizedGeometryDecoder {
         IntBuffer numRings = null;
         IntBuffer vertexOffsets = null;
         IntBuffer vertexBuffer = null;
-        Optional<MortonSettings> mortonSettings = Optional.empty();
+        Optional<GeometryVector.MortonSettings> mortonSettings = Optional.empty();
 
         if(geometryTypesVectorType.equals(VectorType.CONST)){
             /** All geometries in the colum have the same geometry type */
@@ -116,7 +113,7 @@ public class VectorizedGeometryDecoder {
                         }
                         else{
                             var mortonMetadata = (MortonEncodedStreamMetadata)geometryStreamMetadata;
-                            mortonSettings = Optional.of(new MortonSettings(mortonMetadata.numBits(), mortonMetadata.coordinateShift()));
+                            mortonSettings = Optional.of(new GeometryVector.MortonSettings(mortonMetadata.numBits(), mortonMetadata.coordinateShift()));
                             vertexBuffer = VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
                         }
                         break;
@@ -125,7 +122,7 @@ public class VectorizedGeometryDecoder {
 
             return mortonSettings.isPresent()? GeometryVector.createConstMortonEncodedGeometryVector(
                     numFeatures, geometryType,
-                    new TopologyVector(numGeometries, numParts, numRings), vertexOffsets, vertexBuffer) :
+                    new TopologyVector(numGeometries, numParts, numRings), vertexOffsets, vertexBuffer, mortonSettings.get()) :
                     /** Currently only 2D coordinates (Vec2) are implemented in the encoder  */
                     GeometryVector.createConst2DGeometryVector(numFeatures, geometryType,
                             new TopologyVector(numGeometries, numParts, numRings), vertexOffsets, vertexBuffer);
@@ -161,33 +158,35 @@ public class VectorizedGeometryDecoder {
                         }
                         else{
                             var mortonMetadata = (MortonEncodedStreamMetadata)geometryStreamMetadata;
-                            mortonSettings = Optional.of(new MortonSettings(mortonMetadata.numBits(), mortonMetadata.coordinateShift()));
+                            mortonSettings = Optional.of(new GeometryVector.MortonSettings(mortonMetadata.numBits(), mortonMetadata.coordinateShift()));
                             vertexBuffer = VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
                         }
                         break;
                 }
         }
 
-            //TODO: refactor the following instructions -> decode in one pass for performance reasons
+        //TODO: refactor the following instructions -> decode in one pass for performance reasons
+        /** Calculate the offsets from the length buffer for random access */
         if(numGeometries != null){
-            numGeometries = decodeGeometryLengthStream(geometryTypeVector, numGeometries);
+            numGeometries = decodeRootLengthStream(geometryTypeVector, numGeometries, 2);
+            if(numParts != null && numRings!= null){
+                numParts = decodeLevel1LengthStream(geometryTypeVector, numGeometries, numParts);
+                numRings = decodeLevel2LengthStream(geometryTypeVector, numGeometries, numParts, numRings);
+            }
+            else if(numParts != null && numRings == null){
+                numParts = decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, numGeometries, numParts);
+            }
         }
-
-        if(numParts != null){
-            var partsBufferSize = numGeometries != null? numGeometries.get(numGeometries.capacity() - 1) :
-                    numParts.capacity();
-            numParts = decodeTopologyLengthStream(geometryTypeVector, numParts, partsBufferSize,
-                    numRings != null? 1 : 0, numGeometries);
+        else if(numParts!= null && numRings!= null){
+            numParts = decodeRootLengthStream(geometryTypeVector, numParts, 1);
+            numRings = decodeLevel1LengthStream(geometryTypeVector, numParts, numRings);
         }
-
-        if(numRings != null){
-            /** Only ringOffset stream not possible -> always in combination with geometryOffsets and partOffsets */
-            var ringBufferSize = numParts.get(numParts.capacity() - 1);
-            numRings = decodeTopologyLengthStream(geometryTypeVector, numParts, ringBufferSize, 0, numGeometries);
+        else if(numParts!= null && numRings == null){
+            numParts = decodeRootLengthStream(geometryTypeVector, numParts, 0);
         }
 
         return mortonSettings.isPresent()? GeometryVector.createMortonEncodedGeometryVector(geometryTypeVector,
-                new TopologyVector(numGeometries, numParts, numRings), vertexOffsets, vertexBuffer) :
+                new TopologyVector(numGeometries, numParts, numRings), vertexOffsets, vertexBuffer, mortonSettings.get()) :
                 /** Currently only 2D coordinates (Vec2) are implemented in the encoder  */
                 GeometryVector.create2DGeometryVector(geometryTypeVector, new TopologyVector(numGeometries, numParts, numRings),
                         vertexOffsets, vertexBuffer);
@@ -199,8 +198,8 @@ public class VectorizedGeometryDecoder {
         geometryOffsets[0] = previousOffset;
         var geometryCounter = 0;
         for(var i = 0; i < geometryTypes.capacity(); i++){
-           geometryOffsets[i] =  previousOffset + (geometryTypes.get(i) > 2? numGeometries.get(geometryCounter++): 1);
-           previousOffset = geometryOffsets[i];
+           geometryOffsets[i+1] =  previousOffset + (geometryTypes.get(i) > 2? numGeometries.get(geometryCounter++): 1);
+           previousOffset = geometryOffsets[i+1];
         }
 
         return IntBuffer.wrap(geometryOffsets);
@@ -210,13 +209,18 @@ public class VectorizedGeometryDecoder {
      * @param streamId 1 for numParts buffer and 0 for numRings buffer
      */
     private static IntBuffer decodeTopologyLengthStream(IntBuffer geometryTypes, IntBuffer topologyLengthBuffer, int topologyOffsetsBufferSize,
-                                                        int streamId, IntBuffer geometryOffsetBuffer){
+                                                        int streamId, IntBuffer geometryOffsetBuffer,
+                                                        IntBuffer previousTopologyBuffer){
         /** TODO: refactor -> create a more efficient solution as this quick and dirty implementation */
         var topologyOffsetsBuffer = new int[topologyOffsetsBufferSize + 1];
         topologyOffsetsBuffer[0] = 0;
-        for(var i = 1; i < geometryTypes.capacity()+1; i++){
-            var geometryType = geometryTypes.get(i);
-            var previousOffset = geometryOffsetBuffer.get(i-1);
+        var previousTopologyBufferCounter = 1;
+        var topologyLengthBufferCounter = 0;
+        var topologyOffsetsBufferCounter = 1;
+        for(var i = 1; i < geometryTypes.capacity(); i++){
+            var geometryType = geometryTypes.get(i-1);
+            //var previousOffset = i > 0? topologyOffsetsBuffer[i-1] : topologyOffsetsBuffer[i];
+            var previousOffset = topologyOffsetsBuffer[topologyOffsetsBufferCounter-1];
             if(geometryType <= 2){
                 /** Handle single part geometry types -> Point, LineString, Polygon
                  *  case1: value exists in specific topology buffer (PartOffsets or RingsOffsets)
@@ -225,16 +229,62 @@ public class VectorizedGeometryDecoder {
                  *  -> for example for Point geometry or LineString when current stream is PartOffsets
                  *  and an additional RingOffsets stream is present
                  * */
-                topologyOffsetsBuffer[i] = previousOffset +
-                        ((geometryType > streamId)? topologyLengthBuffer.get(i): 1);
+                if(previousTopologyBuffer!= null){
+                    var numParts = previousTopologyBuffer.get(previousTopologyBufferCounter++);
+                    for(var j = 0; j < numParts; j++){
+                        topologyOffsetsBuffer[topologyOffsetsBufferCounter++] = previousOffset + topologyLengthBuffer.get(topologyLengthBufferCounter++);
+                    }
+                }
+                else{
+                    topologyOffsetsBuffer[topologyOffsetsBufferCounter++] = previousOffset +
+                            ((geometryType > streamId)? topologyLengthBuffer.get(topologyLengthBufferCounter++): 1);
+                }
             }
             else{
+
                 /** Handle multipart geometry -> MultiPoint, MultiLineString, MultiPolygon */
                 if(geometryType - 3 > streamId){
-                    //TODO: merge with first if branch
                     /** value exists in specific topology stream (PartOffsets or RingsOffsets)
                      *  -> always the case for Polygons and can be the case for LineStrings */
-                    topologyOffsetsBuffer[i] = previousOffset + topologyLengthBuffer.get(i);
+                    //numGeometries -> numParts -> numRings
+                    // 2 (polygons) -> 2, 2 (LinearRings) -> 4 , 5 | 6, 2 (Vertices)
+                    var numGeometries = geometryOffsetBuffer.get(i) - geometryOffsetBuffer.get(i-1);
+                    if(previousTopologyBuffer != null){
+                        /** Handle ringOffsets buffer case */
+                        for(var j = 0; j <= numGeometries; j++){
+                            /** Get the number of LinearRings per geometry */
+                            var numParts = previousTopologyBuffer.get(previousTopologyBufferCounter) -
+                                    previousTopologyBuffer.get(previousTopologyBufferCounter-1);
+                            previousTopologyBufferCounter++;
+                            for(var k = 0; k < numParts; k++){
+                                /** Add the number of vertices to the ringOffsets buffer  */
+                                topologyOffsetsBuffer[topologyOffsetsBufferCounter++] = previousOffset +
+                                        topologyLengthBuffer.get(topologyLengthBufferCounter++);
+                            }
+                        }
+                    }
+                    else{
+                        /** Handle partOffsets buffer case */
+                        for(var j = 0; j <= numGeometries; j++){
+                            /** Get the number of LinearRings per geometry */
+                            var numParts = previousTopologyBuffer.get(previousTopologyBufferCounter) -
+                                    previousTopologyBuffer.get(previousTopologyBufferCounter-1);
+                            previousTopologyBufferCounter++;
+                            for(var k = 0; k < numParts; k++){
+                                /** Add the number of vertices to the ringOffsets buffer  */
+                                topologyOffsetsBuffer[topologyOffsetsBufferCounter++] = previousOffset +
+                                        topologyLengthBuffer.get(topologyLengthBufferCounter++);
+                            }
+                        }
+                    }
+
+                    var numParts = previousTopologyBuffer.get(previousTopologyBufferCounter) -
+                            previousTopologyBuffer.get(previousTopologyBufferCounter -1);
+                    previousTopologyBufferCounter++;
+                    //TODO: iterate as of as number of previous stream
+                    for(var j = 1; j <= numParts; j++){
+                        topologyOffsetsBuffer[i] = previousOffset + topologyLengthBuffer.get(i);
+                    }
                 }
                 else{
                     /** There is no value in the current topology stream but a parent stream
@@ -254,6 +304,121 @@ public class VectorizedGeometryDecoder {
         }
 
         return IntBuffer.wrap(topologyOffsetsBuffer);
+    }
+
+    /** Handle the parsing of the different topology length buffers separate not generic to reduce the branching
+     * and improve the performance */
+    private static IntBuffer decodeRootLengthStream(IntBuffer geometryTypes, IntBuffer rootLengthStream, int bufferId){
+        var rootBufferOffsets = new int[geometryTypes.capacity() + 1];
+        var previousOffset = 0;
+        rootBufferOffsets[0] = previousOffset;
+        var rootLengthCounter = 0;
+        for(var i = 0; i < geometryTypes.capacity(); i++){
+            /** Check if the geometry has and entry in the root buffer
+             * BufferId: 2 GeometryOffsets -> MultiPolygon, MultiLineString, MultiPoint
+             * BufferId: 1 PartOffsets -> Polygon
+             * BufferId: 0 PartOffsets, RingOffsets -> LineString
+             * */
+            previousOffset = rootBufferOffsets[i+1] =  previousOffset + (geometryTypes.get(i) > bufferId?
+                    rootLengthStream.get(rootLengthCounter++) : 1);
+        }
+
+        return IntBuffer.wrap(rootBufferOffsets);
+    }
+
+    private static IntBuffer decodeLevel1LengthStream(IntBuffer geometryTypes, IntBuffer rootOffsetBuffer,
+                                                      IntBuffer level1LengthBuffer){
+        var level1BufferOffsets = new int[rootOffsetBuffer.get(rootOffsetBuffer.capacity() - 1) + 1];
+        var previousOffset = 0;
+        level1BufferOffsets[0] = previousOffset;
+        var level1BufferCounter = 0;
+        var level1LengthBufferCounter = 0;
+        for(var i = 0; i < geometryTypes.capacity(); i++){
+            var geometryType = geometryTypes.get(i);
+            var numGeometries = rootOffsetBuffer.get(i+1) - rootOffsetBuffer.get(i);
+            if(geometryType == 5 || geometryType == 2){
+                /** For MultiPolygon and Polygon a value in the level1LengthBuffer exists */
+                for(var j = 0; j < numGeometries; j++){
+                    previousOffset = level1BufferOffsets[level1BufferCounter+1] = previousOffset +
+                                level1LengthBuffer.get(level1LengthBufferCounter);
+                    level1LengthBufferCounter++;
+                    level1BufferCounter++;
+                }
+            }
+            else{
+                /** For MultiLineString, MultiPoint, LineString and Point no value in level1LengthBuffer exists */
+                for(var j = 0; j < numGeometries; j++){
+                    level1BufferOffsets[++level1BufferCounter] = ++previousOffset;
+                }
+            }
+        }
+
+        return IntBuffer.wrap(level1BufferOffsets);
+    }
+
+    /** Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer */
+    private static IntBuffer decodeLevel1WithoutRingBufferLengthStream(IntBuffer geometryTypes, IntBuffer rootOffsetBuffer,
+                                                                       IntBuffer level1LengthBuffer){
+        var level1BufferOffsets = new int[rootOffsetBuffer.get(rootOffsetBuffer.capacity() - 1) + 1];
+        var previousOffset = 0;
+        level1BufferOffsets[0] = previousOffset;
+        var level1BufferCounter = 0;
+        for(var i = 0; i < geometryTypes.capacity(); i++){
+            var geometryType = geometryTypes.get(i);
+            var numGeometries = rootOffsetBuffer.get(i+1) - rootOffsetBuffer.get(i);
+            if(geometryType == 4 || geometryType == 1){
+                /** For MultiLineString and LineString a value in the level1LengthBuffer exists */
+                for(var j = 0; j < numGeometries; j++){
+                    previousOffset = level1BufferOffsets[level1BufferCounter+1] = previousOffset +
+                            level1LengthBuffer.get(level1BufferCounter);
+                    level1BufferCounter++;
+                }
+            }
+            else{
+                /** For MultiPoint and Point no value in level1LengthBuffer exists */
+                for(var j = 0; j < numGeometries; j++){
+                    level1BufferOffsets[++level1BufferCounter] = ++previousOffset;
+                }
+            }
+        }
+
+        return IntBuffer.wrap(level1BufferOffsets);
+    }
+
+    private static IntBuffer decodeLevel2LengthStream(IntBuffer geometryTypes, IntBuffer rootOffsetBuffer,
+                                                      IntBuffer level1OffsetBuffer, IntBuffer level2LengthBuffer){
+        var level2BufferOffsets = new int[level1OffsetBuffer.get(level1OffsetBuffer.capacity() - 1) + 1];
+        var previousOffset = 0;
+        level2BufferOffsets[0] = previousOffset;
+        var level1OffsetBufferCounter = 1;
+        var level2OffsetBufferCounter = 0;
+        for(var i = 0; i < geometryTypes.capacity(); i++){
+            var geometryType = geometryTypes.get(i);
+            var numGeometries = rootOffsetBuffer.get(i+1) - rootOffsetBuffer.get(i);
+            if(geometryType != 0 && geometryType != 3){
+                /** For MultiPolygon, MultiLineString, Polygon and LineString a value in level2LengthBuffer
+                 * exists */
+                for(var j = 0; j < numGeometries; j++){
+                    var numParts = level1OffsetBuffer.get(level1OffsetBufferCounter) -
+                                level1OffsetBuffer.get(level1OffsetBufferCounter-1);
+                    level1OffsetBufferCounter++;
+                    for(var k = 0; k < numParts; k++){
+                        previousOffset = level2BufferOffsets[level2OffsetBufferCounter+1] = previousOffset +
+                                level2LengthBuffer.get(level2OffsetBufferCounter);
+                        level2OffsetBufferCounter++;
+                    }
+                }
+            }
+            else{
+                /** For MultiPoint and Point no value in level2LengthBuffer exists */
+                for(var j = 0; j < numGeometries; j++){
+                    level2OffsetBufferCounter++;
+                    level2BufferOffsets[level2OffsetBufferCounter] = ++previousOffset;
+                }
+            }
+        }
+
+        return IntBuffer.wrap(level2BufferOffsets);
     }
 
 }

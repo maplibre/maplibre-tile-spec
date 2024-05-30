@@ -33,7 +33,9 @@ public class StringEncoder {
         var dictionary = new ArrayList<String>();
         var dataStreams = new ArrayList<List<Integer>>(values.size());
         var presentStreams = new ArrayList<List<Boolean>>();
+        var j = 0;
         for(var column : values){
+            j++;
             var presentStream = new ArrayList<Boolean>();
             presentStreams.add(presentStream);
             var dataStream = new ArrayList<Integer>();
@@ -64,9 +66,6 @@ public class StringEncoder {
         var encodedSharedFsstDictionary = encodeFsstDictionary(dictionary, physicalLevelTechnique, false, true);
         var sharedDictionary = encodedSharedFsstDictionary.length < encodedSharedDictionary.length?
                 encodedSharedFsstDictionary : encodedSharedDictionary;
-        /*if(encodedSharedFsstDictionary.length < encodedSharedDictionary.length){
-            System.out.println("Use FsstDictionary, reduction: " + (encodedSharedDictionary.length - encodedSharedFsstDictionary.length ));
-        }*/
 
         for(var i = 0; i < dataStreams.size(); i++){
             var presentStream = presentStreams.get(i);
@@ -74,14 +73,6 @@ public class StringEncoder {
 
             var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[]{2}, false, false);
             var encodedPresentStream = BooleanEncoder.encodeBooleanStream(presentStream, PhysicalStreamType.PRESENT);
-
-
-            //TODO: remove -> only test
-            var encodedPresentStream2 = BooleanEncoder.encodeBooleanStreamOptimized(presentStream, PhysicalStreamType.PRESENT);
-            //System.out.println("ORC encoded present stream: " + encodedPresentStream.length + " Optimized encoded present stream: "
-            //        + encodedPresentStream2.length);
-
-
 
             var encodedDataStream = IntegerEncoder.encodeIntStream(dataStream, physicalLevelTechnique, false,
                     PhysicalStreamType.OFFSET, new LogicalStreamType(OffsetType.STRING));

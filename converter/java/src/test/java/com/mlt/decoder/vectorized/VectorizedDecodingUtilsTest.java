@@ -2,6 +2,8 @@ package com.mlt.decoder.vectorized;
 
 import com.mlt.converter.CollectionUtils;
 import com.mlt.converter.encodings.EncodingUtils;
+import com.mlt.converter.encodings.GeometryEncoder;
+import com.mlt.converter.geometry.Vertex;
 import com.mlt.vector.BitVector;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.ArrayUtils;
@@ -13,7 +15,9 @@ import java.sql.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.concurrent.LinkedTransferQueue;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -166,6 +170,39 @@ public class VectorizedDecodingUtilsTest {
 
         assertEquals(expectedValues.length, decodedValues.capacity());
         assertTrue(Arrays.equals(expectedValues, decodedValues.array()));
+    }
+
+    @Test
+    void decodeFastPfor(){
+        var values = new int[]{2, 12};
+        var encodedValues = EncodingUtils.encodeFastPfor128(values, false, false);
+
+        var decodedValues = VectorizedDecodingUtils.decodeFastPfor(encodedValues, values.length, encodedValues.length, new IntWrapper(0));
+
+        assertTrue(Arrays.equals(values, decodedValues.array()));
+    }
+
+    @Test
+    void decodeComponentwiseDeltaVec2(){
+        var values = new int[]{10, 15, 20, 25, 30, 35, 20, 25};
+        var componentwiseDeltaValues = new int[]{10, 15, 10, 10, 10, 10, -10, -10};
+        var zigZagValues = EncodingUtils.encodeZigZag(componentwiseDeltaValues);
+
+        VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(zigZagValues);
+
+        assertTrue(Arrays.equals(values, zigZagValues));
+    }
+
+    @Test
+    void decodeComponentwiseDeltaVec2_realData(){
+        var values = new int[]{3277, 6952, 6554, -145, 3277, 6952, 6554, -145};
+        var vertices = IntStream.range(0, values.length / 2).mapToObj(i -> new Vertex(values[i*2], values[i*2+1])).
+                collect(Collectors.toList());
+        var zigZagValues = GeometryEncoder.zigZagDeltaEncodeVertices(vertices);
+
+        VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(zigZagValues);
+
+        assertTrue(Arrays.equals(values, zigZagValues));
     }
 
 }
