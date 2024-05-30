@@ -1,6 +1,6 @@
 package com.mlt.vector.fsstdictionary;
 
-import com.fsst.FsstEncoder;
+import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.vector.BitVector;
 import com.mlt.vector.VariableSizeVector;
 
