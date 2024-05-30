@@ -60,5 +60,9 @@ jobs:
       # when the issue is fixed: https://github.com/egor-tensin/setup-mingw/pull/16
       - if: runner.os == 'Windows'
         uses: e-t-l/setup-mingw@patch-1
-      - name: Java converter tests
-        run: ./gradlew test
+      - name: Java encodings tests
+        run: ./gradlew test --tests "com.mlt.converter.encodings.*"
+      - name: Java vector tests
+        run: ./gradlew test --tests "com.mlt.vector.*"
+      - name: Java MltDecoderTest
+        run: ./gradlew test --tests "com.mlt.decoder.MltDecoderTest"
