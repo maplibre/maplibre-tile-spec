@@ -6,7 +6,6 @@ import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.decoder.MltDecoder;
 import com.mlt.decoder.MltDecoderTest;
-import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.CoordinateXY;
@@ -142,7 +141,7 @@ public class MltConverterTest { ;
         var mlTile = MltConverter.convertMvt(mvTile, conversionConfig, tileMetadata);
 
         var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
-        MltDecoderTest.compareTiles(decodedMlTile, mvTile);
+        MltDecoderTest.compareTilesSequential(decodedMlTile, mvTile);
 
         var mvtSize = Files.readAllBytes(mvtFilePath).length;
         System.out.printf("MVT size: %s, MLT size: %s, reduction %s%% \n", mvtSize / 1024d, mlTile.length / 1024d,
@@ -412,7 +411,7 @@ public class MltConverterTest { ;
         var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
 
         var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
-        MltDecoderTest.compareTiles(decodedMlTile, decodedMvTile);
+        MltDecoderTest.compareTilesSequential(decodedMlTile, decodedMvTile);
 
         var compressionRatio = printStats(mvTile, mlTile);
 

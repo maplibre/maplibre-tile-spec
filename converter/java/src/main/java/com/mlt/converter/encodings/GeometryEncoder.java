@@ -40,6 +40,7 @@ public class GeometryEncoder {
                     break;
                 }
                 case Geometry.TYPENAME_LINESTRING: {
+                    //TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
                     geometryTypes.add(GeometryType.LINESTRING.ordinal());
                     var lineString = (LineString) geometry;
                     numParts.add(lineString.getCoordinates().length);
@@ -55,6 +56,7 @@ public class GeometryEncoder {
                     break;
                 }
                 case Geometry.TYPENAME_MULTILINESTRING: {
+                    //TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
                     geometryTypes.add(GeometryType.MULTILINESTRING.ordinal());
                     var multiLineString = (MultiLineString) geometry;
                     var numLineStrings = multiLineString.getNumGeometries();
@@ -224,7 +226,7 @@ public class GeometryEncoder {
         numParts.addAll(updatedNumParts);
     }
 
-    private static int[] zigZagDeltaEncodeVertices(Collection<Vertex> vertices){
+    public static int[] zigZagDeltaEncodeVertices(Collection<Vertex> vertices){
         Vertex previousVertex = new Vertex(0, 0);
         var deltaValues = new int[vertices.size() * 2];
         var j = 0;
@@ -302,8 +304,8 @@ public class GeometryEncoder {
      * */
     private static byte[] encodeVertexBuffer(List<Integer> values, PhysicalLevelTechnique physicalLevelTechnique){
         var encodedValues = physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR?
-                encodeFastPfor(values, true) :
-                encodeVarint(values.stream().mapToLong(i -> i).boxed().collect(Collectors.toList()), true);
+                encodeFastPfor(values, false) :
+                encodeVarint(values.stream().mapToLong(i -> i).boxed().collect(Collectors.toList()), false);
 
         var encodedMetadata = new StreamMetadata(PhysicalStreamType.DATA, new LogicalStreamType(DictionaryType.VERTEX),
                 LogicalLevelTechnique.COMPONENTWISE_DELTA, LogicalLevelTechnique.NONE, physicalLevelTechnique,

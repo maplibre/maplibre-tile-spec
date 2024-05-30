@@ -61,9 +61,13 @@ public class PropertyEncoder {
                                             get(columnMapping.mvtPropertyPrefix())).collect(Collectors.toList());
                                     sharedDictionary.add(propertyColumn);
                                 } else {
-
-                                    var propertyColumn = features.stream().map(f -> (String) f.properties().get(columnMapping.mvtPropertyPrefix() +
-                                            columnMapping.mvtDelimiterSign() + nestedFieldMetadata.getName())).collect(Collectors.toList());
+                                    //TODO: handle case where the nested field name is not present in the mvt layer
+                                    //This can be the case when the Tileset Metadata document is not generated per
+                                    //tile instead for the full tileset
+                                    var mvtPropertyName = columnMapping.mvtPropertyPrefix() +
+                                            columnMapping.mvtDelimiterSign() + nestedFieldMetadata.getName();
+                                    var propertyColumn = features.stream().map(mvtFeature ->
+                                                    (String)mvtFeature.properties().get(mvtPropertyName)).collect(Collectors.toList());
                                     sharedDictionary.add(propertyColumn);
                                 }
                             } else {
@@ -134,14 +138,6 @@ public class PropertyEncoder {
                 var present = features.stream().map(f -> f.properties().get(columnMetadata.getName()) != null)
                         .collect(Collectors.toList());
                 var presentStream = BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
-
-
-                //TODO: remove -> only test
-                var encodedPresentStream2 = BooleanEncoder.encodeBooleanStreamOptimized(present, PhysicalStreamType.PRESENT);
-                //System.out.println(columnMetadata.getName()+ "ORC encoded present stream: " + presentStream.length + " Optimized encoded present stream: "
-                //        + encodedPresentStream2.length);
-
-
 
                 var values = features.stream().map(f -> (String) f.properties().get(columnMetadata.getName())).
                         filter(v -> v != null).collect(Collectors.toList());

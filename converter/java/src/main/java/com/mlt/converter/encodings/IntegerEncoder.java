@@ -147,6 +147,9 @@ public class IntegerEncoder {
         var deltaRlePhysicalLevelEncodedValuesLength = 0;
 
         /* Use selection logic from BTR Blocks -> https://github.com/maxi-k/btrblocks/blob/c954ffd31f0873003dbc26bf1676ac460d7a3b05/btrblocks/scheme/double/RLE.cpp#L17 */
+        /** if there are ony a view values (e.g. 4 times 1) rle only produces the same size then other encodings.
+         *  Since we want to force that all const streams use RLE encoding we use this current workaround */
+        var isConstStream = false;
         if(values.size() / runs >= 2){
             //TODO: get rid of conversion
             var rleValues = EncodingUtils.encodeRle(values.stream().mapToInt(i -> i).toArray());
@@ -154,6 +157,7 @@ public class IntegerEncoder {
             rleEncodedValues = encoder.apply(Stream.concat(rleValues.getLeft().stream(), isSigned?
                             Arrays.stream(EncodingUtils.encodeZigZag(rleValues.getRight().stream().mapToInt(i -> i).toArray())).boxed() :
                             rleValues.getRight().stream()).toList(), false);
+            isConstStream = rleValues.getLeft().size() == 1;
         }
 
         if(deltaValues.size() / deltaRuns >= 2){
@@ -170,13 +174,14 @@ public class IntegerEncoder {
 
         //TODO: refactor -> find proper solution
         var encodedValuesSizes = encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE: v.length).collect(Collectors.toList());
-        var index = encodedValuesSizes.indexOf(Collections.min(encodedValuesSizes));
+        var index = isConstStream ? LogicalLevelIntegerTechnique.RLE.ordinal():
+                encodedValuesSizes.indexOf(Collections.min(encodedValuesSizes));
         var encoding = LogicalLevelIntegerTechnique.values()[index];
 
         var result = new IntegerEncodingResult();
         result.encodedValues = encodedValues.get(index);
         result.physicalLevelEncodedValuesLength = values.size();
-        if(encoding == LogicalLevelIntegerTechnique.RLE){
+        if(encoding == LogicalLevelIntegerTechnique.RLE ||isConstStream){
             result.numRuns = runs;
             result.physicalLevelEncodedValuesLength = rlePhysicalLevelEncodedValuesLength;
             result.logicalLevelTechnique1 = LogicalLevelTechnique.RLE;

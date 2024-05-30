@@ -28,11 +28,11 @@ public class StringDictionaryVector extends VariableSizeVector<String> implement
         this.indexBuffer = indexBuffer;
     }
 
-    private void decodeLengthBuffer(){
-        //TODO: get rid of the array copy
-        offsetBuffer = ArrayUtils.addAll(new int[]{0}, lengthBuffer.array());
-        //TODO: add delta of delta encoding to do it in one pass
-        Delta.fastinverseDelta(offsetBuffer, 0, offsetBuffer.length, 0);
+    public static StringDictionaryVector createFromOffsetBuffer(String name, BitVector nullabilityBuffer, IntBuffer indexBuffer, IntBuffer offsetBuffer,
+                                  ByteBuffer dictionaryBuffer) {
+        var vector = new StringDictionaryVector(name, nullabilityBuffer, indexBuffer, null, dictionaryBuffer);
+        vector.offsetBuffer = offsetBuffer.array();
+        return vector;
     }
 
     /** in the current implementation the length buffer of string dictionaries can be lazy evaluated
@@ -51,12 +51,8 @@ public class StringDictionaryVector extends VariableSizeVector<String> implement
      * */
     @Override
     protected String getValueFromBuffer(int index) {
-        if(nullabilityBuffer.isPresent() && !nullabilityBuffer.get().get(index)){
-            return null;
-        }
-
         if (offsetBuffer == null){
-            decodeLengthBuffer();
+            lengthToOffsetBuffer();
         }
 
         var offset = indexBuffer.get(index);
@@ -113,5 +109,13 @@ public class StringDictionaryVector extends VariableSizeVector<String> implement
         //TODO: change StringDictionaryVector to work with this encoding
         return this.nullabilityBuffer.isPresent() ? this.nullabilityBuffer.get().size() : this.indexBuffer.capacity();
     }
+
+    private void lengthToOffsetBuffer(){
+        //TODO: get rid of the array copy
+        offsetBuffer = ArrayUtils.addAll(new int[]{0}, lengthBuffer.array());
+        //TODO: add delta of delta encoding to do it in one pass
+        Delta.fastinverseDelta(offsetBuffer, 0, offsetBuffer.length, 0);
+    }
+
 }
 
