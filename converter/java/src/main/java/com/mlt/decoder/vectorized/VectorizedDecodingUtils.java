@@ -592,16 +592,16 @@ public class VectorizedDecodingUtils {
                 var x2 = data[i+2];
                 var y2 = data[i+3];
 
-                data[i] = (x1 >>> 1) ^ ((x1 << 31) >> 31) + data[i-2];
-                data[i+1] = (y1 >>> 1) ^ ((y1 << 31) >> 31)  + data[i-1];
-                data[i+2] = (x2 >>> 1) ^ ((x2 << 31) >> 31)  + data[i];
-                data[i+3] = (y2 >>> 1) ^ ((y2 << 31) >> 31)  + data[i+1];
+                data[i] = ((x1 >>> 1) ^ ((x1 << 31) >> 31)) + data[i-2];
+                data[i+1] = ((y1 >>> 1) ^ ((y1 << 31) >> 31))  + data[i-1];
+                data[i+2] = ((x2 >>> 1) ^ ((x2 << 31) >> 31))  + data[i];
+                data[i+3] = ((y2 >>> 1) ^ ((y2 << 31) >> 31))  + data[i+1];
             }
         }
 
         for (; i != data.length; i+=2) {
-            data[i] += data[i - 2];
-            data[i+1] += data[i - 1];
+            data[i] = ((data[i] >>> 1) ^ ((data[i] << 31) >> 31)) + data[i - 2];
+            data[i+1] = ((data[i+1] >>> 1) ^ ((data[i+1] << 31) >> 31)) + data[i - 1];
         }
     }
 
@@ -629,10 +629,17 @@ public class VectorizedDecodingUtils {
     }
 
     public static int[] decodeNullableZigZagDelta(BitVector bitVector, int[] data) {
-        var i = 1;
         var decodedData = new int[bitVector.size()];
-        decodedData[0] = bitVector.get(i) ? ((data[0] >>> 1) ^ ((data[0] << 31) >> 31)) : 0;
-        var dataCounter = 1;
+        var dataCounter = 0;
+        if(bitVector.get(0)){
+            decodedData[0] = bitVector.get(0) ? ((data[0] >>> 1) ^ ((data[0] << 31) >> 31)) : 0;
+            dataCounter = 1;
+        }
+        else{
+            decodedData[0] = 0;
+        }
+
+        var i = 1;
         for (; i != decodedData.length; ++i) {
             decodedData[i] = bitVector.get(i)? decodedData[i-1] + ((data[dataCounter] >>> 1) ^ ((data[dataCounter++] << 31) >> 31)) :
                     decodedData[i-1];
@@ -642,10 +649,17 @@ public class VectorizedDecodingUtils {
     }
 
     public static long[] decodeNullableZigZagDelta(BitVector bitVector, long[] data) {
-        var i = 1;
         var decodedData = new long[bitVector.size()];
-        decodedData[0] = bitVector.get(i) ? ((data[0] >>> 1) ^ ((data[0] << 63) >> 63)) : 0;
-        var dataCounter = 1;
+        var dataCounter = 0;
+        if(bitVector.get(0)){
+            decodedData[0] = bitVector.get(0) ? ((data[0] >>> 1) ^ ((data[0] << 31) >> 31)) : 0;
+            dataCounter = 1;
+        }
+        else{
+            decodedData[0] = 0;
+        }
+
+        var i = 1;
         for (; i != decodedData.length; ++i) {
             decodedData[i] = bitVector.get(i)? decodedData[i-1] + ((data[dataCounter] >>> 1) ^ ((data[dataCounter++] << 63) >> 63)):
                     decodedData[i-1];
@@ -695,24 +709,65 @@ public class VectorizedDecodingUtils {
 
     /** Transform data to allow random access --------------------------------------------------------------------- */
 
-    public static int[] deltaOfDeltaDecoding(int[] data) {
+    public static int[] zigZagDeltaOfDeltaDecoding(int[] data) {
         var decodedData = new int[data.length + 1];
         decodedData[0] = 0;
-        decodedData[1] = data[0];
-        var deltaSum = data[0];
+        decodedData[1] = (data[0] >>> 1) ^ ((data[0] << 31) >> 31);
+        var deltaSum = decodedData[1];
         int i = 2;
         for (; i != decodedData.length; ++i) {
-            deltaSum += data[i - 1];
+            var zigZagValue = data[i - 1];
+            var delta = (zigZagValue >>> 1) ^ ((zigZagValue << 31) >> 31);
+            deltaSum += delta;
             decodedData[i] = decodedData[i - 1] + deltaSum;
         }
 
         return decodedData;
     }
 
+    public static IntBuffer zigZagRleDeltaDecoding(int[] data, int numRuns, int numTotalValues){
+        var values = new int[numTotalValues + 1];
+        values[0] = 0;
+        var offset = 1;
+        var previousValue = values[0];
+        for(var i = 0; i < numRuns; i++){
+            var runLength = data[i];
+            var value = data[i + numRuns];
+            value = (value >>> 1) ^ ((value << 31) >> 31);
+            for(var j = offset; j < offset + runLength; j++){
+                values[j] = value + previousValue;
+                previousValue = values[j];
+            }
+
+            offset += runLength;
+        }
+
+        return IntBuffer.wrap(values);
+    }
+
+    public static IntBuffer rleDeltaDecoding(int[] data, int numRuns, int numTotalValues){
+        var values = new int[numTotalValues + 1];
+        values[0] = 0;
+        var offset = 1;
+        var previousValue = values[0];
+        for(var i = 0; i < numRuns; i++){
+            var runLength = data[i];
+            var value = data[i + numRuns];
+            for(var j = offset; j < offset + runLength; j++){
+                values[j] = value + previousValue;
+                previousValue = values[j];
+            }
+
+            offset += runLength;
+        }
+
+        return IntBuffer.wrap(values);
+    }
+
     public static int[] padWithZeros(BitVector bitVector, int[] data) {
-        var i = 1;
         var decodedData = new int[bitVector.size()];
         var dataCounter = 0;
+        var i = 0;
         for (; i != decodedData.length; ++i) {
             decodedData[i] = bitVector.get(i)? data[dataCounter++] : 0;
         }
@@ -720,12 +775,46 @@ public class VectorizedDecodingUtils {
         return decodedData;
     }
 
+    public static int[] padZigZagWithZeros(BitVector bitVector, int[] data) {
+        var decodedData = new int[bitVector.size()];
+        var dataCounter = 0;
+        var i = 0;
+        for (; i != decodedData.length; ++i) {
+            if(bitVector.get(i)){
+                var value = data[dataCounter++];
+                decodedData[i] = (value >>> 1) ^ ((value << 31) >> 31);
+            }
+            else{
+                decodedData[i] = 0;
+            }
+        }
+
+        return decodedData;
+    }
+
     public static long[] padWithZeros(BitVector bitVector, long[] data) {
-        var i = 1;
         var decodedData = new long[bitVector.size()];
         var dataCounter = 0;
+        var i = 0;
         for (; i != decodedData.length; ++i) {
             decodedData[i] = bitVector.get(i)? data[dataCounter++] : 0;
+        }
+
+        return decodedData;
+    }
+
+    public static long[] padZigZagWithZeros(BitVector bitVector, long[] data) {
+        var decodedData = new long[bitVector.size()];
+        var dataCounter = 0;
+        var i = 0;
+        for (; i != decodedData.length; ++i) {
+            if(bitVector.get(i)){
+                var value = data[dataCounter++];
+                decodedData[i] = (value >>> 1) ^ ((value << 63) >> 63);
+            }
+            else{
+                decodedData[i] = 0;
+            }
         }
 
         return decodedData;

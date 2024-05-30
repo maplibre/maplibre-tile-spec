@@ -19,7 +19,13 @@ public class MltDecoderBenchmark {
     private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     @Test
-    public void decodeMlTile_Z4() throws IOException {
+    public void decodeMlTileVectorized_Z3() throws IOException {
+        var tileId = String.format("%s_%s_%s", 3, 4, 5);
+        testTile(tileId);
+    }
+
+    @Test
+    public void decodeMlTileVectorized_Z4() throws IOException {
         var tileId = String.format("%s_%s_%s", 4, 8, 10);
         testTile(tileId);
 
@@ -28,16 +34,18 @@ public class MltDecoderBenchmark {
     }
 
     @Test
-    public void decodeMlTile_Z5() throws IOException {
-        //var t = String.format("%s_%s_%s", 14, 8298, 10748);
-        var t = String.format("%s_%s_%s", 6, 33, 41);
-        testTile(t);
-
+    public void decodeMlTileVectorized_Z5() throws IOException {
         var tileId = String.format("%s_%s_%s", 5, 16, 21);
         testTile(tileId);
 
         var tileId2 = String.format("%s_%s_%s", 5, 16, 20);
         testTile(tileId2);
+    }
+
+    @Test
+    public void decodeMlTileVectorized_Z6() throws IOException {
+        var tileId = String.format("%s_%s_%s", 6, 32, 41);
+        testTile(tileId);
     }
 
     private void testTile(String tileId) throws IOException {
@@ -69,7 +77,8 @@ public class MltDecoderBenchmark {
         //var allowSorting = true;
         var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
         //TODO: fix -> either add columMappings per layer or global like when creating the scheme
-        var optimizations = Map.of("place", optimization, "water_name", optimization, "transportation", optimization);
+        var optimizations = Map.of("place", optimization, "water_name", optimization, "transportation", optimization,
+                "transportation_name", optimization, "park", optimization, "mountain_peak", optimization);
         var mlTile = MltConverter.convertMvt(mvTile, new ConversionConfig(true, true, optimizations),
                 tileMetadata);
 
