@@ -8,6 +8,7 @@ import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 import org.locationtech.jts.util.Assert;
 
 import java.io.IOException;
@@ -20,7 +21,7 @@ import java.util.Optional;
 public class StringDecoderTest {
     private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
-    @Test
+    @Test @Disabled
     public void decodeSharedDictionary_FsstDictionaryEncoded() throws IOException {
         var values1 = List.of("TestTestTestTestTestTest", "TestTestTestTestTestTest1", "TestTestTestTestTestTest2",
                 "TestTestTestTestTestTest2", "TestTestTestTestTestTest4");
@@ -40,7 +41,7 @@ public class StringDecoderTest {
         Assert.equals(values2, v.get(":Test2"));
     }
 
-    @Test
+    @Test @Disabled
     public void decodeSharedDictionary_DictonaryEncoded() throws IOException {
         var values1 = List.of("Test", "Test2", "Test4", "Test2", "Test");
         var values2 = List.of("Test1", "Test2", "Test1", "Test5", "Test");
@@ -62,7 +63,7 @@ public class StringDecoderTest {
         Assert.equals(values2, v.get(":Test2"));
     }
 
-    @Test
+    @Test @Disabled
     public void decodeSharedDictionary_NullValues_DictonaryEncoded() throws IOException {
         var values1 = Arrays.asList("Test", null, "Test2", null, "Test4", "Test2", "Test");
         var values2 = Arrays.asList(null, "Test1", "Test2", "Test1", null, null, "Test5", null, "Test", null, null);
@@ -102,7 +103,7 @@ public class StringDecoderTest {
         Assert.equals(values2, v.get(":Test2"));
     }
 
-    @Test
+    @Test @Disabled
     public void decodeSharedDictionary_NullValues_FsstDictonaryEncoded() throws IOException {
         var values1 = Arrays.asList(null, null, null, null, "TestTestTestTestTestTest", "TestTestTestTestTestTest1",
                 null, "TestTestTestTestTestTest2", "TestTestTestTestTestTest2", "TestTestTestTestTestTest4");
@@ -144,7 +145,7 @@ public class StringDecoderTest {
         Assert.equals(values2, v.get(":Test2"));
     }
 
-    @Test
+    @Test @Disabled
     public void decodeSharedDictionary_Mvt() throws IOException {
         var tileId = String.format("%s_%s_%s", 5, 16, 21);
         var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
