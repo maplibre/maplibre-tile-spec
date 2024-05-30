@@ -28,6 +28,7 @@ public class MltDecoder {
 
     private MltDecoder(){}
 
+    /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
     public static MapLibreTile decodeMlTile(byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) throws IOException {
         var offset = new IntWrapper(0);
         var mltLayers = new ArrayList<Layer>();
@@ -80,29 +81,19 @@ public class MltDecoder {
                 }
             }
 
-            var features = new ArrayList<Feature>(numFeatures);
-            for(var j = 0; j < numFeatures; j++){
-                var p = new HashMap<String, Object>();
-                for(var propertyColumn : properties.entrySet()){
-                    if(propertyColumn.getValue() == null){
-                        p.put(propertyColumn.getKey(), null);
-                    }
-                    else{
-                        var v = propertyColumn.getValue().get(j);
-                        p.put(propertyColumn.getKey(), v);
-                    }
-                }
-                var feature = new Feature(ids.get(j), geometries[j], p);
-                features.add(feature);
-            }
-            var layer = new Layer(metadata.getName(), features);
+            var layer = convertToLayer(ids, geometries, properties, metadata, numFeatures);
             mltLayers.add(layer);
         }
 
         return new MapLibreTile(mltLayers);
     }
 
-    public static FeatureTable[] decodeMlTileVectorized(byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) throws IOException {
+    /** Converts a tile from the MLT storage into the in-memory format, which should be the preferred way for processing the data
+     *  in the future. The in-memory format is optimized for random access.
+     *  Currently, the decoding is not fully utilizing vectorized instructions (SIMD).
+     *  But the goal is to fully exploit this kind of instruction in the next step.
+     *  */
+    public static FeatureTable[] decodeMlTileVectorized(byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) {
         var offset = new IntWrapper(0);
         var featureTables = new FeatureTable[tileMetadata.getFeatureTablesCount()];
         while(offset.get() < tile.length){
@@ -127,7 +118,7 @@ public class MltDecoder {
                 var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
 
                 //TODO: add decoding of vector type to be compliant with the spec
-                //TODO: compare based on idsNN
+                //TODO: compare based on ids
                 if(columnName.equals(ID_COLUMN_NAME)){
                     BitVector nullabilityBuffer = null;
                     if(numStreams == 2){
@@ -136,6 +127,7 @@ public class MltDecoder {
                         nullabilityBuffer = new BitVector(n, presentStreamMetadata.numValues());
                     }
 
+                    //TODO: are ids optional? -> if not transform to random access format
                     var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
                     var idDataType = columnMetadata.getScalarType().getPhysicalType();
                     //TODO: check for const and sequence vectors to reduce decoding time
@@ -153,7 +145,8 @@ public class MltDecoder {
                             numFeatures);
                 }
                 else{
-                    var propertyVector = VectorizedPropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
+                    var propertyVector = VectorizedPropertyDecoder.decodeToRandomAccessFormat(tile, offset,
+                            columnMetadata, numStreams, numFeatures);
                     propertyVectors[propertyIndex++] = propertyVector;
                 }
             }
@@ -163,6 +156,27 @@ public class MltDecoder {
         }
 
         return featureTables;
+    }
+
+    private static Layer convertToLayer(List<Long> ids, Geometry[] geometries, Map<String, List<Object>> properties,
+                                        MltTilesetMetadata.FeatureTableSchema metadata, int numFeatures){
+        var features = new ArrayList<Feature>(numFeatures);
+        for(var j = 0; j < numFeatures; j++){
+            var p = new HashMap<String, Object>();
+            for(var propertyColumn : properties.entrySet()){
+                if(propertyColumn.getValue() == null){
+                    p.put(propertyColumn.getKey(), null);
+                }
+                else{
+                    var v = propertyColumn.getValue().get(j);
+                    p.put(propertyColumn.getKey(), v);
+                }
+            }
+            var feature = new Feature(ids.get(j), geometries[j], p);
+            features.add(feature);
+        }
+
+        return new Layer(metadata.getName(), features);
     }
 
 }

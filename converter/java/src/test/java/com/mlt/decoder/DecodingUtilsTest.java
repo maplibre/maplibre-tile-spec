@@ -66,8 +66,9 @@ public class DecodingUtilsTest {
         var offsets = new int[]{2,  6,  8,  14};
         var numParts = new int[]{2, 4, 2, 6}; //delta coded
         var deltaCodedNumParts = new int[]{2,  2,  -2,  4}; //delta of delta coded
+        var zigZagEncodedValues = EncodingUtils.encodeZigZag(deltaCodedNumParts);
 
-        var decodedValues = VectorizedDecodingUtils.deltaOfDeltaDecoding(deltaCodedNumParts);
+        var decodedValues = VectorizedDecodingUtils.zigZagDeltaOfDeltaDecoding(zigZagEncodedValues);
 
         assertTrue(Arrays.equals(ArrayUtils.addAll(new int[]{0}, offsets), decodedValues));
     }
