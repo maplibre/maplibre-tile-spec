@@ -16,6 +16,7 @@ import com.mlt.converter.mvt.ColumnMapping;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,18 +62,19 @@ public class MltCliAdapter {
             // java.lang.IndexOutOfBoundsException: Index 6 out of bounds for length 6
             var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
 
-            var columnMapping = new ColumnMapping("name", ":", true);
-            var columnMappings = Optional.of(List.of(columnMapping));
-            var tileMetadata = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, true);
+            // No ColumnMapping as support is still buggy: https://github.com/maplibre/maplibre-tile-spec/issues/59
+            var columnMappings = Optional.<List<ColumnMapping>>empty();
+            var isIdPresent = true;
+            var tileMetadata = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
 
             var allowIdRegeneration = true;
             var allowSorting = false;
             var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
-            //TODO: fix -> either add columMappings per layer or global like when creating the scheme
-            var optimizations = Map.of("place", optimization, "water_name", optimization, "transportation", optimization,
-            "transportation_name", optimization, "park", optimization, "mountain_peak", optimization,
-            "poi", optimization);
-            var conversionConfig = new ConversionConfig(true, true, optimizations);
+            // No FeatureTableOptimizations
+            var optimizations = new HashMap<String, FeatureTableOptimizations>();
+            var useAdvancedEncodingSchemes = false;
+            var includeIds = true;
+            var conversionConfig = new ConversionConfig(includeIds, useAdvancedEncodingSchemes, optimizations);
             System.out.println("converting data now...");
             long startTime = System.nanoTime();
             var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
