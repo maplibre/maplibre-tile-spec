@@ -52,7 +52,14 @@ SET(LIBFSST_INC_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/FsstDow
 link_directories(${LIBFSST_LIB_DIRECTORY})
 
 add_library(libfsst STATIC IMPORTED)
-set_target_properties(libfsst PROPERTIES IMPORTED_LOCATION ${LIBFSST_LIB_DIRECTORY}/libfsst.a)
+
+# TODO: find a way to avoid having to be explicit about library name differences between platforms
+if(MSVC)
+    set_target_properties(libfsst PROPERTIES IMPORTED_LOCATION ${LIBFSST_LIB_DIRECTORY}/Release/fsst.lib)
+else()
+    set_target_properties(libfsst PROPERTIES IMPORTED_LOCATION ${LIBFSST_LIB_DIRECTORY}/libfsst.a)
+endif()
+
 
 add_library(FsstWrapper MODULE ${CMAKE_CURRENT_SOURCE_DIR}/FsstWrapper.cpp)
 add_dependencies(FsstWrapper FsstDownload)
