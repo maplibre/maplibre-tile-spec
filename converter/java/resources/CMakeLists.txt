@@ -56,5 +56,3 @@ set_target_properties(FsstWrapper PROPERTIES
 )
 target_include_directories(FsstWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${JNI_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/libfsst)
 target_link_libraries (FsstWrapper ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/libfsst-build/libfsst.a)
-# target_link_libraries (binary LINK_PUBLIC Threads::Threads)
-# set_target_properties(binary PROPERTIES OUTPUT_NAME fsst)
