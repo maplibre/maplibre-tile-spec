@@ -59,22 +59,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Java converter tests
         run: ./gradlew test
-  test-java-cli:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'converter/java'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v3
-      - name: Build CLI
-        run: ./gradlew cli
       - name: Test running CLI
         run: |
+          ./gradlew cli
           java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../../test/fixtures/omt/mvt/10_530_682.mvt -output output
           python -c 'import os; print(os.path.getsize("output/10_530_682.mlt"))'
           python -c 'import os; assert os.path.getsize("output/10_530_682.mlt") == 66980'
