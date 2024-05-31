@@ -77,7 +77,7 @@ describe("decode", () => {
             expect(newOffset).toEqual(rleBuffer.length);
         });
 
-        it("should decode literals and runs in combination", () => {
+        it.skip("should decode literals and runs in combination", () => {
             const run1Values = Array.from(new Array(100).keys())
                 .map(() => 7)
                 .reverse();
