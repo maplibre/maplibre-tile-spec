@@ -40,9 +40,8 @@ endif()
 
 include(ExternalProject)
 ExternalProject_Add(libfsst
-    DOWNLOAD_EXTRACT_TIMESTAMP 1610000000
     GIT_REPOSITORY https://github.com/springmeyer/fsst
-    GIT_TAG 7e2d2ce # https://github.com/springmeyer/fsst/tree/dane/cross-platform-build-fixes
+    GIT_TAG bd766bc # https://github.com/springmeyer/fsst/tree/dane/cross-platform-build-fixes
     INSTALL_COMMAND ""
     CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
 )
