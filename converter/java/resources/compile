@@ -1,56 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-CURRENT_DIR=$(pwd)
-
-# Note: CXXFLAGS are inherited by the Makefile, which needs to build one of the fsst sources
-# with -O1, so we pass -O3 separately and only to the JNI compile.
-export CXXFLAGS="-g -std=c++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -DNDEBUG -Wall"
-# Note: these are pass
-export OPTIMIZATION_FLAGS="-O3"
-
-if [[ $(uname -s) == "Darwin" ]]; then
-    echo "Detected macOS"
-    export CXXFLAGS="${CXXFLAGS} -arch arm64 -arch x86_64"
-    if [[ -d /Library/Java/JavaVirtualMachines/temurin-17.jdk ]]; then
-        # brew install temurin@17
-        export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home"
-    else
-        # github macOS runner
-        export JNI_INCLUDE="/Library/Java/JavaVirtualMachines/Temurin-Hotspot-17.jdk/Contents/Home"
-    fi
-    export JNI_PLATFORM="darwin"
-    export LINKFLAGS="-bundle"
-elif [[ $(uname -s) == "Linux" ]]; then
-    echo "Detected Linux"
-    export JNI_INCLUDE="/usr/lib/jvm/temurin-17-jdk-amd64"
-    export JNI_PLATFORM="linux"
-    export LINKFLAGS="-shared"
+if [[ -f build/FsstWrapper.so ]]; then
+    echo "FsstWrapper.so exists"
+    echo "  Remove ./build/FsstWrapper.so to recompile"
+    echo "  Remove ./build to reconfigure & compiled"
 else
-    echo "Detected Windows"
-    export JNI_INCLUDE="C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk/17.0.11-9/x64"
-    export JNI_PLATFORM="win32"
-    export LINKFLAGS="-shared"
+    echo "FsstWrapper.so does not exist, building now"
+    mkdir -p build
+    cd build
+    cmake ../Resources
+    cmake --build . --config Release
 fi
-
-if [[ ! -f build/libfsst.a ]]; then
-    mkdir -p ${CURRENT_DIR}/build
-    cd ${CURRENT_DIR}/build
-    if [[ ! -d springmeyer-fsst-afd69ed ]]; then
-        curl -L https://github.com/springmeyer/fsst/tarball/afd69ed -o fsst.tar.gz
-        tar -xvf fsst.tar.gz
-    fi
-    cd ${CURRENT_DIR}/build/springmeyer-fsst-afd69ed/
-    echo "Building fsst in $(pwd)"
-    cp ${CURRENT_DIR}/resources/Makefile .
-    make
-    cp libfsst.a ${CURRENT_DIR}/build/
-    cp fsst.h ${CURRENT_DIR}/build/
-fi
-
-cd ${CURRENT_DIR}
-
-MODULE_BUILD="c++ ${CXXFLAGS} ${OPTIMIZATION_FLAGS} -I${JNI_INCLUDE}/include -I${JNI_INCLUDE}/include/${JNI_PLATFORM} -I./build -I./resources ./resources/FsstWrapper.cpp ./build/libfsst.a ${LINKFLAGS} -o ./build/FsstWrapper.so"
-echo "Building FsstWrapper.so"
-echo ${MODULE_BUILD}
-${MODULE_BUILD}
+echo "Compilation successful"
