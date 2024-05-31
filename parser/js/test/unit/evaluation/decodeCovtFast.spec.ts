@@ -9,7 +9,7 @@ const MBTILES_FILE_NAME = "C:\\mapdata\\europe.mbtiles";
 const COVT_FILE_NAME = "./data/5_16_21.covt";
 
 describe("decodeCovtFast", () => {
-    it("should decode a COVT tile", async () => {
+    it.skip("should decode a COVT tile", async () => {
         const mbTilesRepository = await MbTilesRepository.create(MBTILES_FILE_NAME);
         const gzipCompressedMvtTile = await mbTilesRepository.getTile({ z: 5, x: 16, y: 21 });
 
