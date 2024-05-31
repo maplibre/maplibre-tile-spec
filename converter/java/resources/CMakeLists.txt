@@ -39,19 +39,28 @@ if (JNI_FOUND)
 endif()
 
 include(ExternalProject)
-ExternalProject_Add(libfsst
+ExternalProject_Add(FsstDownload
     GIT_REPOSITORY https://github.com/springmeyer/fsst
     GIT_TAG bd766bc # https://github.com/springmeyer/fsst/tree/dane/cross-platform-build-fixes
     INSTALL_COMMAND ""
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix
     CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
 )
+SET(LIBFSST_LIB_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/FsstDownload-build)
+SET(LIBFSST_INC_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/FsstDownload)
+
+link_directories(${LIBFSST_LIB_DIRECTORY})
+
+add_library(libfsst STATIC IMPORTED)
+set_target_properties(libfsst PROPERTIES IMPORTED_LOCATION ${LIBFSST_LIB_DIRECTORY}/libfsst.a)
 
 add_library(FsstWrapper MODULE ${CMAKE_CURRENT_SOURCE_DIR}/FsstWrapper.cpp)
+add_dependencies(FsstWrapper FsstDownload)
 set_target_properties(FsstWrapper PROPERTIES
     OUTPUT_NAME "${output_name}"
     POSITION_INDEPENDENT_CODE ON
     SUFFIX ".so"
     PREFIX ""
 )
-target_include_directories(FsstWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${JNI_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/libfsst)
-target_link_libraries (FsstWrapper ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/libfsst-build/libfsst.a)
+target_include_directories(FsstWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${JNI_INCLUDE_DIRS} ${LIBFSST_INC_DIRECTORY})
+target_link_libraries(FsstWrapper libfsst)
