@@ -1,8 +1,8 @@
 @echo off
 
-IF EXIST build\FsstWrapper.so (
+IF EXIST build\Release\FsstWrapper.so (
     echo "FsstWrapper.so exists, skipping compilation"
-    echo "  Remove ./build/FsstWrapper.so to recompile"
+    echo "  Remove ./build/Release/FsstWrapper.so to recompile"
     echo "  Remove ./build to reconfigure & compiled"
 ) ELSE (
     echo "FsstWrapper.so does not exist, building now"
