@@ -50,12 +50,14 @@ public class GeometryDecoder {
                     break;
                 case DATA:
                     if(DictionaryType.VERTEX.equals(geometryStreamMetadata.logicalStreamType().dictionaryType())){
-                        //TODO: add Varint decoding
-                        if(geometryStreamMetadata.physicalLevelTechnique() != PhysicalLevelTechnique.FAST_PFOR){
-                            throw new IllegalArgumentException("Currently only FastPfor encoding supported for the VertexBuffer.");
-                        }
-                        vertexBuffer = DecodingUtils.decodeFastPfor128DeltaCoordinates(tile, geometryStreamMetadata.numValues(),
+                        if(geometryStreamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT){
+                            vertexBuffer = DecodingUtils.decodeVarint(tile, offset, geometryStreamMetadata.numValues());
+                        } else if(geometryStreamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR){
+                            vertexBuffer = DecodingUtils.decodeFastPfor128DeltaCoordinates(tile, geometryStreamMetadata.numValues(),
                             geometryStreamMetadata.byteLength(), offset);
+                        } else {
+                            throw new IllegalArgumentException("Currently only Varint & FastPfor encodings currently supported for the VertexBuffer.");
+                        }
                     }
                     else{
                         mortonVertexBuffer = IntegerDecoder.decodeMortonStream(tile, offset, (MortonEncodedStreamMetadata)geometryStreamMetadata);
