@@ -9,8 +9,15 @@ import java.io.ByteArrayOutputStream;
 public class FsstEncoder {
 
     static {
+        String os = System.getProperty("os.name").toLowerCase();
+        boolean isWindows = os.contains("win");
+        String moduleDir = "build/FsstWrapper.so";
+        if (isWindows) {
+            // TODO: figure out how to get cmake to put in common directory
+            moduleDir = "build/Release/FsstWrapper.so";
+        }
         String modulePath = FileSystems.getDefault()
-                    .getPath("build/FsstWrapper.so")
+                    .getPath(moduleDir)
                     .normalize().toAbsolutePath().toString();
         try {
             System.load(modulePath);
