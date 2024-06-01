@@ -6,7 +6,7 @@ IF EXIST build\Release\FsstWrapper.so (
     echo "  Remove ./build to reconfigure & compiled"
 ) ELSE (
     echo "FsstWrapper.so does not exist, building now"
-    mkdir -p build
+    mkdir build
     cd build
     cmake ../Resources
     cmake --build . --config Release
