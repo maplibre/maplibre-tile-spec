@@ -170,7 +170,7 @@ public class VectorizedGeometryDecoder {
         if(numGeometries != null){
             numGeometries = decodeRootLengthStream(geometryTypeVector, numGeometries, 2);
             if(numParts != null && numRings!= null){
-                numParts = decodeLevel1LengthStream(geometryTypeVector, numGeometries, numParts);
+                numParts = decodeLevel1LengthStream(geometryTypeVector, numGeometries, numParts, false);
                 numRings = decodeLevel2LengthStream(geometryTypeVector, numGeometries, numParts, numRings);
             }
             else if(numParts != null && numRings == null){
@@ -179,7 +179,7 @@ public class VectorizedGeometryDecoder {
         }
         else if(numParts!= null && numRings!= null){
             numParts = decodeRootLengthStream(geometryTypeVector, numParts, 1);
-            numRings = decodeLevel1LengthStream(geometryTypeVector, numParts, numRings);
+            numRings = decodeLevel1LengthStream(geometryTypeVector, numParts, numRings, true);
         }
         else if(numParts!= null && numRings == null){
             numParts = decodeRootLengthStream(geometryTypeVector, numParts, 0);
@@ -327,7 +327,8 @@ public class VectorizedGeometryDecoder {
     }
 
     private static IntBuffer decodeLevel1LengthStream(IntBuffer geometryTypes, IntBuffer rootOffsetBuffer,
-                                                      IntBuffer level1LengthBuffer){
+                                                      IntBuffer level1LengthBuffer,
+                                                       boolean isLineStringPresent){
         var level1BufferOffsets = new int[rootOffsetBuffer.get(rootOffsetBuffer.capacity() - 1) + 1];
         var previousOffset = 0;
         level1BufferOffsets[0] = previousOffset;
@@ -336,17 +337,20 @@ public class VectorizedGeometryDecoder {
         for(var i = 0; i < geometryTypes.capacity(); i++){
             var geometryType = geometryTypes.get(i);
             var numGeometries = rootOffsetBuffer.get(i+1) - rootOffsetBuffer.get(i);
-            if(geometryType == 5 || geometryType == 2){
-                /** For MultiPolygon and Polygon a value in the level1LengthBuffer exists */
+            if(geometryType == 5 || geometryType == 2 || (isLineStringPresent &&
+                    (geometryType == 4 || geometryType == 1))){
+                /** For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
+                 * a value in the level1LengthBuffer exists */
                 for(var j = 0; j < numGeometries; j++){
                     previousOffset = level1BufferOffsets[level1BufferCounter+1] = previousOffset +
-                                level1LengthBuffer.get(level1LengthBufferCounter);
+                            level1LengthBuffer.get(level1LengthBufferCounter);
                     level1LengthBufferCounter++;
                     level1BufferCounter++;
                 }
             }
             else{
-                /** For MultiLineString, MultiPoint, LineString and Point no value in level1LengthBuffer exists */
+                /** For MultiPoint and Point and in some cases for MultiLineString and LineString no value in the
+                 * level1LengthBuffer exists */
                 for(var j = 0; j < numGeometries; j++){
                     level1BufferOffsets[++level1BufferCounter] = ++previousOffset;
                 }

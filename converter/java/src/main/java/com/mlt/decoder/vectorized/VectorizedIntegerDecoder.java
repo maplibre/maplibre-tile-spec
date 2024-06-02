@@ -1,6 +1,7 @@
 package com.mlt.decoder.vectorized;
 
 
+import com.mlt.decoder.DecodingUtils;
 import com.mlt.metadata.stream.*;
 import com.mlt.vector.BitVector;
 import me.lemire.integercompression.IntWrapper;
@@ -36,8 +37,12 @@ public class VectorizedIntegerDecoder {
                 VectorizedDecodingUtils.decodeFastPfor(data, streamMetadata.numValues(), streamMetadata.byteLength(), offset) :
                 VectorizedDecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
 
-        /** Only RLE encoding can currently produce an ConstVector */
-        //var numValues = ((RleEncodedStreamMetadata)streamMetadata).numRleValues();
+        /** Only RLE encoding or a single not encoded value in the data stream can currently produce an ConstVector */
+        if(values.capacity() == 1){
+            var value = values.get(0);
+            return isSigned? DecodingUtils.decodeZigZag(value) : value;
+        }
+
         return isSigned? VectorizedDecodingUtils.decodeZigZagConstRLE(values.array()) :
                 VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array());
     }
@@ -49,6 +54,13 @@ public class VectorizedIntegerDecoder {
 
     public static long decodeConstLongStream(byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned){
         var values = VectorizedDecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
+
+        /** Only RLE encoding or a single not encoded value in the data stream can currently produce an ConstVector */
+        if(values.capacity() == 1){
+            var value = values.get(0);
+            return isSigned? DecodingUtils.decodeZigZag(value) : value;
+        }
+
         /** Only RLE encoding can currently produce an ConstVector */
         return isSigned? VectorizedDecodingUtils.decodeZigZagConstRLE(values.array()) :
                 VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array());
@@ -95,6 +107,10 @@ public class VectorizedIntegerDecoder {
                 VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(values);
                 return IntBuffer.wrap(values);
             case NONE:
+                //TODO: merge with varint decoding
+                if(isSigned){
+                    DecodingUtils.decodeZigZag(values);
+                }
                 return IntBuffer.wrap(values);
         }
 
@@ -128,6 +144,10 @@ public class VectorizedIntegerDecoder {
                 /** Currently no second logical level technique is used in combination with Rle */
                 return VectorizedDecodingUtils.decodeRle(values, streamMetadata, isSigned);
             case NONE:
+                //TODO: merge with varint decoding
+                if(isSigned){
+                    DecodingUtils.decodeZigZag(values);
+                }
                 return LongBuffer.wrap(values);
         }
 

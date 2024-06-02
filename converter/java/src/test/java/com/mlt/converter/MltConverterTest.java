@@ -288,7 +288,9 @@ public class MltConverterTest { ;
                     var allowSorting = false;
                     var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
                     //TODO: fix -> either add columMappings per layer or global like when creating the scheme
-                    var optimizations = Map.of("place", optimization, "water_name", optimization);
+                    var optimizations = Map.of("place", optimization, "water_name", optimization, "transportation",
+                            optimization, "transportation_name", optimization, "park", optimization, "mountain_peak",
+                            optimization, "poi", optimization, "waterway", optimization, "aerodrome_label", optimization);
                     var conversionConfig = new ConversionConfig(true, true, optimizations);
                     var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
 
