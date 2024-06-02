@@ -75,6 +75,7 @@ public class MltConverter {
                     var scalarType = getScalarType(property);
 
                     if(columnMappings.isPresent()){
+                        //TODO: refactor quick and dirty solution -> simplify that complex logic
                         if(columnMappings.get().stream().anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix())) &&
                                 !complexPropertyColumnSchemes.containsKey(mvtPropertyName)){
                             /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
@@ -82,6 +83,17 @@ public class MltConverter {
                             var childField = createScalarFieldScheme("default", true, scalarType);
                             var fieldMetadataBuilder = createComplexColumnBuilder(childField);
                             complexPropertyColumnSchemes.put(mvtPropertyName, fieldMetadataBuilder);
+                            continue;
+                        }
+                        else if(columnMappings.get().stream().anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix())) &&
+                                complexPropertyColumnSchemes.containsKey(mvtPropertyName) &&
+                                !complexPropertyColumnSchemes.get(mvtPropertyName).getChildrenList().stream().
+                                        anyMatch(c -> c.getName().equals("default"))){
+                            /** Case where the top-level field such as name is not present in the first feature*/
+                            var childField = createScalarFieldScheme("default", true, scalarType);
+                            var columnMapping = columnMappings.get().stream().
+                                    filter(m -> mvtPropertyName.equals(m.mvtPropertyPrefix())).findFirst().get();
+                            complexPropertyColumnSchemes.get(columnMapping.mvtPropertyPrefix()).addChildren(childField);
                             continue;
                         }
                         else if (columnMappings.get().stream().anyMatch(m -> mvtPropertyName.contains(m.mvtPropertyPrefix() + m.mvtDelimiterSign()))){
@@ -101,7 +113,8 @@ public class MltConverter {
                                 /* Case where there is no explicit property available which serves as the name
                                  * for the top-level field. For example there is no name property only name:* */
                                 var complexColumnBuilder = createComplexColumnBuilder(children);
-                                complexPropertyColumnSchemes.put(mvtPropertyName, complexColumnBuilder);
+                                //complexPropertyColumnSchemes.put(mvtPropertyName, complexColumnBuilder);
+                                complexPropertyColumnSchemes.put(columnName, complexColumnBuilder);
                             }
                             continue;
                         }
@@ -159,7 +172,8 @@ public class MltConverter {
             var encodedGeometryFieldMetadata = EncodingUtils.encodeVarints(new long[]{encodedGeometryColumn.getLeft()}, false, false);
             var propertyColumns = filterPropertyColumns(featureTableMetadata);
             var encodedFeatureScopedPropertyColumns = PropertyEncoder.encodePropertyColumns(propertyColumns, sortedFeatures,
-                    config.useAdvancedEncodingSchemes(), featureTableOptimizations != null? featureTableOptimizations.columnMappings() : Optional.empty());
+                    config.useAdvancedEncodingSchemes(), featureTableOptimizations != null?
+                            featureTableOptimizations.columnMappings() : Optional.empty());
 
             var encodedFeatureTableInfo = EncodingUtils.encodeVarints(new long[]{featureTableId++, mvtLayer.tileExtent(), encodedGeometryColumn.getRight(),
                     mvtFeatures.size()}, false, false);

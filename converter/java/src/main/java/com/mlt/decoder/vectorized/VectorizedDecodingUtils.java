@@ -12,6 +12,7 @@ import org.apache.orc.impl.RunLengthByteReader;
 
 import java.io.IOException;
 import java.nio.*;
+import java.util.BitSet;
 
 public class VectorizedDecodingUtils {
 
@@ -70,6 +71,28 @@ public class VectorizedDecodingUtils {
     public static ByteBuffer decodeBooleanRle(byte[] buffer, int numBooleans, IntWrapper pos) {
         var numBytes = (int)Math.ceil(numBooleans / 8d);
         return decodeByteRle(buffer, numBytes, pos);
+    }
+
+    public static ByteBuffer decodeNullableBooleanRle(byte[] buffer, int numBooleans, IntWrapper pos,
+                                                      BitVector nullabilityBuffer) {
+        //TODO: refactor quick and dirty solution -> use vectorized solution in one pass
+        var numBytes = (int)Math.ceil(numBooleans / 8d);
+        var values = decodeByteRle(buffer, numBytes, pos);
+        var bitVector = new BitVector(values, numBooleans);
+
+        var nullableBitset = new BitSet(nullabilityBuffer.size());
+        var valueCounter = 0;
+        for(var i = 0; i < nullabilityBuffer.size(); i++){
+            if(nullabilityBuffer.get(i)){
+                var value = bitVector.get(valueCounter++);
+                nullableBitset.set(i, value);
+            }
+            else{
+                nullableBitset.set(i, false);
+            }
+        }
+
+        return ByteBuffer.wrap(nullableBitset.toByteArray());
     }
 
     public static ByteBuffer decodeByteRle(byte[] buffer, int numBytesResult, IntWrapper pos) {
@@ -652,7 +675,7 @@ public class VectorizedDecodingUtils {
         var decodedData = new long[bitVector.size()];
         var dataCounter = 0;
         if(bitVector.get(0)){
-            decodedData[0] = bitVector.get(0) ? ((data[0] >>> 1) ^ ((data[0] << 31) >> 31)) : 0;
+            decodedData[0] = bitVector.get(0) ? ((data[0] >>> 1) ^ ((data[0] << 63) >> 63)) : 0;
             dataCounter = 1;
         }
         else{
@@ -831,12 +854,15 @@ public class VectorizedDecodingUtils {
             return VectorType.SEQUENCE;
         }
 
-        return VectorType.FLAT;
+        return streamMetadata.numValues() == 1? VectorType.CONST: VectorType.FLAT;
     }
 
-    public static VectorType getVectorTypeBooleanStream(int numFeatures, int byteLength) {
+    public static VectorType getVectorTypeBooleanStream(int numFeatures, int byteLength, byte[] data, IntWrapper offset) {
         var valuesPerRun = 131;
-        //TODO: use VectorType metadata field
-        return (Math.ceil(numFeatures / valuesPerRun) * 2 == byteLength) ? VectorType.CONST : VectorType.FLAT;
+        //TODO: use VectorType metadata field for to test which VectorType is used
+        return (Math.ceil((double)numFeatures / valuesPerRun) * 2 == byteLength) &&
+                /** Test the first value byte if all bits are set to true */
+                (data[offset.get() + 1] & 0xFF) == ((Integer.bitCount(numFeatures) << 2) - 1) ?
+                VectorType.CONST : VectorType.FLAT;
     }
 }

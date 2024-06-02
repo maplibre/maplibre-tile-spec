@@ -139,8 +139,20 @@ public class DecodingUtils {
         return (encoded >>> 1) ^ (-(encoded & 1));
     }
 
+    public static void decodeZigZag(int[] encoded) {
+        for(var i = 0; i < encoded.length; i++){
+            encoded[i] = decodeZigZag(encoded[i]);
+        }
+    }
+
     public static long decodeZigZag(long encoded) {
         return (encoded >>> 1) ^ (-(encoded & 1));
+    }
+
+    public static void decodeZigZag(long[] encoded) {
+        for(var i = 0; i < encoded.length; i++){
+            encoded[i] = decodeZigZag(encoded[i]);
+        }
     }
 
     //TODO: quick and dirty -> optimize for performance

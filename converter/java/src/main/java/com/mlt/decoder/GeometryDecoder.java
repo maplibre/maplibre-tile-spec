@@ -233,6 +233,8 @@ public class GeometryDecoder {
         var vertexOffsets =  geometryVector.vertexOffsets != null? geometryVector.vertexOffsets.array() :
                 null;
 
+        //TODO: get rid of that extra step
+        var containsPolygon = geometryVector.containsPolygonGeometry();
         var vertexBuffer = geometryVector.vertexBuffer.array();
         //TODO: refactor redundant code
         for(var i = 0; i < geometryVector.numGeometries; i++){
@@ -272,9 +274,16 @@ public class GeometryDecoder {
                 }
             }
             else if(geometryType == GeometryType.LINESTRING.ordinal()){
-                //TODO: when using MultiPolygon or Polygon are LineString topology written to partOffsets?
-                var numVertices = partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter-1);
+                var numVertices = 0;
+                if(containsPolygon){
+                    numVertices = ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter-1);
+                    ringOffsetsCounter++;
+                }
+                else{
+                    numVertices = partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter-1);
+                }
                 partOffsetCounter++;
+
                 Coordinate[] vertices;
                 if(vertexOffsets == null || vertexOffsets.length == 0){
                     vertices = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
@@ -288,13 +297,11 @@ public class GeometryDecoder {
                                     numVertices, false, mortonSettings);
                     vertexOffsetsOffset += numVertices;
                 }
+
                 geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
 
                 if(geometryOffsets != null){
                     geometryOffsetsCounter++;
-                }
-                if(ringOffsets != null){
-                    ringOffsetsCounter++;
                 }
             }
             else if(geometryType == GeometryType.POLYGON.ordinal()){
@@ -303,6 +310,7 @@ public class GeometryDecoder {
                 var rings = new LinearRing[numRings - 1];
                 var numVertices = ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter-1);
                 ringOffsetsCounter++;
+
                 if(vertexOffsets == null || vertexOffsets.length == 0){
                     LinearRing shell = getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
                     vertexBufferOffset += numVertices * 2;
@@ -340,18 +348,21 @@ public class GeometryDecoder {
             }
             else if(geometryType == GeometryType.MULTILINESTRING.ordinal()){
                 //TODO: increment geometryOffsets also in Point, LineString, ... when geometryOffsets is present
-                //TODO: check if when MultiPolyong or Polygon is present the numLineStrings are written to numRings
-
                 var numLineStrings = geometryOffsets.get(geometryOffsetsCounter) - geometryOffsets.get(geometryOffsetsCounter-1);
                 geometryOffsetsCounter++;
                 var lineStrings = new LineString[numLineStrings];
                 if(vertexOffsets == null || vertexOffsets.length == 0){
                     for(var j = 0; j < numLineStrings; j++){
-                        var numVertices = partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter-1);
-                        partOffsetCounter++;
-                        if(ringOffsets != null){
+                        var numVertices = 0;
+                        if(containsPolygon){
+                            numVertices = ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter-1);
                             ringOffsetsCounter++;
                         }
+                        else{
+                            numVertices = partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter-1);
+                        }
+                        partOffsetCounter++;
+
                         var vertices = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                         lineStrings[j] = geometryFactory.createLineString(vertices);
                         vertexBufferOffset += numVertices * 2;
@@ -360,12 +371,16 @@ public class GeometryDecoder {
                 }
                 else{
                     for(var j = 0; j < numLineStrings; j++){
-                        var numVertices = partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter-1);
-                        partOffsetCounter++;
-                        if(ringOffsets != null){
+                        var numVertices = 0;
+                        if(containsPolygon){
+                            numVertices = ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter-1);
                             ringOffsetsCounter++;
                         }
-                        //var vertices = decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
+                        else{
+                            numVertices = partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter-1);
+                        }
+                        partOffsetCounter++;
+
                         var vertices = geometryVector.vertexBufferType == GeometryVector.VertexBufferType.VEC_2?
                                 decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false):
                                 decodeMortonDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset,
