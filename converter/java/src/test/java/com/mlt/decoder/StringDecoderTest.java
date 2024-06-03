@@ -6,6 +6,7 @@ import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
+import com.mlt.test.constants.TestConstants;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Disabled;
@@ -19,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 
 public class StringDecoderTest {
-    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     @Test @Disabled
     public void decodeSharedDictionary_FsstDictionaryEncoded() throws IOException {
@@ -148,7 +148,7 @@ public class StringDecoderTest {
     @Test @Disabled
     public void decodeSharedDictionary_Mvt() throws IOException {
         var tileId = String.format("%s_%s_%s", 5, 16, 21);
-        var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
+        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         var layer = mvTile.layers().get(0);
@@ -179,7 +179,7 @@ public class StringDecoderTest {
     @Test
     public void decodeSharedDictionary_MvtWithNestedColumns() throws IOException {
         var tileId = String.format("%s_%s_%s", 5, 16, 21);
-        var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
+        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         var columnMapping = new ColumnMapping("name", ":", true);
@@ -237,7 +237,7 @@ public class StringDecoderTest {
     @Test
     public void decodeSharedDictionary_MvtWithNestedColumns2() throws IOException {
         var tileId = String.format("%s_%s_%s", 5, 16, 21);
-        var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
+        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         var columnMapping = new ColumnMapping("name", ":", true);

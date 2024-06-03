@@ -9,6 +9,7 @@ import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.data.MapLibreTile;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.FeatureTable;
+import com.mlt.test.constants.TestConstants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Disabled;
 import java.io.IOException;
@@ -27,7 +28,6 @@ interface TriConsumer<A,B,C> {
 }
 
 public class MltDecoderTest {
-    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     /** decode tile in an in-memory format optimized for random access */
 
@@ -272,7 +272,7 @@ public class MltDecoderTest {
     private void testTile(String tileId,
                           TriConsumer<byte[], MltTilesetMetadata.TileSetMetadata, MapboxVectorTile> decodeAndCompare)
             throws IOException {
-        var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
+        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         var columnMapping = new ColumnMapping("name", ":", true);

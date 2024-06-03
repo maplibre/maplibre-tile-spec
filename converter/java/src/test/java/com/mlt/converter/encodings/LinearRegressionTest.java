@@ -3,6 +3,7 @@ package com.mlt.converter.encodings;
 import com.mlt.converter.geometry.HilbertCurve;
 import com.mlt.converter.geometry.Vertex;
 import com.mlt.converter.mvt.MvtUtils;
+import com.mlt.test.constants.TestConstants;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -17,12 +18,11 @@ import java.util.stream.Stream;
 import static com.mlt.converter.encodings.LinearRegression.*;
 
 public class LinearRegressionTest {
-    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     @Test
     public void test() throws IOException {
         var tileId = String.format("%s_%s_%s", 5, 16, 20);
-        var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
+        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         for(var layer : mvTile.layers()){
@@ -64,7 +64,7 @@ public class LinearRegressionTest {
     @Test
     public void test2() throws IOException {
         var tileId = String.format("%s_%s_%s", 5, 16, 20);
-        var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
+        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         for(var layer : mvTile.layers()){

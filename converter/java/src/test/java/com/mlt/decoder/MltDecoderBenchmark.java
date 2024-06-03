@@ -6,6 +6,7 @@ import com.mlt.converter.MltConverter;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
+import com.mlt.test.constants.TestConstants;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -16,7 +17,6 @@ import java.util.Map;
 import java.util.Optional;
 
 public class MltDecoderBenchmark {
-    private static final String OMT_MVT_PATH = Paths.get("..","..","test","fixtures","omt","mvt").toString();
 
     @Test
     public void decodeMlTileVectorized_Z2() throws IOException {
@@ -106,7 +106,7 @@ public class MltDecoderBenchmark {
     }
 
     private void benchmarkDecoding(String tileId) throws IOException {
-        var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt" );
+        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
 
         var mvt = Files.readAllBytes(mvtFilePath);
         var mvtTimeElapsed = 0l;
