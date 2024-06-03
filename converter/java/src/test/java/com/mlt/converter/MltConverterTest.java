@@ -215,17 +215,17 @@ public class MltConverterTest { ;
     }
 
     @Test
-    public void convert_OmtTilesZ10_ValidCovTile() throws IOException {
+    public void convert_OmtTilesZ10_ValidMltTile() throws IOException {
         runOmtTests(10, 530, 533, 682, 684);
     }
 
     @Test
-    public void convert_OmtTilesZ11_ValidCovTile() throws IOException {
+    public void convert_OmtTilesZ11_ValidMltTile() throws IOException {
         runOmtTests(11, 1062, 1065, 1366, 1368);
     }
 
     @Test
-    public void convert_OmtTilesZ12_ValidCovTile() throws IOException {
+    public void convert_OmtTilesZ12_ValidMltTile() throws IOException {
         runOmtTests(12, 2130, 2134, 2733, 2734);
     }
 
