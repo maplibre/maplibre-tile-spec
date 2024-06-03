@@ -10,6 +10,7 @@ import com.mlt.data.MapLibreTile;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.FeatureTable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
