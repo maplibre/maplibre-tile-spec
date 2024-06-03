@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { MVTLayer, parseMvtTile } from "../../../src/mvtUtils";
 import { CovtDecoder } from "../../../src/decoder/covtDecoder";
+import mvtFixtures from "@mapbox/mvt-fixtures";
 import * as Path from "path";
 import { toBeDeepCloseTo, toMatchCloseTo } from "jest-matcher-deep-close-to";
 expect.extend({ toBeDeepCloseTo, toMatchCloseTo });
@@ -8,6 +9,18 @@ expect.extend({ toBeDeepCloseTo, toMatchCloseTo });
 const tilesDir = "./data";
 
 describe("CovtDecoder", () => {
+    it("should decode a simple valid tile", () => {
+        const tiles = getMvtFixtureTiles("017"); // Small valid MVT fixture
+        const tile = tiles[0];
+        const covTile = fs.readFileSync(tile.covt);
+        const covtDecoder = new CovtDecoder(covTile);
+
+        const mvtLayerNames = parseMvtTile(tile.mvt).map((l) => l.name);
+
+        expect(covtDecoder.layerNames).toBe(mvtLayerNames);
+        expect(covtDecoder.getLayerTable(mvtLayerNames[0])).toBeDefined();
+    });
+
     it.skip("should decode Amazon based tiles", async () => {
         const tiles = getTiles(Path.join(tilesDir, "amazon"));
 
@@ -83,6 +96,17 @@ function mapMvtProperties(mvtProperties: Map<string, unknown>): Map<string, unkn
     }
 
     return transformedMvtProperties;
+}
+
+function getMvtFixtureTiles(id: string): { mvt: Buffer; covt: string }[] {
+    const dir = Path.join(tilesDir, "mvt-fixtures", "017");
+    const tiles = fs.readdirSync(dir);
+    return [
+        {
+            covt: Path.join(dir, tiles.find((t) => t.endsWith(".mlt"))),
+            mvt: mvtFixtures.get(id).buffer,
+        },
+    ];
 }
 
 function getTiles(dir: string): { mvt: string; covt: string }[] {
