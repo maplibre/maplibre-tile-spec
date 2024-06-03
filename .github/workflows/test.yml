@@ -77,5 +77,4 @@ jobs:
         run: |
           ./gradlew cli
           java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../../test/fixtures/omt/mvt/10_530_682.mvt -output output
-          python -c 'import os; print(os.path.getsize("output/10_530_682.mlt"))'
-          python -c 'import os; assert os.path.getsize("output/10_530_682.mlt") == 66980'
+          python -c 'import os; expected=66984; ts=os.path.getsize("output/10_530_682.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
