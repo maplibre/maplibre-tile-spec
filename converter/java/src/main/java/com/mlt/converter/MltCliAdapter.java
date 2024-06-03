@@ -209,13 +209,13 @@ public class MltCliAdapter {
                     var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
                     var outputTileName = String.format("%s.mlt", inputTileName.split("\\.")[0]);
                     outputPath = Paths.get(outputDir, outputTileName);
-                    var outputDirPath = outputPath.getParent();
-                    if (!Files.exists(outputDirPath)) {
-                        System.out.println("Creating directory: " + outputDirPath);
-                        Files.createDirectories(outputDirPath);
-                    }
                 } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
                     outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
+                }
+                var outputDirPath = outputPath.getParent();
+                if (!Files.exists(outputDirPath)) {
+                    System.out.println("Creating directory: " + outputDirPath);
+                    Files.createDirectories(outputDirPath);
                 }
                 System.out.println("Writing converted tile to " + outputPath);
                 Files.write(outputPath, mlTile);
