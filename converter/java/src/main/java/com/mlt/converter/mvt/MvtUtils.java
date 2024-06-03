@@ -29,7 +29,7 @@ public class MvtUtils {
         return decodeMvt2(mvt);
     }
 
-    /* Ids are not present in the features -> add the ids to the feature from different decoder*/
+    /* Ids are not present in the features -> add the ids to the feature from different decoder */
     //TODO: refactor -> ids are now present in the features with the latest version
     private static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
         VectorTileDecoder mvtDecoder = new VectorTileDecoder();

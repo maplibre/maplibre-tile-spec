@@ -1,5 +1,6 @@
 package com.mlt.vector.geometry;
 
+import com.mlt.converter.geometry.GeometryType;
 import com.mlt.decoder.GeometryDecoder;
 import org.locationtech.jts.geom.Geometry;
 
@@ -85,6 +86,21 @@ public class GeometryVector implements Iterable<Geometry> {
 
     public int getGeometryType(int index){
         return geometryTypes != null? geometryTypes.get(index) : geometryType;
+    }
+
+    public boolean containsPolygonGeometry(){
+        if(geometryTypes != null){
+            for(int i = 0; i < numGeometries; i++){
+                if(geometryTypes.get(i) == GeometryType.POLYGON.ordinal() ||
+                        geometryTypes.get(i) == GeometryType.MULTIPOLYGON.ordinal()){
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return geometryType == GeometryType.POLYGON.ordinal() ||
+                geometryType == GeometryType.MULTIPOLYGON.ordinal();
     }
 
     @Override

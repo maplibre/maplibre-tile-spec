@@ -1,7 +1,16 @@
 @echo off
-echo "Compiling on windows"
-echo %cd%
-bash resources/compile
+
+IF EXIST build\Release\FsstWrapper.so (
+    echo "FsstWrapper.so exists, skipping compilation"
+    echo "  Remove ./build/Release/FsstWrapper.so to recompile"
+    echo "  Remove ./build to reconfigure & compiled"
+) ELSE (
+    echo "FsstWrapper.so does not exist, building now"
+    mkdir build
+    cd build
+    cmake ../Resources
+    cmake --build . --config Release
+)
 IF %ERRORLEVEL% EQU 0 (
     echo "Compilation successful"
     exit /b 0

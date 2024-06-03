@@ -25,9 +25,11 @@ public class GeometryEncoder {
                                                                         List<Long> featureIds) {
         var geometryTypes = new ArrayList<Integer>();
         var numGeometries = new ArrayList<Integer>();
-        List<Integer> numParts = new ArrayList<Integer>();
+        var numParts = new ArrayList<Integer>();
         var numRings = new ArrayList<Integer>();
         var vertexBuffer = new ArrayList<Vertex>();
+        var containsPolygon = geometries.stream().anyMatch(g -> g.getGeometryType().equals(Geometry.TYPENAME_MULTIPOLYGON)
+                || g.getGeometryType().equals(Geometry.TYPENAME_POLYGON));
         for(var geometry : geometries){
             var geometryType = geometry.getGeometryType();
             switch (geometryType){
@@ -43,7 +45,8 @@ public class GeometryEncoder {
                     //TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
                     geometryTypes.add(GeometryType.LINESTRING.ordinal());
                     var lineString = (LineString) geometry;
-                    numParts.add(lineString.getCoordinates().length);
+                    var numVertices = lineString.getCoordinates().length;
+                    addLineString(containsPolygon, numVertices, numParts, numRings);
                     var vertices = flatLineString(lineString);
                     vertexBuffer.addAll(vertices);
                     break;
@@ -63,7 +66,8 @@ public class GeometryEncoder {
                     numGeometries.add(numLineStrings);
                     for (var i = 0; i < numLineStrings; i++) {
                         var lineString = (LineString) multiLineString.getGeometryN(i);
-                        numParts.add(lineString.getCoordinates().length);
+                        var numVertices = lineString.getCoordinates().length;
+                        addLineString(containsPolygon, numVertices, numParts, numRings);
                         vertexBuffer.addAll(flatLineString(lineString));
                     }
                     break;
@@ -182,6 +186,16 @@ public class GeometryEncoder {
             return Triple.of(numStreams, CollectionUtils.concatByteArrays(encodedTopologyStreams, encodedMortonVertexOffsetStream,
                     encodedMortonEncodedVertexDictionaryStream), maxVertexValue);
        }
+    }
+
+    private static void addLineString(boolean containsPolygon, int numVertices, List<Integer> numParts, List<Integer> numRings){
+        /** Depending on the max geometry type in the column add to the numRings or numParts stream */
+        if(containsPolygon){
+            numRings.add(numVertices);
+        }
+        else{
+            numParts.add(numVertices);
+        }
     }
 
     private static void sortLineStrings(List<Long> featureIds, List<Integer> numParts,
