@@ -28,8 +28,6 @@ describe("CovtDecoder", () => {
 
         for (const tile of tiles) {
             console.info(tile.mlt);
-            // NB This tile is very slow (test times out), we skip it here for now
-            if (tile.mlt === "data/bing/5-16-11.mlt") continue;
             const mltTile = fs.readFileSync(tile.mlt);
             const mvtTile = fs.readFileSync(tile.mvt);
             const mvtLayers = parseMvtTile(mvtTile);
