@@ -5,19 +5,19 @@ import * as Path from "path";
 import { toBeDeepCloseTo, toMatchCloseTo } from "jest-matcher-deep-close-to";
 expect.extend({ toBeDeepCloseTo, toMatchCloseTo });
 
-const tilesDir = "./data";
+const tilesDir = "../test/fixtures";
 
 describe("CovtDecoder", () => {
     it.skip("should decode Amazon based tiles", async () => {
         const tiles = getTiles(Path.join(tilesDir, "amazon"));
 
         for (const tile of tiles) {
-            console.info(tile.covt);
-            const covTile = fs.readFileSync(tile.covt);
+            console.info(tile.mlt);
+            const mltTile = fs.readFileSync(tile.mlt);
             const mvtTile = fs.readFileSync(tile.mvt);
             const mvtLayers = parseMvtTile(mvtTile);
 
-            const covtDecoder = new CovtDecoder(covTile);
+            const covtDecoder = new CovtDecoder(mltTile);
 
             compareTiles(covtDecoder, mvtLayers, true);
         }
@@ -27,14 +27,14 @@ describe("CovtDecoder", () => {
         const tiles = getTiles(Path.join(tilesDir, "bing"));
 
         for (const tile of tiles) {
-            console.info(tile.covt);
+            console.info(tile.mlt);
             // NB This tile is very slow (test times out), we skip it here for now
-            if (tile.covt === "data/bing/5-16-11.covt") continue;
-            const covTile = fs.readFileSync(tile.covt);
+            if (tile.mlt === "data/bing/5-16-11.mlt") continue;
+            const mltTile = fs.readFileSync(tile.mlt);
             const mvtTile = fs.readFileSync(tile.mvt);
             const mvtLayers = parseMvtTile(mvtTile);
 
-            const covtDecoder = new CovtDecoder(covTile);
+            const covtDecoder = new CovtDecoder(mltTile);
 
             /* The features of Bing tiles have no ids */
             compareTiles(covtDecoder, mvtLayers, false);
@@ -45,11 +45,11 @@ describe("CovtDecoder", () => {
         const tiles = getTiles(Path.join(tilesDir, "omt"));
 
         for (const tile of tiles) {
-            const covTile = fs.readFileSync(tile.covt);
+            const mltTile = fs.readFileSync(tile.mlt);
             const mvtTile = fs.readFileSync(tile.mvt);
             const mvtLayers = parseMvtTile(mvtTile);
 
-            const covtDecoder = new CovtDecoder(covTile);
+            const covtDecoder = new CovtDecoder(mltTile);
 
             compareTiles(covtDecoder, mvtLayers);
         }
@@ -64,7 +64,7 @@ function mapMvtProperties(mvtProperties: Map<string, unknown>): Map<string, unkn
         }
 
         /* Bing Maps tiles contain id in the feature properties and the feature id is set to 0.
-         * The Java MVT decoder used for the generation of the COVTiles ignores this id while the js decoder inserts the id in the feature properties.
+         * The Java MVT decoder used for the generation of the mltTiles ignores this id while the js decoder inserts the id in the feature properties.
          * */
         if (key.includes("id")) {
             //console.info("remove id property: ", value);
@@ -85,11 +85,17 @@ function mapMvtProperties(mvtProperties: Map<string, unknown>): Map<string, unkn
     return transformedMvtProperties;
 }
 
-function getTiles(dir: string): { mvt: string; covt: string }[] {
-    const tiles = fs.readdirSync(dir).sort();
+function getTiles(dir: string): { mvt: string; mlt: string }[] {
+    const tiles = fs.readdirSync(dir)
+        .filter(file => file.endsWith('.mvt') || file.endsWith('.pbf'))
+        .sort();
     const mappedTiles = [];
     for (let i = 0; i < tiles.length; i += 2) {
-        mappedTiles.push({ covt: Path.join(dir, tiles[i]), mvt: Path.join(dir, tiles[i + 1]) });
+        const tile = tiles[i];
+        const mvtPath = Path.join(dir, tile);
+        const mltPath = Path.join(dir.replace('fixtures','expected'), tile.replace(/\.(pbf|mvt)$/,'.mlt'));
+        const tilePair = { mlt: mltPath, mvt: mvtPath };
+        mappedTiles.push(tilePair);
     }
     return mappedTiles;
 }
@@ -119,7 +125,7 @@ function compareTiles(covtDecoder: CovtDecoder, mvtLayers: MVTLayer[], compareId
 
         //console.info(covtLayerName);
 
-        /* the following layers are sorted based on the id in COVTiles */
+        /* the following layers are sorted based on the id in mltTiles */
         if (["building", "poi", "place"].indexOf(covtLayerName) !== -1) {
             mvtLayer.features.sort((a, b) => a.id - b.id);
         }
