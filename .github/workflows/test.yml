@@ -12,7 +12,7 @@ defaults:
     shell: bash
 
 jobs:
-  test-js-parser:
+  test-js:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,35 +26,6 @@ jobs:
           cache-dependency-path: 'js/package-lock.json'
       - run: npm ci
       - run: npm test
-  test-js-fsst:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'encodings/fsst/js'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/Iron'
-          cache: 'npm'
-          cache-dependency-path: '**/**/**/package-lock.json'
-      - run: npm ci
-      - run: npm run test
-  test-js-fastpfor:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'encodings/fastpfor/js'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/Iron'
-          cache: 'npm'
-          cache-dependency-path: '**/**/**/package-lock.json'
-      - run: npm ci
-      - run: npm run build
-      - run: npm run test:unit
   test-java:
     runs-on: ${{ matrix.os }}
     strategy:
