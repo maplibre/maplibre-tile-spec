@@ -12,50 +12,21 @@ defaults:
     shell: bash
 
 jobs:
-  test-js-parser:
+  test-js:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: 'parser/js'
+        working-directory: 'js'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version-file: 'parser/js/.nvmrc'
+          node-version-file: 'js/.nvmrc'
           cache: 'npm'
-          cache-dependency-path: 'parser/js/package-lock.json'
+          cache-dependency-path: 'js/package-lock.json'
       - run: npm ci
       - run: npm test
-  test-js-fsst:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'encodings/fsst/js'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/Iron'
-          cache: 'npm'
-          cache-dependency-path: '**/**/**/package-lock.json'
-      - run: npm ci
-      - run: npm run test
-  test-js-fastpfor:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'encodings/fastpfor/js'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/Iron'
-          cache: 'npm'
-          cache-dependency-path: '**/**/**/package-lock.json'
-      - run: npm ci
-      - run: npm run build
-      - run: npm run test:unit
-  test-java-converter:
+  test-java:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -63,7 +34,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
       run:
-        working-directory: 'converter/java'
+        working-directory: 'java'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -76,7 +47,7 @@ jobs:
       - name: Test running CLI
         run: |
           ./gradlew cli
-          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../../test/fixtures/omt/mvt/10_530_682.mvt -mlt output/varint.mvt
-          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../../test/fixtures/omt/mvt/10_530_682.mvt -advanced -mlt output/advanced.mvt
+          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../test/fixtures/omt/10_530_682.mvt -mlt output/varint.mvt
+          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../test/fixtures/omt/10_530_682.mvt -advanced -mlt output/advanced.mvt
           python -c 'import os; expected=66984; ts=os.path.getsize("output/varint.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
           python -c 'import os; expected=64728; ts=os.path.getsize("output/advanced.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
