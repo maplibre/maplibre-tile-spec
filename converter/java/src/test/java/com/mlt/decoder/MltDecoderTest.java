@@ -10,6 +10,7 @@ import com.mlt.data.MapLibreTile;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.FeatureTable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -128,10 +129,11 @@ public class MltDecoderTest {
 
     /** Decode tiles in an in-memory format optimized for sequential access */
 
-    @Test
+    @Test @Disabled
+    // org.opentest4j.AssertionFailedError: expected: <san pauro> but was: <null>
     public void decodeMlTile_Z2() throws IOException {
         var tileId = String.format("%s_%s_%s", 2, 2, 2);
-        //testTileSequential(tileId);
+        testTileSequential(tileId);
     }
 
     @Test
@@ -152,16 +154,18 @@ public class MltDecoderTest {
         testTileSequential(tileId2);
     }
 
-    @Test
+    @Test @Disabled
+    // org.opentest4j.AssertionFailedError: expected: <1> but was: <2>
     public void decodeMlTile_Z6() throws IOException {
         var tileId = String.format("%s_%s_%s", 6, 32, 41);
-        //testTileSequential(tileId);
+        testTileSequential(tileId);
     }
 
-    @Test
+    @Test @Disabled
+    // java.lang.IllegalArgumentException: Invalid number of points in LineString (found 1 - must be 0 or >= 2)
     public void decodeMlTile_Z14() throws IOException {
         var tileId = String.format("%s_%s_%s", 14, 8298, 10748);
-        //testTileSequential(tileId);
+        testTileSequential(tileId);
     }
 
     private void testTileVectorized(String tileId) throws IOException {
