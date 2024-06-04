@@ -1,8 +1,7 @@
-import test from 'ava';
 import * as varint from 'varint';
 
-import { FastPFOR } from '../../index';
-import { arraycopy } from '../../util';
+import { FastPFOR } from '../../../../src/encodings/fastpfor/index';
+import { arraycopy } from '../../../../src/encodings/fastpfor/util';
 
 const FastPFOR_Raw_Test1: number[] = [ 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ];
 const FastPFOR_Raw_Test2: Uint32Array = new Uint32Array([ 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ]);
@@ -36,53 +35,55 @@ function decodeArray(buffer: Buffer) {
   }
 }
 
-test("VarInt compress", (t) => {
-  var bytes = encodeArray(FastPFOR_Raw_Test1);
-  decodeArray(bytes);
+describe("FastPFor", () => {
+  it("VarInt compress", async () => {
+    var bytes = encodeArray(FastPFOR_Raw_Test1);
+    decodeArray(bytes);
 
-  t.deepEqual(new Uint32Array(FastPFOR_Raw_Test1), numbers);
-})
-test("FastPFOR decompress (Test 1)", (t) => {
-  let core = FastPFOR.default();
+    expect(new Uint32Array(FastPFOR_Raw_Test1)).toEqual(numbers);
+  })
+  it("FastPFOR decompress (Test 1)", async () => {
+    let core = FastPFOR.default();
 
-  var output = new Uint32Array(FastPFOR_Raw_Test1.length);
+    var output = new Uint32Array(FastPFOR_Raw_Test1.length);
 
-  let model = {
-    input: FastPFOR_Compressed_Test1,
-    inpos: 0,
-    output: output,
-    outpos: 0,
-    inlength: FastPFOR_Compressed_Test1.length,
-  };
-  core.uncompress(model);
+    let model = {
+      input: FastPFOR_Compressed_Test1,
+      inpos: 0,
+      output: output,
+      outpos: 0,
+      inlength: FastPFOR_Compressed_Test1.length,
+    };
+    core.uncompress(model);
 
-  var SmallInput: Uint32Array = new Uint32Array(model.outpos);
-  var SmallOutput: Uint32Array = new Uint32Array(model.outpos);
+    var SmallInput: Uint32Array = new Uint32Array(model.outpos);
+    var SmallOutput: Uint32Array = new Uint32Array(model.outpos);
 
-  arraycopy(new Uint32Array(FastPFOR_Raw_Test1), 0, SmallInput, 0, model.outpos);
-  arraycopy(output, 0, SmallOutput, 0, model.outpos);
+    arraycopy(new Uint32Array(FastPFOR_Raw_Test1), 0, SmallInput, 0, model.outpos);
+    arraycopy(output, 0, SmallOutput, 0, model.outpos);
 
-  t.deepEqual(SmallOutput, SmallInput);
-});
-test("FastPFOR decompress (Test 2)", (t) => {
-  let core = FastPFOR.default();
+    expect(SmallOutput).toEqual(SmallInput);
+  });
+  it("FastPFOR decompress (Test 2)", async () => {
+    let core = FastPFOR.default();
 
-  var output = new Uint32Array(FastPFOR_Raw_Test2.length);
+    var output = new Uint32Array(FastPFOR_Raw_Test2.length);
 
-  let model = {
-    input: FastPFOR_Compressed_Test2,
-    inpos: 0,
-    output: output,
-    outpos: 0,
-    inlength: FastPFOR_Compressed_Test2.length,
-  };
-  core.uncompress(model);
+    let model = {
+      input: FastPFOR_Compressed_Test2,
+      inpos: 0,
+      output: output,
+      outpos: 0,
+      inlength: FastPFOR_Compressed_Test2.length,
+    };
+    core.uncompress(model);
 
-  var SmallInput = new Uint32Array(model.outpos);
-  var SmallOutput = new Uint32Array(model.outpos);
+    var SmallInput = new Uint32Array(model.outpos);
+    var SmallOutput = new Uint32Array(model.outpos);
 
-  arraycopy(FastPFOR_Raw_Test2, 0, SmallInput, 0, model.outpos);
-  arraycopy(output, 0, SmallOutput, 0, model.outpos);
+    arraycopy(FastPFOR_Raw_Test2, 0, SmallInput, 0, model.outpos);
+    arraycopy(output, 0, SmallOutput, 0, model.outpos);
 
-  t.deepEqual(SmallOutput, SmallInput);
+    expect(SmallOutput).toEqual(SmallInput);
+  });
 });

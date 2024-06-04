@@ -1,6 +1,4 @@
-import test from 'ava';
-
-import { fastunpack } from '../../bitpacking'
+import { fastunpack } from '../../../../src/encodings/fastpfor/bitpacking'
 
 const Bitpacking_Raw_Test1: Uint32Array = new Uint32Array([ 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4 ]);
 const Bitpacking_Raw_Test2: Uint32Array = new Uint32Array([ 6, 3, 1, 15, 6, 8, 3, 4, 2, 1, 6, 8, 2, 5, 6, 7, 3, 1, 8, 0, 9, 12, 15, 3, 14, 15, 11, 1, 6, 9, 2, 1 ]);
@@ -10,18 +8,20 @@ const Bitpacking_Packed_Test2: Uint32Array = new Uint32Array([ -798522266, 60556
 const Bitpacking_Packed_Test3: Uint32Array = new Uint32Array([ -2124286322, 1138388197, 431178372, 1601565263, 550395364, 1834452008 ]);
 
 
-test("Bitpacking unpacking (Test 1)", (t) => {
-  let packed = new Uint32Array(Bitpacking_Raw_Test1.length);
-  fastunpack(Bitpacking_Packed_Test1, 0, packed, 0, 3);
-  t.deepEqual(Bitpacking_Raw_Test1, packed);
-});
-test("Bitpacking unpacking (Test 2)", (t) => {
-  let packed = new Uint32Array(Bitpacking_Raw_Test2.length);
-  fastunpack(Bitpacking_Packed_Test2, 0, packed, 0, 5);
-  t.deepEqual(Bitpacking_Raw_Test2, packed);
-});
-test("Bitpacking unpacking (Test 3)", (t) => {
-  let packed = new Uint32Array(Bitpacking_Raw_Test3.length);
-  fastunpack(Bitpacking_Packed_Test3, 0, packed, 0, 6);
-  t.deepEqual(Bitpacking_Raw_Test3, packed);
-});
+describe("Bitpacking", () => {
+  it("Bitpacking unpacking (Test 1)", async () => {
+    let packed = new Uint32Array(Bitpacking_Raw_Test1.length);
+    fastunpack(Bitpacking_Packed_Test1, 0, packed, 0, 3);
+    expect(Bitpacking_Raw_Test1).toEqual(packed);
+  });
+  it("Bitpacking unpacking (Test 2)", async () => {
+    let packed = new Uint32Array(Bitpacking_Raw_Test2.length);
+    fastunpack(Bitpacking_Packed_Test2, 0, packed, 0, 5);
+    expect(Bitpacking_Raw_Test2).toEqual(packed);
+  });
+  it("Bitpacking unpacking (Test 3)", async () => {
+    let packed = new Uint32Array(Bitpacking_Raw_Test3.length);
+    fastunpack(Bitpacking_Packed_Test3, 0, packed, 0, 6);
+    expect(Bitpacking_Raw_Test3).toEqual(packed);
+  });
+})

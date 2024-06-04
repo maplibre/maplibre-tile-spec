@@ -1,4 +1,4 @@
-import { decodeFsst } from "../src";
+import { decodeFsst } from "../../../src/encodings/fsst";
 
 describe("DecodeFsst", (): void => {
     const expectedOutput: string = "AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC";
