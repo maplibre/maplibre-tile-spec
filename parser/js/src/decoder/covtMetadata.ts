@@ -29,8 +29,8 @@ export enum ColumnEncoding {
 }
 
 export interface ColumnMetadata {
-    columnName: string;
-    columnType: ColumnDataType;
+    name: string;
+    type: ColumnDataType;
     columnEncoding: ColumnEncoding;
     streams: Map<string, StreamMetadata>;
 }

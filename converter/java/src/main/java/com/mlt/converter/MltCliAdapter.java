@@ -17,6 +17,7 @@ import com.mlt.data.MapLibreTile;
 import com.mlt.converter.mvt.MapboxVectorTile;
 
 
+import java.io.FileOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
@@ -205,12 +206,15 @@ public class MltCliAdapter {
             timer.stop("encoding");
             if (willOutput) {
                 Path outputPath = null;
+                Path outputMetadataPath = null;
                 if (cmd.hasOption(OUTPUT_DIR_ARG)) {
                     var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
                     var outputTileName = String.format("%s.mlt", inputTileName.split("\\.")[0]);
                     outputPath = Paths.get(outputDir, outputTileName);
+                    outputMetadataPath = Paths.get(outputDir, outputTileName + ".pbf");
                 } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
                     outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
+                    outputMetadataPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG) + ".pbf");
                 }
                 var outputDirPath = outputPath.getParent();
                 if (!Files.exists(outputDirPath)) {
@@ -219,6 +223,10 @@ public class MltCliAdapter {
                 }
                 System.out.println("Writing converted tile to " + outputPath);
                 Files.write(outputPath, mlTile);
+
+                // TODO confirm this is ok
+                FileOutputStream metadataOutputStream = new FileOutputStream(outputMetadataPath.toString());
+                tileMetadata.writeTo(metadataOutputStream);
             }
             if (willPrintMVT) {
                 printMVT(decodedMvTile);
