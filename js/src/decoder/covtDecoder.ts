@@ -14,9 +14,10 @@ import {
     decodeZigZagVarint,
 } from "./decodingUtils";
 import { GeometryColumn, LayerTable, PropertyColumn } from "./layerTable";
-import { ColumnDataType, ColumnEncoding, ColumnMetadata, LayerMetadata, StreamMetadata } from "./covtMetadata";
+import { ColumnDataType, ColumnEncoding, ColumnMetadata, LayerMetadata } from "./covtMetadata";
 import { TileSetMetadata } from "./mlt_tileset_metadata_pb";
 import { GeometryType } from "./geometry";
+// import { decodeStreamMetadata, StreamMetadata } from "./streamMetadata";
 import ieee754 from "ieee754";
 
 export class CovtDecoder {
@@ -31,60 +32,52 @@ export class CovtDecoder {
     private readonly layerTables = new Map<string, LayerTable>();
 
     constructor(private readonly covTile: Uint8Array, private readonly tilesetMetadata: TileSetMetadata) {
-        const { version, numLayers, offset: layerHeaderOffset } = this.decodeFileHeader(covTile);
+        let offset = 0;
+        const mltLayers = [];
 
-        let offset = layerHeaderOffset;
-        for (let i = 0; i < numLayers; i++) {
-            const { layerMetadata, offset: layerDataOffset } = this.decodeLayerHeader(covTile, offset);
-            const { name: layerName, numFeatures, numColumns, columnMetadata } = layerMetadata;
-
-            let idColumn;
-            offset = layerDataOffset;
-            if (columnMetadata[0].columnName === CovtDecoder.ID_COLUMN_NAME) {
-                const idMetadata = columnMetadata.shift();
-                /* This solution is limited to 53 bits but this is also the case in the mapbox vector-tile-js lib */
-                const [ids, geometryOffset] = this.decodeIdColumn(
-                    covTile,
-                    offset,
-                    numFeatures,
-                    idMetadata.columnEncoding,
-                );
-                idColumn = ids;
-
-                offset = geometryOffset;
-            }
-
-            const geometryMetadata = columnMetadata.shift();
-            if (geometryMetadata.columnName !== CovtDecoder.GEOMETRY_COLUMN_NAME) {
-                throw new Error(
-                    "The geometry column has to be the first or second column in the file depending on the presence ot the id column.",
-                );
-            }
-
-            const { geometryColumn, offset: nextOffset } = this.decodeGeometryColumn(
-                covTile,
-                offset,
+        // TODO just getting the first layer for now since decoding more than
+        // that will require getting the offset correct
+        while (offset === 0 /* < covTile.length */) {
+            const {
+                version,
+                featureTableId,
                 numFeatures,
-                geometryMetadata,
-            );
-            offset = nextOffset;
+                offset: layerHeaderOffset
+            } = this.decodeLayerHeader(covTile);
+            offset = layerHeaderOffset;
 
-            const propertyColumns = new Map<string, PropertyColumn>();
-            for (const columnMetadata of layerMetadata.columnMetadata) {
-                const { data: properties, offset: nextColumnOffset } = this.decodePropertyColumn(
-                    covTile,
-                    offset,
-                    columnMetadata,
-                    numFeatures,
-                );
-                propertyColumns.set(columnMetadata.columnName, properties);
+            const metadata = tilesetMetadata.featureTables[featureTableId];
+            for (const column of metadata.columns) {
+                const columnName = column.name;
+                const [numStreams, numStreamsOffset] = decodeVarint(covTile, offset);
+                offset = numStreamsOffset;
 
-                offset = nextColumnOffset;
+                if (columnName === CovtDecoder.ID_COLUMN_NAME) {
+                    if(numStreams === 2){
+                        // TODO
+                        // const [presentStreamMetadata, presentStreamMetadataOffset] = decodeStreamMetadata(covTile, offset);
+                        // offset = presentStreamMetadataOffset;
+
+                        // const presentStream = decodeBooleanRle(covTile, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
+                    }
+
+                    // TODO
+                }
+                else if (columnName === CovtDecoder.GEOMETRY_COLUMN_NAME) {
+                    // TODO
+                }
+                else {
+                    // TODO
+                }
             }
 
-            const layer = new LayerTable(layerMetadata, idColumn, geometryColumn, propertyColumns);
-            this.layerTables.set(layerName, layer);
+            // TODO convertToLayer
+            mltLayers.push({ version, numFeatures, featureTableId, metadata });
         }
+
+        // TODO since layerTables is empty, tests pass as there are no layers to
+        // compare
+        console.log(mltLayers);
     }
 
     get layerNames(): string[] {
@@ -95,55 +88,24 @@ export class CovtDecoder {
         return this.layerTables.get(layerName);
     }
 
-    private decodeFileHeader(buffer: Uint8Array): { version: number; numLayers: number; offset: number } {
-        const [version, numLayersOffset] = decodeVarint(buffer, 0);
-        const [numLayers, offset] = decodeVarint(buffer, numLayersOffset);
-        return { version, numLayers, offset };
-    }
+    private decodeLayerHeader(buffer: Uint8Array): { version: number; featureTableId: number; tileExtent: number; maxTileExtent: number; numFeatures: number; offset: number } {
+        let nextOffset = 0;
+        let version, featureTableId, tileExtent, maxTileExtent, numFeatures;
 
-    private decodeLayerHeader(buffer: Uint8Array, offset: number): { layerMetadata: LayerMetadata; offset: number } {
-        /*
-         * -> LayerHeader -> LayerName, NumFeatures, NumColumns, ColumnMetadata[]
-         * -> ColumnMetadata -> ColumnName, DataType, ColumnEncoding, numStreams, GeometryMetadata | PrimitiveTypeMetadata | StringDictionaryMetadata | LocalizedStringDictionaryMetadata
-         * -> StreamMetadata -> StreamName, NumValues, ByteLength
-         * -> IdMetadata -> PrimitiveTypeMetadata -> StreamMetadata[1]
-         * -> GeometryMetadata -> StreamMetadata[max 6],
-         * -> PrimitiveTypeMetadata -> StreamMetadata[2]
-         * -> StringDictionaryMetadata -> StreamMetadata[4]
-         * -> LocalizedStringDictionaryMetadata -> StreamMetadata[n]
-         * */
+        [version, nextOffset] = decodeVarint(buffer, nextOffset);
+        [featureTableId, nextOffset] = decodeVarint(buffer, nextOffset);
+        [tileExtent, nextOffset] = decodeVarint(buffer, nextOffset);
+        [maxTileExtent, nextOffset] = decodeVarint(buffer, nextOffset);
+        [numFeatures, nextOffset] = decodeVarint(buffer, nextOffset);
 
-        const [layerName, numFeaturesOffset] = decodeStringField(buffer, offset);
-        const [numFeatures, numColumnsOffset] = decodeVarint(buffer, numFeaturesOffset);
-        const [numColumns, layerMetadataOffset]: [value: number, offset: number] = decodeVarint(
-            buffer,
-            numColumnsOffset,
-        );
-
-        const columnMetadata: ColumnMetadata[] = [];
-        let metadataOffset = layerMetadataOffset;
-        for (let i = 0; i < numColumns; i++) {
-            const [columnName, numStreamsOffset] = decodeStringField(buffer, metadataOffset);
-            metadataOffset = numStreamsOffset;
-            const columnType: ColumnDataType = buffer[metadataOffset++];
-            const columnEncoding: ColumnEncoding = buffer[metadataOffset++];
-            const [numStreams, streamMetadataOffset] = decodeVarint(buffer, metadataOffset);
-            metadataOffset = streamMetadataOffset;
-
-            const streams = new Map<string, StreamMetadata>();
-            for (let j = 0; j < numStreams; j++) {
-                const [name, numValuesOffset] = decodeStringField(buffer, metadataOffset);
-                const [numValues, streamByteLengthOffset] = decodeVarint(buffer, numValuesOffset);
-                const [byteLength, nextStreamOffset] = decodeVarint(buffer, streamByteLengthOffset);
-                streams.set(name, { numValues, byteLength });
-                metadataOffset = nextStreamOffset;
-            }
-
-            columnMetadata.push({ columnName, columnType, columnEncoding, streams });
-        }
-
-        const layerMetadata = { name: layerName, numFeatures, numColumns, columnMetadata };
-        return { layerMetadata, offset: metadataOffset };
+        return {
+            version,
+            featureTableId,
+            tileExtent,
+            maxTileExtent,
+            numFeatures,
+            offset: nextOffset
+        };
     }
 
     private decodeIdColumn(
