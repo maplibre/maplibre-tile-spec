@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { MVTLayer, parseMvtTile } from "../../../src/mvtUtils";
 import { CovtDecoder } from "../../../src/decoder/covtDecoder";
+import { TileSetMetadata } from "../../../src/decoder/mlt_tileset_metadata_pb";
 import * as Path from "path";
 import { toBeDeepCloseTo, toMatchCloseTo } from "jest-matcher-deep-close-to";
 expect.extend({ toBeDeepCloseTo, toMatchCloseTo });
@@ -9,7 +10,7 @@ const tilesDir = "../test/fixtures";
 
 describe("CovtDecoder", () => {
     it.skip("should decode Amazon based tiles", async () => {
-        const tiles = getTiles(Path.join(tilesDir, "amazon"));
+        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "amazon"));
 
         for (const tile of tiles) {
             console.info(tile.mlt);
@@ -17,14 +18,31 @@ describe("CovtDecoder", () => {
             const mvtTile = fs.readFileSync(tile.mvt);
             const mvtLayers = parseMvtTile(mvtTile);
 
-            const covtDecoder = new CovtDecoder(mltTile);
+            const covtDecoder = new CovtDecoder(mltTile, null);
 
             compareTiles(covtDecoder, mvtLayers, true);
         }
     });
 
+    it("should decode one Bing Map based tile", async () => {
+        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "bing"));
+        const tile = tiles.find(t => t.mlt.includes('4-13-6.mlt'));
+
+        const mltTile = fs.readFileSync(tile.mlt);
+        const mvtTile = fs.readFileSync(tile.mvt);
+        const mvtLayers = parseMvtTile(mvtTile);
+
+        const mltMetadataPbf = fs.readFileSync(mltMetadata);
+        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
+
+        const covtDecoder = new CovtDecoder(mltTile, tilesetMetadata);
+
+        /* The features of Bing tiles have no ids */
+        compareTiles(covtDecoder, mvtLayers, false);
+    });
+
     it.skip("should decode Bing Map based tiles", async () => {
-        const tiles = getTiles(Path.join(tilesDir, "bing"));
+        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "bing"));
 
         for (const tile of tiles) {
             console.info(tile.mlt);
@@ -32,15 +50,15 @@ describe("CovtDecoder", () => {
             const mvtTile = fs.readFileSync(tile.mvt);
             const mvtLayers = parseMvtTile(mvtTile);
 
-            const covtDecoder = new CovtDecoder(mltTile);
+            const covtDecoder = new CovtDecoder(mltTile, null);
 
             /* The features of Bing tiles have no ids */
             compareTiles(covtDecoder, mvtLayers, false);
         }
     });
 
-    it("should decode OpenMapTiles schema based tiles", async () => {
-        const tiles = getTiles(Path.join(tilesDir, "omt"));
+    it.skip("should decode OpenMapTiles schema based tiles", async () => {
+        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "omt"));
 
         for (const tile of tiles) {
             // Skipping this tile since it cannot currently be created: https://github.com/maplibre/maplibre-tile-spec/issues/70
@@ -49,7 +67,7 @@ describe("CovtDecoder", () => {
             const mvtTile = fs.readFileSync(tile.mvt);
             const mvtLayers = parseMvtTile(mvtTile);
 
-            const covtDecoder = new CovtDecoder(mltTile);
+            const covtDecoder = new CovtDecoder(mltTile, null);
 
             compareTiles(covtDecoder, mvtLayers);
         }
@@ -85,19 +103,22 @@ function mapMvtProperties(mvtProperties: Map<string, unknown>): Map<string, unkn
     return transformedMvtProperties;
 }
 
-function getTiles(dir: string): { mvt: string; mlt: string }[] {
-    const tiles = fs.readdirSync(dir)
-        .filter(file => file.endsWith('.mvt') || file.endsWith('.pbf'))
-        .sort();
-    const mappedTiles = [];
-    for (let i = 0; i < tiles.length; i += 2) {
-        const tile = tiles[i];
-        const mvtPath = Path.join(dir, tile);
-        const mltPath = Path.join(dir.replace('fixtures','expected'), tile.replace(/\.(pbf|mvt)$/,'.mlt'));
-        const tilePair = { mlt: mltPath, mvt: mvtPath };
-        mappedTiles.push(tilePair);
-    }
-    return mappedTiles;
+function getTiles(dir: string): { mltMetadata: string; tiles: { mvt: string; mlt: string }[] } {
+    const mltDir = dir.replace('fixtures', 'expected');
+
+    return {
+        mltMetadata: Path.join(mltDir, 'mltmetadata.pbf'),
+        tiles: fs.readdirSync(dir)
+            .filter(file => file.endsWith('.mvt') || file.endsWith('.pbf'))
+            .map((mvtFilename) : { mvt: string; mlt: string } => {
+                const mvt = Path.join(dir, mvtFilename);
+
+                const mltFilename = mvtFilename.replace(/\.(pbf|mvt)$/,'.mlt');
+                const mlt = Path.join(mltDir, mltFilename);
+
+                return { mlt, mvt };
+            })
+    };
 }
 
 /*

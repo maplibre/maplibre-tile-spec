@@ -15,6 +15,7 @@ import {
 } from "./decodingUtils";
 import { GeometryColumn, LayerTable, PropertyColumn } from "./layerTable";
 import { ColumnDataType, ColumnEncoding, ColumnMetadata, LayerMetadata, StreamMetadata } from "./covtMetadata";
+import { TileSetMetadata } from "./mlt_tileset_metadata_pb";
 import { GeometryType } from "./geometry";
 import ieee754 from "ieee754";
 
@@ -29,7 +30,7 @@ export class CovtDecoder {
 
     private readonly layerTables = new Map<string, LayerTable>();
 
-    constructor(private readonly covTile: Uint8Array) {
+    constructor(private readonly covTile: Uint8Array, private readonly tilesetMetadata: TileSetMetadata) {
         const { version, numLayers, offset: layerHeaderOffset } = this.decodeFileHeader(covTile);
 
         let offset = layerHeaderOffset;
