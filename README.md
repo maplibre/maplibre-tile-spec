@@ -47,7 +47,8 @@ In the following, the size of MLT and MVT files are compared based on a selected
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally
+Unless you explicitly state otherwise, any code contribution intentionally
 submitted for inclusion in the work by you, as defined in the
 Apache-2.0 license, shall be dual licensed as above, without any
-additional terms or conditions.
+additional terms or conditions. Similarly, any documentation or specification
+contributions shall be licensed under CC0 1.0 Universal.
