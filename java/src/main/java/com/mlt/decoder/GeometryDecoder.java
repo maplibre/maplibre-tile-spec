@@ -11,7 +11,7 @@ import org.locationtech.jts.geom.*;
 
 public class GeometryDecoder {
 
-  record GeometryColumn(
+  public record GeometryColumn(
       List<Integer> geometryTypes,
       List<Integer> numGeometries,
       List<Integer> numParts,
@@ -412,8 +412,6 @@ public class GeometryDecoder {
           geometryOffsetsCounter++;
         }
       } else if (geometryType == GeometryType.MULTILINESTRING.ordinal()) {
-        // TODO: increment geometryOffsets also in Point, LineString, ... when geometryOffsets is
-        // present
         var numLineStrings =
             geometryOffsets.get(geometryOffsetsCounter)
                 - geometryOffsets.get(geometryOffsetsCounter - 1);
@@ -479,8 +477,8 @@ public class GeometryDecoder {
                 partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter - 1);
             partOffsetCounter++;
             var rings = new LinearRing[numRings - 1];
-            numVertices +=
-                (ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter - 1));
+            numVertices =
+                ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter - 1);
             ringOffsetsCounter++;
             LinearRing shell =
                 getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
@@ -489,9 +487,9 @@ public class GeometryDecoder {
               var numRingVertices =
                   ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter - 1);
               ringOffsetsCounter++;
-              rings[j] =
+              rings[k] =
                   getLinearRing(vertexBuffer, vertexBufferOffset, numRingVertices, geometryFactory);
-              vertexBufferOffset += numVertices * 2;
+              vertexBufferOffset += numRingVertices * 2;
             }
 
             polygons[j] = geometryFactory.createPolygon(shell, rings);
@@ -503,8 +501,8 @@ public class GeometryDecoder {
                 partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter - 1);
             partOffsetCounter++;
             var rings = new LinearRing[numRings - 1];
-            numVertices +=
-                (ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter - 1));
+            numVertices =
+                ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter - 1);
             ringOffsetsCounter++;
             var shell =
                 geometryVector.vertexBufferType == GeometryVector.VertexBufferType.VEC_2
@@ -526,7 +524,7 @@ public class GeometryDecoder {
               numVertices =
                   (ringOffsets.get(ringOffsetsCounter) - ringOffsets.get(ringOffsetsCounter - 1));
               ringOffsetsCounter++;
-              rings[j] =
+              rings[k] =
                   geometryVector.vertexBufferType == GeometryVector.VertexBufferType.VEC_2
                       ? decodeDictionaryEncodedLinearRing(
                           vertexBuffer,
@@ -545,8 +543,8 @@ public class GeometryDecoder {
             }
 
             polygons[j] = geometryFactory.createPolygon(shell, rings);
-            geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
           }
+          geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
         }
       } else {
         throw new IllegalArgumentException(
@@ -590,22 +588,17 @@ public class GeometryDecoder {
 
   private static Coordinate[] getLineString(
       int[] vertexBuffer, int startIndex, int numVertices, boolean closeLineString) {
-    try {
-      var vertices = new Coordinate[closeLineString ? numVertices + 1 : numVertices];
-      for (var i = 0; i < numVertices * 2; i += 2) {
-        var x = vertexBuffer[startIndex + i];
-        var y = vertexBuffer[startIndex + i + 1];
-        vertices[i / 2] = new Coordinate(x, y);
-      }
-
-      if (closeLineString) {
-        vertices[vertices.length - 1] = vertices[0];
-      }
-      return vertices;
-    } catch (Exception e) {
-      e.printStackTrace();
-      return null;
+    var vertices = new Coordinate[closeLineString ? numVertices + 1 : numVertices];
+    for (var i = 0; i < numVertices * 2; i += 2) {
+      var x = vertexBuffer[startIndex + i];
+      var y = vertexBuffer[startIndex + i + 1];
+      vertices[i / 2] = new Coordinate(x, y);
     }
+
+    if (closeLineString) {
+      vertices[vertices.length - 1] = vertices[0];
+    }
+    return vertices;
   }
 
   private static Coordinate[] decodeDictionaryEncodedLineString(
