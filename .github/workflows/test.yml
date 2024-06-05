@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 defaults:
@@ -29,7 +28,6 @@ jobs:
   test-java:
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     defaults:
@@ -51,3 +49,13 @@ jobs:
           java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../test/fixtures/omt/10_530_682.mvt -advanced -mlt output/advanced.mvt
           python -c 'import os; expected=66984; ts=os.path.getsize("output/varint.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
           python -c 'import os; expected=64728; ts=os.path.getsize("output/advanced.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+  # This final step is needed to mark the whole workflow as successful
+  done:
+    # Don't change its name - it is used by the merge protection rules
+    name: CI Finished
+    runs-on: ubuntu-latest
+    # List of all the other jobs that must pass for this job to start
+    needs: [ test-java, test-js ]
+    steps:
+      - name: Finished
+        run: echo "CI finished successfully"
