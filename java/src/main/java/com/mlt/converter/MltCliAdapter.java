@@ -121,6 +121,7 @@ public class MltCliAdapter {
     private static final String FILE_NAME_ARG = "mvt";
     private static final String OUTPUT_DIR_ARG = "dir";
     private static final String OUTPUT_FILE_ARG = "mlt";
+    private static final String INCLUDE_TILESET_METADATA_OPTION = "metadata";
     private static final String ADVANCED_ENCODING_OPTION = "advanced";
     private static final String DECODE_OPTION = "decode";
     private static final String PRINT_MLT_OPTION = "printmlt";
@@ -141,6 +142,11 @@ public class MltCliAdapter {
         options.addOption(Option.builder(OUTPUT_FILE_ARG)
             .hasArg(true)
             .desc("Output file to write an MLT file to ([OPTIONAL], default: no file is written)")
+            .required(false)
+            .build());
+        options.addOption(Option.builder(INCLUDE_TILESET_METADATA_OPTION)
+            .hasArg(false)
+            .desc("Include tileset metadata in the output ([OPTIONAL], default: false)")
             .required(false)
             .build());
         options.addOption(Option.builder(ADVANCED_ENCODING_OPTION)
@@ -179,6 +185,7 @@ public class MltCliAdapter {
                 throw new ParseException("Cannot specify both '-" + OUTPUT_FILE_ARG + "' and '-" + OUTPUT_DIR_ARG + "' options");
             }
             var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
+            var willIncludeTilesetMetadata = cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION);
             var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
             var willDecode = cmd.hasOption(DECODE_OPTION);
             var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
@@ -219,6 +226,12 @@ public class MltCliAdapter {
                 }
                 System.out.println("Writing converted tile to " + outputPath);
                 Files.write(outputPath, mlTile);
+
+                if (willIncludeTilesetMetadata) {
+                    Path outputMetadataPath = Paths.get(outputPath.toString() + ".meta.pbf");
+                    System.out.println("Writing metadata to " + outputMetadataPath);
+                    tileMetadata.writeTo(Files.newOutputStream(outputMetadataPath));
+                }
             }
             if (willPrintMVT) {
                 printMVT(decodedMvTile);
