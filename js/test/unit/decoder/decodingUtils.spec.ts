@@ -4,6 +4,7 @@ import {
     isBitSet,
     decodeUint32Rle,
     decodeInt64Rle,
+    decodeString,
 } from "../../../src/decoder/decodingUtils";
 
 describe("decode", () => {
@@ -112,29 +113,47 @@ describe("decode", () => {
         });
     });
 
-    /*describe("decodeString", () => {
-        it("should decode string", () => {
+    describe("decodeString", () => {
+        it("should decode short string", () => {
             const expectedValue = "Test";
-            const utf8EncodedValue = new TextEncoder().encode(expectedValue);
-            const buffer = new Uint8Array([expectedValue.length, ...utf8EncodedValue]);
-
-            const [actualValue, offset] = decodeString(buffer, 0);
-
-            expect(offset).toBe(expectedValue.length + 1);
-            expect(actualValue).toBe(expectedValue);
+            const buffer = new TextEncoder().encode(expectedValue);
+            const offset = 0;
+            const actualValue = decodeString(buffer, offset, buffer.length);
+            expect(actualValue).toEqual(expectedValue);
         });
 
-        it("should decode string with offset", () => {
+        it("should decode longer string", () => {
+            const expectedValue = "Test String that is longer that 12 bytes";
+            const buffer = new TextEncoder().encode(expectedValue);
+            const offset = 0;
+            const actualValue = decodeString(buffer, offset, buffer.length);
+            expect(actualValue).toEqual(expectedValue);
+        });
+
+        it("should decode short string with offset", () => {
             const expectedValue = "Test";
             const utf8EncodedValue = new TextEncoder().encode(expectedValue);
             const buffer = new Uint8Array([0, 0, expectedValue.length, ...utf8EncodedValue]);
 
-            const [actualValue, offset] = decodeString(buffer, 2);
-
-            expect(offset).toBe(expectedValue.length + 3);
-            expect(actualValue).toBe(expectedValue);
+            const offset = 3;
+            expect(buffer.length).toEqual(expectedValue.length + offset);
+            const endOffset = buffer.length;
+            const actualValue = decodeString(buffer, offset, endOffset);
+            expect(actualValue).toEqual(expectedValue);
         });
-    });*/
+
+        it("should decode longer string with offset", () => {
+            const expectedValue = "Test String that is longer that 12 bytes";
+            const utf8EncodedValue = new TextEncoder().encode(expectedValue);
+            const buffer = new Uint8Array([0, 0, expectedValue.length, ...utf8EncodedValue]);
+
+            const offset = 3;
+            expect(buffer.length).toEqual(expectedValue.length + offset);
+            const endOffset = buffer.length;
+            const actualValue = decodeString(buffer, offset, endOffset);
+            expect(actualValue).toEqual(expectedValue);
+        });
+    });
 });
 
 function convertBigInt64ArrayToNumberArray(bigIntArray): number[] {
