@@ -219,7 +219,7 @@ public class MltCliAdapter {
                 } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
                     outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
                 }
-                var outputDirPath = outputPath.getParent();
+                var outputDirPath = outputPath.toAbsolutePath().getParent();
                 if (!Files.exists(outputDirPath)) {
                     System.out.println("Creating directory: " + outputDirPath);
                     Files.createDirectories(outputDirPath);
