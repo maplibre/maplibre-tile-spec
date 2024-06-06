@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class StringSharedDictionaryVector extends VariableSizeVector<Map<String, String>> {
     /** Specifies where a specific string starts in the data buffer for a given index */

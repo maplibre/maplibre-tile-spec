@@ -1,7 +1,5 @@
 package com.mlt.converter;
 
-import java.io.IOException;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -16,13 +14,11 @@ import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.data.MapLibreTile;
 import com.mlt.converter.mvt.MapboxVectorTile;
 
-
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public class MltCliAdapter {
