@@ -16,7 +16,7 @@ dependencies {
     implementation 'me.lemire.integercompression:JavaFastPFOR:0.1.12'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.10.0'
     implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:23.1.0'
-    implementation 'org.xerial:sqlite-jdbc:3.41.2.1'
+    implementation 'org.xerial:sqlite-jdbc:3.46.0.0'
     implementation 'com.google.guava:guava:31.1-jre'
     implementation 'commons-cli:commons-cli:1.4'
     implementation 'org.slf4j:slf4j-simple:2.0.13'
