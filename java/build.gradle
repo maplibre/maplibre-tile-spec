@@ -23,7 +23,7 @@ dependencies {
     implementation 'no.ecc.vectortile:java-vector-tile:1.3.1'
     implementation 'org.apache.orc:orc-core:1.8.1'
     implementation 'com.github.davidmoten:hilbert-curve:0.2.2'
-    implementation 'org.roaringbitmap:RoaringBitmap:0.9.38'
+    implementation 'org.roaringbitmap:RoaringBitmap:1.0.6'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
