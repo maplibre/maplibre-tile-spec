@@ -31,7 +31,7 @@ features = [
 #wee_alloc = { version = "0.4.5", optional = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.13"
+wasm-bindgen-test = "0.3.42"
 
 #[profile.release]
 # Tell `rustc` to optimize for small code size.

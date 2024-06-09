@@ -3,7 +3,6 @@ package com.mlt.converter.encodings;
 import com.google.common.primitives.Bytes;
 import com.mlt.data.Feature;
 import com.mlt.converter.CollectionUtils;
-import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.metadata.stream.LogicalLevelTechnique;
 import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.stream.PhysicalStreamType;
@@ -195,7 +194,6 @@ public class PropertyEncoder {
         var encodedPresentStream = BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
         var encodedDataStream = FloatEncoder.encodeFloatStream(values);
 
-
         //TODO: remove -> only test
         var encodedPresentStream2 = BooleanEncoder.encodeBooleanStreamOptimized(present, PhysicalStreamType.PRESENT);
         //System.out.println(fieldName + "ORC encoded present stream: " + encodedPresentStream.length + " Optimized encoded present stream: "
@@ -226,14 +224,10 @@ public class PropertyEncoder {
         var encodedDataStream = IntegerEncoder.encodeIntStream(values, physicalLevelTechnique, isSigned,
                 PhysicalStreamType.DATA, null);
 
-
-
         //TODO: remove -> only test
         var encodedPresentStream2 = BooleanEncoder.encodeBooleanStreamOptimized(present, PhysicalStreamType.PRESENT);
         //System.out.println(fieldName + "ORC encoded present stream: " + encodedPresentStream.length + " Optimized encoded present stream: "
         //        + encodedPresentStream2.length);
-
-
 
         return Bytes.concat(encodedPresentStream, encodedDataStream);
     }
@@ -255,13 +249,10 @@ public class PropertyEncoder {
         var encodedPresentStream = BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
         var encodedDataStream = IntegerEncoder.encodeLongStream(values, isSigned, PhysicalStreamType.DATA, null);
 
-
         //TODO: remove -> only test
         var encodedPresentStream2 = BooleanEncoder.encodeBooleanStreamOptimized(present, PhysicalStreamType.PRESENT);
         //System.out.println(fieldName + "ORC encoded present stream: " + encodedPresentStream.length + " Optimized encoded present stream: "
         //        + encodedPresentStream2.length);
-
-
 
         return Bytes.concat(encodedPresentStream, encodedDataStream);
     }

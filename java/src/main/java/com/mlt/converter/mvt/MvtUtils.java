@@ -6,7 +6,6 @@ import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.MvtReader;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.TagKeyValueMapConverter;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.model.JtsLayer;
 import no.ecc.vectortile.VectorTileDecoder;
-import no.ecc.vectortile.VectorTileEncoder;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
