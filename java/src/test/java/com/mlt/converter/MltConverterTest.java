@@ -50,7 +50,7 @@ public class MltConverterTest { ;
 
         var tileId = String.format("%s_%s_%s", 5, 16, 21);
         var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
-        var mvTile = MvtUtils.decodeMvt2(mvtFilePath);
+        var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         var mapping = new ColumnMapping("name", ":", true);
         var tileMetadata = MltConverter.createTilesetMetadata(mvTile, Optional.of(List.of(mapping)), true);
@@ -127,7 +127,6 @@ public class MltConverterTest { ;
     private static void runOmtTest2(String tile) throws IOException {
         var mvtFilePath = Paths.get(tile);
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
-        //var mvTile = MvtUtils.decodeMvt2(mvtFilePath);
 
         var columnMapping = new ColumnMapping("name", ":", true);
         var columnMappings = Optional.of(List.of(columnMapping));
@@ -242,7 +241,6 @@ public class MltConverterTest { ;
     private static void runOmtTest(String tileId) throws IOException {
         var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
-        //var mvTile = MvtUtils.decodeMvt2(mvtFilePath);
 
         var columnMapping = new ColumnMapping("name", ":", true);
         var columnMappings = Optional.of(List.of(columnMapping));
@@ -273,8 +271,6 @@ public class MltConverterTest { ;
                 var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
                 var mvTile = Files.readAllBytes(mvtFilePath);
                 var decodedMvTile = MvtUtils.decodeMvt(mvtFilePath);
-                var decodedMvTile2 = MvtUtils.decodeMvt2(mvtFilePath);
-                compareDecodedMVTiles(decodedMvTile, decodedMvTile2);
 
                 try{
                     System.out.printf("z:%s, x:%s, y:%s -------------------------------------------- \n", zoom, x, y);
