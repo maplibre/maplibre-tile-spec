@@ -303,44 +303,6 @@ public class MltConverterTest { ;
         System.out.println("Total ratio: " + (ratios / counter));
     }
 
-    public static void compareDecodedMVTiles(MapboxVectorTile mvTile1, MapboxVectorTile mvTile2){
-        var mvt1Layers = mvTile1.layers();
-        var mvt2Layers = mvTile2.layers();
-        for(var i = 0; i < mvt2Layers.size(); i++){
-            var mvt2Layer = mvt2Layers.get(i);
-            var layerName = mvt2Layer.name();
-            var mvt1Layer = mvt1Layers.stream().filter(l -> l.name().equals(layerName)).findFirst().get();
-            var mvt1Features = mvt1Layer.features();
-            var mvt2Features = mvt2Layer.features();
-            for(var j = 0; j < mvt2Features.size(); j++){
-                var mvt1Feature = mvt1Features.get(j);
-                var mvt2Feature = mvt2Features.get(j);
-
-                var mvt1Id = mvt2Feature.id();
-                var mvt2Id = mvt1Feature.id();
-                assertEquals(mvt1Id, mvt2Id);
-
-                var mvt1Geometry = mvt1Feature.geometry();
-                var mvt2Geometry = mvt2Feature.geometry();
-                try{
-                    //assertEquals(mvt2Geometry, mvt1Geometry);
-                    assertEquals(Arrays.stream(mvt2Geometry.getCoordinates()).collect(Collectors.toList()),
-                            Arrays.stream(mvt1Geometry.getCoordinates()).map(c -> new CoordinateXY(c.getX(), c.getY())).collect(Collectors.toList()));
-                }
-                catch(Error e){
-                    System.out.println(e);
-                }
-
-                var mvt1Properties = mvt1Feature.properties();
-                var mvt2Properties = mvt2Feature.properties();
-                for(var mvt2Property : mvt2Properties.entrySet()){
-                    var mvt1Property = mvt1Properties.get(mvt2Property.getKey());
-                    assertEquals(mvt2Property.getValue(), mvt1Property);
-                }
-            }
-        }
-    }
-
     private static double printStats(byte[] mvTile, byte[] mlTile) throws IOException {
         var mvtGzipBuffer = EncodingUtils.gzip(mvTile);
         var mltGzipBuffer = EncodingUtils.gzip(mlTile);
