@@ -38,3 +38,9 @@ In the following, the size of MLT and MVT files are compared based on a selected
 - `/java` Java encoder for converting MVT to MLT, as well as a decoder parsing MLT to an in-memory representation.
 - `/js` Javascript decoder
 - `/rust` Rust decoder
+
+## Contribution
+
+### Getting Involved
+
+Join the #maplibre-tile-format slack channel at OSMUS: get an invite at https://slack.openstreetmap.us/

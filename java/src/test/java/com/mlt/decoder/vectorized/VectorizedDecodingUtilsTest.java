@@ -1,22 +1,18 @@
 package com.mlt.decoder.vectorized;
 
-import com.mlt.converter.CollectionUtils;
 import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.converter.encodings.GeometryEncoder;
 import com.mlt.converter.geometry.Vertex;
 import com.mlt.vector.BitVector;
 import me.lemire.integercompression.IntWrapper;
-import org.apache.commons.lang3.ArrayUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Disabled;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.sql.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.concurrent.LinkedTransferQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 

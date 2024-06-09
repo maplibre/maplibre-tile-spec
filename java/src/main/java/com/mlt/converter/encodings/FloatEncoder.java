@@ -4,7 +4,6 @@ import com.mlt.metadata.stream.*;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.List;
-import java.util.Optional;
 
 public class FloatEncoder {
 

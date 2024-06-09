@@ -4,7 +4,6 @@ package com.mlt;
 //import jdk.incubator.vector.VectorOperators;
 //import jdk.incubator.vector.VectorSpecies;
 
-import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 
@@ -38,8 +37,6 @@ public class Vectorization {
             System.out.println("Buffer: " + ((end2 - start2) / 1e6));
             //System.out.println("Buffer: " + ((end2 - start2)));
         }
-
-
 
         var arrLength = 10000;
         var values = new int[arrLength];
@@ -148,8 +145,6 @@ public class Vectorization {
                 arr1[i] = (int)Math.random();
                 arr2[i] = (int)Math.random();
             }
-
-
 
             var start = System.nanoTime();
             //addTwoScalarArrays(arr1, arr2);
@@ -272,7 +267,6 @@ public class Vectorization {
             IntVector vectorC = v1.mul(v2);
             var vectorD = vectorC.mul(v2);
             var vectorE = vectorD.add(vectorC);
-
 
             // Store the result back into the array
             vectorE.intoArray(finalResult, i);
