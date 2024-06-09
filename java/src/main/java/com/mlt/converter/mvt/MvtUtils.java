@@ -1,5 +1,7 @@
 package com.mlt.converter.mvt;
 
+import com.mlt.data.Layer;
+import com.mlt.data.Feature;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.MvtReader;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.TagKeyValueMapConverter;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.model.JtsLayer;

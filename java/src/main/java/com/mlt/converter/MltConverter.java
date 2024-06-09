@@ -1,11 +1,12 @@
 package com.mlt.converter;
 
+import com.mlt.data.Feature;
+import com.mlt.data.Layer;
 import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.converter.encodings.GeometryEncoder;
 import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.converter.encodings.PropertyEncoder;
 import com.mlt.converter.mvt.ColumnMapping;
-import com.mlt.converter.mvt.Feature;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import org.apache.commons.lang3.ArrayUtils;

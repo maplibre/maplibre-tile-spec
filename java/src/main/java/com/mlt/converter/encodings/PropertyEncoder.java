@@ -1,6 +1,7 @@
 package com.mlt.converter.encodings;
 
 import com.google.common.primitives.Bytes;
+import com.mlt.data.Feature;
 import com.mlt.converter.CollectionUtils;
 import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.metadata.stream.LogicalLevelTechnique;
@@ -8,7 +9,6 @@ import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.stream.PhysicalStreamType;
 import com.mlt.metadata.stream.StreamMetadata;
 import com.mlt.converter.mvt.ColumnMapping;
-import com.mlt.converter.mvt.Feature;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 
 import java.io.IOException;
