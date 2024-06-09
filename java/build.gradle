@@ -14,7 +14,7 @@ version '1.0-SNAPSHOT'
 
 dependencies {
     implementation 'me.lemire.integercompression:JavaFastPFOR:0.1.12'
-    implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:23.1.0'
+    implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:24.1.0'
     implementation 'com.google.guava:guava:31.1-jre'
     implementation 'commons-cli:commons-cli:1.4'
     implementation 'org.slf4j:slf4j-simple:2.0.13'
