@@ -112,8 +112,7 @@ public class MltDecoderBenchmark {
         var mvtTimeElapsed = 0l;
         for(int i = 0; i <= 200; i++) {
             long start = System.currentTimeMillis();
-            //var mvTile = MvtUtils.decodeMvtFast(mvt);
-            var mvTile = MvtUtils.decodeMvt2Fast(mvt);
+            var mvTile = MvtUtils.decodeMvtFast(mvt);
             long finish = System.currentTimeMillis();
 
             if(i > 100){
