@@ -1,6 +1,5 @@
 package com.mlt.converter.encodings;
 
-import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.metadata.stream.*;
 import org.apache.commons.lang3.ArrayUtils;
 import java.io.IOException;

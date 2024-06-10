@@ -2,19 +2,14 @@ package com.mlt.converter.encodings;
 
 import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.decoder.DecodingUtils;
-import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
-import org.locationtech.jts.util.Assert;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class EncodingUtilsTest {
 

@@ -39,6 +39,10 @@ In the following, the size of MLT and MVT files are compared based on a selected
 - `/js` Javascript decoder
 - `/rust` Rust decoder
 
+## Getting Involved
+
+Join the #maplibre-tile-format slack channel at OSMUS: get an invite at https://slack.openstreetmap.us/
+
 ## License
 
 * All project documentation and specification content is licensed under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) - Public Domain Dedication.

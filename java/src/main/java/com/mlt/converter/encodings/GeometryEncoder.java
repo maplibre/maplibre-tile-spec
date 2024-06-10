@@ -6,7 +6,14 @@ import com.mlt.converter.geometry.*;
 import com.mlt.metadata.stream.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Triple;
-import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.MultiPoint;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.GeometryFactory;
 
 import java.util.*;
 import java.util.function.Function;
