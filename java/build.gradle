@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id('com.diffplug.spotless') version '6.25.0'
 }
 
 repositories {
@@ -39,6 +40,15 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+}
+
+spotless {
+  java {
+    importOrder()
+    target 'src/*/java/**/*.java'
+    googleJavaFormat()
+    removeUnusedImports()
+  }
 }
 
 task compileWrapper(type: Exec) {

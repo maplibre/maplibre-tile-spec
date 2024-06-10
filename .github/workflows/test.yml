@@ -40,6 +40,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
+      - name: Java build
+        run: ./gradlew build # includes spotlessJavaCheck
       - name: Java converter tests
         run: ./gradlew test
       - name: Test running CLI
