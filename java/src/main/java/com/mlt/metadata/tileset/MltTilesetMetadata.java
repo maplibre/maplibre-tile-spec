@@ -5,30 +5,31 @@ package com.mlt.metadata.tileset;
 
 public final class MltTilesetMetadata {
   private MltTilesetMetadata() {}
-
-  public static void registerAllExtensions(com.google.protobuf.ExtensionRegistryLite registry) {}
-
-  public static void registerAllExtensions(com.google.protobuf.ExtensionRegistry registry) {
-    registerAllExtensions((com.google.protobuf.ExtensionRegistryLite) registry);
+  public static void registerAllExtensions(
+      com.google.protobuf.ExtensionRegistryLite registry) {
   }
 
-  /** Protobuf enum {@code mlt.ColumnScope} */
-  public enum ColumnScope implements com.google.protobuf.ProtocolMessageEnum {
+  public static void registerAllExtensions(
+      com.google.protobuf.ExtensionRegistry registry) {
+    registerAllExtensions(
+        (com.google.protobuf.ExtensionRegistryLite) registry);
+  }
+  /**
+   * Protobuf enum {@code mlt.ColumnScope}
+   */
+  public enum ColumnScope
+      implements com.google.protobuf.ProtocolMessageEnum {
     /**
-     *
-     *
      * <pre>
-     * 1:1 Mapping of property and feature -&gt; id and geometry
+     *1:1 Mapping of property and feature -&gt; id and geometry
      * </pre>
      *
      * <code>FEATURE = 0;</code>
      */
     FEATURE(0),
     /**
-     *
-     *
      * <pre>
-     * For M-Values -&gt; 1:1 Mapping for property and vertex
+     *For M-Values -&gt; 1:1 Mapping for property and vertex
      * </pre>
      *
      * <code>VERTEX = 1;</code>
@@ -38,26 +39,22 @@ public final class MltTilesetMetadata {
     ;
 
     /**
-     *
-     *
      * <pre>
-     * 1:1 Mapping of property and feature -&gt; id and geometry
+     *1:1 Mapping of property and feature -&gt; id and geometry
      * </pre>
      *
      * <code>FEATURE = 0;</code>
      */
     public static final int FEATURE_VALUE = 0;
-
     /**
-     *
-     *
      * <pre>
-     * For M-Values -&gt; 1:1 Mapping for property and vertex
+     *For M-Values -&gt; 1:1 Mapping for property and vertex
      * </pre>
      *
      * <code>VERTEX = 1;</code>
      */
     public static final int VERTEX_VALUE = 1;
+
 
     public final int getNumber() {
       if (this == UNRECOGNIZED) {
@@ -83,47 +80,48 @@ public final class MltTilesetMetadata {
      */
     public static ColumnScope forNumber(int value) {
       switch (value) {
-        case 0:
-          return FEATURE;
-        case 1:
-          return VERTEX;
-        default:
-          return null;
+        case 0: return FEATURE;
+        case 1: return VERTEX;
+        default: return null;
       }
     }
 
-    public static com.google.protobuf.Internal.EnumLiteMap<ColumnScope> internalGetValueMap() {
+    public static com.google.protobuf.Internal.EnumLiteMap<ColumnScope>
+        internalGetValueMap() {
       return internalValueMap;
     }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        ColumnScope> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<ColumnScope>() {
+            public ColumnScope findValueByNumber(int number) {
+              return ColumnScope.forNumber(number);
+            }
+          };
 
-    private static final com.google.protobuf.Internal.EnumLiteMap<ColumnScope> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<ColumnScope>() {
-          public ColumnScope findValueByNumber(int number) {
-            return ColumnScope.forNumber(number);
-          }
-        };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor getValueDescriptor() {
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
       if (this == UNRECOGNIZED) {
         throw new java.lang.IllegalStateException(
             "Can't get the descriptor of an unrecognized enum value.");
       }
       return getDescriptor().getValues().get(ordinal());
     }
-
-    public final com.google.protobuf.Descriptors.EnumDescriptor getDescriptorForType() {
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
       return getDescriptor();
     }
-
-    public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(0);
     }
 
     private static final ColumnScope[] VALUES = values();
 
-    public static ColumnScope valueOf(com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+    public static ColumnScope valueOf(
+        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException("EnumValueDescriptor is not for this type.");
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
       }
       if (desc.getIndex() == -1) {
         return UNRECOGNIZED;
@@ -140,60 +138,95 @@ public final class MltTilesetMetadata {
     // @@protoc_insertion_point(enum_scope:mlt.ColumnScope)
   }
 
-  /** Protobuf enum {@code mlt.ScalarType} */
-  public enum ScalarType implements com.google.protobuf.ProtocolMessageEnum {
-    /** <code>BOOLEAN = 0;</code> */
+  /**
+   * Protobuf enum {@code mlt.ScalarType}
+   */
+  public enum ScalarType
+      implements com.google.protobuf.ProtocolMessageEnum {
+    /**
+     * <code>BOOLEAN = 0;</code>
+     */
     BOOLEAN(0),
-    /** <code>INT_8 = 1;</code> */
+    /**
+     * <code>INT_8 = 1;</code>
+     */
     INT_8(1),
-    /** <code>UINT_8 = 2;</code> */
+    /**
+     * <code>UINT_8 = 2;</code>
+     */
     UINT_8(2),
-    /** <code>INT_32 = 3;</code> */
+    /**
+     * <code>INT_32 = 3;</code>
+     */
     INT_32(3),
-    /** <code>UINT_32 = 4;</code> */
+    /**
+     * <code>UINT_32 = 4;</code>
+     */
     UINT_32(4),
-    /** <code>INT_64 = 5;</code> */
+    /**
+     * <code>INT_64 = 5;</code>
+     */
     INT_64(5),
-    /** <code>UINT_64 = 6;</code> */
+    /**
+     * <code>UINT_64 = 6;</code>
+     */
     UINT_64(6),
-    /** <code>FLOAT = 7;</code> */
+    /**
+     * <code>FLOAT = 7;</code>
+     */
     FLOAT(7),
-    /** <code>DOUBLE = 8;</code> */
+    /**
+     * <code>DOUBLE = 8;</code>
+     */
     DOUBLE(8),
-    /** <code>STRING = 9;</code> */
+    /**
+     * <code>STRING = 9;</code>
+     */
     STRING(9),
     UNRECOGNIZED(-1),
     ;
 
-    /** <code>BOOLEAN = 0;</code> */
+    /**
+     * <code>BOOLEAN = 0;</code>
+     */
     public static final int BOOLEAN_VALUE = 0;
-
-    /** <code>INT_8 = 1;</code> */
+    /**
+     * <code>INT_8 = 1;</code>
+     */
     public static final int INT_8_VALUE = 1;
-
-    /** <code>UINT_8 = 2;</code> */
+    /**
+     * <code>UINT_8 = 2;</code>
+     */
     public static final int UINT_8_VALUE = 2;
-
-    /** <code>INT_32 = 3;</code> */
+    /**
+     * <code>INT_32 = 3;</code>
+     */
     public static final int INT_32_VALUE = 3;
-
-    /** <code>UINT_32 = 4;</code> */
+    /**
+     * <code>UINT_32 = 4;</code>
+     */
     public static final int UINT_32_VALUE = 4;
-
-    /** <code>INT_64 = 5;</code> */
+    /**
+     * <code>INT_64 = 5;</code>
+     */
     public static final int INT_64_VALUE = 5;
-
-    /** <code>UINT_64 = 6;</code> */
+    /**
+     * <code>UINT_64 = 6;</code>
+     */
     public static final int UINT_64_VALUE = 6;
-
-    /** <code>FLOAT = 7;</code> */
+    /**
+     * <code>FLOAT = 7;</code>
+     */
     public static final int FLOAT_VALUE = 7;
-
-    /** <code>DOUBLE = 8;</code> */
+    /**
+     * <code>DOUBLE = 8;</code>
+     */
     public static final int DOUBLE_VALUE = 8;
-
-    /** <code>STRING = 9;</code> */
+    /**
+     * <code>STRING = 9;</code>
+     */
     public static final int STRING_VALUE = 9;
+
 
     public final int getNumber() {
       if (this == UNRECOGNIZED) {
@@ -219,63 +252,56 @@ public final class MltTilesetMetadata {
      */
     public static ScalarType forNumber(int value) {
       switch (value) {
-        case 0:
-          return BOOLEAN;
-        case 1:
-          return INT_8;
-        case 2:
-          return UINT_8;
-        case 3:
-          return INT_32;
-        case 4:
-          return UINT_32;
-        case 5:
-          return INT_64;
-        case 6:
-          return UINT_64;
-        case 7:
-          return FLOAT;
-        case 8:
-          return DOUBLE;
-        case 9:
-          return STRING;
-        default:
-          return null;
+        case 0: return BOOLEAN;
+        case 1: return INT_8;
+        case 2: return UINT_8;
+        case 3: return INT_32;
+        case 4: return UINT_32;
+        case 5: return INT_64;
+        case 6: return UINT_64;
+        case 7: return FLOAT;
+        case 8: return DOUBLE;
+        case 9: return STRING;
+        default: return null;
       }
     }
 
-    public static com.google.protobuf.Internal.EnumLiteMap<ScalarType> internalGetValueMap() {
+    public static com.google.protobuf.Internal.EnumLiteMap<ScalarType>
+        internalGetValueMap() {
       return internalValueMap;
     }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        ScalarType> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<ScalarType>() {
+            public ScalarType findValueByNumber(int number) {
+              return ScalarType.forNumber(number);
+            }
+          };
 
-    private static final com.google.protobuf.Internal.EnumLiteMap<ScalarType> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<ScalarType>() {
-          public ScalarType findValueByNumber(int number) {
-            return ScalarType.forNumber(number);
-          }
-        };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor getValueDescriptor() {
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
       if (this == UNRECOGNIZED) {
         throw new java.lang.IllegalStateException(
             "Can't get the descriptor of an unrecognized enum value.");
       }
       return getDescriptor().getValues().get(ordinal());
     }
-
-    public final com.google.protobuf.Descriptors.EnumDescriptor getDescriptorForType() {
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
       return getDescriptor();
     }
-
-    public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(1);
     }
 
     private static final ScalarType[] VALUES = values();
 
-    public static ScalarType valueOf(com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+    public static ScalarType valueOf(
+        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException("EnumValueDescriptor is not for this type.");
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
       }
       if (desc.getIndex() == -1) {
         return UNRECOGNIZED;
@@ -292,11 +318,12 @@ public final class MltTilesetMetadata {
     // @@protoc_insertion_point(enum_scope:mlt.ScalarType)
   }
 
-  /** Protobuf enum {@code mlt.ComplexType} */
-  public enum ComplexType implements com.google.protobuf.ProtocolMessageEnum {
+  /**
+   * Protobuf enum {@code mlt.ComplexType}
+   */
+  public enum ComplexType
+      implements com.google.protobuf.ProtocolMessageEnum {
     /**
-     *
-     *
      * <pre>
      * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
      * </pre>
@@ -305,8 +332,6 @@ public final class MltTilesetMetadata {
      */
     VEC_2(0),
     /**
-     *
-     *
      * <pre>
      * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
      * </pre>
@@ -315,8 +340,6 @@ public final class MltTilesetMetadata {
      */
     VEC_3(1),
     /**
-     *
-     *
      * <pre>
      * vec2&lt;Int32&gt; for the VertexBuffer stream with additional information (streams) about the topology
      * </pre>
@@ -325,8 +348,6 @@ public final class MltTilesetMetadata {
      */
     GEOMETRY(2),
     /**
-     *
-     *
      * <pre>
      * vec3&lt;Int32&gt; for the VertexBuffer stream with additional information (streams) about the topology
      * </pre>
@@ -334,18 +355,22 @@ public final class MltTilesetMetadata {
      * <code>GEOMETRY_Z = 3;</code>
      */
     GEOMETRY_Z(3),
-    /** <code>LIST = 4;</code> */
+    /**
+     * <code>LIST = 4;</code>
+     */
     LIST(4),
-    /** <code>MAP = 5;</code> */
+    /**
+     * <code>MAP = 5;</code>
+     */
     MAP(5),
-    /** <code>STRUCT = 6;</code> */
+    /**
+     * <code>STRUCT = 6;</code>
+     */
     STRUCT(6),
     UNRECOGNIZED(-1),
     ;
 
     /**
-     *
-     *
      * <pre>
      * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
      * </pre>
@@ -353,10 +378,7 @@ public final class MltTilesetMetadata {
      * <code>VEC_2 = 0;</code>
      */
     public static final int VEC_2_VALUE = 0;
-
     /**
-     *
-     *
      * <pre>
      * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
      * </pre>
@@ -364,10 +386,7 @@ public final class MltTilesetMetadata {
      * <code>VEC_3 = 1;</code>
      */
     public static final int VEC_3_VALUE = 1;
-
     /**
-     *
-     *
      * <pre>
      * vec2&lt;Int32&gt; for the VertexBuffer stream with additional information (streams) about the topology
      * </pre>
@@ -375,10 +394,7 @@ public final class MltTilesetMetadata {
      * <code>GEOMETRY = 2;</code>
      */
     public static final int GEOMETRY_VALUE = 2;
-
     /**
-     *
-     *
      * <pre>
      * vec3&lt;Int32&gt; for the VertexBuffer stream with additional information (streams) about the topology
      * </pre>
@@ -386,15 +402,19 @@ public final class MltTilesetMetadata {
      * <code>GEOMETRY_Z = 3;</code>
      */
     public static final int GEOMETRY_Z_VALUE = 3;
-
-    /** <code>LIST = 4;</code> */
+    /**
+     * <code>LIST = 4;</code>
+     */
     public static final int LIST_VALUE = 4;
-
-    /** <code>MAP = 5;</code> */
+    /**
+     * <code>MAP = 5;</code>
+     */
     public static final int MAP_VALUE = 5;
-
-    /** <code>STRUCT = 6;</code> */
+    /**
+     * <code>STRUCT = 6;</code>
+     */
     public static final int STRUCT_VALUE = 6;
+
 
     public final int getNumber() {
       if (this == UNRECOGNIZED) {
@@ -420,57 +440,53 @@ public final class MltTilesetMetadata {
      */
     public static ComplexType forNumber(int value) {
       switch (value) {
-        case 0:
-          return VEC_2;
-        case 1:
-          return VEC_3;
-        case 2:
-          return GEOMETRY;
-        case 3:
-          return GEOMETRY_Z;
-        case 4:
-          return LIST;
-        case 5:
-          return MAP;
-        case 6:
-          return STRUCT;
-        default:
-          return null;
+        case 0: return VEC_2;
+        case 1: return VEC_3;
+        case 2: return GEOMETRY;
+        case 3: return GEOMETRY_Z;
+        case 4: return LIST;
+        case 5: return MAP;
+        case 6: return STRUCT;
+        default: return null;
       }
     }
 
-    public static com.google.protobuf.Internal.EnumLiteMap<ComplexType> internalGetValueMap() {
+    public static com.google.protobuf.Internal.EnumLiteMap<ComplexType>
+        internalGetValueMap() {
       return internalValueMap;
     }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        ComplexType> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<ComplexType>() {
+            public ComplexType findValueByNumber(int number) {
+              return ComplexType.forNumber(number);
+            }
+          };
 
-    private static final com.google.protobuf.Internal.EnumLiteMap<ComplexType> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<ComplexType>() {
-          public ComplexType findValueByNumber(int number) {
-            return ComplexType.forNumber(number);
-          }
-        };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor getValueDescriptor() {
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
       if (this == UNRECOGNIZED) {
         throw new java.lang.IllegalStateException(
             "Can't get the descriptor of an unrecognized enum value.");
       }
       return getDescriptor().getValues().get(ordinal());
     }
-
-    public final com.google.protobuf.Descriptors.EnumDescriptor getDescriptorForType() {
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
       return getDescriptor();
     }
-
-    public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(2);
     }
 
     private static final ComplexType[] VALUES = values();
 
-    public static ComplexType valueOf(com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+    public static ComplexType valueOf(
+        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException("EnumValueDescriptor is not for this type.");
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
       }
       if (desc.getIndex() == -1) {
         return UNRECOGNIZED;
@@ -487,21 +503,20 @@ public final class MltTilesetMetadata {
     // @@protoc_insertion_point(enum_scope:mlt.ComplexType)
   }
 
-  /** Protobuf enum {@code mlt.LogicalScalarType} */
-  public enum LogicalScalarType implements com.google.protobuf.ProtocolMessageEnum {
+  /**
+   * Protobuf enum {@code mlt.LogicalScalarType}
+   */
+  public enum LogicalScalarType
+      implements com.google.protobuf.ProtocolMessageEnum {
     /**
-     *
-     *
      * <pre>
-     * physical type: Int64 -&gt; number of milliseconds since Unix epoch
+     *physical type: Int64 -&gt; number of milliseconds since Unix epoch
      * </pre>
      *
      * <code>TIMESTAMP = 0;</code>
      */
     TIMESTAMP(0),
     /**
-     *
-     *
      * <pre>
      * physical type: Int32 -&gt; number of days since Unix epoch
      * </pre>
@@ -510,8 +525,6 @@ public final class MltTilesetMetadata {
      */
     DATE(1),
     /**
-     *
-     *
      * <pre>
      * physical type: String
      * </pre>
@@ -523,19 +536,14 @@ public final class MltTilesetMetadata {
     ;
 
     /**
-     *
-     *
      * <pre>
-     * physical type: Int64 -&gt; number of milliseconds since Unix epoch
+     *physical type: Int64 -&gt; number of milliseconds since Unix epoch
      * </pre>
      *
      * <code>TIMESTAMP = 0;</code>
      */
     public static final int TIMESTAMP_VALUE = 0;
-
     /**
-     *
-     *
      * <pre>
      * physical type: Int32 -&gt; number of days since Unix epoch
      * </pre>
@@ -543,10 +551,7 @@ public final class MltTilesetMetadata {
      * <code>DATE = 1;</code>
      */
     public static final int DATE_VALUE = 1;
-
     /**
-     *
-     *
      * <pre>
      * physical type: String
      * </pre>
@@ -554,6 +559,7 @@ public final class MltTilesetMetadata {
      * <code>JSON = 2;</code>
      */
     public static final int JSON_VALUE = 2;
+
 
     public final int getNumber() {
       if (this == UNRECOGNIZED) {
@@ -579,14 +585,10 @@ public final class MltTilesetMetadata {
      */
     public static LogicalScalarType forNumber(int value) {
       switch (value) {
-        case 0:
-          return TIMESTAMP;
-        case 1:
-          return DATE;
-        case 2:
-          return JSON;
-        default:
-          return null;
+        case 0: return TIMESTAMP;
+        case 1: return DATE;
+        case 2: return JSON;
+        default: return null;
       }
     }
 
@@ -594,28 +596,28 @@ public final class MltTilesetMetadata {
         internalGetValueMap() {
       return internalValueMap;
     }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        LogicalScalarType> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<LogicalScalarType>() {
+            public LogicalScalarType findValueByNumber(int number) {
+              return LogicalScalarType.forNumber(number);
+            }
+          };
 
-    private static final com.google.protobuf.Internal.EnumLiteMap<LogicalScalarType>
-        internalValueMap =
-            new com.google.protobuf.Internal.EnumLiteMap<LogicalScalarType>() {
-              public LogicalScalarType findValueByNumber(int number) {
-                return LogicalScalarType.forNumber(number);
-              }
-            };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor getValueDescriptor() {
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
       if (this == UNRECOGNIZED) {
         throw new java.lang.IllegalStateException(
             "Can't get the descriptor of an unrecognized enum value.");
       }
       return getDescriptor().getValues().get(ordinal());
     }
-
-    public final com.google.protobuf.Descriptors.EnumDescriptor getDescriptorForType() {
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
       return getDescriptor();
     }
-
-    public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(3);
     }
 
@@ -624,7 +626,8 @@ public final class MltTilesetMetadata {
     public static LogicalScalarType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException("EnumValueDescriptor is not for this type.");
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
       }
       if (desc.getIndex() == -1) {
         return UNRECOGNIZED;
@@ -641,11 +644,12 @@ public final class MltTilesetMetadata {
     // @@protoc_insertion_point(enum_scope:mlt.LogicalScalarType)
   }
 
-  /** Protobuf enum {@code mlt.LogicalComplexType} */
-  public enum LogicalComplexType implements com.google.protobuf.ProtocolMessageEnum {
+  /**
+   * Protobuf enum {@code mlt.LogicalComplexType}
+   */
+  public enum LogicalComplexType
+      implements com.google.protobuf.ProtocolMessageEnum {
     /**
-     *
-     *
      * <pre>
      * physical type: list&lt;UInt8&gt;
      * </pre>
@@ -654,8 +658,6 @@ public final class MltTilesetMetadata {
      */
     BINARY(0),
     /**
-     *
-     *
      * <pre>
      * physical type: map&lt;vec2&lt;double, T&gt;&gt; -&gt; special data structure which can be used for a efficient representation of linear referencing
      * </pre>
@@ -667,8 +669,6 @@ public final class MltTilesetMetadata {
     ;
 
     /**
-     *
-     *
      * <pre>
      * physical type: list&lt;UInt8&gt;
      * </pre>
@@ -676,10 +676,7 @@ public final class MltTilesetMetadata {
      * <code>BINARY = 0;</code>
      */
     public static final int BINARY_VALUE = 0;
-
     /**
-     *
-     *
      * <pre>
      * physical type: map&lt;vec2&lt;double, T&gt;&gt; -&gt; special data structure which can be used for a efficient representation of linear referencing
      * </pre>
@@ -687,6 +684,7 @@ public final class MltTilesetMetadata {
      * <code>RANGE_MAP = 1;</code>
      */
     public static final int RANGE_MAP_VALUE = 1;
+
 
     public final int getNumber() {
       if (this == UNRECOGNIZED) {
@@ -712,12 +710,9 @@ public final class MltTilesetMetadata {
      */
     public static LogicalComplexType forNumber(int value) {
       switch (value) {
-        case 0:
-          return BINARY;
-        case 1:
-          return RANGE_MAP;
-        default:
-          return null;
+        case 0: return BINARY;
+        case 1: return RANGE_MAP;
+        default: return null;
       }
     }
 
@@ -725,28 +720,28 @@ public final class MltTilesetMetadata {
         internalGetValueMap() {
       return internalValueMap;
     }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        LogicalComplexType> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<LogicalComplexType>() {
+            public LogicalComplexType findValueByNumber(int number) {
+              return LogicalComplexType.forNumber(number);
+            }
+          };
 
-    private static final com.google.protobuf.Internal.EnumLiteMap<LogicalComplexType>
-        internalValueMap =
-            new com.google.protobuf.Internal.EnumLiteMap<LogicalComplexType>() {
-              public LogicalComplexType findValueByNumber(int number) {
-                return LogicalComplexType.forNumber(number);
-              }
-            };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor getValueDescriptor() {
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
       if (this == UNRECOGNIZED) {
         throw new java.lang.IllegalStateException(
             "Can't get the descriptor of an unrecognized enum value.");
       }
       return getDescriptor().getValues().get(ordinal());
     }
-
-    public final com.google.protobuf.Descriptors.EnumDescriptor getDescriptorForType() {
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
       return getDescriptor();
     }
-
-    public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(4);
     }
 
@@ -755,7 +750,8 @@ public final class MltTilesetMetadata {
     public static LogicalComplexType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
       if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException("EnumValueDescriptor is not for this type.");
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
       }
       if (desc.getIndex() == -1) {
         return UNRECOGNIZED;
@@ -772,221 +768,183 @@ public final class MltTilesetMetadata {
     // @@protoc_insertion_point(enum_scope:mlt.LogicalComplexType)
   }
 
-  public interface TileSetMetadataOrBuilder
-      extends
+  public interface TileSetMetadataOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.TileSetMetadata)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <code>int32 version = 1;</code>
-     *
      * @return The version.
      */
     int getVersion();
 
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
+    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema> 
         getFeatureTablesList();
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
     com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(int index);
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
     int getFeatureTablesCount();
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-    java.util.List<
-            ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
+    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder> 
         getFeatureTablesOrBuilderList();
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
-        getFeatureTablesOrBuilder(int index);
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
+    com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder getFeatureTablesOrBuilder(
+        int index);
 
     /**
      * <code>optional string name = 3;</code>
-     *
      * @return Whether the name field is set.
      */
     boolean hasName();
-
     /**
      * <code>optional string name = 3;</code>
-     *
      * @return The name.
      */
     java.lang.String getName();
-
     /**
      * <code>optional string name = 3;</code>
-     *
      * @return The bytes for name.
      */
-    com.google.protobuf.ByteString getNameBytes();
+    com.google.protobuf.ByteString
+        getNameBytes();
 
     /**
      * <code>optional string description = 4;</code>
-     *
      * @return Whether the description field is set.
      */
     boolean hasDescription();
-
     /**
      * <code>optional string description = 4;</code>
-     *
      * @return The description.
      */
     java.lang.String getDescription();
-
     /**
      * <code>optional string description = 4;</code>
-     *
      * @return The bytes for description.
      */
-    com.google.protobuf.ByteString getDescriptionBytes();
+    com.google.protobuf.ByteString
+        getDescriptionBytes();
 
     /**
      * <code>optional string attribution = 5;</code>
-     *
      * @return Whether the attribution field is set.
      */
     boolean hasAttribution();
-
     /**
      * <code>optional string attribution = 5;</code>
-     *
      * @return The attribution.
      */
     java.lang.String getAttribution();
-
     /**
      * <code>optional string attribution = 5;</code>
-     *
      * @return The bytes for attribution.
      */
-    com.google.protobuf.ByteString getAttributionBytes();
+    com.google.protobuf.ByteString
+        getAttributionBytes();
 
     /**
      * <code>optional int32 minZoom = 6;</code>
-     *
      * @return Whether the minZoom field is set.
      */
     boolean hasMinZoom();
-
     /**
      * <code>optional int32 minZoom = 6;</code>
-     *
      * @return The minZoom.
      */
     int getMinZoom();
 
     /**
      * <code>optional int32 maxZoom = 7;</code>
-     *
      * @return Whether the maxZoom field is set.
      */
     boolean hasMaxZoom();
-
     /**
      * <code>optional int32 maxZoom = 7;</code>
-     *
      * @return The maxZoom.
      */
     int getMaxZoom();
 
     /**
-     *
-     *
      * <pre>
-     * order left, bottom, right, top in WGS84
+     *order left, bottom, right, top in WGS84
      * </pre>
      *
      * <code>repeated double bounds = 8;</code>
-     *
      * @return A list containing the bounds.
      */
     java.util.List<java.lang.Double> getBoundsList();
-
     /**
-     *
-     *
      * <pre>
-     * order left, bottom, right, top in WGS84
+     *order left, bottom, right, top in WGS84
      * </pre>
      *
      * <code>repeated double bounds = 8;</code>
-     *
      * @return The count of bounds.
      */
     int getBoundsCount();
-
     /**
-     *
-     *
      * <pre>
-     * order left, bottom, right, top in WGS84
+     *order left, bottom, right, top in WGS84
      * </pre>
      *
      * <code>repeated double bounds = 8;</code>
-     *
      * @param index The index of the element to return.
      * @return The bounds at the given index.
      */
     double getBounds(int index);
 
     /**
-     *
-     *
      * <pre>
-     * order longitude, latitude in WGS84
+     *order longitude, latitude in WGS84
      * </pre>
      *
      * <code>repeated double center = 9;</code>
-     *
      * @return A list containing the center.
      */
     java.util.List<java.lang.Double> getCenterList();
-
     /**
-     *
-     *
      * <pre>
-     * order longitude, latitude in WGS84
+     *order longitude, latitude in WGS84
      * </pre>
      *
      * <code>repeated double center = 9;</code>
-     *
      * @return The count of center.
      */
     int getCenterCount();
-
     /**
-     *
-     *
      * <pre>
-     * order longitude, latitude in WGS84
+     *order longitude, latitude in WGS84
      * </pre>
      *
      * <code>repeated double center = 9;</code>
-     *
      * @param index The index of the element to return.
      * @return The center at the given index.
      */
     double getCenter(int index);
   }
-
-  /** Protobuf type {@code mlt.TileSetMetadata} */
-  public static final class TileSetMetadata extends com.google.protobuf.GeneratedMessageV3
-      implements
+  /**
+   * Protobuf type {@code mlt.TileSetMetadata}
+   */
+  public static final class TileSetMetadata extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.TileSetMetadata)
       TileSetMetadataOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use TileSetMetadata.newBuilder() to construct.
     private TileSetMetadata(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
     private TileSetMetadata() {
       featureTables_ = java.util.Collections.emptyList();
       name_ = "";
@@ -998,32 +956,29 @@ public final class MltTilesetMetadata {
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new TileSetMetadata();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_TileSetMetadata_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_TileSetMetadata_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_TileSetMetadata_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_TileSetMetadata_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class, com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
     }
 
     private int bitField0_;
     public static final int VERSION_FIELD_NUMBER = 1;
     private int version_ = 0;
-
     /**
      * <code>int32 version = 1;</code>
-     *
      * @return The version.
      */
     @java.lang.Override
@@ -1032,64 +987,59 @@ public final class MltTilesetMetadata {
     }
 
     public static final int FEATURETABLES_FIELD_NUMBER = 2;
-
     @SuppressWarnings("serial")
-    private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
-        featureTables_;
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+    private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema> featureTables_;
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
     @java.lang.Override
-    public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
-        getFeatureTablesList() {
+    public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema> getFeatureTablesList() {
       return featureTables_;
     }
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
     @java.lang.Override
-    public java.util.List<
-            ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder> 
         getFeatureTablesOrBuilderList() {
       return featureTables_;
     }
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
     @java.lang.Override
     public int getFeatureTablesCount() {
       return featureTables_.size();
     }
-
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(
+    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(int index) {
+      return featureTables_.get(index);
+    }
+    /**
+     * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+     */
+    @java.lang.Override
+    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder getFeatureTablesOrBuilder(
         int index) {
       return featureTables_.get(index);
     }
 
-    /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-    @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
-        getFeatureTablesOrBuilder(int index) {
-      return featureTables_.get(index);
-    }
-
     public static final int NAME_FIELD_NUMBER = 3;
-
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
-
     /**
      * <code>optional string name = 3;</code>
-     *
      * @return Whether the name field is set.
      */
     @java.lang.Override
     public boolean hasName() {
       return ((bitField0_ & 0x00000001) != 0);
     }
-
     /**
      * <code>optional string name = 3;</code>
-     *
      * @return The name.
      */
     @java.lang.Override
@@ -1098,24 +1048,25 @@ public final class MltTilesetMetadata {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         name_ = s;
         return s;
       }
     }
-
     /**
      * <code>optional string name = 3;</code>
-     *
      * @return The bytes for name.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getNameBytes() {
+    public com.google.protobuf.ByteString
+        getNameBytes() {
       java.lang.Object ref = name_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
         name_ = b;
         return b;
       } else {
@@ -1124,23 +1075,18 @@ public final class MltTilesetMetadata {
     }
 
     public static final int DESCRIPTION_FIELD_NUMBER = 4;
-
     @SuppressWarnings("serial")
     private volatile java.lang.Object description_ = "";
-
     /**
      * <code>optional string description = 4;</code>
-     *
      * @return Whether the description field is set.
      */
     @java.lang.Override
     public boolean hasDescription() {
       return ((bitField0_ & 0x00000002) != 0);
     }
-
     /**
      * <code>optional string description = 4;</code>
-     *
      * @return The description.
      */
     @java.lang.Override
@@ -1149,24 +1095,25 @@ public final class MltTilesetMetadata {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         description_ = s;
         return s;
       }
     }
-
     /**
      * <code>optional string description = 4;</code>
-     *
      * @return The bytes for description.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getDescriptionBytes() {
+    public com.google.protobuf.ByteString
+        getDescriptionBytes() {
       java.lang.Object ref = description_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
         description_ = b;
         return b;
       } else {
@@ -1175,23 +1122,18 @@ public final class MltTilesetMetadata {
     }
 
     public static final int ATTRIBUTION_FIELD_NUMBER = 5;
-
     @SuppressWarnings("serial")
     private volatile java.lang.Object attribution_ = "";
-
     /**
      * <code>optional string attribution = 5;</code>
-     *
      * @return Whether the attribution field is set.
      */
     @java.lang.Override
     public boolean hasAttribution() {
       return ((bitField0_ & 0x00000004) != 0);
     }
-
     /**
      * <code>optional string attribution = 5;</code>
-     *
      * @return The attribution.
      */
     @java.lang.Override
@@ -1200,24 +1142,25 @@ public final class MltTilesetMetadata {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         attribution_ = s;
         return s;
       }
     }
-
     /**
      * <code>optional string attribution = 5;</code>
-     *
      * @return The bytes for attribution.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getAttributionBytes() {
+    public com.google.protobuf.ByteString
+        getAttributionBytes() {
       java.lang.Object ref = attribution_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
         attribution_ = b;
         return b;
       } else {
@@ -1227,20 +1170,16 @@ public final class MltTilesetMetadata {
 
     public static final int MINZOOM_FIELD_NUMBER = 6;
     private int minZoom_ = 0;
-
     /**
      * <code>optional int32 minZoom = 6;</code>
-     *
      * @return Whether the minZoom field is set.
      */
     @java.lang.Override
     public boolean hasMinZoom() {
       return ((bitField0_ & 0x00000008) != 0);
     }
-
     /**
      * <code>optional int32 minZoom = 6;</code>
-     *
      * @return The minZoom.
      */
     @java.lang.Override
@@ -1250,20 +1189,16 @@ public final class MltTilesetMetadata {
 
     public static final int MAXZOOM_FIELD_NUMBER = 7;
     private int maxZoom_ = 0;
-
     /**
      * <code>optional int32 maxZoom = 7;</code>
-     *
      * @return Whether the maxZoom field is set.
      */
     @java.lang.Override
     public boolean hasMaxZoom() {
       return ((bitField0_ & 0x00000010) != 0);
     }
-
     /**
      * <code>optional int32 maxZoom = 7;</code>
-     *
      * @return The maxZoom.
      */
     @java.lang.Override
@@ -1272,115 +1207,88 @@ public final class MltTilesetMetadata {
     }
 
     public static final int BOUNDS_FIELD_NUMBER = 8;
-
     @SuppressWarnings("serial")
     private com.google.protobuf.Internal.DoubleList bounds_;
-
     /**
-     *
-     *
      * <pre>
-     * order left, bottom, right, top in WGS84
+     *order left, bottom, right, top in WGS84
      * </pre>
      *
      * <code>repeated double bounds = 8;</code>
-     *
      * @return A list containing the bounds.
      */
     @java.lang.Override
-    public java.util.List<java.lang.Double> getBoundsList() {
+    public java.util.List<java.lang.Double>
+        getBoundsList() {
       return bounds_;
     }
-
     /**
-     *
-     *
      * <pre>
-     * order left, bottom, right, top in WGS84
+     *order left, bottom, right, top in WGS84
      * </pre>
      *
      * <code>repeated double bounds = 8;</code>
-     *
      * @return The count of bounds.
      */
     public int getBoundsCount() {
       return bounds_.size();
     }
-
     /**
-     *
-     *
      * <pre>
-     * order left, bottom, right, top in WGS84
+     *order left, bottom, right, top in WGS84
      * </pre>
      *
      * <code>repeated double bounds = 8;</code>
-     *
      * @param index The index of the element to return.
      * @return The bounds at the given index.
      */
     public double getBounds(int index) {
       return bounds_.getDouble(index);
     }
-
     private int boundsMemoizedSerializedSize = -1;
 
     public static final int CENTER_FIELD_NUMBER = 9;
-
     @SuppressWarnings("serial")
     private com.google.protobuf.Internal.DoubleList center_;
-
     /**
-     *
-     *
      * <pre>
-     * order longitude, latitude in WGS84
+     *order longitude, latitude in WGS84
      * </pre>
      *
      * <code>repeated double center = 9;</code>
-     *
      * @return A list containing the center.
      */
     @java.lang.Override
-    public java.util.List<java.lang.Double> getCenterList() {
+    public java.util.List<java.lang.Double>
+        getCenterList() {
       return center_;
     }
-
     /**
-     *
-     *
      * <pre>
-     * order longitude, latitude in WGS84
+     *order longitude, latitude in WGS84
      * </pre>
      *
      * <code>repeated double center = 9;</code>
-     *
      * @return The count of center.
      */
     public int getCenterCount() {
       return center_.size();
     }
-
     /**
-     *
-     *
      * <pre>
-     * order longitude, latitude in WGS84
+     *order longitude, latitude in WGS84
      * </pre>
      *
      * <code>repeated double center = 9;</code>
-     *
      * @param index The index of the element to return.
      * @return The center at the given index.
      */
     public double getCenter(int index) {
       return center_.getDouble(index);
     }
-
     private int centerMemoizedSerializedSize = -1;
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -1392,7 +1300,8 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       getSerializedSize();
       if (version_ != 0) {
         output.writeInt32(1, version_);
@@ -1439,10 +1348,12 @@ public final class MltTilesetMetadata {
 
       size = 0;
       if (version_ != 0) {
-        size += com.google.protobuf.CodedOutputStream.computeInt32Size(1, version_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(1, version_);
       }
       for (int i = 0; i < featureTables_.size(); i++) {
-        size += com.google.protobuf.CodedOutputStream.computeMessageSize(2, featureTables_.get(i));
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(2, featureTables_.get(i));
       }
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, name_);
@@ -1454,10 +1365,12 @@ public final class MltTilesetMetadata {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, attribution_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.CodedOutputStream.computeInt32Size(6, minZoom_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(6, minZoom_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.CodedOutputStream.computeInt32Size(7, maxZoom_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(7, maxZoom_);
       }
       {
         int dataSize = 0;
@@ -1465,7 +1378,8 @@ public final class MltTilesetMetadata {
         size += dataSize;
         if (!getBoundsList().isEmpty()) {
           size += 1;
-          size += com.google.protobuf.CodedOutputStream.computeInt32SizeNoTag(dataSize);
+          size += com.google.protobuf.CodedOutputStream
+              .computeInt32SizeNoTag(dataSize);
         }
         boundsMemoizedSerializedSize = dataSize;
       }
@@ -1475,7 +1389,8 @@ public final class MltTilesetMetadata {
         size += dataSize;
         if (!getCenterList().isEmpty()) {
           size += 1;
-          size += com.google.protobuf.CodedOutputStream.computeInt32SizeNoTag(dataSize);
+          size += com.google.protobuf.CodedOutputStream
+              .computeInt32SizeNoTag(dataSize);
         }
         centerMemoizedSerializedSize = dataSize;
       }
@@ -1487,38 +1402,46 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata other = (com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) obj;
 
-      if (getVersion() != other.getVersion()) return false;
-      if (!getFeatureTablesList().equals(other.getFeatureTablesList())) return false;
+      if (getVersion()
+          != other.getVersion()) return false;
+      if (!getFeatureTablesList()
+          .equals(other.getFeatureTablesList())) return false;
       if (hasName() != other.hasName()) return false;
       if (hasName()) {
-        if (!getName().equals(other.getName())) return false;
+        if (!getName()
+            .equals(other.getName())) return false;
       }
       if (hasDescription() != other.hasDescription()) return false;
       if (hasDescription()) {
-        if (!getDescription().equals(other.getDescription())) return false;
+        if (!getDescription()
+            .equals(other.getDescription())) return false;
       }
       if (hasAttribution() != other.hasAttribution()) return false;
       if (hasAttribution()) {
-        if (!getAttribution().equals(other.getAttribution())) return false;
+        if (!getAttribution()
+            .equals(other.getAttribution())) return false;
       }
       if (hasMinZoom() != other.hasMinZoom()) return false;
       if (hasMinZoom()) {
-        if (getMinZoom() != other.getMinZoom()) return false;
+        if (getMinZoom()
+            != other.getMinZoom()) return false;
       }
       if (hasMaxZoom() != other.hasMaxZoom()) return false;
       if (hasMaxZoom()) {
-        if (getMaxZoom() != other.getMaxZoom()) return false;
+        if (getMaxZoom()
+            != other.getMaxZoom()) return false;
       }
-      if (!getBoundsList().equals(other.getBoundsList())) return false;
-      if (!getCenterList().equals(other.getCenterList())) return false;
+      if (!getBoundsList()
+          .equals(other.getBoundsList())) return false;
+      if (!getCenterList()
+          .equals(other.getCenterList())) return false;
       if (!getUnknownFields().equals(other.getUnknownFields())) return false;
       return true;
     }
@@ -1570,94 +1493,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
-    public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata prototype) {
+    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -1666,35 +1584,36 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
-    /** Protobuf type {@code mlt.TileSetMetadata} */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    /**
+     * Protobuf type {@code mlt.TileSetMetadata}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.TileSetMetadata)
         com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadataOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_TileSetMetadata_descriptor;
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_TileSetMetadata_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_TileSetMetadata_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_TileSetMetadata_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class, com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -1718,14 +1637,13 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_TileSetMetadata_descriptor;
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_TileSetMetadata_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata
-          getDefaultInstanceForType() {
+      public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata getDefaultInstanceForType() {
         return com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.getDefaultInstance();
       }
 
@@ -1740,18 +1658,14 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata(this);
+        com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result = new com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata(this);
         buildPartialRepeatedFields(result);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        if (bitField0_ != 0) { buildPartial0(result); }
         onBuilt();
         return result;
       }
 
-      private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
+      private void buildPartialRepeatedFields(com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
         if (featureTablesBuilder_ == null) {
           if (((bitField0_ & 0x00000002) != 0)) {
             featureTables_ = java.util.Collections.unmodifiableList(featureTables_);
@@ -1773,8 +1687,7 @@ public final class MltTilesetMetadata {
         result.center_ = center_;
       }
 
-      private void buildPartial0(
-          com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
+      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
         int from_bitField0_ = bitField0_;
         if (((from_bitField0_ & 0x00000001) != 0)) {
           result.version_ = version_;
@@ -1807,41 +1720,38 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata)other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -1849,9 +1759,7 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata other) {
-        if (other
-            == com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.getDefaultInstance())
-          return this;
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.getDefaultInstance()) return this;
         if (other.getVersion() != 0) {
           setVersion(other.getVersion());
         }
@@ -1873,10 +1781,9 @@ public final class MltTilesetMetadata {
               featureTablesBuilder_ = null;
               featureTables_ = other.featureTables_;
               bitField0_ = (bitField0_ & ~0x00000002);
-              featureTablesBuilder_ =
-                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
-                      ? getFeatureTablesFieldBuilder()
-                      : null;
+              featureTablesBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getFeatureTablesFieldBuilder() : null;
             } else {
               featureTablesBuilder_.addAllMessages(other.featureTables_);
             }
@@ -1949,99 +1856,87 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 8:
-                {
-                  version_ = input.readInt32();
-                  bitField0_ |= 0x00000001;
-                  break;
-                } // case 8
-              case 18:
-                {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema m =
-                      input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.parser(),
-                          extensionRegistry);
-                  if (featureTablesBuilder_ == null) {
-                    ensureFeatureTablesIsMutable();
-                    featureTables_.add(m);
-                  } else {
-                    featureTablesBuilder_.addMessage(m);
-                  }
-                  break;
-                } // case 18
-              case 26:
-                {
-                  name_ = input.readStringRequireUtf8();
-                  bitField0_ |= 0x00000004;
-                  break;
-                } // case 26
-              case 34:
-                {
-                  description_ = input.readStringRequireUtf8();
-                  bitField0_ |= 0x00000008;
-                  break;
-                } // case 34
-              case 42:
-                {
-                  attribution_ = input.readStringRequireUtf8();
-                  bitField0_ |= 0x00000010;
-                  break;
-                } // case 42
-              case 48:
-                {
-                  minZoom_ = input.readInt32();
-                  bitField0_ |= 0x00000020;
-                  break;
-                } // case 48
-              case 56:
-                {
-                  maxZoom_ = input.readInt32();
-                  bitField0_ |= 0x00000040;
-                  break;
-                } // case 56
-              case 65:
-                {
-                  double v = input.readDouble();
-                  ensureBoundsIsMutable();
-                  bounds_.addDouble(v);
-                  break;
-                } // case 65
-              case 66:
-                {
-                  int length = input.readRawVarint32();
-                  int limit = input.pushLimit(length);
-                  ensureBoundsIsMutable();
-                  while (input.getBytesUntilLimit() > 0) {
-                    bounds_.addDouble(input.readDouble());
-                  }
-                  input.popLimit(limit);
-                  break;
-                } // case 66
-              case 73:
-                {
-                  double v = input.readDouble();
-                  ensureCenterIsMutable();
-                  center_.addDouble(v);
-                  break;
-                } // case 73
-              case 74:
-                {
-                  int length = input.readRawVarint32();
-                  int limit = input.pushLimit(length);
-                  ensureCenterIsMutable();
-                  while (input.getBytesUntilLimit() > 0) {
-                    center_.addDouble(input.readDouble());
-                  }
-                  input.popLimit(limit);
-                  break;
-                } // case 74
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 8: {
+                version_ = input.readInt32();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 8
+              case 18: {
+                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema m =
+                    input.readMessage(
+                        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.parser(),
+                        extensionRegistry);
+                if (featureTablesBuilder_ == null) {
+                  ensureFeatureTablesIsMutable();
+                  featureTables_.add(m);
+                } else {
+                  featureTablesBuilder_.addMessage(m);
+                }
+                break;
+              } // case 18
+              case 26: {
+                name_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 26
+              case 34: {
+                description_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000008;
+                break;
+              } // case 34
+              case 42: {
+                attribution_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000010;
+                break;
+              } // case 42
+              case 48: {
+                minZoom_ = input.readInt32();
+                bitField0_ |= 0x00000020;
+                break;
+              } // case 48
+              case 56: {
+                maxZoom_ = input.readInt32();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 56
+              case 65: {
+                double v = input.readDouble();
+                ensureBoundsIsMutable();
+                bounds_.addDouble(v);
+                break;
+              } // case 65
+              case 66: {
+                int length = input.readRawVarint32();
+                int limit = input.pushLimit(length);
+                ensureBoundsIsMutable();
+                while (input.getBytesUntilLimit() > 0) {
+                  bounds_.addDouble(input.readDouble());
+                }
+                input.popLimit(limit);
+                break;
+              } // case 66
+              case 73: {
+                double v = input.readDouble();
+                ensureCenterIsMutable();
+                center_.addDouble(v);
+                break;
+              } // case 73
+              case 74: {
+                int length = input.readRawVarint32();
+                int limit = input.pushLimit(length);
+                ensureCenterIsMutable();
+                while (input.getBytesUntilLimit() > 0) {
+                  center_.addDouble(input.readDouble());
+                }
+                input.popLimit(limit);
+                break;
+              } // case 74
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -2051,24 +1946,19 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int bitField0_;
 
-      private int version_;
-
+      private int version_ ;
       /**
        * <code>int32 version = 1;</code>
-       *
        * @return The version.
        */
       @java.lang.Override
       public int getVersion() {
         return version_;
       }
-
       /**
        * <code>int32 version = 1;</code>
-       *
        * @param value The version to set.
        * @return This builder for chaining.
        */
@@ -2079,10 +1969,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>int32 version = 1;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearVersion() {
@@ -2092,35 +1980,31 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
-          featureTables_ = java.util.Collections.emptyList();
-
+      private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema> featureTables_ =
+        java.util.Collections.emptyList();
       private void ensureFeatureTablesIsMutable() {
         if (!((bitField0_ & 0x00000002) != 0)) {
-          featureTables_ =
-              new java.util.ArrayList<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>(featureTables_);
+          featureTables_ = new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>(featureTables_);
           bitField0_ |= 0x00000002;
-        }
+         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
-          featureTablesBuilder_;
+          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder> featureTablesBuilder_;
 
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
-          getFeatureTablesList() {
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema> getFeatureTablesList() {
         if (featureTablesBuilder_ == null) {
           return java.util.Collections.unmodifiableList(featureTables_);
         } else {
           return featureTablesBuilder_.getMessageList();
         }
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public int getFeatureTablesCount() {
         if (featureTablesBuilder_ == null) {
           return featureTables_.size();
@@ -2128,18 +2012,19 @@ public final class MltTilesetMetadata {
           return featureTablesBuilder_.getCount();
         }
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(
-          int index) {
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(int index) {
         if (featureTablesBuilder_ == null) {
           return featureTables_.get(index);
         } else {
           return featureTablesBuilder_.getMessage(index);
         }
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder setFeatureTables(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
         if (featureTablesBuilder_ == null) {
@@ -2154,11 +2039,11 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder setFeatureTables(
-          int index,
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
+          int index, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
           featureTables_.set(index, builderForValue.build());
@@ -2168,10 +2053,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public Builder addFeatureTables(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public Builder addFeatureTables(com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
         if (featureTablesBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -2184,8 +2069,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder addFeatureTables(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
         if (featureTablesBuilder_ == null) {
@@ -2200,8 +2086,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder addFeatureTables(
           com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
         if (featureTablesBuilder_ == null) {
@@ -2213,11 +2100,11 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder addFeatureTables(
-          int index,
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
+          int index, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
           featureTables_.add(index, builderForValue.build());
@@ -2227,23 +2114,24 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder addAllFeatureTables(
-          java.lang.Iterable<
-                  ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
-              values) {
+          java.lang.Iterable<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema> values) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(values, featureTables_);
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, featureTables_);
           onChanged();
         } else {
           featureTablesBuilder_.addAllMessages(values);
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder clearFeatureTables() {
         if (featureTablesBuilder_ == null) {
           featureTables_ = java.util.Collections.emptyList();
@@ -2254,8 +2142,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
       public Builder removeFeatureTables(int index) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
@@ -2266,70 +2155,62 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
-          getFeatureTablesBuilder(int index) {
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder getFeatureTablesBuilder(
+          int index) {
         return getFeatureTablesFieldBuilder().getBuilder(index);
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
-          getFeatureTablesOrBuilder(int index) {
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder getFeatureTablesOrBuilder(
+          int index) {
         if (featureTablesBuilder_ == null) {
-          return featureTables_.get(index);
-        } else {
+          return featureTables_.get(index);  } else {
           return featureTablesBuilder_.getMessageOrBuilder(index);
         }
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public java.util.List<
-              ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
-          getFeatureTablesOrBuilderList() {
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder> 
+           getFeatureTablesOrBuilderList() {
         if (featureTablesBuilder_ != null) {
           return featureTablesBuilder_.getMessageOrBuilderList();
         } else {
           return java.util.Collections.unmodifiableList(featureTables_);
         }
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
-          addFeatureTablesBuilder() {
-        return getFeatureTablesFieldBuilder()
-            .addBuilder(
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
-                    .getDefaultInstance());
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder addFeatureTablesBuilder() {
+        return getFeatureTablesFieldBuilder().addBuilder(
+            com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance());
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
-          addFeatureTablesBuilder(int index) {
-        return getFeatureTablesFieldBuilder()
-            .addBuilder(
-                index,
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
-                    .getDefaultInstance());
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder addFeatureTablesBuilder(
+          int index) {
+        return getFeatureTablesFieldBuilder().addBuilder(
+            index, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance());
       }
-
-      /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder>
-          getFeatureTablesBuilderList() {
+      /**
+       * <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code>
+       */
+      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder> 
+           getFeatureTablesBuilderList() {
         return getFeatureTablesFieldBuilder().getBuilderList();
       }
-
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder> 
           getFeatureTablesFieldBuilder() {
         if (featureTablesBuilder_ == null) {
-          featureTablesBuilder_ =
-              new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>(
+          featureTablesBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>(
                   featureTables_,
                   ((bitField0_ & 0x00000002) != 0),
                   getParentForChildren(),
@@ -2340,25 +2221,22 @@ public final class MltTilesetMetadata {
       }
 
       private java.lang.Object name_ = "";
-
       /**
        * <code>optional string name = 3;</code>
-       *
        * @return Whether the name field is set.
        */
       public boolean hasName() {
         return ((bitField0_ & 0x00000004) != 0);
       }
-
       /**
        * <code>optional string name = 3;</code>
-       *
        * @return The name.
        */
       public java.lang.String getName() {
         java.lang.Object ref = name_;
         if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           name_ = s;
           return s;
@@ -2366,43 +2244,38 @@ public final class MltTilesetMetadata {
           return (java.lang.String) ref;
         }
       }
-
       /**
        * <code>optional string name = 3;</code>
-       *
        * @return The bytes for name.
        */
-      public com.google.protobuf.ByteString getNameBytes() {
+      public com.google.protobuf.ByteString
+          getNameBytes() {
         java.lang.Object ref = name_;
         if (ref instanceof String) {
-          com.google.protobuf.ByteString b =
-              com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
           name_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
-
       /**
        * <code>optional string name = 3;</code>
-       *
        * @param value The name to set.
        * @return This builder for chaining.
        */
-      public Builder setName(java.lang.String value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setName(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
         name_ = value;
         bitField0_ |= 0x00000004;
         onChanged();
         return this;
       }
-
       /**
        * <code>optional string name = 3;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearName() {
@@ -2411,17 +2284,14 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>optional string name = 3;</code>
-       *
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
-      public Builder setNameBytes(com.google.protobuf.ByteString value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
         checkByteStringIsUtf8(value);
         name_ = value;
         bitField0_ |= 0x00000004;
@@ -2430,25 +2300,22 @@ public final class MltTilesetMetadata {
       }
 
       private java.lang.Object description_ = "";
-
       /**
        * <code>optional string description = 4;</code>
-       *
        * @return Whether the description field is set.
        */
       public boolean hasDescription() {
         return ((bitField0_ & 0x00000008) != 0);
       }
-
       /**
        * <code>optional string description = 4;</code>
-       *
        * @return The description.
        */
       public java.lang.String getDescription() {
         java.lang.Object ref = description_;
         if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           description_ = s;
           return s;
@@ -2456,43 +2323,38 @@ public final class MltTilesetMetadata {
           return (java.lang.String) ref;
         }
       }
-
       /**
        * <code>optional string description = 4;</code>
-       *
        * @return The bytes for description.
        */
-      public com.google.protobuf.ByteString getDescriptionBytes() {
+      public com.google.protobuf.ByteString
+          getDescriptionBytes() {
         java.lang.Object ref = description_;
         if (ref instanceof String) {
-          com.google.protobuf.ByteString b =
-              com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
           description_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
-
       /**
        * <code>optional string description = 4;</code>
-       *
        * @param value The description to set.
        * @return This builder for chaining.
        */
-      public Builder setDescription(java.lang.String value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setDescription(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
         description_ = value;
         bitField0_ |= 0x00000008;
         onChanged();
         return this;
       }
-
       /**
        * <code>optional string description = 4;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearDescription() {
@@ -2501,17 +2363,14 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>optional string description = 4;</code>
-       *
        * @param value The bytes for description to set.
        * @return This builder for chaining.
        */
-      public Builder setDescriptionBytes(com.google.protobuf.ByteString value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setDescriptionBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
         checkByteStringIsUtf8(value);
         description_ = value;
         bitField0_ |= 0x00000008;
@@ -2520,25 +2379,22 @@ public final class MltTilesetMetadata {
       }
 
       private java.lang.Object attribution_ = "";
-
       /**
        * <code>optional string attribution = 5;</code>
-       *
        * @return Whether the attribution field is set.
        */
       public boolean hasAttribution() {
         return ((bitField0_ & 0x00000010) != 0);
       }
-
       /**
        * <code>optional string attribution = 5;</code>
-       *
        * @return The attribution.
        */
       public java.lang.String getAttribution() {
         java.lang.Object ref = attribution_;
         if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           attribution_ = s;
           return s;
@@ -2546,43 +2402,38 @@ public final class MltTilesetMetadata {
           return (java.lang.String) ref;
         }
       }
-
       /**
        * <code>optional string attribution = 5;</code>
-       *
        * @return The bytes for attribution.
        */
-      public com.google.protobuf.ByteString getAttributionBytes() {
+      public com.google.protobuf.ByteString
+          getAttributionBytes() {
         java.lang.Object ref = attribution_;
         if (ref instanceof String) {
-          com.google.protobuf.ByteString b =
-              com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
           attribution_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
-
       /**
        * <code>optional string attribution = 5;</code>
-       *
        * @param value The attribution to set.
        * @return This builder for chaining.
        */
-      public Builder setAttribution(java.lang.String value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setAttribution(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
         attribution_ = value;
         bitField0_ |= 0x00000010;
         onChanged();
         return this;
       }
-
       /**
        * <code>optional string attribution = 5;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearAttribution() {
@@ -2591,17 +2442,14 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>optional string attribution = 5;</code>
-       *
        * @param value The bytes for attribution to set.
        * @return This builder for chaining.
        */
-      public Builder setAttributionBytes(com.google.protobuf.ByteString value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setAttributionBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
         checkByteStringIsUtf8(value);
         attribution_ = value;
         bitField0_ |= 0x00000010;
@@ -2609,31 +2457,25 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private int minZoom_;
-
+      private int minZoom_ ;
       /**
        * <code>optional int32 minZoom = 6;</code>
-       *
        * @return Whether the minZoom field is set.
        */
       @java.lang.Override
       public boolean hasMinZoom() {
         return ((bitField0_ & 0x00000020) != 0);
       }
-
       /**
        * <code>optional int32 minZoom = 6;</code>
-       *
        * @return The minZoom.
        */
       @java.lang.Override
       public int getMinZoom() {
         return minZoom_;
       }
-
       /**
        * <code>optional int32 minZoom = 6;</code>
-       *
        * @param value The minZoom to set.
        * @return This builder for chaining.
        */
@@ -2644,10 +2486,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>optional int32 minZoom = 6;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearMinZoom() {
@@ -2657,31 +2497,25 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private int maxZoom_;
-
+      private int maxZoom_ ;
       /**
        * <code>optional int32 maxZoom = 7;</code>
-       *
        * @return Whether the maxZoom field is set.
        */
       @java.lang.Override
       public boolean hasMaxZoom() {
         return ((bitField0_ & 0x00000040) != 0);
       }
-
       /**
        * <code>optional int32 maxZoom = 7;</code>
-       *
        * @return The maxZoom.
        */
       @java.lang.Override
       public int getMaxZoom() {
         return maxZoom_;
       }
-
       /**
        * <code>optional int32 maxZoom = 7;</code>
-       *
        * @param value The maxZoom to set.
        * @return This builder for chaining.
        */
@@ -2692,10 +2526,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>optional int32 maxZoom = 7;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearMaxZoom() {
@@ -2706,92 +2538,72 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.Internal.DoubleList bounds_ = emptyDoubleList();
-
       private void ensureBoundsIsMutable() {
         if (!((bitField0_ & 0x00000080) != 0)) {
           bounds_ = mutableCopy(bounds_);
           bitField0_ |= 0x00000080;
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * order left, bottom, right, top in WGS84
+       *order left, bottom, right, top in WGS84
        * </pre>
        *
        * <code>repeated double bounds = 8;</code>
-       *
        * @return A list containing the bounds.
        */
-      public java.util.List<java.lang.Double> getBoundsList() {
-        return ((bitField0_ & 0x00000080) != 0)
-            ? java.util.Collections.unmodifiableList(bounds_)
-            : bounds_;
+      public java.util.List<java.lang.Double>
+          getBoundsList() {
+        return ((bitField0_ & 0x00000080) != 0) ?
+                 java.util.Collections.unmodifiableList(bounds_) : bounds_;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order left, bottom, right, top in WGS84
+       *order left, bottom, right, top in WGS84
        * </pre>
        *
        * <code>repeated double bounds = 8;</code>
-       *
        * @return The count of bounds.
        */
       public int getBoundsCount() {
         return bounds_.size();
       }
-
       /**
-       *
-       *
        * <pre>
-       * order left, bottom, right, top in WGS84
+       *order left, bottom, right, top in WGS84
        * </pre>
        *
        * <code>repeated double bounds = 8;</code>
-       *
        * @param index The index of the element to return.
        * @return The bounds at the given index.
        */
       public double getBounds(int index) {
         return bounds_.getDouble(index);
       }
-
       /**
-       *
-       *
        * <pre>
-       * order left, bottom, right, top in WGS84
+       *order left, bottom, right, top in WGS84
        * </pre>
        *
        * <code>repeated double bounds = 8;</code>
-       *
        * @param index The index to set the value at.
        * @param value The bounds to set.
        * @return This builder for chaining.
        */
-      public Builder setBounds(int index, double value) {
+      public Builder setBounds(
+          int index, double value) {
 
         ensureBoundsIsMutable();
         bounds_.setDouble(index, value);
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order left, bottom, right, top in WGS84
+       *order left, bottom, right, top in WGS84
        * </pre>
        *
        * <code>repeated double bounds = 8;</code>
-       *
        * @param value The bounds to add.
        * @return This builder for chaining.
        */
@@ -2802,35 +2614,29 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order left, bottom, right, top in WGS84
+       *order left, bottom, right, top in WGS84
        * </pre>
        *
        * <code>repeated double bounds = 8;</code>
-       *
        * @param values The bounds to add.
        * @return This builder for chaining.
        */
-      public Builder addAllBounds(java.lang.Iterable<? extends java.lang.Double> values) {
+      public Builder addAllBounds(
+          java.lang.Iterable<? extends java.lang.Double> values) {
         ensureBoundsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, bounds_);
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, bounds_);
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order left, bottom, right, top in WGS84
+       *order left, bottom, right, top in WGS84
        * </pre>
        *
        * <code>repeated double bounds = 8;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearBounds() {
@@ -2841,92 +2647,72 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.Internal.DoubleList center_ = emptyDoubleList();
-
       private void ensureCenterIsMutable() {
         if (!((bitField0_ & 0x00000100) != 0)) {
           center_ = mutableCopy(center_);
           bitField0_ |= 0x00000100;
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * order longitude, latitude in WGS84
+       *order longitude, latitude in WGS84
        * </pre>
        *
        * <code>repeated double center = 9;</code>
-       *
        * @return A list containing the center.
        */
-      public java.util.List<java.lang.Double> getCenterList() {
-        return ((bitField0_ & 0x00000100) != 0)
-            ? java.util.Collections.unmodifiableList(center_)
-            : center_;
+      public java.util.List<java.lang.Double>
+          getCenterList() {
+        return ((bitField0_ & 0x00000100) != 0) ?
+                 java.util.Collections.unmodifiableList(center_) : center_;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order longitude, latitude in WGS84
+       *order longitude, latitude in WGS84
        * </pre>
        *
        * <code>repeated double center = 9;</code>
-       *
        * @return The count of center.
        */
       public int getCenterCount() {
         return center_.size();
       }
-
       /**
-       *
-       *
        * <pre>
-       * order longitude, latitude in WGS84
+       *order longitude, latitude in WGS84
        * </pre>
        *
        * <code>repeated double center = 9;</code>
-       *
        * @param index The index of the element to return.
        * @return The center at the given index.
        */
       public double getCenter(int index) {
         return center_.getDouble(index);
       }
-
       /**
-       *
-       *
        * <pre>
-       * order longitude, latitude in WGS84
+       *order longitude, latitude in WGS84
        * </pre>
        *
        * <code>repeated double center = 9;</code>
-       *
        * @param index The index to set the value at.
        * @param value The center to set.
        * @return This builder for chaining.
        */
-      public Builder setCenter(int index, double value) {
+      public Builder setCenter(
+          int index, double value) {
 
         ensureCenterIsMutable();
         center_.setDouble(index, value);
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order longitude, latitude in WGS84
+       *order longitude, latitude in WGS84
        * </pre>
        *
        * <code>repeated double center = 9;</code>
-       *
        * @param value The center to add.
        * @return This builder for chaining.
        */
@@ -2937,35 +2723,29 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order longitude, latitude in WGS84
+       *order longitude, latitude in WGS84
        * </pre>
        *
        * <code>repeated double center = 9;</code>
-       *
        * @param values The center to add.
        * @return This builder for chaining.
        */
-      public Builder addAllCenter(java.lang.Iterable<? extends java.lang.Double> values) {
+      public Builder addAllCenter(
+          java.lang.Iterable<? extends java.lang.Double> values) {
         ensureCenterIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(values, center_);
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, center_);
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * order longitude, latitude in WGS84
+       *order longitude, latitude in WGS84
        * </pre>
        *
        * <code>repeated double center = 9;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearCenter() {
@@ -2974,7 +2754,6 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2987,13 +2766,12 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.TileSetMetadata)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.TileSetMetadata)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata
-        DEFAULT_INSTANCE;
-
+    private static final com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata();
     }
@@ -3002,28 +2780,27 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<TileSetMetadata> PARSER =
-        new com.google.protobuf.AbstractParser<TileSetMetadata>() {
-          @java.lang.Override
-          public TileSetMetadata parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<TileSetMetadata>
+        PARSER = new com.google.protobuf.AbstractParser<TileSetMetadata>() {
+      @java.lang.Override
+      public TileSetMetadata parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<TileSetMetadata> parser() {
       return PARSER;
@@ -3038,56 +2815,61 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
-  public interface FeatureTableSchemaOrBuilder
-      extends
+  public interface FeatureTableSchemaOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.FeatureTableSchema)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <code>string name = 1;</code>
-     *
      * @return The name.
      */
     java.lang.String getName();
-
     /**
      * <code>string name = 1;</code>
-     *
      * @return The bytes for name.
      */
-    com.google.protobuf.ByteString getNameBytes();
+    com.google.protobuf.ByteString
+        getNameBytes();
 
-    /** <code>repeated .mlt.Column columns = 2;</code> */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList();
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
+    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> 
+        getColumnsList();
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
     com.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index);
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
     int getColumnsCount();
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
-    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
+    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder> 
         getColumnsOrBuilderList();
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(int index);
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
+    com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(
+        int index);
   }
-
-  /** Protobuf type {@code mlt.FeatureTableSchema} */
-  public static final class FeatureTableSchema extends com.google.protobuf.GeneratedMessageV3
-      implements
+  /**
+   * Protobuf type {@code mlt.FeatureTableSchema}
+   */
+  public static final class FeatureTableSchema extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.FeatureTableSchema)
       FeatureTableSchemaOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use FeatureTableSchema.newBuilder() to construct.
     private FeatureTableSchema(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
     private FeatureTableSchema() {
       name_ = "";
       columns_ = java.util.Collections.emptyList();
@@ -3095,33 +2877,29 @@ public final class MltTilesetMetadata {
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new FeatureTableSchema();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_FeatureTableSchema_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_FeatureTableSchema_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_FeatureTableSchema_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_FeatureTableSchema_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
     }
 
     public static final int NAME_FIELD_NUMBER = 1;
-
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
-
     /**
      * <code>string name = 1;</code>
-     *
      * @return The name.
      */
     @java.lang.Override
@@ -3130,24 +2908,25 @@ public final class MltTilesetMetadata {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         name_ = s;
         return s;
       }
     }
-
     /**
      * <code>string name = 1;</code>
-     *
      * @return The bytes for name.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getNameBytes() {
+    public com.google.protobuf.ByteString
+        getNameBytes() {
       java.lang.Object ref = name_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
         name_ = b;
         return b;
       } else {
@@ -3156,36 +2935,40 @@ public final class MltTilesetMetadata {
     }
 
     public static final int COLUMNS_FIELD_NUMBER = 2;
-
     @SuppressWarnings("serial")
     private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> columns_;
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
     @java.lang.Override
     public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList() {
       return columns_;
     }
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
     @java.lang.Override
-    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder> 
         getColumnsOrBuilderList() {
       return columns_;
     }
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
     @java.lang.Override
     public int getColumnsCount() {
       return columns_.size();
     }
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index) {
       return columns_.get(index);
     }
-
-    /** <code>repeated .mlt.Column columns = 2;</code> */
+    /**
+     * <code>repeated .mlt.Column columns = 2;</code>
+     */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(
         int index) {
@@ -3193,7 +2976,6 @@ public final class MltTilesetMetadata {
     }
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -3205,7 +2987,8 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(name_)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
       }
@@ -3225,7 +3008,8 @@ public final class MltTilesetMetadata {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
       }
       for (int i = 0; i < columns_.size(); i++) {
-        size += com.google.protobuf.CodedOutputStream.computeMessageSize(2, columns_.get(i));
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(2, columns_.get(i));
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -3235,16 +3019,17 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other = (com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) obj;
 
-      if (!getName().equals(other.getName())) return false;
-      if (!getColumnsList().equals(other.getColumnsList())) return false;
+      if (!getName()
+          .equals(other.getName())) return false;
+      if (!getColumnsList()
+          .equals(other.getColumnsList())) return false;
       if (!getUnknownFields().equals(other.getUnknownFields())) return false;
       return true;
     }
@@ -3268,94 +3053,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
-        byte[] data) throws com.google.protobuf.InvalidProtocolBufferException {
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
-    public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema prototype) {
+    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -3364,35 +3144,36 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
-    /** Protobuf type {@code mlt.FeatureTableSchema} */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    /**
+     * Protobuf type {@code mlt.FeatureTableSchema}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.FeatureTableSchema)
         com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_FeatureTableSchema_descriptor;
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_FeatureTableSchema_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_FeatureTableSchema_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_FeatureTableSchema_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -3409,14 +3190,13 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_FeatureTableSchema_descriptor;
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_FeatureTableSchema_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
-          getDefaultInstanceForType() {
+      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getDefaultInstanceForType() {
         return com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance();
       }
 
@@ -3431,18 +3211,14 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema(this);
+        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result = new com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema(this);
         buildPartialRepeatedFields(result);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        if (bitField0_ != 0) { buildPartial0(result); }
         onBuilt();
         return result;
       }
 
-      private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
+      private void buildPartialRepeatedFields(com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
         if (columnsBuilder_ == null) {
           if (((bitField0_ & 0x00000002) != 0)) {
             columns_ = java.util.Collections.unmodifiableList(columns_);
@@ -3454,8 +3230,7 @@ public final class MltTilesetMetadata {
         }
       }
 
-      private void buildPartial0(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
+      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
         int from_bitField0_ = bitField0_;
         if (((from_bitField0_ & 0x00000001) != 0)) {
           result.name_ = name_;
@@ -3466,52 +3241,46 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other) {
-        if (other
-            == com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance())
-          return this;
+      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other) {
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance()) return this;
         if (!other.getName().isEmpty()) {
           name_ = other.name_;
           bitField0_ |= 0x00000001;
@@ -3535,10 +3304,9 @@ public final class MltTilesetMetadata {
               columnsBuilder_ = null;
               columns_ = other.columns_;
               bitField0_ = (bitField0_ & ~0x00000002);
-              columnsBuilder_ =
-                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
-                      ? getColumnsFieldBuilder()
-                      : null;
+              columnsBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getColumnsFieldBuilder() : null;
             } else {
               columnsBuilder_.addAllMessages(other.columns_);
             }
@@ -3570,33 +3338,30 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 10:
-                {
-                  name_ = input.readStringRequireUtf8();
-                  bitField0_ |= 0x00000001;
-                  break;
-                } // case 10
-              case 18:
-                {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Column m =
-                      input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.Column.parser(),
-                          extensionRegistry);
-                  if (columnsBuilder_ == null) {
-                    ensureColumnsIsMutable();
-                    columns_.add(m);
-                  } else {
-                    columnsBuilder_.addMessage(m);
-                  }
-                  break;
-                } // case 18
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 10: {
+                name_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+              case 18: {
+                com.mlt.metadata.tileset.MltTilesetMetadata.Column m =
+                    input.readMessage(
+                        com.mlt.metadata.tileset.MltTilesetMetadata.Column.parser(),
+                        extensionRegistry);
+                if (columnsBuilder_ == null) {
+                  ensureColumnsIsMutable();
+                  columns_.add(m);
+                } else {
+                  columnsBuilder_.addMessage(m);
+                }
+                break;
+              } // case 18
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -3606,20 +3371,18 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int bitField0_;
 
       private java.lang.Object name_ = "";
-
       /**
        * <code>string name = 1;</code>
-       *
        * @return The name.
        */
       public java.lang.String getName() {
         java.lang.Object ref = name_;
         if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           name_ = s;
           return s;
@@ -3627,43 +3390,38 @@ public final class MltTilesetMetadata {
           return (java.lang.String) ref;
         }
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @return The bytes for name.
        */
-      public com.google.protobuf.ByteString getNameBytes() {
+      public com.google.protobuf.ByteString
+          getNameBytes() {
         java.lang.Object ref = name_;
         if (ref instanceof String) {
-          com.google.protobuf.ByteString b =
-              com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
           name_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @param value The name to set.
        * @return This builder for chaining.
        */
-      public Builder setName(java.lang.String value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setName(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
         name_ = value;
         bitField0_ |= 0x00000001;
         onChanged();
         return this;
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearName() {
@@ -3672,17 +3430,14 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
-      public Builder setNameBytes(com.google.protobuf.ByteString value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
         checkByteStringIsUtf8(value);
         name_ = value;
         bitField0_ |= 0x00000001;
@@ -3691,23 +3446,20 @@ public final class MltTilesetMetadata {
       }
 
       private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> columns_ =
-          java.util.Collections.emptyList();
-
+        java.util.Collections.emptyList();
       private void ensureColumnsIsMutable() {
         if (!((bitField0_ & 0x00000002) != 0)) {
-          columns_ =
-              new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Column>(columns_);
+          columns_ = new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Column>(columns_);
           bitField0_ |= 0x00000002;
-        }
+         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
-          columnsBuilder_;
+          com.mlt.metadata.tileset.MltTilesetMetadata.Column, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder> columnsBuilder_;
 
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList() {
         if (columnsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(columns_);
@@ -3715,8 +3467,9 @@ public final class MltTilesetMetadata {
           return columnsBuilder_.getMessageList();
         }
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public int getColumnsCount() {
         if (columnsBuilder_ == null) {
           return columns_.size();
@@ -3724,8 +3477,9 @@ public final class MltTilesetMetadata {
           return columnsBuilder_.getCount();
         }
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index) {
         if (columnsBuilder_ == null) {
           return columns_.get(index);
@@ -3733,8 +3487,9 @@ public final class MltTilesetMetadata {
           return columnsBuilder_.getMessage(index);
         }
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder setColumns(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
         if (columnsBuilder_ == null) {
@@ -3749,8 +3504,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder setColumns(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
         if (columnsBuilder_ == null) {
@@ -3762,8 +3518,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder addColumns(com.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
         if (columnsBuilder_ == null) {
           if (value == null) {
@@ -3777,8 +3534,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder addColumns(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
         if (columnsBuilder_ == null) {
@@ -3793,8 +3551,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder addColumns(
           com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
         if (columnsBuilder_ == null) {
@@ -3806,8 +3565,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder addColumns(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
         if (columnsBuilder_ == null) {
@@ -3819,21 +3579,24 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder addAllColumns(
           java.lang.Iterable<? extends com.mlt.metadata.tileset.MltTilesetMetadata.Column> values) {
         if (columnsBuilder_ == null) {
           ensureColumnsIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(values, columns_);
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, columns_);
           onChanged();
         } else {
           columnsBuilder_.addAllMessages(values);
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder clearColumns() {
         if (columnsBuilder_ == null) {
           columns_ = java.util.Collections.emptyList();
@@ -3844,8 +3607,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public Builder removeColumns(int index) {
         if (columnsBuilder_ == null) {
           ensureColumnsIsMutable();
@@ -3856,70 +3620,70 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder getColumnsBuilder(
           int index) {
         return getColumnsFieldBuilder().getBuilder(index);
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(
           int index) {
         if (columnsBuilder_ == null) {
-          return columns_.get(index);
-        } else {
+          return columns_.get(index);  } else {
           return columnsBuilder_.getMessageOrBuilder(index);
         }
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
-      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
-          getColumnsOrBuilderList() {
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
+      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder> 
+           getColumnsOrBuilderList() {
         if (columnsBuilder_ != null) {
           return columnsBuilder_.getMessageOrBuilderList();
         } else {
           return java.util.Collections.unmodifiableList(columns_);
         }
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder addColumnsBuilder() {
-        return getColumnsFieldBuilder()
-            .addBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
+        return getColumnsFieldBuilder().addBuilder(
+            com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder addColumnsBuilder(
           int index) {
-        return getColumnsFieldBuilder()
-            .addBuilder(
-                index, com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
+        return getColumnsFieldBuilder().addBuilder(
+            index, com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
       }
-
-      /** <code>repeated .mlt.Column columns = 2;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder>
-          getColumnsBuilderList() {
+      /**
+       * <code>repeated .mlt.Column columns = 2;</code>
+       */
+      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder> 
+           getColumnsBuilderList() {
         return getColumnsFieldBuilder().getBuilderList();
       }
-
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.Column, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder> 
           getColumnsFieldBuilder() {
         if (columnsBuilder_ == null) {
-          columnsBuilder_ =
-              new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Column,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>(
-                  columns_, ((bitField0_ & 0x00000002) != 0), getParentForChildren(), isClean());
+          columnsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.Column, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>(
+                  columns_,
+                  ((bitField0_ & 0x00000002) != 0),
+                  getParentForChildren(),
+                  isClean());
           columns_ = null;
         }
         return columnsBuilder_;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -3932,44 +3696,41 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.FeatureTableSchema)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.FeatureTableSchema)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
-        DEFAULT_INSTANCE;
-
+    private static final com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
-        getDefaultInstance() {
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<FeatureTableSchema> PARSER =
-        new com.google.protobuf.AbstractParser<FeatureTableSchema>() {
-          @java.lang.Override
-          public FeatureTableSchema parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<FeatureTableSchema>
+        PARSER = new com.google.protobuf.AbstractParser<FeatureTableSchema>() {
+      @java.lang.Override
+      public FeatureTableSchema parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<FeatureTableSchema> parser() {
       return PARSER;
@@ -3981,115 +3742,97 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
-        getDefaultInstanceForType() {
+    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
-  public interface ColumnOrBuilder
-      extends
+  public interface ColumnOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.Column)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <code>string name = 1;</code>
-     *
      * @return The name.
      */
     java.lang.String getName();
-
     /**
      * <code>string name = 1;</code>
-     *
      * @return The bytes for name.
      */
-    com.google.protobuf.ByteString getNameBytes();
+    com.google.protobuf.ByteString
+        getNameBytes();
 
     /**
-     *
-     *
      * <pre>
-     * specifies if the values are optional in the column and a present stream should be used
+     *specifies if the values are optional in the column and a present stream should be used
      * </pre>
      *
      * <code>bool nullable = 2;</code>
-     *
      * @return The nullable.
      */
     boolean getNullable();
 
     /**
      * <code>.mlt.ColumnScope columnScope = 3;</code>
-     *
      * @return The enum numeric value on the wire for columnScope.
      */
     int getColumnScopeValue();
-
     /**
      * <code>.mlt.ColumnScope columnScope = 3;</code>
-     *
      * @return The columnScope.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope();
 
     /**
      * <code>.mlt.ScalarColumn scalarType = 4;</code>
-     *
      * @return Whether the scalarType field is set.
      */
     boolean hasScalarType();
-
     /**
      * <code>.mlt.ScalarColumn scalarType = 4;</code>
-     *
      * @return The scalarType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType();
-
-    /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
+    /**
+     * <code>.mlt.ScalarColumn scalarType = 4;</code>
+     */
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder getScalarTypeOrBuilder();
 
     /**
      * <code>.mlt.ComplexColumn complexType = 5;</code>
-     *
      * @return Whether the complexType field is set.
      */
     boolean hasComplexType();
-
     /**
      * <code>.mlt.ComplexColumn complexType = 5;</code>
-     *
      * @return The complexType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType();
-
-    /** <code>.mlt.ComplexColumn complexType = 5;</code> */
+    /**
+     * <code>.mlt.ComplexColumn complexType = 5;</code>
+     */
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder getComplexTypeOrBuilder();
 
     com.mlt.metadata.tileset.MltTilesetMetadata.Column.TypeCase getTypeCase();
   }
-
   /**
-   *
-   *
    * <pre>
-   * Column are top-level types in the schema
+   *Column are top-level types in the schema
    * </pre>
    *
    * Protobuf type {@code mlt.Column}
    */
-  public static final class Column extends com.google.protobuf.GeneratedMessageV3
-      implements
+  public static final class Column extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.Column)
       ColumnOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use Column.newBuilder() to construct.
     private Column(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
     private Column() {
       name_ = "";
       columnScope_ = 0;
@@ -4097,42 +3840,37 @@ public final class MltTilesetMetadata {
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new Column();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_Column_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.Column.class, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
     }
 
     private int typeCase_ = 0;
-
     @SuppressWarnings("serial")
     private java.lang.Object type_;
-
     public enum TypeCase
-        implements
-            com.google.protobuf.Internal.EnumLite,
+        implements com.google.protobuf.Internal.EnumLite,
             com.google.protobuf.AbstractMessage.InternalOneOfEnum {
       SCALARTYPE(4),
       COMPLEXTYPE(5),
       TYPE_NOT_SET(0);
       private final int value;
-
       private TypeCase(int value) {
         this.value = value;
       }
-
       /**
        * @param value The number of the enum to look for.
        * @return The enum associated with the given number.
@@ -4145,34 +3883,28 @@ public final class MltTilesetMetadata {
 
       public static TypeCase forNumber(int value) {
         switch (value) {
-          case 4:
-            return SCALARTYPE;
-          case 5:
-            return COMPLEXTYPE;
-          case 0:
-            return TYPE_NOT_SET;
-          default:
-            return null;
+          case 4: return SCALARTYPE;
+          case 5: return COMPLEXTYPE;
+          case 0: return TYPE_NOT_SET;
+          default: return null;
         }
       }
-
       public int getNumber() {
         return this.value;
       }
     };
 
-    public TypeCase getTypeCase() {
-      return TypeCase.forNumber(typeCase_);
+    public TypeCase
+    getTypeCase() {
+      return TypeCase.forNumber(
+          typeCase_);
     }
 
     public static final int NAME_FIELD_NUMBER = 1;
-
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
-
     /**
      * <code>string name = 1;</code>
-     *
      * @return The name.
      */
     @java.lang.Override
@@ -4181,24 +3913,25 @@ public final class MltTilesetMetadata {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         name_ = s;
         return s;
       }
     }
-
     /**
      * <code>string name = 1;</code>
-     *
      * @return The bytes for name.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getNameBytes() {
+    public com.google.protobuf.ByteString
+        getNameBytes() {
       java.lang.Object ref = name_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
         name_ = b;
         return b;
       } else {
@@ -4208,16 +3941,12 @@ public final class MltTilesetMetadata {
 
     public static final int NULLABLE_FIELD_NUMBER = 2;
     private boolean nullable_ = false;
-
     /**
-     *
-     *
      * <pre>
-     * specifies if the values are optional in the column and a present stream should be used
+     *specifies if the values are optional in the column and a present stream should be used
      * </pre>
      *
      * <code>bool nullable = 2;</code>
-     *
      * @return The nullable.
      */
     @java.lang.Override
@@ -4227,103 +3956,85 @@ public final class MltTilesetMetadata {
 
     public static final int COLUMNSCOPE_FIELD_NUMBER = 3;
     private int columnScope_ = 0;
-
     /**
      * <code>.mlt.ColumnScope columnScope = 3;</code>
-     *
      * @return The enum numeric value on the wire for columnScope.
      */
-    @java.lang.Override
-    public int getColumnScopeValue() {
+    @java.lang.Override public int getColumnScopeValue() {
       return columnScope_;
     }
-
     /**
      * <code>.mlt.ColumnScope columnScope = 3;</code>
-     *
      * @return The columnScope.
      */
-    @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope() {
-      com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result =
-          com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
-      return result == null
-          ? com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED
-          : result;
+    @java.lang.Override public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope() {
+      com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result = com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
+      return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED : result;
     }
 
     public static final int SCALARTYPE_FIELD_NUMBER = 4;
-
     /**
      * <code>.mlt.ScalarColumn scalarType = 4;</code>
-     *
      * @return Whether the scalarType field is set.
      */
     @java.lang.Override
     public boolean hasScalarType() {
       return typeCase_ == 4;
     }
-
     /**
      * <code>.mlt.ScalarColumn scalarType = 4;</code>
-     *
      * @return The scalarType.
      */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
     }
-
-    /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
+    /**
+     * <code>.mlt.ScalarColumn scalarType = 4;</code>
+     */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder
-        getScalarTypeOrBuilder() {
+    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder getScalarTypeOrBuilder() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
     }
 
     public static final int COMPLEXTYPE_FIELD_NUMBER = 5;
-
     /**
      * <code>.mlt.ComplexColumn complexType = 5;</code>
-     *
      * @return Whether the complexType field is set.
      */
     @java.lang.Override
     public boolean hasComplexType() {
       return typeCase_ == 5;
     }
-
     /**
      * <code>.mlt.ComplexColumn complexType = 5;</code>
-     *
      * @return The complexType.
      */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType() {
       if (typeCase_ == 5) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
     }
-
-    /** <code>.mlt.ComplexColumn complexType = 5;</code> */
+    /**
+     * <code>.mlt.ComplexColumn complexType = 5;</code>
+     */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder
-        getComplexTypeOrBuilder() {
+    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder getComplexTypeOrBuilder() {
       if (typeCase_ == 5) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
     }
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -4335,15 +4046,15 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(name_)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
       }
       if (nullable_ != false) {
         output.writeBool(2, nullable_);
       }
-      if (columnScope_
-          != com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
+      if (columnScope_ != com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
         output.writeEnum(3, columnScope_);
       }
       if (typeCase_ == 4) {
@@ -4365,21 +4076,20 @@ public final class MltTilesetMetadata {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
       }
       if (nullable_ != false) {
-        size += com.google.protobuf.CodedOutputStream.computeBoolSize(2, nullable_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(2, nullable_);
       }
-      if (columnScope_
-          != com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
-        size += com.google.protobuf.CodedOutputStream.computeEnumSize(3, columnScope_);
+      if (columnScope_ != com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(3, columnScope_);
       }
       if (typeCase_ == 4) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeMessageSize(
-                4, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(4, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_);
       }
       if (typeCase_ == 5) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeMessageSize(
-                5, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(5, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -4389,24 +4099,27 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Column)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.Column other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.Column) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.Column other = (com.mlt.metadata.tileset.MltTilesetMetadata.Column) obj;
 
-      if (!getName().equals(other.getName())) return false;
-      if (getNullable() != other.getNullable()) return false;
+      if (!getName()
+          .equals(other.getName())) return false;
+      if (getNullable()
+          != other.getNullable()) return false;
       if (columnScope_ != other.columnScope_) return false;
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
         case 4:
-          if (!getScalarType().equals(other.getScalarType())) return false;
+          if (!getScalarType()
+              .equals(other.getScalarType())) return false;
           break;
         case 5:
-          if (!getComplexType().equals(other.getComplexType())) return false;
+          if (!getComplexType()
+              .equals(other.getComplexType())) return false;
           break;
         case 0:
         default:
@@ -4425,7 +4138,8 @@ public final class MltTilesetMetadata {
       hash = (37 * hash) + NAME_FIELD_NUMBER;
       hash = (53 * hash) + getName().hashCode();
       hash = (37 * hash) + NULLABLE_FIELD_NUMBER;
-      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNullable());
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getNullable());
       hash = (37 * hash) + COLUMNSCOPE_FIELD_NUMBER;
       hash = (53 * hash) + columnScope_;
       switch (typeCase_) {
@@ -4446,93 +4160,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
     public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Column prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -4541,42 +4251,40 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
     /**
-     *
-     *
      * <pre>
-     * Column are top-level types in the schema
+     *Column are top-level types in the schema
      * </pre>
      *
      * Protobuf type {@code mlt.Column}
      */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.Column)
         com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
         return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_Column_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.Column.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.Column.class, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.Column.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -4596,7 +4304,8 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
         return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
       }
 
@@ -4616,11 +4325,8 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.Column buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.Column result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.Column(this);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        com.mlt.metadata.tileset.MltTilesetMetadata.Column result = new com.mlt.metadata.tileset.MltTilesetMetadata.Column(this);
+        if (bitField0_ != 0) { buildPartial0(result); }
         buildPartialOneofs(result);
         onBuilt();
         return result;
@@ -4642,10 +4348,12 @@ public final class MltTilesetMetadata {
       private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.Column result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
-        if (typeCase_ == 4 && scalarTypeBuilder_ != null) {
+        if (typeCase_ == 4 &&
+            scalarTypeBuilder_ != null) {
           result.type_ = scalarTypeBuilder_.build();
         }
-        if (typeCase_ == 5 && complexTypeBuilder_ != null) {
+        if (typeCase_ == 5 &&
+            complexTypeBuilder_ != null) {
           result.type_ = complexTypeBuilder_.build();
         }
       }
@@ -4654,41 +4362,38 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Column) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.Column) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.Column)other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -4696,8 +4401,7 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.Column other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance())
-          return this;
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance()) return this;
         if (!other.getName().isEmpty()) {
           name_ = other.name_;
           bitField0_ |= 0x00000001;
@@ -4710,20 +4414,17 @@ public final class MltTilesetMetadata {
           setColumnScopeValue(other.getColumnScopeValue());
         }
         switch (other.getTypeCase()) {
-          case SCALARTYPE:
-            {
-              mergeScalarType(other.getScalarType());
-              break;
-            }
-          case COMPLEXTYPE:
-            {
-              mergeComplexType(other.getComplexType());
-              break;
-            }
-          case TYPE_NOT_SET:
-            {
-              break;
-            }
+          case SCALARTYPE: {
+            mergeScalarType(other.getScalarType());
+            break;
+          }
+          case COMPLEXTYPE: {
+            mergeComplexType(other.getComplexType());
+            break;
+          }
+          case TYPE_NOT_SET: {
+            break;
+          }
         }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
@@ -4751,43 +4452,41 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 10:
-                {
-                  name_ = input.readStringRequireUtf8();
-                  bitField0_ |= 0x00000001;
-                  break;
-                } // case 10
-              case 16:
-                {
-                  nullable_ = input.readBool();
-                  bitField0_ |= 0x00000002;
-                  break;
-                } // case 16
-              case 24:
-                {
-                  columnScope_ = input.readEnum();
-                  bitField0_ |= 0x00000004;
-                  break;
-                } // case 24
-              case 34:
-                {
-                  input.readMessage(getScalarTypeFieldBuilder().getBuilder(), extensionRegistry);
-                  typeCase_ = 4;
-                  break;
-                } // case 34
-              case 42:
-                {
-                  input.readMessage(getComplexTypeFieldBuilder().getBuilder(), extensionRegistry);
-                  typeCase_ = 5;
-                  break;
-                } // case 42
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 10: {
+                name_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+              case 16: {
+                nullable_ = input.readBool();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 16
+              case 24: {
+                columnScope_ = input.readEnum();
+                bitField0_ |= 0x00000004;
+                break;
+              } // case 24
+              case 34: {
+                input.readMessage(
+                    getScalarTypeFieldBuilder().getBuilder(),
+                    extensionRegistry);
+                typeCase_ = 4;
+                break;
+              } // case 34
+              case 42: {
+                input.readMessage(
+                    getComplexTypeFieldBuilder().getBuilder(),
+                    extensionRegistry);
+                typeCase_ = 5;
+                break;
+              } // case 42
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -4797,12 +4496,12 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int typeCase_ = 0;
       private java.lang.Object type_;
-
-      public TypeCase getTypeCase() {
-        return TypeCase.forNumber(typeCase_);
+      public TypeCase
+          getTypeCase() {
+        return TypeCase.forNumber(
+            typeCase_);
       }
 
       public Builder clearType() {
@@ -4815,16 +4514,15 @@ public final class MltTilesetMetadata {
       private int bitField0_;
 
       private java.lang.Object name_ = "";
-
       /**
        * <code>string name = 1;</code>
-       *
        * @return The name.
        */
       public java.lang.String getName() {
         java.lang.Object ref = name_;
         if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           name_ = s;
           return s;
@@ -4832,43 +4530,38 @@ public final class MltTilesetMetadata {
           return (java.lang.String) ref;
         }
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @return The bytes for name.
        */
-      public com.google.protobuf.ByteString getNameBytes() {
+      public com.google.protobuf.ByteString
+          getNameBytes() {
         java.lang.Object ref = name_;
         if (ref instanceof String) {
-          com.google.protobuf.ByteString b =
-              com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
           name_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @param value The name to set.
        * @return This builder for chaining.
        */
-      public Builder setName(java.lang.String value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setName(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
         name_ = value;
         bitField0_ |= 0x00000001;
         onChanged();
         return this;
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearName() {
@@ -4877,17 +4570,14 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>string name = 1;</code>
-       *
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
-      public Builder setNameBytes(com.google.protobuf.ByteString value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
         checkByteStringIsUtf8(value);
         name_ = value;
         bitField0_ |= 0x00000001;
@@ -4895,33 +4585,25 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private boolean nullable_;
-
+      private boolean nullable_ ;
       /**
-       *
-       *
        * <pre>
-       * specifies if the values are optional in the column and a present stream should be used
+       *specifies if the values are optional in the column and a present stream should be used
        * </pre>
        *
        * <code>bool nullable = 2;</code>
-       *
        * @return The nullable.
        */
       @java.lang.Override
       public boolean getNullable() {
         return nullable_;
       }
-
       /**
-       *
-       *
        * <pre>
-       * specifies if the values are optional in the column and a present stream should be used
+       *specifies if the values are optional in the column and a present stream should be used
        * </pre>
        *
        * <code>bool nullable = 2;</code>
-       *
        * @param value The nullable to set.
        * @return This builder for chaining.
        */
@@ -4932,16 +4614,12 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * specifies if the values are optional in the column and a present stream should be used
+       *specifies if the values are optional in the column and a present stream should be used
        * </pre>
        *
        * <code>bool nullable = 2;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearNullable() {
@@ -4952,20 +4630,15 @@ public final class MltTilesetMetadata {
       }
 
       private int columnScope_ = 0;
-
       /**
        * <code>.mlt.ColumnScope columnScope = 3;</code>
-       *
        * @return The enum numeric value on the wire for columnScope.
        */
-      @java.lang.Override
-      public int getColumnScopeValue() {
+      @java.lang.Override public int getColumnScopeValue() {
         return columnScope_;
       }
-
       /**
        * <code>.mlt.ColumnScope columnScope = 3;</code>
-       *
        * @param value The enum numeric value on the wire for columnScope to set.
        * @return This builder for chaining.
        */
@@ -4975,24 +4648,17 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ColumnScope columnScope = 3;</code>
-       *
        * @return The columnScope.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result = com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED : result;
       }
-
       /**
        * <code>.mlt.ColumnScope columnScope = 3;</code>
-       *
        * @param value The columnScope to set.
        * @return This builder for chaining.
        */
@@ -5005,10 +4671,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ColumnScope columnScope = 3;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearColumnScope() {
@@ -5019,24 +4683,17 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>
-          scalarTypeBuilder_;
-
+          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder> scalarTypeBuilder_;
       /**
        * <code>.mlt.ScalarColumn scalarType = 4;</code>
-       *
        * @return Whether the scalarType field is set.
        */
       @java.lang.Override
       public boolean hasScalarType() {
         return typeCase_ == 4;
       }
-
       /**
        * <code>.mlt.ScalarColumn scalarType = 4;</code>
-       *
        * @return The scalarType.
        */
       @java.lang.Override
@@ -5053,8 +4710,9 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
+      /**
+       * <code>.mlt.ScalarColumn scalarType = 4;</code>
+       */
       public Builder setScalarType(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn value) {
         if (scalarTypeBuilder_ == null) {
           if (value == null) {
@@ -5068,8 +4726,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 4;
         return this;
       }
-
-      /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
+      /**
+       * <code>.mlt.ScalarColumn scalarType = 4;</code>
+       */
       public Builder setScalarType(
           com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder builderForValue) {
         if (scalarTypeBuilder_ == null) {
@@ -5081,20 +4740,15 @@ public final class MltTilesetMetadata {
         typeCase_ = 4;
         return this;
       }
-
-      /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
-      public Builder mergeScalarType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn value) {
+      /**
+       * <code>.mlt.ScalarColumn scalarType = 4;</code>
+       */
+      public Builder mergeScalarType(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn value) {
         if (scalarTypeBuilder_ == null) {
-          if (typeCase_ == 4
-              && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn
-                      .getDefaultInstance()) {
-            type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_)
-                    .mergeFrom(value)
-                    .buildPartial();
+          if (typeCase_ == 4 &&
+              type_ != com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance()) {
+            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.newBuilder((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_)
+                .mergeFrom(value).buildPartial();
           } else {
             type_ = value;
           }
@@ -5109,8 +4763,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 4;
         return this;
       }
-
-      /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
+      /**
+       * <code>.mlt.ScalarColumn scalarType = 4;</code>
+       */
       public Builder clearScalarType() {
         if (scalarTypeBuilder_ == null) {
           if (typeCase_ == 4) {
@@ -5127,17 +4782,17 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder
-          getScalarTypeBuilder() {
+      /**
+       * <code>.mlt.ScalarColumn scalarType = 4;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder getScalarTypeBuilder() {
         return getScalarTypeFieldBuilder().getBuilder();
       }
-
-      /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
+      /**
+       * <code>.mlt.ScalarColumn scalarType = 4;</code>
+       */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder
-          getScalarTypeOrBuilder() {
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder getScalarTypeOrBuilder() {
         if ((typeCase_ == 4) && (scalarTypeBuilder_ != null)) {
           return scalarTypeBuilder_.getMessageOrBuilder();
         } else {
@@ -5147,22 +4802,18 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
+      /**
+       * <code>.mlt.ScalarColumn scalarType = 4;</code>
+       */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder> 
           getScalarTypeFieldBuilder() {
         if (scalarTypeBuilder_ == null) {
           if (!(typeCase_ == 4)) {
             type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
           }
-          scalarTypeBuilder_ =
-              new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>(
+          scalarTypeBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>(
                   (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_,
                   getParentForChildren(),
                   isClean());
@@ -5174,24 +4825,17 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>
-          complexTypeBuilder_;
-
+          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder> complexTypeBuilder_;
       /**
        * <code>.mlt.ComplexColumn complexType = 5;</code>
-       *
        * @return Whether the complexType field is set.
        */
       @java.lang.Override
       public boolean hasComplexType() {
         return typeCase_ == 5;
       }
-
       /**
        * <code>.mlt.ComplexColumn complexType = 5;</code>
-       *
        * @return The complexType.
        */
       @java.lang.Override
@@ -5208,10 +4852,10 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ComplexColumn complexType = 5;</code> */
-      public Builder setComplexType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
+      /**
+       * <code>.mlt.ComplexColumn complexType = 5;</code>
+       */
+      public Builder setComplexType(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
         if (complexTypeBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -5224,8 +4868,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 5;
         return this;
       }
-
-      /** <code>.mlt.ComplexColumn complexType = 5;</code> */
+      /**
+       * <code>.mlt.ComplexColumn complexType = 5;</code>
+       */
       public Builder setComplexType(
           com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder builderForValue) {
         if (complexTypeBuilder_ == null) {
@@ -5237,20 +4882,15 @@ public final class MltTilesetMetadata {
         typeCase_ = 5;
         return this;
       }
-
-      /** <code>.mlt.ComplexColumn complexType = 5;</code> */
-      public Builder mergeComplexType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
+      /**
+       * <code>.mlt.ComplexColumn complexType = 5;</code>
+       */
+      public Builder mergeComplexType(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
         if (complexTypeBuilder_ == null) {
-          if (typeCase_ == 5
-              && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn
-                      .getDefaultInstance()) {
-            type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_)
-                    .mergeFrom(value)
-                    .buildPartial();
+          if (typeCase_ == 5 &&
+              type_ != com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance()) {
+            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.newBuilder((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_)
+                .mergeFrom(value).buildPartial();
           } else {
             type_ = value;
           }
@@ -5265,8 +4905,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 5;
         return this;
       }
-
-      /** <code>.mlt.ComplexColumn complexType = 5;</code> */
+      /**
+       * <code>.mlt.ComplexColumn complexType = 5;</code>
+       */
       public Builder clearComplexType() {
         if (complexTypeBuilder_ == null) {
           if (typeCase_ == 5) {
@@ -5283,17 +4924,17 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>.mlt.ComplexColumn complexType = 5;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder
-          getComplexTypeBuilder() {
+      /**
+       * <code>.mlt.ComplexColumn complexType = 5;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder getComplexTypeBuilder() {
         return getComplexTypeFieldBuilder().getBuilder();
       }
-
-      /** <code>.mlt.ComplexColumn complexType = 5;</code> */
+      /**
+       * <code>.mlt.ComplexColumn complexType = 5;</code>
+       */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder
-          getComplexTypeOrBuilder() {
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder getComplexTypeOrBuilder() {
         if ((typeCase_ == 5) && (complexTypeBuilder_ != null)) {
           return complexTypeBuilder_.getMessageOrBuilder();
         } else {
@@ -5303,22 +4944,18 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ComplexColumn complexType = 5;</code> */
+      /**
+       * <code>.mlt.ComplexColumn complexType = 5;</code>
+       */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder> 
           getComplexTypeFieldBuilder() {
         if (complexTypeBuilder_ == null) {
           if (!(typeCase_ == 5)) {
             type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
           }
-          complexTypeBuilder_ =
-              new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>(
+          complexTypeBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>(
                   (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_,
                   getParentForChildren(),
                   isClean());
@@ -5328,7 +4965,6 @@ public final class MltTilesetMetadata {
         onChanged();
         return complexTypeBuilder_;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -5341,12 +4977,12 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.Column)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.Column)
     private static final com.mlt.metadata.tileset.MltTilesetMetadata.Column DEFAULT_INSTANCE;
-
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.Column();
     }
@@ -5355,28 +4991,27 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<Column> PARSER =
-        new com.google.protobuf.AbstractParser<Column>() {
-          @java.lang.Override
-          public Column parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<Column>
+        PARSER = new com.google.protobuf.AbstractParser<Column>() {
+      @java.lang.Override
+      public Column parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<Column> parser() {
       return PARSER;
@@ -5391,111 +5026,95 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.Column getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
-  public interface ScalarColumnOrBuilder
-      extends
+  public interface ScalarColumnOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.ScalarColumn)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <code>.mlt.ScalarType physicalType = 4;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     boolean hasPhysicalType();
-
     /**
      * <code>.mlt.ScalarType physicalType = 4;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     int getPhysicalTypeValue();
-
     /**
      * <code>.mlt.ScalarType physicalType = 4;</code>
-     *
      * @return The physicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     boolean hasLogicalType();
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     int getLogicalTypeValue();
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-     *
      * @return The logicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType();
 
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.TypeCase getTypeCase();
   }
-
-  /** Protobuf type {@code mlt.ScalarColumn} */
-  public static final class ScalarColumn extends com.google.protobuf.GeneratedMessageV3
-      implements
+  /**
+   * Protobuf type {@code mlt.ScalarColumn}
+   */
+  public static final class ScalarColumn extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.ScalarColumn)
       ScalarColumnOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use ScalarColumn.newBuilder() to construct.
     private ScalarColumn(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
-    private ScalarColumn() {}
+    private ScalarColumn() {
+    }
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new ScalarColumn();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_ScalarColumn_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarColumn_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_ScalarColumn_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarColumn_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
     }
 
     private int typeCase_ = 0;
-
     @SuppressWarnings("serial")
     private java.lang.Object type_;
-
     public enum TypeCase
-        implements
-            com.google.protobuf.Internal.EnumLite,
+        implements com.google.protobuf.Internal.EnumLite,
             com.google.protobuf.AbstractMessage.InternalOneOfEnum {
       PHYSICALTYPE(4),
       LOGICALTYPE(5),
       TYPE_NOT_SET(0);
       private final int value;
-
       private TypeCase(int value) {
         this.value = value;
       }
-
       /**
        * @param value The number of the enum to look for.
        * @return The enum associated with the given number.
@@ -5508,40 +5127,33 @@ public final class MltTilesetMetadata {
 
       public static TypeCase forNumber(int value) {
         switch (value) {
-          case 4:
-            return PHYSICALTYPE;
-          case 5:
-            return LOGICALTYPE;
-          case 0:
-            return TYPE_NOT_SET;
-          default:
-            return null;
+          case 4: return PHYSICALTYPE;
+          case 5: return LOGICALTYPE;
+          case 0: return TYPE_NOT_SET;
+          default: return null;
         }
       }
-
       public int getNumber() {
         return this.value;
       }
     };
 
-    public TypeCase getTypeCase() {
-      return TypeCase.forNumber(typeCase_);
+    public TypeCase
+    getTypeCase() {
+      return TypeCase.forNumber(
+          typeCase_);
     }
 
     public static final int PHYSICALTYPE_FIELD_NUMBER = 4;
-
     /**
      * <code>.mlt.ScalarType physicalType = 4;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     public boolean hasPhysicalType() {
       return typeCase_ == 4;
     }
-
     /**
      * <code>.mlt.ScalarType physicalType = 4;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     public int getPhysicalTypeValue() {
@@ -5550,38 +5162,29 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.ScalarType physicalType = 4;</code>
-     *
      * @return The physicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
       if (typeCase_ == 4) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 5;
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     public boolean hasLogicalType() {
       return typeCase_ == 5;
     }
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     public int getLogicalTypeValue() {
@@ -5590,26 +5193,20 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-     *
      * @return The logicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
       if (typeCase_ == 5) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
     }
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -5621,7 +5218,8 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       if (typeCase_ == 4) {
         output.writeEnum(4, ((java.lang.Integer) type_));
       }
@@ -5638,12 +5236,12 @@ public final class MltTilesetMetadata {
 
       size = 0;
       if (typeCase_ == 4) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(4, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(4, ((java.lang.Integer) type_));
       }
       if (typeCase_ == 5) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(5, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(5, ((java.lang.Integer) type_));
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -5653,21 +5251,22 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other = (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) obj;
 
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
         case 4:
-          if (getPhysicalTypeValue() != other.getPhysicalTypeValue()) return false;
+          if (getPhysicalTypeValue()
+              != other.getPhysicalTypeValue()) return false;
           break;
         case 5:
-          if (getLogicalTypeValue() != other.getLogicalTypeValue()) return false;
+          if (getLogicalTypeValue()
+              != other.getLogicalTypeValue()) return false;
           break;
         case 0:
         default:
@@ -5701,94 +5300,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
-    public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn prototype) {
+    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -5797,35 +5391,36 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
-    /** Protobuf type {@code mlt.ScalarColumn} */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    /**
+     * Protobuf type {@code mlt.ScalarColumn}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.ScalarColumn)
         com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ScalarColumn_descriptor;
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarColumn_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ScalarColumn_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarColumn_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -5836,9 +5431,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ScalarColumn_descriptor;
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarColumn_descriptor;
       }
 
       @java.lang.Override
@@ -5857,11 +5452,8 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn(this);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result = new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn(this);
+        if (bitField0_ != 0) { buildPartial0(result); }
         buildPartialOneofs(result);
         onBuilt();
         return result;
@@ -5871,8 +5463,7 @@ public final class MltTilesetMetadata {
         int from_bitField0_ = bitField0_;
       }
 
-      private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result) {
+      private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -5881,41 +5472,38 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn)other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -5923,23 +5511,19 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance())
-          return this;
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance()) return this;
         switch (other.getTypeCase()) {
-          case PHYSICALTYPE:
-            {
-              setPhysicalTypeValue(other.getPhysicalTypeValue());
-              break;
-            }
-          case LOGICALTYPE:
-            {
-              setLogicalTypeValue(other.getLogicalTypeValue());
-              break;
-            }
-          case TYPE_NOT_SET:
-            {
-              break;
-            }
+          case PHYSICALTYPE: {
+            setPhysicalTypeValue(other.getPhysicalTypeValue());
+            break;
+          }
+          case LOGICALTYPE: {
+            setLogicalTypeValue(other.getLogicalTypeValue());
+            break;
+          }
+          case TYPE_NOT_SET: {
+            break;
+          }
         }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
@@ -5967,27 +5551,24 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 32:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 4;
-                  type_ = rawValue;
-                  break;
-                } // case 32
-              case 40:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 5;
-                  type_ = rawValue;
-                  break;
-                } // case 40
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 32: {
+                int rawValue = input.readEnum();
+                typeCase_ = 4;
+                type_ = rawValue;
+                break;
+              } // case 32
+              case 40: {
+                int rawValue = input.readEnum();
+                typeCase_ = 5;
+                type_ = rawValue;
+                break;
+              } // case 40
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -5997,12 +5578,12 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int typeCase_ = 0;
       private java.lang.Object type_;
-
-      public TypeCase getTypeCase() {
-        return TypeCase.forNumber(typeCase_);
+      public TypeCase
+          getTypeCase() {
+        return TypeCase.forNumber(
+            typeCase_);
       }
 
       public Builder clearType() {
@@ -6016,17 +5597,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.ScalarType physicalType = 4;</code>
-       *
        * @return Whether the physicalType field is set.
        */
       @java.lang.Override
       public boolean hasPhysicalType() {
         return typeCase_ == 4;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 4;</code>
-       *
        * @return The enum numeric value on the wire for physicalType.
        */
       @java.lang.Override
@@ -6036,10 +5614,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 4;</code>
-       *
        * @param value The enum numeric value on the wire for physicalType to set.
        * @return This builder for chaining.
        */
@@ -6049,28 +5625,21 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 4;</code>
-       *
        * @return The physicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
         if (typeCase_ == 4) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 4;</code>
-       *
        * @param value The physicalType to set.
        * @return This builder for chaining.
        */
@@ -6083,10 +5652,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 4;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearPhysicalType() {
@@ -6100,17 +5667,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-       *
        * @return Whether the logicalType field is set.
        */
       @java.lang.Override
       public boolean hasLogicalType() {
         return typeCase_ == 5;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-       *
        * @return The enum numeric value on the wire for logicalType.
        */
       @java.lang.Override
@@ -6120,10 +5684,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-       *
        * @param value The enum numeric value on the wire for logicalType to set.
        * @return This builder for chaining.
        */
@@ -6133,33 +5695,25 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-       *
        * @return The logicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
         if (typeCase_ == 5) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-       *
        * @param value The logicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
+      public Builder setLogicalType(com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -6168,10 +5722,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 5;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearLogicalType() {
@@ -6182,7 +5734,6 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -6195,12 +5746,12 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.ScalarColumn)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ScalarColumn)
     private static final com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn DEFAULT_INSTANCE;
-
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn();
     }
@@ -6209,28 +5760,27 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<ScalarColumn> PARSER =
-        new com.google.protobuf.AbstractParser<ScalarColumn>() {
-          @java.lang.Override
-          public ScalarColumn parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<ScalarColumn>
+        PARSER = new com.google.protobuf.AbstractParser<ScalarColumn>() {
+      @java.lang.Override
+      public ScalarColumn parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<ScalarColumn> parser() {
       return PARSER;
@@ -6245,122 +5795,97 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
-  public interface ComplexColumnOrBuilder
-      extends
+  public interface ComplexColumnOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.ComplexColumn)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <code>.mlt.ComplexType physicalType = 4;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     boolean hasPhysicalType();
-
     /**
      * <code>.mlt.ComplexType physicalType = 4;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     int getPhysicalTypeValue();
-
     /**
      * <code>.mlt.ComplexType physicalType = 4;</code>
-     *
      * @return The physicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     boolean hasLogicalType();
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     int getLogicalTypeValue();
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-     *
      * @return The logicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType();
 
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList();
-
+    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> 
+        getChildrenList();
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index);
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
     int getChildrenCount();
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
-    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
         getChildrenOrBuilderList();
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(int index);
+    com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
+        int index);
 
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.TypeCase getTypeCase();
   }
-
   /**
-   *
-   *
    * <pre>
    * The type tree is flattened in to a list via a pre-order traversal
    * Represents a column if it is a root (top-level) type or a child of a nested type
@@ -6368,60 +5893,52 @@ public final class MltTilesetMetadata {
    *
    * Protobuf type {@code mlt.ComplexColumn}
    */
-  public static final class ComplexColumn extends com.google.protobuf.GeneratedMessageV3
-      implements
+  public static final class ComplexColumn extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.ComplexColumn)
       ComplexColumnOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use ComplexColumn.newBuilder() to construct.
     private ComplexColumn(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
     private ComplexColumn() {
       children_ = java.util.Collections.emptyList();
     }
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new ComplexColumn();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_ComplexColumn_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexColumn_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_ComplexColumn_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexColumn_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
     }
 
     private int typeCase_ = 0;
-
     @SuppressWarnings("serial")
     private java.lang.Object type_;
-
     public enum TypeCase
-        implements
-            com.google.protobuf.Internal.EnumLite,
+        implements com.google.protobuf.Internal.EnumLite,
             com.google.protobuf.AbstractMessage.InternalOneOfEnum {
       PHYSICALTYPE(4),
       LOGICALTYPE(5),
       TYPE_NOT_SET(0);
       private final int value;
-
       private TypeCase(int value) {
         this.value = value;
       }
-
       /**
        * @param value The number of the enum to look for.
        * @return The enum associated with the given number.
@@ -6434,40 +5951,33 @@ public final class MltTilesetMetadata {
 
       public static TypeCase forNumber(int value) {
         switch (value) {
-          case 4:
-            return PHYSICALTYPE;
-          case 5:
-            return LOGICALTYPE;
-          case 0:
-            return TYPE_NOT_SET;
-          default:
-            return null;
+          case 4: return PHYSICALTYPE;
+          case 5: return LOGICALTYPE;
+          case 0: return TYPE_NOT_SET;
+          default: return null;
         }
       }
-
       public int getNumber() {
         return this.value;
       }
     };
 
-    public TypeCase getTypeCase() {
-      return TypeCase.forNumber(typeCase_);
+    public TypeCase
+    getTypeCase() {
+      return TypeCase.forNumber(
+          typeCase_);
     }
 
     public static final int PHYSICALTYPE_FIELD_NUMBER = 4;
-
     /**
      * <code>.mlt.ComplexType physicalType = 4;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     public boolean hasPhysicalType() {
       return typeCase_ == 4;
     }
-
     /**
      * <code>.mlt.ComplexType physicalType = 4;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     public int getPhysicalTypeValue() {
@@ -6476,38 +5986,29 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.ComplexType physicalType = 4;</code>
-     *
      * @return The physicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
       if (typeCase_ == 4) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 5;
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     public boolean hasLogicalType() {
       return typeCase_ == 5;
     }
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     public int getLogicalTypeValue() {
@@ -6516,35 +6017,26 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-     *
      * @return The logicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
       if (typeCase_ == 5) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
     }
 
     public static final int CHILDREN_FIELD_NUMBER = 6;
-
     @SuppressWarnings("serial")
     private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_;
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
@@ -6553,29 +6045,23 @@ public final class MltTilesetMetadata {
     public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
       return children_;
     }
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
         getChildrenOrBuilderList() {
       return children_;
     }
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
@@ -6584,13 +6070,10 @@ public final class MltTilesetMetadata {
     public int getChildrenCount() {
       return children_.size();
     }
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
@@ -6599,13 +6082,10 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
       return children_.get(index);
     }
-
     /**
-     *
-     *
      * <pre>
-     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-     * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+     *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
      * </pre>
      *
      * <code>repeated .mlt.Field children = 6;</code>
@@ -6617,7 +6097,6 @@ public final class MltTilesetMetadata {
     }
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -6629,7 +6108,8 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       if (typeCase_ == 4) {
         output.writeEnum(4, ((java.lang.Integer) type_));
       }
@@ -6649,15 +6129,16 @@ public final class MltTilesetMetadata {
 
       size = 0;
       if (typeCase_ == 4) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(4, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(4, ((java.lang.Integer) type_));
       }
       if (typeCase_ == 5) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(5, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(5, ((java.lang.Integer) type_));
       }
       for (int i = 0; i < children_.size(); i++) {
-        size += com.google.protobuf.CodedOutputStream.computeMessageSize(6, children_.get(i));
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(6, children_.get(i));
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -6667,22 +6148,24 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn other = (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) obj;
 
-      if (!getChildrenList().equals(other.getChildrenList())) return false;
+      if (!getChildrenList()
+          .equals(other.getChildrenList())) return false;
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
         case 4:
-          if (getPhysicalTypeValue() != other.getPhysicalTypeValue()) return false;
+          if (getPhysicalTypeValue()
+              != other.getPhysicalTypeValue()) return false;
           break;
         case 5:
-          if (getLogicalTypeValue() != other.getLogicalTypeValue()) return false;
+          if (getLogicalTypeValue()
+              != other.getLogicalTypeValue()) return false;
           break;
         case 0:
         default:
@@ -6720,94 +6203,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
-    public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn prototype) {
+    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -6816,10 +6294,7 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
     /**
-     *
-     *
      * <pre>
      * The type tree is flattened in to a list via a pre-order traversal
      * Represents a column if it is a root (top-level) type or a child of a nested type
@@ -6827,33 +6302,33 @@ public final class MltTilesetMetadata {
      *
      * Protobuf type {@code mlt.ComplexColumn}
      */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.ComplexColumn)
         com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ComplexColumn_descriptor;
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexColumn_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ComplexColumn_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexColumn_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -6871,9 +6346,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ComplexColumn_descriptor;
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexColumn_descriptor;
       }
 
       @java.lang.Override
@@ -6892,19 +6367,15 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn(this);
+        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result = new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn(this);
         buildPartialRepeatedFields(result);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        if (bitField0_ != 0) { buildPartial0(result); }
         buildPartialOneofs(result);
         onBuilt();
         return result;
       }
 
-      private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
+      private void buildPartialRepeatedFields(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
         if (childrenBuilder_ == null) {
           if (((bitField0_ & 0x00000004) != 0)) {
             children_ = java.util.Collections.unmodifiableList(children_);
@@ -6920,8 +6391,7 @@ public final class MltTilesetMetadata {
         int from_bitField0_ = bitField0_;
       }
 
-      private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
+      private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -6930,41 +6400,38 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn)other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -6972,8 +6439,7 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance())
-          return this;
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance()) return this;
         if (childrenBuilder_ == null) {
           if (!other.children_.isEmpty()) {
             if (children_.isEmpty()) {
@@ -6992,30 +6458,26 @@ public final class MltTilesetMetadata {
               childrenBuilder_ = null;
               children_ = other.children_;
               bitField0_ = (bitField0_ & ~0x00000004);
-              childrenBuilder_ =
-                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
-                      ? getChildrenFieldBuilder()
-                      : null;
+              childrenBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getChildrenFieldBuilder() : null;
             } else {
               childrenBuilder_.addAllMessages(other.children_);
             }
           }
         }
         switch (other.getTypeCase()) {
-          case PHYSICALTYPE:
-            {
-              setPhysicalTypeValue(other.getPhysicalTypeValue());
-              break;
-            }
-          case LOGICALTYPE:
-            {
-              setLogicalTypeValue(other.getLogicalTypeValue());
-              break;
-            }
-          case TYPE_NOT_SET:
-            {
-              break;
-            }
+          case PHYSICALTYPE: {
+            setPhysicalTypeValue(other.getPhysicalTypeValue());
+            break;
+          }
+          case LOGICALTYPE: {
+            setLogicalTypeValue(other.getLogicalTypeValue());
+            break;
+          }
+          case TYPE_NOT_SET: {
+            break;
+          }
         }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
@@ -7043,41 +6505,37 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 32:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 4;
-                  type_ = rawValue;
-                  break;
-                } // case 32
-              case 40:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 5;
-                  type_ = rawValue;
-                  break;
-                } // case 40
-              case 50:
-                {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field m =
-                      input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
-                          extensionRegistry);
-                  if (childrenBuilder_ == null) {
-                    ensureChildrenIsMutable();
-                    children_.add(m);
-                  } else {
-                    childrenBuilder_.addMessage(m);
-                  }
-                  break;
-                } // case 50
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 32: {
+                int rawValue = input.readEnum();
+                typeCase_ = 4;
+                type_ = rawValue;
+                break;
+              } // case 32
+              case 40: {
+                int rawValue = input.readEnum();
+                typeCase_ = 5;
+                type_ = rawValue;
+                break;
+              } // case 40
+              case 50: {
+                com.mlt.metadata.tileset.MltTilesetMetadata.Field m =
+                    input.readMessage(
+                        com.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
+                        extensionRegistry);
+                if (childrenBuilder_ == null) {
+                  ensureChildrenIsMutable();
+                  children_.add(m);
+                } else {
+                  childrenBuilder_.addMessage(m);
+                }
+                break;
+              } // case 50
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -7087,12 +6545,12 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int typeCase_ = 0;
       private java.lang.Object type_;
-
-      public TypeCase getTypeCase() {
-        return TypeCase.forNumber(typeCase_);
+      public TypeCase
+          getTypeCase() {
+        return TypeCase.forNumber(
+            typeCase_);
       }
 
       public Builder clearType() {
@@ -7106,17 +6564,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.ComplexType physicalType = 4;</code>
-       *
        * @return Whether the physicalType field is set.
        */
       @java.lang.Override
       public boolean hasPhysicalType() {
         return typeCase_ == 4;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 4;</code>
-       *
        * @return The enum numeric value on the wire for physicalType.
        */
       @java.lang.Override
@@ -7126,10 +6581,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 4;</code>
-       *
        * @param value The enum numeric value on the wire for physicalType to set.
        * @return This builder for chaining.
        */
@@ -7139,33 +6592,25 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 4;</code>
-       *
        * @return The physicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
         if (typeCase_ == 4) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 4;</code>
-       *
        * @param value The physicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setPhysicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
+      public Builder setPhysicalType(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -7174,10 +6619,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 4;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearPhysicalType() {
@@ -7191,17 +6634,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-       *
        * @return Whether the logicalType field is set.
        */
       @java.lang.Override
       public boolean hasLogicalType() {
         return typeCase_ == 5;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-       *
        * @return The enum numeric value on the wire for logicalType.
        */
       @java.lang.Override
@@ -7211,10 +6651,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-       *
        * @param value The enum numeric value on the wire for logicalType to set.
        * @return This builder for chaining.
        */
@@ -7224,33 +6662,25 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-       *
        * @return The logicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
         if (typeCase_ == 5) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-       *
        * @param value The logicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
+      public Builder setLogicalType(com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -7259,10 +6689,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 5;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearLogicalType() {
@@ -7275,28 +6703,21 @@ public final class MltTilesetMetadata {
       }
 
       private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_ =
-          java.util.Collections.emptyList();
-
+        java.util.Collections.emptyList();
       private void ensureChildrenIsMutable() {
         if (!((bitField0_ & 0x00000004) != 0)) {
-          children_ =
-              new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
+          children_ = new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
           bitField0_ |= 0x00000004;
-        }
+         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
-          childrenBuilder_;
+          com.mlt.metadata.tileset.MltTilesetMetadata.Field, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> childrenBuilder_;
 
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7308,13 +6729,10 @@ public final class MltTilesetMetadata {
           return childrenBuilder_.getMessageList();
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7326,13 +6744,10 @@ public final class MltTilesetMetadata {
           return childrenBuilder_.getCount();
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7344,13 +6759,10 @@ public final class MltTilesetMetadata {
           return childrenBuilder_.getMessage(index);
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7369,13 +6781,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7391,13 +6800,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7415,13 +6821,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7440,13 +6843,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7462,13 +6862,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7484,13 +6881,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7499,20 +6893,18 @@ public final class MltTilesetMetadata {
           java.lang.Iterable<? extends com.mlt.metadata.tileset.MltTilesetMetadata.Field> values) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(values, children_);
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, children_);
           onChanged();
         } else {
           childrenBuilder_.addAllMessages(values);
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7527,13 +6919,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7548,13 +6937,10 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7563,13 +6949,10 @@ public final class MltTilesetMetadata {
           int index) {
         return getChildrenFieldBuilder().getBuilder(index);
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
@@ -7577,95 +6960,77 @@ public final class MltTilesetMetadata {
       public com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
           int index) {
         if (childrenBuilder_ == null) {
-          return children_.get(index);
-        } else {
+          return children_.get(index);  } else {
           return childrenBuilder_.getMessageOrBuilder(index);
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
-          getChildrenOrBuilderList() {
+      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
+           getChildrenOrBuilderList() {
         if (childrenBuilder_ != null) {
           return childrenBuilder_.getMessageOrBuilderList();
         } else {
           return java.util.Collections.unmodifiableList(children_);
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder() {
-        return getChildrenFieldBuilder()
-            .addBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+        return getChildrenFieldBuilder().addBuilder(
+            com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder(
           int index) {
-        return getChildrenFieldBuilder()
-            .addBuilder(
-                index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+        return getChildrenFieldBuilder().addBuilder(
+            index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
-
       /**
-       *
-       *
        * <pre>
-       * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-       * RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
+       *The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+       *RangeMap has only one child specifying the type of the value since the key is always a vec2&lt;double&gt;.
        * </pre>
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder>
-          getChildrenBuilderList() {
+      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder> 
+           getChildrenBuilderList() {
         return getChildrenFieldBuilder().getBuilderList();
       }
-
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.Field, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
           getChildrenFieldBuilder() {
         if (childrenBuilder_ == null) {
-          childrenBuilder_ =
-              new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
-                  children_, ((bitField0_ & 0x00000004) != 0), getParentForChildren(), isClean());
+          childrenBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.Field, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
+                  children_,
+                  ((bitField0_ & 0x00000004) != 0),
+                  getParentForChildren(),
+                  isClean());
           children_ = null;
         }
         return childrenBuilder_;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -7678,12 +7043,12 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.ComplexColumn)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ComplexColumn)
     private static final com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn DEFAULT_INSTANCE;
-
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn();
     }
@@ -7692,28 +7057,27 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<ComplexColumn> PARSER =
-        new com.google.protobuf.AbstractParser<ComplexColumn>() {
-          @java.lang.Override
-          public ComplexColumn parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<ComplexColumn>
+        PARSER = new com.google.protobuf.AbstractParser<ComplexColumn>() {
+      @java.lang.Override
+      public ComplexColumn parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<ComplexColumn> parser() {
       return PARSER;
@@ -7728,169 +7092,142 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
-  public interface FieldOrBuilder
-      extends
+  public interface FieldOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.Field)
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     *
-     *
      * <pre>
-     * name and nullable are only needed in combination with a struct not for vec, list and map
-     * Map -&gt; has the order key type, value type
+     *name and nullable are only needed in combination with a struct not for vec, list and map
+     *Map -&gt; has the order key type, value type
      * </pre>
      *
      * <code>optional string name = 1;</code>
-     *
      * @return Whether the name field is set.
      */
     boolean hasName();
-
     /**
-     *
-     *
      * <pre>
-     * name and nullable are only needed in combination with a struct not for vec, list and map
-     * Map -&gt; has the order key type, value type
+     *name and nullable are only needed in combination with a struct not for vec, list and map
+     *Map -&gt; has the order key type, value type
      * </pre>
      *
      * <code>optional string name = 1;</code>
-     *
      * @return The name.
      */
     java.lang.String getName();
-
     /**
-     *
-     *
      * <pre>
-     * name and nullable are only needed in combination with a struct not for vec, list and map
-     * Map -&gt; has the order key type, value type
+     *name and nullable are only needed in combination with a struct not for vec, list and map
+     *Map -&gt; has the order key type, value type
      * </pre>
      *
      * <code>optional string name = 1;</code>
-     *
      * @return The bytes for name.
      */
-    com.google.protobuf.ByteString getNameBytes();
+    com.google.protobuf.ByteString
+        getNameBytes();
 
     /**
      * <code>optional bool nullable = 2;</code>
-     *
      * @return Whether the nullable field is set.
      */
     boolean hasNullable();
-
     /**
      * <code>optional bool nullable = 2;</code>
-     *
      * @return The nullable.
      */
     boolean getNullable();
 
     /**
      * <code>.mlt.ScalarField scalarField = 3;</code>
-     *
      * @return Whether the scalarField field is set.
      */
     boolean hasScalarField();
-
     /**
      * <code>.mlt.ScalarField scalarField = 3;</code>
-     *
      * @return The scalarField.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField();
-
-    /** <code>.mlt.ScalarField scalarField = 3;</code> */
+    /**
+     * <code>.mlt.ScalarField scalarField = 3;</code>
+     */
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder getScalarFieldOrBuilder();
 
     /**
      * <code>.mlt.ComplexField complexField = 4;</code>
-     *
      * @return Whether the complexField field is set.
      */
     boolean hasComplexField();
-
     /**
      * <code>.mlt.ComplexField complexField = 4;</code>
-     *
      * @return The complexField.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField();
-
-    /** <code>.mlt.ComplexField complexField = 4;</code> */
+    /**
+     * <code>.mlt.ComplexField complexField = 4;</code>
+     */
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder getComplexFieldOrBuilder();
 
     com.mlt.metadata.tileset.MltTilesetMetadata.Field.TypeCase getTypeCase();
   }
-
   /**
-   *
-   *
    * <pre>
-   * Fields define nested or leaf types in the schema as part of a complex type definition
+   *Fields define nested or leaf types in the schema as part of a complex type definition
    * </pre>
    *
    * Protobuf type {@code mlt.Field}
    */
-  public static final class Field extends com.google.protobuf.GeneratedMessageV3
-      implements
+  public static final class Field extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.Field)
       FieldOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use Field.newBuilder() to construct.
     private Field(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
     private Field() {
       name_ = "";
     }
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new Field();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_Field_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.Field.class, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
     }
 
     private int bitField0_;
     private int typeCase_ = 0;
-
     @SuppressWarnings("serial")
     private java.lang.Object type_;
-
     public enum TypeCase
-        implements
-            com.google.protobuf.Internal.EnumLite,
+        implements com.google.protobuf.Internal.EnumLite,
             com.google.protobuf.AbstractMessage.InternalOneOfEnum {
       SCALARFIELD(3),
       COMPLEXFIELD(4),
       TYPE_NOT_SET(0);
       private final int value;
-
       private TypeCase(int value) {
         this.value = value;
       }
-
       /**
        * @param value The number of the enum to look for.
        * @return The enum associated with the given number.
@@ -7903,58 +7240,46 @@ public final class MltTilesetMetadata {
 
       public static TypeCase forNumber(int value) {
         switch (value) {
-          case 3:
-            return SCALARFIELD;
-          case 4:
-            return COMPLEXFIELD;
-          case 0:
-            return TYPE_NOT_SET;
-          default:
-            return null;
+          case 3: return SCALARFIELD;
+          case 4: return COMPLEXFIELD;
+          case 0: return TYPE_NOT_SET;
+          default: return null;
         }
       }
-
       public int getNumber() {
         return this.value;
       }
     };
 
-    public TypeCase getTypeCase() {
-      return TypeCase.forNumber(typeCase_);
+    public TypeCase
+    getTypeCase() {
+      return TypeCase.forNumber(
+          typeCase_);
     }
 
     public static final int NAME_FIELD_NUMBER = 1;
-
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
-
     /**
-     *
-     *
      * <pre>
-     * name and nullable are only needed in combination with a struct not for vec, list and map
-     * Map -&gt; has the order key type, value type
+     *name and nullable are only needed in combination with a struct not for vec, list and map
+     *Map -&gt; has the order key type, value type
      * </pre>
      *
      * <code>optional string name = 1;</code>
-     *
      * @return Whether the name field is set.
      */
     @java.lang.Override
     public boolean hasName() {
       return ((bitField0_ & 0x00000001) != 0);
     }
-
     /**
-     *
-     *
      * <pre>
-     * name and nullable are only needed in combination with a struct not for vec, list and map
-     * Map -&gt; has the order key type, value type
+     *name and nullable are only needed in combination with a struct not for vec, list and map
+     *Map -&gt; has the order key type, value type
      * </pre>
      *
      * <code>optional string name = 1;</code>
-     *
      * @return The name.
      */
     @java.lang.Override
@@ -7963,31 +7288,30 @@ public final class MltTilesetMetadata {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         name_ = s;
         return s;
       }
     }
-
     /**
-     *
-     *
      * <pre>
-     * name and nullable are only needed in combination with a struct not for vec, list and map
-     * Map -&gt; has the order key type, value type
+     *name and nullable are only needed in combination with a struct not for vec, list and map
+     *Map -&gt; has the order key type, value type
      * </pre>
      *
      * <code>optional string name = 1;</code>
-     *
      * @return The bytes for name.
      */
     @java.lang.Override
-    public com.google.protobuf.ByteString getNameBytes() {
+    public com.google.protobuf.ByteString
+        getNameBytes() {
       java.lang.Object ref = name_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b =
-            com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
         name_ = b;
         return b;
       } else {
@@ -7997,20 +7321,16 @@ public final class MltTilesetMetadata {
 
     public static final int NULLABLE_FIELD_NUMBER = 2;
     private boolean nullable_ = false;
-
     /**
      * <code>optional bool nullable = 2;</code>
-     *
      * @return Whether the nullable field is set.
      */
     @java.lang.Override
     public boolean hasNullable() {
       return ((bitField0_ & 0x00000002) != 0);
     }
-
     /**
      * <code>optional bool nullable = 2;</code>
-     *
      * @return The nullable.
      */
     @java.lang.Override
@@ -8019,77 +7339,68 @@ public final class MltTilesetMetadata {
     }
 
     public static final int SCALARFIELD_FIELD_NUMBER = 3;
-
     /**
      * <code>.mlt.ScalarField scalarField = 3;</code>
-     *
      * @return Whether the scalarField field is set.
      */
     @java.lang.Override
     public boolean hasScalarField() {
       return typeCase_ == 3;
     }
-
     /**
      * <code>.mlt.ScalarField scalarField = 3;</code>
-     *
      * @return The scalarField.
      */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField() {
       if (typeCase_ == 3) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
     }
-
-    /** <code>.mlt.ScalarField scalarField = 3;</code> */
+    /**
+     * <code>.mlt.ScalarField scalarField = 3;</code>
+     */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder
-        getScalarFieldOrBuilder() {
+    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder getScalarFieldOrBuilder() {
       if (typeCase_ == 3) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
     }
 
     public static final int COMPLEXFIELD_FIELD_NUMBER = 4;
-
     /**
      * <code>.mlt.ComplexField complexField = 4;</code>
-     *
      * @return Whether the complexField field is set.
      */
     @java.lang.Override
     public boolean hasComplexField() {
       return typeCase_ == 4;
     }
-
     /**
      * <code>.mlt.ComplexField complexField = 4;</code>
-     *
      * @return The complexField.
      */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
     }
-
-    /** <code>.mlt.ComplexField complexField = 4;</code> */
+    /**
+     * <code>.mlt.ComplexField complexField = 4;</code>
+     */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder
-        getComplexFieldOrBuilder() {
+    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder getComplexFieldOrBuilder() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
+         return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
     }
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -8101,7 +7412,8 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
       }
@@ -8127,17 +7439,16 @@ public final class MltTilesetMetadata {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.CodedOutputStream.computeBoolSize(2, nullable_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(2, nullable_);
       }
       if (typeCase_ == 3) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeMessageSize(
-                3, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(3, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_);
       }
       if (typeCase_ == 4) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeMessageSize(
-                4, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(4, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -8147,29 +7458,32 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Field)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.Field other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.Field) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.Field other = (com.mlt.metadata.tileset.MltTilesetMetadata.Field) obj;
 
       if (hasName() != other.hasName()) return false;
       if (hasName()) {
-        if (!getName().equals(other.getName())) return false;
+        if (!getName()
+            .equals(other.getName())) return false;
       }
       if (hasNullable() != other.hasNullable()) return false;
       if (hasNullable()) {
-        if (getNullable() != other.getNullable()) return false;
+        if (getNullable()
+            != other.getNullable()) return false;
       }
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
         case 3:
-          if (!getScalarField().equals(other.getScalarField())) return false;
+          if (!getScalarField()
+              .equals(other.getScalarField())) return false;
           break;
         case 4:
-          if (!getComplexField().equals(other.getComplexField())) return false;
+          if (!getComplexField()
+              .equals(other.getComplexField())) return false;
           break;
         case 0:
         default:
@@ -8191,7 +7505,8 @@ public final class MltTilesetMetadata {
       }
       if (hasNullable()) {
         hash = (37 * hash) + NULLABLE_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getNullable());
+        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+            getNullable());
       }
       switch (typeCase_) {
         case 3:
@@ -8211,93 +7526,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
     public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Field prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -8306,42 +7617,40 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
     /**
-     *
-     *
      * <pre>
-     * Fields define nested or leaf types in the schema as part of a complex type definition
+     *Fields define nested or leaf types in the schema as part of a complex type definition
      * </pre>
      *
      * Protobuf type {@code mlt.Field}
      */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.Field)
         com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
         return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_Field_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.Field.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.Field.class, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.Field.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -8360,7 +7669,8 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
         return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
       }
 
@@ -8380,11 +7690,8 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.Field buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.Field result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.Field(this);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        com.mlt.metadata.tileset.MltTilesetMetadata.Field result = new com.mlt.metadata.tileset.MltTilesetMetadata.Field(this);
+        if (bitField0_ != 0) { buildPartial0(result); }
         buildPartialOneofs(result);
         onBuilt();
         return result;
@@ -8407,10 +7714,12 @@ public final class MltTilesetMetadata {
       private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.Field result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
-        if (typeCase_ == 3 && scalarFieldBuilder_ != null) {
+        if (typeCase_ == 3 &&
+            scalarFieldBuilder_ != null) {
           result.type_ = scalarFieldBuilder_.build();
         }
-        if (typeCase_ == 4 && complexFieldBuilder_ != null) {
+        if (typeCase_ == 4 &&
+            complexFieldBuilder_ != null) {
           result.type_ = complexFieldBuilder_.build();
         }
       }
@@ -8419,41 +7728,38 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Field) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.Field) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.Field)other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -8461,8 +7767,7 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.Field other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance())
-          return this;
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance()) return this;
         if (other.hasName()) {
           name_ = other.name_;
           bitField0_ |= 0x00000001;
@@ -8472,20 +7777,17 @@ public final class MltTilesetMetadata {
           setNullable(other.getNullable());
         }
         switch (other.getTypeCase()) {
-          case SCALARFIELD:
-            {
-              mergeScalarField(other.getScalarField());
-              break;
-            }
-          case COMPLEXFIELD:
-            {
-              mergeComplexField(other.getComplexField());
-              break;
-            }
-          case TYPE_NOT_SET:
-            {
-              break;
-            }
+          case SCALARFIELD: {
+            mergeScalarField(other.getScalarField());
+            break;
+          }
+          case COMPLEXFIELD: {
+            mergeComplexField(other.getComplexField());
+            break;
+          }
+          case TYPE_NOT_SET: {
+            break;
+          }
         }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
@@ -8513,37 +7815,36 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 10:
-                {
-                  name_ = input.readStringRequireUtf8();
-                  bitField0_ |= 0x00000001;
-                  break;
-                } // case 10
-              case 16:
-                {
-                  nullable_ = input.readBool();
-                  bitField0_ |= 0x00000002;
-                  break;
-                } // case 16
-              case 26:
-                {
-                  input.readMessage(getScalarFieldFieldBuilder().getBuilder(), extensionRegistry);
-                  typeCase_ = 3;
-                  break;
-                } // case 26
-              case 34:
-                {
-                  input.readMessage(getComplexFieldFieldBuilder().getBuilder(), extensionRegistry);
-                  typeCase_ = 4;
-                  break;
-                } // case 34
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 10: {
+                name_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000001;
+                break;
+              } // case 10
+              case 16: {
+                nullable_ = input.readBool();
+                bitField0_ |= 0x00000002;
+                break;
+              } // case 16
+              case 26: {
+                input.readMessage(
+                    getScalarFieldFieldBuilder().getBuilder(),
+                    extensionRegistry);
+                typeCase_ = 3;
+                break;
+              } // case 26
+              case 34: {
+                input.readMessage(
+                    getComplexFieldFieldBuilder().getBuilder(),
+                    extensionRegistry);
+                typeCase_ = 4;
+                break;
+              } // case 34
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -8553,12 +7854,12 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int typeCase_ = 0;
       private java.lang.Object type_;
-
-      public TypeCase getTypeCase() {
-        return TypeCase.forNumber(typeCase_);
+      public TypeCase
+          getTypeCase() {
+        return TypeCase.forNumber(
+            typeCase_);
       }
 
       public Builder clearType() {
@@ -8571,39 +7872,32 @@ public final class MltTilesetMetadata {
       private int bitField0_;
 
       private java.lang.Object name_ = "";
-
       /**
-       *
-       *
        * <pre>
-       * name and nullable are only needed in combination with a struct not for vec, list and map
-       * Map -&gt; has the order key type, value type
+       *name and nullable are only needed in combination with a struct not for vec, list and map
+       *Map -&gt; has the order key type, value type
        * </pre>
        *
        * <code>optional string name = 1;</code>
-       *
        * @return Whether the name field is set.
        */
       public boolean hasName() {
         return ((bitField0_ & 0x00000001) != 0);
       }
-
       /**
-       *
-       *
        * <pre>
-       * name and nullable are only needed in combination with a struct not for vec, list and map
-       * Map -&gt; has the order key type, value type
+       *name and nullable are only needed in combination with a struct not for vec, list and map
+       *Map -&gt; has the order key type, value type
        * </pre>
        *
        * <code>optional string name = 1;</code>
-       *
        * @return The name.
        */
       public java.lang.String getName() {
         java.lang.Object ref = name_;
         if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs = (com.google.protobuf.ByteString) ref;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           name_ = s;
           return s;
@@ -8611,64 +7905,53 @@ public final class MltTilesetMetadata {
           return (java.lang.String) ref;
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * name and nullable are only needed in combination with a struct not for vec, list and map
-       * Map -&gt; has the order key type, value type
+       *name and nullable are only needed in combination with a struct not for vec, list and map
+       *Map -&gt; has the order key type, value type
        * </pre>
        *
        * <code>optional string name = 1;</code>
-       *
        * @return The bytes for name.
        */
-      public com.google.protobuf.ByteString getNameBytes() {
+      public com.google.protobuf.ByteString
+          getNameBytes() {
         java.lang.Object ref = name_;
         if (ref instanceof String) {
-          com.google.protobuf.ByteString b =
-              com.google.protobuf.ByteString.copyFromUtf8((java.lang.String) ref);
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
           name_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
         }
       }
-
       /**
-       *
-       *
        * <pre>
-       * name and nullable are only needed in combination with a struct not for vec, list and map
-       * Map -&gt; has the order key type, value type
+       *name and nullable are only needed in combination with a struct not for vec, list and map
+       *Map -&gt; has the order key type, value type
        * </pre>
        *
        * <code>optional string name = 1;</code>
-       *
        * @param value The name to set.
        * @return This builder for chaining.
        */
-      public Builder setName(java.lang.String value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setName(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
         name_ = value;
         bitField0_ |= 0x00000001;
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * name and nullable are only needed in combination with a struct not for vec, list and map
-       * Map -&gt; has the order key type, value type
+       *name and nullable are only needed in combination with a struct not for vec, list and map
+       *Map -&gt; has the order key type, value type
        * </pre>
        *
        * <code>optional string name = 1;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearName() {
@@ -8677,24 +7960,19 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
-       *
-       *
        * <pre>
-       * name and nullable are only needed in combination with a struct not for vec, list and map
-       * Map -&gt; has the order key type, value type
+       *name and nullable are only needed in combination with a struct not for vec, list and map
+       *Map -&gt; has the order key type, value type
        * </pre>
        *
        * <code>optional string name = 1;</code>
-       *
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
-      public Builder setNameBytes(com.google.protobuf.ByteString value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
+      public Builder setNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
         checkByteStringIsUtf8(value);
         name_ = value;
         bitField0_ |= 0x00000001;
@@ -8702,31 +7980,25 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private boolean nullable_;
-
+      private boolean nullable_ ;
       /**
        * <code>optional bool nullable = 2;</code>
-       *
        * @return Whether the nullable field is set.
        */
       @java.lang.Override
       public boolean hasNullable() {
         return ((bitField0_ & 0x00000002) != 0);
       }
-
       /**
        * <code>optional bool nullable = 2;</code>
-       *
        * @return The nullable.
        */
       @java.lang.Override
       public boolean getNullable() {
         return nullable_;
       }
-
       /**
        * <code>optional bool nullable = 2;</code>
-       *
        * @param value The nullable to set.
        * @return This builder for chaining.
        */
@@ -8737,10 +8009,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>optional bool nullable = 2;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearNullable() {
@@ -8751,24 +8021,17 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>
-          scalarFieldBuilder_;
-
+          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder> scalarFieldBuilder_;
       /**
        * <code>.mlt.ScalarField scalarField = 3;</code>
-       *
        * @return Whether the scalarField field is set.
        */
       @java.lang.Override
       public boolean hasScalarField() {
         return typeCase_ == 3;
       }
-
       /**
        * <code>.mlt.ScalarField scalarField = 3;</code>
-       *
        * @return The scalarField.
        */
       @java.lang.Override
@@ -8785,8 +8048,9 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ScalarField scalarField = 3;</code> */
+      /**
+       * <code>.mlt.ScalarField scalarField = 3;</code>
+       */
       public Builder setScalarField(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField value) {
         if (scalarFieldBuilder_ == null) {
           if (value == null) {
@@ -8800,8 +8064,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 3;
         return this;
       }
-
-      /** <code>.mlt.ScalarField scalarField = 3;</code> */
+      /**
+       * <code>.mlt.ScalarField scalarField = 3;</code>
+       */
       public Builder setScalarField(
           com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder builderForValue) {
         if (scalarFieldBuilder_ == null) {
@@ -8813,19 +8078,15 @@ public final class MltTilesetMetadata {
         typeCase_ = 3;
         return this;
       }
-
-      /** <code>.mlt.ScalarField scalarField = 3;</code> */
-      public Builder mergeScalarField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField value) {
+      /**
+       * <code>.mlt.ScalarField scalarField = 3;</code>
+       */
+      public Builder mergeScalarField(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField value) {
         if (scalarFieldBuilder_ == null) {
-          if (typeCase_ == 3
-              && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance()) {
-            type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_)
-                    .mergeFrom(value)
-                    .buildPartial();
+          if (typeCase_ == 3 &&
+              type_ != com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance()) {
+            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.newBuilder((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_)
+                .mergeFrom(value).buildPartial();
           } else {
             type_ = value;
           }
@@ -8840,8 +8101,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 3;
         return this;
       }
-
-      /** <code>.mlt.ScalarField scalarField = 3;</code> */
+      /**
+       * <code>.mlt.ScalarField scalarField = 3;</code>
+       */
       public Builder clearScalarField() {
         if (scalarFieldBuilder_ == null) {
           if (typeCase_ == 3) {
@@ -8858,17 +8120,17 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>.mlt.ScalarField scalarField = 3;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder
-          getScalarFieldBuilder() {
+      /**
+       * <code>.mlt.ScalarField scalarField = 3;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder getScalarFieldBuilder() {
         return getScalarFieldFieldBuilder().getBuilder();
       }
-
-      /** <code>.mlt.ScalarField scalarField = 3;</code> */
+      /**
+       * <code>.mlt.ScalarField scalarField = 3;</code>
+       */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder
-          getScalarFieldOrBuilder() {
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder getScalarFieldOrBuilder() {
         if ((typeCase_ == 3) && (scalarFieldBuilder_ != null)) {
           return scalarFieldBuilder_.getMessageOrBuilder();
         } else {
@@ -8878,22 +8140,18 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ScalarField scalarField = 3;</code> */
+      /**
+       * <code>.mlt.ScalarField scalarField = 3;</code>
+       */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder> 
           getScalarFieldFieldBuilder() {
         if (scalarFieldBuilder_ == null) {
           if (!(typeCase_ == 3)) {
             type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
           }
-          scalarFieldBuilder_ =
-              new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>(
+          scalarFieldBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>(
                   (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_,
                   getParentForChildren(),
                   isClean());
@@ -8905,24 +8163,17 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>
-          complexFieldBuilder_;
-
+          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder> complexFieldBuilder_;
       /**
        * <code>.mlt.ComplexField complexField = 4;</code>
-       *
        * @return Whether the complexField field is set.
        */
       @java.lang.Override
       public boolean hasComplexField() {
         return typeCase_ == 4;
       }
-
       /**
        * <code>.mlt.ComplexField complexField = 4;</code>
-       *
        * @return The complexField.
        */
       @java.lang.Override
@@ -8939,10 +8190,10 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ComplexField complexField = 4;</code> */
-      public Builder setComplexField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
+      /**
+       * <code>.mlt.ComplexField complexField = 4;</code>
+       */
+      public Builder setComplexField(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
         if (complexFieldBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -8955,8 +8206,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 4;
         return this;
       }
-
-      /** <code>.mlt.ComplexField complexField = 4;</code> */
+      /**
+       * <code>.mlt.ComplexField complexField = 4;</code>
+       */
       public Builder setComplexField(
           com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder builderForValue) {
         if (complexFieldBuilder_ == null) {
@@ -8968,20 +8220,15 @@ public final class MltTilesetMetadata {
         typeCase_ = 4;
         return this;
       }
-
-      /** <code>.mlt.ComplexField complexField = 4;</code> */
-      public Builder mergeComplexField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
+      /**
+       * <code>.mlt.ComplexField complexField = 4;</code>
+       */
+      public Builder mergeComplexField(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
         if (complexFieldBuilder_ == null) {
-          if (typeCase_ == 4
-              && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField
-                      .getDefaultInstance()) {
-            type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_)
-                    .mergeFrom(value)
-                    .buildPartial();
+          if (typeCase_ == 4 &&
+              type_ != com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance()) {
+            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.newBuilder((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_)
+                .mergeFrom(value).buildPartial();
           } else {
             type_ = value;
           }
@@ -8996,8 +8243,9 @@ public final class MltTilesetMetadata {
         typeCase_ = 4;
         return this;
       }
-
-      /** <code>.mlt.ComplexField complexField = 4;</code> */
+      /**
+       * <code>.mlt.ComplexField complexField = 4;</code>
+       */
       public Builder clearComplexField() {
         if (complexFieldBuilder_ == null) {
           if (typeCase_ == 4) {
@@ -9014,17 +8262,17 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>.mlt.ComplexField complexField = 4;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder
-          getComplexFieldBuilder() {
+      /**
+       * <code>.mlt.ComplexField complexField = 4;</code>
+       */
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder getComplexFieldBuilder() {
         return getComplexFieldFieldBuilder().getBuilder();
       }
-
-      /** <code>.mlt.ComplexField complexField = 4;</code> */
+      /**
+       * <code>.mlt.ComplexField complexField = 4;</code>
+       */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder
-          getComplexFieldOrBuilder() {
+      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder getComplexFieldOrBuilder() {
         if ((typeCase_ == 4) && (complexFieldBuilder_ != null)) {
           return complexFieldBuilder_.getMessageOrBuilder();
         } else {
@@ -9034,22 +8282,18 @@ public final class MltTilesetMetadata {
           return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
         }
       }
-
-      /** <code>.mlt.ComplexField complexField = 4;</code> */
+      /**
+       * <code>.mlt.ComplexField complexField = 4;</code>
+       */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder> 
           getComplexFieldFieldBuilder() {
         if (complexFieldBuilder_ == null) {
           if (!(typeCase_ == 4)) {
             type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
           }
-          complexFieldBuilder_ =
-              new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>(
+          complexFieldBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>(
                   (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_,
                   getParentForChildren(),
                   isClean());
@@ -9059,7 +8303,6 @@ public final class MltTilesetMetadata {
         onChanged();
         return complexFieldBuilder_;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -9072,12 +8315,12 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.Field)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.Field)
     private static final com.mlt.metadata.tileset.MltTilesetMetadata.Field DEFAULT_INSTANCE;
-
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.Field();
     }
@@ -9086,28 +8329,27 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<Field> PARSER =
-        new com.google.protobuf.AbstractParser<Field>() {
-          @java.lang.Override
-          public Field parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<Field>
+        PARSER = new com.google.protobuf.AbstractParser<Field>() {
+      @java.lang.Override
+      public Field parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<Field> parser() {
       return PARSER;
@@ -9122,110 +8364,95 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.Field getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
-  public interface ScalarFieldOrBuilder
-      extends
+  public interface ScalarFieldOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.ScalarField)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <code>.mlt.ScalarType physicalType = 1;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     boolean hasPhysicalType();
-
     /**
      * <code>.mlt.ScalarType physicalType = 1;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     int getPhysicalTypeValue();
-
     /**
      * <code>.mlt.ScalarType physicalType = 1;</code>
-     *
      * @return The physicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     boolean hasLogicalType();
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     int getLogicalTypeValue();
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-     *
      * @return The logicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType();
 
     com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.TypeCase getTypeCase();
   }
-
-  /** Protobuf type {@code mlt.ScalarField} */
-  public static final class ScalarField extends com.google.protobuf.GeneratedMessageV3
-      implements
+  /**
+   * Protobuf type {@code mlt.ScalarField}
+   */
+  public static final class ScalarField extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.ScalarField)
       ScalarFieldOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use ScalarField.newBuilder() to construct.
     private ScalarField(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
-    private ScalarField() {}
+    private ScalarField() {
+    }
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new ScalarField();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
       return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarField_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_ScalarField_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarField_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
     }
 
     private int typeCase_ = 0;
-
     @SuppressWarnings("serial")
     private java.lang.Object type_;
-
     public enum TypeCase
-        implements
-            com.google.protobuf.Internal.EnumLite,
+        implements com.google.protobuf.Internal.EnumLite,
             com.google.protobuf.AbstractMessage.InternalOneOfEnum {
       PHYSICALTYPE(1),
       LOGICALTYPE(2),
       TYPE_NOT_SET(0);
       private final int value;
-
       private TypeCase(int value) {
         this.value = value;
       }
-
       /**
        * @param value The number of the enum to look for.
        * @return The enum associated with the given number.
@@ -9238,40 +8465,33 @@ public final class MltTilesetMetadata {
 
       public static TypeCase forNumber(int value) {
         switch (value) {
-          case 1:
-            return PHYSICALTYPE;
-          case 2:
-            return LOGICALTYPE;
-          case 0:
-            return TYPE_NOT_SET;
-          default:
-            return null;
+          case 1: return PHYSICALTYPE;
+          case 2: return LOGICALTYPE;
+          case 0: return TYPE_NOT_SET;
+          default: return null;
         }
       }
-
       public int getNumber() {
         return this.value;
       }
     };
 
-    public TypeCase getTypeCase() {
-      return TypeCase.forNumber(typeCase_);
+    public TypeCase
+    getTypeCase() {
+      return TypeCase.forNumber(
+          typeCase_);
     }
 
     public static final int PHYSICALTYPE_FIELD_NUMBER = 1;
-
     /**
      * <code>.mlt.ScalarType physicalType = 1;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     public boolean hasPhysicalType() {
       return typeCase_ == 1;
     }
-
     /**
      * <code>.mlt.ScalarType physicalType = 1;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     public int getPhysicalTypeValue() {
@@ -9280,38 +8500,29 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.ScalarType physicalType = 1;</code>
-     *
      * @return The physicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
       if (typeCase_ == 1) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 2;
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     public boolean hasLogicalType() {
       return typeCase_ == 2;
     }
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     public int getLogicalTypeValue() {
@@ -9320,26 +8531,20 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-     *
      * @return The logicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
       if (typeCase_ == 2) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
     }
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -9351,7 +8556,8 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       if (typeCase_ == 1) {
         output.writeEnum(1, ((java.lang.Integer) type_));
       }
@@ -9368,12 +8574,12 @@ public final class MltTilesetMetadata {
 
       size = 0;
       if (typeCase_ == 1) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(1, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(1, ((java.lang.Integer) type_));
       }
       if (typeCase_ == 2) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(2, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(2, ((java.lang.Integer) type_));
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -9383,21 +8589,22 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField other = (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) obj;
 
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
         case 1:
-          if (getPhysicalTypeValue() != other.getPhysicalTypeValue()) return false;
+          if (getPhysicalTypeValue()
+              != other.getPhysicalTypeValue()) return false;
           break;
         case 2:
-          if (getLogicalTypeValue() != other.getLogicalTypeValue()) return false;
+          if (getLogicalTypeValue()
+              != other.getLogicalTypeValue()) return false;
           break;
         case 0:
         default:
@@ -9431,94 +8638,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
-    public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField prototype) {
+    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -9527,35 +8729,36 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
-    /** Protobuf type {@code mlt.ScalarField} */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    /**
+     * Protobuf type {@code mlt.ScalarField}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.ScalarField)
         com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ScalarField_descriptor;
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarField_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ScalarField_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarField_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class, com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -9566,9 +8769,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ScalarField_descriptor;
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarField_descriptor;
       }
 
       @java.lang.Override
@@ -9587,11 +8790,8 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField(this);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result = new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField(this);
+        if (bitField0_ != 0) { buildPartial0(result); }
         buildPartialOneofs(result);
         onBuilt();
         return result;
@@ -9601,8 +8801,7 @@ public final class MltTilesetMetadata {
         int from_bitField0_ = bitField0_;
       }
 
-      private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result) {
+      private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -9611,41 +8810,38 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField)other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -9653,23 +8849,19 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance())
-          return this;
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance()) return this;
         switch (other.getTypeCase()) {
-          case PHYSICALTYPE:
-            {
-              setPhysicalTypeValue(other.getPhysicalTypeValue());
-              break;
-            }
-          case LOGICALTYPE:
-            {
-              setLogicalTypeValue(other.getLogicalTypeValue());
-              break;
-            }
-          case TYPE_NOT_SET:
-            {
-              break;
-            }
+          case PHYSICALTYPE: {
+            setPhysicalTypeValue(other.getPhysicalTypeValue());
+            break;
+          }
+          case LOGICALTYPE: {
+            setLogicalTypeValue(other.getLogicalTypeValue());
+            break;
+          }
+          case TYPE_NOT_SET: {
+            break;
+          }
         }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
@@ -9697,27 +8889,24 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 8:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 1;
-                  type_ = rawValue;
-                  break;
-                } // case 8
-              case 16:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 2;
-                  type_ = rawValue;
-                  break;
-                } // case 16
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 8: {
+                int rawValue = input.readEnum();
+                typeCase_ = 1;
+                type_ = rawValue;
+                break;
+              } // case 8
+              case 16: {
+                int rawValue = input.readEnum();
+                typeCase_ = 2;
+                type_ = rawValue;
+                break;
+              } // case 16
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -9727,12 +8916,12 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int typeCase_ = 0;
       private java.lang.Object type_;
-
-      public TypeCase getTypeCase() {
-        return TypeCase.forNumber(typeCase_);
+      public TypeCase
+          getTypeCase() {
+        return TypeCase.forNumber(
+            typeCase_);
       }
 
       public Builder clearType() {
@@ -9746,17 +8935,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.ScalarType physicalType = 1;</code>
-       *
        * @return Whether the physicalType field is set.
        */
       @java.lang.Override
       public boolean hasPhysicalType() {
         return typeCase_ == 1;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 1;</code>
-       *
        * @return The enum numeric value on the wire for physicalType.
        */
       @java.lang.Override
@@ -9766,10 +8952,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 1;</code>
-       *
        * @param value The enum numeric value on the wire for physicalType to set.
        * @return This builder for chaining.
        */
@@ -9779,28 +8963,21 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 1;</code>
-       *
        * @return The physicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
         if (typeCase_ == 1) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 1;</code>
-       *
        * @param value The physicalType to set.
        * @return This builder for chaining.
        */
@@ -9813,10 +8990,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ScalarType physicalType = 1;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearPhysicalType() {
@@ -9830,17 +9005,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-       *
        * @return Whether the logicalType field is set.
        */
       @java.lang.Override
       public boolean hasLogicalType() {
         return typeCase_ == 2;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-       *
        * @return The enum numeric value on the wire for logicalType.
        */
       @java.lang.Override
@@ -9850,10 +9022,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-       *
        * @param value The enum numeric value on the wire for logicalType to set.
        * @return This builder for chaining.
        */
@@ -9863,33 +9033,25 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-       *
        * @return The logicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
         if (typeCase_ == 2) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-       *
        * @param value The logicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
+      public Builder setLogicalType(com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -9898,10 +9060,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalScalarType logicalType = 2;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearLogicalType() {
@@ -9912,7 +9072,6 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -9925,12 +9084,12 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.ScalarField)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ScalarField)
     private static final com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField DEFAULT_INSTANCE;
-
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField();
     }
@@ -9939,28 +9098,27 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<ScalarField> PARSER =
-        new com.google.protobuf.AbstractParser<ScalarField>() {
-          @java.lang.Override
-          public ScalarField parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<ScalarField>
+        PARSER = new com.google.protobuf.AbstractParser<ScalarField>() {
+      @java.lang.Override
+      public ScalarField parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<ScalarField> parser() {
       return PARSER;
@@ -9975,129 +9133,120 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
-  public interface ComplexFieldOrBuilder
-      extends
+  public interface ComplexFieldOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlt.ComplexField)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <code>.mlt.ComplexType physicalType = 1;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     boolean hasPhysicalType();
-
     /**
      * <code>.mlt.ComplexType physicalType = 1;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     int getPhysicalTypeValue();
-
     /**
      * <code>.mlt.ComplexType physicalType = 1;</code>
-     *
      * @return The physicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     boolean hasLogicalType();
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     int getLogicalTypeValue();
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-     *
      * @return The logicalType.
      */
     com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType();
 
-    /** <code>repeated .mlt.Field children = 3;</code> */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList();
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
+    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> 
+        getChildrenList();
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
     com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index);
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
     int getChildrenCount();
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
-    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
+    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
         getChildrenOrBuilderList();
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(int index);
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
+    com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
+        int index);
 
     com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.TypeCase getTypeCase();
   }
-
-  /** Protobuf type {@code mlt.ComplexField} */
-  public static final class ComplexField extends com.google.protobuf.GeneratedMessageV3
-      implements
+  /**
+   * Protobuf type {@code mlt.ComplexField}
+   */
+  public static final class ComplexField extends
+      com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlt.ComplexField)
       ComplexFieldOrBuilder {
-    private static final long serialVersionUID = 0L;
-
+  private static final long serialVersionUID = 0L;
     // Use ComplexField.newBuilder() to construct.
     private ComplexField(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
       super(builder);
     }
-
     private ComplexField() {
       children_ = java.util.Collections.emptyList();
     }
 
     @java.lang.Override
     @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(UnusedPrivateParameter unused) {
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
       return new ComplexField();
     }
 
-    public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_ComplexField_descriptor;
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexField_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
-          .internal_static_mlt_ComplexField_fieldAccessorTable
+      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexField_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
+              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
     }
 
     private int typeCase_ = 0;
-
     @SuppressWarnings("serial")
     private java.lang.Object type_;
-
     public enum TypeCase
-        implements
-            com.google.protobuf.Internal.EnumLite,
+        implements com.google.protobuf.Internal.EnumLite,
             com.google.protobuf.AbstractMessage.InternalOneOfEnum {
       PHYSICALTYPE(1),
       LOGICALTYPE(2),
       TYPE_NOT_SET(0);
       private final int value;
-
       private TypeCase(int value) {
         this.value = value;
       }
-
       /**
        * @param value The number of the enum to look for.
        * @return The enum associated with the given number.
@@ -10110,40 +9259,33 @@ public final class MltTilesetMetadata {
 
       public static TypeCase forNumber(int value) {
         switch (value) {
-          case 1:
-            return PHYSICALTYPE;
-          case 2:
-            return LOGICALTYPE;
-          case 0:
-            return TYPE_NOT_SET;
-          default:
-            return null;
+          case 1: return PHYSICALTYPE;
+          case 2: return LOGICALTYPE;
+          case 0: return TYPE_NOT_SET;
+          default: return null;
         }
       }
-
       public int getNumber() {
         return this.value;
       }
     };
 
-    public TypeCase getTypeCase() {
-      return TypeCase.forNumber(typeCase_);
+    public TypeCase
+    getTypeCase() {
+      return TypeCase.forNumber(
+          typeCase_);
     }
 
     public static final int PHYSICALTYPE_FIELD_NUMBER = 1;
-
     /**
      * <code>.mlt.ComplexType physicalType = 1;</code>
-     *
      * @return Whether the physicalType field is set.
      */
     public boolean hasPhysicalType() {
       return typeCase_ == 1;
     }
-
     /**
      * <code>.mlt.ComplexType physicalType = 1;</code>
-     *
      * @return The enum numeric value on the wire for physicalType.
      */
     public int getPhysicalTypeValue() {
@@ -10152,38 +9294,29 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.ComplexType physicalType = 1;</code>
-     *
      * @return The physicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
       if (typeCase_ == 1) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 2;
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-     *
      * @return Whether the logicalType field is set.
      */
     public boolean hasLogicalType() {
       return typeCase_ == 2;
     }
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-     *
      * @return The enum numeric value on the wire for logicalType.
      */
     public int getLogicalTypeValue() {
@@ -10192,55 +9325,54 @@ public final class MltTilesetMetadata {
       }
       return 0;
     }
-
     /**
      * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-     *
      * @return The logicalType.
      */
     public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
       if (typeCase_ == 2) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
-                (java.lang.Integer) type_);
-        return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
-            : result;
+        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+            (java.lang.Integer) type_);
+        return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED : result;
       }
       return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
     }
 
     public static final int CHILDREN_FIELD_NUMBER = 3;
-
     @SuppressWarnings("serial")
     private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_;
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
     @java.lang.Override
     public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
       return children_;
     }
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
     @java.lang.Override
-    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
         getChildrenOrBuilderList() {
       return children_;
     }
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
     @java.lang.Override
     public int getChildrenCount() {
       return children_.size();
     }
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
       return children_.get(index);
     }
-
-    /** <code>repeated .mlt.Field children = 3;</code> */
+    /**
+     * <code>repeated .mlt.Field children = 3;</code>
+     */
     @java.lang.Override
     public com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
         int index) {
@@ -10248,7 +9380,6 @@ public final class MltTilesetMetadata {
     }
 
     private byte memoizedIsInitialized = -1;
-
     @java.lang.Override
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
@@ -10260,7 +9391,8 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
       if (typeCase_ == 1) {
         output.writeEnum(1, ((java.lang.Integer) type_));
       }
@@ -10280,15 +9412,16 @@ public final class MltTilesetMetadata {
 
       size = 0;
       if (typeCase_ == 1) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(1, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(1, ((java.lang.Integer) type_));
       }
       if (typeCase_ == 2) {
-        size +=
-            com.google.protobuf.CodedOutputStream.computeEnumSize(2, ((java.lang.Integer) type_));
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(2, ((java.lang.Integer) type_));
       }
       for (int i = 0; i < children_.size(); i++) {
-        size += com.google.protobuf.CodedOutputStream.computeMessageSize(3, children_.get(i));
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(3, children_.get(i));
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -10298,22 +9431,24 @@ public final class MltTilesetMetadata {
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
-        return true;
+       return true;
       }
       if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) obj;
+      com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField other = (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) obj;
 
-      if (!getChildrenList().equals(other.getChildrenList())) return false;
+      if (!getChildrenList()
+          .equals(other.getChildrenList())) return false;
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
         case 1:
-          if (getPhysicalTypeValue() != other.getPhysicalTypeValue()) return false;
+          if (getPhysicalTypeValue()
+              != other.getPhysicalTypeValue()) return false;
           break;
         case 2:
-          if (getLogicalTypeValue() != other.getLogicalTypeValue()) return false;
+          if (getLogicalTypeValue()
+              != other.getLogicalTypeValue()) return false;
           break;
         case 0:
         default:
@@ -10351,94 +9486,89 @@ public final class MltTilesetMetadata {
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
-        java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
-        java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
-        byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
     }
 
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseDelimitedFrom(
-        java.io.InputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
-    }
-
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseDelimitedFrom(
-        java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
-        com.google.protobuf.CodedInputStream input) throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
     }
-
     public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
-          PARSER, input, extensionRegistry);
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
     @java.lang.Override
-    public Builder newBuilderForType() {
-      return newBuilder();
-    }
-
+    public Builder newBuilderForType() { return newBuilder(); }
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-
-    public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField prototype) {
+    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
-
     @java.lang.Override
     public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE ? new Builder() : new Builder().mergeFrom(this);
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
     }
 
     @java.lang.Override
@@ -10447,35 +9577,36 @@ public final class MltTilesetMetadata {
       Builder builder = new Builder(parent);
       return builder;
     }
-
-    /** Protobuf type {@code mlt.ComplexField} */
-    public static final class Builder
-        extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
-        implements
+    /**
+     * Protobuf type {@code mlt.ComplexField}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:mlt.ComplexField)
         com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ComplexField_descriptor;
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexField_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ComplexField_fieldAccessorTable
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexField_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
+                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class, com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
       }
 
       // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.newBuilder()
-      private Builder() {}
+      private Builder() {
 
-      private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
       }
 
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+
+      }
       @java.lang.Override
       public Builder clear() {
         super.clear();
@@ -10493,9 +9624,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
-            .internal_static_mlt_ComplexField_descriptor;
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ComplexField_descriptor;
       }
 
       @java.lang.Override
@@ -10514,19 +9645,15 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField(this);
+        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result = new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField(this);
         buildPartialRepeatedFields(result);
-        if (bitField0_ != 0) {
-          buildPartial0(result);
-        }
+        if (bitField0_ != 0) { buildPartial0(result); }
         buildPartialOneofs(result);
         onBuilt();
         return result;
       }
 
-      private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
+      private void buildPartialRepeatedFields(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
         if (childrenBuilder_ == null) {
           if (((bitField0_ & 0x00000004) != 0)) {
             children_ = java.util.Collections.unmodifiableList(children_);
@@ -10542,8 +9669,7 @@ public final class MltTilesetMetadata {
         int from_bitField0_ = bitField0_;
       }
 
-      private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
+      private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -10552,41 +9678,38 @@ public final class MltTilesetMetadata {
       public Builder clone() {
         return super.clone();
       }
-
       @java.lang.Override
       public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.setField(field, value);
       }
-
       @java.lang.Override
-      public Builder clearField(com.google.protobuf.Descriptors.FieldDescriptor field) {
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
         return super.clearField(field);
       }
-
       @java.lang.Override
-      public Builder clearOneof(com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return super.clearOneof(oneof);
       }
-
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index,
-          java.lang.Object value) {
+          int index, java.lang.Object value) {
         return super.setRepeatedField(field, index, value);
       }
-
       @java.lang.Override
       public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field, java.lang.Object value) {
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
         return super.addRepeatedField(field, value);
       }
-
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) other);
+          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField)other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -10594,8 +9717,7 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance())
-          return this;
+        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance()) return this;
         if (childrenBuilder_ == null) {
           if (!other.children_.isEmpty()) {
             if (children_.isEmpty()) {
@@ -10614,30 +9736,26 @@ public final class MltTilesetMetadata {
               childrenBuilder_ = null;
               children_ = other.children_;
               bitField0_ = (bitField0_ & ~0x00000004);
-              childrenBuilder_ =
-                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders
-                      ? getChildrenFieldBuilder()
-                      : null;
+              childrenBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getChildrenFieldBuilder() : null;
             } else {
               childrenBuilder_.addAllMessages(other.children_);
             }
           }
         }
         switch (other.getTypeCase()) {
-          case PHYSICALTYPE:
-            {
-              setPhysicalTypeValue(other.getPhysicalTypeValue());
-              break;
-            }
-          case LOGICALTYPE:
-            {
-              setLogicalTypeValue(other.getLogicalTypeValue());
-              break;
-            }
-          case TYPE_NOT_SET:
-            {
-              break;
-            }
+          case PHYSICALTYPE: {
+            setPhysicalTypeValue(other.getPhysicalTypeValue());
+            break;
+          }
+          case LOGICALTYPE: {
+            setLogicalTypeValue(other.getLogicalTypeValue());
+            break;
+          }
+          case TYPE_NOT_SET: {
+            break;
+          }
         }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
@@ -10665,41 +9783,37 @@ public final class MltTilesetMetadata {
               case 0:
                 done = true;
                 break;
-              case 8:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 1;
-                  type_ = rawValue;
-                  break;
-                } // case 8
-              case 16:
-                {
-                  int rawValue = input.readEnum();
-                  typeCase_ = 2;
-                  type_ = rawValue;
-                  break;
-                } // case 16
-              case 26:
-                {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field m =
-                      input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
-                          extensionRegistry);
-                  if (childrenBuilder_ == null) {
-                    ensureChildrenIsMutable();
-                    children_.add(m);
-                  } else {
-                    childrenBuilder_.addMessage(m);
-                  }
-                  break;
-                } // case 26
-              default:
-                {
-                  if (!super.parseUnknownField(input, extensionRegistry, tag)) {
-                    done = true; // was an endgroup tag
-                  }
-                  break;
-                } // default:
+              case 8: {
+                int rawValue = input.readEnum();
+                typeCase_ = 1;
+                type_ = rawValue;
+                break;
+              } // case 8
+              case 16: {
+                int rawValue = input.readEnum();
+                typeCase_ = 2;
+                type_ = rawValue;
+                break;
+              } // case 16
+              case 26: {
+                com.mlt.metadata.tileset.MltTilesetMetadata.Field m =
+                    input.readMessage(
+                        com.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
+                        extensionRegistry);
+                if (childrenBuilder_ == null) {
+                  ensureChildrenIsMutable();
+                  children_.add(m);
+                } else {
+                  childrenBuilder_.addMessage(m);
+                }
+                break;
+              } // case 26
+              default: {
+                if (!super.parseUnknownField(input, extensionRegistry, tag)) {
+                  done = true; // was an endgroup tag
+                }
+                break;
+              } // default:
             } // switch (tag)
           } // while (!done)
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -10709,12 +9823,12 @@ public final class MltTilesetMetadata {
         } // finally
         return this;
       }
-
       private int typeCase_ = 0;
       private java.lang.Object type_;
-
-      public TypeCase getTypeCase() {
-        return TypeCase.forNumber(typeCase_);
+      public TypeCase
+          getTypeCase() {
+        return TypeCase.forNumber(
+            typeCase_);
       }
 
       public Builder clearType() {
@@ -10728,17 +9842,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.ComplexType physicalType = 1;</code>
-       *
        * @return Whether the physicalType field is set.
        */
       @java.lang.Override
       public boolean hasPhysicalType() {
         return typeCase_ == 1;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 1;</code>
-       *
        * @return The enum numeric value on the wire for physicalType.
        */
       @java.lang.Override
@@ -10748,10 +9859,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 1;</code>
-       *
        * @param value The enum numeric value on the wire for physicalType to set.
        * @return This builder for chaining.
        */
@@ -10761,33 +9870,25 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 1;</code>
-       *
        * @return The physicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
         if (typeCase_ == 1) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 1;</code>
-       *
        * @param value The physicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setPhysicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
+      public Builder setPhysicalType(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -10796,10 +9897,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.ComplexType physicalType = 1;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearPhysicalType() {
@@ -10813,17 +9912,14 @@ public final class MltTilesetMetadata {
 
       /**
        * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-       *
        * @return Whether the logicalType field is set.
        */
       @java.lang.Override
       public boolean hasLogicalType() {
         return typeCase_ == 2;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-       *
        * @return The enum numeric value on the wire for logicalType.
        */
       @java.lang.Override
@@ -10833,10 +9929,8 @@ public final class MltTilesetMetadata {
         }
         return 0;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-       *
        * @param value The enum numeric value on the wire for logicalType to set.
        * @return This builder for chaining.
        */
@@ -10846,33 +9940,25 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-       *
        * @return The logicalType.
        */
       @java.lang.Override
       public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
         if (typeCase_ == 2) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
-                  (java.lang.Integer) type_);
-          return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
-              : result;
+          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result = com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+              (java.lang.Integer) type_);
+          return result == null ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED : result;
         }
         return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-       *
        * @param value The logicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
+      public Builder setLogicalType(com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -10881,10 +9967,8 @@ public final class MltTilesetMetadata {
         onChanged();
         return this;
       }
-
       /**
        * <code>.mlt.LogicalComplexType logicalType = 2;</code>
-       *
        * @return This builder for chaining.
        */
       public Builder clearLogicalType() {
@@ -10897,23 +9981,20 @@ public final class MltTilesetMetadata {
       }
 
       private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_ =
-          java.util.Collections.emptyList();
-
+        java.util.Collections.emptyList();
       private void ensureChildrenIsMutable() {
         if (!((bitField0_ & 0x00000004) != 0)) {
-          children_ =
-              new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
+          children_ = new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
           bitField0_ |= 0x00000004;
-        }
+         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
-          childrenBuilder_;
+          com.mlt.metadata.tileset.MltTilesetMetadata.Field, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> childrenBuilder_;
 
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
         if (childrenBuilder_ == null) {
           return java.util.Collections.unmodifiableList(children_);
@@ -10921,8 +10002,9 @@ public final class MltTilesetMetadata {
           return childrenBuilder_.getMessageList();
         }
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public int getChildrenCount() {
         if (childrenBuilder_ == null) {
           return children_.size();
@@ -10930,8 +10012,9 @@ public final class MltTilesetMetadata {
           return childrenBuilder_.getCount();
         }
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
         if (childrenBuilder_ == null) {
           return children_.get(index);
@@ -10939,8 +10022,9 @@ public final class MltTilesetMetadata {
           return childrenBuilder_.getMessage(index);
         }
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder setChildren(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
@@ -10955,8 +10039,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder setChildren(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
@@ -10968,8 +10053,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder addChildren(com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
           if (value == null) {
@@ -10983,8 +10069,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder addChildren(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
@@ -10999,8 +10086,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder addChildren(
           com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
@@ -11012,8 +10100,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder addChildren(
           int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
@@ -11025,21 +10114,24 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder addAllChildren(
           java.lang.Iterable<? extends com.mlt.metadata.tileset.MltTilesetMetadata.Field> values) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(values, children_);
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, children_);
           onChanged();
         } else {
           childrenBuilder_.addAllMessages(values);
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder clearChildren() {
         if (childrenBuilder_ == null) {
           children_ = java.util.Collections.emptyList();
@@ -11050,8 +10142,9 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public Builder removeChildren(int index) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
@@ -11062,70 +10155,70 @@ public final class MltTilesetMetadata {
         }
         return this;
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder getChildrenBuilder(
           int index) {
         return getChildrenFieldBuilder().getBuilder(index);
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
           int index) {
         if (childrenBuilder_ == null) {
-          return children_.get(index);
-        } else {
+          return children_.get(index);  } else {
           return childrenBuilder_.getMessageOrBuilder(index);
         }
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
-      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
-          getChildrenOrBuilderList() {
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
+      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
+           getChildrenOrBuilderList() {
         if (childrenBuilder_ != null) {
           return childrenBuilder_.getMessageOrBuilderList();
         } else {
           return java.util.Collections.unmodifiableList(children_);
         }
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder() {
-        return getChildrenFieldBuilder()
-            .addBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+        return getChildrenFieldBuilder().addBuilder(
+            com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
       public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder(
           int index) {
-        return getChildrenFieldBuilder()
-            .addBuilder(
-                index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+        return getChildrenFieldBuilder().addBuilder(
+            index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
-
-      /** <code>repeated .mlt.Field children = 3;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder>
-          getChildrenBuilderList() {
+      /**
+       * <code>repeated .mlt.Field children = 3;</code>
+       */
+      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder> 
+           getChildrenBuilderList() {
         return getChildrenFieldBuilder().getBuilderList();
       }
-
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+          com.mlt.metadata.tileset.MltTilesetMetadata.Field, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder> 
           getChildrenFieldBuilder() {
         if (childrenBuilder_ == null) {
-          childrenBuilder_ =
-              new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
-                  children_, ((bitField0_ & 0x00000004) != 0), getParentForChildren(), isClean());
+          childrenBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              com.mlt.metadata.tileset.MltTilesetMetadata.Field, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder, com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
+                  children_,
+                  ((bitField0_ & 0x00000004) != 0),
+                  getParentForChildren(),
+                  isClean());
           children_ = null;
         }
         return childrenBuilder_;
       }
-
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -11138,12 +10231,12 @@ public final class MltTilesetMetadata {
         return super.mergeUnknownFields(unknownFields);
       }
 
+
       // @@protoc_insertion_point(builder_scope:mlt.ComplexField)
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ComplexField)
     private static final com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField DEFAULT_INSTANCE;
-
     static {
       DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField();
     }
@@ -11152,28 +10245,27 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE;
     }
 
-    private static final com.google.protobuf.Parser<ComplexField> PARSER =
-        new com.google.protobuf.AbstractParser<ComplexField>() {
-          @java.lang.Override
-          public ComplexField parsePartialFrom(
-              com.google.protobuf.CodedInputStream input,
-              com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-              throws com.google.protobuf.InvalidProtocolBufferException {
-            Builder builder = newBuilder();
-            try {
-              builder.mergeFrom(input, extensionRegistry);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-              throw e.setUnfinishedMessage(builder.buildPartial());
-            } catch (com.google.protobuf.UninitializedMessageException e) {
-              throw e.asInvalidProtocolBufferException()
-                  .setUnfinishedMessage(builder.buildPartial());
-            } catch (java.io.IOException e) {
-              throw new com.google.protobuf.InvalidProtocolBufferException(e)
-                  .setUnfinishedMessage(builder.buildPartial());
-            }
-            return builder.buildPartial();
-          }
-        };
+    private static final com.google.protobuf.Parser<ComplexField>
+        PARSER = new com.google.protobuf.AbstractParser<ComplexField>() {
+      @java.lang.Override
+      public ComplexField parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        Builder builder = newBuilder();
+        try {
+          builder.mergeFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(builder.buildPartial());
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(builder.buildPartial());
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(e)
+              .setUnfinishedMessage(builder.buildPartial());
+        }
+        return builder.buildPartial();
+      }
+    };
 
     public static com.google.protobuf.Parser<ComplexField> parser() {
       return PARSER;
@@ -11188,164 +10280,153 @@ public final class MltTilesetMetadata {
     public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
+
   }
 
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_TileSetMetadata_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_TileSetMetadata_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_TileSetMetadata_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_FeatureTableSchema_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_FeatureTableSchema_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_FeatureTableSchema_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_Column_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_Column_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_Column_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_ScalarColumn_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_ScalarColumn_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_ScalarColumn_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_ComplexColumn_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_ComplexColumn_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_ComplexColumn_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_Field_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_Field_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_Field_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_ScalarField_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_ScalarField_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_ScalarField_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-      internal_static_mlt_ComplexField_descriptor;
-  private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    internal_static_mlt_ComplexField_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlt_ComplexField_fieldAccessorTable;
 
-  public static com.google.protobuf.Descriptors.FileDescriptor getDescriptor() {
+  public static com.google.protobuf.Descriptors.FileDescriptor
+      getDescriptor() {
     return descriptor;
   }
-
-  private static com.google.protobuf.Descriptors.FileDescriptor descriptor;
-
+  private static  com.google.protobuf.Descriptors.FileDescriptor
+      descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\032mlt_tileset_metadata.proto\022\003mlt\"\246\002\n\017Ti"
-          + "leSetMetadata\022\017\n\007version\030\001 \001(\005\022.\n\rfeatur"
-          + "eTables\030\002 \003(\0132\027.mlt.FeatureTableSchema\022\021"
-          + "\n\004name\030\003 \001(\tH\000\210\001\001\022\030\n\013description\030\004 \001(\tH\001"
-          + "\210\001\001\022\030\n\013attribution\030\005 \001(\tH\002\210\001\001\022\024\n\007minZoom"
-          + "\030\006 \001(\005H\003\210\001\001\022\024\n\007maxZoom\030\007 \001(\005H\004\210\001\001\022\016\n\006bou"
-          + "nds\030\010 \003(\001\022\016\n\006center\030\t \003(\001B\007\n\005_nameB\016\n\014_d"
-          + "escriptionB\016\n\014_attributionB\n\n\010_minZoomB\n"
-          + "\n\010_maxZoom\"@\n\022FeatureTableSchema\022\014\n\004name"
-          + "\030\001 \001(\t\022\034\n\007columns\030\002 \003(\0132\013.mlt.Column\"\253\001\n"
-          + "\006Column\022\014\n\004name\030\001 \001(\t\022\020\n\010nullable\030\002 \001(\010\022"
-          + "%\n\013columnScope\030\003 \001(\0162\020.mlt.ColumnScope\022\'"
-          + "\n\nscalarType\030\004 \001(\0132\021.mlt.ScalarColumnH\000\022"
-          + ")\n\013complexType\030\005 \001(\0132\022.mlt.ComplexColumn"
-          + "H\000B\006\n\004type\"n\n\014ScalarColumn\022\'\n\014physicalTy"
-          + "pe\030\004 \001(\0162\017.mlt.ScalarTypeH\000\022-\n\013logicalTy"
-          + "pe\030\005 \001(\0162\026.mlt.LogicalScalarTypeH\000B\006\n\004ty"
-          + "pe\"\217\001\n\rComplexColumn\022(\n\014physicalType\030\004 \001"
-          + "(\0162\020.mlt.ComplexTypeH\000\022.\n\013logicalType\030\005 "
-          + "\001(\0162\027.mlt.LogicalComplexTypeH\000\022\034\n\010childr"
-          + "en\030\006 \003(\0132\n.mlt.FieldB\006\n\004type\"\243\001\n\005Field\022\021"
-          + "\n\004name\030\001 \001(\tH\001\210\001\001\022\025\n\010nullable\030\002 \001(\010H\002\210\001\001"
-          + "\022\'\n\013scalarField\030\003 \001(\0132\020.mlt.ScalarFieldH"
-          + "\000\022)\n\014complexField\030\004 \001(\0132\021.mlt.ComplexFie"
-          + "ldH\000B\006\n\004typeB\007\n\005_nameB\013\n\t_nullable\"m\n\013Sc"
-          + "alarField\022\'\n\014physicalType\030\001 \001(\0162\017.mlt.Sc"
-          + "alarTypeH\000\022-\n\013logicalType\030\002 \001(\0162\026.mlt.Lo"
-          + "gicalScalarTypeH\000B\006\n\004type\"\216\001\n\014ComplexFie"
-          + "ld\022(\n\014physicalType\030\001 \001(\0162\020.mlt.ComplexTy"
-          + "peH\000\022.\n\013logicalType\030\002 \001(\0162\027.mlt.LogicalC"
-          + "omplexTypeH\000\022\034\n\010children\030\003 \003(\0132\n.mlt.Fie"
-          + "ldB\006\n\004type*&\n\013ColumnScope\022\013\n\007FEATURE\020\000\022\n"
-          + "\n\006VERTEX\020\001*\205\001\n\nScalarType\022\013\n\007BOOLEAN\020\000\022\t"
-          + "\n\005INT_8\020\001\022\n\n\006UINT_8\020\002\022\n\n\006INT_32\020\003\022\013\n\007UIN"
-          + "T_32\020\004\022\n\n\006INT_64\020\005\022\013\n\007UINT_64\020\006\022\t\n\005FLOAT"
-          + "\020\007\022\n\n\006DOUBLE\020\010\022\n\n\006STRING\020\t*`\n\013ComplexTyp"
-          + "e\022\t\n\005VEC_2\020\000\022\t\n\005VEC_3\020\001\022\014\n\010GEOMETRY\020\002\022\016\n"
-          + "\nGEOMETRY_Z\020\003\022\010\n\004LIST\020\004\022\007\n\003MAP\020\005\022\n\n\006STRU"
-          + "CT\020\006*6\n\021LogicalScalarType\022\r\n\tTIMESTAMP\020\000"
-          + "\022\010\n\004DATE\020\001\022\010\n\004JSON\020\002*/\n\022LogicalComplexTy"
-          + "pe\022\n\n\006BINARY\020\000\022\r\n\tRANGE_MAP\020\001B\032\n\030com.mlt"
-          + ".metadata.tilesetb\006proto3"
+      "\n\032mlt_tileset_metadata.proto\022\003mlt\"\246\002\n\017Ti" +
+      "leSetMetadata\022\017\n\007version\030\001 \001(\005\022.\n\rfeatur" +
+      "eTables\030\002 \003(\0132\027.mlt.FeatureTableSchema\022\021" +
+      "\n\004name\030\003 \001(\tH\000\210\001\001\022\030\n\013description\030\004 \001(\tH\001" +
+      "\210\001\001\022\030\n\013attribution\030\005 \001(\tH\002\210\001\001\022\024\n\007minZoom" +
+      "\030\006 \001(\005H\003\210\001\001\022\024\n\007maxZoom\030\007 \001(\005H\004\210\001\001\022\016\n\006bou" +
+      "nds\030\010 \003(\001\022\016\n\006center\030\t \003(\001B\007\n\005_nameB\016\n\014_d" +
+      "escriptionB\016\n\014_attributionB\n\n\010_minZoomB\n" +
+      "\n\010_maxZoom\"@\n\022FeatureTableSchema\022\014\n\004name" +
+      "\030\001 \001(\t\022\034\n\007columns\030\002 \003(\0132\013.mlt.Column\"\253\001\n" +
+      "\006Column\022\014\n\004name\030\001 \001(\t\022\020\n\010nullable\030\002 \001(\010\022" +
+      "%\n\013columnScope\030\003 \001(\0162\020.mlt.ColumnScope\022\'" +
+      "\n\nscalarType\030\004 \001(\0132\021.mlt.ScalarColumnH\000\022" +
+      ")\n\013complexType\030\005 \001(\0132\022.mlt.ComplexColumn" +
+      "H\000B\006\n\004type\"n\n\014ScalarColumn\022\'\n\014physicalTy" +
+      "pe\030\004 \001(\0162\017.mlt.ScalarTypeH\000\022-\n\013logicalTy" +
+      "pe\030\005 \001(\0162\026.mlt.LogicalScalarTypeH\000B\006\n\004ty" +
+      "pe\"\217\001\n\rComplexColumn\022(\n\014physicalType\030\004 \001" +
+      "(\0162\020.mlt.ComplexTypeH\000\022.\n\013logicalType\030\005 " +
+      "\001(\0162\027.mlt.LogicalComplexTypeH\000\022\034\n\010childr" +
+      "en\030\006 \003(\0132\n.mlt.FieldB\006\n\004type\"\243\001\n\005Field\022\021" +
+      "\n\004name\030\001 \001(\tH\001\210\001\001\022\025\n\010nullable\030\002 \001(\010H\002\210\001\001" +
+      "\022\'\n\013scalarField\030\003 \001(\0132\020.mlt.ScalarFieldH" +
+      "\000\022)\n\014complexField\030\004 \001(\0132\021.mlt.ComplexFie" +
+      "ldH\000B\006\n\004typeB\007\n\005_nameB\013\n\t_nullable\"m\n\013Sc" +
+      "alarField\022\'\n\014physicalType\030\001 \001(\0162\017.mlt.Sc" +
+      "alarTypeH\000\022-\n\013logicalType\030\002 \001(\0162\026.mlt.Lo" +
+      "gicalScalarTypeH\000B\006\n\004type\"\216\001\n\014ComplexFie" +
+      "ld\022(\n\014physicalType\030\001 \001(\0162\020.mlt.ComplexTy" +
+      "peH\000\022.\n\013logicalType\030\002 \001(\0162\027.mlt.LogicalC" +
+      "omplexTypeH\000\022\034\n\010children\030\003 \003(\0132\n.mlt.Fie" +
+      "ldB\006\n\004type*&\n\013ColumnScope\022\013\n\007FEATURE\020\000\022\n" +
+      "\n\006VERTEX\020\001*\205\001\n\nScalarType\022\013\n\007BOOLEAN\020\000\022\t" +
+      "\n\005INT_8\020\001\022\n\n\006UINT_8\020\002\022\n\n\006INT_32\020\003\022\013\n\007UIN" +
+      "T_32\020\004\022\n\n\006INT_64\020\005\022\013\n\007UINT_64\020\006\022\t\n\005FLOAT" +
+      "\020\007\022\n\n\006DOUBLE\020\010\022\n\n\006STRING\020\t*`\n\013ComplexTyp" +
+      "e\022\t\n\005VEC_2\020\000\022\t\n\005VEC_3\020\001\022\014\n\010GEOMETRY\020\002\022\016\n" +
+      "\nGEOMETRY_Z\020\003\022\010\n\004LIST\020\004\022\007\n\003MAP\020\005\022\n\n\006STRU" +
+      "CT\020\006*6\n\021LogicalScalarType\022\r\n\tTIMESTAMP\020\000" +
+      "\022\010\n\004DATE\020\001\022\010\n\004JSON\020\002*/\n\022LogicalComplexTy" +
+      "pe\022\n\n\006BINARY\020\000\022\r\n\tRANGE_MAP\020\001B\032\n\030com.mlt" +
+      ".metadata.tilesetb\006proto3"
     };
-    descriptor =
-        com.google.protobuf.Descriptors.FileDescriptor.internalBuildGeneratedFileFrom(
-            descriptorData, new com.google.protobuf.Descriptors.FileDescriptor[] {});
-    internal_static_mlt_TileSetMetadata_descriptor = getDescriptor().getMessageTypes().get(0);
-    internal_static_mlt_TileSetMetadata_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_TileSetMetadata_descriptor,
-            new java.lang.String[] {
-              "Version",
-              "FeatureTables",
-              "Name",
-              "Description",
-              "Attribution",
-              "MinZoom",
-              "MaxZoom",
-              "Bounds",
-              "Center",
-              "Name",
-              "Description",
-              "Attribution",
-              "MinZoom",
-              "MaxZoom",
-            });
-    internal_static_mlt_FeatureTableSchema_descriptor = getDescriptor().getMessageTypes().get(1);
-    internal_static_mlt_FeatureTableSchema_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_FeatureTableSchema_descriptor,
-            new java.lang.String[] {
-              "Name", "Columns",
-            });
-    internal_static_mlt_Column_descriptor = getDescriptor().getMessageTypes().get(2);
-    internal_static_mlt_Column_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_Column_descriptor,
-            new java.lang.String[] {
-              "Name", "Nullable", "ColumnScope", "ScalarType", "ComplexType", "Type",
-            });
-    internal_static_mlt_ScalarColumn_descriptor = getDescriptor().getMessageTypes().get(3);
-    internal_static_mlt_ScalarColumn_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_ScalarColumn_descriptor,
-            new java.lang.String[] {
-              "PhysicalType", "LogicalType", "Type",
-            });
-    internal_static_mlt_ComplexColumn_descriptor = getDescriptor().getMessageTypes().get(4);
-    internal_static_mlt_ComplexColumn_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_ComplexColumn_descriptor,
-            new java.lang.String[] {
-              "PhysicalType", "LogicalType", "Children", "Type",
-            });
-    internal_static_mlt_Field_descriptor = getDescriptor().getMessageTypes().get(5);
-    internal_static_mlt_Field_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_Field_descriptor,
-            new java.lang.String[] {
-              "Name", "Nullable", "ScalarField", "ComplexField", "Type", "Name", "Nullable",
-            });
-    internal_static_mlt_ScalarField_descriptor = getDescriptor().getMessageTypes().get(6);
-    internal_static_mlt_ScalarField_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_ScalarField_descriptor,
-            new java.lang.String[] {
-              "PhysicalType", "LogicalType", "Type",
-            });
-    internal_static_mlt_ComplexField_descriptor = getDescriptor().getMessageTypes().get(7);
-    internal_static_mlt_ComplexField_fieldAccessorTable =
-        new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-            internal_static_mlt_ComplexField_descriptor,
-            new java.lang.String[] {
-              "PhysicalType", "LogicalType", "Children", "Type",
-            });
+    descriptor = com.google.protobuf.Descriptors.FileDescriptor
+      .internalBuildGeneratedFileFrom(descriptorData,
+        new com.google.protobuf.Descriptors.FileDescriptor[] {
+        });
+    internal_static_mlt_TileSetMetadata_descriptor =
+      getDescriptor().getMessageTypes().get(0);
+    internal_static_mlt_TileSetMetadata_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_TileSetMetadata_descriptor,
+        new java.lang.String[] { "Version", "FeatureTables", "Name", "Description", "Attribution", "MinZoom", "MaxZoom", "Bounds", "Center", "Name", "Description", "Attribution", "MinZoom", "MaxZoom", });
+    internal_static_mlt_FeatureTableSchema_descriptor =
+      getDescriptor().getMessageTypes().get(1);
+    internal_static_mlt_FeatureTableSchema_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_FeatureTableSchema_descriptor,
+        new java.lang.String[] { "Name", "Columns", });
+    internal_static_mlt_Column_descriptor =
+      getDescriptor().getMessageTypes().get(2);
+    internal_static_mlt_Column_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_Column_descriptor,
+        new java.lang.String[] { "Name", "Nullable", "ColumnScope", "ScalarType", "ComplexType", "Type", });
+    internal_static_mlt_ScalarColumn_descriptor =
+      getDescriptor().getMessageTypes().get(3);
+    internal_static_mlt_ScalarColumn_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_ScalarColumn_descriptor,
+        new java.lang.String[] { "PhysicalType", "LogicalType", "Type", });
+    internal_static_mlt_ComplexColumn_descriptor =
+      getDescriptor().getMessageTypes().get(4);
+    internal_static_mlt_ComplexColumn_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_ComplexColumn_descriptor,
+        new java.lang.String[] { "PhysicalType", "LogicalType", "Children", "Type", });
+    internal_static_mlt_Field_descriptor =
+      getDescriptor().getMessageTypes().get(5);
+    internal_static_mlt_Field_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_Field_descriptor,
+        new java.lang.String[] { "Name", "Nullable", "ScalarField", "ComplexField", "Type", "Name", "Nullable", });
+    internal_static_mlt_ScalarField_descriptor =
+      getDescriptor().getMessageTypes().get(6);
+    internal_static_mlt_ScalarField_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_ScalarField_descriptor,
+        new java.lang.String[] { "PhysicalType", "LogicalType", "Type", });
+    internal_static_mlt_ComplexField_descriptor =
+      getDescriptor().getMessageTypes().get(7);
+    internal_static_mlt_ComplexField_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlt_ComplexField_descriptor,
+        new java.lang.String[] { "PhysicalType", "LogicalType", "Children", "Type", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)

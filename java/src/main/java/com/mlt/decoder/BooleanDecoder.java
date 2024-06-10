@@ -4,9 +4,10 @@ import java.util.BitSet;
 
 public class BooleanDecoder {
 
-  private BooleanDecoder() {}
+    private BooleanDecoder(){}
 
-  public static BitSet decode() {
-    return null;
-  }
+    public static BitSet decode(){
+        return null;
+    }
+
 }
