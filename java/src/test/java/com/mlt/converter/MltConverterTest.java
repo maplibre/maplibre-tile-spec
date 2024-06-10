@@ -50,7 +50,7 @@ public class MltConverterTest { ;
 
         var tileId = String.format("%s_%s_%s", 5, 16, 21);
         var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
-        var mvTile = MvtUtils.decodeMvt2(mvtFilePath);
+        var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
         var mapping = new ColumnMapping("name", ":", true);
         var tileMetadata = MltConverter.createTilesetMetadata(mvTile, Optional.of(List.of(mapping)), true);
@@ -127,7 +127,6 @@ public class MltConverterTest { ;
     private static void runOmtTest2(String tile) throws IOException {
         var mvtFilePath = Paths.get(tile);
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
-        //var mvTile = MvtUtils.decodeMvt2(mvtFilePath);
 
         var columnMapping = new ColumnMapping("name", ":", true);
         var columnMappings = Optional.of(List.of(columnMapping));
@@ -242,7 +241,6 @@ public class MltConverterTest { ;
     private static void runOmtTest(String tileId) throws IOException {
         var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
         var mvTile = MvtUtils.decodeMvt(mvtFilePath);
-        //var mvTile = MvtUtils.decodeMvt2(mvtFilePath);
 
         var columnMapping = new ColumnMapping("name", ":", true);
         var columnMappings = Optional.of(List.of(columnMapping));
@@ -273,8 +271,6 @@ public class MltConverterTest { ;
                 var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
                 var mvTile = Files.readAllBytes(mvtFilePath);
                 var decodedMvTile = MvtUtils.decodeMvt(mvtFilePath);
-                var decodedMvTile2 = MvtUtils.decodeMvt2(mvtFilePath);
-                compareDecodedMVTiles(decodedMvTile, decodedMvTile2);
 
                 try{
                     System.out.printf("z:%s, x:%s, y:%s -------------------------------------------- \n", zoom, x, y);
@@ -305,44 +301,6 @@ public class MltConverterTest { ;
         }
 
         System.out.println("Total ratio: " + (ratios / counter));
-    }
-
-    public static void compareDecodedMVTiles(MapboxVectorTile mvTile1, MapboxVectorTile mvTile2){
-        var mvt1Layers = mvTile1.layers();
-        var mvt2Layers = mvTile2.layers();
-        for(var i = 0; i < mvt2Layers.size(); i++){
-            var mvt2Layer = mvt2Layers.get(i);
-            var layerName = mvt2Layer.name();
-            var mvt1Layer = mvt1Layers.stream().filter(l -> l.name().equals(layerName)).findFirst().get();
-            var mvt1Features = mvt1Layer.features();
-            var mvt2Features = mvt2Layer.features();
-            for(var j = 0; j < mvt2Features.size(); j++){
-                var mvt1Feature = mvt1Features.get(j);
-                var mvt2Feature = mvt2Features.get(j);
-
-                var mvt1Id = mvt2Feature.id();
-                var mvt2Id = mvt1Feature.id();
-                assertEquals(mvt1Id, mvt2Id);
-
-                var mvt1Geometry = mvt1Feature.geometry();
-                var mvt2Geometry = mvt2Feature.geometry();
-                try{
-                    //assertEquals(mvt2Geometry, mvt1Geometry);
-                    assertEquals(Arrays.stream(mvt2Geometry.getCoordinates()).collect(Collectors.toList()),
-                            Arrays.stream(mvt1Geometry.getCoordinates()).map(c -> new CoordinateXY(c.getX(), c.getY())).collect(Collectors.toList()));
-                }
-                catch(Error e){
-                    System.out.println(e);
-                }
-
-                var mvt1Properties = mvt1Feature.properties();
-                var mvt2Properties = mvt2Feature.properties();
-                for(var mvt2Property : mvt2Properties.entrySet()){
-                    var mvt1Property = mvt1Properties.get(mvt2Property.getKey());
-                    assertEquals(mvt2Property.getValue(), mvt1Property);
-                }
-            }
-        }
     }
 
     private static double printStats(byte[] mvTile, byte[] mlTile) throws IOException {
