@@ -1,5 +1,7 @@
 package com.mlt.converter.mvt;
 
+import com.mlt.data.Layer;
+import com.mlt.data.Feature;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
