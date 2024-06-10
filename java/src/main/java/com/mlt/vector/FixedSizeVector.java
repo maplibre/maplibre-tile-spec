@@ -1,3 +1,4 @@
 package com.mlt.vector;
 
-public class FixedSizeVector {}
+public class FixedSizeVector {
+}
