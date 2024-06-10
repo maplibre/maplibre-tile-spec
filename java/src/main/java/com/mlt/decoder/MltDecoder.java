@@ -176,7 +176,7 @@ public class MltDecoder {
             features.add(feature);
         }
 
-        return new Layer(metadata.getName(), features);
+        return new Layer(metadata.getName(), features, 0);
     }
 
 }

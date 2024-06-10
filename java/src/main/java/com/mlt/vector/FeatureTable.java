@@ -1,6 +1,6 @@
 package com.mlt.vector;
 
-import com.mlt.converter.mvt.Feature;
+import com.mlt.data.Feature;
 import com.mlt.vector.flat.IntFlatVector;
 import com.mlt.vector.geometry.GeometryVector;
 import org.locationtech.jts.geom.Geometry;
