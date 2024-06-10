@@ -1,4 +1,3 @@
 package com.mlt.vector.constant;
 
-public class ConstVector {
-}
+public class ConstVector {}

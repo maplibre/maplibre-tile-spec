@@ -2,5 +2,4 @@ package com.mlt.converter.mvt;
 
 import java.util.List;
 
-public record MapboxVectorTile(List<Layer> layers){
-}
+public record MapboxVectorTile(List<Layer> layers) {}

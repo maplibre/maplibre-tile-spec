@@ -16,167 +16,185 @@ import com.mlt.vector.Vector;
 import com.mlt.vector.flat.IntFlatVector;
 import com.mlt.vector.flat.LongFlatVector;
 import com.mlt.vector.geometry.GeometryVector;
-import me.lemire.integercompression.IntWrapper;
-import org.locationtech.jts.geom.Geometry;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
+import me.lemire.integercompression.IntWrapper;
+import org.locationtech.jts.geom.Geometry;
 
 public class MltDecoder {
-    private static String ID_COLUMN_NAME = "id";
-    private static String GEOMETRY_COLUMN_NAME = "geometry";
+  private static String ID_COLUMN_NAME = "id";
+  private static String GEOMETRY_COLUMN_NAME = "geometry";
 
-    private MltDecoder(){}
+  private MltDecoder() {}
 
-    /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
-    public static MapLibreTile decodeMlTile(byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) throws IOException {
-        var offset = new IntWrapper(0);
-        var mltLayers = new ArrayList<Layer>();
-        while(offset.get() < tile.length){
-            List<Long> ids = null;
-            Geometry[] geometries = null;
-            var properties = new HashMap<String, List<Object>>();
+  /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
+  public static MapLibreTile decodeMlTile(
+      byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) throws IOException {
+    var offset = new IntWrapper(0);
+    var mltLayers = new ArrayList<Layer>();
+    while (offset.get() < tile.length) {
+      List<Long> ids = null;
+      Geometry[] geometries = null;
+      var properties = new HashMap<String, List<Object>>();
 
-            var version = tile[offset.get()];
-            offset.increment();
-            var infos = DecodingUtils.decodeVarint(tile, offset, 4);
-            var featureTableId = infos[0];
-            var tileExtent = infos[1];
-            var maxTileExtent = infos[2];
-            var numFeatures = infos[3];
+      var version = tile[offset.get()];
+      offset.increment();
+      var infos = DecodingUtils.decodeVarint(tile, offset, 4);
+      var featureTableId = infos[0];
+      var tileExtent = infos[1];
+      var maxTileExtent = infos[2];
+      var numFeatures = infos[3];
 
-            var metadata = tileMetadata.getFeatureTables(featureTableId);
-            for(var columnMetadata : metadata.getColumnsList()){
-                var columnName = columnMetadata.getName();
-                var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
-                //TODO: add decoding of vector type to be compliant with the spec
-                //TODO: compare based on ids
-                if(columnName.equals("id")){
-                    if(numStreams == 2){
-                        var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                        var presentStream = DecodingUtils.decodeBooleanRle(tile, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
-                    }
+      var metadata = tileMetadata.getFeatureTables(featureTableId);
+      for (var columnMetadata : metadata.getColumnsList()) {
+        var columnName = columnMetadata.getName();
+        var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
+        // TODO: add decoding of vector type to be compliant with the spec
+        // TODO: compare based on ids
+        if (columnName.equals("id")) {
+          if (numStreams == 2) {
+            var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+            var presentStream =
+                DecodingUtils.decodeBooleanRle(
+                    tile,
+                    presentStreamMetadata.numValues(),
+                    presentStreamMetadata.byteLength(),
+                    offset);
+          }
 
-                    var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                    ids = idDataStreamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR?
-                            IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).
-                                    stream().mapToLong(i -> i).boxed().collect(Collectors.toList()):
-                            IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
-                }
-                else if(columnName.equals("geometry")){
-                    var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
-                    geometries = GeometryDecoder.decodeGeometry(geometryColumn);
-                }
-                else{
-                        var propertyColumn = PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
-                        if(propertyColumn instanceof HashMap<?,?>){
-                            var p = ((Map<String, Object>)propertyColumn);
-                            for(var a : p.entrySet()){
-                                properties.put(a.getKey(), (List<Object>)a.getValue());
-                            }
-                        }
-                        else{
-                            properties.put(columnName, (ArrayList)propertyColumn);
-                        }
-                }
+          var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+          ids =
+              idDataStreamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR
+                  ? IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false)
+                      .stream()
+                      .mapToLong(i -> i)
+                      .boxed()
+                      .collect(Collectors.toList())
+                  : IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+        } else if (columnName.equals("geometry")) {
+          var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
+          geometries = GeometryDecoder.decodeGeometry(geometryColumn);
+        } else {
+          var propertyColumn =
+              PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
+          if (propertyColumn instanceof HashMap<?, ?>) {
+            var p = ((Map<String, Object>) propertyColumn);
+            for (var a : p.entrySet()) {
+              properties.put(a.getKey(), (List<Object>) a.getValue());
             }
-
-            var layer = convertToLayer(ids, geometries, properties, metadata, numFeatures);
-            mltLayers.add(layer);
+          } else {
+            properties.put(columnName, (ArrayList) propertyColumn);
+          }
         }
+      }
 
-        return new MapLibreTile(mltLayers);
+      var layer = convertToLayer(ids, geometries, properties, metadata, numFeatures);
+      mltLayers.add(layer);
     }
 
-    /** Converts a tile from the MLT storage into the in-memory format, which should be the preferred way for processing the data
-     *  in the future. The in-memory format is optimized for random access.
-     *  Currently, the decoding is not fully utilizing vectorized instructions (SIMD).
-     *  But the goal is to fully exploit this kind of instruction in the next step.
-     *  */
-    public static FeatureTable[] decodeMlTileVectorized(byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) {
-        var offset = new IntWrapper(0);
-        var featureTables = new FeatureTable[tileMetadata.getFeatureTablesCount()];
-        while(offset.get() < tile.length){
-            var version = tile[offset.get()];
-            offset.increment();
-            var infos = DecodingUtils.decodeVarint(tile, offset, 4);
-            var featureTableId = infos[0];
-            var tileExtent = infos[1];
-            var maxTileExtent = infos[2];
-            var numFeatures = infos[3];
+    return new MapLibreTile(mltLayers);
+  }
 
-            var propertyIndex = 0;
-            var metadata = tileMetadata.getFeatureTables(featureTableId);
-            Vector idVector = null;
-            GeometryVector geometryVector = null;
-            /** Id column always has to be the first column a FeatureTable */
-            var numProperties = metadata.getColumnsList().size() - (metadata.getColumnsList().get(0).getName().equals(ID_COLUMN_NAME)?
-                    2 : 1);
-            var propertyVectors = new Vector[numProperties];
-            for(var columnMetadata : metadata.getColumnsList()){
-                var columnName = columnMetadata.getName();
-                var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
+  /**
+   * Converts a tile from the MLT storage into the in-memory format, which should be the preferred
+   * way for processing the data in the future. The in-memory format is optimized for random access.
+   * Currently, the decoding is not fully utilizing vectorized instructions (SIMD). But the goal is
+   * to fully exploit this kind of instruction in the next step.
+   */
+  public static FeatureTable[] decodeMlTileVectorized(
+      byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) {
+    var offset = new IntWrapper(0);
+    var featureTables = new FeatureTable[tileMetadata.getFeatureTablesCount()];
+    while (offset.get() < tile.length) {
+      var version = tile[offset.get()];
+      offset.increment();
+      var infos = DecodingUtils.decodeVarint(tile, offset, 4);
+      var featureTableId = infos[0];
+      var tileExtent = infos[1];
+      var maxTileExtent = infos[2];
+      var numFeatures = infos[3];
 
-                //TODO: add decoding of vector type to be compliant with the spec
-                //TODO: compare based on ids
-                if(columnName.equals(ID_COLUMN_NAME)){
-                    BitVector nullabilityBuffer = null;
-                    if(numStreams == 2){
-                        var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                        var n = VectorizedDecodingUtils.decodeBooleanRle(tile, presentStreamMetadata.numValues(), offset);
-                        nullabilityBuffer = new BitVector(n, presentStreamMetadata.numValues());
-                    }
+      var propertyIndex = 0;
+      var metadata = tileMetadata.getFeatureTables(featureTableId);
+      Vector idVector = null;
+      GeometryVector geometryVector = null;
+      /** Id column always has to be the first column a FeatureTable */
+      var numProperties =
+          metadata.getColumnsList().size()
+              - (metadata.getColumnsList().get(0).getName().equals(ID_COLUMN_NAME) ? 2 : 1);
+      var propertyVectors = new Vector[numProperties];
+      for (var columnMetadata : metadata.getColumnsList()) {
+        var columnName = columnMetadata.getName();
+        var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
 
-                    //TODO: are ids optional? -> if not transform to random access format
-                    var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                    var idDataType = columnMetadata.getScalarType().getPhysicalType();
-                    //TODO: check for const and sequence vectors to reduce decoding time
-                    if(idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)){
-                        var id = VectorizedIntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false);
-                        idVector = new IntFlatVector(columnName, nullabilityBuffer, id);
-                    }
-                    else{
-                        var id = VectorizedIntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
-                        idVector = new LongFlatVector(columnName, nullabilityBuffer, id);
-                    }
-                }
-                else if(columnName.equals(GEOMETRY_COLUMN_NAME)){
-                    geometryVector = VectorizedGeometryDecoder.decodeToRandomAccessFormat(tile, numStreams, offset,
-                            numFeatures);
-                }
-                else{
-                    var propertyVector = VectorizedPropertyDecoder.decodeToRandomAccessFormat(tile, offset,
-                            columnMetadata, numStreams, numFeatures);
-                    propertyVectors[propertyIndex++] = propertyVector;
-                }
-            }
+        // TODO: add decoding of vector type to be compliant with the spec
+        // TODO: compare based on ids
+        if (columnName.equals(ID_COLUMN_NAME)) {
+          BitVector nullabilityBuffer = null;
+          if (numStreams == 2) {
+            var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+            var n =
+                VectorizedDecodingUtils.decodeBooleanRle(
+                    tile, presentStreamMetadata.numValues(), offset);
+            nullabilityBuffer = new BitVector(n, presentStreamMetadata.numValues());
+          }
 
-            var featureTable = new FeatureTable(metadata.getName(), idVector, geometryVector, propertyVectors);
-            featureTables[featureTableId] = featureTable;
+          // TODO: are ids optional? -> if not transform to random access format
+          var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+          var idDataType = columnMetadata.getScalarType().getPhysicalType();
+          // TODO: check for const and sequence vectors to reduce decoding time
+          if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
+            var id =
+                VectorizedIntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false);
+            idVector = new IntFlatVector(columnName, nullabilityBuffer, id);
+          } else {
+            var id =
+                VectorizedIntegerDecoder.decodeLongStream(
+                    tile, offset, idDataStreamMetadata, false);
+            idVector = new LongFlatVector(columnName, nullabilityBuffer, id);
+          }
+        } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
+          geometryVector =
+              VectorizedGeometryDecoder.decodeToRandomAccessFormat(
+                  tile, numStreams, offset, numFeatures);
+        } else {
+          var propertyVector =
+              VectorizedPropertyDecoder.decodeToRandomAccessFormat(
+                  tile, offset, columnMetadata, numStreams, numFeatures);
+          propertyVectors[propertyIndex++] = propertyVector;
         }
+      }
 
-        return featureTables;
+      var featureTable =
+          new FeatureTable(metadata.getName(), idVector, geometryVector, propertyVectors);
+      featureTables[featureTableId] = featureTable;
     }
 
-    private static Layer convertToLayer(List<Long> ids, Geometry[] geometries, Map<String, List<Object>> properties,
-                                        MltTilesetMetadata.FeatureTableSchema metadata, int numFeatures){
-        var features = new ArrayList<Feature>(numFeatures);
-        for(var j = 0; j < numFeatures; j++){
-            var p = new HashMap<String, Object>();
-            for(var propertyColumn : properties.entrySet()){
-                if(propertyColumn.getValue() == null){
-                    p.put(propertyColumn.getKey(), null);
-                }
-                else{
-                    var v = propertyColumn.getValue().get(j);
-                    p.put(propertyColumn.getKey(), v);
-                }
-            }
-            var feature = new Feature(ids.get(j), geometries[j], p);
-            features.add(feature);
-        }
+    return featureTables;
+  }
 
-        return new Layer(metadata.getName(), features);
+  private static Layer convertToLayer(
+      List<Long> ids,
+      Geometry[] geometries,
+      Map<String, List<Object>> properties,
+      MltTilesetMetadata.FeatureTableSchema metadata,
+      int numFeatures) {
+    var features = new ArrayList<Feature>(numFeatures);
+    for (var j = 0; j < numFeatures; j++) {
+      var p = new HashMap<String, Object>();
+      for (var propertyColumn : properties.entrySet()) {
+        if (propertyColumn.getValue() == null) {
+          p.put(propertyColumn.getKey(), null);
+        } else {
+          var v = propertyColumn.getValue().get(j);
+          p.put(propertyColumn.getKey(), v);
+        }
+      }
+      var feature = new Feature(ids.get(j), geometries[j], p);
+      features.add(feature);
     }
 
+    return new Layer(metadata.getName(), features);
+  }
 }
