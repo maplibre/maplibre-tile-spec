@@ -4,30 +4,29 @@ package mlt;
 
 option java_package = "com.mlt.metadata.tileset";
 
-message TileSetMetadata{
+message TileSetMetadata {
   int32 version = 1;
-	repeated FeatureTableSchema featureTables = 2;
+  repeated FeatureTableSchema featureTables = 2;
   optional string name = 3;
   optional string description = 4;
   optional string attribution = 5;
   optional int32 minZoom = 6;
   optional int32 maxZoom = 7;
-  //order left, bottom, right, top in WGS84
+  // order left, bottom, right, top in WGS84
   repeated double bounds = 8;
-  //order longitude, latitude in WGS84
+  // order longitude, latitude in WGS84
   repeated double center = 9;
-
 }
 
-message FeatureTableSchema{
-	string name = 1;
-	repeated Column columns = 2;
-}
-
-//Column are top-level types in the schema
-message Column{
+message FeatureTableSchema {
   string name = 1;
-  //specifies if the values are optional in the column and a present stream should be used
+  repeated Column columns = 2;
+}
+
+// Column are top-level types in the schema
+message Column {
+  string name = 1;
+  // specifies if the values are optional in the column and a present stream should be used
   bool nullable = 2;
   ColumnScope columnScope = 3;
   oneof type {
@@ -45,20 +44,20 @@ message ScalarColumn {
 
 // The type tree is flattened in to a list via a pre-order traversal
 // Represents a column if it is a root (top-level) type or a child of a nested type
-message ComplexColumn{
+message ComplexColumn {
   oneof type {
     ComplexType physicalType = 4;
     LogicalComplexType logicalType = 5;
   }
-  //The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-  //RangeMap has only one child specifying the type of the value since the key is always a vec2<double>.
+  // The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+  // RangeMap has only one child specifying the type of the value since the key is always a vec2<double>.
   repeated Field children = 6;
 }
 
-//Fields define nested or leaf types in the schema as part of a complex type definition
-message Field{
-  //name and nullable are only needed in combination with a struct not for vec, list and map
-  //Map -> has the order key type, value type
+// Fields define nested or leaf types in the schema as part of a complex type definition
+message Field {
+  // name and nullable are only needed in combination with a struct not for vec, list and map
+  // Map -> has the order key type, value type
   optional string name = 1;
   optional bool nullable = 2;
   oneof type {
@@ -67,14 +66,14 @@ message Field{
   }
 }
 
-message ScalarField{
+message ScalarField {
   oneof type {
     ScalarType physicalType = 1;
     LogicalScalarType logicalType = 2;
   }
 }
 
-message ComplexField{
+message ComplexField {
   oneof type {
     ComplexType physicalType = 1;
     LogicalComplexType logicalType = 2;
@@ -83,13 +82,13 @@ message ComplexField{
 }
 
 enum ColumnScope {
-	//1:1 Mapping of property and feature -> id and geometry
-	FEATURE = 0;
-	//For M-Values -> 1:1 Mapping for property and vertex
-	VERTEX = 1;
+  // 1:1 Mapping of property and feature -> id and geometry
+  FEATURE = 0;
+  // For M-Values -> 1:1 Mapping for property and vertex
+  VERTEX = 1;
 }
 
-enum ScalarType{
+enum ScalarType {
   BOOLEAN = 0;
   INT_8 = 1;
   UINT_8 = 2;
@@ -102,23 +101,32 @@ enum ScalarType{
   STRING = 9;
 }
 
-enum ComplexType{
-  VEC_2 = 0; // fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-  VEC_3 = 1; // fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-  GEOMETRY = 2; // vec2<Int32> for the VertexBuffer stream with additional information (streams) about the topology
-  GEOMETRY_Z = 3; // vec3<Int32> for the VertexBuffer stream with additional information (streams) about the topology
+enum ComplexType {
+  // fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
+  VEC_2 = 0;
+  // fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
+  VEC_3 = 1;
+  // vec2<Int32> for the VertexBuffer stream with additional information (streams) about the topology
+  GEOMETRY = 2;
+  // vec3<Int32> for the VertexBuffer stream with additional information (streams) about the topology
+  GEOMETRY_Z = 3;
   LIST = 4;
   MAP = 5;
   STRUCT = 6;
 }
 
-enum LogicalScalarType{
-  TIMESTAMP = 0; //physical type: Int64 -> number of milliseconds since Unix epoch
-  DATE = 1; // physical type: Int32 -> number of days since Unix epoch
-  JSON = 2; // physical type: String
+enum LogicalScalarType {
+  // physical type: Int64 -> number of milliseconds since Unix epoch
+  TIMESTAMP = 0;
+  // physical type: Int32 -> number of days since Unix epoch
+  DATE = 1;
+  // physical type: String
+  JSON = 2;
 }
 
-enum LogicalComplexType{
-  BINARY = 0; // physical type: list<UInt8>
-  RANGE_MAP = 1; // physical type: map<vec2<double, T>> -> special data structure which can be used for a efficient representation of linear referencing
+enum LogicalComplexType {
+  // physical type: list<UInt8>
+  BINARY = 0;
+  // physical type: map<vec2<double, T>> -> special data structure which can be used for a efficient representation of linear referencing
+  RANGE_MAP = 1;
 }
