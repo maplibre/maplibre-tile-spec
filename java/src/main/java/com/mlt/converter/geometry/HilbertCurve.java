@@ -11,7 +11,7 @@ public class HilbertCurve extends SpaceFillingCurve {
     }
 
     public int encode(Vertex vertex){
-        //validateCoordinates(vertex);
+        validateCoordinates(vertex);
         var shiftedX = vertex.x() + coordinateShift;
         var shiftedY = vertex.y() + coordinateShift;
         return (int) curve.index(shiftedX, shiftedY);

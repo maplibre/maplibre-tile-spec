@@ -1,22 +1,16 @@
 package com.mlt.converter.geometry;
 
 public abstract class SpaceFillingCurve {
-    protected int tileExtent;
     protected int numBits;
     protected int coordinateShift;
     private int minBound;
     private int maxBound;
 
     public SpaceFillingCurve(int minVertexValue, int maxVertexValue){
-        if(maxVertexValue < 0){
-            throw new IllegalArgumentException("Max vertex value has to >= 0.");
-        }
-        var tileExtent = maxVertexValue;
+        var tileExtent = Math.abs(maxVertexValue);
         if(minVertexValue < 0){
             tileExtent += Math.abs(minVertexValue);
         }
-
-        this.tileExtent = tileExtent;
 
         numBits = (int)Math.ceil((Math.log(tileExtent) / Math.log(2)));
 
