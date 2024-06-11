@@ -179,9 +179,6 @@ public class Encode {
         try {
             CommandLine cmd = parser.parse(options, args);
             var fileName = cmd.getOptionValue(FILE_NAME_ARG);
-            if (fileName == null) {
-                throw new ParseException("Missing required argument: " + FILE_NAME_ARG);
-            }
             if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
                 throw new ParseException("Cannot specify both '-" + OUTPUT_FILE_ARG + "' and '-" + OUTPUT_DIR_ARG + "' options");
             }
