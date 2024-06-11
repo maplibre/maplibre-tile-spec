@@ -61,7 +61,7 @@ gradle.projectsEvaluated {
 compileJava.dependsOn compileWrapper
 
 
-["encode", "decode"].each { name ->
+["encode", "decode", "meta"].each { name ->
   task "$name" (type: Jar, dependsOn: compileJava) {
     archiveFileName = name + ".jar"
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -72,13 +72,16 @@ compileJava.dependsOn compileWrapper
 }
 
 encode.manifest.attributes 'Implementation-Title' : 'encode an mlt from an mvt',
-                           'Main-Class': 'com.mlt.cli.Encode'
+                           'Main-Class': 'com.mlt.tools.Encode'
 decode.manifest.attributes 'Implementation-Title' : 'decode an mlt',
-                           'Main-Class': 'com.mlt.cli.Decode'
+                           'Main-Class': 'com.mlt.tools.Decode'
+meta.manifest.attributes 'Implementation-Title' : 'generate a mltmetadata.pbf file from an mvt',
+                           'Main-Class': 'com.mlt.tools.Meta'
 
 task cli {
     // Uncomment the following line to clear out the jars before rebuilding
-    // delete "${buildDir}/libs"
+    delete "${buildDir}/libs"
     dependsOn encode
     dependsOn decode
+    dependsOn meta
 }
