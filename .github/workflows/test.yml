@@ -48,10 +48,21 @@ jobs:
       - name: Test running CLI
         run: |
           ./gradlew cli
-          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../test/fixtures/omt/10_530_682.mvt -mlt output/varint.mvt
-          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../test/fixtures/omt/10_530_682.mvt -advanced -mlt output/advanced.mvt
-          python -c 'import os; expected=66984; ts=os.path.getsize("output/varint.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-          python -c 'import os; expected=64728; ts=os.path.getsize("output/advanced.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+          # Test the encoding CLI
+          java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -mlt output/varint.mlt
+          # ensure expected size
+          python -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+          # Test the meta CLI and ensure it doesn't overwrite the metadata (a sign it correctly matches the encode output)
+          java -jar ./build/libs/meta.jar -mvt ../test/fixtures/omt/10_530_682.mvt -meta output/varint.mlt.meta.pbf
+          # ensure expected size is maintained (meta writes the same meta file as encode)
+          python -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+          # Test the using advanced encodings
+          java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -advanced -mlt output/advanced.mlt
+          # ensure expected sizes
+          python -c 'import os; expected=66984; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+          python -c 'import os; expected=64728; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+          # ensure we can decode the advanced tile
+          java -jar ./build/libs/decode.jar -mlt output/advanced.mlt -vectorized
   # This final step is needed to mark the whole workflow as successful
   done:
     # Don't change its name - it is used by the merge protection rules

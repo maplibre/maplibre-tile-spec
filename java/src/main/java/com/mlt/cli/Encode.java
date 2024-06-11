@@ -1,4 +1,4 @@
-package com.mlt.converter;
+package com.mlt.tools;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -7,12 +7,16 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import com.mlt.data.MapLibreTile;
 import com.mlt.converter.MltConverter;
-import com.mlt.decoder.MltDecoder;
+import com.mlt.converter.ConversionConfig;
+import com.mlt.converter.FeatureTableOptimizations;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.converter.mvt.ColumnMapping;
-import com.mlt.data.MapLibreTile;
 import com.mlt.converter.mvt.MapboxVectorTile;
+import com.mlt.decoder.MltDecoder;
+import com.mlt.vector.FeatureTable;
+import com.mlt.tools.Timer;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -21,25 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
-public class MltCliAdapter {
-
-    public static class Timer {
-        private long startTime;
-
-        public Timer() {
-            startTime = System.nanoTime();
-        }
-
-        public void restart() {
-            startTime = System.nanoTime();
-        }
-
-        public void stop(String message) {
-            long endTime = System.nanoTime();
-            long elapsedTime = (endTime - startTime) / 1000000; // divide by 1000000 to get milliseconds
-            System.out.println("Time elapsed for " + message + ": " + elapsedTime + " milliseconds");
-        }
-    }
+public class Encode {
 
     public static void printMVT(MapboxVectorTile mvTile){
         var mvtLayers = mvTile.layers();
@@ -62,6 +48,18 @@ public class MltCliAdapter {
             var mltFeatures = mltLayer.features();
             for(var j = 0; j < mltFeatures.size(); j++){
                 var mltFeature = mltFeatures.get(j);
+                System.out.println("  " + mltFeature);
+            }
+        }
+    }
+
+    private static void printMLTVectorized(FeatureTable[] featureTables){
+        for(var i = 0; i < featureTables.length; i++){
+            var featureTable = featureTables[i];
+            System.out.println(featureTable.getName());
+            var featureIterator = featureTable.iterator();
+            while (featureIterator.hasNext()) {
+                var mltFeature = featureIterator.next();
                 System.out.println("  " + mltFeature);
             }
         }
@@ -123,6 +121,7 @@ public class MltCliAdapter {
     private static final String PRINT_MLT_OPTION = "printmlt";
     private static final String PRINT_MVT_OPTION = "printmvt";
     private static final String COMPARE_OPTION = "compare";
+    private static final String VECTORIZED_OPTION = "vectorized";
     public static void main(String[] args) {
         Options options = new Options();
         options.addOption(Option.builder(FILE_NAME_ARG)
@@ -170,13 +169,16 @@ public class MltCliAdapter {
             .desc("Assert that data in the the decoded tile is the same as the data in the input tile ([OPTIONAL], default: false)")
             .required(false)
             .build());
+        options.addOption(Option.builder(VECTORIZED_OPTION)
+            .hasArg(false)
+            .desc("Use the vectorized decoding path ([OPTIONAL], default: will use non-vectorized path)")
+            .required(false)
+            .build());
+
         CommandLineParser parser = new DefaultParser();
         try {
             CommandLine cmd = parser.parse(options, args);
             var fileName = cmd.getOptionValue(FILE_NAME_ARG);
-            if (fileName == null) {
-                throw new ParseException("Missing required argument: " + FILE_NAME_ARG);
-            }
             if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
                 throw new ParseException("Cannot specify both '-" + OUTPUT_FILE_ARG + "' and '-" + OUTPUT_DIR_ARG + "' options");
             }
@@ -187,6 +189,7 @@ public class MltCliAdapter {
             var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
             var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
             var willCompare = cmd.hasOption(COMPARE_OPTION);
+            var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
             var inputTilePath = Paths.get(fileName);
             var inputTileName = inputTilePath.getFileName().toString();
             var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
@@ -236,13 +239,25 @@ public class MltCliAdapter {
             if (needsDecoding) {
                 timer.restart();
                 // convert MLT wire format to an MapLibreTile object
-                var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
-                timer.stop("decoding");
-                if (willPrintMLT) {
-                    printMLT(decodedTile);
-                }
-                if (willCompare) {
-                    compare(decodedTile, decodedMvTile);
+                if (willUseVectorized) {
+                    var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
+                    timer.stop("decoding");
+                    if (willPrintMLT) {
+                        printMLTVectorized(decodedTile);
+                    }
+                    // TODO: Implement vectorized compare
+                    // if (willCompare) {
+                    //     compareVectorized(decodedTile, decodedMvTile);
+                    // }
+                } else {
+                    var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+                    timer.stop("decoding");
+                    if (willPrintMLT) {
+                        printMLT(decodedTile);
+                    }
+                    if (willCompare) {
+                        compare(decodedTile, decodedMvTile);
+                    }
                 }
             }
         } catch (Exception e) {
