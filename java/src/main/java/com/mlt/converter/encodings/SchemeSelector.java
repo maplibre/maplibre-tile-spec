@@ -1,4 +1,3 @@
 package com.mlt.converter.encodings;
 
-public class SchemeSelector {
-}
+public class SchemeSelector {}
