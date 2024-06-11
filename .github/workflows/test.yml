@@ -45,10 +45,17 @@ jobs:
       - name: Test running CLI
         run: |
           ./gradlew cli
+          # Test the encoding CLI
           java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -mlt output/varint.mlt
+          # Test the meta CLI and ensure it doesn't overwrite the metadata (a sign it correctly matches the encode output)
+          out=$(java -jar ./build/libs/meta.jar -mvt ../test/fixtures/omt/10_530_682.mvt -meta output/varint.mlt.meta.pbf)
+          if [[ $out == *"Skipping metadata overwrite"* ]]; then true; else false; fi
+          # Test the using advanced encodings
           java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -advanced -mlt output/advanced.mlt
+          # ensure expected sizes
           python -c 'import os; expected=66984; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
           python -c 'import os; expected=64728; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+          # ensure we can decode the advanced tile
           java -jar ./build/libs/decode.jar -mlt output/advanced.mlt -vectorized
   # This final step is needed to mark the whole workflow as successful
   done:
