@@ -60,10 +60,10 @@ gradle.projectsEvaluated {
 
 compileJava.dependsOn compileWrapper
 
-task cli(type: Jar) {
-    archiveBaseName = 'mvt2mlt'
+task encode(type: Jar) {
+    archiveFileName = "encode.jar"
     manifest {
-        attributes 'Implementation-Title': 'MVT2MLT Converter',
+        attributes 'Implementation-Title': 'encode an mvt to mlt',
                     'Implementation-Version': archiveVersion,
                     'Main-Class': 'com.mlt.converter.MltCliAdapter'
     }
@@ -71,4 +71,25 @@ task cli(type: Jar) {
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     manifest.from jar.manifest
     with jar
+}
+
+task decode(type: Jar) {
+    archiveFileName = "decode.jar"
+    manifest {
+        attributes 'Implementation-Title': 'decode an mlt',
+                    'Implementation-Version': archiveVersion,
+                    'Main-Class': 'com.mlt.decoder.MltDecodeCli'
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    manifest.from jar.manifest
+    with jar
+}
+
+
+task cli {
+    dependsOn compileJava
+    delete "${buildDir}/libs"
+    dependsOn encode
+    dependsOn decode
 }
