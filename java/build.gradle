@@ -43,6 +43,7 @@ java {
     }
 }
 
+// run ./gradlew spotlessApply to format the code
 spotless {
   java {
     importOrder()
