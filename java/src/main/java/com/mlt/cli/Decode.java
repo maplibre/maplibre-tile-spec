@@ -1,4 +1,4 @@
-package com.mlt.cli;
+package com.mlt.tools;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -11,30 +11,13 @@ import com.mlt.decoder.MltDecoder;
 import com.mlt.vector.FeatureTable;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.data.MapLibreTile;
+import com.mlt.tools.Timer;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.Path;
 
 public class Decode {
-
-    public static class Timer {
-        private long startTime;
-
-        public Timer() {
-            startTime = System.nanoTime();
-        }
-
-        public void restart() {
-            startTime = System.nanoTime();
-        }
-
-        public void stop(String message) {
-            long endTime = System.nanoTime();
-            long elapsedTime = (endTime - startTime) / 1000000; // divide by 1000000 to get milliseconds
-            System.out.println("Time elapsed for " + message + ": " + elapsedTime + " milliseconds");
-        }
-    }
 
     public static void printMLT(MapLibreTile mlTile){
         var mltLayers = mlTile.layers();
