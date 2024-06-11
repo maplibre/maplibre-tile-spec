@@ -1,0 +1,124 @@
+¡
+
+water_name
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	<
+housenumber
+id" 
+geometry* 
+housenumber" 	F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	2
+landuse
+id" 
+geometry* 
+class" 	ú
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+name:fr" 	
+name:ja" 	
+name:ru" 	
+name:el" 	
+name:sr" 	
+name:ar" 	¾
+poi
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+subclass" 	
+agg:stop" 
+name:ru" 	
+name:fr" 	
+level" 
+name:be" 	
+name:es" 	
+name:eu" 	
+name:fi" 	
+name:he" 	
+name:ja" 	
+name:sv" 	
+name:uk" 	
+name:zh" 	
+layer" 
+name:lt" 	
+name:pl" 	
+indoor" 
+name:ar" 	
+name:nonlatin" 	
+name:ro" 	
+name:pt" 	
+name:da" 	
+name:ko" 	
+name:cs" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" 
+transportation_name
+id" 
+geometry* 
+brunnel" 	
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+subclass" 	
+network" 	
+ref" 	
+
+ref:length" 
+name:nonlatin" 	
+layer" f
+building
+id" 
+geometry* 
+render:height" 
+render:min:height" 
+colour" 	ø
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+oneway" 
+ramp" 
+subclass" 	
+service" 	
+surface" 	
+indoor" 
+level" 
+bicycle" 	
+foot" 	
+horse" 	

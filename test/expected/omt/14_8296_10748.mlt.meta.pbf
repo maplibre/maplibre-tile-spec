@@ -1,0 +1,135 @@
+Ô
+
+water_name
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:ar" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+name:ru" 	
+name:es" 	<
+housenumber
+id" 
+geometry* 
+housenumber" 	F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	2
+landuse
+id" 
+geometry* 
+class" 	é
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+name:el" 	
+name:fr" 	
+name:ja" 	
+name:ru" 	
+name:ar" 	Ë
+poi
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+subclass" 	
+agg:stop" 
+name:ru" 	
+layer" 
+name:nonlatin" 	
+name:ja" 	
+name:zh" 	
+level" 
+name:fr" 	
+name:es" 	
+name:ko" 	
+name:pt" 	
+name:hi" 	
+name:sr" 	
+name:ar" 	
+name:uk" 	
+name:br" 	
+name:be" 	
+indoor" 
+name:lv" 	
+name:it" 	
+name:ko-Latn" 	
+name:pl" 	
+name:nl" 	
+name:ro" 	
+name:ca" 	
+name:cs" 	
+name:da" 	
+name:el" 	
+name:fi" 	
+name:he" 	
+name:id" 	
+name:sk" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" «
+transportation_name
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+subclass" 	
+network" 	
+ref" 	
+
+ref:length" 
+name:es" 	
+name:pl" 	
+name:ru" 	f
+building
+id" 
+geometry* 
+render:height" 
+render:min:height" 
+colour" 	è
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+oneway" 
+ramp" 
+subclass" 	
+level" 
+service" 	
+surface" 	
+foot" 	
+bicycle" 	
+horse" 	

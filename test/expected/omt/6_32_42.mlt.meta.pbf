@@ -1,0 +1,124 @@
+3
+waterway
+id" 
+geometry* 
+class" 	2
+landuse
+id" 
+geometry* 
+class" 	é	
+place
+id" 
+geometry* 
+class" 	
+iso:a2" 	
+name" 	
+name:am" 	
+name:ar" 	
+name:az" 	
+name:be" 	
+name:bg" 	
+name:br" 	
+name:bs" 	
+name:ca" 	
+name:co" 	
+name:cs" 	
+name:cy" 	
+name:da" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:et" 	
+name:eu" 	
+name:fi" 	
+name:fr" 	
+name:fy" 	
+name:ga" 	
+name:gd" 	
+name:he" 	
+name:hi" 	
+name:hr" 	
+name:hu" 	
+name:hy" 	
+name:id" 	
+name:int" 	
+name:is" 	
+name:it" 	
+name:ja" 	
+name:ka" 	
+name:kk" 	
+name:kn" 	
+name:ko" 	
+name:ku" 	
+name:la" 	
+
+name:latin" 	
+name:lb" 	
+name:lt" 	
+name:lv" 	
+name:mk" 	
+name:ml" 	
+name:mt" 	
+name:nl" 	
+name:no" 	
+name:oc" 	
+name:pl" 	
+name:pt" 	
+name:rm" 	
+name:ro" 	
+name:ru" 	
+name:sk" 	
+name:sl" 	
+name:sq" 	
+name:sr" 	
+name:sv" 	
+name:ta" 	
+name:te" 	
+name:th" 	
+name:tr" 	
+name:uk" 	
+name:zh" 	
+rank" 
+capital" 
+name:sr-Latn" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" Ý
+transportation_name
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+name:nonlatin" 	
+network" 	
+ref" 	
+
+ref:length" 
+
+name:latin" 	Ì
+park
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+name:nl" 	
+name:fr" 	
+name:nonlatin" 	
+rank" J
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	

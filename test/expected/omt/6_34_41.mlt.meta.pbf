@@ -1,0 +1,210 @@
+¼
+
+water_name
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:ar" 	
+name:az" 	
+name:be" 	
+name:bg" 	
+name:br" 	
+name:bs" 	
+name:ca" 	
+name:co" 	
+name:cs" 	
+name:cy" 	
+name:da" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:et" 	
+name:eu" 	
+name:fi" 	
+name:fr" 	
+name:fy" 	
+name:ga" 	
+name:he" 	
+name:hi" 	
+name:hr" 	
+name:hu" 	
+name:hy" 	
+name:id" 	
+name:int" 	
+name:is" 	
+name:it" 	
+name:ja" 	
+name:ka" 	
+name:kk" 	
+name:ko" 	
+name:ku" 	
+name:la" 	
+
+name:latin" 	
+name:lt" 	
+name:lv" 	
+name:mk" 	
+name:ml" 	
+name:mt" 	
+name:nl" 	
+name:pl" 	
+name:pt" 	
+name:ro" 	
+name:ru" 	
+name:sk" 	
+name:sl" 	
+name:sr" 	
+name:sr-Latn" 	
+name:sv" 	
+name:ta" 	
+name:th" 	
+name:tr" 	
+name:uk" 	
+name:zh" 	F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	3
+waterway
+id" 
+geometry* 
+class" 	2
+landuse
+id" 
+geometry* 
+class" 	€
+
+place
+id" 
+geometry* 
+capital" 
+class" 	
+name" 	
+name:am" 	
+name:ar" 	
+name:az" 	
+name:be" 	
+name:bg" 	
+name:br" 	
+name:bs" 	
+name:ca" 	
+name:co" 	
+name:cs" 	
+name:cy" 	
+name:da" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:et" 	
+name:eu" 	
+name:fi" 	
+name:fr" 	
+name:fy" 	
+name:ga" 	
+name:gd" 	
+name:he" 	
+name:hi" 	
+name:hr" 	
+name:hu" 	
+name:hy" 	
+name:id" 	
+name:int" 	
+name:is" 	
+name:it" 	
+name:ja" 	
+name:ka" 	
+name:kk" 	
+name:kn" 	
+name:ko" 	
+name:ku" 	
+name:la" 	
+
+name:latin" 	
+name:lb" 	
+name:lt" 	
+name:lv" 	
+name:mk" 	
+name:ml" 	
+name:mt" 	
+name:nl" 	
+name:no" 	
+name:oc" 	
+name:pl" 	
+name:pt" 	
+name:rm" 	
+name:ro" 	
+name:ru" 	
+name:sk" 	
+name:sl" 	
+name:sq" 	
+name:sr" 	
+name:sv" 	
+name:ta" 	
+name:te" 	
+name:th" 	
+name:tr" 	
+name:uk" 	
+name:zh" 	
+rank" 
+iso:a2" 	
+name:nonlatin" 	
+name:sr-Latn" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" ×
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref:length" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+name:it" 	©
+park
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+name:cs" 	
+name:hu" 	
+name:nonlatin" 	
+name:tr" 	
+name:es" 	
+name:fi" 	
+name:fr" 	
+name:it" 	
+name:pl" 	
+name:sk" 	
+name:sl" 	
+name:hr" 	
+name:nl" 	
+name:sr" 	
+name:ru" 	
+name:uk" 	
+rank" J
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	

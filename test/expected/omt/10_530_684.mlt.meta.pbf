@@ -1,0 +1,127 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	û
+aerodrome_label
+id" 
+geometry* 
+class" 	
+icao" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	ç
+waterway
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:es" 	
+name:fr" 	
+name:hu" 	
+name:it" 	
+name:ja" 	
+name:nl" 	
+name:pl" 	
+name:ru" 	
+name:sk" 	
+name:uk" 	2
+landuse
+id" 
+geometry* 
+class" 	π
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele:ft" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" Ω
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+name:ar" 	
+name:fr" 	
+name:ja" 	
+name:la" 	
+name:ru" 	
+name:sr" 	
+name:uk" 	
+name:zh" 	
+name:bg" 	
+name:el" 	
+name:he" 	
+name:hu" 	
+name:ka" 	
+name:kk" 	
+name:ko" 	
+name:lt" 	
+name:lv" 	
+name:th" 	
+name:nl" 	
+name:be" 	
+name:ca" 	
+name:es" 	
+name:pt" 	
+name:mk" 	
+name:fy" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" p
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref:length" Ö
+park
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	?
+aeroway
+id" 
+geometry* 
+class" 	
+ref" 	∑
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+oneway" 
+ramp" 
+subclass" 	
+foot" 	
+horse" 	
+bicycle" 	

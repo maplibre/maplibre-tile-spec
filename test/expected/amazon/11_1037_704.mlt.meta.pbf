@@ -1,0 +1,307 @@
+£
+
+Water line
+id" 
+geometry* 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	
+:symbol" ‘
+
+Road/label
+id" 
+geometry* 
+:label:class" 
+:name:global" 	
+:name:local" 	
+Viz" 
+:len" 
+:name" 	5
+Railroad
+id" 
+geometry* 
+:symbol" d
+Admin2 area/label
+id" 
+geometry* 
+:label:class" 
+:minzoom" 
+:name" 	>
+Road
+id" 
+geometry* 
+:symbol" 
+Viz" &
+
+Urban area
+id" 
+geometry* M
+Boundary line
+id" 
+geometry* 
+:symbol" 
+	DisputeID" £
+
+Water area
+id" 
+geometry* 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	
+:symbol" ˆ
+Openspace or forest/label
+id" 
+geometry* 
+:label:class" 
+:minzoom" 
+:name:global" 	
+:name:local" 	1
+Land
+id" 
+geometry* 
+:symbol" v
+Spot elevation
+id" 
+geometry* 
+:minzoom" 
+:name" 	
+Elev:LabelFt" 	
+Elev:LabelM" 	E
+Road tunnel
+id" 
+geometry* 
+:symbol" 
+Viz" û
+City large scale
+id" 
+geometry* 
+:label:class" 
+:minzoom" 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:global" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:local" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	
+Alt:ID" 2
+Biome
+id" 
+geometry* 
+:symbol" `
+Land Feature place
+id" 
+geometry* 
+:minzoom" 
+:name" 	
+:symbol" %
+	Education
+id" 
+geometry* ý
+Water area/label
+id" 
+geometry* 
+:label:class" 
+:maxzoom" 
+:minzoom" 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:global" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:local" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	Š
+Road tunnel/label
+id" 
+geometry* 
+:label:class" 
+:name:global" 	
+:name:local" 	
+Viz" 
+:name" 	\
+Religion place
+id" 
+geometry* 
+:minzoom" 
+:name" 	
+:symbol" +
+Park or farming
+id" 
+geometry* #
+Medical
+id" 
+geometry* /
+Openspace or forest
+id" 
+geometry* 
+Zoo
+id" 
+geometry* 

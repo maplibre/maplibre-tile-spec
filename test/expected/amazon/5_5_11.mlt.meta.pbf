@@ -1,0 +1,579 @@
+
+Admin1 forest or park
+id" 
+geometry* 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	Ÿ
+Water line medium scale
+id" 
+geometry* 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	ß
+Landform/label
+id" 
+geometry* 
+:label:class" 
+:maxzoom" 
+:minzoom" 
+:name" 	
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	7
+
+Bathymetry
+id" 
+geometry* 
+:symbol" &
+
+Urban area
+id" 
+geometry* ö
+Admin0 forest or park/label
+id" 
+geometry* 
+:label:class" 
+:minzoom" 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:global" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:local" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	E
+Road tunnel
+id" 
+geometry* 
+:symbol" 
+Viz" 
+Admin0 forest or park
+id" 
+geometry* 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	2
+Biome
+id" 
+geometry* 
+:symbol" C
+Admin0 ribbon L5 inner
+id" 
+geometry* 
+:symbol" Ê
+Water line medium scale/label
+id" 
+geometry* 
+:label:class" 
+:name" 	
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	b
+Graticule/label
+id" 
+geometry* 
+:label:class" 
+:name" 	
+IN:WATER" C
+Admin0 ribbon L5 outer
+id" 
+geometry* 
+:symbol" '
+Marine area
+id" 
+geometry* 5
+Colormap
+id" 
+geometry* 
+:symbol" >
+Road
+id" 
+geometry* 
+:symbol" 
+Viz" ð
+City small scale
+id" 
+geometry* 
+:label:class" 
+:minzoom" 
+:name" 	
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	
+:symbol" 
+Alt:ID" Ð
+Admin1 area/label
+id" 
+geometry* 
+:label:class" 
+:minzoom" 
+:name" 	
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	M
+Boundary line
+id" 
+geometry* 
+:symbol" 
+	DisputeID" °
+Water area medium scale
+id" 
+geometry* 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	
+:symbol" 1
+Land
+id" 
+geometry* 
+:symbol" %
+	Coastline
+id" 
+geometry* H
+	Graticule
+id" 
+geometry* 
+:symbol" 
+IN:WATER" ö
+Admin1 forest or park/label
+id" 
+geometry* 
+:label:class" 
+:minzoom" 
+:name:ar" 	
+:name:bg" 	
+:name:bs" 	
+:name:ca" 	
+:name:cs" 	
+:name:da" 	
+:name:de" 	
+:name:el" 	
+:name:en" 	
+:name:es" 	
+:name:et" 	
+:name:fi" 	
+:name:fr" 	
+:name:global" 	
+:name:he" 	
+:name:hi" 	
+:name:hr" 	
+:name:hu" 	
+:name:id" 	
+:name:it" 	
+:name:ja" 	
+:name:ko" 	
+:name:local" 	
+:name:lt" 	
+:name:lv" 	
+:name:nl" 	
+:name:no" 	
+:name:pl" 	
+
+:name:pt:b" 	
+
+:name:pt:p" 	
+:name:ro" 	
+:name:ru" 	
+:name:sk" 	
+:name:sl" 	
+:name:sr" 	
+:name:sv" 	
+:name:th" 	
+:name:tr" 	
+:name:uk" 	
+:name:vi" 	
+
+:name:zh:h" 	
+
+:name:zh:s" 	
+
+:name:zh:t" 	C
+Vegetation small scale
+id" 
+geometry* 
+:symbol" 

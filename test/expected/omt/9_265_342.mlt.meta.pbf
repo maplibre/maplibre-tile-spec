@@ -1,0 +1,134 @@
+°
+
+water_name
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	ç
+waterway
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:nl" 	
+name:es" 	
+name:fr" 	
+name:hu" 	
+name:it" 	
+name:ja" 	
+name:pl" 	
+name:ru" 	
+name:sk" 	
+name:uk" 	2
+landuse
+id" 
+geometry* 
+class" 	π
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele:ft" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" í
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+capital" 
+name:ar" 	
+name:be" 	
+name:el" 	
+name:eo" 	
+name:fr" 	
+name:ja" 	
+name:la" 	
+name:lt" 	
+name:mk" 	
+name:ru" 	
+name:sr" 	
+name:uk" 	
+name:zh" 	
+name:bg" 	
+name:fy" 	
+name:he" 	
+name:ka" 	
+name:kk" 	
+name:ko" 	
+name:lv" 	
+name:nl" 	
+name:hu" 	
+name:th" 	
+name:br" 	
+name:es" 	
+name:ca" 	
+name:pt" 	
+name:eu" 	
+name:it" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" ∆
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref:length" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	ì
+park
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" ß
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+ramp" 
+bicycle" 	
+foot" 	
+horse" 	
+subclass" 	

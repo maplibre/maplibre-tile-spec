@@ -1,0 +1,325 @@
+version: 1
+featureTables {
+  name: "water_feature"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "gt"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "label-importance"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "max-text-width"
+    nullable: true
+    scalarType {
+      physicalType: FLOAT
+    }
+  }
+  columns {
+    name: "name"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name-f"
+    nullable: true
+    scalarType {
+      physicalType: FLOAT
+    }
+  }
+}
+featureTables {
+  name: "road"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "st-et"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+}
+featureTables {
+  name: "land_cover_grass"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+}
+featureTables {
+  name: "reserve"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+}
+featureTables {
+  name: "country_region"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "clk-as"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "gt"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "label-importance"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "max-text-width"
+    nullable: true
+    scalarType {
+      physicalType: FLOAT
+    }
+  }
+  columns {
+    name: "name"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name-f"
+    nullable: true
+    scalarType {
+      physicalType: FLOAT
+    }
+  }
+}
+featureTables {
+  name: "land_cover_forest"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+}
+featureTables {
+  name: "land_cover_snow_and_ice"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+}
+featureTables {
+  name: "vector_background"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+}
+featureTables {
+  name: "populated_place"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "bkt"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "clk-as"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "has-icon"
+    nullable: true
+    scalarType {
+      physicalType: BOOLEAN
+    }
+  }
+  columns {
+    name: "label-importance"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "max-text-width"
+    nullable: true
+    scalarType {
+      physicalType: FLOAT
+    }
+  }
+  columns {
+    name: "name"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name-f"
+    nullable: true
+    scalarType {
+      physicalType: FLOAT
+    }
+  }
+  columns {
+    name: "st-tag"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+}

@@ -1,0 +1,139 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	3
+waterway
+id" 
+geometry* 
+class" 	2
+landuse
+id" 
+geometry* 
+class" 	¹
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele:ft" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" Ø	
+place
+id" 
+geometry* 
+capital" 
+class" 	
+name" 	
+name:am" 	
+name:ar" 	
+name:be" 	
+name:bg" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:fr" 	
+name:ga" 	
+name:he" 	
+name:hi" 	
+name:hu" 	
+name:hy" 	
+name:int" 	
+name:is" 	
+name:it" 	
+name:ja" 	
+name:ka" 	
+name:kk" 	
+name:kn" 	
+name:ko" 	
+name:ku" 	
+name:la" 	
+
+name:latin" 	
+name:lt" 	
+name:lv" 	
+name:mk" 	
+name:ml" 	
+name:nl" 	
+name:no" 	
+name:oc" 	
+name:pl" 	
+name:pt" 	
+name:ru" 	
+name:sk" 	
+name:sq" 	
+name:sr" 	
+name:sv" 	
+name:ta" 	
+name:th" 	
+name:uk" 	
+name:zh" 	
+rank" 
+name:fy" 	
+name:br" 	
+name:bs" 	
+name:ca" 	
+name:cs" 	
+name:cy" 	
+name:da" 	
+name:et" 	
+name:eu" 	
+name:fi" 	
+name:gd" 	
+name:hr" 	
+name:id" 	
+name:lb" 	
+name:mt" 	
+name:ro" 	
+name:sl" 	
+name:sr-Latn" 	
+name:tr" 	
+iso:a2" 	
+name:az" 	
+name:rm" 	
+name:te" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" Æ
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref:length" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	¤
+park
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+name:nl" 	
+rank" \
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+subclass" 	

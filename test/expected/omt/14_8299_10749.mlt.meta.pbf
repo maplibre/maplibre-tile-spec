@@ -1,0 +1,132 @@
+¡
+
+water_name
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	<
+housenumber
+id" 
+geometry* 
+housenumber" 	F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	°
+waterway
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+brunnel" 	2
+landuse
+id" 
+geometry* 
+class" 	é
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+name:ja" 	
+name:ru" 	
+name:sr" 	
+name:el" 	
+name:fr" 	¥
+poi
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+subclass" 	
+agg:stop" 
+name:fr" 	
+name:ru" 	
+level" 
+name:nonlatin" 	
+layer" 
+indoor" 
+name:sr" 	
+name:zh" 	
+name:ja" 	
+name:es" 	
+name:eu" 	
+name:ar" 	
+name:it" 	
+name:tr" 	W
+water
+id" 
+geometry* 
+class" 	
+intermittent" 
+brunnel" 	ˆ
+transportation_name
+id" 
+geometry* 
+brunnel" 	
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+subclass" 	
+indoor" 
+network" 	
+ref" 	
+
+ref:length" 
+layer" ?
+aeroway
+id" 
+geometry* 
+class" 	
+ref" 	f
+building
+id" 
+geometry* 
+render:height" 
+render:min:height" 
+colour" 	ø
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+oneway" 
+ramp" 
+subclass" 	
+level" 
+surface" 	
+service" 	
+indoor" 
+foot" 	
+bicycle" 	
+horse" 	

@@ -1,0 +1,849 @@
+version: 1
+featureTables {
+  name: "landcover"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "subclass"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+}
+featureTables {
+  name: "waterway"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+}
+featureTables {
+  name: "landuse"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+}
+featureTables {
+  name: "mountain_peak"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_64
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "ele"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "ele:ft"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "name"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:de"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:en"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:int"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:latin"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "rank"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "name:da"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:he"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ja"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:la"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:lt"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ru"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:zh"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+}
+featureTables {
+  name: "place"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_64
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "iso:a2"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:am"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ar"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:az"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:be"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:bg"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:br"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:bs"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ca"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:co"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:cs"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:cy"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:da"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:de"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:el"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:en"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:eo"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:es"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:et"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:eu"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:fi"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:fr"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:fy"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ga"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:gd"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:he"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:hi"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:hr"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:hu"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:hy"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:id"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:int"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:is"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:it"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ja"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ka"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:kk"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:kn"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ko"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ku"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:la"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:latin"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:lb"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:lt"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:lv"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:mk"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ml"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:mt"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:nl"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:no"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:oc"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:pl"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:pt"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:rm"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ro"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ru"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:sk"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:sl"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:sq"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:sr"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:sv"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:ta"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:te"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:th"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:tr"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:uk"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:zh"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "rank"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+  columns {
+    name: "capital"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+}
+featureTables {
+  name: "water"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "intermittent"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+}
+featureTables {
+  name: "park"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:de"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:en"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:int"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:latin"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "name:nonlatin"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "rank"
+    nullable: true
+    scalarType {
+      physicalType: INT_64
+    }
+  }
+}
+featureTables {
+  name: "transportation"
+  columns {
+    name: "id"
+    scalarType {
+      physicalType: UINT_32
+    }
+  }
+  columns {
+    name: "geometry"
+    complexType {
+      physicalType: GEOMETRY
+    }
+  }
+  columns {
+    name: "brunnel"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "class"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+  columns {
+    name: "subclass"
+    nullable: true
+    scalarType {
+      physicalType: STRING
+    }
+  }
+}

@@ -1,0 +1,82 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	°
+waterway
+id" 
+geometry* 
+class" 	
+intermittent" 
+name:de" 	
+name:en" 	
+brunnel" 	
+name" 	
+name:int" 	
+
+name:latin" 	2
+landuse
+id" 
+geometry* 
+class" 	”
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" ¤
+poi
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+subclass" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" ×
+transportation_name
+id" 
+geometry* 
+brunnel" 	
+class" 	
+network" 	
+ref" 	
+
+ref:length" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	$
+building
+id" 
+geometry* Ù
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+oneway" 
+ramp" 
+service" 	
+bicycle" 	
+surface" 	
+subclass" 	
+foot" 	
+horse" 	
