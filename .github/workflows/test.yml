@@ -47,9 +47,12 @@ jobs:
           ./gradlew cli
           # Test the encoding CLI
           java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -mlt output/varint.mlt
+          # ensure expected size
+          python -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
           # Test the meta CLI and ensure it doesn't overwrite the metadata (a sign it correctly matches the encode output)
-          out=$(java -jar ./build/libs/meta.jar -mvt ../test/fixtures/omt/10_530_682.mvt -meta output/varint.mlt.meta.pbf)
-          if [[ $out == *"Skipping metadata overwrite"* ]]; then true; else false; fi
+          java -jar ./build/libs/meta.jar -mvt ../test/fixtures/omt/10_530_682.mvt -meta output/varint.mlt.meta.pbf
+          # ensure expected size is maintained (meta writes the same meta file as encode)
+          python -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
           # Test the using advanced encodings
           java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -advanced -mlt output/advanced.mlt
           # ensure expected sizes
