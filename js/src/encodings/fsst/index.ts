@@ -7,7 +7,7 @@
  * @returns                 Decoded data as Uint8Array
  */
 export function decodeFsst(symbols: Uint8Array, symbolLengths: number[], compressedData: Uint8Array): Uint8Array {
-    let decodedData: number[] = [];
+    const decodedData: number[] = [];
     const symbolOffsets: number[] = new Array(symbolLengths.length).fill(0);
 
     for (let i = 1; i < symbolLengths.length; i++) {
