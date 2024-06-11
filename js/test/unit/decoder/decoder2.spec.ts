@@ -7,11 +7,11 @@ const tilesDir = "../test/fixtures";
 
 describe("Decoder2", () => {
     it("should decode one Bing Map based tile", async () => {
-        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "bing"));
+        const { tiles } = getTiles(Path.join(tilesDir, "bing"));
         const tile = tiles.find(t => t.mlt.includes('4-13-6.mlt'));
 
         const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(mltMetadata);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
         try {
             const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
@@ -21,11 +21,11 @@ describe("Decoder2", () => {
     });
 
     it("should decode one OMT based tile", async () => {
-        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "omt"));
+        const { tiles } = getTiles(Path.join(tilesDir, "omt"));
         const tile = tiles.find(t => t.mlt.includes('2_2_2.mlt'));
 
         const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(mltMetadata);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
         try {
             const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
@@ -36,20 +36,19 @@ describe("Decoder2", () => {
 
 });
 
-function getTiles(dir: string): { mltMetadata: string; tiles: { mvt: string; mlt: string }[] } {
+function getTiles(dir: string): { tiles: { mvt: string; meta: string; mlt: string }[] } {
     const mltDir = dir.replace('fixtures', 'expected');
 
     return {
-        mltMetadata: Path.join(mltDir, 'mltmetadata.pbf'),
         tiles: fs.readdirSync(dir)
             .filter(file => file.endsWith('.mvt') || file.endsWith('.pbf'))
-            .map((mvtFilename) : { mvt: string; mlt: string } => {
+            .map((mvtFilename) : { mvt: string; meta: string; mlt: string } => {
                 const mvt = Path.join(dir, mvtFilename);
 
                 const mltFilename = mvtFilename.replace(/\.(pbf|mvt)$/,'.mlt');
                 const mlt = Path.join(mltDir, mltFilename);
-
-                return { mlt, mvt };
+                const meta = mlt + '.meta.pbf';
+                return { mlt, meta, mvt };
             })
     };
 }
