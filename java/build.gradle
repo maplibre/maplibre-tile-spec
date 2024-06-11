@@ -89,7 +89,8 @@ task decode(type: Jar) {
 
 task cli {
     dependsOn compileJava
-    delete "${buildDir}/libs"
+    // Uncomment the following line to clear out the jars before rebuilding
+    // delete "${buildDir}/libs"
     dependsOn encode
     dependsOn decode
 }
