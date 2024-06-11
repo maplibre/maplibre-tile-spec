@@ -75,7 +75,7 @@ public class Meta {
             Path outputPath = null;
             if (cmd.hasOption(OUTPUT_DIR_ARG)) {
                 var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
-                var outputTileName = String.format("%s.meta.pbf", inputTileName.split("\\.")[0]);
+                var outputTileName = String.format("%s.mlt.meta.pbf", inputTileName.split("\\.")[0]);
                 outputPath = Paths.get(outputDir, outputTileName);
             } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
                 outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
