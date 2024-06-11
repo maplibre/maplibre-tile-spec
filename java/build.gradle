@@ -60,35 +60,23 @@ gradle.projectsEvaluated {
 
 compileJava.dependsOn compileWrapper
 
-task encode(type: Jar) {
-    archiveFileName = "encode.jar"
-    manifest {
-        attributes 'Implementation-Title': 'encode an mvt to mlt',
-                    'Implementation-Version': archiveVersion,
-                    'Main-Class': 'com.mlt.converter.MltCliAdapter'
-    }
+
+["encode", "decode"].each { name ->
+  task "$name" (type: Jar, dependsOn: compileJava) {
+    archiveFileName = name + ".jar"
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     manifest.from jar.manifest
     with jar
+  }
 }
 
-task decode(type: Jar) {
-    archiveFileName = "decode.jar"
-    manifest {
-        attributes 'Implementation-Title': 'decode an mlt',
-                    'Implementation-Version': archiveVersion,
-                    'Main-Class': 'com.mlt.decoder.MltDecodeCli'
-    }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    manifest.from jar.manifest
-    with jar
-}
-
+encode.manifest.attributes 'Implementation-Title' : 'encode an mlt from an mvt',
+                           'Main-Class': 'com.mlt.cli.Encode'
+decode.manifest.attributes 'Implementation-Title' : 'decode an mlt',
+                           'Main-Class': 'com.mlt.cli.Decode'
 
 task cli {
-    dependsOn compileJava
     // Uncomment the following line to clear out the jars before rebuilding
     // delete "${buildDir}/libs"
     dependsOn encode
