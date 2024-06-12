@@ -1,5 +1,6 @@
 package com.mlt.decoder;
 
+import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.metadata.stream.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -123,6 +124,9 @@ public class IntegerDecoder {
               ? decodeZigZag(values)
               : Arrays.stream(values).boxed().collect(Collectors.toList());
         }
+      case COMPONENTWISE_DELTA:
+        VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(values);
+        return Arrays.stream(values).boxed().collect(Collectors.toList());
       case MORTON:
         // TODO: zig-zag decode when morton second logical level technique
         return decodeMortonCodes(
