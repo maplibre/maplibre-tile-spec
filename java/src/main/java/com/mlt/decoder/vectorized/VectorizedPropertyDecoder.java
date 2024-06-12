@@ -68,7 +68,7 @@ public class VectorizedPropertyDecoder {
                     data,
                     offset,
                     dataStreamMetadata,
-                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_32);
+                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_64);
             return presentStream != null
                 ? new LongFlatVector(column.getName(), presentStream, dataStream)
                 : new LongFlatVector(column.getName(), dataStream);
