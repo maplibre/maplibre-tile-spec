@@ -5,13 +5,9 @@ import com.mlt.metadata.stream.RleEncodedStreamMetadata;
 import com.mlt.metadata.stream.StreamMetadata;
 import com.mlt.vector.BitVector;
 import com.mlt.vector.VectorType;
-import java.io.IOException;
 import java.nio.*;
 import java.util.BitSet;
 import me.lemire.integercompression.*;
-import org.apache.orc.impl.BufferChunk;
-import org.apache.orc.impl.InStream;
-import org.apache.orc.impl.RunLengthByteReader;
 
 public class VectorizedDecodingUtils {
 
@@ -52,21 +48,21 @@ public class VectorizedDecodingUtils {
       return ArrayUtils.addAll(encodedRuns, Bytes.toArray(valueBuffer));
   }*/
 
-  public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
-      throws IOException {
-    var inStream =
-        InStream.create(
-            "test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
-    var reader = new RunLengthByteReader(inStream);
+  // public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
+  //     throws IOException {
+  //   var inStream =
+  //       InStream.create(
+  //           "test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
+  //   var reader = new RunLengthByteReader(inStream);
 
-    var values = new byte[numBytes];
-    for (var i = 0; i < numBytes; i++) {
-      values[i] = reader.next();
-    }
+  //   var values = new byte[numBytes];
+  //   for (var i = 0; i < numBytes; i++) {
+  //     values[i] = reader.next();
+  //   }
 
-    pos.add(byteSize);
-    return values;
-  }
+  //   pos.add(byteSize);
+  //   return values;
+  // }
 
   public static ByteBuffer decodeBooleanRle(byte[] buffer, int numBooleans, IntWrapper pos) {
     var numBytes = (int) Math.ceil(numBooleans / 8d);
