@@ -86,41 +86,25 @@ public class IntegerDecoder {
               + streamMetadata.physicalLevelTechnique());
     }
 
-    var decodedValues =
-        decodeIntArray(
-            values, streamMetadata.logicalLevelTechnique2(), streamMetadata, isSigned, false);
-    // TODO: get rid of that conversion
-    // TODO: find proper solution with zig-zag encoding -> currently only second level technique is
-    // allowed to use
-    // zig-zag encoding
-    return decodeIntArray(
-        decodedValues.stream().mapToInt(i -> i).toArray(),
-        streamMetadata.logicalLevelTechnique1(),
-        streamMetadata,
-        isSigned,
-        true);
+    return decodeIntArray(values, streamMetadata, isSigned);
   }
 
   private static List<Integer> decodeIntArray(
-      int[] values,
-      LogicalLevelTechnique logicalLevelTechnique,
-      StreamMetadata streamMetadata,
-      boolean isSigned,
-      boolean isSecondPass) {
-    switch (logicalLevelTechnique) {
+      int[] values, StreamMetadata streamMetadata, boolean isSigned) {
+    switch (streamMetadata.logicalLevelTechnique1()) {
+      case DELTA:
+        return isSigned ? decodeDelta(values) : decodeZigZagDelta(values);
       case RLE:
         {
           var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
           var decodedValues = decodeRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
-          return isSigned && !isSecondPass
+          return isSigned
               ? decodeZigZag(decodedValues.stream().mapToInt(i -> i).toArray())
               : decodedValues;
         }
-      case DELTA:
-        return isSecondPass && isSigned ? decodeDelta(values) : decodeZigZagDelta(values);
       case NONE:
         {
-          return isSigned && !isSecondPass
+          return isSigned
               ? decodeZigZag(values)
               : Arrays.stream(values).boxed().collect(Collectors.toList());
         }
@@ -137,7 +121,7 @@ public class IntegerDecoder {
 
     throw new IllegalArgumentException(
         "The specified logical level technique is not supported for integers: "
-            + logicalLevelTechnique);
+            + streamMetadata.logicalLevelTechnique1());
   }
 
   public static List<Long> decodeLongStream(
