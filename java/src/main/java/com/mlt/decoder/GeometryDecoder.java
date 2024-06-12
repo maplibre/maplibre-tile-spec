@@ -124,6 +124,27 @@ public class GeometryDecoder {
           var coordinate = new Coordinate(x, y);
           geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
         }
+      } else if (geometryType.equals(GeometryType.MULTIPOINT.ordinal())) {
+        var numPoints = geometryOffsets.get(geometryOffsetsCounter++);
+        var points = new Point[numPoints];
+        if (vertexOffsets == null || vertexOffsets.length == 0) {
+          for (var i = 0; i < numPoints; i++) {
+            var x = vertexBuffer[vertexBufferOffset++];
+            var y = vertexBuffer[vertexBufferOffset++];
+            var coordinate = new Coordinate(x, y);
+            points[i] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
+        } else {
+          for (var i = 0; i < numPoints; i++) {
+            var offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+            var x = vertexBuffer[offset];
+            var y = vertexBuffer[offset + 1];
+            var coordinate = new Coordinate(x, y);
+            points[i] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
+        }
       } else if (geometryType.equals(GeometryType.LINESTRING.ordinal())) {
         if (vertexOffsets == null || vertexOffsets.length == 0) {
           var numVertices = partOffsets.get(partOffsetCounter++);
@@ -238,7 +259,7 @@ public class GeometryDecoder {
         }
       } else {
         throw new IllegalArgumentException(
-            "The specified geometry type is currently not supported.");
+            "The specified geometry type is currently not supported: " + geometryType);
       }
     }
 
@@ -301,6 +322,30 @@ public class GeometryDecoder {
         }
         if (ringOffsets != null) {
           ringOffsetsCounter++;
+        }
+      } else if (geometryType == GeometryType.MULTIPOINT.ordinal()) {
+        var numPoints =
+            geometryOffsets.get(geometryOffsetsCounter)
+                - geometryOffsets.get(geometryOffsetsCounter - 1);
+        geometryOffsetsCounter++;
+        var points = new Point[numPoints];
+        if (vertexOffsets == null || vertexOffsets.length == 0) {
+          for (var j = 0; j < numPoints; j++) {
+            var x = vertexBuffer[vertexBufferOffset++];
+            var y = vertexBuffer[vertexBufferOffset++];
+            var coordinate = new Coordinate(x, y);
+            points[j] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
+        } else {
+          for (var j = 0; j < numPoints; j++) {
+            var offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+            var x = vertexBuffer[offset];
+            var y = vertexBuffer[offset + 1];
+            var coordinate = new Coordinate(x, y);
+            points[j] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
         }
       } else if (geometryType == GeometryType.LINESTRING.ordinal()) {
         var numVertices = 0;
