@@ -1,5 +1,4 @@
 #!/usr/bin/env just --justfile
-set shell := ["bash", "-c"]
 
 # By default, show the list of all available commands
 @_default:
