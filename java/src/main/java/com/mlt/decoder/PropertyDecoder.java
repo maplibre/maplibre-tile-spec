@@ -47,24 +47,17 @@ public class PropertyDecoder {
             return booleanValues;
           }
         case UINT_32:
-          {
-            var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            var dataStream =
-                IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, false);
-            var counter = 0;
-            var values = new ArrayList<Integer>();
-            for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
-              var value = presentStream.get(i) ? dataStream.get(counter++) : null;
-              values.add(value);
-            }
-            return values;
-          }
         case INT_32:
           {
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            var dataStream = IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, true);
-            var values = new ArrayList<Integer>();
+            var dataStream =
+                IntegerDecoder.decodeIntStream(
+                    data,
+                    offset,
+                    dataStreamMetadata,
+                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_32);
             var counter = 0;
+            var values = new ArrayList<Integer>();
             for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
               var value = presentStream.get(i) ? dataStream.get(counter++) : null;
               values.add(value);
@@ -98,23 +91,15 @@ public class PropertyDecoder {
             }
           }
         case UINT_64:
-          {
-            var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            var dataStream =
-                IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, false);
-            var counter = 0;
-            var values = new ArrayList<Long>();
-            for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
-              var value = presentStream.get(i) ? dataStream.get(counter++) : null;
-              values.add(value);
-            }
-            return values;
-          }
         case INT_64:
           {
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
             var dataStream =
-                IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, true);
+                IntegerDecoder.decodeLongStream(
+                    data,
+                    offset,
+                    dataStreamMetadata,
+                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_64);
             var values = new ArrayList<Long>();
             var counter = 0;
             for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
