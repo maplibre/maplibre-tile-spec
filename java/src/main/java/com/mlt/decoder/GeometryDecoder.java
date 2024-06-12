@@ -4,7 +4,9 @@ import com.mlt.converter.geometry.GeometryType;
 import com.mlt.converter.geometry.ZOrderCurve;
 import com.mlt.metadata.stream.*;
 import com.mlt.vector.geometry.GeometryVector;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.NotImplementedException;
 import org.locationtech.jts.geom.*;
@@ -17,8 +19,7 @@ public class GeometryDecoder {
       List<Integer> numParts,
       List<Integer> numRings,
       List<Integer> vertexOffsets,
-      List<Integer> mortonVertexBuffer,
-      int[] vertexBuffer) {}
+      List<Integer> vertexList) {}
 
   private GeometryDecoder() {}
 
@@ -32,7 +33,7 @@ public class GeometryDecoder {
     List<Integer> numRings = null;
     List<Integer> vertexOffsets = null;
     List<Integer> mortonVertexBuffer = null;
-    int[] vertexBuffer = null;
+    List<Integer> vertexList = null;
     for (var i = 0; i < numStreams - 1; i++) {
       var geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
       switch (geometryStreamMetadata.physicalStreamType()) {
@@ -67,14 +68,15 @@ public class GeometryDecoder {
               throw new IllegalArgumentException(
                   "Currently only FastPfor encoding supported for the VertexBuffer.");
             }
-            vertexBuffer =
+            var vertexBuffer =
                 DecodingUtils.decodeFastPforDeltaCoordinates(
                     tile,
                     geometryStreamMetadata.numValues(),
                     geometryStreamMetadata.byteLength(),
                     offset);
+            vertexList = Arrays.stream(vertexBuffer).boxed().collect(Collectors.toList());
           } else {
-            mortonVertexBuffer =
+            vertexList =
                 IntegerDecoder.decodeMortonStream(
                     tile, offset, (MortonEncodedStreamMetadata) geometryStreamMetadata);
           }
@@ -83,13 +85,7 @@ public class GeometryDecoder {
     }
 
     return new GeometryColumn(
-        geometryTypes,
-        numGeometries,
-        numParts,
-        numRings,
-        vertexOffsets,
-        mortonVertexBuffer,
-        vertexBuffer);
+        geometryTypes, numGeometries, numParts, numRings, vertexOffsets, vertexList);
   }
 
   public static Geometry[] decodeGeometry(GeometryColumn geometryColumn) {
@@ -111,10 +107,7 @@ public class GeometryDecoder {
             ? geometryColumn.vertexOffsets().stream().mapToInt(i -> i).toArray()
             : null;
 
-    var vertexBuffer =
-        geometryColumn.mortonVertexBuffer != null
-            ? geometryColumn.mortonVertexBuffer.stream().mapToInt(i -> i).toArray()
-            : geometryColumn.vertexBuffer();
+    var vertexBuffer = geometryColumn.vertexList.stream().mapToInt(i -> i).toArray();
 
     // TODO: refactor redundant code
     for (var geometryType : geometryTypes) {

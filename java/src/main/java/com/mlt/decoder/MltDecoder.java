@@ -181,7 +181,8 @@ public class MltDecoder {
       MltTilesetMetadata.FeatureTableSchema metadata,
       int numFeatures) {
     if (numFeatures != geometries.length || numFeatures != ids.size()) {
-      throw new IllegalArgumentException("Invalid decoding: the size of ids, geometries, and features must be equal.");
+      throw new IllegalArgumentException(
+          "Invalid decoding: the size of ids, geometries, and features must be equal.");
     }
     var features = new ArrayList<Feature>(numFeatures);
     for (var j = 0; j < numFeatures; j++) {

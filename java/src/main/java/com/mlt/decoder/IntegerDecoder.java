@@ -23,7 +23,9 @@ public class IntegerDecoder {
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
       values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
     } else {
-      throw new IllegalArgumentException("Specified physical level technique not yet supported: " + streamMetadata.physicalLevelTechnique());
+      throw new IllegalArgumentException(
+          "Specified physical level technique not yet supported: "
+              + streamMetadata.physicalLevelTechnique());
     }
 
     return decodeMortonDelta(values, streamMetadata.numBits(), streamMetadata.coordinateShift());
@@ -78,7 +80,9 @@ public class IntegerDecoder {
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
       values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
     } else {
-      throw new IllegalArgumentException("Specified physical level technique not yet supported: " + streamMetadata.physicalLevelTechnique());
+      throw new IllegalArgumentException(
+          "Specified physical level technique not yet supported: "
+              + streamMetadata.physicalLevelTechnique());
     }
 
     var decodedValues =
@@ -128,7 +132,8 @@ public class IntegerDecoder {
     }
 
     throw new IllegalArgumentException(
-        "The specified logical level technique is not supported for integers: " + logicalLevelTechnique);
+        "The specified logical level technique is not supported for integers: "
+            + logicalLevelTechnique);
   }
 
   public static List<Long> decodeLongStream(
@@ -179,7 +184,8 @@ public class IntegerDecoder {
         }
       default:
         throw new IllegalArgumentException(
-            "The specified logical level technique is not supported for long integers: " + logicalLevelTechnique);
+            "The specified logical level technique is not supported for long integers: "
+                + logicalLevelTechnique);
     }
   }
 

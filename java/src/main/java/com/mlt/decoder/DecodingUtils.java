@@ -9,7 +9,6 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import me.lemire.integercompression.*;
-import me.lemire.integercompression.differential.IntegratedIntCompressor;
 import org.apache.orc.impl.BufferChunk;
 import org.apache.orc.impl.InStream;
 import org.apache.orc.impl.RunLengthByteReader;
