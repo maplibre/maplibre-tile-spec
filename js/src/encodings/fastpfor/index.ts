@@ -39,9 +39,9 @@ export class FastPFOR {
   }
 
   public headlessUncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number }) : { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number  } {
-    let mynvalue = greatestMultiple(model.mynvalue, FastPFOR.BLOCK_SIZE);
-    var finalout = model.outpos.valueOf() + mynvalue;
-    var inner_model = { input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, thissize: 0 };
+    const mynvalue = greatestMultiple(model.mynvalue, FastPFOR.BLOCK_SIZE);
+    const finalout = model.outpos.valueOf() + mynvalue;
+    const inner_model = { input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, thissize: 0 };
     while (inner_model.outpos.valueOf() != finalout) {
       inner_model.thissize = Math.min(this.pageSize, finalout - inner_model.outpos.valueOf());
       this.decodePage(inner_model);
