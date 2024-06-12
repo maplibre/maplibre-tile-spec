@@ -181,9 +181,6 @@ public class DecodingUtils {
     var outputOffset = new IntWrapper(0);
     IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
     ic.uncompress(intValues, inputOffset, intValues.length, decodedValues, outputOffset);
-    ByteIntegerCODEC codec = new VariableByte();
-    FastPFOR128 fastPFOR128 = new FastPFOR128();
-    IntegratedIntCompressor iic = new IntegratedIntCompressor();
 
     pos.add(byteLength);
     return decodedValues;
