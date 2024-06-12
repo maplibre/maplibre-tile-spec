@@ -27,6 +27,9 @@ jobs:
       - run: npm test
   format-java:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 'java'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
