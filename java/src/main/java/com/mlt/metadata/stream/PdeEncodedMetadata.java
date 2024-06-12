@@ -1,4 +1,3 @@
 package com.mlt.metadata.stream;
 
-public class PdeEncodedMetadata {
-}
+public class PdeEncodedMetadata {}

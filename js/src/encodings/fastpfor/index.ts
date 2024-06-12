@@ -56,7 +56,7 @@ export class FastPFOR {
     const wheremeta = model.input[model.inpos];
     model.inpos += 1;
 
-    var inexcept = initpos + wheremeta;
+    let inexcept = initpos + wheremeta;
     const bytesize = model.input[inexcept++];
     this.byteContainer.clear();
 
@@ -69,22 +69,22 @@ export class FastPFOR {
     const bitmap = model.input[inexcept++];
     for (let k = 2; k <= 32; ++k) {
       if ((bitmap & (1 << (k - 1))) != 0) {
-        let size = model.input[inexcept++];
-        let roudedup = greatestMultiple(size + 31, 32);
+        const size = model.input[inexcept++];
+        const roudedup = greatestMultiple(size + 31, 32);
         if (this.dataTobePacked[k].length < roudedup)
           this.dataTobePacked[k] = new Uint32Array(roudedup);
         if (inexcept + roudedup / 32 * k <= model.input.length) {
-          var j = 0;
+          let j = 0;
           for (; j < size; j += 32) {
             fastunpack(model.input, inexcept, this.dataTobePacked[k], j, k);
             inexcept += k;
           }
-          let overflow = j - size;
+          const overflow = j - size;
           inexcept -= Math.floor(overflow * k / 32);
         } else {
           let j = 0;
-          let buf: Uint32Array = new Uint32Array(roudedup / 32 * k);
-          let initinexcept = inexcept;
+          const buf: Uint32Array = new Uint32Array(roudedup / 32 * k);
+          const initinexcept = inexcept;
 
           arraycopy(model.input, inexcept, buf, 0, model.input.length - inexcept);
 
@@ -92,7 +92,7 @@ export class FastPFOR {
             fastunpack(buf, inexcept - initinexcept, this.dataTobePacked[k], j, k);
             inexcept += k;
           }
-          let overflow = j - size;
+          const overflow = j - size;
           inexcept -= Math.floor(overflow * k / 32);
         }
       }
