@@ -201,11 +201,11 @@ public class Encode {
             .required(false)
             .build());
     options.addOption(
-      Option.builder(TIMER_OPTION)
-          .hasArg(false)
-          .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
-          .required(false)
-          .build());
+        Option.builder(TIMER_OPTION)
+            .hasArg(false)
+            .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
+            .required(false)
+            .build());
     CommandLineParser parser = new DefaultParser();
     try {
       CommandLine cmd = parser.parse(options, args);
