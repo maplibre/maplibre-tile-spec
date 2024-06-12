@@ -133,6 +133,7 @@ public class Encode {
   private static final String PRINT_MVT_OPTION = "printmvt";
   private static final String COMPARE_OPTION = "compare";
   private static final String VECTORIZED_OPTION = "vectorized";
+  private static final String TIMER_OPTION = "timer";
 
   public static void main(String[] args) {
     Options options = new Options();
@@ -199,7 +200,12 @@ public class Encode {
                 "Use the vectorized decoding path ([OPTIONAL], default: will use non-vectorized path)")
             .required(false)
             .build());
-
+    options.addOption(
+      Option.builder(TIMER_OPTION)
+          .hasArg(false)
+          .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
+          .required(false)
+          .build());
     CommandLineParser parser = new DefaultParser();
     try {
       CommandLine cmd = parser.parse(options, args);
@@ -216,6 +222,7 @@ public class Encode {
       var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
       var willCompare = cmd.hasOption(COMPARE_OPTION);
       var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
+      var willTime = cmd.hasOption(TIMER_OPTION);
       var inputTilePath = Paths.get(fileName);
       var inputTileName = inputTilePath.getFileName().toString();
       var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
@@ -238,7 +245,7 @@ public class Encode {
           new ConversionConfig(includeIds, useAdvancedEncodingSchemes, optimizations);
       Timer timer = new Timer();
       var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
-      timer.stop("encoding");
+      if (willTime) timer.stop("encoding");
       if (willOutput) {
         Path outputPath = null;
         if (cmd.hasOption(OUTPUT_DIR_ARG)) {
@@ -271,7 +278,7 @@ public class Encode {
         // convert MLT wire format to an MapLibreTile object
         if (willUseVectorized) {
           var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-          timer.stop("decoding");
+          if (willTime) timer.stop("decoding");
           if (willPrintMLT) {
             printMLTVectorized(decodedTile);
           }
@@ -281,7 +288,7 @@ public class Encode {
           // }
         } else {
           var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
-          timer.stop("decoding");
+          if (willTime) timer.stop("decoding");
           if (willPrintMLT) {
             printMLT(decodedTile);
           }

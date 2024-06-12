@@ -43,6 +43,7 @@ public class Decode {
   private static final String FILE_NAME_ARG = "mlt";
   private static final String PRINT_MLT_OPTION = "printmlt";
   private static final String VECTORIZED_OPTION = "vectorized";
+  private static final String TIMER_OPTION = "timer";
 
   public static void main(String[] args) {
     Options options = new Options();
@@ -65,6 +66,12 @@ public class Decode {
             .desc("Print the MLT tile after encoding it ([OPTIONAL], default: false)")
             .required(false)
             .build());
+    options.addOption(
+        Option.builder(TIMER_OPTION)
+            .hasArg(false)
+            .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
+            .required(false)
+            .build());
     CommandLineParser parser = new DefaultParser();
     try {
       CommandLine cmd = parser.parse(options, args);
@@ -74,6 +81,7 @@ public class Decode {
       }
       var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
       var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
+      var willTime = cmd.hasOption(TIMER_OPTION);
       var inputTilePath = Paths.get(fileName);
       if (!Files.exists(inputTilePath)) {
         throw new IllegalArgumentException("Input mlt tile path does not exist: " + inputTilePath);
@@ -91,13 +99,13 @@ public class Decode {
       Timer timer = new Timer();
       if (willUseVectorized) {
         var decodedTile = MltDecoder.decodeMlTileVectorized(mltTileBuffer, tileMetadata);
-        timer.stop("decoding");
+        if (willTime) timer.stop("decoding");
         if (willPrintMLT) {
           printMLTVectorized(decodedTile);
         }
       } else {
         var decodedTile = MltDecoder.decodeMlTile(mltTileBuffer, tileMetadata);
-        timer.stop("decoding");
+        if (willTime) timer.stop("decoding");
         if (willPrintMLT) {
           printMLT(decodedTile);
         }
