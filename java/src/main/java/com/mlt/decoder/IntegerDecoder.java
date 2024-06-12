@@ -126,32 +126,15 @@ public class IntegerDecoder {
 
   public static List<Long> decodeLongStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned) {
-    if (streamMetadata.physicalLevelTechnique() != PhysicalLevelTechnique.VARINT) {
-      // && streamMetadata.physicalLevelTechnique() != PhysicalLevelTechnique.NONE){
-      throw new IllegalArgumentException("Specified physical level technique not yet supported.");
-    }
-
-    /*var values = PhysicalLevelTechnique.VARINT.equals(streamMetadata.physicalLevelTechnique())?
-    DecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues()):
-    Longs.fromByteArray(data, offset);;*/
     var values = DecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
-
-    var decodedValues =
-        decodeLongArray(values, streamMetadata.logicalLevelTechnique1(), streamMetadata, isSigned);
-    // TODO: get rid of that conversion
-    return decodeLongArray(
-        decodedValues.stream().mapToLong(i -> i).toArray(),
-        streamMetadata.logicalLevelTechnique2(),
-        streamMetadata,
-        isSigned);
+    return decodeLongArray(values, streamMetadata, isSigned);
   }
 
   private static List<Long> decodeLongArray(
-      long[] values,
-      LogicalLevelTechnique logicalLevelTechnique,
-      StreamMetadata streamMetadata,
-      boolean isSigned) {
-    switch (logicalLevelTechnique) {
+      long[] values, StreamMetadata streamMetadata, boolean isSigned) {
+    switch (streamMetadata.logicalLevelTechnique1()) {
+      case DELTA:
+        return decodeZigZagDelta(values);
       case RLE:
         {
           var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
@@ -160,20 +143,17 @@ public class IntegerDecoder {
               ? decodeZigZag(decodedValues.stream().mapToLong(i -> i).toArray())
               : decodedValues;
         }
-      case DELTA:
-        return decodeZigZagDelta(values);
       case NONE:
         {
-          var decodedValues = Arrays.stream(values).boxed().collect(Collectors.toList());
-          // return isSigned? decodeZigZag(decodedValues.stream().mapToInt(i -> i).toArray()) :
-          // decodedValues;
-          // TODO: zig-zag decode?
-          return decodedValues;
+          if (isSigned) {
+            return decodeZigZag(values);
+          }
+          return Arrays.stream(values).boxed().collect(Collectors.toList());
         }
       default:
         throw new IllegalArgumentException(
             "The specified logical level technique is not supported for long integers: "
-                + logicalLevelTechnique);
+                + streamMetadata.logicalLevelTechnique1());
     }
   }
 
