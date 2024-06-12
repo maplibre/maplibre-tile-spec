@@ -103,7 +103,7 @@ public class PropertyEncoder {
                 featureScopedPropertyColumns, encodedFieldMetadata, nestedColumns.getRight());
       } else {
         throw new IllegalArgumentException(
-            "The specified data type for the field is currently not supported.");
+            "The specified data type for the field is currently not supported: " + columnMetadata);
       }
     }
 
@@ -151,6 +151,7 @@ public class PropertyEncoder {
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, intColumn);
         }
       case FLOAT:
+      case DOUBLE:
         {
           var floatColumn = encodeFloatColumn(features, columnMetadata.getName());
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
@@ -245,7 +246,7 @@ public class PropertyEncoder {
     for (var feature : features) {
       var propertyValue = feature.properties().get(fieldName);
       if (propertyValue != null) {
-        values.add((float) propertyValue);
+        values.add((float) (double) propertyValue);
         present.add(true);
       } else {
         present.add(false);

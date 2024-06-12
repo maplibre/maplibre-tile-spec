@@ -92,7 +92,7 @@ public class VectorizedPropertyDecoder {
           }
         default:
           throw new IllegalArgumentException(
-              "The specified data type for the field is currently not supported.");
+              "The specified data type for the field is currently not supported: " + scalarType);
       }
     }
 
@@ -215,6 +215,7 @@ public class VectorizedPropertyDecoder {
             }
           }
         case FLOAT:
+        case DOUBLE:
           {
             // TODO: add rle encoding and ConstVector
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
@@ -225,9 +226,6 @@ public class VectorizedPropertyDecoder {
                     : VectorizedFloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
             return new FloatFlatVector(column.getName(), nullabilityBuffer, dataStream);
           }
-          /*case DOUBLE:{
-              break;
-          }*/
         case STRING:
           {
             return VectorizedStringDecoder.decodeToRandomAccessFormat(
@@ -235,7 +233,7 @@ public class VectorizedPropertyDecoder {
           }
         default:
           throw new IllegalArgumentException(
-              "The specified data type for the field is currently not supported.");
+              "The specified data type for the field is currently not supported: " + scalarType);
       }
     }
 

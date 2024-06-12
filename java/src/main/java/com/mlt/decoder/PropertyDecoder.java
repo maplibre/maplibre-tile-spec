@@ -71,12 +71,6 @@ public class PropertyDecoder {
             }
             return values;
           }
-          /*case UINT_64:{
-              break;
-          }
-          case INT_64:{
-              break;
-          }*/
         case FLOAT:
           {
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
@@ -89,9 +83,20 @@ public class PropertyDecoder {
             }
             return values;
           }
-          /*case DOUBLE:{
-              break;
-          }*/
+        case DOUBLE:
+          {
+            {
+              var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+              var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
+              var values = new ArrayList<Float>();
+              var counter = 0;
+              for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
+                var value = presentStream.get(i) ? dataStream.get(counter++) : null;
+                values.add(value);
+              }
+              return values;
+            }
+          }
         case UINT_64:
           {
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
@@ -126,7 +131,7 @@ public class PropertyDecoder {
           }
         default:
           throw new IllegalArgumentException(
-              "The specified data type for the field is currently not supported.");
+              "The specified data type for the field is currently not supported: " + scalarType);
       }
     }
 
