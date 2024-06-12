@@ -38,7 +38,7 @@ export class FastPFOR {
      return new FastPFOR(FastPFOR.DEFAULT_PAGE_SIZE);
   }
 
-  public headlessUncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number }) {
+  public headlessUncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number }) : { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number  } {
     let mynvalue = greatestMultiple(model.mynvalue, FastPFOR.BLOCK_SIZE);
     var finalout = model.outpos.valueOf() + mynvalue;
     var inner_model = { input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, thissize: 0 };
@@ -48,6 +48,7 @@ export class FastPFOR {
     }
     model.output = inner_model.output;
     model.outpos = inner_model.outpos;
+    return model;
   }
 
   public decodePage(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, thissize: number }) {
@@ -130,11 +131,11 @@ export class FastPFOR {
     model.inpos = inexcept;
   }
 
-  public uncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number }) {
+  public uncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number }) : { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number } {
     if (model.input.length == 0) return;
 // Todo: remove model
     const outlength = model.input[model.inpos];
     model.inpos++;
-    this.headlessUncompress({ input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, mynvalue: outlength });
+    return this.headlessUncompress({ input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, mynvalue: outlength });
   }
 }
