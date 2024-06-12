@@ -246,7 +246,15 @@ public class PropertyEncoder {
     for (var feature : features) {
       var propertyValue = feature.properties().get(fieldName);
       if (propertyValue != null) {
-        values.add((float) (double) propertyValue);
+        switch (propertyValue.getClass().getSimpleName()) {
+          case "Double":
+            var doubleValue = (Double) propertyValue;
+            values.add(doubleValue.floatValue());
+            break;
+          default:
+            values.add((float) propertyValue);
+            break;
+        }
         present.add(true);
       } else {
         present.add(false);
