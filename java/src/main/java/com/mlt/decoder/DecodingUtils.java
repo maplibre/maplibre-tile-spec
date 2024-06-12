@@ -162,7 +162,7 @@ public class DecodingUtils {
     return values;
   }
 
-  public static int[] decodeFastPfor128(
+  public static int[] decodeFastPfor(
       byte[] encodedValues, int numValues, int byteLength, IntWrapper pos) {
     var encodedValuesSlice = Arrays.copyOfRange(encodedValues, pos.get(), pos.get() + byteLength);
     // TODO: get rid of that conversion
@@ -189,50 +189,7 @@ public class DecodingUtils {
     return decodedValues;
   }
 
-  public static void decodeFastPfor128Optimized(
-      byte[] buffer, IntWrapper offset, int byteLength, int[] decodedValues) {
-    // TODO: get rid of that conversion
-    IntBuffer intBuf =
-        ByteBuffer.wrap(buffer, offset.get(), byteLength)
-            // TODO: change to little endian
-            .order(ByteOrder.BIG_ENDIAN)
-            .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
-    for (var i = 0; i < intValues.length; i++) {
-      intValues[i] = intBuf.get(i);
-    }
-
-    IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
-    ic.uncompress(intValues, new IntWrapper(0), intValues.length, decodedValues, new IntWrapper(0));
-
-    offset.add(byteLength);
-  }
-
-  public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
-      throws IOException {
-    var inStream =
-        InStream.create(
-            "test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
-    var reader = new RunLengthByteReader(inStream);
-
-    var values = new byte[numBytes];
-    for (var i = 0; i < numBytes; i++) {
-      values[i] = reader.next();
-    }
-
-    pos.add(byteSize);
-    return values;
-  }
-
-  public static BitSet decodeBooleanRle(
-      byte[] buffer, int numBooleans, int byteSize, IntWrapper pos) throws IOException {
-    var numBytes = (int) Math.ceil(numBooleans / 8d);
-    var byteStream = decodeByteRle(buffer, numBytes, byteSize, pos);
-    // TODO: get rid of that conversion
-    return BitSet.valueOf(byteStream);
-  }
-
-  public static int[] decodeFastPfor128DeltaCoordinates(
+  public static int[] decodeFastPforDeltaCoordinates(
       byte[] encodedValues, int numValues, int byteLength, IntWrapper pos) {
     var encodedValuesSlice = Arrays.copyOfRange(encodedValues, pos.get(), pos.get() + byteLength);
     // TODO: get rid of that conversion
@@ -276,6 +233,49 @@ public class DecodingUtils {
     }
 
     return values;
+  }
+
+  public static void decodeFastPforOptimized(
+      byte[] buffer, IntWrapper offset, int byteLength, int[] decodedValues) {
+    // TODO: get rid of that conversion
+    IntBuffer intBuf =
+        ByteBuffer.wrap(buffer, offset.get(), byteLength)
+            // TODO: change to little endian
+            .order(ByteOrder.BIG_ENDIAN)
+            .asIntBuffer();
+    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+    for (var i = 0; i < intValues.length; i++) {
+      intValues[i] = intBuf.get(i);
+    }
+
+    IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
+    ic.uncompress(intValues, new IntWrapper(0), intValues.length, decodedValues, new IntWrapper(0));
+
+    offset.add(byteLength);
+  }
+
+  public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
+      throws IOException {
+    var inStream =
+        InStream.create(
+            "test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
+    var reader = new RunLengthByteReader(inStream);
+
+    var values = new byte[numBytes];
+    for (var i = 0; i < numBytes; i++) {
+      values[i] = reader.next();
+    }
+
+    pos.add(byteSize);
+    return values;
+  }
+
+  public static BitSet decodeBooleanRle(
+      byte[] buffer, int numBooleans, int byteSize, IntWrapper pos) throws IOException {
+    var numBytes = (int) Math.ceil(numBooleans / 8d);
+    var byteStream = decodeByteRle(buffer, numBytes, byteSize, pos);
+    // TODO: get rid of that conversion
+    return BitSet.valueOf(byteStream);
   }
 
   public static int[] decodeMortonCode(List<Integer> mortonCodes, ZOrderCurve zOrderCurve) {
