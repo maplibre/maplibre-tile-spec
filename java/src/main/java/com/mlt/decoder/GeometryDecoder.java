@@ -68,7 +68,7 @@ public class GeometryDecoder {
                   "Currently only FastPfor encoding supported for the VertexBuffer.");
             }
             vertexBuffer =
-                DecodingUtils.decodeFastPfor128DeltaCoordinates(
+                DecodingUtils.decodeFastPforDeltaCoordinates(
                     tile,
                     geometryStreamMetadata.numValues(),
                     geometryStreamMetadata.byteLength(),
