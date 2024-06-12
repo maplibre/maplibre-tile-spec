@@ -188,7 +188,7 @@ public class PropertyEncoder {
         }
       default:
         throw new IllegalArgumentException(
-            "The specified scalar data type is currently not supported.");
+            "The specified scalar data type is currently not supported: " + scalarType);
     }
   }
 
