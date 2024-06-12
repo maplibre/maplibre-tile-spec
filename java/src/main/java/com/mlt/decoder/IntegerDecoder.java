@@ -18,7 +18,7 @@ public class IntegerDecoder {
       // TODO: numValues is not right if rle or delta rle is used -> add separate flag in
       // StreamMetadata
       values =
-          DecodingUtils.decodeFastPfor128(
+          DecodingUtils.decodeFastPfor(
               data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
       values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
@@ -73,7 +73,7 @@ public class IntegerDecoder {
     int[] values = null;
     if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR) {
       values =
-          DecodingUtils.decodeFastPfor128(
+          DecodingUtils.decodeFastPfor(
               data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
       values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
