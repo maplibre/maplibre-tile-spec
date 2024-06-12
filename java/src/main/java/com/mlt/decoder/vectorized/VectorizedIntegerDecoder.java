@@ -138,7 +138,9 @@ public class VectorizedIntegerDecoder {
         return IntBuffer.wrap(values);
     }
 
-    throw new IllegalArgumentException("The specified Logical level technique is not supported");
+    throw new IllegalArgumentException(
+        "The specified Logical level technique is not supported: "
+            + streamMetadata.logicalLevelTechnique1());
   }
 
   private static LongBuffer decodeLongBuffer(
@@ -180,7 +182,9 @@ public class VectorizedIntegerDecoder {
         return LongBuffer.wrap(values);
     }
 
-    throw new IllegalArgumentException("The specified Logical level technique is not supported");
+    throw new IllegalArgumentException(
+        "The specified Logical level technique is not supported: "
+            + streamMetadata.logicalLevelTechnique1());
   }
 
   private static IntBuffer decodeLengthToOffsetBuffer(int[] values, StreamMetadata streamMetadata) {
