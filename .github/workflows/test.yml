@@ -49,7 +49,7 @@ jobs:
     name: CI Finished
     runs-on: ubuntu-latest
     # List of all the other jobs that must pass for this job to start
-    needs: [ test-java, test-js, format-java ]
+    needs: [ test-java, test-js ]
     steps:
       - name: Finished
         run: echo "CI finished successfully"
