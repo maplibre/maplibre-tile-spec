@@ -140,7 +140,7 @@ public class IntegerDecoder {
 
   private static List<Long> decodeLongArray(
       long[] values, StreamMetadata streamMetadata, boolean isSigned) {
-      switch (streamMetadata.logicalLevelTechnique1()) {
+    switch (streamMetadata.logicalLevelTechnique1()) {
       case DELTA:
         if (streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)) {
           var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
@@ -151,8 +151,8 @@ public class IntegerDecoder {
         }
         return decodeZigZagDelta(values);
       case RLE:
-      {
-        var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
+        {
+          var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
           var decodedValues = decodeRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
           return isSigned
               ? decodeZigZag(decodedValues.stream().mapToLong(i -> i).toArray())
@@ -168,9 +168,9 @@ public class IntegerDecoder {
     }
 
     throw new IllegalArgumentException(
-      "The specified logical level technique is not supported for long integers: "
-          + streamMetadata.logicalLevelTechnique1());
-}
+        "The specified logical level technique is not supported for long integers: "
+            + streamMetadata.logicalLevelTechnique1());
+  }
 
   // TODO: quick and dirty -> write fast vectorized solution
   private static List<Integer> decodeRLE(int[] data, int numRuns, int numRleValues) {
