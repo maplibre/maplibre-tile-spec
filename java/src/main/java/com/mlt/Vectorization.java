@@ -7,7 +7,7 @@ package com.mlt;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 
-  public class Vectorization {
+public class Vectorization {
 
   // static final VectorSpecies<Integer> SPECIES = IntVector.SPECIES_PREFERRED;
 

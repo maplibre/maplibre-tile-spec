@@ -22,9 +22,9 @@ jobs:
           node-version-file: 'js/.nvmrc'
           cache: 'npm'
           cache-dependency-path: 'js/package-lock.json'
-      - run: just test-js
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just lint-js
+      - run: just test-js
 
   test-java:
     runs-on: ${{ matrix.os }}
@@ -40,9 +40,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - run: just test-java
       - name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
         run: just lint-java
+      - run: just test-java
       - run: just test-java-cli
 
   # This final step is needed to mark the entire workflow as successful
