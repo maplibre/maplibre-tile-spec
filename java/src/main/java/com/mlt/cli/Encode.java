@@ -62,6 +62,20 @@ public class Encode {
     }
   }
 
+  private static void decodeFeatureTables(FeatureTable[] featureTables) {
+    for (var i = 0; i < featureTables.length; i++) {
+      var featureTable = featureTables[i];
+      var featureIterator = featureTable.iterator();
+      while (featureIterator.hasNext()) {
+        var mltFeature = featureIterator.next();
+        // Trigger decoding of the feature
+        mltFeature.id();
+        mltFeature.geometry();
+        mltFeature.properties();
+      }
+    }
+  }
+
   public static void compare(MapLibreTile mlTile, MapboxVectorTile mvTile) {
     var mltLayers = mlTile.layers();
     var mvtLayers = mvTile.layers();
@@ -277,14 +291,19 @@ public class Encode {
         timer.restart();
         // convert MLT wire format to an MapLibreTile object
         if (willUseVectorized) {
-          var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
+          var featureTables = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
+          // Note: the vectorized result is a FeatureTable array
+          // which provides an iterator to access the features.
+          // Therefore, we must iterate over the FeatureTable array
+          // to trigger actual decoding of the features.
+          decodeFeatureTables(featureTables);
           if (willTime) timer.stop("decoding");
           if (willPrintMLT) {
-            printMLTVectorized(decodedTile);
+            printMLTVectorized(featureTables);
           }
           // TODO: Implement vectorized compare
           // if (willCompare) {
-          //     compareVectorized(decodedTile, decodedMvTile);
+          //     compareVectorized(featureTables, decodedMvTile);
           // }
         } else {
           var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
