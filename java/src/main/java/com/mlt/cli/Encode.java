@@ -8,7 +8,6 @@ import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.data.MapLibreTile;
 import com.mlt.decoder.MltDecoder;
-import com.mlt.vector.FeatureTable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -33,45 +32,6 @@ public class Encode {
       for (var j = 0; j < mvtFeatures.size(); j++) {
         var mvtFeature = mvtFeatures.get(j);
         System.out.println("  " + mvtFeature);
-      }
-    }
-  }
-
-  public static void printMLT(MapLibreTile mlTile) {
-    var mltLayers = mlTile.layers();
-    for (var i = 0; i < mltLayers.size(); i++) {
-      var mltLayer = mltLayers.get(i);
-      System.out.println(mltLayer.name());
-      var mltFeatures = mltLayer.features();
-      for (var j = 0; j < mltFeatures.size(); j++) {
-        var mltFeature = mltFeatures.get(j);
-        System.out.println("  " + mltFeature);
-      }
-    }
-  }
-
-  private static void printMLTVectorized(FeatureTable[] featureTables) {
-    for (var i = 0; i < featureTables.length; i++) {
-      var featureTable = featureTables[i];
-      System.out.println(featureTable.getName());
-      var featureIterator = featureTable.iterator();
-      while (featureIterator.hasNext()) {
-        var mltFeature = featureIterator.next();
-        System.out.println("  " + mltFeature);
-      }
-    }
-  }
-
-  private static void decodeFeatureTables(FeatureTable[] featureTables) {
-    for (var i = 0; i < featureTables.length; i++) {
-      var featureTable = featureTables[i];
-      var featureIterator = featureTable.iterator();
-      while (featureIterator.hasNext()) {
-        var mltFeature = featureIterator.next();
-        // Trigger decoding of the feature
-        mltFeature.id();
-        mltFeature.geometry();
-        mltFeature.properties();
       }
     }
   }
@@ -296,10 +256,10 @@ public class Encode {
           // which provides an iterator to access the features.
           // Therefore, we must iterate over the FeatureTable array
           // to trigger actual decoding of the features.
-          decodeFeatureTables(featureTables);
+          CliUtil.decodeFeatureTables(featureTables);
           if (willTime) timer.stop("decoding");
           if (willPrintMLT) {
-            printMLTVectorized(featureTables);
+            CliUtil.printMLTVectorized(featureTables);
           }
           // TODO: Implement vectorized compare
           // if (willCompare) {
@@ -309,7 +269,7 @@ public class Encode {
           var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
           if (willTime) timer.stop("decoding");
           if (willPrintMLT) {
-            printMLT(decodedTile);
+            CliUtil.printMLT(decodedTile);
           }
           if (willCompare) {
             compare(decodedTile, decodedMvTile);
