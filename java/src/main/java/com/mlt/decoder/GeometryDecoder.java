@@ -226,7 +226,7 @@ public class GeometryDecoder {
               var numRingVertices = ringOffsets.get(ringOffsetsCounter++);
               rings[j] =
                   getLinearRing(vertexBuffer, vertexBufferOffset, numRingVertices, geometryFactory);
-              vertexBufferOffset += numVertices * 2;
+              vertexBufferOffset += numRingVertices * 2;
             }
 
             polygons[i] = geometryFactory.createPolygon(shell, rings);
