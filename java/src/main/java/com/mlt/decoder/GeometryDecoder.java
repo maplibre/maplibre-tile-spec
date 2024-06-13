@@ -218,13 +218,13 @@ public class GeometryDecoder {
           for (var i = 0; i < numPolygons; i++) {
             var numRings = partOffsets.get(partOffsetCounter++);
             var rings = new LinearRing[numRings - 1];
-            numVertices += ringOffsets.get(ringOffsetsCounter++);
+            numVertices = ringOffsets.get(ringOffsetsCounter++);
             LinearRing shell =
                 getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
             vertexBufferOffset += numVertices * 2;
             for (var j = 0; j < rings.length; j++) {
               var numRingVertices = ringOffsets.get(ringOffsetsCounter++);
-              rings[i] =
+              rings[j] =
                   getLinearRing(vertexBuffer, vertexBufferOffset, numRingVertices, geometryFactory);
               vertexBufferOffset += numVertices * 2;
             }
@@ -236,14 +236,14 @@ public class GeometryDecoder {
           for (var i = 0; i < numPolygons; i++) {
             var numRings = partOffsets.get(partOffsetCounter++);
             var rings = new LinearRing[numRings - 1];
-            numVertices += ringOffsets.get(ringOffsetsCounter++);
+            numVertices = ringOffsets.get(ringOffsetsCounter++);
             LinearRing shell =
                 decodeDictionaryEncodedLinearRing(
                     vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
             vertexOffsetsOffset += numVertices;
             for (var j = 0; j < rings.length; j++) {
               numVertices = ringOffsets.get(ringOffsetsCounter++);
-              rings[i] =
+              rings[j] =
                   decodeDictionaryEncodedLinearRing(
                       vertexBuffer,
                       vertexOffsets,
