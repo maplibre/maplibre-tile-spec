@@ -252,10 +252,9 @@ public class GeometryDecoder {
                       geometryFactory);
               vertexOffsetsOffset += numVertices;
             }
-
             polygons[i] = geometryFactory.createPolygon(shell, rings);
-            geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
           }
+          geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
         }
       } else {
         throw new IllegalArgumentException(
