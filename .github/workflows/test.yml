@@ -37,8 +37,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Java build
-        run: ./gradlew build # includes spotlessJavaCheck
+      - name: Java formatting check
+        run: ./gradlew spotlessJavaCheck
   test-java:
     runs-on: ${{ matrix.os }}
     strategy:
