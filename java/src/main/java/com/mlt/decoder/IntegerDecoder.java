@@ -93,7 +93,14 @@ public class IntegerDecoder {
       int[] values, StreamMetadata streamMetadata, boolean isSigned) {
     switch (streamMetadata.logicalLevelTechnique1()) {
       case DELTA:
-        return isSigned ? decodeDelta(values) : decodeZigZagDelta(values);
+        if (streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)) {
+          var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
+          values =
+              DecodingUtils.decodeUnsignedRLE(
+                  values, rleMetadata.runs(), rleMetadata.numRleValues());
+          return decodeZigZagDelta(values);
+        }
+        return decodeZigZagDelta(values);
       case RLE:
         {
           var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
@@ -104,9 +111,10 @@ public class IntegerDecoder {
         }
       case NONE:
         {
-          return isSigned
-              ? decodeZigZag(values)
-              : Arrays.stream(values).boxed().collect(Collectors.toList());
+          if (isSigned) {
+            return decodeZigZag(values);
+          }
+          return Arrays.stream(values).boxed().collect(Collectors.toList());
         }
       case COMPONENTWISE_DELTA:
         VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(values);
@@ -132,12 +140,19 @@ public class IntegerDecoder {
 
   private static List<Long> decodeLongArray(
       long[] values, StreamMetadata streamMetadata, boolean isSigned) {
-    switch (streamMetadata.logicalLevelTechnique1()) {
+      switch (streamMetadata.logicalLevelTechnique1()) {
       case DELTA:
+        if (streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)) {
+          var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
+          values =
+              DecodingUtils.decodeUnsignedRLE(
+                  values, rleMetadata.runs(), rleMetadata.numRleValues());
+          return decodeZigZagDelta(values);
+        }
         return decodeZigZagDelta(values);
       case RLE:
-        {
-          var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
+      {
+        var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
           var decodedValues = decodeRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
           return isSigned
               ? decodeZigZag(decodedValues.stream().mapToLong(i -> i).toArray())
@@ -150,12 +165,12 @@ public class IntegerDecoder {
           }
           return Arrays.stream(values).boxed().collect(Collectors.toList());
         }
-      default:
-        throw new IllegalArgumentException(
-            "The specified logical level technique is not supported for long integers: "
-                + streamMetadata.logicalLevelTechnique1());
     }
-  }
+
+    throw new IllegalArgumentException(
+      "The specified logical level technique is not supported for long integers: "
+          + streamMetadata.logicalLevelTechnique1());
+}
 
   // TODO: quick and dirty -> write fast vectorized solution
   private static List<Integer> decodeRLE(int[] data, int numRuns, int numRleValues) {

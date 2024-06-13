@@ -274,6 +274,36 @@ public class DecodingUtils {
     return BitSet.valueOf(byteStream);
   }
 
+  public static int[] decodeUnsignedRLE(int[] data, int numRuns, int numTotalValues) {
+    var values = new int[numTotalValues];
+    var offset = 0;
+    for (var i = 0; i < numRuns; i++) {
+      var runLength = data[i];
+      var value = data[i + numRuns];
+      for (var j = offset; j < offset + runLength; j++) {
+        values[j] = value;
+      }
+
+      offset += runLength;
+    }
+    return values;
+  }
+
+  public static long[] decodeUnsignedRLE(long[] data, int numRuns, int numTotalValues) {
+    var values = new long[numTotalValues];
+    var offset = 0;
+    for (var i = 0; i < numRuns; i++) {
+      var runLength = data[i];
+      var value = data[i + numRuns];
+      for (var j = offset; j < offset + runLength; j++) {
+        values[j] = value;
+      }
+
+      offset += runLength;
+    }
+    return values;
+  }
+
   public static int[] decodeMortonCode(List<Integer> mortonCodes, ZOrderCurve zOrderCurve) {
     var vertexBuffer = new int[mortonCodes.size() * 2];
     for (var i = 0; i < mortonCodes.size(); i++) {
