@@ -9,60 +9,10 @@ import java.nio.*;
 import java.util.BitSet;
 import me.lemire.integercompression.*;
 
+/* the redundant implementations in this class are mainly to avoid branching and therefore speed up the decoding */
 public class VectorizedDecodingUtils {
 
-  /*public static byte[] encodeBooleanRle(BitSet bitSet, int numValues) throws IOException {
-      var byteValues = bitSet.toByteArray();
-      var numMissingBytes = (int)Math.ceil(numValues /8d) - (int)Math.ceil(bitSet.length() / 8d);
-      if(numMissingBytes != 0){
-          var paddingBytes = new byte[numMissingBytes];
-          Arrays.fill(paddingBytes, (byte)0);
-          byteValues = ArrayUtils.addAll(byteValues, paddingBytes);
-      }
-
-      var valueBuffer = new ArrayList<Byte>();
-      var runsBuffer = new ArrayList<Integer>();
-      byte previousValue = 0;
-      var runs = 0;
-      for(var i = 0; i < byteValues.length; i++){
-          var value = byteValues[i];
-          if(previousValue != value && i != 0){
-              valueBuffer.add(previousValue);
-              runsBuffer.add(runs);
-              runs = 0;
-          }
-
-          runs++;
-          previousValue = value;
-      }
-      valueBuffer.add(byteValues[byteValues.length -1]);
-      runsBuffer.add(runs);
-
-      var fastPforEncodedRuns = EncodingUtils.encodeFastPfor128(runsBuffer.stream().mapToInt(i -> i).toArray(), false, false);
-      var varintEncodedRuns = EncodingUtils.encodeVarints(runsBuffer.stream().mapToLong(i -> i).toArray(), false, false);
-      var encodedRuns = fastPforEncodedRuns.length < varintEncodedRuns.length? fastPforEncodedRuns: varintEncodedRuns;
-      System.out.println("FastPfor encoded runs: " + fastPforEncodedRuns.length + " Varint encoded runs: "
-              + varintEncodedRuns.length);
-
-      System.out.println("Num Values: " + numValues + " Num Runs: " + runsBuffer.size() + " -----------------------------------------------");
-      return ArrayUtils.addAll(encodedRuns, Bytes.toArray(valueBuffer));
-  }*/
-
-  // public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
-  //     throws IOException {
-  //   var inStream =
-  //       InStream.create(
-  //           "test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
-  //   var reader = new RunLengthByteReader(inStream);
-
-  //   var values = new byte[numBytes];
-  //   for (var i = 0; i < numBytes; i++) {
-  //     values[i] = reader.next();
-  //   }
-
-  //   pos.add(byteSize);
-  //   return values;
-  // }
+  private static IntegerCODEC ic;
 
   public static ByteBuffer decodeBooleanRle(byte[] buffer, int numBooleans, IntWrapper pos) {
     var numBytes = (int) Math.ceil(numBooleans / 8d);
@@ -122,109 +72,24 @@ public class VectorizedDecodingUtils {
     return values;
   }
 
-  /*
-  public static ByteBuffer decodeNullableBooleanRle(byte[] buffer, int numBooleans, IntWrapper pos, BitVector bitVector) {
-      var numBytes = (int)Math.ceil(numBooleans / 8d);
-      return decodeNullableByteRle(buffer, numBytes, pos, bitVector);
-  }
-
-  public static ByteBuffer decodeNullableByteRle(byte[] buffer, int numBytesResult, IntWrapper pos, BitVector bitVector) {
-      ByteBuffer values = ByteBuffer.allocate(numBytesResult);
-      var offset = pos.get();
-      int valueOffset = 0;
-      while (valueOffset < numBytesResult) {
-          int header = buffer[offset++] & 0xFF;
-          if (header <= 0x7F) {
-              int numRuns = header + 3;
-              byte value = buffer[offset++];
-              int endValueOffset = valueOffset + numRuns;
-              for (int i = valueOffset; i < endValueOffset; i++) {
-                  values.put(i, value);
-
-                  if(bitVector.get(i)){
-                      values.put(i, value);
-                  }
-                  else{
-                      values.put(i, 0);
-                      offset++;
-                  }
-              }
-              valueOffset = endValueOffset;
-
-          } else {
-              int numLiterals = 256 - header;
-              for (int i = 0; i < numLiterals; i++) {
-                  byte value = buffer[offset++];
-                  values.put(valueOffset++, value);
-              }
-              //TODO: use System.arrayCopy
-              //System.arraycopy(buffer, offset, values.array(), valueOffset, numLiterals);
-          }
-      }
-
-      pos.set(offset);
-      return values;
-  }
-
-  */
-
-  // TODO: implement vectorized solution
-  /*public static ByteBuffer decodeByteRleVectorized(byte[] buffer, int numBytesResult, IntWrapper pos) {
-      ByteBuffer values = ByteBuffer.allocate(numBytesResult);
-
-      var offset = pos.get();
-      int valueOffset = 0;
-      var position = 0;
-      while (valueOffset < numBytesResult) {
-          int header = buffer[offset++] & 0xFF;
-          if (header <= 0x7F) {
-              int count = header + 3;
-              byte value = buffer[offset++];
-              int endValueOffset = valueOffset + count;
-
-              ByteVector runVector = ByteVector.fromArray(ByteVector.SPECIES_PREFERRED, buffer, valueOffset);
-
-              int i = 0;
-              for (; i <= count; i += ByteVector.SPECIES_PREFERRED.length()) {
-                  runVector.intoArray(values, pos + i);
-              }
-
-              pos += count;
-
-              valueOffset = endValueOffset;
-          } else {
-              int numLiterals = 256 - header;
-              ByteVector literalVector = ByteVector.fromArray(ByteVector.SPECIES_PREFERRED, buffer, valueOffset);
-              int i = 0;
-              for (; i <= numLiterals; i += ByteVector.SPECIES_PREFERRED.length()) {
-                  literalVector.intoByteBuffer(values, position + i, ByteOrder.LITTLE_ENDIAN);
-              }
-          }
-      }
-
-      values.position(0);
-      pos.add(offset);
-      return values;
-  }*/
-
   public static IntBuffer decodeFastPfor(
       byte[] buffer, int numValues, int byteLength, IntWrapper offset) {
-    /*
-     * Create a vectorized conversion from the ByteBuffer to the IntBuffer
-     *
-     * */
+    if (ic == null) {
+      ic = new Composition(new FastPFOR(), new VariableByte());
+    }
 
+    /* Create a vectorized conversion from the ByteBuffer to the IntBuffer */
     // TODO: get rid of that conversion
     IntBuffer intBuf =
         ByteBuffer.wrap(buffer, offset.get(), byteLength).order(ByteOrder.BIG_ENDIAN).asIntBuffer();
-    var bufferSize = (int) Math.ceil(byteLength / 4);
+    var bufferSize = (int) Math.ceil(byteLength / 4d);
     int[] intValues = new int[bufferSize];
     for (var i = 0; i < intValues.length; i++) {
       intValues[i] = intBuf.get(i);
     }
 
     int[] decodedValues = new int[numValues];
-    IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
+
     ic.uncompress(intValues, new IntWrapper(0), intValues.length, decodedValues, new IntWrapper(0));
 
     offset.add(byteLength);
@@ -275,67 +140,7 @@ public class VectorizedDecodingUtils {
     return offset;
   }
 
-  /* Source: https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/longcompression/LongVariableByte.java */
-  /*public static LongBuffer decodeLongVarint(byte[] in, IntWrapper pos, int numValues) {
-      var out = new long[numValues];
-      int p = pos.get();
-      int finalp = pos.get() + numValues;
-      int tmpoutpos = 0;
-      for (long v = 0; p < finalp; out[tmpoutpos++] = v) {
-          v = in[p] & 0x7F;
-          if (in[p] < 0) {
-              p += 1;
-              continue;
-          }
-          v = ((in[p + 1] & 0x7F) << 7) | v;
-          if (in[p + 1] < 0) {
-              p += 2;
-              continue;
-          }
-          v = ((in[p + 2] & 0x7F) << 14) | v;
-          if (in[p + 2] < 0 ) {
-              p += 3;
-              continue;
-          }
-          v = ((in[p + 3] & 0x7F) << 21) | v;
-          if (in[p + 3] < 0) {
-              p += 4;
-              continue;
-          }
-          v = (((long) in[p + 4] & 0x7F) << 28) | v;
-          if (in[p + 4] < 0) {
-              p += 5;
-              continue;
-          }
-          v = (((long) in[p + 5] & 0x7F) << 35) | v;
-          if (in[p + 5] < 0) {
-              p += 6;
-              continue;
-          }
-          v = (((long) in[p + 6] & 0x7F) << 42) | v;
-          if (in[p + 6] < 0) {
-              p += 7;
-              continue;
-          }
-          v = (((long) in[p + 7] & 0x7F) << 49) | v;
-          if (in[p + 7] < 0) {
-              p += 8;
-              continue;
-          }
-          v = (((long) in[p + 8] & 0x7F) << 56) | v;
-          if (in[p + 8] < 0) {
-              p += 9;
-              continue;
-          }
-          v = (((long) in[p + 9] & 0x7F) << 63) | v;
-          p += 10;
-      }
-
-      pos.set(p);
-      return LongBuffer.wrap(out);
-  }*/
-
-  // TODO: refactor for performance
+  // TODO: refactor for performance reasons
   public static LongBuffer decodeLongVarint(byte[] src, IntWrapper pos, int numValues) {
     var values = new long[numValues];
     for (var i = 0; i < numValues; i++) {
@@ -427,7 +232,7 @@ public class VectorizedDecodingUtils {
         values[j] = value;
       }
 
-      offset += runLength;
+      offset += (int) runLength;
     }
 
     return LongBuffer.wrap(values);
@@ -444,7 +249,7 @@ public class VectorizedDecodingUtils {
         values[j] = value;
       }
 
-      offset += runLength;
+      offset += (int) runLength;
     }
 
     return LongBuffer.wrap(values);
@@ -469,7 +274,7 @@ public class VectorizedDecodingUtils {
       var runLength = data[i];
       var value = data[i + numRuns];
       for (var j = offset; j < offset + runLength; j++) {
-        /** There can be null values in a run */
+        /* There can be null values in a run */
         if (bitVector.get(j)) {
           values[j] = value;
         } else {
@@ -491,7 +296,7 @@ public class VectorizedDecodingUtils {
       var value = data[i + numRuns];
       value = (value >>> 1) ^ ((value << 31) >> 31);
       for (var j = offset; j < offset + runLength; j++) {
-        /** There can be null values in a run */
+        /* There can be null values in a run */
         if (bitVector.get(j)) {
           values[j] = value;
         } else {
@@ -521,7 +326,7 @@ public class VectorizedDecodingUtils {
       var runLength = data[i];
       var value = data[i + numRuns];
       for (var j = offset; j < offset + runLength; j++) {
-        /** There can be null values in a run */
+        /* There can be null values in a run */
         if (bitVector.get(j)) {
           values[j] = value;
         } else {
@@ -529,7 +334,7 @@ public class VectorizedDecodingUtils {
           offset++;
         }
       }
-      offset += runLength;
+      offset += (int) runLength;
     }
 
     return LongBuffer.wrap(values);
@@ -543,7 +348,7 @@ public class VectorizedDecodingUtils {
       var value = data[i + numRuns];
       value = (value >>> 1) ^ ((value << 63) >> 63);
       for (var j = offset; j < offset + runLength; j++) {
-        /** There can be null values in a run */
+        /* There can be null values in a run */
         if (bitVector.get(j)) {
           values[j] = value;
         } else {
@@ -551,7 +356,7 @@ public class VectorizedDecodingUtils {
           offset++;
         }
       }
-      offset += runLength;
+      offset += (int) runLength;
     }
 
     return LongBuffer.wrap(values);
@@ -575,13 +380,11 @@ public class VectorizedDecodingUtils {
     return (value >>> 1) ^ ((value << 63) >> 63);
   }
 
-  /**
-   * Delta encoding ------------------------------------------------------------------------------
-   */
+  /* Delta encoding  ------------------------------------------------------------------------------*/
 
-  /**
-   * In place decoding of the zigzag encoded delta values. Inspired by
-   * https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
+  /*
+   * In place decoding of the zigzag encoded delta values.
+   * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
    */
   public static void decodeZigZagDelta(int[] data) {
     data[0] = (data[0] >>> 1) ^ ((data[0] << 31) >> 31);
@@ -606,9 +409,9 @@ public class VectorizedDecodingUtils {
     }
   }
 
-  /**
-   * In place decoding of the zigzag delta encoded Vec2. Inspired by
-   * https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
+  /*
+   * In place decoding of the zigzag delta encoded Vec2.
+   * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
    */
   public static void decodeComponentwiseDeltaVec2(int[] data) {
     data[0] = (data[0] >>> 1) ^ ((data[0] << 31) >> 31);
@@ -701,49 +504,6 @@ public class VectorizedDecodingUtils {
 
     return decodedData;
   }
-
-  /**
-   * Decode into offsets by using a BitVector
-   * ---------------------------------------------------------
-   */
-
-  /**
-   * Delta of Delta encoding to transform a delta encoded length stream into a random accessible
-   * offset buffer
-   */
-  public static void decodeZigZagDelta(int[] data, BitVector bitVector) {
-    data[0] = (data[0] >>> 1) ^ ((data[0] << 31) >> 31);
-    int sz0 = data.length / 4 * 4;
-    int i = 1;
-    if (sz0 >= 4) {
-      for (; i < sz0 - 4; i += 4) {
-
-        // 10, 12, 8, 18 -> original length
-        // 10, 2, -4, 10 -> delta encoded
-        // 10, 12, 8, 18 -> delta decoded -> length
-        // 10, 22, 30, 48 -> delta of delta decoded -> offset
-
-        // TODO: does length stream really need BitVector
-        data[i] = bitVector.get(i) ? ((data[i] >>> 1) ^ ((data[i] << 31) >> 31)) + data[i - 1] : 0;
-
-        var data1 = data[i];
-        var data2 = data[i + 1];
-        var data3 = data[i + 2];
-        var data4 = data[i + 3];
-
-        data[i] = ((data1 >>> 1) ^ ((data1 << 31) >> 31)) + data[i - 1];
-        data[i + 1] = ((data2 >>> 1) ^ ((data2 << 31) >> 31)) + data[i];
-        data[i + 2] = ((data3 >>> 1) ^ ((data3 << 31) >> 31)) + data[i + 1];
-        data[i + 3] = ((data4 >>> 1) ^ ((data4 << 31) >> 31)) + data[i + 2];
-      }
-    }
-
-    for (; i != data.length; ++i) {
-      data[i] = ((data[i] >>> 1) ^ ((data[i] << 31) >> 31)) + data[i - 1];
-    }
-  }
-
-  public static void decodeTopologyStreams() {}
 
   /**
    * Transform data to allow random access
@@ -881,7 +641,7 @@ public class VectorizedDecodingUtils {
     // TODO: use VectorType metadata field for to test which VectorType is used
     return (Math.ceil((double) numFeatures / valuesPerRun) * 2 == byteLength)
             &&
-            /** Test the first value byte if all bits are set to true */
+            /* Test the first value byte if all bits are set to true */
             (data[offset.get() + 1] & 0xFF) == ((Integer.bitCount(numFeatures) << 2) - 1)
         ? VectorType.CONST
         : VectorType.FLAT;

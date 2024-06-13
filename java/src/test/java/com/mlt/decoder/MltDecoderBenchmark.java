@@ -7,6 +7,7 @@ import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.test.constants.TestConstants;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -15,6 +16,11 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Quick and dirty benchmarks for the decoding of OpenMapTiles schema based tiles into the MVT and
+ * MLT in-memory representations. Can be used for simple profiling. For more proper benchmarks based
+ * on JMH see {@link com.mlt.OmtDecoderBenchmark}
+ */
 public class MltDecoderBenchmark {
 
   @Test
@@ -104,15 +110,47 @@ public class MltDecoderBenchmark {
     benchmarkDecoding(tileId2);
   }
 
+  @Test
+  public void benchmarkSuite() throws IOException {
+    System.out.println("Zoom 2 ---------------------------------------");
+    decodeMlTileVectorized_Z2();
+    System.out.println("Zoom 3 ---------------------------------------");
+    decodeMlTileVectorized_Z3();
+    System.out.println("Zoom 4 ---------------------------------------");
+    decodeMlTileVectorized_Z4();
+    System.out.println("Zoom 5 ---------------------------------------");
+    decodeMlTileVectorized_Z5();
+    System.out.println("Zoom 6 ---------------------------------------");
+    decodeMlTileVectorized_Z6();
+    System.out.println("Zoom 7 ---------------------------------------");
+    decodeMlTileVectorized_Z7();
+    System.out.println("Zoom 8 ---------------------------------------");
+    decodeMlTileVectorized_Z8();
+    System.out.println("Zoom 9 ---------------------------------------");
+    decodeMlTileVectorized_Z9();
+    System.out.println("Zoom 10 ---------------------------------------");
+    decodeMlTileVectorized_Z10();
+    System.out.println("Zoom 11 ---------------------------------------");
+    decodeMlTileVectorized_Z11();
+    System.out.println("Zoom 12 ---------------------------------------");
+    decodeMlTileVectorized_Z12();
+    System.out.println("Zoom 13 ---------------------------------------");
+    decodeMlTileVectorized_Z13();
+    System.out.println("Zoom 14 ---------------------------------------");
+    decodeMlTileVectorized_Z14();
+  }
+
   private void benchmarkDecoding(String tileId) throws IOException {
     var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
 
     var mvt = Files.readAllBytes(mvtFilePath);
-    var mvtTimeElapsed = 0l;
+    var mvtTimeElapsed = 0L;
+    var is = new ByteArrayInputStream(mvt);
     for (int i = 0; i <= 200; i++) {
       long start = System.currentTimeMillis();
       var mvTile = MvtUtils.decodeMvtFast(mvt);
       long finish = System.currentTimeMillis();
+      is.reset();
 
       if (i > 100) {
         mvtTimeElapsed += (finish - start);
@@ -157,7 +195,7 @@ public class MltDecoderBenchmark {
         MltConverter.convertMvt(
             mvTile, new ConversionConfig(true, true, optimizations), tileMetadata);
 
-    var mltTimeElapsed = 0l;
+    var mltTimeElapsed = 0L;
     for (int i = 0; i <= 200; i++) {
       long start = System.currentTimeMillis();
       var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);

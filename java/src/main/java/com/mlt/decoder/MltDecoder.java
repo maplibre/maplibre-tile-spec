@@ -22,8 +22,8 @@ import me.lemire.integercompression.IntWrapper;
 import org.locationtech.jts.geom.Geometry;
 
 public class MltDecoder {
-  private static String ID_COLUMN_NAME = "id";
-  private static String GEOMETRY_COLUMN_NAME = "geometry";
+  private static final String ID_COLUMN_NAME = "id";
+  private static final String GEOMETRY_COLUMN_NAME = "geometry";
 
   private MltDecoder() {}
 
@@ -51,7 +51,7 @@ public class MltDecoder {
         var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
         // TODO: add decoding of vector type to be compliant with the spec
         // TODO: compare based on ids
-        if (columnName.equals("id")) {
+        if (columnName.equals(ID_COLUMN_NAME)) {
           if (numStreams == 2) {
             var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
             var presentStream =
@@ -73,7 +73,7 @@ public class MltDecoder {
           } else {
             ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
           }
-        } else if (columnName.equals("geometry")) {
+        } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
           var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
           geometries = GeometryDecoder.decodeGeometry(geometryColumn);
         } else {
@@ -120,7 +120,7 @@ public class MltDecoder {
       var metadata = tileMetadata.getFeatureTables(featureTableId);
       Vector idVector = null;
       GeometryVector geometryVector = null;
-      /** Id column always has to be the first column a FeatureTable */
+      /* Id column always has to be the first column in a FeatureTable */
       var numProperties =
           metadata.getColumnsList().size()
               - (metadata.getColumnsList().get(0).getName().equals(ID_COLUMN_NAME) ? 2 : 1);

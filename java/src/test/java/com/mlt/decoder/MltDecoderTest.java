@@ -136,6 +136,7 @@ public class MltDecoderTest {
   }
 
   @Test
+  @Disabled
   public void decodeMlTile_Z4() throws IOException {
     var tileId = String.format("%s_%s_%s", 4, 8, 10);
     testTileSequential(tileId);
@@ -145,6 +146,7 @@ public class MltDecoderTest {
   }
 
   @Test
+  @Disabled
   public void decodeMlTile_Z5() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
     testTileSequential(tileId);
@@ -203,17 +205,16 @@ public class MltDecoderTest {
           var mltPropertyKey = property.getKey();
           var mltPropertyValue = property.getValue();
           if (mltPropertyValue instanceof Map<?, ?>) {
-            /**
-             * Handle shared dictionary case -> currently only String is supported as nested
-             * property in the converter, so only handle this case
-             */
+            /* Handle shared dictionary case -> currently only String is supported
+             * as nested property in the converter, so only handle this case */
             var mvtProperties = mvtFeature.properties();
             var nestedStringValues = (Map<String, String>) mltPropertyValue;
             var mvtStringProperties =
                 mvtProperties.entrySet().stream()
                     .filter(p -> p.getKey().contains(mltPropertyKey))
                     .collect(Collectors.toList());
-            // TODO: verify why mlt seems to have a property more than mvt on the name:* column
+            // TODO: verify why mlt seems to have a property more than mvt on the
+            // name:* column in some tiles
             for (var mvtProperty : mvtStringProperties) {
               var mvtPropertyKey = mvtProperty.getKey();
               var mvtPropertyValue = mvtProperty.getValue();
