@@ -9,6 +9,7 @@ import com.mlt.vector.VectorType;
 import com.mlt.vector.constant.IntConstVector;
 import com.mlt.vector.constant.LongConstVector;
 import com.mlt.vector.flat.BooleanFlatVector;
+import com.mlt.vector.flat.DoubleFlatVector;
 import com.mlt.vector.flat.FloatFlatVector;
 import com.mlt.vector.flat.IntFlatVector;
 import com.mlt.vector.flat.LongFlatVector;
@@ -215,7 +216,6 @@ public class VectorizedPropertyDecoder {
             }
           }
         case FLOAT:
-        case DOUBLE:
           {
             // TODO: add rle encoding and ConstVector
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
@@ -225,6 +225,17 @@ public class VectorizedPropertyDecoder {
                         data, offset, dataStreamMetadata, nullabilityBuffer)
                     : VectorizedFloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
             return new FloatFlatVector(column.getName(), nullabilityBuffer, dataStream);
+          }
+        case DOUBLE:
+          {
+            // TODO: add rle encoding and ConstVector
+            var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+            var dataStream =
+                nullabilityBuffer != null
+                    ? VectorizedDoubleDecoder.decodeNullableDoubleStream(
+                        data, offset, dataStreamMetadata, nullabilityBuffer)
+                    : VectorizedDoubleDecoder.decodeDoubleStream(data, offset, dataStreamMetadata);
+            return new DoubleFlatVector(column.getName(), nullabilityBuffer, dataStream);
           }
         case STRING:
           {
