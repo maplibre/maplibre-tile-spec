@@ -22,7 +22,22 @@ jobs:
           node-version-file: 'js/.nvmrc'
           cache: 'npm'
           cache-dependency-path: 'js/package-lock.json'
+      - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
+        run: just lint-js
       - run: just test-js
+
+  lint-java:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
+        run: just lint-java
 
   test-java:
     runs-on: ${{ matrix.os }}
@@ -38,10 +53,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Test Java
-        run: just test-java
-      - name: Test running Java CLI
-        run: just test-java-cli
+      - run: just test-java
+      - run: just test-java-cli
 
   # This final step is needed to mark the entire workflow as successful
   done:
@@ -49,7 +62,7 @@ jobs:
     name: CI Finished
     runs-on: ubuntu-latest
     # List of all the other jobs that must pass for this job to start
-    needs: [ test-java, test-js ]
+    needs: [ test-java, lint-java, test-js ]
     steps:
       - name: Finished
         run: echo "CI finished successfully"
