@@ -7,7 +7,6 @@ import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.decoder.vectorized.VectorizedGeometryDecoder;
 import com.mlt.decoder.vectorized.VectorizedIntegerDecoder;
 import com.mlt.decoder.vectorized.VectorizedPropertyDecoder;
-import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.BitVector;
@@ -64,14 +63,16 @@ public class MltDecoder {
           }
 
           var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-          ids =
-              idDataStreamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR
-                  ? IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false)
-                      .stream()
-                      .mapToLong(i -> i)
-                      .boxed()
-                      .collect(Collectors.toList())
-                  : IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+          var idDataType = columnMetadata.getScalarType().getPhysicalType();
+          if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
+            ids =
+                IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
+                    .mapToLong(i -> i)
+                    .boxed()
+                    .collect(Collectors.toList());
+          } else {
+            ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+          }
         } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
           var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
           geometries = GeometryDecoder.decodeGeometry(geometryColumn);
@@ -180,6 +181,17 @@ public class MltDecoder {
       Map<String, List<Object>> properties,
       MltTilesetMetadata.FeatureTableSchema metadata,
       int numFeatures) {
+    if (numFeatures != geometries.length || numFeatures != ids.size()) {
+      System.out.println(
+          "Warning, in convertToLayer the size of ids("
+              + ids.size()
+              + "), geometries("
+              + geometries.length
+              + "), and features("
+              + numFeatures
+              + ") are not equal for layer: "
+              + metadata.getName());
+    }
     var features = new ArrayList<Feature>(numFeatures);
     for (var j = 0; j < numFeatures; j++) {
       var p = new HashMap<String, Object>();

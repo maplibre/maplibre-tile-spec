@@ -17,6 +17,7 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
@@ -100,8 +101,23 @@ public class GeometryEncoder {
             }
             break;
           }
+        case Geometry.TYPENAME_MULTIPOINT:
+          {
+            geometryTypes.add(GeometryType.MULTIPOINT.ordinal());
+            var multiPoint = (MultiPoint) geometry;
+            var numPoints = multiPoint.getNumGeometries();
+            numGeometries.add(numPoints);
+            for (var i = 0; i < numPoints; i++) {
+              var point = (Point) multiPoint.getGeometryN(i);
+              var x = (int) point.getX();
+              var y = (int) point.getY();
+              vertexBuffer.add(new Vertex(x, y));
+            }
+            break;
+          }
         default:
-          throw new IllegalArgumentException("Specified geometry type is not (yet) supported.");
+          throw new IllegalArgumentException(
+              "Specified geometry type is not (yet) supported: " + geometryType);
       }
     }
 

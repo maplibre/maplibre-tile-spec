@@ -1,9 +1,7 @@
 package com.mlt.tools;
 
-import com.mlt.data.MapLibreTile;
 import com.mlt.decoder.MltDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
-import com.mlt.vector.FeatureTable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.apache.commons.cli.CommandLine;
@@ -15,34 +13,10 @@ import org.apache.commons.cli.ParseException;
 
 public class Decode {
 
-  public static void printMLT(MapLibreTile mlTile) {
-    var mltLayers = mlTile.layers();
-    for (var i = 0; i < mltLayers.size(); i++) {
-      var mltLayer = mltLayers.get(i);
-      System.out.println(mltLayer.name());
-      var mltFeatures = mltLayer.features();
-      for (var j = 0; j < mltFeatures.size(); j++) {
-        var mltFeature = mltFeatures.get(j);
-        System.out.println("  " + mltFeature);
-      }
-    }
-  }
-
-  private static void printMLTVectorized(FeatureTable[] featureTables) {
-    for (var i = 0; i < featureTables.length; i++) {
-      var featureTable = featureTables[i];
-      System.out.println(featureTable.getName());
-      var featureIterator = featureTable.iterator();
-      while (featureIterator.hasNext()) {
-        var mltFeature = featureIterator.next();
-        System.out.println("  " + mltFeature);
-      }
-    }
-  }
-
   private static final String FILE_NAME_ARG = "mlt";
   private static final String PRINT_MLT_OPTION = "printmlt";
   private static final String VECTORIZED_OPTION = "vectorized";
+  private static final String TIMER_OPTION = "timer";
 
   public static void main(String[] args) {
     Options options = new Options();
@@ -65,6 +39,12 @@ public class Decode {
             .desc("Print the MLT tile after encoding it ([OPTIONAL], default: false)")
             .required(false)
             .build());
+    options.addOption(
+        Option.builder(TIMER_OPTION)
+            .hasArg(false)
+            .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
+            .required(false)
+            .build());
     CommandLineParser parser = new DefaultParser();
     try {
       CommandLine cmd = parser.parse(options, args);
@@ -74,6 +54,7 @@ public class Decode {
       }
       var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
       var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
+      var willTime = cmd.hasOption(TIMER_OPTION);
       var inputTilePath = Paths.get(fileName);
       if (!Files.exists(inputTilePath)) {
         throw new IllegalArgumentException("Input mlt tile path does not exist: " + inputTilePath);
@@ -90,16 +71,21 @@ public class Decode {
 
       Timer timer = new Timer();
       if (willUseVectorized) {
-        var decodedTile = MltDecoder.decodeMlTileVectorized(mltTileBuffer, tileMetadata);
-        timer.stop("decoding");
+        var featureTables = MltDecoder.decodeMlTileVectorized(mltTileBuffer, tileMetadata);
+        // Note: the vectorized result is a FeatureTable array
+        // which provides an iterator to access the features.
+        // Therefore, we must iterate over the FeatureTable array
+        // to trigger actual decoding of the features.
+        CliUtil.decodeFeatureTables(featureTables);
+        if (willTime) timer.stop("decoding");
         if (willPrintMLT) {
-          printMLTVectorized(decodedTile);
+          CliUtil.printMLTVectorized(featureTables);
         }
       } else {
         var decodedTile = MltDecoder.decodeMlTile(mltTileBuffer, tileMetadata);
-        timer.stop("decoding");
+        if (willTime) timer.stop("decoding");
         if (willPrintMLT) {
-          printMLT(decodedTile);
+          CliUtil.printMLT(decodedTile);
         }
       }
     } catch (Exception e) {

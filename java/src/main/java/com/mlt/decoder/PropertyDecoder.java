@@ -47,36 +47,23 @@ public class PropertyDecoder {
             return booleanValues;
           }
         case UINT_32:
-          {
-            var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            var dataStream =
-                IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, false);
-            var counter = 0;
-            var values = new ArrayList<Integer>();
-            for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
-              var value = presentStream.get(i) ? dataStream.get(counter++) : null;
-              values.add(value);
-            }
-            return values;
-          }
         case INT_32:
           {
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            var dataStream = IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, true);
-            var values = new ArrayList<Integer>();
+            var dataStream =
+                IntegerDecoder.decodeIntStream(
+                    data,
+                    offset,
+                    dataStreamMetadata,
+                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_32);
             var counter = 0;
+            var values = new ArrayList<Integer>();
             for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
               var value = presentStream.get(i) ? dataStream.get(counter++) : null;
               values.add(value);
             }
             return values;
           }
-          /*case UINT_64:{
-              break;
-          }
-          case INT_64:{
-              break;
-          }*/
         case FLOAT:
           {
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
@@ -89,27 +76,30 @@ public class PropertyDecoder {
             }
             return values;
           }
-          /*case DOUBLE:{
-              break;
-          }*/
-        case UINT_64:
+        case DOUBLE:
           {
-            var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            var dataStream =
-                IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, false);
-            var counter = 0;
-            var values = new ArrayList<Long>();
-            for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
-              var value = presentStream.get(i) ? dataStream.get(counter++) : null;
-              values.add(value);
+            {
+              var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+              var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
+              var values = new ArrayList<Float>();
+              var counter = 0;
+              for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
+                var value = presentStream.get(i) ? dataStream.get(counter++) : null;
+                values.add(value);
+              }
+              return values;
             }
-            return values;
           }
+        case UINT_64:
         case INT_64:
           {
             var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
             var dataStream =
-                IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, true);
+                IntegerDecoder.decodeLongStream(
+                    data,
+                    offset,
+                    dataStreamMetadata,
+                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_64);
             var values = new ArrayList<Long>();
             var counter = 0;
             for (var i = 0; i < presentStreamMetadata.numValues(); i++) {
@@ -126,7 +116,7 @@ public class PropertyDecoder {
           }
         default:
           throw new IllegalArgumentException(
-              "The specified data type for the field is currently not supported.");
+              "The specified data type for the field is currently not supported: " + scalarType);
       }
     }
 

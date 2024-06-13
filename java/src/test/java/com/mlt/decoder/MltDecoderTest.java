@@ -136,7 +136,6 @@ public class MltDecoderTest {
   }
 
   @Test
-  @Disabled
   public void decodeMlTile_Z4() throws IOException {
     var tileId = String.format("%s_%s_%s", 4, 8, 10);
     testTileSequential(tileId);
@@ -146,7 +145,6 @@ public class MltDecoderTest {
   }
 
   @Test
-  @Disabled
   public void decodeMlTile_Z5() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
     testTileSequential(tileId);
@@ -156,7 +154,6 @@ public class MltDecoderTest {
   }
 
   @Test
-  @Disabled
   // org.opentest4j.AssertionFailedError: expected: <1> but was: <2>
   public void decodeMlTile_Z6() throws IOException {
     var tileId = String.format("%s_%s_%s", 6, 32, 41);

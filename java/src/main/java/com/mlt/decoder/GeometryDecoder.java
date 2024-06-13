@@ -4,7 +4,9 @@ import com.mlt.converter.geometry.GeometryType;
 import com.mlt.converter.geometry.ZOrderCurve;
 import com.mlt.metadata.stream.*;
 import com.mlt.vector.geometry.GeometryVector;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.NotImplementedException;
 import org.locationtech.jts.geom.*;
@@ -17,8 +19,7 @@ public class GeometryDecoder {
       List<Integer> numParts,
       List<Integer> numRings,
       List<Integer> vertexOffsets,
-      List<Integer> mortonVertexBuffer,
-      int[] vertexBuffer) {}
+      List<Integer> vertexList) {}
 
   private GeometryDecoder() {}
 
@@ -32,7 +33,7 @@ public class GeometryDecoder {
     List<Integer> numRings = null;
     List<Integer> vertexOffsets = null;
     List<Integer> mortonVertexBuffer = null;
-    int[] vertexBuffer = null;
+    List<Integer> vertexList = null;
     for (var i = 0; i < numStreams - 1; i++) {
       var geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
       switch (geometryStreamMetadata.physicalStreamType()) {
@@ -61,20 +62,21 @@ public class GeometryDecoder {
         case DATA:
           if (DictionaryType.VERTEX.equals(
               geometryStreamMetadata.logicalStreamType().dictionaryType())) {
-            // TODO: add Varint decoding
             if (geometryStreamMetadata.physicalLevelTechnique()
-                != PhysicalLevelTechnique.FAST_PFOR) {
-              throw new IllegalArgumentException(
-                  "Currently only FastPfor encoding supported for the VertexBuffer.");
+                == PhysicalLevelTechnique.FAST_PFOR) {
+              var vertexBuffer =
+                  DecodingUtils.decodeFastPforDeltaCoordinates(
+                      tile,
+                      geometryStreamMetadata.numValues(),
+                      geometryStreamMetadata.byteLength(),
+                      offset);
+              vertexList = Arrays.stream(vertexBuffer).boxed().collect(Collectors.toList());
+            } else {
+              vertexList =
+                  IntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, true);
             }
-            vertexBuffer =
-                DecodingUtils.decodeFastPfor128DeltaCoordinates(
-                    tile,
-                    geometryStreamMetadata.numValues(),
-                    geometryStreamMetadata.byteLength(),
-                    offset);
           } else {
-            mortonVertexBuffer =
+            vertexList =
                 IntegerDecoder.decodeMortonStream(
                     tile, offset, (MortonEncodedStreamMetadata) geometryStreamMetadata);
           }
@@ -83,13 +85,7 @@ public class GeometryDecoder {
     }
 
     return new GeometryColumn(
-        geometryTypes,
-        numGeometries,
-        numParts,
-        numRings,
-        vertexOffsets,
-        mortonVertexBuffer,
-        vertexBuffer);
+        geometryTypes, numGeometries, numParts, numRings, vertexOffsets, vertexList);
   }
 
   public static Geometry[] decodeGeometry(GeometryColumn geometryColumn) {
@@ -111,10 +107,7 @@ public class GeometryDecoder {
             ? geometryColumn.vertexOffsets().stream().mapToInt(i -> i).toArray()
             : null;
 
-    var vertexBuffer =
-        geometryColumn.mortonVertexBuffer != null
-            ? geometryColumn.mortonVertexBuffer.stream().mapToInt(i -> i).toArray()
-            : geometryColumn.vertexBuffer();
+    var vertexBuffer = geometryColumn.vertexList.stream().mapToInt(i -> i).toArray();
 
     // TODO: refactor redundant code
     for (var geometryType : geometryTypes) {
@@ -130,6 +123,27 @@ public class GeometryDecoder {
           var y = vertexBuffer[offset + 1];
           var coordinate = new Coordinate(x, y);
           geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
+        }
+      } else if (geometryType.equals(GeometryType.MULTIPOINT.ordinal())) {
+        var numPoints = geometryOffsets.get(geometryOffsetsCounter++);
+        var points = new Point[numPoints];
+        if (vertexOffsets == null || vertexOffsets.length == 0) {
+          for (var i = 0; i < numPoints; i++) {
+            var x = vertexBuffer[vertexBufferOffset++];
+            var y = vertexBuffer[vertexBufferOffset++];
+            var coordinate = new Coordinate(x, y);
+            points[i] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
+        } else {
+          for (var i = 0; i < numPoints; i++) {
+            var offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+            var x = vertexBuffer[offset];
+            var y = vertexBuffer[offset + 1];
+            var coordinate = new Coordinate(x, y);
+            points[i] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
         }
       } else if (geometryType.equals(GeometryType.LINESTRING.ordinal())) {
         if (vertexOffsets == null || vertexOffsets.length == 0) {
@@ -204,15 +218,15 @@ public class GeometryDecoder {
           for (var i = 0; i < numPolygons; i++) {
             var numRings = partOffsets.get(partOffsetCounter++);
             var rings = new LinearRing[numRings - 1];
-            numVertices += ringOffsets.get(ringOffsetsCounter++);
+            numVertices = ringOffsets.get(ringOffsetsCounter++);
             LinearRing shell =
                 getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
             vertexBufferOffset += numVertices * 2;
             for (var j = 0; j < rings.length; j++) {
               var numRingVertices = ringOffsets.get(ringOffsetsCounter++);
-              rings[i] =
+              rings[j] =
                   getLinearRing(vertexBuffer, vertexBufferOffset, numRingVertices, geometryFactory);
-              vertexBufferOffset += numVertices * 2;
+              vertexBufferOffset += numRingVertices * 2;
             }
 
             polygons[i] = geometryFactory.createPolygon(shell, rings);
@@ -222,14 +236,14 @@ public class GeometryDecoder {
           for (var i = 0; i < numPolygons; i++) {
             var numRings = partOffsets.get(partOffsetCounter++);
             var rings = new LinearRing[numRings - 1];
-            numVertices += ringOffsets.get(ringOffsetsCounter++);
+            numVertices = ringOffsets.get(ringOffsetsCounter++);
             LinearRing shell =
                 decodeDictionaryEncodedLinearRing(
                     vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
             vertexOffsetsOffset += numVertices;
             for (var j = 0; j < rings.length; j++) {
               numVertices = ringOffsets.get(ringOffsetsCounter++);
-              rings[i] =
+              rings[j] =
                   decodeDictionaryEncodedLinearRing(
                       vertexBuffer,
                       vertexOffsets,
@@ -238,14 +252,13 @@ public class GeometryDecoder {
                       geometryFactory);
               vertexOffsetsOffset += numVertices;
             }
-
             polygons[i] = geometryFactory.createPolygon(shell, rings);
-            geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
           }
+          geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
         }
       } else {
         throw new IllegalArgumentException(
-            "The specified geometry type is currently not supported.");
+            "The specified geometry type is currently not supported: " + geometryType);
       }
     }
 
@@ -308,6 +321,30 @@ public class GeometryDecoder {
         }
         if (ringOffsets != null) {
           ringOffsetsCounter++;
+        }
+      } else if (geometryType == GeometryType.MULTIPOINT.ordinal()) {
+        var numPoints =
+            geometryOffsets.get(geometryOffsetsCounter)
+                - geometryOffsets.get(geometryOffsetsCounter - 1);
+        geometryOffsetsCounter++;
+        var points = new Point[numPoints];
+        if (vertexOffsets == null || vertexOffsets.length == 0) {
+          for (var j = 0; j < numPoints; j++) {
+            var x = vertexBuffer[vertexBufferOffset++];
+            var y = vertexBuffer[vertexBufferOffset++];
+            var coordinate = new Coordinate(x, y);
+            points[j] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
+        } else {
+          for (var j = 0; j < numPoints; j++) {
+            var offset = vertexOffsets[vertexOffsetsOffset++] * 2;
+            var x = vertexBuffer[offset];
+            var y = vertexBuffer[offset + 1];
+            var coordinate = new Coordinate(x, y);
+            points[j] = geometryFactory.createPoint(coordinate);
+          }
+          geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
         }
       } else if (geometryType == GeometryType.LINESTRING.ordinal()) {
         var numVertices = 0;

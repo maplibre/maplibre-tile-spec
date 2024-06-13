@@ -1,5 +1,6 @@
 package com.mlt.decoder;
 
+import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.metadata.stream.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,12 +19,14 @@ public class IntegerDecoder {
       // TODO: numValues is not right if rle or delta rle is used -> add separate flag in
       // StreamMetadata
       values =
-          DecodingUtils.decodeFastPfor128(
+          DecodingUtils.decodeFastPfor(
               data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
       values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
     } else {
-      throw new IllegalArgumentException("Specified physical level technique not yet supported.");
+      throw new IllegalArgumentException(
+          "Specified physical level technique not yet supported: "
+              + streamMetadata.physicalLevelTechnique());
     }
 
     return decodeMortonDelta(values, streamMetadata.numBits(), streamMetadata.coordinateShift());
@@ -73,52 +76,49 @@ public class IntegerDecoder {
     int[] values = null;
     if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR) {
       values =
-          DecodingUtils.decodeFastPfor128(
+          DecodingUtils.decodeFastPfor(
               data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
       values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
     } else {
-      throw new IllegalArgumentException("Specified physical level technique not yet supported.");
+      throw new IllegalArgumentException(
+          "Specified physical level technique not yet supported: "
+              + streamMetadata.physicalLevelTechnique());
     }
 
-    var decodedValues =
-        decodeIntArray(
-            values, streamMetadata.logicalLevelTechnique2(), streamMetadata, isSigned, false);
-    // TODO: get rid of that conversion
-    // TODO: find proper solution with zig-zag encoding -> currently only second level technique is
-    // allowed to use
-    // zig-zag encoding
-    return decodeIntArray(
-        decodedValues.stream().mapToInt(i -> i).toArray(),
-        streamMetadata.logicalLevelTechnique1(),
-        streamMetadata,
-        isSigned,
-        true);
+    return decodeIntArray(values, streamMetadata, isSigned);
   }
 
   private static List<Integer> decodeIntArray(
-      int[] values,
-      LogicalLevelTechnique logicalLevelTechnique,
-      StreamMetadata streamMetadata,
-      boolean isSigned,
-      boolean isSecondPass) {
-    switch (logicalLevelTechnique) {
+      int[] values, StreamMetadata streamMetadata, boolean isSigned) {
+    switch (streamMetadata.logicalLevelTechnique1()) {
+      case DELTA:
+        if (streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)) {
+          var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
+          values =
+              DecodingUtils.decodeUnsignedRLE(
+                  values, rleMetadata.runs(), rleMetadata.numRleValues());
+          return decodeZigZagDelta(values);
+        }
+        return decodeZigZagDelta(values);
       case RLE:
         {
           var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
           var decodedValues = decodeRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
-          return isSigned && !isSecondPass
+          return isSigned
               ? decodeZigZag(decodedValues.stream().mapToInt(i -> i).toArray())
               : decodedValues;
         }
-      case DELTA:
-        return isSecondPass && isSigned ? decodeDelta(values) : decodeZigZagDelta(values);
       case NONE:
         {
-          return isSigned && !isSecondPass
-              ? decodeZigZag(values)
-              : Arrays.stream(values).boxed().collect(Collectors.toList());
+          if (isSigned) {
+            return decodeZigZag(values);
+          }
+          return Arrays.stream(values).boxed().collect(Collectors.toList());
         }
+      case COMPONENTWISE_DELTA:
+        VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(values);
+        return Arrays.stream(values).boxed().collect(Collectors.toList());
       case MORTON:
         // TODO: zig-zag decode when morton second logical level technique
         return decodeMortonCodes(
@@ -128,37 +128,28 @@ public class IntegerDecoder {
     }
 
     throw new IllegalArgumentException(
-        "The specified logical level technique is not supported for integers.");
+        "The specified logical level technique is not supported for integers: "
+            + streamMetadata.logicalLevelTechnique1());
   }
 
   public static List<Long> decodeLongStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned) {
-    if (streamMetadata.physicalLevelTechnique() != PhysicalLevelTechnique.VARINT) {
-      // && streamMetadata.physicalLevelTechnique() != PhysicalLevelTechnique.NONE){
-      throw new IllegalArgumentException("Specified physical level technique not yet supported.");
-    }
-
-    /*var values = PhysicalLevelTechnique.VARINT.equals(streamMetadata.physicalLevelTechnique())?
-    DecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues()):
-    Longs.fromByteArray(data, offset);;*/
     var values = DecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
-
-    var decodedValues =
-        decodeLongArray(values, streamMetadata.logicalLevelTechnique1(), streamMetadata, isSigned);
-    // TODO: get rid of that conversion
-    return decodeLongArray(
-        decodedValues.stream().mapToLong(i -> i).toArray(),
-        streamMetadata.logicalLevelTechnique2(),
-        streamMetadata,
-        isSigned);
+    return decodeLongArray(values, streamMetadata, isSigned);
   }
 
   private static List<Long> decodeLongArray(
-      long[] values,
-      LogicalLevelTechnique logicalLevelTechnique,
-      StreamMetadata streamMetadata,
-      boolean isSigned) {
-    switch (logicalLevelTechnique) {
+      long[] values, StreamMetadata streamMetadata, boolean isSigned) {
+    switch (streamMetadata.logicalLevelTechnique1()) {
+      case DELTA:
+        if (streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)) {
+          var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
+          values =
+              DecodingUtils.decodeUnsignedRLE(
+                  values, rleMetadata.runs(), rleMetadata.numRleValues());
+          return decodeZigZagDelta(values);
+        }
+        return decodeZigZagDelta(values);
       case RLE:
         {
           var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
@@ -167,20 +158,18 @@ public class IntegerDecoder {
               ? decodeZigZag(decodedValues.stream().mapToLong(i -> i).toArray())
               : decodedValues;
         }
-      case DELTA:
-        return decodeZigZagDelta(values);
       case NONE:
         {
-          var decodedValues = Arrays.stream(values).boxed().collect(Collectors.toList());
-          // return isSigned? decodeZigZag(decodedValues.stream().mapToInt(i -> i).toArray()) :
-          // decodedValues;
-          // TODO: zig-zag decode?
-          return decodedValues;
+          if (isSigned) {
+            return decodeZigZag(values);
+          }
+          return Arrays.stream(values).boxed().collect(Collectors.toList());
         }
-      default:
-        throw new IllegalArgumentException(
-            "The specified logical level technique is not supported for integers.");
     }
+
+    throw new IllegalArgumentException(
+        "The specified logical level technique is not supported for long integers: "
+            + streamMetadata.logicalLevelTechnique1());
   }
 
   // TODO: quick and dirty -> write fast vectorized solution
