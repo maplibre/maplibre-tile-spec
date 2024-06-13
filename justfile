@@ -70,7 +70,7 @@ lint: lint-java lint-js lint-rust
 
 # Run linting for Java
 lint-java:
-    echo "TODO: Add java lint command"
+    cd java && ./gradlew spotlessJavaCheck
 
 # Run linting for JavaScript
 lint-js:
@@ -86,7 +86,7 @@ fmt: fmt-java fmt-js fmt-rust
 
 # Run formatting for Java
 fmt-java:
-    echo "TODO: Add java fmt command"
+     cd java && ./gradlew spotlessApply
 
 # Run formatting for JavaScript
 fmt-js:
