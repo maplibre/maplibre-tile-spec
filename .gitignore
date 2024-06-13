@@ -7,3 +7,5 @@ coverage/
 target/
 .gradle/
 build/
+test/output
+java/output

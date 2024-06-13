@@ -13,58 +13,39 @@ defaults:
 jobs:
   test-js:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'js'
     steps:
       - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
       - uses: actions/setup-node@v4
         with:
           node-version-file: 'js/.nvmrc'
           cache: 'npm'
           cache-dependency-path: 'js/package-lock.json'
-      - run: npm ci
-      - run: npm test
+      - run: just test-js
+
   test-java:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-    defaults:
-      run:
-        working-directory: 'java'
     steps:
       - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Java build
-        run: ./gradlew build # includes spotlessJavaCheck
-      - name: Java converter tests
-        run: ./gradlew test
-      - name: Test running CLI
-        run: |
-          ./gradlew cli
-          # Test the encoding CLI
-          java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -mlt output/varint.mlt
-          # ensure expected size
-          python -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-          # Test the meta CLI and ensure it doesn't overwrite the metadata (a sign it correctly matches the encode output)
-          java -jar ./build/libs/meta.jar -mvt ../test/fixtures/omt/10_530_682.mvt -meta output/varint.mlt.meta.pbf
-          # ensure expected size is maintained (meta writes the same meta file as encode)
-          python -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-          # Test the using advanced encodings
-          java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -advanced -mlt output/advanced.mlt
-          # ensure expected sizes
-          python -c 'import os; expected=67011; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-          python -c 'import os; expected=64776; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-          # ensure we can decode the advanced tile
-          java -jar ./build/libs/decode.jar -mlt output/advanced.mlt -vectorized
-  # This final step is needed to mark the whole workflow as successful
+      - name: Test Java
+        run: just test-java
+      - name: Test running Java CLI
+        run: just test-java-cli
+
+  # This final step is needed to mark the entire workflow as successful
   done:
-    # Don't change its name - it is used by the merge protection rules
+    # Don't change this name - it is used by the merge protection rules
     name: CI Finished
     runs-on: ubuntu-latest
     # List of all the other jobs that must pass for this job to start
