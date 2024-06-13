@@ -72,7 +72,6 @@ public class GeometryDecoder {
                       offset);
               vertexList = Arrays.stream(vertexBuffer).boxed().collect(Collectors.toList());
             } else {
-              System.out.println("Decoding VARINT stream.");
               vertexList =
                   IntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, true);
             }
