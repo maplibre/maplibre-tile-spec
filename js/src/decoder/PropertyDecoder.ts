@@ -1,5 +1,5 @@
 import { StreamMetadata } from '../metadata/stream/StreamMetadata';
-import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';;
+import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
 import { Column, ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
