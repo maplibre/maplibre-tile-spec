@@ -205,6 +205,8 @@ export class GeometryDecoder {
                 if (!vertexOffsets || vertexOffsets.length === 0) {
                     for (let i = 0; i < numPolygons; i++) {
                         const numRings = partOffsets[partOffsetCounter++];
+                        // TODO: currently needed to unbreak multi-polygon decoding
+                        // const rings: LinearRing[] = new Array(numRings - 1);
                         const rings: LinearRing[] = new Array(numRings);
                         const numVertices = ringOffsets[ringOffsetsCounter++];
                         const shell = this.getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
@@ -220,7 +222,7 @@ export class GeometryDecoder {
                 } else {
                     for (let i = 0; i < numPolygons; i++) {
                         const numRings = partOffsets[partOffsetCounter++];
-                        const rings: LinearRing[] = new Array(numRings);
+                        const rings: LinearRing[] = new Array(numRings - 1);
                         const numVertices = ringOffsets[ringOffsetsCounter++];
                         const shell = this.decodeDictionaryEncodedLinearRing(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
                         vertexOffsetsOffset += numVertices;
