@@ -1,9 +1,15 @@
 {
-  "name": "cov-tiles",
+  "name": "maplibre-tile-spec",
   "version": "0.0.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "/dist"
+  ],
   "scripts": {
-    "start": "node dist/index.js",
     "build": "tsc",
+    "prepare": "npm run build",
     "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src",
     "format": "prettier --write \"**/*.ts\""

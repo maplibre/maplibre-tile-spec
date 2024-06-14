@@ -140,11 +140,14 @@ public class GeometryEncoder {
     // TODO: if the ratio is lower then 2 dictionary encoding has not to be considered?
     var vertexDictionary = addVerticesToDictionary(vertexBuffer, hilbertCurve);
     var mortonEncodedDictionary = addVerticesToMortonDictionary(vertexBuffer, zOrderCurve);
+
+    int[] hilbertIds = vertexDictionary.keySet().stream().mapToInt(d -> d).toArray();
     var dictionaryOffsets =
-        getVertexOffsets(vertexBuffer, (id) -> vertexDictionary.headMap(id).size(), hilbertCurve);
+        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(hilbertIds, id), hilbertCurve);
+
+    int[] mortonIds = mortonEncodedDictionary.stream().mapToInt(d -> d).toArray();
     var mortonEncodedDictionaryOffsets =
-        getVertexOffsets(
-            vertexBuffer, (id) -> mortonEncodedDictionary.headSet(id).size(), zOrderCurve);
+        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(mortonIds, id), zOrderCurve);
 
     /* Test if Plain, Vertex Dictionary or Morton Encoded Vertex Dictionary is the most efficient
      * -> Plain -> convert VertexBuffer with Delta Encoding and specified Physical Level Technique

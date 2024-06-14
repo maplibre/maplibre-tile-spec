@@ -1,8 +1,15 @@
 import { IntWrapper } from './IntWrapper';
 
-class DecodingUtils {
-    private constructor() {}
+export class DecodingUtils {
 
+    public static decodeComponentwiseDeltaVec2(data: number[]): void {
+        data[0] = (data[0] >>> 1) ^ ((data[0] << 31) >> 31);
+        data[1] = (data[1] >>> 1) ^ ((data[1] << 31) >> 31);
+        for (let i = 2; i < data.length; i += 2) {
+            data[i] = ((data[i] >>> 1) ^ ((data[i] << 31) >> 31)) + data[i - 2];
+            data[i + 1] = ((data[i + 1] >>> 1) ^ ((data[i + 1] << 31) >> 31)) + data[i - 1];
+        }
+    }
     public static decodeVarint(src: Uint8Array, pos: IntWrapper, numValues: number): number[] {
         const values = new Array(numValues).fill(0);
         let dstOffset = 0;
@@ -126,6 +133,11 @@ class DecodingUtils {
         pos.set(pos.get() + numValues * Float32Array.BYTES_PER_ELEMENT);
         return fb;
     }
-}
 
-export { DecodingUtils };
+    public static decodeDoublesLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): Float64Array {
+        const bytesPerElement = Float64Array.BYTES_PER_ELEMENT;
+        const fb = new Float64Array(new Uint16Array(encodedValues.slice(pos.get(), pos.get() + numValues * bytesPerElement)).buffer);
+        pos.set(pos.get() + numValues * bytesPerElement);
+        return fb;
+    }
+}

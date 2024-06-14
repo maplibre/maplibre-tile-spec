@@ -1,12 +1,12 @@
 import { StreamMetadata } from '../metadata/stream/StreamMetadata';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { Column, ScalarType, ScalarColumn, ComplexColumn } from "../../../src/decoder/mlt_tileset_metadata_pb";
+import { Column, ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';
 import { FloatDecoder } from './FloatDecoder';
-// TODO
-//import { StringDecoder } from './StringDecoder';
+import { DoubleDecoder } from './DoubleDecoder';
+import { StringDecoder } from './StringDecoder';
 
 class PropertyDecoder {
 
@@ -58,6 +58,17 @@ class PropertyDecoder {
                     }
                     return values;
                 }
+                case ScalarType.DOUBLE: {
+                    const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+                    const dataStream = DoubleDecoder.decodeDoubleStream(data, offset, dataStreamMetadata);
+                    const values: (number | null)[] = new Array(presentStreamMetadata.numValues());
+                    let counter = 0;
+                    for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
+                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        values[i] = value;
+                    }
+                    return values;
+                }
                 case ScalarType.FLOAT: {
                     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
                     const dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
@@ -92,10 +103,7 @@ class PropertyDecoder {
                     return values;
                 }
                 case ScalarType.STRING: {
-                    throw new Error("Strings are not supported yet for ScalarColumns.");
-                    // TODO
-                    //const strValues = StringDecoder.decode(data, offset, numStreams - 1, presentStream, numValues);
-                    //return strValues.getRight();
+                    return StringDecoder.decode(data, offset, numStreams - 1, presentStream, numValues);
                 }
                 default:
                     throw new Error("The specified data type for the field is currently not supported " + physicalType);
