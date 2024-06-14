@@ -1,12 +1,12 @@
 package com.mlt.decoder;
 
+import com.mlt.TestSettings;
 import com.mlt.converter.MltConverter;
 import com.mlt.converter.encodings.StringEncoder;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
-import com.mlt.test.constants.TestConstants;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -249,7 +249,7 @@ public class StringDecoderTest {
   @Disabled
   public void decodeSharedDictionary_Mvt() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var layer = mvTile.layers().get(0);
@@ -287,7 +287,7 @@ public class StringDecoderTest {
   @Test
   public void decodeSharedDictionary_MvtWithNestedColumns() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
@@ -349,7 +349,7 @@ public class StringDecoderTest {
   @Test
   public void decodeSharedDictionary_MvtWithNestedColumns2() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);

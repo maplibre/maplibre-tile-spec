@@ -2,6 +2,7 @@ package com.mlt.decoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.mlt.TestSettings;
 import com.mlt.converter.ConversionConfig;
 import com.mlt.converter.FeatureTableOptimizations;
 import com.mlt.converter.MltConverter;
@@ -10,7 +11,6 @@ import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.data.MapLibreTile;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
-import com.mlt.test.constants.TestConstants;
 import com.mlt.vector.FeatureTable;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,101 +29,137 @@ interface TriConsumer<A, B, C> {
 
 public class MltDecoderTest {
 
-  /** decode tile in an in-memory format optimized for random access */
+  /* Bing Maps tests --------------------------------------------------------- */
+
+  @Test
+  public void decodeMlTileVectorized_Z4BingMapsTile() throws IOException {
+    var tileIds = List.of("4-8-5", "4-9-5", "4-12-6", "4-13-6");
+    testBingTilesVectorized(tileIds);
+  }
+
+  @Test
+  public void decodeMlTileVectorized_Z5BingMapsTile() throws IOException {
+    // TODO: fix "5-16-9" and "5-15-10"
+    var tileIds = List.of("5-16-11", "5-17-11", "5-17-10");
+    testBingTilesVectorized(tileIds);
+  }
+
+  @Test
+  public void decodeMlTileVectorized_Z6BingMapsTile() throws IOException {
+    var tileIds = List.of("6-32-22", "6-33-22", "6-32-23", "6-32-21");
+    testBingTilesVectorized(tileIds);
+  }
+
+  @Test
+  public void decodeMlTileVectorized_Z7BingMapsTile() throws IOException {
+    var tileIds = List.of("7-65-42", "7-66-42", "7-66-43", "7-66-44");
+    testBingTilesVectorized(tileIds);
+  }
+
+  private void testBingTilesVectorized(List<String> tileIds) throws IOException {
+    for (var tileId : tileIds) {
+      testTileVectorized(tileId, TestSettings.BING_MVT_PATH);
+    }
+  }
+
+  /* OpenMapTiles schema based vector tiles tests  --------------------------------------------------------- */
+
+  /* decode tile in an in-memory format optimized for random access */
+
   @Test
   public void decodeMlTileVectorized_Z2() throws IOException {
     var tileId = String.format("%s_%s_%s", 2, 2, 2);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_Z3() throws IOException {
     var tileId = String.format("%s_%s_%s", 3, 4, 5);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_Z4() throws IOException {
     var tileId = String.format("%s_%s_%s", 4, 8, 10);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 4, 3, 9);
-    testTileVectorized(tileId2);
+    testTileVectorized(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_Z5() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 5, 16, 20);
-    testTileVectorized(tileId2);
+    testTileVectorized(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_Z6() throws IOException {
     var tileId = String.format("%s_%s_%s", 6, 32, 41);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 6, 33, 42);
-    testTileVectorized(tileId2);
+    testTileVectorized(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_Z7() throws IOException {
     var tileId = String.format("%s_%s_%s", 7, 66, 84);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 7, 66, 85);
-    testTileVectorized(tileId2);
+    testTileVectorized(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_Z8() throws IOException {
     var tileId = String.format("%s_%s_%s", 8, 134, 171);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 8, 132, 170);
-    testTileVectorized(tileId2);
+    testTileVectorized(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_Z9() throws IOException {
     var tileId = String.format("%s_%s_%s", 9, 265, 341);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_10() throws IOException {
     var tileId = String.format("%s_%s_%s", 10, 532, 682);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_11() throws IOException {
     var tileId = String.format("%s_%s_%s", 11, 1064, 1367);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_12() throws IOException {
     var tileId = String.format("%s_%s_%s", 12, 2132, 2734);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_13() throws IOException {
     var tileId = String.format("%s_%s_%s", 13, 4265, 5467);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTileVectorized_14() throws IOException {
     var tileId = String.format("%s_%s_%s", 14, 8298, 10748);
-    testTileVectorized(tileId);
+    testTileVectorized(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 14, 8299, 10748);
-    testTileVectorized(tileId2);
+    testTileVectorized(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   /** Decode tiles in an in-memory format optimized for sequential access */
@@ -132,32 +168,32 @@ public class MltDecoderTest {
   // org.opentest4j.AssertionFailedError: expected: <san pauro> but was: <null>
   public void decodeMlTile_Z2() throws IOException {
     var tileId = String.format("%s_%s_%s", 2, 2, 2);
-    testTileSequential(tileId);
+    testTileSequential(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTile_Z4() throws IOException {
     var tileId = String.format("%s_%s_%s", 4, 8, 10);
-    testTileSequential(tileId);
+    testTileSequential(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 4, 3, 9);
-    testTileSequential(tileId2);
+    testTileSequential(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   public void decodeMlTile_Z5() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    testTileSequential(tileId);
+    testTileSequential(tileId, TestSettings.OMT_MVT_PATH);
 
     var tileId2 = String.format("%s_%s_%s", 5, 16, 20);
-    testTileSequential(tileId2);
+    testTileSequential(tileId2, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
   // org.opentest4j.AssertionFailedError: expected: <1> but was: <2>
   public void decodeMlTile_Z6() throws IOException {
     var tileId = String.format("%s_%s_%s", 6, 32, 41);
-    testTileSequential(tileId);
+    testTileSequential(tileId, TestSettings.OMT_MVT_PATH);
   }
 
   @Test
@@ -166,12 +202,13 @@ public class MltDecoderTest {
   // or >= 2)
   public void decodeMlTile_Z14() throws IOException {
     var tileId = String.format("%s_%s_%s", 14, 8298, 10748);
-    testTileSequential(tileId);
+    testTileSequential(tileId, TestSettings.OMT_MVT_PATH);
   }
 
-  private void testTileVectorized(String tileId) throws IOException {
+  private void testTileVectorized(String tileId, String tileDirectory) throws IOException {
     testTile(
         tileId,
+        tileDirectory,
         (mlTile, tileMetadata, mvTile) -> {
           var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
           compareTilesVectorized(decodedTile, mvTile);
@@ -208,8 +245,9 @@ public class MltDecoderTest {
             var nestedStringValues = (Map<String, String>) mltPropertyValue;
             var mvtStringProperties =
                 mvtProperties.entrySet().stream()
-                    .filter(p -> p.getKey().contains(mltPropertyKey))
-                    .collect(Collectors.toList());
+                    .filter(
+                        p -> p.getKey().contains(mltPropertyKey) && p.getValue() instanceof String)
+                    .toList();
             // TODO: verify why mlt seems to have a property more than mvt on the
             // name:* column in some tiles
             for (var mvtProperty : mvtStringProperties) {
@@ -235,9 +273,10 @@ public class MltDecoderTest {
     }
   }
 
-  private void testTileSequential(String tileId) throws IOException {
+  private void testTileSequential(String tileId, String tileDirectory) throws IOException {
     testTile(
         tileId,
+        tileDirectory,
         (mlTile, tileMetadata, mvTile) -> {
           var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
           compareTilesSequential(decodedTile, mvTile);
@@ -281,9 +320,10 @@ public class MltDecoderTest {
 
   private void testTile(
       String tileId,
+      String tileDirectory,
       TriConsumer<byte[], MltTilesetMetadata.TileSetMetadata, MapboxVectorTile> decodeAndCompare)
       throws IOException {
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
@@ -298,25 +338,8 @@ public class MltDecoderTest {
         new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
     // TODO: fix -> either add columMappings per layer or global like when creating the scheme
     var optimizations =
-        Map.of(
-            "place",
-            optimization,
-            "water_name",
-            optimization,
-            "transportation",
-            optimization,
-            "transportation_name",
-            optimization,
-            "park",
-            optimization,
-            "mountain_peak",
-            optimization,
-            "poi",
-            optimization,
-            "waterway",
-            optimization,
-            "aerodrome_label",
-            optimization);
+        TestSettings.OPTIMIZED_MVT_LAYERS.stream()
+            .collect(Collectors.toMap(l -> l, l -> optimization));
     var mlTile =
         MltConverter.convertMvt(
             mvTile, new ConversionConfig(true, true, optimizations), tileMetadata);
