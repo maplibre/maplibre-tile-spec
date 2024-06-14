@@ -16,7 +16,7 @@ export class StringDecoder {
         presentStream: Uint8Array, numValues: number) {
         let dictionaryLengthStream: number[] = null;
         let offsetStream: number[] = null;
-        //const dataStream: Uint8Array = null;
+        const dataStream: Uint8Array = null;
         let dictionaryStream: Uint8Array = null;
         /* eslint-disable @typescript-eslint/no-unused-vars */
         let symbolLengthStream: number[] = null;
@@ -56,8 +56,28 @@ export class StringDecoder {
         } else if (dictionaryStream) {
             return this.decodeDictionary(presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, numValues);
         } else {
-            throw new Error("TODO: plain decoding for strings is not yet implemented");
+            return this.decodePlain(presentStream, dictionaryLengthStream, dataStream, numValues);
         }
+    }
+
+    private static decodePlain(presentStream: Uint8Array, lengthStream: number[], utf8Values: Uint8Array, numValues: number): string[] {
+        const decodedValues: string[] = [];
+        let lengthOffset = 0;
+        let strOffset = 0;
+        const decoder = new TextDecoder("utf-8");
+        for (let i = 0; i < numValues; i++) {
+            const present = presentStream[i];
+            if (present) {
+                const length = lengthStream[lengthOffset++];
+                const value = decoder.decode(utf8Values.slice(strOffset, strOffset + length));
+                decodedValues.push(value);
+                strOffset += length;
+            } else {
+                decodedValues.push(null);
+            }
+        }
+
+        return decodedValues;
     }
 
     private static decodeDictionary(
