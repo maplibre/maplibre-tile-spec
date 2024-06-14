@@ -1,11 +1,11 @@
 import * as fs from "fs";
 import * as Path from "path";
-import { MltDecoder } from "../../../src/decoder2/decoder/MltDecoder";
-import { TileSetMetadata } from "../../../src/decoder/mlt_tileset_metadata_pb";
+import { MltDecoder } from "../../../src/decoder/MltDecoder";
+import { TileSetMetadata } from "../../../src/metadata/mlt_tileset_metadata_pb";
 
 const tilesDir = "../test/fixtures";
 
-describe("Decoder2", () => {
+describe("MltDecoder", () => {
     it("should decode one Bing Map based tile", async () => {
         const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "bing"));
         const tile = tiles.find(t => t.mlt.includes('4-13-6.mlt'));
