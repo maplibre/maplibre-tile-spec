@@ -75,7 +75,14 @@ class IntegerDecoder {
     private static decodeIntArray(values: number[], streamMetadata: StreamMetadata, isSigned: boolean): number[] {
         switch (streamMetadata.logicalLevelTechnique1()) {
             case LogicalLevelTechnique.DELTA: {
-                return isSigned ? this.decodeDelta(values) : this.decodeZigZagDelta(values);
+                if (streamMetadata.logicalLevelTechnique2() === LogicalLevelTechnique.RLE) {
+                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                    values =
+                        DecodingUtils.decodeUnsignedRLE(
+                            values, rleMetadata.runs(), rleMetadata.numRleValues());
+                    return this.decodeZigZagDelta(values);
+                }
+                return this.decodeZigZagDelta(values);
             }
             case LogicalLevelTechnique.RLE: {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
@@ -110,6 +117,13 @@ class IntegerDecoder {
     private static decodeLongArray(values: bigint[], streamMetadata: StreamMetadata, isSigned: boolean): bigint[] {
         switch (streamMetadata.logicalLevelTechnique1()) {
             case LogicalLevelTechnique.DELTA: {
+                if (streamMetadata.logicalLevelTechnique2() === LogicalLevelTechnique.RLE) {
+                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                    values =
+                        DecodingUtils.decodeUnsignedRLELong(
+                            values, rleMetadata.runs(), rleMetadata.numRleValues());
+                    return this.decodeLongZigZagDelta(values);
+                }
                 return this.decodeLongZigZagDelta(values);
             }
             case LogicalLevelTechnique.RLE: {
