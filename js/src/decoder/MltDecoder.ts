@@ -3,7 +3,7 @@ import { Layer } from '../data/Layer';
 import { MapLibreTile } from '../data/MapLibreTile';
 import { PhysicalLevelTechnique } from '../metadata/stream/PhysicalLevelTechnique';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { FeatureTableSchema, TileSetMetadata } from "../../decoder/mlt_tileset_metadata_pb";
+import { FeatureTableSchema, TileSetMetadata } from "../metadata/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';

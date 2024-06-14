@@ -1,4 +1,4 @@
-import { fastunpack } from '../../../../src/encodings/fastpfor/bitpacking'
+import { fastunpack } from '../../../../../src/encodings/fastpfor/bitpacking'
 
 const Bitpacking_Raw_Test1: Uint32Array = new Uint32Array([ 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4 ]);
 const Bitpacking_Raw_Test2: Uint32Array = new Uint32Array([ 6, 3, 1, 15, 6, 8, 3, 4, 2, 1, 6, 8, 2, 5, 6, 7, 3, 1, 8, 0, 9, 12, 15, 3, 14, 15, 11, 1, 6, 9, 2, 1 ]);

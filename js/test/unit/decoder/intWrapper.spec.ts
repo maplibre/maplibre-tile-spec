@@ -1,4 +1,4 @@
-import { IntWrapper } from "../../../src/decoder2/decoder/IntWrapper";
+import { IntWrapper } from "../../../src/decoder/IntWrapper";
 
 describe("IntWrapper", () => {
     it("should wrap an int like it says it can", async () => {
