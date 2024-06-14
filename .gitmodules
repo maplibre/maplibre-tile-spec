@@ -10,3 +10,6 @@
 [submodule "cpp/vendor/json"]
 	path = cpp/vendor/json
 	url = https://github.com/nlohmann/json.git
+[submodule "test/mvt-fixtures"]
+	path = test/mvt-fixtures
+	url = https://github.com/mapbox/mvt-fixtures.git
