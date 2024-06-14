@@ -5,8 +5,7 @@ import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';
 import { FloatDecoder } from './FloatDecoder';
-// TODO
-//import { StringDecoder } from './StringDecoder';
+import { StringDecoder } from './StringDecoder';
 
 class PropertyDecoder {
 
@@ -92,10 +91,7 @@ class PropertyDecoder {
                     return values;
                 }
                 case ScalarType.STRING: {
-                    throw new Error("Strings are not supported yet for ScalarColumns.");
-                    // TODO
-                    //const strValues = StringDecoder.decode(data, offset, numStreams - 1, presentStream, numValues);
-                    //return strValues.getRight();
+                    return StringDecoder.decode(data, offset, numStreams - 1, presentStream, numValues);
                 }
                 default:
                     throw new Error("The specified data type for the field is currently not supported " + physicalType);
