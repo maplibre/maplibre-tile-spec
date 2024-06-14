@@ -13,6 +13,7 @@ defaults:
 jobs:
   test-js:
     runs-on: ubuntu-latest
+    key: ${{ runner.os }}-cache-${{ hashFiles('js/package-lock.json') }}
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/install-action@v2
