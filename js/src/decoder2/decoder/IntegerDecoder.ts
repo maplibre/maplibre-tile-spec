@@ -92,7 +92,7 @@ class IntegerDecoder {
                 return this.decodeMortonCodes(values, mortonMetadata.numBits(), mortonMetadata.coordinateShift());
             }
             default:
-                throw new Error("The specified logical level technique is not supported for integers.");
+                throw new Error("The specified logical level technique is not supported for integers: " + logicalLevelTechnique);
         }
     }
 
