@@ -24,12 +24,3 @@ export enum GeometryType {
     MULTILINESTRING,
     MULTIPOLYGON
 }
-
-// export enum GeometryType {
-//     POINT = "POINT",
-//     MULTIPOINT = "MULTIPOINT",
-//     LINESTRING = "LINESTRING",
-//     POLYGON = "POLYGON",
-//     MULTILINESTRING = "MULTILINESTRING",
-//     MULTIPOLYGON = "MULTIPOLYGON"
-// }
