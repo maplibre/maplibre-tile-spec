@@ -1,6 +1,6 @@
 import { StreamMetadata } from '../metadata/stream/StreamMetadata';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { Column, ScalarType, ScalarColumn, ComplexColumn } from "../../../src/decoder/mlt_tileset_metadata_pb";
+import { Column, ScalarType, ScalarColumn, ComplexColumn } from "../../decoder/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';

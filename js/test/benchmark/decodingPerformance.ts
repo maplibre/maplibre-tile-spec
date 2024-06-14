@@ -39,7 +39,7 @@ const suiteRuns = 10;
             const mvtLayers = parseMvtTileFast(mvtTile);
         })
         .add("COVT", () => {
-            const covtDecoder = new CovtDecoder(covTile);
+            const covtDecoder = new CovtDecoder(covTile, null);
         })
         .on("cycle", (event) => console.info(String(event.target)))
         .on("complete", function () {
