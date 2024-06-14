@@ -147,8 +147,7 @@ public class GeometryEncoder {
 
     int[] mortonIds = mortonEncodedDictionary.stream().mapToInt(d -> d).toArray();
     var mortonEncodedDictionaryOffsets =
-        getVertexOffsets(
-            vertexBuffer, (id) ->  Arrays.binarySearch(mortonIds, id), zOrderCurve);
+        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(mortonIds, id), zOrderCurve);
 
     /* Test if Plain, Vertex Dictionary or Morton Encoded Vertex Dictionary is the most efficient
      * -> Plain -> convert VertexBuffer with Delta Encoding and specified Physical Level Technique
