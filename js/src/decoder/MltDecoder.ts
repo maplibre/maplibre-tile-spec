@@ -31,8 +31,11 @@ class MltDecoder {
             const maxTileExtent = infos[2];
             const featureTableId = infos[0];
             const numFeatures = infos[3];
-
             const metadata = tileMetadata.featureTables[featureTableId];
+            if (!metadata) {
+                console.log(`could not find metadata for feature table id: ${featureTableId}`);
+                return;
+            }
             for (const columnMetadata of metadata.columns) {
                 const columnName = columnMetadata.name;
                 const numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];

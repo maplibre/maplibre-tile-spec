@@ -9,14 +9,13 @@ import { PhysicalLevelTechnique } from '../metadata/stream/PhysicalLevelTechniqu
 import { Geometry, Coordinate, GeometryType, Point, LineString, Polygon, LinearRing } from '../data/Geometry';
 
 export class GeometryDecoder {
-    public static decodeGeometryColumn(tile: Uint8Array, numStreams: number, offset: IntWrapper): any {
+    public static decodeGeometryColumn(tile: Uint8Array, numStreams: number, offset: IntWrapper): GeometryColumn {
         const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
         const geometryTypes = IntegerDecoder.decodeIntStream(tile, offset, geometryTypeMetadata, false);
         let numGeometries = null;
         let numParts = null;
         let numRings = null;
         let vertexOffsets = null;
-        //const mortonVertexBuffer = null;
         let vertexList = [];
         for(let i = 0; i < numStreams - 1; i++) {
             const geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
@@ -45,10 +44,10 @@ export class GeometryDecoder {
                 case PhysicalStreamType.DATA: {
                     if(DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType().dictionaryType()){
                         if(geometryStreamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR){
-                            console.log("FastPfor encoding not yet supported.");
+                            throw new Error("FastPfor encoding for geometries is not yet supported.");
                             // vertexBuffer = DecodingUtils.decodeFastPfor128DeltaCoordinates(tile, geometryStreamMetadata.numValues(),
                             // geometryStreamMetadata.byteLength(), offset);
-                            offset.set(offset.get() + geometryStreamMetadata.byteLength());
+                            // offset.set(offset.get() + geometryStreamMetadata.byteLength());
                         } else {
                             vertexList = IntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, true);
                         }
@@ -77,8 +76,17 @@ export class GeometryDecoder {
         const geometryTypes = geometryColumn.geometryTypes;
         const geometryOffsets = geometryColumn.numGeometries;
         const partOffsets = geometryColumn.numParts;
-        let ringOffsets = geometryColumn.numRings;
+        if (partOffsets)  {
+            for (let i = 0; i < partOffsets.length; i++) {
+                if (!partOffsets[i]) {
+                    console.log("Warning: Part offset is empty, setting to 1.");
+                    partOffsets[i] = 1;
+                }
+            }
+        }
+        const ringOffsets = geometryColumn.numRings;
         if (ringOffsets) {
+            // TODO: currently needed to unbreak multi-polygon decoding
             for (let i = 0; i < ringOffsets.length; i++) {
                 if (!ringOffsets[i]) {
                     console.log("Warning: Ring offset is empty, setting to 1.");
@@ -92,8 +100,15 @@ export class GeometryDecoder {
             return [];
         }
         const vertexBuffer = geometryColumn.vertexList.map(i => i);
-
-        for (const geometryTypeNum of geometryTypes) {
+        let _geometryTypes = [];
+        // TODO: currently needed to unbreak geometry handling in bing tiles
+        for (let i = 0; i < geometryTypes.length; i++) {
+            if (geometryTypes[i]) {
+                console.log("Warning: geomType offset is empty, removing");
+                _geometryTypes.push(geometryTypes[i])
+            }
+        }
+        for (const geometryTypeNum of _geometryTypes) {
             const geometryType = geometryTypeNum as GeometryType;
             if (geometryType === GeometryType.POINT) {
                 if (!vertexOffsets || vertexOffsets.length === 0) {
@@ -219,7 +234,7 @@ export class GeometryDecoder {
                     geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
                 }
             } else {
-                throw new Error(`The specified geometry type is currently not supported: ${geometryType}`);
+                throw new Error("The specified geometry type is currently not supported: " + geometryTypeNum);
             }
         }
 
