@@ -281,7 +281,7 @@ export class GeometryColumn {
 export class Geometry {}
 export class GeometryFactory {
     createPoint(coordinate: Coordinate): Geometry {
-        return [2,4];
+        return new Point();
     }
     createMultiPoint(points: Point[]): Geometry {
         return new Point();
@@ -324,5 +324,4 @@ export enum GeometryType {
     POLYGON,
     MULTILINESTRING,
     MULTIPOLYGON
-}
 }
