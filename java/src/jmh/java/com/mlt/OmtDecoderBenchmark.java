@@ -1,10 +1,5 @@
 package com.mlt;
 
-import com.mlt.converter.ConversionConfig;
-import com.mlt.converter.FeatureTableOptimizations;
-import com.mlt.converter.MltConverter;
-import com.mlt.converter.mvt.ColumnMapping;
-import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.decoder.MltDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
@@ -12,15 +7,11 @@ import com.mlt.vector.FeatureTable;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.model.JtsMvt;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import no.ecc.vectortile.VectorTileDecoder;
-import org.apache.commons.lang3.tuple.Pair;
 import org.openjdk.jmh.annotations.*;
 
 /**
@@ -42,6 +33,7 @@ public class OmtDecoderBenchmark {
   private static final Map<Integer, byte[]> encodedMltTiles = new HashMap<>();
   private static final Map<Integer, MltTilesetMetadata.TileSetMetadata> tileMetadata =
       new HashMap<>();
+  private static final String SEPARATOR = "_";
 
   @Setup
   public void setup() throws IOException {
@@ -68,52 +60,16 @@ public class OmtDecoderBenchmark {
   }
 
   private void encodeTile(int z, int x, int y) throws IOException {
-    var encodedMvtTile = getMvtFile(z, x, y);
-    encodedMvtTiles.put(z, encodedMvtTile.getLeft());
-    encodedMvtTiles2.put(z, new ByteArrayInputStream(encodedMvtTile.getLeft()));
-
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Optional.of(List.of(columnMapping));
-    var metadata =
-        MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, true);
-    tileMetadata.put(z, metadata);
-
-    var allowIdRegeneration = true;
-    var allowSorting = false;
-    var optimization =
-        new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
-    var optimizations =
-        Map.of(
-            "place",
-            optimization,
-            "water_name",
-            optimization,
-            "transportation",
-            optimization,
-            "transportation_name",
-            optimization,
-            "park",
-            optimization,
-            "mountain_peak",
-            optimization,
-            "poi",
-            optimization,
-            "waterway",
-            optimization,
-            "aerodrome_label",
-            optimization);
-    var encodedMltTile =
-        MltConverter.convertMvt(
-            encodedMvtTile.getRight(), new ConversionConfig(true, true, optimizations), metadata);
-    encodedMltTiles.put(z, encodedMltTile);
-  }
-
-  private Pair<byte[], MapboxVectorTile> getMvtFile(int z, int x, int y) throws IOException {
-    var tileId = String.format("%s_%s_%s", z, x, y);
-    var mvtFilePath = Paths.get(com.mlt.test.constants.TestConstants.OMT_MVT_PATH, tileId + ".mvt");
-    var encodedTile = Files.readAllBytes(mvtFilePath);
-    var decodedTile = MvtUtils.decodeMvt(mvtFilePath);
-    return Pair.of(encodedTile, decodedTile);
+    BenchmarkUtils.encodeTile(
+        z,
+        x,
+        y,
+        encodedMvtTiles,
+        encodedMvtTiles2,
+        encodedMltTiles,
+        tileMetadata,
+        TestSettings.OMT_MVT_PATH,
+        SEPARATOR);
   }
 
   @Benchmark
