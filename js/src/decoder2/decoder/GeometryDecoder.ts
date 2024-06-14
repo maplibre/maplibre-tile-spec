@@ -1,7 +1,7 @@
 import { PhysicalStreamType } from '../metadata/stream/PhysicalStreamType';
 import { DictionaryType } from '../metadata/stream/DictionaryType';
 import { LengthType } from '../metadata/stream/LengthType';
-import { MortonEncodedStreamMetadata } from '../metadata/stream/MortonEncodedStreamMetadata';
+//import { MortonEncodedStreamMetadata } from '../metadata/stream/MortonEncodedStreamMetadata';
 import { IntegerDecoder } from './IntegerDecoder';
 import { IntWrapper } from './IntWrapper';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
@@ -15,7 +15,7 @@ export class GeometryDecoder {
         let numParts = null;
         let numRings = null;
         let vertexOffsets = null;
-        const mortonVertexBuffer = null;
+        //const mortonVertexBuffer = null;
         let vertexList = [];
         for(let i = 0; i < numStreams - 1; i++) {
             const geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
@@ -228,11 +228,6 @@ export class GeometryDecoder {
         return geometryFactory.createLinearRing(linearRing);
     }
 
-    private static decodeMortonDictionaryEncodedLinearRing(vertexBuffer: number[], vertexOffsets: number[], vertexOffset: number, numVertices: number, geometryFactory: GeometryFactory, mortonSettings: MortonSettings): LinearRing {
-        const linearRing = this.decodeMortonDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, true, mortonSettings);
-        return geometryFactory.createLinearRing(linearRing);
-    }
-
     private static getLineString(vertexBuffer: number[], startIndex: number, numVertices: number, closeLineString: boolean): Coordinate[] {
         const vertices: Coordinate[] = new Array(closeLineString ? numVertices + 1 : numVertices);
         for (let i = 0; i < numVertices * 2; i += 2) {
@@ -262,20 +257,6 @@ export class GeometryDecoder {
         return vertices;
     }
 
-    private static decodeMortonDictionaryEncodedLineString(vertexBuffer: number[], vertexOffsets: number[], vertexOffset: number, numVertices: number, closeLineString: boolean, mortonSettings: MortonSettings): Coordinate[] {
-        const vertices: Coordinate[] = new Array(closeLineString ? numVertices + 1 : numVertices);
-        for (let i = 0; i < numVertices; i++) {
-        const offset = vertexOffsets[vertexOffset + i];
-        const mortonEncodedVertex = vertexBuffer[offset];
-        const vertex = ZOrderCurve.decode(mortonEncodedVertex, mortonSettings.numBits, mortonSettings.coordinateShift);
-        vertices[i] = new Coordinate(vertex[0], vertex[1]);
-        }
-        if (closeLineString) {
-        vertices[vertices.length - 1] = vertices[0];
-        }
-
-        return vertices;
-    }
 }
 
 
@@ -343,16 +324,5 @@ export enum GeometryType {
     POLYGON,
     MULTILINESTRING,
     MULTIPOLYGON
-}
-
-export interface MortonSettings {
-    numBits: number;
-    coordinateShift: number;
-}
-
-export class ZOrderCurve {
-static decode(mortonEncodedVertex: number, numBits: number, coordinateShift: number): [number, number] {
-    // Implementation of ZOrderCurve decoding
-    return [0, 0]; // Placeholder
 }
 }
