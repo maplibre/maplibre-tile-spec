@@ -1,10 +1,6 @@
 import { IntWrapper } from './IntWrapper';
-// import { FsstEncoder } from 'converter/encodings/fsst/FsstEncoder';
-import { StreamMetadata } from '../metadata/stream/StreamMetadata';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { FeatureTableSchema, TileSetMetadata } from "../../../src/decoder/mlt_tileset_metadata_pb";
 import { IntegerDecoder } from './IntegerDecoder';
-import { DecodingUtils } from './DecodingUtils';
 
 export class StringDecoder {
 
@@ -20,8 +16,9 @@ export class StringDecoder {
         presentStream: Uint8Array, numValues: number) {
         let dictionaryLengthStream: number[] = null;
         let offsetStream: number[] = null;
-        let dataStream: Uint8Array = null;
+        //const dataStream: Uint8Array = null;
         let dictionaryStream: Uint8Array = null;
+        /* eslint-disable @typescript-eslint/no-unused-vars */
         let symbolLengthStream: number[] = null;
         let symbolTableStream: Uint8Array = null;
 
@@ -55,14 +52,11 @@ export class StringDecoder {
         }
 
         if (symbolTableStream) {
-            // const utf8Values = FsstEncoder.decode(symbolTableStream, new Int32Array(symbolLengthStream), dictionaryStream);
-            // return this.decodeDictionary(presentStream, dictionaryLengthStream, utf8Values, offsetStream, numValues);
-            throw new Error("Not implemented.");
+            throw new Error("TODO: FSST decoding for strings is not yet implemented");
         } else if (dictionaryStream) {
             return this.decodeDictionary(presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, numValues);
         } else {
-            throw new Error("Not implemented.");
-            // return this.decodePlain(presentStream, dictionaryLengthStream, dataStream, numValues);
+            throw new Error("TODO: plain decoding for strings is not yet implemented");
         }
     }
 
@@ -72,9 +66,9 @@ export class StringDecoder {
     ): string[] {
         const dictionary: string[] = [];
         let dictionaryOffset = 0;
-
+        const decoder = new TextDecoder("utf-8");
         for (const length of lengthStream) {
-            const value = new TextDecoder("utf-8").decode(utf8Values.slice(dictionaryOffset, dictionaryOffset + length));
+            const value = decoder.decode(utf8Values.slice(dictionaryOffset, dictionaryOffset + length));
             dictionary.push(value);
             dictionaryOffset += length;
         }

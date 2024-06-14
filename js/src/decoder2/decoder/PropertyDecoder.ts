@@ -1,10 +1,11 @@
 import { StreamMetadata } from '../metadata/stream/StreamMetadata';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { Column, ScalarType, ScalarColumn, ComplexColumn } from "../../../src/decoder/mlt_tileset_metadata_pb";
+import { Column, ScalarType } from "../../../src/decoder/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';
 import { FloatDecoder } from './FloatDecoder';
+import { DoubleDecoder } from './DoubleDecoder';
 import { StringDecoder } from './StringDecoder';
 
 class PropertyDecoder {
@@ -49,6 +50,17 @@ class PropertyDecoder {
                 case ScalarType.INT_32: {
                     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
                     const dataStream = IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, true);
+                    const values: (number | null)[] = new Array(presentStreamMetadata.numValues());
+                    let counter = 0;
+                    for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
+                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        values[i] = value;
+                    }
+                    return values;
+                }
+                case ScalarType.DOUBLE: {
+                    const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+                    const dataStream = DoubleDecoder.decodeDoubleStream(data, offset, dataStreamMetadata);
                     const values: (number | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {

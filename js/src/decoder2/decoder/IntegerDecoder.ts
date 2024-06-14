@@ -11,13 +11,13 @@ class IntegerDecoder {
     public static decodeMortonStream(data: Uint8Array, offset: IntWrapper, streamMetadata: MortonEncodedStreamMetadata): number[] {
         let values: number[];
         if (streamMetadata.physicalLevelTechnique() === PhysicalLevelTechnique.FAST_PFOR) {
-            throw new Error("Specified physical level technique not yet supported.");
+            throw new Error("Specified physical level technique not yet supported: " + streamMetadata.physicalLevelTechnique());
             // TODO
             //values = DecodingUtils.decodeFastPfor128(data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
         } else if (streamMetadata.physicalLevelTechnique() === PhysicalLevelTechnique.VARINT) {
             values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
         } else {
-            throw new Error("Specified physical level technique not yet supported.");
+            throw new Error("Specified physical level technique not yet supported: " + streamMetadata.physicalLevelTechnique());
         }
 
         return this.decodeMortonDelta(values, streamMetadata.numBits(), streamMetadata.coordinateShift());
@@ -61,13 +61,13 @@ class IntegerDecoder {
     public static decodeIntStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean): number[] {
         let values: number[];
         if (streamMetadata.physicalLevelTechnique() === PhysicalLevelTechnique.FAST_PFOR) {
-            throw new Error("Specified physical level technique not yet supported.");
+            throw new Error("Specified physical level technique not yet supported: " + streamMetadata.physicalLevelTechnique());
             // TODO
             //values = DecodingUtils.decodeFastPfor128(data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
         } else if (streamMetadata.physicalLevelTechnique() === PhysicalLevelTechnique.VARINT) {
             values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
         } else {
-            throw new Error("Specified physical level technique not yet supported.");
+            throw new Error("Specified physical level technique not yet supported: " + streamMetadata.physicalLevelTechnique());
         }
 
         const decodedValues = this.decodeIntArray(values, streamMetadata.logicalLevelTechnique2(), streamMetadata, isSigned, false);
@@ -90,6 +90,10 @@ class IntegerDecoder {
             case LogicalLevelTechnique.MORTON: {
                 const mortonMetadata = streamMetadata as MortonEncodedStreamMetadata;
                 return this.decodeMortonCodes(values, mortonMetadata.numBits(), mortonMetadata.coordinateShift());
+            }
+            case LogicalLevelTechnique.COMPONENTWISE_DELTA: {
+                DecodingUtils.decodeComponentwiseDeltaVec2(values);
+                return values;
             }
             default:
                 throw new Error("The specified logical level technique is not supported for integers: " + logicalLevelTechnique);
