@@ -3,13 +3,13 @@ package com.mlt.converter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.mlt.TestSettings;
 import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.decoder.MltDecoder;
 import com.mlt.decoder.MltDecoderTest;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
-import com.mlt.test.constants.TestConstants;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class MltConverterTest {
-  ;
 
   @Test
   @Disabled
@@ -71,7 +70,7 @@ public class MltConverterTest {
             .collect(Collectors.toList());
 
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var mapping = new ColumnMapping("name", ":", true);
@@ -90,7 +89,6 @@ public class MltConverterTest {
               .filter(f -> f.getName().equals("id"))
               .findFirst()
               .get();
-      System.out.println(mvtLayer.name());
       var expectedIdDataType =
           mvtLayer.name().equals("place")
               ? MltTilesetMetadata.ScalarType.UINT_64
@@ -141,7 +139,7 @@ public class MltConverterTest {
   @Disabled
   public void convert_AmazonRandomZLevels_ValidMLtTile() throws IOException {
     var tiles =
-        Stream.of(new File(TestConstants.AMZ_HERE_MVT_PATH).listFiles())
+        Stream.of(new File(TestSettings.AMZ_HERE_MVT_PATH).listFiles())
             .filter(file -> !file.isDirectory())
             .map(File::getAbsoluteFile)
             .collect(Collectors.toSet());
@@ -160,7 +158,7 @@ public class MltConverterTest {
   // nested property columns.
   public void convert_OmtRandomZLevels_ValidMLtTile() throws IOException {
     var tiles =
-        Stream.of(new File(TestConstants.OMT_MVT_PATH).listFiles())
+        Stream.of(new File(TestSettings.OMT_MVT_PATH).listFiles())
             .filter(file -> !file.isDirectory())
             .map(File::getAbsoluteFile)
             .collect(Collectors.toSet());
@@ -206,12 +204,12 @@ public class MltConverterTest {
   public void shared_delta_dictionary() throws IOException {
     var tileId = String.format("%s_%s_%s", 4, 8, 10);
     // var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt" );
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, "5_a" + ".pbf");
+    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, "5_a" + ".pbf");
     // var mvTile = Files.readAllBytes(mvtFilePath);
     var decodedMvTile = MvtUtils.decodeMvt(mvtFilePath);
     // var tileId2 = String.format("%s_%s_%s", 5, 16, 20);
     // var mvtFilePath2 = Paths.get(TestConstants.OMT_MVT_PATH, tileId2 + ".mvt" );
-    var mvtFilePath2 = Paths.get(TestConstants.OMT_MVT_PATH, "11_b" + ".pbf");
+    var mvtFilePath2 = Paths.get(TestSettings.OMT_MVT_PATH, "11_b" + ".pbf");
     // var mvTile2 = Files.readAllBytes(mvtFilePath2);
     var decodedMvTile2 = MvtUtils.decodeMvt(mvtFilePath2);
     System.out.println("test");
@@ -289,7 +287,7 @@ public class MltConverterTest {
   }
 
   private static void runOmtTest(String tileId) throws IOException {
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
@@ -322,7 +320,7 @@ public class MltConverterTest {
     for (var x = minX; x <= maxX; x++) {
       for (var y = minY; y <= maxY; y++) {
         var tileId = String.format("%s_%s_%s", zoom, x, y);
-        var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+        var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
         var mvTile = Files.readAllBytes(mvtFilePath);
         var decodedMvTile = MvtUtils.decodeMvt(mvtFilePath);
 
@@ -440,9 +438,9 @@ public class MltConverterTest {
 
   private double runBingTest(String tileId) throws IOException {
     System.out.println(tileId + " ------------------------------------------");
-    var mvtFilePath = Paths.get(TestConstants.BING_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(TestSettings.BING_MVT_PATH, tileId + ".mvt");
     var mvTile = Files.readAllBytes(mvtFilePath);
-    var decodedMvTile = MvtUtils.decodeMvt(Paths.get(TestConstants.BING_MVT_PATH, tileId + ".mvt"));
+    var decodedMvTile = MvtUtils.decodeMvt(Paths.get(TestSettings.BING_MVT_PATH, tileId + ".mvt"));
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = Optional.of(List.of(columnMapping));
