@@ -9,7 +9,7 @@
     "format": "prettier --write \"**/*.ts\""
   },
   "devDependencies": {
-    "@bufbuild/buf": "^1.32.2",
+    "@bufbuild/buf": "^1.33.0",
     "@bufbuild/protoc-gen-es": "^1.10.0",
     "@types/benchmark": "^2.1.2",
     "@types/jest": "^29.5.2",
