@@ -29,10 +29,11 @@ public class VectorizedFloatDecoder {
             .asFloatBuffer();
     offset.add(streamMetadata.byteLength());
 
+    floatBuffer.position(0);
     var nullableFloatBuffer = new float[nullabilityBuffer.size()];
     for (var i = 0; i < nullabilityBuffer.size(); i++) {
       // TODO: or use Float.NaN -> check performance
-      nullableFloatBuffer[i] = nullabilityBuffer.get(i) ? floatBuffer.get(i) : 0;
+      nullableFloatBuffer[i] = nullabilityBuffer.get(i) ? floatBuffer.get() : 0;
     }
 
     return FloatBuffer.wrap(nullableFloatBuffer);

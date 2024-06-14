@@ -24,18 +24,14 @@ public abstract class Vector<T extends Buffer, K> {
   }
 
   public Optional<K> getValue(int index) {
-    if (this.nullabilityBuffer.isPresent() && !this.nullabilityBuffer.get().get(index)) {
-      return Optional.empty();
-    }
-
-    return Optional.of(getValueFromBuffer(index));
+    return (this.nullabilityBuffer.isPresent() && !this.nullabilityBuffer.get().get(index))
+        ? Optional.empty()
+        : Optional.of(getValueFromBuffer(index));
   }
 
   public int size() {
     // TODO: change StringDictionaryVector to work with this encoding
-    return this.nullabilityBuffer.isPresent()
-        ? this.nullabilityBuffer.get().size()
-        : this.dataBuffer.capacity();
+    return this.nullabilityBuffer.map(BitVector::size).orElseGet(this.dataBuffer::capacity);
   }
 
   protected abstract K getValueFromBuffer(int index);

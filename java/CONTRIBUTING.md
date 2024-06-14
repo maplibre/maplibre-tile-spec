@@ -13,4 +13,3 @@ To execute the benchmarks run the following command:
 ````bash
 ./gradlew jmh
 ````
-    
