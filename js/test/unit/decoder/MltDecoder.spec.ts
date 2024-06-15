@@ -6,11 +6,101 @@ import { TileSetMetadata } from "../../../src/metadata/mlt_tileset_metadata_pb";
 const tilesDir = "../test/fixtures";
 
 describe("MltDecoder", () => {
-    it("should decode one Bing Map based tile", async () => {
-        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "bing"));
-        const tile = tiles.find(t => t.mlt.includes('4-13-6.mlt'));
+    it("should decode one tile with one point", async () => {
+        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
+        const tile = tiles.find(t => t.mlt.includes('/point-boolean.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(mltMetadata);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
+        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
+        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        expect(decoded).toBeDefined();
+        expect(decoded.layers.length).toEqual(1);
+        expect(decoded.layers[0].features.length).toEqual(1);
+        expect(decoded.layers[0].features[0].properties).toEqual({"key": true});
+        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual([25, 17]);
+        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": [25, 17], "type": "Point"});
+    });
+
+    it("should decode one tile with one line", async () => {
+        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
+        const tile = tiles.find(t => t.mlt.includes('/line-boolean.mlt'));
+        const mltTile = fs.readFileSync(tile.mlt);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
+        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
+        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        expect(decoded).toBeDefined();
+        expect(decoded.layers.length).toEqual(1);
+        expect(decoded.layers[0].features.length).toEqual(1);
+        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual([ [ 2, 2 ], [ 2, 10 ], [ 10, 10 ] ]);
+        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": [ [ 2, 2 ], [ 2, 10 ], [ 10, 10 ] ], "type": "LineString"});
+    });
+
+    it("should decode one tile with one polygon", async () => {
+        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
+        const tile = tiles.find(t => t.mlt.includes('/polygon-boolean.mlt'));
+        const mltTile = fs.readFileSync(tile.mlt);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
+        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
+        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        expect(decoded).toBeDefined();
+        expect(decoded.layers.length).toEqual(1);
+        expect(decoded.layers[0].features.length).toEqual(1);
+        const coords = [ [ [ 3, 6 ], [ 8, 12 ], [ 20, 34 ], [ 3, 6 ] ] ];
+        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
+        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "Polygon"});
+    });
+
+    it("should decode one tile with one multi-point", async () => {
+        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
+        const tile = tiles.find(t => t.mlt.includes('/multipoint-boolean.mlt'));
+        const mltTile = fs.readFileSync(tile.mlt);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
+        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
+        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        expect(decoded).toBeDefined();
+        expect(decoded.layers.length).toEqual(1);
+        expect(decoded.layers[0].features.length).toEqual(1);
+        const coords = [ [ 5, 7 ], [ 3, 2 ] ];
+        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
+        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "MultiPoint"});
+    });
+
+    it("should decode one tile with one multi-line", async () => {
+        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
+        const tile = tiles.find(t => t.mlt.includes('/multiline-boolean.mlt'));
+        const mltTile = fs.readFileSync(tile.mlt);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
+        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
+        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        expect(decoded).toBeDefined();
+        expect(decoded.layers.length).toEqual(1);
+        expect(decoded.layers[0].features.length).toEqual(1);
+        const coords = [ [ [ 2, 2 ], [ 2, 10 ], [ 10, 10 ] ], [ [ 1, 1 ], [ 3, 5 ] ] ];
+        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
+        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "MultiLineString"});
+    });
+
+    it("should decode one tile with one multi-polygon", async () => {
+        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
+        const tile = tiles.find(t => t.mlt.includes('/multipolygon-boolean.mlt'));
+        const mltTile = fs.readFileSync(tile.mlt);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
+        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
+        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        expect(decoded).toBeDefined();
+        expect(decoded.layers.length).toEqual(1);
+        expect(decoded.layers[0].features.length).toEqual(1);
+        const coords = [[[[0,0],[10,0],[10,10],[0,10],[0,0]]],[[[11,11],[20,11],[20,20],[11,20],[11,11]],[[13,13],[13,17],[17,17],[17,13],[13,13]]]];
+        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
+        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "MultiPolygon"});
+    });
+
+
+    it("should decode one Bing Map based tile", async () => {
+        const { tiles } = getTiles(Path.join(tilesDir, "bing"));
+        const tile = tiles.find(t => t.mlt.includes('/4-13-6.mlt'));
+        const mltTile = fs.readFileSync(tile.mlt);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
         const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
         expect(decoded).toBeDefined();
@@ -49,11 +139,11 @@ describe("MltDecoder", () => {
     });
 
     it("should decode one OMT based tile", async () => {
-        const { mltMetadata, tiles } = getTiles(Path.join(tilesDir, "omt"));
-        const tile = tiles.find(t => t.mlt.includes('2_2_2.mlt'));
+        const { tiles } =  getTiles(Path.join(tilesDir, "omt"));
+        const tile = tiles.find(t => t.mlt.includes('/2_2_2.mlt'));
 
         const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(mltMetadata);
+        const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
         const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
         expect(decoded).toBeDefined();
@@ -80,20 +170,20 @@ describe("MltDecoder", () => {
 
 });
 
-function getTiles(dir: string): { mltMetadata: string; tiles: { mvt: string; mlt: string }[] } {
+function getTiles(dir: string): { tiles: { mvt: string; meta: string; mlt: string }[] } {
     const mltDir = dir.replace('fixtures', 'expected');
 
     return {
-        mltMetadata: Path.join(mltDir, 'mltmetadata.pbf'),
         tiles: fs.readdirSync(dir)
             .filter(file => file.endsWith('.mvt') || file.endsWith('.pbf'))
-            .map((mvtFilename) : { mvt: string; mlt: string } => {
+            .map((mvtFilename) : { mvt: string; meta: string; mlt: string } => {
                 const mvt = Path.join(dir, mvtFilename);
 
                 const mltFilename = mvtFilename.replace(/\.(pbf|mvt)$/,'.mlt');
                 const mlt = Path.join(mltDir, mltFilename);
 
-                return { mlt, mvt };
+                const meta = mlt.replace('.advanced','') + '.meta.pbf';
+                return { mlt, meta, mvt };
             })
     };
 }
