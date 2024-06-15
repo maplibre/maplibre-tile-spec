@@ -8,7 +8,7 @@ const tilesDir = "../test/fixtures";
 describe("MltDecoder", () => {
     it("should decode one tile with one point", async () => {
         const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.includes('/point-boolean.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/point-boolean.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -23,7 +23,7 @@ describe("MltDecoder", () => {
 
     it("should decode one tile with one line", async () => {
         const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.includes('/line-boolean.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/line-boolean.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -37,7 +37,7 @@ describe("MltDecoder", () => {
 
     it("should decode one tile with one polygon", async () => {
         const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.includes('/polygon-boolean.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/polygon-boolean.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -52,7 +52,7 @@ describe("MltDecoder", () => {
 
     it("should decode one tile with one multi-point", async () => {
         const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.includes('/multipoint-boolean.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/multipoint-boolean.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -67,7 +67,7 @@ describe("MltDecoder", () => {
 
     it("should decode one tile with one multi-line", async () => {
         const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.includes('/multiline-boolean.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/multiline-boolean.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -82,7 +82,7 @@ describe("MltDecoder", () => {
 
     it("should decode one tile with one multi-polygon", async () => {
         const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.includes('/multipolygon-boolean.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/multipolygon-boolean.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -98,7 +98,7 @@ describe("MltDecoder", () => {
 
     it("should decode one Bing Map based tile", async () => {
         const { tiles } = getTiles(Path.join(tilesDir, "bing"));
-        const tile = tiles.find(t => t.mlt.includes('/4-13-6.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/4-13-6.mlt'));
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -140,7 +140,7 @@ describe("MltDecoder", () => {
 
     it("should decode one OMT based tile", async () => {
         const { tiles } =  getTiles(Path.join(tilesDir, "omt"));
-        const tile = tiles.find(t => t.mlt.includes('/2_2_2.mlt'));
+        const tile = tiles.find(t => t.mlt.endsWith('/2_2_2.mlt'));
 
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
