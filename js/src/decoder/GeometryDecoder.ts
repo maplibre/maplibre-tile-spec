@@ -6,7 +6,7 @@ import { IntegerDecoder } from './IntegerDecoder';
 import { IntWrapper } from './IntWrapper';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
 import { PhysicalLevelTechnique } from '../metadata/stream/PhysicalLevelTechnique';
-import { Geometry, Coordinate, GeometryType, Point, LineString, Polygon, LinearRing } from '../data/Geometry';
+import { Geometry, GeometryFactory, Coordinate, GeometryType, Point, LineString, Polygon, LinearRing } from '../data/Geometry';
 
 export class GeometryDecoder {
     public static decodeGeometryColumn(tile: Uint8Array, numStreams: number, offset: IntWrapper): GeometryColumn {
@@ -77,19 +77,20 @@ export class GeometryDecoder {
         const geometryOffsets = geometryColumn.numGeometries;
         const partOffsets = geometryColumn.numParts;
         if (partOffsets)  {
+            // TODO: currently needed to unbreak polygon decoding of 2_2_2.mlt
             for (let i = 0; i < partOffsets.length; i++) {
-                if (!partOffsets[i]) {
-                    //console.log("Warning: Part offset is empty, setting to 1.");
+                if (partOffsets[i] === undefined) {
+                    // console.log("Warning: Part offset is empty, setting to 1.");
                     partOffsets[i] = 1;
                 }
             }
         }
         const ringOffsets = geometryColumn.numRings;
         if (ringOffsets) {
-            // TODO: currently needed to unbreak multi-polygon decoding
+            // TODO: currently needed to unbreak multi-polygon simple decoding
             for (let i = 0; i < ringOffsets.length; i++) {
-                if (!ringOffsets[i]) {
-                    //console.log("Warning: Ring offset is empty, setting to 1.");
+                if (ringOffsets[i] === undefined) {
+                    // console.log("Warning: Ring offset is empty, setting to 1.");
                     ringOffsets[i] = 1;
                 }
             }
@@ -103,7 +104,7 @@ export class GeometryDecoder {
         let _geometryTypes = [];
         // TODO: currently needed to unbreak geometry handling in bing tiles
         for (let i = 0; i < geometryTypes.length; i++) {
-            if (geometryTypes[i]) {
+            if (geometryTypes[i] !== undefined) {
                 // console.log("Warning: geomType offset is empty, removing");
                 _geometryTypes.push(geometryTypes[i])
             }
@@ -303,29 +304,3 @@ export class GeometryColumn {
     }
 }
 
-export class GeometryFactory {
-    createPoint(coordinate: Coordinate): Geometry {
-        return coordinate;
-    }
-    createMultiPoint(points: Point[]): Geometry {
-        return points;
-    }
-    createLineString(vertices: Coordinate[]): Geometry {
-        return vertices;
-    }
-    createPolygon(shell: LinearRing, rings: LinearRing[]): Geometry {
-        if (rings) {
-            return [shell, rings];
-        }
-        return [shell];
-    }
-    createMultiLineString(lineStrings: LineString[]): Geometry {
-        return lineStrings;
-    }
-    createMultiPolygon(polygons: Polygon[]): Geometry {
-        return polygons;
-    }
-    createLinearRing(linearRing: Coordinate[]): LinearRing {
-        return linearRing;
-    }
-}

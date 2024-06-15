@@ -10,4 +10,11 @@ export class Feature {
         this.geometry = geometry;
         this.properties = properties;
     }
+    public toGeoJSON = () : object => {
+        return {
+            "type": "Feature",
+            "geometry": this.geometry.toGeoJSON(),
+            "properties": this.properties
+        };
+    }
 }
