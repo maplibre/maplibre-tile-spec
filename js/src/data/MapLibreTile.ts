@@ -8,7 +8,7 @@ export class MapLibreTile {
     }
 
     public toGeoJSON = () : object => {
-        let fc = { "type": "FeatureCollection", "features": []};
+        const fc = { "type": "FeatureCollection", "features": []};
         for (const layer of this.layers) {
             for (const feature of layer.features) {
                 fc.features.push(feature.toGeoJSON());

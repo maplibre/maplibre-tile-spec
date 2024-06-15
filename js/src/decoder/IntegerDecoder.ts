@@ -86,7 +86,7 @@ class IntegerDecoder {
             }
             case LogicalLevelTechnique.RLE: {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                const decodedValues = this.decodeRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
+                const decodedValues = this.decodeRLE(values, rleMetadata.runs());
                 return isSigned ? this.decodeZigZag(decodedValues) : decodedValues;
             }
             case LogicalLevelTechnique.NONE: {
@@ -128,7 +128,7 @@ class IntegerDecoder {
             }
             case LogicalLevelTechnique.RLE: {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                const decodedValues = this.decodeLongRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
+                const decodedValues = this.decodeLongRLE(values, rleMetadata.runs());
                 return isSigned ? this.decodeZigZagLong(decodedValues) : decodedValues;
             }
             case LogicalLevelTechnique.NONE: {
@@ -139,7 +139,7 @@ class IntegerDecoder {
         }
     }
 
-    private static decodeRLE(data: number[], numRuns: number, numRleValues: number): number[] {
+    private static decodeRLE(data: number[], numRuns: number): number[] {
         // Note: if this array is initialied like new Array<number>(numRleValues)
         // like the java implementation does, the array will potentially contain
         // extra uninitialized values
@@ -154,7 +154,7 @@ class IntegerDecoder {
         return values;
     }
 
-    private static decodeLongRLE(data: bigint[], numRuns: number, numRleValues: number): bigint[] {
+    private static decodeLongRLE(data: bigint[], numRuns: number): bigint[] {
         // Note: if this array is initialied like new Array<number>(numRleValues)
         // like the java implementation does, the array will potentially contain
         // extra uninitialized values

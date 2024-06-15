@@ -1,4 +1,5 @@
 export abstract class Geometry {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     coordinates: any[];
     public toGeoJSON = () : object => {
         return {};
