@@ -75,17 +75,17 @@ class MltDecoder {
     }
 
     private static convertToLayer(ids: number[], geometries, properties, metadata: FeatureTableSchema, numFeatures: number): Layer {
-        if (numFeatures != geometries.length || numFeatures != ids.length) {
-            console.log(
-                "Warning, in convertToLayer the size of ids("
-                    + ids.length
-                    + "), geometries("
-                    + geometries.length
-                    + "), and features("
-                    + numFeatures
-                    + ") are not equal for layer: "
-                    + metadata.name);
-        }
+        // if (numFeatures != geometries.length || numFeatures != ids.length) {
+        //     console.log(
+        //         "Warning, in convertToLayer the size of ids("
+        //             + ids.length
+        //             + "), geometries("
+        //             + geometries.length
+        //             + "), and features("
+        //             + numFeatures
+        //             + ") are not equal for layer: "
+        //             + metadata.name);
+        // }
         const features: Feature[] = new Array(numFeatures);
         const vals = Object.entries(properties);
         for (let j = 0; j < numFeatures; j++) {

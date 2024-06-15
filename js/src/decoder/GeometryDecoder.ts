@@ -79,7 +79,7 @@ export class GeometryDecoder {
         if (partOffsets)  {
             for (let i = 0; i < partOffsets.length; i++) {
                 if (!partOffsets[i]) {
-                    console.log("Warning: Part offset is empty, setting to 1.");
+                    //console.log("Warning: Part offset is empty, setting to 1.");
                     partOffsets[i] = 1;
                 }
             }
@@ -89,7 +89,7 @@ export class GeometryDecoder {
             // TODO: currently needed to unbreak multi-polygon decoding
             for (let i = 0; i < ringOffsets.length; i++) {
                 if (!ringOffsets[i]) {
-                    console.log("Warning: Ring offset is empty, setting to 1.");
+                    //console.log("Warning: Ring offset is empty, setting to 1.");
                     ringOffsets[i] = 1;
                 }
             }
@@ -104,7 +104,7 @@ export class GeometryDecoder {
         // TODO: currently needed to unbreak geometry handling in bing tiles
         for (let i = 0; i < geometryTypes.length; i++) {
             if (geometryTypes[i]) {
-                console.log("Warning: geomType offset is empty, removing");
+                // console.log("Warning: geomType offset is empty, removing");
                 _geometryTypes.push(geometryTypes[i])
             }
         }
