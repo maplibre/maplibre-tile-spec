@@ -134,6 +134,7 @@ public class GeometryVector implements Iterable<Geometry> {
   }
 
   public boolean containsPolygonGeometry() {
+    // TODO: get rid of this by only checking for the presence of partOffsets and ringOffsets?
     if (geometryTypes != null) {
       for (int i = 0; i < numGeometries; i++) {
         if (geometryTypes.get(i) == GeometryType.POLYGON.ordinal()
@@ -162,7 +163,7 @@ public class GeometryVector implements Iterable<Geometry> {
       @Override
       public Geometry next() {
         if (geometries == null) {
-          // TODO: implement lazy decoding
+          // TODO: implement lazy materialization
           geometries = GeometryDecoder.decodeGeometryVectorized(GeometryVector.this);
         }
         return geometries[index++];
