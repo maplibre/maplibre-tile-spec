@@ -34,17 +34,18 @@ export class LineString extends Geometry {
     }
 }
 
-// TODO: rings not quite nested correctly or closed yet
 export class Polygon extends Geometry {
     constructor(shell: LinearRing, rings: LinearRing[]) {
         super();
-        this.coordinates = [ [shell.coordinates] ];
+        this.coordinates = [shell.coordinates];
         if (rings.length > 0) {
-            this.coordinates.push([]);
-            const rings = this.coordinates[1];
+            const innerRings = [];
             for (const ring of rings) {
-                rings.push(ring.coordinates);
+                for (const coord of ring.coordinates) {
+                    innerRings.push(coord);
+                }
             }
+            this.coordinates.push(innerRings);
         }
     }
     public toGeoJSON = () : object => {
@@ -60,8 +61,7 @@ export class LinearRing extends Geometry {
         super();
         this.coordinates = [];
         for (const vertex of linearRing) {
-            this.coordinates.push(vertex.x);
-            this.coordinates.push(vertex.y);
+            this.coordinates.push([vertex.x, vertex.y]);
         }
     }
     public toGeoJSON = () : object => {
@@ -124,10 +124,6 @@ export class Coordinate {
     }
     x: number;
     y: number;
-
-    public toGeoJSON = () : object => {
-        return [ this.x, this.y] ;
-    }
 }
 
 export class GeometryFactory {
@@ -140,6 +136,9 @@ export class GeometryFactory {
     createLineString(vertices: Coordinate[]): Geometry {
         return new LineString(vertices);
     }
+    createLinearRing(linearRing: Coordinate[]): LinearRing {
+        return new LinearRing(linearRing);
+    }
     createPolygon(shell: LinearRing, rings: LinearRing[]): Geometry {
         return new Polygon(shell, rings);
     }
@@ -148,9 +147,6 @@ export class GeometryFactory {
     }
     createMultiPolygon(polygons: Polygon[]): Geometry {
         return new MultiPolygon(polygons);
-    }
-    createLinearRing(linearRing: Coordinate[]): LinearRing {
-        return new LinearRing(linearRing);
     }
 }
 

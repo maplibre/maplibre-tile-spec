@@ -140,7 +140,10 @@ class IntegerDecoder {
     }
 
     private static decodeRLE(data: number[], numRuns: number, numRleValues: number): number[] {
-        const values = new Array<number>(numRleValues);
+        // Note: if this array is initialied like new Array<number>(numRleValues)
+        // like the java implementation does, the array will potentially contain
+        // extra uninitialized values
+        const values = new Array<number>();
         for (let i = 0; i < numRuns; i++) {
             const run = data[i];
             const value = data[i + numRuns];
@@ -152,7 +155,10 @@ class IntegerDecoder {
     }
 
     private static decodeLongRLE(data: bigint[], numRuns: number, numRleValues: number): bigint[] {
-        const values = new Array<bigint>(numRleValues);
+        // Note: if this array is initialied like new Array<number>(numRleValues)
+        // like the java implementation does, the array will potentially contain
+        // extra uninitialized values
+        const values = new Array<bigint>();
         for (let i = 0; i < numRuns; i++) {
             const run = data[i];
             const value = data[i + numRuns];

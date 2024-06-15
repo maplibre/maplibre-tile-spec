@@ -76,40 +76,14 @@ export class GeometryDecoder {
         const geometryTypes = geometryColumn.geometryTypes;
         const geometryOffsets = geometryColumn.numGeometries;
         const partOffsets = geometryColumn.numParts;
-        if (partOffsets)  {
-            // TODO: currently needed to unbreak polygon decoding of 2_2_2.mlt
-            for (let i = 0; i < partOffsets.length; i++) {
-                if (partOffsets[i] === undefined) {
-                    // console.log("Warning: Part offset is empty, setting to 1.");
-                    partOffsets[i] = 1;
-                }
-            }
-        }
         const ringOffsets = geometryColumn.numRings;
-        if (ringOffsets) {
-            // TODO: currently needed to unbreak multi-polygon simple decoding
-            for (let i = 0; i < ringOffsets.length; i++) {
-                if (ringOffsets[i] === undefined) {
-                    // console.log("Warning: Ring offset is empty, setting to 1.");
-                    ringOffsets[i] = 1;
-                }
-            }
-        }
         const vertexOffsets = geometryColumn.vertexOffsets ? geometryColumn.vertexOffsets.map(i => i) : null;
         if (geometryColumn.vertexList.length === 0) {
             console.log("Warning: Vertex list is empty, skipping geometry decoding.");
             return [];
         }
         const vertexBuffer = geometryColumn.vertexList.map(i => i);
-        let _geometryTypes = [];
-        // TODO: currently needed to unbreak geometry handling in bing tiles
-        for (let i = 0; i < geometryTypes.length; i++) {
-            if (geometryTypes[i] !== undefined) {
-                // console.log("Warning: geomType offset is empty, removing");
-                _geometryTypes.push(geometryTypes[i])
-            }
-        }
-        for (const geometryTypeNum of _geometryTypes) {
+        for (const geometryTypeNum of geometryTypes) {
             const geometryType = geometryTypeNum as GeometryType;
             if (geometryType === GeometryType.POINT) {
                 if (!vertexOffsets || vertexOffsets.length === 0) {
@@ -206,9 +180,7 @@ export class GeometryDecoder {
                 if (!vertexOffsets || vertexOffsets.length === 0) {
                     for (let i = 0; i < numPolygons; i++) {
                         const numRings = partOffsets[partOffsetCounter++];
-                        // TODO: currently needed to unbreak multi-polygon decoding
-                        // const rings: LinearRing[] = new Array(numRings - 1);
-                        const rings: LinearRing[] = new Array(numRings);
+                        const rings: LinearRing[] = new Array(numRings - 1);
                         const numVertices = ringOffsets[ringOffsetsCounter++];
                         const shell = this.getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
                         vertexBufferOffset += numVertices * 2;
