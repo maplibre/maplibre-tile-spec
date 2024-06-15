@@ -32,7 +32,6 @@ public class GeometryDecoder {
     List<Integer> numParts = null;
     List<Integer> numRings = null;
     List<Integer> vertexOffsets = null;
-    List<Integer> mortonVertexBuffer = null;
     List<Integer> vertexList = null;
     for (var i = 0; i < numStreams - 1; i++) {
       var geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
@@ -109,6 +108,12 @@ public class GeometryDecoder {
 
     var vertexBuffer = geometryColumn.vertexList.stream().mapToInt(i -> i).toArray();
 
+    var containsPolygon =
+        geometryColumn.geometryTypes.stream()
+            .anyMatch(
+                g ->
+                    g == GeometryType.POLYGON.ordinal()
+                        || g == GeometryType.MULTIPOLYGON.ordinal());
     // TODO: refactor redundant code
     for (var geometryType : geometryTypes) {
       if (geometryType.equals(GeometryType.POINT.ordinal())) {
@@ -146,17 +151,21 @@ public class GeometryDecoder {
           geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
         }
       } else if (geometryType.equals(GeometryType.LINESTRING.ordinal())) {
+        var numVertices =
+            containsPolygon
+                ? ringOffsets.get(ringOffsetsCounter++)
+                : partOffsets.get(partOffsetCounter++);
+
         if (vertexOffsets == null || vertexOffsets.length == 0) {
-          var numVertices = partOffsets.get(partOffsetCounter++);
           var vertices = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
           vertexBufferOffset += numVertices * 2;
           geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
         } else {
-          var numVertices = partOffsets.get(partOffsetCounter++);
           var vertices =
               decodeDictionaryEncodedLineString(
                   vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
           vertexOffsetsOffset += numVertices;
+
           geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
         }
       } else if (geometryType.equals(GeometryType.POLYGON.ordinal())) {
@@ -193,7 +202,11 @@ public class GeometryDecoder {
         var lineStrings = new LineString[numLineStrings];
         if (vertexOffsets == null || vertexOffsets.length == 0) {
           for (var i = 0; i < numLineStrings; i++) {
-            var numVertices = partOffsets.get(partOffsetCounter++);
+            var numVertices =
+                containsPolygon
+                    ? ringOffsets.get(ringOffsetsCounter++)
+                    : partOffsets.get(partOffsetCounter++);
+
             var vertices = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
             lineStrings[i] = geometryFactory.createLineString(vertices);
             vertexBufferOffset += numVertices * 2;
@@ -201,7 +214,11 @@ public class GeometryDecoder {
           geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
         } else {
           for (var i = 0; i < numLineStrings; i++) {
-            var numVertices = partOffsets.get(partOffsetCounter++);
+            var numVertices =
+                containsPolygon
+                    ? ringOffsets.get(ringOffsetsCounter++)
+                    : partOffsets.get(partOffsetCounter++);
+
             var vertices =
                 decodeDictionaryEncodedLineString(
                     vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
@@ -275,8 +292,7 @@ public class GeometryDecoder {
     var vertexBufferOffset = 0;
     var vertexOffsetsOffset = 0;
 
-    GeometryVector.MortonSettings mortonSettings =
-        geometryVector.mortonSettings.isPresent() ? geometryVector.mortonSettings.get() : null;
+    GeometryVector.MortonSettings mortonSettings = geometryVector.mortonSettings.orElse(null);
     var topologyVector = geometryVector.topologyVector;
     var geometryOffsets = topologyVector.geometryOffsets();
     var partOffsets = topologyVector.partOffsets();
@@ -362,7 +378,7 @@ public class GeometryDecoder {
           vertices = getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
           vertexBufferOffset += numVertices * 2;
         } else {
-          /** Currently only 2D coordinates are supported in this implementation */
+          /* Currently only 2D coordinates are supported in this implementation */
           vertices =
               geometryVector.vertexBufferType == GeometryVector.VertexBufferType.VEC_2
                   ? decodeDictionaryEncodedLineString(
