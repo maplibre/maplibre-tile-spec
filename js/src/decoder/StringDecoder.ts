@@ -48,6 +48,9 @@ export class StringDecoder {
                     }
                     break;
                 }
+                default:
+                    console.log("StringDecoder encountered unknown stream type: " + streamMetadata.physicalStreamType());
+                    return;
             }
         }
 

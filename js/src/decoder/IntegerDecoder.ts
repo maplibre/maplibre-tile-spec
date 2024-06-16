@@ -69,23 +69,28 @@ class IntegerDecoder {
         } else {
             throw new Error("Specified physical level technique not yet supported: " + streamMetadata.physicalLevelTechnique());
         }
-
-        const decodedValues = this.decodeIntArray(values, streamMetadata.logicalLevelTechnique2(), streamMetadata, isSigned, false);
-        return this.decodeIntArray(decodedValues, streamMetadata.logicalLevelTechnique1(), streamMetadata, isSigned, true);
+        return this.decodeIntArray(values, streamMetadata, isSigned);
     }
 
-    private static decodeIntArray(values: number[], logicalLevelTechnique: LogicalLevelTechnique, streamMetadata: StreamMetadata, isSigned: boolean, isSecondPass: boolean): number[] {
-        switch (logicalLevelTechnique) {
+    private static decodeIntArray(values: number[], streamMetadata: StreamMetadata, isSigned: boolean): number[] {
+        switch (streamMetadata.logicalLevelTechnique1()) {
+            case LogicalLevelTechnique.DELTA: {
+                if (streamMetadata.logicalLevelTechnique2() === LogicalLevelTechnique.RLE) {
+                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                    values =
+                        DecodingUtils.decodeUnsignedRLE(
+                            values, rleMetadata.runs(), rleMetadata.numRleValues());
+                    return this.decodeZigZagDelta(values);
+                }
+                return this.decodeZigZagDelta(values);
+            }
             case LogicalLevelTechnique.RLE: {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                const decodedValues = this.decodeRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
-                return isSigned && !isSecondPass ? this.decodeZigZag(decodedValues) : decodedValues;
-            }
-            case LogicalLevelTechnique.DELTA: {
-                return isSecondPass && isSigned ? this.decodeDelta(values) : this.decodeZigZagDelta(values);
+                const decodedValues = this.decodeRLE(values, rleMetadata.runs());
+                return isSigned ? this.decodeZigZag(decodedValues) : decodedValues;
             }
             case LogicalLevelTechnique.NONE: {
-                return isSigned && !isSecondPass ? this.decodeZigZag(values) : values;
+                return isSigned ? this.decodeZigZag(values) : values;
             }
             case LogicalLevelTechnique.MORTON: {
                 const mortonMetadata = streamMetadata as MortonEncodedStreamMetadata;
@@ -96,7 +101,7 @@ class IntegerDecoder {
                 return values;
             }
             default:
-                throw new Error("The specified logical level technique is not supported for integers: " + logicalLevelTechnique);
+                throw new Error("The specified logical level technique is not supported for integers: " + streamMetadata.logicalLevelTechnique1());
         }
     }
 
@@ -106,30 +111,39 @@ class IntegerDecoder {
         }
 
         const values = DecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
-        const decodedValues = this.decodeLongArray(values, streamMetadata.logicalLevelTechnique1(), streamMetadata, isSigned);
-        return this.decodeLongArray(decodedValues, streamMetadata.logicalLevelTechnique2(), streamMetadata, isSigned);
+        return this.decodeLongArray(values, streamMetadata, isSigned);
     }
 
-    private static decodeLongArray(values: bigint[], logicalLevelTechnique: LogicalLevelTechnique, streamMetadata: StreamMetadata, isSigned: boolean): bigint[] {
-        switch (logicalLevelTechnique) {
-            case LogicalLevelTechnique.RLE: {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                const decodedValues = this.decodeLongRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
-                return isSigned ? this.decodeZigZagLong(decodedValues) : decodedValues;
-            }
+    private static decodeLongArray(values: bigint[], streamMetadata: StreamMetadata, isSigned: boolean): bigint[] {
+        switch (streamMetadata.logicalLevelTechnique1()) {
             case LogicalLevelTechnique.DELTA: {
+                if (streamMetadata.logicalLevelTechnique2() === LogicalLevelTechnique.RLE) {
+                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                    values =
+                        DecodingUtils.decodeUnsignedRLELong(
+                            values, rleMetadata.runs(), rleMetadata.numRleValues());
+                    return this.decodeLongZigZagDelta(values);
+                }
                 return this.decodeLongZigZagDelta(values);
             }
+            case LogicalLevelTechnique.RLE: {
+                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                const decodedValues = this.decodeLongRLE(values, rleMetadata.runs());
+                return isSigned ? this.decodeZigZagLong(decodedValues) : decodedValues;
+            }
             case LogicalLevelTechnique.NONE: {
-                return values;
+                return isSigned ? this.decodeZigZagLong(values) : values;
             }
             default:
-                throw new Error("The specified logical level technique is not supported for integers: " + logicalLevelTechnique);
+                throw new Error("The specified logical level technique is not supported for integers: " + streamMetadata.logicalLevelTechnique1());
         }
     }
 
-    private static decodeRLE(data: number[], numRuns: number, numRleValues: number): number[] {
-        const values = new Array<number>(numRleValues);
+    private static decodeRLE(data: number[], numRuns: number): number[] {
+        // Note: if this array is initialied like new Array<number>(numRleValues)
+        // like the java implementation does, the array will potentially contain
+        // extra uninitialized values
+        const values = new Array<number>();
         for (let i = 0; i < numRuns; i++) {
             const run = data[i];
             const value = data[i + numRuns];
@@ -140,8 +154,11 @@ class IntegerDecoder {
         return values;
     }
 
-    private static decodeLongRLE(data: bigint[], numRuns: number, numRleValues: number): bigint[] {
-        const values = new Array<bigint>(numRleValues);
+    private static decodeLongRLE(data: bigint[], numRuns: number): bigint[] {
+        // Note: if this array is initialied like new Array<number>(numRleValues)
+        // like the java implementation does, the array will potentially contain
+        // extra uninitialized values
+        const values = new Array<bigint>();
         for (let i = 0; i < numRuns; i++) {
             const run = data[i];
             const value = data[i + numRuns];
