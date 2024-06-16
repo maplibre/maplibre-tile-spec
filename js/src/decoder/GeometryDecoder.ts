@@ -83,6 +83,9 @@ export class GeometryDecoder {
             return [];
         }
         const vertexBuffer = geometryColumn.vertexList.map(i => i);
+
+        const containsPolygon = geometryTypes.includes(
+                GeometryType.POLYGON) || geometryTypes.includes(GeometryType.MULTIPOLYGON);
         for (const geometryTypeNum of geometryTypes) {
             const geometryType = geometryTypeNum as GeometryType;
             if (geometryType === GeometryType.POINT) {
@@ -120,13 +123,14 @@ export class GeometryDecoder {
                     geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
                 }
             } else if (geometryType === GeometryType.LINESTRING) {
+                const numVertices = containsPolygon
+                    ? ringOffsets[ringOffsetsCounter++]
+                    : partOffsets[partOffsetCounter++];
                 if (!vertexOffsets || vertexOffsets.length === 0) {
-                    const numVertices = partOffsets[partOffsetCounter++];
                     const vertices = this.getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                     vertexBufferOffset += numVertices * 2;
                     geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
                 } else {
-                    const numVertices = partOffsets[partOffsetCounter++];
                     const vertices = this.decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
                     vertexOffsetsOffset += numVertices;
                     geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
@@ -159,7 +163,8 @@ export class GeometryDecoder {
                 const lineStrings: LineString[] = new Array(numLineStrings);
                 if (!vertexOffsets || vertexOffsets.length === 0) {
                     for (let i = 0; i < numLineStrings; i++) {
-                        const numVertices = partOffsets[partOffsetCounter++];
+                        const numVertices = containsPolygon
+                            ? ringOffsets[ringOffsetsCounter++] : partOffsets[partOffsetCounter++];
                         const vertices = this.getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                         lineStrings[i] = geometryFactory.createLineString(vertices);
                         vertexBufferOffset += numVertices * 2;
@@ -167,7 +172,8 @@ export class GeometryDecoder {
                     geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
                 } else {
                     for (let i = 0; i < numLineStrings; i++) {
-                        const numVertices = partOffsets[partOffsetCounter++];
+                        const numVertices = containsPolygon
+                            ? ringOffsets[ringOffsetsCounter++] : partOffsets[partOffsetCounter++];
                         const vertices = this.decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
                         lineStrings[i] = geometryFactory.createLineString(vertices);
                         vertexOffsetsOffset += numVertices;
