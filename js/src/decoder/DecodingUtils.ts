@@ -123,6 +123,30 @@ export class DecodingUtils {
         return values;
     }
 
+    public static decodeUnsignedRLE(data: number[], numRuns: number, numTotalValues: number): number[] {
+        const values = new Array(numTotalValues);
+        let offset = 0;
+        for (let i = 0; i < numRuns; i++) {
+            const runLength = data[i];
+            const value = data[i + numRuns];
+            values.fill(value, offset, offset + runLength);
+            offset += runLength;
+        }
+        return values;
+    }
+
+    public static decodeUnsignedRLELong(data: bigint[], numRuns: number, numTotalValues: number): bigint[] {
+        const values = new Array(numTotalValues).fill(0n);
+        let offset = 0;
+        for (let i = 0; i < numRuns; i++) {
+            const runLength = data[i];
+            const value = data[i + numRuns];
+            values.fill(value, offset, offset + Number(runLength));
+            offset += Number(runLength);
+        }
+        return values;
+    }
+
     public static decodeBooleanRle(buffer: Uint8Array, numBooleans: number, byteSize: number, pos: IntWrapper): Uint8Array {
         const numBytes = Math.ceil(numBooleans / 8);
         return this.decodeByteRle(buffer, numBytes, byteSize, pos);

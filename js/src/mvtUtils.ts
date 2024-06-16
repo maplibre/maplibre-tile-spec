@@ -1,5 +1,5 @@
-const { VectorTile } = require("@mapbox/vector-tile");
-const Protobuf = require("pbf");
+import { VectorTile } from '@mapbox/vector-tile';
+import Protobuf from 'pbf';
 
 export interface MVTFeature {
     id: number;
