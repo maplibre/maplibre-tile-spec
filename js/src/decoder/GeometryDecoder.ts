@@ -116,13 +116,7 @@ export class GeometryDecoder {
         const ringOffsetsCounter = geometryCounter.ringCounter;
         const geometryOffsetsCounter = geometryCounter.geometryCounter;
         const vertexOffsetsOffset = geometryCounter.vertexOffsetsCounter;
-        // const vertexOffsets = geometryColumn.vertexOffsets ? geometryColumn.vertexOffsets.map(i => i) : [];
         const vertexOffsets = geometryColumn.vertexOffsets;
-        // if (geometryColumn.vertexList.length === 0) {
-        //     console.log("Warning: Vertex list is empty, skipping geometry decoding.");
-        //     return [];
-        // }
-        // const vertexBuffer = geometryColumn.vertexList.map(i => i);
         const vertexBuffer = geometryColumn.vertexList;
 
         if (geometryType === GeometryType.POINT) {
