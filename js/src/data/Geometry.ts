@@ -1,161 +1,146 @@
-export abstract class Geometry {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    coordinates: any[];
-    public toGeoJSON = () : object => {
-        return {};
-    }
-}
+import Point = require("@mapbox/point-geometry");
+import { project } from './Projection';
 
-export class Point extends Geometry {
-    constructor(coordinate: Coordinate) {
-        super();
-        this.coordinates = [coordinate.x, coordinate.y];
+export class LineString {
+    points : Point[];
+    constructor(points: Point[]) {
+        this.points = points;
     }
-    public toGeoJSON = () : object => {
-        return {
-            "type": "Point",
-            "coordinates": this.coordinates
-        };
-    }
-}
-
-export class LineString extends Geometry {
-    constructor(vertices: Coordinate[]) {
-        super();
-        this.coordinates = [];
-        for (const vertex of vertices) {
-            this.coordinates.push([vertex.x, vertex.y]);
-        }
-    }
-    public toGeoJSON = () : object => {
+    public toGeoJSON = (x: number, y: number, z: number) => {
         return {
             "type": "LineString",
-            "coordinates": this.coordinates
+            "coordinates": project(x, y, z, this.points)
         };
     }
-}
-
-export class Polygon extends Geometry {
-    constructor(shell: LinearRing, rings: LinearRing[]) {
-        super();
-        this.coordinates = [shell.coordinates];
-        if (rings.length > 0) {
-            const innerRings = [];
-            for (const ring of rings) {
-                for (const coord of ring.coordinates) {
-                    innerRings.push(coord);
-                }
-            }
-            this.coordinates.push(innerRings);
-        }
-    }
-    public toGeoJSON = () : object => {
-        return {
-            "type": "Polygon",
-            "coordinates": this.coordinates
-        };
+    public loadGeometry = () => {
+        return [this.points];
     }
 }
 
-export class LinearRing extends Geometry {
-    constructor(linearRing: Coordinate[]) {
-        super();
-        this.coordinates = [];
-        for (const vertex of linearRing) {
-            this.coordinates.push([vertex.x, vertex.y]);
-        }
-    }
-    public toGeoJSON = () : object => {
-        return this.coordinates;
-    }
-}
-
-export class MultiPoint extends Geometry {
+export class MultiPoint {
+    points : Point[];
     constructor(points: Point[]) {
-        super();
-        this.coordinates = [];
-        for (const point of points) {
-            this.coordinates.push(point.coordinates);
-        }
+        this.points = points;
     }
-    public toGeoJSON = () : object => {
+    public toGeoJSON = (x: number, y: number, z: number) => {
         return {
             "type": "MultiPoint",
-            "coordinates": this.coordinates
+            "coordinates": project(x, y, z, this.points)
         };
+    }
+    public loadGeometry = () => {
+        return this.points.map(p => [p]);
     }
 }
 
-export class MultiLineString extends Geometry {
-    constructor(lineStrings: LineString[]) {
-        super();
-        this.coordinates = [];
-        for (const lineString of lineStrings) {
-            this.coordinates.push(lineString.coordinates);
-        }
+export class LinearRing {
+    points : Point[];
+    constructor(points: Point[]) {
+        this.points = points;
     }
-    public toGeoJSON = () : object => {
+    public toGeoJSON = (x: number, y: number, z: number) => {
         return {
-            "type": "MultiLineString",
-            "coordinates": this.coordinates
+            "type": "LineString",
+            "coordinates": project(x, y, z, this.points)
         };
+    }
+    public loadGeometry = () => {
+        return [this.points];
     }
 }
 
-export class MultiPolygon extends Geometry {
-    constructor(polygons: Polygon[]) {
-        super();
-        this.coordinates = [];
-        for (const polygon of polygons) {
-            this.coordinates.push(polygon.coordinates);
-        }
+export class Polygon {
+    shell : LinearRing;
+    rings : LinearRing[];
+    constructor(shell: LinearRing, rings: LinearRing[]) {
+        this.shell = shell;
+        this.rings = rings;
     }
-    public toGeoJSON = () : object => {
+    public toGeoJSON = (x: number, y: number, z: number) => {
+        if (this.rings.length) {
+            throw new Error("Not implemented");
+        }
+        return {
+            "type": "Polygon",
+            "coordinates": [project(x, y, z, this.shell.points)]
+        };
+    }
+    public loadGeometry = () => {
+        if (this.rings.length) {
+            throw new Error("Not implemented");
+        }
+        return this.shell.loadGeometry();
+    }
+}
+
+export class MultiLineString {
+    lines : LineString[];
+    constructor(lineStrings: LineString[]) {
+        this.lines = lineStrings;
+    }
+    public toGeoJSON = (x: number, y: number, z: number) => {
+        throw new Error("Not implemented");
+    }
+    public loadGeometry = () => {
+        throw new Error("Not implemented");
+    }
+}
+export class MultiPolygon {
+    polygons : Polygon[];
+    constructor(polygons: Polygon[]) {
+        this.polygons = polygons;
+    }
+    public toGeoJSON = (x: number, y: number, z: number) => {
+        const polygons = [];
+        for (const polygon of this.polygons) {
+            const poly = [project(x, y, z, polygon.shell.points)];
+            if (polygon.rings.length) {
+                polygon.rings.forEach(ring => {
+                    poly.push(project(x, y, z, ring.points));
+                });
+            }
+            polygons.push(poly);
+        }
         return {
             "type": "MultiPolygon",
-            "coordinates": this.coordinates
+            "coordinates": polygons
         };
     }
-}
 
-export class Coordinate {
-    constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
+    public loadGeometry = () => {
+        const polygons = [];
+        for (const polygon of this.polygons) {
+            polygons.push(polygon.shell.points);
+            polygon.rings.forEach(ring => {
+                polygons.push(ring.points);
+            });
+        }
+        return polygons;
     }
-    x: number;
-    y: number;
 }
 
 export class GeometryFactory {
-    createPoint(coordinate: Coordinate): Geometry {
-        return new Point(coordinate);
+    createPoint(x: number, y:number) {
+        return new Point(x, y);
     }
-    createMultiPoint(points: Point[]): Geometry {
+    createMultiPoint(points: Point[]) {
         return new MultiPoint(points);
     }
-    createLineString(vertices: Coordinate[]): Geometry {
+    createLineString(vertices: Point[]) {
         return new LineString(vertices);
     }
-    createLinearRing(linearRing: Coordinate[]): LinearRing {
+    createLinearRing(linearRing: Point[]): LinearRing {
         return new LinearRing(linearRing);
     }
-    createPolygon(shell: LinearRing, rings: LinearRing[]): Geometry {
+    createPolygon(shell: LinearRing, rings: LinearRing[]) {
         return new Polygon(shell, rings);
     }
-    createMultiLineString(lineStrings: LineString[]): Geometry {
+    createMultiLineString(lineStrings: LineString[]) {
         return new MultiLineString(lineStrings);
     }
-    createMultiPolygon(polygons: Polygon[]): Geometry {
+    createMultiPolygon(polygons: Polygon[]) {
         return new MultiPolygon(polygons);
     }
 }
 
-export enum GeometryType {
-    POINT,
-    LINESTRING,
-    POLYGON,
-    MULTIPOINT,
-    MULTILINESTRING,
-    MULTIPOLYGON
-}
+
