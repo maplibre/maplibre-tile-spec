@@ -12,7 +12,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(1);
         expect(decoded.layers[0].features.length).toEqual(1);
@@ -27,7 +28,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(1);
         expect(decoded.layers[0].features.length).toEqual(1);
@@ -41,7 +43,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(1);
         expect(decoded.layers[0].features.length).toEqual(1);
@@ -56,7 +59,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(1);
         expect(decoded.layers[0].features.length).toEqual(1);
@@ -71,7 +75,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(1);
         expect(decoded.layers[0].features.length).toEqual(1);
@@ -86,7 +91,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(1);
         expect(decoded.layers[0].features.length).toEqual(1);
@@ -102,7 +108,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(9);
         // vtzero-stats reports:
@@ -145,7 +152,8 @@ describe("MltDecoder", () => {
         const mltTile = fs.readFileSync(tile.mlt);
         const mltMetadataPbf = fs.readFileSync(tile.meta);
         const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const featureTables = MltDecoder.generateFeatureTables(tilesetMetadata);
+        const decoded = MltDecoder.decodeMlTile(mltTile, featureTables);
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(5);
         // Note: these feature counts match what vtzero-stats reports
