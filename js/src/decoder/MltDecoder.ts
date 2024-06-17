@@ -43,7 +43,8 @@ class MltDecoder {
         const mltLayers: Layer[] = [];
         while (offset.get() < tile.length) {
             let ids = [];
-            let geometries = [];
+            let geometryTypes = [];
+            let geometryColumn = null;
             const properties = {};
 
             offset.increment();
@@ -78,8 +79,9 @@ class MltDecoder {
                         : IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
 
                 } else if (columnName === "geometry") {
-                    const geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
-                    geometries = GeometryDecoder.decodeGeometry(geometryColumn);
+                    const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
+                    geometryTypes = IntegerDecoder.decodeIntStream(tile, offset, geometryTypeMetadata, false);
+                    geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
                 } else {
                     const propertyColumn = PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata.type, numStreams);
                     if (propertyColumn instanceof Map) {
@@ -92,14 +94,14 @@ class MltDecoder {
                 }
             }
 
-            const layer = MltDecoder.convertToLayer(ids, geometries, properties, featureTableMeta.name, numFeatures);
+            const layer = MltDecoder.convertToLayer(ids, geometryTypes, geometryColumn, properties, featureTableMeta.name, numFeatures);
             mltLayers.push(layer);
         }
 
         return new MapLibreTile(mltLayers);
     }
 
-    private static convertToLayer(ids: number[], geometries, properties, name: string, numFeatures: number): Layer {
+    private static convertToLayer(ids: number[], geometryTypes, geometryColumn, properties, name: string, numFeatures: number): Layer {
         // if (numFeatures != geometries.length || numFeatures != ids.length) {
         //     console.log(
         //         "Warning, in convertToLayer the size of ids("
@@ -113,6 +115,7 @@ class MltDecoder {
         // }
         const features: Feature[] = new Array(numFeatures);
         const vals = Object.entries(properties);
+        const geometries = GeometryDecoder.decodeGeometries(geometryTypes, geometryColumn);
         for (let j = 0; j < numFeatures; j++) {
             /* eslint-disable @typescript-eslint/no-explicit-any */
             const p: { [key: string]: any } = {};
