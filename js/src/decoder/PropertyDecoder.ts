@@ -1,6 +1,5 @@
 import { StreamMetadata } from '../metadata/stream/StreamMetadata';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { Column, ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';
@@ -8,14 +7,25 @@ import { FloatDecoder } from './FloatDecoder';
 import { DoubleDecoder } from './DoubleDecoder';
 import { StringDecoder } from './StringDecoder';
 
+enum ScalarType {
+    BOOLEAN = 0,
+    INT_8 = 1,
+    UINT_8 = 2,
+    INT_32 = 3,
+    UINT_32 = 4,
+    INT_64 = 5,
+    UINT_64 = 6,
+    FLOAT = 7,
+    DOUBLE = 8,
+    STRING = 9
+}
+
 class PropertyDecoder {
 
-    public static decodePropertyColumn(data: Uint8Array, offset: IntWrapper, column: Column, numStreams: number) {
+    public static decodePropertyColumn(data: Uint8Array, offset: IntWrapper, physicalType: number, numStreams: number) {
         let presentStreamMetadata: StreamMetadata | null = null;
 
-        // https://github.com/bufbuild/protobuf-es/blob/main/docs/runtime_api.md#accessing-oneof-groups
-        const scalarColumn = column.type.case;
-        if (scalarColumn !== undefined) {
+        if (physicalType !== undefined) {
             let presentStream = null;
             let numValues = 0;
             if (numStreams > 1) {
@@ -23,7 +33,6 @@ class PropertyDecoder {
                 numValues = presentStreamMetadata.numValues();
                 presentStream = DecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
             }
-            const physicalType = column.type.value.type.value;
             switch (physicalType) {
                 case ScalarType.BOOLEAN: {
                     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);

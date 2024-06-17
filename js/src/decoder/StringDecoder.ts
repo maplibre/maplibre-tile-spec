@@ -2,6 +2,8 @@ import { IntWrapper } from './IntWrapper';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
 import { IntegerDecoder } from './IntegerDecoder';
 
+const textDecoder = new TextDecoder("utf-8");
+
 export class StringDecoder {
 
     /*
@@ -67,19 +69,17 @@ export class StringDecoder {
         const decodedValues: string[] = [];
         let lengthOffset = 0;
         let strOffset = 0;
-        const decoder = new TextDecoder("utf-8");
         for (let i = 0; i < numValues; i++) {
             const present = presentStream[i];
             if (present) {
                 const length = lengthStream[lengthOffset++];
-                const value = decoder.decode(utf8Values.slice(strOffset, strOffset + length));
+                const value = textDecoder.decode(utf8Values.slice(strOffset, strOffset + length));
                 decodedValues.push(value);
                 strOffset += length;
             } else {
                 decodedValues.push(null);
             }
         }
-
         return decodedValues;
     }
 
@@ -89,9 +89,8 @@ export class StringDecoder {
     ): string[] {
         const dictionary: string[] = [];
         let dictionaryOffset = 0;
-        const decoder = new TextDecoder("utf-8");
         for (const length of lengthStream) {
-            const value = decoder.decode(utf8Values.slice(dictionaryOffset, dictionaryOffset + length));
+            const value = textDecoder.decode(utf8Values.slice(dictionaryOffset, dictionaryOffset + length));
             dictionary.push(value);
             dictionaryOffset += length;
         }

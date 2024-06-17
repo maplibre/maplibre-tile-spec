@@ -3,7 +3,6 @@ import { Layer } from '../data/Layer';
 import { MapLibreTile } from '../data/MapLibreTile';
 import { PhysicalLevelTechnique } from '../metadata/stream/PhysicalLevelTechnique';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { FeatureTableSchema, TileSetMetadata } from "../metadata/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';
@@ -14,7 +13,32 @@ class MltDecoder {
     private static ID_COLUMN_NAME = "id";
     private static GEOMETRY_COLUMN_NAME = "geometry";
 
-    public static decodeMlTile(tile: Uint8Array, tileMetadata: TileSetMetadata): MapLibreTile {
+    public static generateFeatureTables(tilesetMetadata: any): any {
+        const featureTables = [];
+        for (let i=0; i<tilesetMetadata.featureTables.length; i++) {
+          const featureTable = tilesetMetadata.featureTables[i];
+          const table = {"name": featureTable.name};
+          const columns = [];
+          featureTable.columns.forEach((column) => {
+            // https://github.com/bufbuild/protobuf-es/blob/main/docs/runtime_api.md#accessing-oneof-groups
+            if (column.name === "geometry" || column.name === "id") {
+                columns.push({
+                  "name": column.name
+                });
+              } else {
+                columns.push({
+                  "name": column.name,
+                  "type": column.type.value.type.value
+                });
+            }
+            table['columns'] = columns;
+            featureTables[i] = table;
+          });
+        }
+        return featureTables;
+    }
+
+    public static decodeMlTile(tile: Uint8Array, featureTables: any): MapLibreTile {
         const offset = new IntWrapper(0);
         const mltLayers: Layer[] = [];
         while (offset.get() < tile.length) {
@@ -31,12 +55,13 @@ class MltDecoder {
             const maxTileExtent = infos[2];
             const featureTableId = infos[0];
             const numFeatures = infos[3];
-            const metadata = tileMetadata.featureTables[featureTableId];
-            if (!metadata) {
+            // Optimize metadata usage
+            const featureTableMeta = featureTables[featureTableId];
+            if (!featureTableMeta) {
                 console.log(`could not find metadata for feature table id: ${featureTableId}`);
                 return;
             }
-            for (const columnMetadata of metadata.columns) {
+            for (const columnMetadata of featureTableMeta.columns) {
                 const columnName = columnMetadata.name;
                 const numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
                 if (columnName === "id") {
@@ -45,7 +70,7 @@ class MltDecoder {
                         const presentStream = DecodingUtils.decodeBooleanRle(tile, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
                     }
                     // TODO: handle switching on physicalType
-                    // const physicalType = columnMetadata.type.value.type.value;
+                    // const physicalType = columnMetadata.type;
 
                     const idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
                     ids = idDataStreamMetadata.physicalLevelTechnique() === PhysicalLevelTechnique.FAST_PFOR
@@ -56,7 +81,7 @@ class MltDecoder {
                     const geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
                     geometries = GeometryDecoder.decodeGeometry(geometryColumn);
                 } else {
-                    const propertyColumn = PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
+                    const propertyColumn = PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata.type, numStreams);
                     if (propertyColumn instanceof Map) {
                         for (const [key, value] of propertyColumn.entries()) {
                             properties[key] = value;
@@ -67,14 +92,14 @@ class MltDecoder {
                 }
             }
 
-            const layer = MltDecoder.convertToLayer(ids, geometries, properties, metadata, numFeatures);
+            const layer = MltDecoder.convertToLayer(ids, geometries, properties, featureTableMeta.name, numFeatures);
             mltLayers.push(layer);
         }
 
         return new MapLibreTile(mltLayers);
     }
 
-    private static convertToLayer(ids: number[], geometries, properties, metadata: FeatureTableSchema, numFeatures: number): Layer {
+    private static convertToLayer(ids: number[], geometries, properties, name: string, numFeatures: number): Layer {
         // if (numFeatures != geometries.length || numFeatures != ids.length) {
         //     console.log(
         //         "Warning, in convertToLayer the size of ids("
@@ -84,7 +109,7 @@ class MltDecoder {
         //             + "), and features("
         //             + numFeatures
         //             + ") are not equal for layer: "
-        //             + metadata.name);
+        //             + name);
         // }
         const features: Feature[] = new Array(numFeatures);
         const vals = Object.entries(properties);
@@ -98,7 +123,7 @@ class MltDecoder {
             features[j] = feature;
         }
 
-        return new Layer(metadata.name, features);
+        return new Layer(name, features);
     }
 }
 
