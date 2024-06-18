@@ -1,10 +1,12 @@
 
 
+// Intended to match the results of
+// https://github.com/mapbox/vector-tile-js/blob/77851380b63b07fd0af3d5a3f144cc86fb39fdd1/lib/vectortilefeature.js#L129
 export function project(x: number, y: number, z: number, points) {
     const extent = 4096;
     const size = extent * Math.pow(2, z);
-    const x0 = x * size;
-    const y0 = y * size;
+    const x0 = extent * x;
+    const y0 = extent * y;
     if (points.length === 0) {
         throw new Error('No points')
     }
