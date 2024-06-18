@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { MltDecoder, TileSetMetadata } from '../src/index';
-import { parseMvtTile } from "../src/mvtUtils";
+import { VectorTile } from '@mapbox/vector-tile';
+import Protobuf from 'pbf';
 import { readFileSync, existsSync } from "fs";
 import * as benchmark from 'benchmark';
 import { execSync } from "child_process";
@@ -23,7 +24,6 @@ tiles.forEach(tile => {
   console.log(cmd)
   execSync(cmd);
 });
-
 
 const runSuite = async (tile) => {
   console.log(`Running benchmarks for ${tile}`);
@@ -61,20 +61,22 @@ const runSuite = async (tile) => {
               }
           })
           .add(`MVT ${tile}`, {
-              defer: true,
-              fn: (deferred: benchmark.Deferred) => {
-                  const mvtLayers = parseMvtTile(mvtTile);
-                  const features = [];
-                  mvtLayers.layers.forEach(layer => {
-                    for (let i = 0; i < layer.features.length; i++) {
-                      const feature = layer.features[i];
-                      features.push(feature.toGeoJSON(x, y, z));
-                    }
-                  });
-                  deferred.resolve();
-              }
-          })
-          .run({ 'async': true });
+            defer: true,
+            fn: (deferred: benchmark.Deferred) => {
+                const vectorTile = new VectorTile(new Protobuf(mvtTile));
+                const features = [];
+                const layers = Object.keys(vectorTile.layers);
+                for (const layerName of layers) {
+                  const layer = vectorTile.layers[layerName];
+                  for (let i = 0; i < layer.length; i++) {
+                    const feature = layer.feature(i);
+                    features.push(feature.toGeoJSON(x, y, z));
+                  }
+                };
+                deferred.resolve();
+            }
+        })
+        .run({ 'async': true });
   })
 }
 
