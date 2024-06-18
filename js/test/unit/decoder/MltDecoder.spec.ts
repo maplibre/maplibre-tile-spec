@@ -87,6 +87,8 @@ describe("MltDecoder", () => {
         const mvtFeature = tiles.mvt.layers[0].features[0];
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
+        expect(feature.toGeoJSON(1,2,3)).toEqual(mvtFeature.toGeoJSON(1,2,3));
+        expect(feature.geometry.toGeoJSON(1,2,3)).toEqual(feature.geometry._toGeoJSON(1,2,3));
     });
 
     it("should decode one Bing Map based tile", async () => {

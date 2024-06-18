@@ -150,7 +150,8 @@ export class MultiPolygon {
     constructor(polygons: Polygon[]) {
         this.polygons = polygons;
     }
-    public toGeoJSON = (x: number, y: number, z: number) => {
+
+    public _toGeoJSON = (x: number, y: number, z: number) => {
         let coords = classifyRings(this.loadGeometry());
         for (let i = 0; i < coords.length; i++) {
             for (let j = 0; j < coords[i].length; j++) {
@@ -163,18 +164,26 @@ export class MultiPolygon {
         } else {
             type = 'Multi' + type;
         }
-        // for (const polygon of this.polygons) {
-        //     const poly = [project(x, y, z, polygon.shell.points)];
-        //     if (polygon.rings.length) {
-        //         polygon.rings.forEach(ring => {
-        //             poly.push(project(x, y, z, ring.points));
-        //         });
-        //     }
-        //     polygons.push(poly);
-        // }
         return {
             "type": "MultiPolygon",
             "coordinates": coords
+        };
+    }
+
+    public toGeoJSON = (x: number, y: number, z: number) => {
+        const polygons = [];
+        for (const polygon of this.polygons) {
+            const poly = [project(x, y, z, polygon.shell.points)];
+            if (polygon.rings.length) {
+                polygon.rings.forEach(ring => {
+                    poly.push(project(x, y, z, ring.points));
+                });
+            }
+            polygons.push(poly);
+        }
+        return {
+            "type": "MultiPolygon",
+            "coordinates": polygons
         };
     }
 
