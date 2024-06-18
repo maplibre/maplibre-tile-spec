@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as Path from "path";
-import { MltDecoder } from "../../../src/decoder/MltDecoder";
-import { TileSetMetadata } from "../../../src/metadata/mlt_tileset_metadata_pb";
+import { MltDecoder, TileSetMetadata } from "../../../src/index";
 import { parseMvtTile } from "../../../src/mvtUtils";
 
 const tilesDir = "../test/fixtures";
@@ -131,9 +130,9 @@ describe("MltDecoder", () => {
                 //     console.log('mvtFeature.geometry', mvtFeatString);
                 //     break;
                 // }
-                expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+                expect(feature.loadGeometry()).toEqual(feature.loadGeometry());
                 // TODO properties are incorrect
-                // expect(waterFeature.features[i].toGeoJSON(0,0,0)).toEqual(mvtWaterFeature.features[i].toGeoJSON(0,0,0));
+                // expect(feature.toGeoJSON(0,0,0)).toEqual(feature.toGeoJSON(0,0,0));
             }
         }
     });
