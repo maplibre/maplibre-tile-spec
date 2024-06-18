@@ -16,19 +16,3 @@ export function parseMvtTile(mvtTile: Buffer): any {
         layers: layers
     }
 }
-
-export function parseMvtTileFull(mvtTile: Buffer): any {
-    const vectorTile = new VectorTile(new Protobuf(mvtTile));
-    const layers = [];
-    for (const layerName of Object.keys(vectorTile.layers)) {
-        const layer = vectorTile.layers[layerName];
-        const features = [];
-        layers.push({ name: layerName, features });
-        for (let i = 0; i < layer.length; i++) {
-            const feature = layer.feature(i);
-            feature.geom = feature.loadGeometry();
-            features.push(feature);
-        }
-    }
-    return layers;
-}
