@@ -12,7 +12,9 @@ export function parseMvtTile(mvtTile: Buffer): any {
             features.push(layer.feature(i));
         }
     }
-    return layers;
+    return {
+        layers: layers
+    }
 }
 
 export function parseMvtTileFull(mvtTile: Buffer): any {

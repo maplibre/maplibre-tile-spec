@@ -6,13 +6,17 @@ import { parseMvtTile } from "../../../src/mvtUtils";
 
 const tilesDir = "../test/fixtures";
 
+function getLayerByName(layers, name) {
+    return layers.find(layer => layer.name === name);
+}
+
 describe("MltDecoder", () => {
     it("should decode one tile with one point", async () => {
         const tiles = getTiles("simple/point-boolean")[0];
         const featureTables = MltDecoder.generateFeatureTables(TileSetMetadata.fromBinary(tiles.meta));
         const decoded = MltDecoder.decodeMlTile(tiles.mlt, featureTables);
         const feature = decoded.layers[0].features[0];
-        const mvtFeature = tiles.mvt[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
@@ -22,7 +26,7 @@ describe("MltDecoder", () => {
         const featureTables = MltDecoder.generateFeatureTables(TileSetMetadata.fromBinary(tiles.meta));
         const decoded = MltDecoder.decodeMlTile(tiles.mlt, featureTables);
         const feature = decoded.layers[0].features[0];
-        const mvtFeature = tiles.mvt[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
@@ -32,12 +36,8 @@ describe("MltDecoder", () => {
         const featureTables = MltDecoder.generateFeatureTables(TileSetMetadata.fromBinary(tiles.meta));
         const decoded = MltDecoder.decodeMlTile(tiles.mlt, featureTables);
         const feature = decoded.layers[0].features[0];
-        const mvtFeature = tiles.mvt[0].features[0];
-        // console.log(feature.loadGeometry());
-        // console.log(mvtFeature.loadGeometry());
+        const mvtFeature = tiles.mvt.layers[0].features[0];
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
-        // console.log(feature.toGeoJSON(0,0,0).geometry.coordinates);
-        // console.log(mvtFeature.toGeoJSON(0,0,0).geometry.coordinates);
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
 
@@ -46,7 +46,7 @@ describe("MltDecoder", () => {
         const featureTables = MltDecoder.generateFeatureTables(TileSetMetadata.fromBinary(tiles.meta));
         const decoded = MltDecoder.decodeMlTile(tiles.mlt, featureTables);
         const feature = decoded.layers[0].features[0];
-        const mvtFeature = tiles.mvt[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
@@ -57,7 +57,7 @@ describe("MltDecoder", () => {
         const featureTables = MltDecoder.generateFeatureTables(TileSetMetadata.fromBinary(tiles.meta));
         const decoded = MltDecoder.decodeMlTile(tiles.mlt, featureTables);
         const feature = decoded.layers[0].features[0];
-        const mvtFeature = tiles.mvt[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
@@ -67,7 +67,7 @@ describe("MltDecoder", () => {
         const featureTables = MltDecoder.generateFeatureTables(TileSetMetadata.fromBinary(tiles.meta));
         const decoded = MltDecoder.decodeMlTile(tiles.mlt, featureTables);
         const feature = decoded.layers[0].features[0];
-        const mvtFeature = tiles.mvt[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
@@ -106,6 +106,36 @@ describe("MltDecoder", () => {
         expect(decoded.layers[7].features.length).toEqual(28);
         expect(decoded.layers[8].name).toEqual('admin_division1');
         expect(decoded.layers[8].features.length).toEqual(10);
+        for (let i = 0; i < decoded.layers.length; i++) {
+            const layer = decoded.layers[i];
+            const mvtLayer = getLayerByName(tiles.mvt.layers, layer.name);
+            expect(layer.name).toEqual(mvtLayer.name);
+            expect(layer.features.length).toEqual(mvtLayer.features.length);
+            for (let i = 0; i < layer.features.length; i++) {
+                const feature = layer.features[i];
+                const mvtFeature = mvtLayer.features[i];
+                const featString = JSON.stringify(feature.loadGeometry());
+                const mvtFeatString = JSON.stringify(mvtFeature.loadGeometry());
+                if (layer.name === 'vector_background' && i === 0) {
+                    // known bug:
+                    // vector_background feature has a different geometry
+                    // Actual is:
+                    // [[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]]
+                    // Expected is:
+                    // [[{"x":0,"y":0},{"x":4096,"y":0},{"x":4096,"y":4096},{"x":0,"y":4096},{"x":0,"y":0}]]
+                    continue;
+                }
+                // if (featString !== mvtFeatString) {
+                //     console.log('geometry is NOT equal ' + i + ' ' + layer.name);
+                //     console.log('feature.geometry', featString);
+                //     console.log('mvtFeature.geometry', mvtFeatString);
+                //     break;
+                // }
+                expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+                // TODO properties are incorrect
+                // expect(waterFeature.features[i].toGeoJSON(0,0,0)).toEqual(mvtWaterFeature.features[i].toGeoJSON(0,0,0));
+            }
+        }
     });
 
     it("should decode one OMT based tile", async () => {
@@ -132,6 +162,38 @@ describe("MltDecoder", () => {
         expect(decoded.layers[3].features.length).toEqual(754);
         expect(decoded.layers[4].name).toEqual('water');
         expect(decoded.layers[4].features.length).toEqual(172);
+        for (let i = 0; i < decoded.layers.length; i++) {
+            const layer = decoded.layers[i];
+            const mvtLayer = getLayerByName(tiles.mvt.layers, layer.name);
+            expect(layer.name).toEqual(mvtLayer.name);
+            expect(layer.features.length).toEqual(mvtLayer.features.length);
+            for (let i = 0; i < layer.features.length; i++) {
+                const feature = layer.features[i];
+                const mvtFeature = mvtLayer.features[i];
+                const featString = JSON.stringify(feature.loadGeometry());
+                const mvtFeatString = JSON.stringify(mvtFeature.loadGeometry());
+                expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+                const featStringJSON = JSON.stringify(feature.toGeoJSON(0,0,0).geometry);
+                const mvtFeatStringJSON = JSON.stringify(mvtFeature.toGeoJSON(0,0,0).geometry);
+                // if (featStringJSON !== mvtFeatStringJSON) {
+                //     console.log('geometry is NOT equal ' + i + ' ' + layer.name, mvtFeature.extent);
+                //     // fs.writeFileSync(i+'feature.geojson', featStringJSON);
+                //     // fs.writeFileSync(i+'mvtFeature.geojson', mvtFeatStringJSON);
+                //     // console.log('mvtFeature.geometry', mvtFeatStringJSON);
+                //     continue;
+                // }
+                if (layer.name === 'water') {
+                    // Known multipolygon vs polygon bugs in water, so we skip for now
+                    continue;
+                } else {
+                    expect(layer.features[i].toGeoJSON(0,0,0).geometry).toEqual(mvtLayer.features[i].toGeoJSON(0,0,0).geometry);
+                }
+                // TODO properties are incorrect
+                // console.log('feature.properties', feature.toGeoJSON(0,0,0).properties);
+                // console.log('mvtFeature.properties', mvtFeature.toGeoJSON(0,0,0).properties);
+                // expect(feature].toGeoJSON(0,0,0).properties).toEqual(mvtFeature].toGeoJSON(0,0,0).properties);
+            }
+        }
     });
 
 });

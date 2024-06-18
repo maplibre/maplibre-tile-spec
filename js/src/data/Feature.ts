@@ -3,9 +3,8 @@ import { project } from './Projection';
 export class Feature {
     id: number;
     geometry;
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    properties: { [key: string]: any };
-    constructor(id: number, geometry, properties: { [key: string]: any }) {
+    properties;
+    constructor(id: number, geometry, properties) {
         this.id = id;
         this.geometry = geometry;
         this.properties = properties;
