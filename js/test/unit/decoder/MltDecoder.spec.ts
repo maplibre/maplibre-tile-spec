@@ -116,23 +116,19 @@ describe("MltDecoder", () => {
                 const featString = JSON.stringify(feature.loadGeometry());
                 const mvtFeatString = JSON.stringify(mvtFeature.loadGeometry());
                 if (layer.name === 'vector_background' && i === 0) {
-                    // known bug:
+                    // TODO: known bug:
                     // vector_background feature has a different geometry
                     // Actual is:
                     // [[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]]
                     // Expected is:
                     // [[{"x":0,"y":0},{"x":4096,"y":0},{"x":4096,"y":4096},{"x":0,"y":4096},{"x":0,"y":0}]]
                     continue;
+                } else {
+                    expect(feature.loadGeometry()).toEqual(feature.loadGeometry());
                 }
-                // if (featString !== mvtFeatString) {
-                //     console.log('geometry is NOT equal ' + i + ' ' + layer.name);
-                //     console.log('feature.geometry', featString);
-                //     console.log('mvtFeature.geometry', mvtFeatString);
-                //     break;
-                // }
-                expect(feature.loadGeometry()).toEqual(feature.loadGeometry());
-                // TODO properties are incorrect
-                // expect(feature.toGeoJSON(0,0,0)).toEqual(feature.toGeoJSON(0,0,0));
+                // console.log('feature.properties', feature.toGeoJSON(0,0,0).properties);
+                // console.log('mvtFeature.properties', mvtFeature.toGeoJSON(0,0,0).properties);
+                // expect(feature].toGeoJSON(0,0,0).properties).toEqual(mvtFeature].toGeoJSON(0,0,0).properties);
             }
         }
     });
@@ -172,22 +168,22 @@ describe("MltDecoder", () => {
                 const featString = JSON.stringify(feature.loadGeometry());
                 const mvtFeatString = JSON.stringify(mvtFeature.loadGeometry());
                 expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
-                const featStringJSON = JSON.stringify(feature.toGeoJSON(0,0,0).geometry);
-                const mvtFeatStringJSON = JSON.stringify(mvtFeature.toGeoJSON(0,0,0).geometry);
-                // if (featStringJSON !== mvtFeatStringJSON) {
-                //     console.log('geometry is NOT equal ' + i + ' ' + layer.name, mvtFeature.extent);
-                //     // fs.writeFileSync(i+'feature.geojson', featStringJSON);
-                //     // fs.writeFileSync(i+'mvtFeature.geojson', mvtFeatStringJSON);
-                //     // console.log('mvtFeature.geometry', mvtFeatStringJSON);
-                //     continue;
-                // }
                 if (layer.name === 'water') {
-                    // Known multipolygon vs polygon bugs in water, so we skip for now
+                    // TODO: Known multipolygon vs polygon bugs in water, so we skip for now
+                    // const featStringJSON = JSON.stringify(feature.toGeoJSON(0,0,0).geometry);
+                    // const mvtFeatStringJSON = JSON.stringify(mvtFeature.toGeoJSON(0,0,0).geometry);
+                    // if (featStringJSON !== mvtFeatStringJSON) {
+                    //     console.log('geometry is NOT equal ' + i + ' ' + layer.name, mvtFeature.extent);
+                    //     // fs.writeFileSync(i+'feature.geojson', featStringJSON);
+                    //     // fs.writeFileSync(i+'mvtFeature.geojson', mvtFeatStringJSON);
+                    //     // console.log('mvtFeature.geometry', mvtFeatStringJSON);
+                    //     continue;
+                    // }
                     continue;
                 } else {
                     expect(layer.features[i].toGeoJSON(0,0,0).geometry).toEqual(mvtLayer.features[i].toGeoJSON(0,0,0).geometry);
                 }
-                // TODO properties are incorrect
+                // TODO: properties are incorrect
                 // console.log('feature.properties', feature.toGeoJSON(0,0,0).properties);
                 // console.log('mvtFeature.properties', mvtFeature.toGeoJSON(0,0,0).properties);
                 // expect(feature].toGeoJSON(0,0,0).properties).toEqual(mvtFeature].toGeoJSON(0,0,0).properties);
