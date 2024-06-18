@@ -2,22 +2,33 @@
 
 // Intended to match the results of
 // https://github.com/mapbox/vector-tile-js/blob/77851380b63b07fd0af3d5a3f144cc86fb39fdd1/lib/vectortilefeature.js#L129
-export function project(x: number, y: number, z: number, points) {
-    const extent = 4096;
-    const size = extent * Math.pow(2, z);
-    const x0 = extent * x;
-    const y0 = extent * y;
-    if (points.length === 0) {
-        throw new Error('No points')
+
+export class Projection {
+    size: number;
+    x0: number;
+    y0: number;
+    s1: number;
+    s2: number;
+
+    constructor(x: number, y: number, z: number) {
+        const extent = 4096;
+        this.size = extent * Math.pow(2, z);
+        this.x0 = extent * x;
+        this.y0 = extent * y;
+        this.s1 = 360 / this.size;
+        this.s2 = 360 / Math.PI;
     }
-    const projected = new Array(points.length);
-    for (let j = 0; j < points.length; j++) {
-        const point = points[j];
-        const y2 = 180 - (point.y + y0) * 360 / size;
-        projected[j] = [
-            (point.x + x0) * 360 / size - 180,
-            360 / Math.PI * Math.atan(Math.exp(y2 * Math.PI / 180)) - 90
-        ];
+
+    public project(points) {
+        const projected = new Array(points.length);
+        for (let j = 0; j < points.length; j++) {
+            const point = points[j];
+            const y2 = 180 - (point.y + this.y0) * this.s1;
+            projected[j] = [
+                (point.x + this.x0) * 360 / this.size - 180,
+                this.s2 * Math.atan(Math.exp(y2 * Math.PI / 180)) - 90
+            ];
+        }
+        return projected;
     }
-    return projected
 }

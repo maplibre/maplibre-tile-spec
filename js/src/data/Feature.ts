@@ -1,4 +1,4 @@
-import { project } from './Projection';
+import { Projection } from './Projection';
 
 export class Feature {
     id: number;
@@ -23,7 +23,8 @@ export class Feature {
         if (typeof this.geometry.toGeoJSON === 'function') {
             geometry = this.geometry.toGeoJSON(x, y, z);
         } else {
-            const projected = project(x, y, z, [this.geometry]);
+            const projection = new Projection(x, y, z);
+            const projected = projection.project([this.geometry]);
             geometry = {
                 "type": "Point",
                 "coordinates": projected[0]

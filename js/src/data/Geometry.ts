@@ -1,5 +1,5 @@
 import Point = require("@mapbox/point-geometry");
-import { project } from './Projection';
+import { Projection } from './Projection';
 
 function classifyRings(rings) {
     var len = rings.length;
@@ -45,9 +45,10 @@ export class LineString {
         this.points = points;
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
+        const projection = new Projection(x, y, z);
         return {
             "type": "LineString",
-            "coordinates": project(x, y, z, this.points)
+            "coordinates": projection.project(this.points)
         };
     }
     public loadGeometry = () => {
@@ -61,9 +62,10 @@ export class MultiPoint {
         this.points = points;
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
+        const projection = new Projection(x, y, z);
         return {
             "type": "MultiPoint",
-            "coordinates": project(x, y, z, this.points)
+            "coordinates": projection.project(this.points)
         };
     }
     public loadGeometry = () => {
@@ -77,9 +79,10 @@ export class LinearRing {
         this.points = points;
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
+        const projection = new Projection(x, y, z);
         return {
             "type": "LineString",
-            "coordinates": project(x, y, z, this.points)
+            "coordinates": projection.project(this.points)
         };
     }
     public loadGeometry = () => {
@@ -95,10 +98,11 @@ export class Polygon {
         this.rings = rings;
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
+        const projection = new Projection(x, y, z);
         if (this.rings.length) {
-            const rings = [project(x, y, z, this.shell.points)];
+            const rings = [projection.project(this.shell.points)];
             this.rings.forEach(ring => {
-                rings.push(project(x, y, z, ring.points));
+                rings.push(projection.project(ring.points));
             });
             return {
                 "type": "Polygon",
@@ -107,7 +111,7 @@ export class Polygon {
         }
         return {
             "type": "Polygon",
-            "coordinates": [project(x, y, z, this.shell.points)]
+            "coordinates": [projection.project(this.shell.points)]
         };
     }
     public loadGeometry = () => {
@@ -128,9 +132,10 @@ export class MultiLineString {
         this.lines = lines;
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
+        const projection = new Projection(x, y, z);
         const lines = [];
         for (const line of this.lines) {
-            lines.push(project(x, y, z, line.points));
+            lines.push(projection.project(line.points));
         }
         return {
             "type": "MultiLineString",
@@ -152,10 +157,11 @@ export class MultiPolygon {
     }
 
     public _toGeoJSON = (x: number, y: number, z: number) => {
+        const projection = new Projection(x, y, z);
         let coords = classifyRings(this.loadGeometry());
         for (let i = 0; i < coords.length; i++) {
             for (let j = 0; j < coords[i].length; j++) {
-                coords[i][j] = project(x, y, z, coords[i][j]);
+                coords[i][j] = projection.project(coords[i][j]);
             }
         }
         let type = 'Polygon';
@@ -171,12 +177,13 @@ export class MultiPolygon {
     }
 
     public toGeoJSON = (x: number, y: number, z: number) => {
+        const projection = new Projection(x, y, z);
         const polygons = [];
         for (const polygon of this.polygons) {
-            const poly = [project(x, y, z, polygon.shell.points)];
+            const poly = [projection.project(polygon.shell.points)];
             if (polygon.rings.length) {
                 polygon.rings.forEach(ring => {
-                    poly.push(project(x, y, z, ring.points));
+                    poly.push(projection.project(ring.points));
                 });
             }
             polygons.push(poly);
