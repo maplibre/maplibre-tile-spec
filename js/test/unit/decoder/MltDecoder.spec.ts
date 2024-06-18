@@ -1,12 +1,29 @@
 import * as fs from "fs";
 import * as Path from "path";
 import { MltDecoder, TileSetMetadata } from "../../../src/index";
-import { parseMvtTile } from "../../../src/mvtUtils";
+import { VectorTile } from '@mapbox/vector-tile';
+import Protobuf from 'pbf';
 
 const tilesDir = "../test/fixtures";
 
 function getLayerByName(layers, name) {
     return layers.find(layer => layer.name === name);
+}
+
+export function parseMvtTile(mvtTile: Buffer): any {
+    const vectorTile = new VectorTile(new Protobuf(mvtTile));
+    const layers = [];
+    for (const layerName of Object.keys(vectorTile.layers)) {
+        const layer = vectorTile.layers[layerName];
+        const features = [];
+        layers.push({ name: layerName, features });
+        for (let i = 0; i < layer.length; i++) {
+            features.push(layer.feature(i));
+        }
+    }
+    return {
+        layers: layers
+    }
 }
 
 describe("MltDecoder", () => {
