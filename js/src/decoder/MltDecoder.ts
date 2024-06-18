@@ -85,12 +85,9 @@ class MltDecoder {
                 } else {
                     const propertyColumn = PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata.type, numStreams);
                     if (propertyColumn instanceof Map) {
-                        for (const [key, value] of propertyColumn.entries()) {
-                            properties[key] = value;
-                        }
-                    } else {
-                        properties[columnName] = propertyColumn;
+                        throw new Error("not implemented yet");
                     }
+                    properties[columnName] = propertyColumn;
                 }
             }
 
@@ -101,29 +98,24 @@ class MltDecoder {
         return new MapLibreTile(mltLayers);
     }
 
-    private static convertToLayer(ids: number[], geometryTypes, geometryColumn, properties, name: string, numFeatures: number): Layer {
-        // if (numFeatures != geometries.length || numFeatures != ids.length) {
-        //     console.log(
-        //         "Warning, in convertToLayer the size of ids("
-        //             + ids.length
-        //             + "), geometries("
-        //             + geometries.length
-        //             + "), and features("
-        //             + numFeatures
-        //             + ") are not equal for layer: "
-        //             + name);
-        // }
+    private static convertToLayer(ids: number[], geometryTypes, geometryColumn, properties, name, numFeatures: number): Layer {
         const features: Feature[] = new Array(numFeatures);
         const vals = Object.entries(properties);
         const geometries = GeometryDecoder.decodeGeometries(geometryTypes, geometryColumn);
         for (let j = 0; j < numFeatures; j++) {
-            /* eslint-disable @typescript-eslint/no-explicit-any */
-            const p: { [key: string]: any } = {};
+            const p = {};
             for (const [key, value] of vals) {
-                p[key] = value ? value[j] : null;
+                if (value === null) {
+                    throw new Error("In convertToLayer, value is null for key: " + key);
+                }
+                const val = value[j];
+                if (val !== null) {
+                    p[key] = typeof val === 'bigint' ? Number(val) : val;
+                } else {
+                    p[key] = null;
+                }
             }
-            const feature = new Feature(ids[j], geometries[j], p);
-            features[j] = feature;
+            features[j] = new Feature(ids[j], geometries[j], p);
         }
 
         return new Layer(name, features);
