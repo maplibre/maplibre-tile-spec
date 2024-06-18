@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
+    "bench": "ts-node bench/decode.ts",
     "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src",
     "format": "prettier --write \"**/*.ts\""
