@@ -115,8 +115,6 @@ export class GeometryDecoder {
         const partOffsetCounter = geometryCounter.partCounter;
         const ringOffsetsCounter = geometryCounter.ringCounter;
         const geometryOffsetsCounter = geometryCounter.geometryCounter;
-        const vertexOffsetsOffset = geometryCounter.vertexOffsetsCounter;
-        const vertexOffsets = geometryColumn.vertexOffsets;
         const vertexBuffer = geometryColumn.vertexList;
 
         if (geometryType === GeometryType.POINT) {
@@ -191,7 +189,6 @@ export class GeometryDecoder {
         const geometryOffsets = geometryColumn.numGeometries;
         const partOffsets = geometryColumn.numParts;
         const ringOffsets = geometryColumn.numRings;
-        const vertexBufferOffset = geometryCounter.vertexBufferCounter;
         const partOffsetCounter = geometryCounter.partCounter;
         const ringOffsetsCounter = geometryCounter.ringCounter;
         const geometryOffsetsCounter = geometryCounter.geometryCounter;
@@ -275,13 +272,11 @@ export class GeometryDecoder {
                 GeometryType.POLYGON) || geometryTypes.includes(GeometryType.MULTIPOLYGON);
         const vertexOffsets = geometryColumn.vertexOffsets;
         if (!vertexOffsets || vertexOffsets.length === 0) {
-            for (const geometryTypeNum of geometryTypes) {
-                const geometryType = geometryTypeNum as GeometryType;
+            for (const geometryType of geometryTypes) {
                 geometries[numGeometries++] = this.decodeGeometry1(geometryType, containsPolygon, geometryCounter, geometryColumn);
             }
         } else {
-            for (const geometryTypeNum of geometryTypes) {
-                const geometryType = geometryTypeNum as GeometryType;
+            for (const geometryType of geometryTypes) {
                 geometries[numGeometries++] = this.decodeGeometry2(geometryType, containsPolygon, geometryCounter, geometryColumn);
             }
         }
