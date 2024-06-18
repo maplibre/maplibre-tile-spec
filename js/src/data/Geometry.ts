@@ -1,6 +1,44 @@
 import Point = require("@mapbox/point-geometry");
 import { project } from './Projection';
 
+function classifyRings(rings) {
+    var len = rings.length;
+
+    if (len <= 1) return [rings];
+
+    var polygons = [],
+        polygon,
+        ccw;
+
+    for (var i = 0; i < len; i++) {
+        var area = signedArea(rings[i]);
+        if (area === 0) continue;
+
+        if (ccw === undefined) ccw = area < 0;
+
+        if (ccw === area < 0) {
+            if (polygon) polygons.push(polygon);
+            polygon = [rings[i]];
+
+        } else {
+            polygon.push(rings[i]);
+        }
+    }
+    if (polygon) polygons.push(polygon);
+
+    return polygons;
+}
+
+function signedArea(ring) {
+    var sum = 0;
+    for (var i = 0, len = ring.length, j = len - 1, p1, p2; i < len; j = i++) {
+        p1 = ring[i];
+        p2 = ring[j];
+        sum += (p2.x - p1.x) * (p1.y + p2.y);
+    }
+    return sum;
+}
+
 export class LineString {
     points : Point[];
     constructor(points: Point[]) {
@@ -58,7 +96,14 @@ export class Polygon {
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
         if (this.rings.length) {
-            throw new Error("Not implemented");
+            const rings = [project(x, y, z, this.shell.points)];
+            this.rings.forEach(ring => {
+                rings.push(project(x, y, z, ring.points));
+            });
+            return {
+                "type": "Polygon",
+                "coordinates": rings
+            };
         }
         return {
             "type": "Polygon",
@@ -67,7 +112,11 @@ export class Polygon {
     }
     public loadGeometry = () => {
         if (this.rings.length) {
-            throw new Error("Not implemented");
+            const rings = [this.shell.points];
+            this.rings.forEach(ring => {
+                rings.push(ring.points);
+            });
+            return rings;
         }
         return this.shell.loadGeometry();
     }
@@ -75,14 +124,25 @@ export class Polygon {
 
 export class MultiLineString {
     lines : LineString[];
-    constructor(lineStrings: LineString[]) {
-        this.lines = lineStrings;
+    constructor(lines: LineString[]) {
+        this.lines = lines;
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
-        throw new Error("Not implemented");
+        const lines = [];
+        for (const line of this.lines) {
+            lines.push(project(x, y, z, line.points));
+        }
+        return {
+            "type": "MultiLineString",
+            "coordinates": lines
+        };
     }
     public loadGeometry = () => {
-        throw new Error("Not implemented");
+        const lines = [];
+        for (const line of this.lines) {
+            lines.push(line.points);
+        }
+        return lines;
     }
 }
 export class MultiPolygon {
@@ -91,19 +151,30 @@ export class MultiPolygon {
         this.polygons = polygons;
     }
     public toGeoJSON = (x: number, y: number, z: number) => {
-        const polygons = [];
-        for (const polygon of this.polygons) {
-            const poly = [project(x, y, z, polygon.shell.points)];
-            if (polygon.rings.length) {
-                polygon.rings.forEach(ring => {
-                    poly.push(project(x, y, z, ring.points));
-                });
+        let coords = classifyRings(this.loadGeometry());
+        for (let i = 0; i < coords.length; i++) {
+            for (let j = 0; j < coords[i].length; j++) {
+                coords[i][j] = project(x, y, z, coords[i][j]);
             }
-            polygons.push(poly);
         }
+        let type = 'Polygon';
+        if (coords.length === 1) {
+            coords = coords[0];
+        } else {
+            type = 'Multi' + type;
+        }
+        // for (const polygon of this.polygons) {
+        //     const poly = [project(x, y, z, polygon.shell.points)];
+        //     if (polygon.rings.length) {
+        //         polygon.rings.forEach(ring => {
+        //             poly.push(project(x, y, z, ring.points));
+        //         });
+        //     }
+        //     polygons.push(poly);
+        // }
         return {
             "type": "MultiPolygon",
-            "coordinates": polygons
+            "coordinates": coords
         };
     }
 
