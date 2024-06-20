@@ -10,10 +10,7 @@ import { GeometryDecoder } from './GeometryDecoder';
 import { PropertyDecoder } from './PropertyDecoder';
 import { ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 
-class MltDecoder {
-    private static ID_COLUMN_NAME = "id";
-    private static GEOMETRY_COLUMN_NAME = "geometry";
-
+export class MltDecoder {
     public static decodeMlTile(tile: Uint8Array, tileMetadata: TileSetMetadata): MapLibreTile {
         const offset = new IntWrapper(0);
         const mltLayers: Layer[] = [];
@@ -60,9 +57,6 @@ class MltDecoder {
                     const propertyColumn = PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
                     if (propertyColumn instanceof Map) {
                         throw new Error("Nested properties are not implemented yet");
-                        // for (const [key, value] of propertyColumn.entries()) {
-                        //     properties[key] = value;
-                        // }
                     } else {
                         properties[columnName] = propertyColumn;
                     }
@@ -77,17 +71,6 @@ class MltDecoder {
     }
 
     private static convertToLayer(ids: number[], extent, version, geometries, properties, metadata: FeatureTableSchema, numFeatures: number): Layer {
-        // if (numFeatures != geometries.length || numFeatures != ids.length) {
-        //     console.log(
-        //         "Warning, in convertToLayer the size of ids("
-        //             + ids.length
-        //             + "), geometries("
-        //             + geometries.length
-        //             + "), and features("
-        //             + numFeatures
-        //             + ") are not equal for layer: "
-        //             + metadata.name);
-        // }
         const features: Feature[] = new Array(numFeatures);
         const vals = Object.entries(properties);
         for (let j = 0; j < numFeatures; j++) {
@@ -102,5 +85,3 @@ class MltDecoder {
         return new Layer(metadata.name, version, features);
     }
 }
-
-export { MltDecoder };
