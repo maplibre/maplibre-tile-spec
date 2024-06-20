@@ -11,3 +11,4 @@ test/output
 java/output
 test/benchmarks/**/*.mvt
 test/benchmarks/**/*.pbf
+test/expected/**/*.meta.pbf
