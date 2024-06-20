@@ -6,7 +6,6 @@ import Protobuf from 'pbf';
 import { readFileSync, existsSync } from "fs";
 import * as benchmark from 'benchmark';
 import { execSync } from "child_process";
-import { cwd } from 'process';
 
 const tiles = [
   'bing/4-8-5',
@@ -41,7 +40,7 @@ const runSuite = async (tile) => {
   const { z, x, y } = { z: uri[0], x: uri[1], y: uri[2] };
   const tilesetMetadata = TileSetMetadata.fromBinary(metadata);
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
       const suite = new benchmark.Suite;
       suite
           .on('cycle', function(event: Event) {
@@ -76,7 +75,7 @@ const runSuite = async (tile) => {
                     const feature = layer.feature(i);
                     features.push(feature.toGeoJSON(x, y, z));
                   }
-                };
+                }
                 deferred.resolve();
             }
         })
