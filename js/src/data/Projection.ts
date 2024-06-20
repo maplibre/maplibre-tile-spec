@@ -10,8 +10,7 @@ export class Projection {
     s1: number;
     s2: number;
 
-    constructor(x: number, y: number, z: number) {
-        const extent = 4096;
+    constructor(extent: number, x: number, y: number, z: number) {
         this.size = extent * Math.pow(2, z);
         this.x0 = extent * x;
         this.y0 = extent * y;

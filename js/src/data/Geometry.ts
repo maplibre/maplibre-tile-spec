@@ -15,8 +15,8 @@ export class LineString {
     constructor(points: Point[]) {
         this.points = points;
     }
-    public toGeoJSON = (x: number, y: number, z: number) => {
-        const projection = new Projection(x, y, z);
+    public toGeoJSON = (extent: number, x: number, y: number, z: number) => {
+        const projection = new Projection(extent, x, y, z);
         return {
             "type": "LineString",
             "coordinates": projection.project(this.points)
@@ -32,8 +32,8 @@ export class MultiPoint {
     constructor(points: Point[]) {
         this.points = points;
     }
-    public toGeoJSON = (x: number, y: number, z: number) => {
-        const projection = new Projection(x, y, z);
+    public toGeoJSON = (extent: number, x: number, y: number, z: number) => {
+        const projection = new Projection(extent, x, y, z);
         return {
             "type": "MultiPoint",
             "coordinates": projection.project(this.points)
@@ -49,8 +49,8 @@ export class LinearRing {
     constructor(points: Point[]) {
         this.points = points;
     }
-    public toGeoJSON = (x: number, y: number, z: number) => {
-        const projection = new Projection(x, y, z);
+    public toGeoJSON = (extent: number, x: number, y: number, z: number) => {
+        const projection = new Projection(extent, x, y, z);
         return {
             "type": "LineString",
             "coordinates": projection.project(this.points)
@@ -68,8 +68,8 @@ export class Polygon {
         this.shell = shell;
         this.rings = rings;
     }
-    public toGeoJSON = (x: number, y: number, z: number) => {
-        const projection = new Projection(x, y, z);
+    public toGeoJSON = (extent: number, x: number, y: number, z: number) => {
+        const projection = new Projection(extent, x, y, z);
         if (this.rings.length) {
             const rings = [projection.project(this.shell.points)];
             this.rings.forEach(ring => {
@@ -102,8 +102,8 @@ export class MultiLineString {
     constructor(lines: LineString[]) {
         this.lines = lines;
     }
-    public toGeoJSON = (x: number, y: number, z: number) => {
-        const projection = new Projection(x, y, z);
+    public toGeoJSON = (extent: number, x: number, y: number, z: number) => {
+        const projection = new Projection(extent, x, y, z);
         const lines = [];
         for (const line of this.lines) {
             lines.push(projection.project(line.points));
@@ -127,8 +127,8 @@ export class MultiPolygon {
         this.polygons = polygons;
     }
 
-    public toGeoJSON = (x: number, y: number, z: number) => {
-        const projection = new Projection(x, y, z);
+    public toGeoJSON = (extent: number, x: number, y: number, z: number) => {
+        const projection = new Projection(extent, x, y, z);
         const polygons = [];
         for (const polygon of this.polygons) {
             const poly = [projection.project(polygon.shell.points)];

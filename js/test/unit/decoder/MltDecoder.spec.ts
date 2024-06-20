@@ -16,10 +16,10 @@ export function parseMvtTile(mvtTile: Buffer): any {
     for (const layerName of Object.keys(vectorTile.layers)) {
         const layer = vectorTile.layers[layerName];
         const features = [];
-        layers.push({ name: layerName, features });
         for (let i = 0; i < layer.length; i++) {
             features.push(layer.feature(i));
         }
+        layers.push({ name: layerName, features, version: layer.version, extent: layer.extent });
     }
     return {
         layers: layers
@@ -30,8 +30,14 @@ describe("MltDecoder", () => {
     it("should decode one tile with one point", async () => {
         const tiles = getTiles("simple/point-boolean")[0];
         const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
-        const feature = decoded.layers[0].features[0];
-        const mvtFeature = tiles.mvt.layers[0].features[0];
+        const mltLayer = decoded.layers[0];
+        const mvtLayer = tiles.mvt.layers[0];
+        expect(mltLayer.name).toEqual(mvtLayer.name);
+        expect(mltLayer.features.length).toEqual(mvtLayer.features.length);
+        expect(mltLayer.version).toEqual(mvtLayer.version);
+        const feature = mltLayer.features[0];
+        const mvtFeature = mvtLayer.features[0];
+        expect(feature.extent).toEqual(mvtFeature.extent);
         expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
         expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
         expect(feature.toGeoJSON(1,2,3)).toEqual(mvtFeature.toGeoJSON(1,2,3));
@@ -133,7 +139,7 @@ describe("MltDecoder", () => {
                     // [[{"x":0,"y":0},{"x":4096,"y":0},{"x":4096,"y":4096},{"x":0,"y":4096},{"x":0,"y":0}]]
                     continue;
                 } else {
-                    expect(feature.loadGeometry()).toEqual(feature.loadGeometry());
+                    expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
                 }
                 // console.log('feature.properties', feature.toGeoJSON(0,0,0).properties);
                 // console.log('mvtFeature.properties', mvtFeature.toGeoJSON(0,0,0).properties);

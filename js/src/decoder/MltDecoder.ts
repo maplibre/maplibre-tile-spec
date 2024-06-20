@@ -25,11 +25,8 @@ class MltDecoder {
 
             offset.increment();
             const infos = DecodingUtils.decodeVarint(tile, offset, 4);
-            // TODO: keep these unused variables for now to match Java code
-            /* eslint-disable @typescript-eslint/no-unused-vars */
             const version = tile[offset.get()];
-            const tileExtent = infos[1];
-            const maxTileExtent = infos[2];
+            const extent = infos[1];
             const featureTableId = infos[0];
             const numFeatures = infos[3];
             const metadata = tileMetadata.featureTables[featureTableId];
@@ -72,14 +69,14 @@ class MltDecoder {
                 }
             }
 
-            const layer = MltDecoder.convertToLayer(ids, geometries, properties, metadata, numFeatures);
+            const layer = MltDecoder.convertToLayer(ids, extent, version, geometries, properties, metadata, numFeatures);
             mltLayers.push(layer);
         }
 
         return new MapLibreTile(mltLayers);
     }
 
-    private static convertToLayer(ids: number[], geometries, properties, metadata: FeatureTableSchema, numFeatures: number): Layer {
+    private static convertToLayer(ids: number[], extent, version, geometries, properties, metadata: FeatureTableSchema, numFeatures: number): Layer {
         // if (numFeatures != geometries.length || numFeatures != ids.length) {
         //     console.log(
         //         "Warning, in convertToLayer the size of ids("
@@ -99,11 +96,10 @@ class MltDecoder {
             for (const [key, value] of vals) {
                 p[key] = value ? value[j] : null;
             }
-            const feature = new Feature(ids[j], geometries[j], p);
-            features[j] = feature;
+            features[j] = new Feature(ids[j], extent, geometries[j], p)
         }
 
-        return new Layer(metadata.name, features);
+        return new Layer(metadata.name, version, features);
     }
 }
 
