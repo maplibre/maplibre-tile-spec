@@ -11,7 +11,7 @@
     "prepare": "npm run build",
     "bench": "ts-node bench/decode.ts",
     "test": "jest",
-    "lint": "eslint --max-warnings=0 --fix --ext .ts src",
+    "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\""
   },
   "devDependencies": {
