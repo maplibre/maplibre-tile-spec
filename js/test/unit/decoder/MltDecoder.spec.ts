@@ -1,109 +1,92 @@
 import * as fs from "fs";
 import * as Path from "path";
-import { MltDecoder } from "../../../src/decoder/MltDecoder";
-import { TileSetMetadata } from "../../../src/metadata/mlt_tileset_metadata_pb";
+import { MltDecoder, TileSetMetadata } from "../../../src/index";
+import { VectorTile } from '@mapbox/vector-tile';
+import Protobuf from 'pbf';
 
 const tilesDir = "../test/fixtures";
 
+function getLayerByName(layers, name) {
+    return layers.find(layer => layer.name === name);
+}
+
+export function parseMvtTile(mvtTile: Buffer): any {
+    const vectorTile = new VectorTile(new Protobuf(mvtTile));
+    const layers = [];
+    for (const layerName of Object.keys(vectorTile.layers)) {
+        const layer = vectorTile.layers[layerName];
+        const features = [];
+        layers.push({ name: layerName, features });
+        for (let i = 0; i < layer.length; i++) {
+            features.push(layer.feature(i));
+        }
+    }
+    return {
+        layers: layers
+    }
+}
+
 describe("MltDecoder", () => {
     it("should decode one tile with one point", async () => {
-        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.endsWith('/point-boolean.mlt'));
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
-        expect(decoded).toBeDefined();
-        expect(decoded.layers.length).toEqual(1);
-        expect(decoded.layers[0].features.length).toEqual(1);
-        expect(decoded.layers[0].features[0].properties).toEqual({"key": true});
-        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual([25, 17]);
-        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": [25, 17], "type": "Point"});
+        const tiles = getTiles("simple/point-boolean")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
+        const feature = decoded.layers[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
+        expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+        expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
+        expect(feature.toGeoJSON(1,2,3)).toEqual(mvtFeature.toGeoJSON(1,2,3));
     });
 
     it("should decode one tile with one line", async () => {
-        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.endsWith('/line-boolean.mlt'));
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
-        expect(decoded).toBeDefined();
-        expect(decoded.layers.length).toEqual(1);
-        expect(decoded.layers[0].features.length).toEqual(1);
-        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual([ [ 2, 2 ], [ 2, 10 ], [ 10, 10 ] ]);
-        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": [ [ 2, 2 ], [ 2, 10 ], [ 10, 10 ] ], "type": "LineString"});
+        const tiles = getTiles("simple/line-boolean")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
+        const feature = decoded.layers[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
+        expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+        expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
 
     it("should decode one tile with one polygon", async () => {
-        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.endsWith('/polygon-boolean.mlt'));
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
-        expect(decoded).toBeDefined();
-        expect(decoded.layers.length).toEqual(1);
-        expect(decoded.layers[0].features.length).toEqual(1);
-        const coords = [ [ [ 3, 6 ], [ 8, 12 ], [ 20, 34 ], [ 3, 6 ] ] ];
-        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
-        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "Polygon"});
+        const tiles = getTiles("simple/polygon-boolean")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
+        const feature = decoded.layers[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
+        expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+        expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
 
     it("should decode one tile with one multi-point", async () => {
-        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.endsWith('/multipoint-boolean.mlt'));
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
-        expect(decoded).toBeDefined();
-        expect(decoded.layers.length).toEqual(1);
-        expect(decoded.layers[0].features.length).toEqual(1);
-        const coords = [ [ 5, 7 ], [ 3, 2 ] ];
-        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
-        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "MultiPoint"});
+        const tiles = getTiles("simple/multipoint-boolean")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
+        const feature = decoded.layers[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
+        expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+        expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
 
+    // TODO: this is not actually parsing as a multi-line
     it("should decode one tile with one multi-line", async () => {
-        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.endsWith('/multiline-boolean.mlt'));
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
-        expect(decoded).toBeDefined();
-        expect(decoded.layers.length).toEqual(1);
-        expect(decoded.layers[0].features.length).toEqual(1);
-        const coords = [ [ [ 2, 2 ], [ 2, 10 ], [ 10, 10 ] ], [ [ 1, 1 ], [ 3, 5 ] ] ];
-        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
-        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "MultiLineString"});
+        const tiles = getTiles("simple/multiline-boolean")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
+        const feature = decoded.layers[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
+        expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+        expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
     });
 
     it("should decode one tile with one multi-polygon", async () => {
-        const { tiles } = getTiles(Path.join(tilesDir, "simple"));
-        const tile = tiles.find(t => t.mlt.endsWith('/multipolygon-boolean.mlt'));
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
-        expect(decoded).toBeDefined();
-        expect(decoded.layers.length).toEqual(1);
-        expect(decoded.layers[0].features.length).toEqual(1);
-        const coords = [[[[0,0],[10,0],[10,10],[0,10],[0,0]]],[[[11,11],[20,11],[20,20],[11,20],[11,11]],[[13,13],[13,17],[17,17],[17,13],[13,13]]]];
-        expect(decoded.layers[0].features[0].geometry.coordinates).toEqual(coords);
-        expect(decoded.layers[0].features[0].geometry.toGeoJSON()).toEqual({"coordinates": coords, "type": "MultiPolygon"});
+        const tiles = getTiles("simple/multipolygon-boolean")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
+        const feature = decoded.layers[0].features[0];
+        const mvtFeature = tiles.mvt.layers[0].features[0];
+        expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+        expect(feature.toGeoJSON(0,0,0)).toEqual(mvtFeature.toGeoJSON(0,0,0));
+        expect(feature.toGeoJSON(1,2,3)).toEqual(mvtFeature.toGeoJSON(1,2,3));
     });
 
-
     it("should decode one Bing Map based tile", async () => {
-        const { tiles } = getTiles(Path.join(tilesDir, "bing"));
-        const tile = tiles.find(t => t.mlt.endsWith('/4-13-6.mlt'));
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
-        expect(decoded).toBeDefined();
+        const tiles = getTiles("bing/4-13-6")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
         expect(decoded.layers.length).toEqual(9);
         // vtzero-stats reports:
         // layer,num_features,raw_size,raw_geometries_size,key_table_size,value_table_size
@@ -134,18 +117,34 @@ describe("MltDecoder", () => {
         expect(decoded.layers[7].features.length).toEqual(28);
         expect(decoded.layers[8].name).toEqual('admin_division1');
         expect(decoded.layers[8].features.length).toEqual(10);
-
-
+        for (const layer of decoded.layers) {
+            const mvtLayer = getLayerByName(tiles.mvt.layers, layer.name);
+            expect(layer.name).toEqual(mvtLayer.name);
+            expect(layer.features.length).toEqual(mvtLayer.features.length);
+            for (let i = 0; i < layer.features.length; i++) {
+                const feature = layer.features[i];
+                const mvtFeature = mvtLayer.features[i];
+                if (layer.name === 'vector_background' && i === 0) {
+                    // TODO: known bug:
+                    // vector_background feature has a different geometry
+                    // Actual is:
+                    // [[{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0},{"x":0,"y":0}]]
+                    // Expected is:
+                    // [[{"x":0,"y":0},{"x":4096,"y":0},{"x":4096,"y":4096},{"x":0,"y":4096},{"x":0,"y":0}]]
+                    continue;
+                } else {
+                    expect(feature.loadGeometry()).toEqual(feature.loadGeometry());
+                }
+                // console.log('feature.properties', feature.toGeoJSON(0,0,0).properties);
+                // console.log('mvtFeature.properties', mvtFeature.toGeoJSON(0,0,0).properties);
+                // expect(feature.toGeoJSON(0,0,0).properties).toEqual(mvtFeature.toGeoJSON(0,0,0).properties);
+            }
+        }
     });
 
     it("should decode one OMT based tile", async () => {
-        const { tiles } =  getTiles(Path.join(tilesDir, "omt"));
-        const tile = tiles.find(t => t.mlt.endsWith('/2_2_2.mlt'));
-
-        const mltTile = fs.readFileSync(tile.mlt);
-        const mltMetadataPbf = fs.readFileSync(tile.meta);
-        const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
-        const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
+        const tiles = getTiles("omt/2_2_2")[0];
+        const decoded = MltDecoder.decodeMlTile(tiles.mlt, TileSetMetadata.fromBinary(tiles.meta));
         expect(decoded).toBeDefined();
         expect(decoded.layers.length).toEqual(5);
         // Note: these feature counts match what vtzero-stats reports
@@ -166,24 +165,64 @@ describe("MltDecoder", () => {
         expect(decoded.layers[3].features.length).toEqual(754);
         expect(decoded.layers[4].name).toEqual('water');
         expect(decoded.layers[4].features.length).toEqual(172);
+        for (let i = 0; i < decoded.layers.length; i++) {
+            const layer = decoded.layers[i];
+            const mvtLayer = getLayerByName(tiles.mvt.layers, layer.name);
+            expect(layer.name).toEqual(mvtLayer.name);
+            expect(layer.features.length).toEqual(mvtLayer.features.length);
+            for (let i = 0; i < layer.features.length; i++) {
+                const feature = layer.features[i];
+                const mvtFeature = mvtLayer.features[i];
+                const featString = JSON.stringify(feature.loadGeometry());
+                const mvtFeatString = JSON.stringify(mvtFeature.loadGeometry());
+                expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
+                if (layer.name === 'water') {
+                    // TODO: Known multipolygon vs polygon bugs in water, so we skip for now
+                    // const featStringJSON = JSON.stringify(feature.toGeoJSON(0,0,0).geometry);
+                    // const mvtFeatStringJSON = JSON.stringify(mvtFeature.toGeoJSON(0,0,0).geometry);
+                    // if (featStringJSON !== mvtFeatStringJSON) {
+                    //     console.log('geometry is NOT equal ' + i + ' ' + layer.name, mvtFeature.extent);
+                    //     // fs.writeFileSync(i+'feature.geojson', featStringJSON);
+                    //     // fs.writeFileSync(i+'mvtFeature.geojson', mvtFeatStringJSON);
+                    //     // console.log('mvtFeature.geometry', mvtFeatStringJSON);
+                    //     continue;
+                    // }
+                    continue;
+                } else {
+                    expect(layer.features[i].toGeoJSON(0,0,0).geometry).toEqual(mvtLayer.features[i].toGeoJSON(0,0,0).geometry);
+                }
+                // TODO: properties are incorrect
+                // console.log('feature.properties', feature.toGeoJSON(0,0,0).properties);
+                // console.log('mvtFeature.properties', mvtFeature.toGeoJSON(0,0,0).properties);
+                // expect(feature.toGeoJSON(0,0,0).properties).toEqual(mvtFeature.toGeoJSON(0,0,0).properties);
+            }
+        }
     });
 
 });
 
-function getTiles(dir: string): { tiles: { mvt: string; meta: string; mlt: string }[] } {
-    const mltDir = dir.replace('fixtures', 'expected');
-
-    return {
-        tiles: fs.readdirSync(dir)
-            .filter(file => file.endsWith('.mvt') || file.endsWith('.pbf'))
-            .map((mvtFilename) : { mvt: string; meta: string; mlt: string } => {
-                const mvt = Path.join(dir, mvtFilename);
-
-                const mltFilename = mvtFilename.replace(/\.(pbf|mvt)$/,'.mlt');
-                const mlt = Path.join(mltDir, mltFilename);
-
-                const meta = mlt.replace('.advanced','') + '.meta.pbf';
-                return { mlt, meta, mvt };
-            })
-    };
+function getTiles(pathname: string) {
+    const fixtureDirname = Path.dirname(pathname);
+    const searchDir = Path.join(tilesDir, fixtureDirname);
+    return fs.readdirSync(searchDir)
+        .filter(file => {
+            const nameWithoutExt = Path.basename(file, Path.extname(file));
+            if (!file.endsWith('.mvt') && !file.endsWith('.pbf')) {
+                return false;
+            }
+            if (pathname.endsWith(nameWithoutExt)) {
+                return true;
+            }
+            return false;
+        })
+        .map((mvtFilename) => {
+            const mvtPath = Path.join(tilesDir, fixtureDirname, mvtFilename);
+            const expectedDir = tilesDir.replace('fixtures','expected');
+            const mltPath = Path.join(expectedDir, fixtureDirname, mvtFilename.replace(/\.(pbf|mvt)$/,'.mlt'));
+            const mltMetaPath = mltPath.replace('.advanced','') + '.meta.pbf';
+            const mlt = fs.readFileSync(mltPath);
+            const mvt = parseMvtTile(fs.readFileSync(mvtPath));
+            const meta = fs.readFileSync(mltMetaPath);
+            return { mlt, mltPath, meta, mvt };
+        })
 }

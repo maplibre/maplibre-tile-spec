@@ -6,7 +6,20 @@ import { IntegerDecoder } from './IntegerDecoder';
 import { IntWrapper } from './IntWrapper';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
 import { PhysicalLevelTechnique } from '../metadata/stream/PhysicalLevelTechnique';
-import { Geometry, GeometryFactory, Coordinate, GeometryType, Point, LineString, Polygon, LinearRing } from '../data/Geometry';
+import { GeometryFactory, Coordinate, LineString, Polygon, LinearRing } from '../data/Geometry';
+import Point = require("@mapbox/point-geometry");
+
+export enum GeometryType {
+    POINT,
+    LINESTRING,
+    POLYGON,
+    MULTIPOINT,
+    MULTILINESTRING,
+    MULTIPOLYGON
+}
+
+const geometryFactory = new GeometryFactory();
+
 
 export class GeometryDecoder {
     public static decodeGeometryColumn(tile: Uint8Array, numStreams: number, offset: IntWrapper): GeometryColumn {
@@ -63,8 +76,8 @@ export class GeometryDecoder {
         return new GeometryColumn( geometryTypes, numGeometries, numParts, numRings, vertexOffsets, vertexList );
     }
 
-    static decodeGeometry(geometryColumn: GeometryColumn): Geometry[] {
-        const geometries: Geometry[] = new Array(geometryColumn.geometryTypes.length);
+    static decodeGeometry(geometryColumn: GeometryColumn) {
+        const geometries = new Array(geometryColumn.geometryTypes.length);
         let partOffsetCounter = 0;
         let ringOffsetsCounter = 0;
         let geometryOffsetsCounter = 0;

@@ -6,14 +6,4 @@ export class MapLibreTile {
     constructor(layers: Layer[]) {
         this.layers = layers;
     }
-
-    public toGeoJSON = () : object => {
-        const fc = { "type": "FeatureCollection", "features": []};
-        for (const layer of this.layers) {
-            for (const feature of layer.features) {
-                fc.features.push(feature.toGeoJSON());
-            }
-        }
-        return fc;
-    }
 }
