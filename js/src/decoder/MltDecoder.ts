@@ -1,7 +1,6 @@
 import { Feature } from '../data/Feature';
 import { Layer } from '../data/Layer';
 import { MapLibreTile } from '../data/MapLibreTile';
-import { PhysicalLevelTechnique } from '../metadata/stream/PhysicalLevelTechnique';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
 import { FeatureTableSchema, TileSetMetadata } from "../metadata/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
@@ -40,7 +39,8 @@ class MltDecoder {
                 if (columnName === "id") {
                     if (numStreams === 2) {
                         const presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                        const presentStream = DecodingUtils.decodeBooleanRle(tile, presentStreamMetadata.numValues(), offset);
+                        // TODO: the return value of this function is not used, so advance offset without decoding?
+                        DecodingUtils.decodeBooleanRle(tile, presentStreamMetadata.numValues(), offset);
                     } else {
                         throw new Error("Unsupported number of streams for ID column: " + numStreams);
                     }

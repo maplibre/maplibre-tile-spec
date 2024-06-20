@@ -171,16 +171,13 @@ describe("MltDecoder", () => {
         expect(decoded.layers[3].features.length).toEqual(754);
         expect(decoded.layers[4].name).toEqual('water');
         expect(decoded.layers[4].features.length).toEqual(172);
-        for (let i = 0; i < decoded.layers.length; i++) {
-            const layer = decoded.layers[i];
+        for (const layer of decoded.layers) {
             const mvtLayer = getLayerByName(tiles.mvt.layers, layer.name);
             expect(layer.name).toEqual(mvtLayer.name);
             expect(layer.features.length).toEqual(mvtLayer.features.length);
             for (let i = 0; i < layer.features.length; i++) {
                 const feature = layer.features[i];
                 const mvtFeature = mvtLayer.features[i];
-                const featString = JSON.stringify(feature.loadGeometry());
-                const mvtFeatString = JSON.stringify(mvtFeature.loadGeometry());
                 expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
                 if (layer.name === 'water') {
                     // TODO: Known multipolygon vs polygon bugs in water, so we skip for now
