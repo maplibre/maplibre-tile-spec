@@ -1,8 +1,6 @@
 package com.mlt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.data.MapLibreTile;
@@ -10,7 +8,8 @@ import com.mlt.vector.FeatureTable;
 import java.util.Map;
 
 public class TestUtils {
-  public static int compareTilesVectorized(FeatureTable[] featureTables, MapboxVectorTile mvTile, boolean isFeatureTableSorted) {
+  public static int compareTilesVectorized(
+      FeatureTable[] featureTables, MapboxVectorTile mvTile, boolean isFeatureTableSorted) {
     int numErrors = 0;
     var mvtLayers = mvTile.layers();
     for (var i = 0; i < mvtLayers.size(); i++) {
@@ -114,10 +113,12 @@ public class TestUtils {
 
           var mltProperty = mltProperties.get(mvtProperty.getKey());
           if (mltProperty == null) {
-            // System.out.println("Failure comparing property " + mvtProperty.getKey() + " for feature: " + mvtFeature.id() + " as mltProperty is null");
+            // System.out.println("Failure comparing property " + mvtProperty.getKey() + " for
+            // feature: " + mvtFeature.id() + " as mltProperty is null");
             numErrors++;
           } else if (!mltProperty.equals(mvtProperty.getValue())) {
-            // System.out.println("Failure comparing property " +  mvtProperty.getKey() + " for feature: " + mvtFeature.id());
+            // System.out.println("Failure comparing property " +  mvtProperty.getKey() + " for
+            // feature: " + mvtFeature.id());
             // System.out.println("    mvtProperty: " + mvtProperty.getValue());
             // System.out.println("    mltProperty: " + mltProperty);
             numErrors++;
