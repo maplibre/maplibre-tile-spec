@@ -38,16 +38,17 @@ export class FastPFOR {
      return new FastPFOR(FastPFOR.DEFAULT_PAGE_SIZE);
   }
 
-  public headlessUncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number }) {
-    let mynvalue = greatestMultiple(model.mynvalue, FastPFOR.BLOCK_SIZE);
-    var finalout = model.outpos.valueOf() + mynvalue;
-    var inner_model = { input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, thissize: 0 };
+  public headlessUncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number }) : { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, mynvalue: number  } {
+    const mynvalue = greatestMultiple(model.mynvalue, FastPFOR.BLOCK_SIZE);
+    const finalout = model.outpos.valueOf() + mynvalue;
+    const inner_model = { input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, thissize: 0 };
     while (inner_model.outpos.valueOf() != finalout) {
       inner_model.thissize = Math.min(this.pageSize, finalout - inner_model.outpos.valueOf());
       this.decodePage(inner_model);
     }
     model.output = inner_model.output;
     model.outpos = inner_model.outpos;
+    return model;
   }
 
   public decodePage(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, thissize: number }) {
@@ -55,7 +56,7 @@ export class FastPFOR {
     const wheremeta = model.input[model.inpos];
     model.inpos += 1;
 
-    var inexcept = initpos + wheremeta;
+    let inexcept = initpos + wheremeta;
     const bytesize = model.input[inexcept++];
     this.byteContainer.clear();
 
@@ -68,22 +69,22 @@ export class FastPFOR {
     const bitmap = model.input[inexcept++];
     for (let k = 2; k <= 32; ++k) {
       if ((bitmap & (1 << (k - 1))) != 0) {
-        let size = model.input[inexcept++];
-        let roudedup = greatestMultiple(size + 31, 32);
+        const size = model.input[inexcept++];
+        const roudedup = greatestMultiple(size + 31, 32);
         if (this.dataTobePacked[k].length < roudedup)
           this.dataTobePacked[k] = new Uint32Array(roudedup);
         if (inexcept + roudedup / 32 * k <= model.input.length) {
-          var j = 0;
+          let j = 0;
           for (; j < size; j += 32) {
             fastunpack(model.input, inexcept, this.dataTobePacked[k], j, k);
             inexcept += k;
           }
-          let overflow = j - size;
+          const overflow = j - size;
           inexcept -= Math.floor(overflow * k / 32);
         } else {
           let j = 0;
-          let buf: Uint32Array = new Uint32Array(roudedup / 32 * k);
-          let initinexcept = inexcept;
+          const buf: Uint32Array = new Uint32Array(roudedup / 32 * k);
+          const initinexcept = inexcept;
 
           arraycopy(model.input, inexcept, buf, 0, model.input.length - inexcept);
 
@@ -91,7 +92,7 @@ export class FastPFOR {
             fastunpack(buf, inexcept - initinexcept, this.dataTobePacked[k], j, k);
             inexcept += k;
           }
-          let overflow = j - size;
+          const overflow = j - size;
           inexcept -= Math.floor(overflow * k / 32);
         }
       }
@@ -130,11 +131,11 @@ export class FastPFOR {
     model.inpos = inexcept;
   }
 
-  public uncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number }) {
+  public uncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number }) : { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number } {
     if (model.input.length == 0) return;
 // Todo: remove model
     const outlength = model.input[model.inpos];
     model.inpos++;
-    this.headlessUncompress({ input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, mynvalue: outlength });
+    return this.headlessUncompress({ input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, mynvalue: outlength });
   }
 }

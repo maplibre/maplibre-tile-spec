@@ -1,5 +1,7 @@
 plugins {
     id 'java-library'
+    id('com.diffplug.spotless') version '6.25.0'
+    id 'me.champeau.jmh' version '0.7.2'
 }
 
 repositories {
@@ -19,11 +21,15 @@ dependencies {
     implementation 'com.google.guava:guava:33.2.1-jre'
     implementation 'commons-cli:commons-cli:1.8.0'
     implementation 'org.slf4j:slf4j-simple:2.0.13'
-    implementation 'no.ecc.vectortile:java-vector-tile:1.3.3'
+    implementation 'no.ecc.vectortile:java-vector-tile:1.3.23'
+    implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:23.1.0'
     implementation 'org.apache.orc:orc-core:1.8.1'
     implementation 'com.github.davidmoten:hilbert-curve:0.2.3'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.2'
+    testImplementation 'org.openjdk.jmh:jmh-core:1.37 '
+    testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 }
 
 test {
@@ -40,6 +46,15 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+}
+
+spotless {
+    java {
+        importOrder()
+        target 'src/*/java/**/*.java'
+        googleJavaFormat('1.15.0')
+        removeUnusedImports()
+     }
 }
 
 task compileWrapper(type: Exec) {
@@ -60,15 +75,28 @@ gradle.projectsEvaluated {
 
 compileJava.dependsOn compileWrapper
 
-task cli(type: Jar) {
-    archiveBaseName = 'mvt2mlt'
-    manifest {
-        attributes 'Implementation-Title': 'MVT2MLT Converter',
-                    'Implementation-Version': archiveVersion,
-                    'Main-Class': 'com.mlt.converter.MltCliAdapter'
+
+["encode", "decode", "meta"].each { name ->
+    task "$name" (type: Jar, dependsOn: compileJava) {
+        archiveFileName = name + ".jar"
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+        manifest.from jar.manifest
+        with jar
     }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    manifest.from jar.manifest
-    with jar
+}
+
+encode.manifest.attributes 'Implementation-Title' : 'encode an mlt from an mvt',
+        'Main-Class': 'com.mlt.tools.Encode'
+decode.manifest.attributes 'Implementation-Title' : 'decode an mlt',
+        'Main-Class': 'com.mlt.tools.Decode'
+meta.manifest.attributes 'Implementation-Title' : 'generate a mltmetadata.pbf file from an mvt',
+        'Main-Class': 'com.mlt.tools.Meta'
+
+task cli {
+    // Uncomment the following line to clear out the jars before rebuilding
+    delete "${buildDir}/libs"
+    dependsOn encode
+    dependsOn decode
+    dependsOn meta
 }

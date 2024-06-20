@@ -13,49 +13,56 @@ defaults:
 jobs:
   test-js:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: 'js'
     steps:
       - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
       - uses: actions/setup-node@v4
         with:
           node-version-file: 'js/.nvmrc'
           cache: 'npm'
           cache-dependency-path: 'js/package-lock.json'
-      - run: npm ci
-      - run: npm test
+      - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
+        run: just lint-js
+      - run: just test-js
+
+  lint-java:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
+        run: just lint-java
+
   test-java:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-    defaults:
-      run:
-        working-directory: 'java'
     steps:
       - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Java converter tests
-        run: ./gradlew test
-      - name: Test running CLI
-        run: |
-          ./gradlew cli
-          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../test/fixtures/omt/10_530_682.mvt -mlt output/varint.mvt
-          java -jar ./build/libs/mvt2mlt-1.0-SNAPSHOT.jar -mvt ../test/fixtures/omt/10_530_682.mvt -advanced -mlt output/advanced.mvt
-          python -c 'import os; expected=66984; ts=os.path.getsize("output/varint.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-          python -c 'import os; expected=64728; ts=os.path.getsize("output/advanced.mvt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-  # This final step is needed to mark the whole workflow as successful
+      - run: just test-java
+      - run: just test-java-cli
+
+  # This final step is needed to mark the entire workflow as successful
   done:
-    # Don't change its name - it is used by the merge protection rules
+    # Don't change this name - it is used by the merge protection rules
     name: CI Finished
     runs-on: ubuntu-latest
     # List of all the other jobs that must pass for this job to start
-    needs: [ test-java, test-js ]
+    needs: [ test-java, lint-java, test-js ]
     steps:
       - name: Finished
         run: echo "CI finished successfully"

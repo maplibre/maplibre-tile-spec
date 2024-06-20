@@ -39,8 +39,26 @@ In the following, the size of MLT and MVT files are compared based on a selected
 - `/js` Javascript decoder
 - `/rust` Rust decoder
 
-## Contribution
-
-### Getting Involved
+## Getting Involved
 
 Join the #maplibre-tile-format slack channel at OSMUS: get an invite at https://slack.openstreetmap.us/
+
+### Development
+
+* This project is easier to develop with [just](https://just.systems/man/en/), a modern alternative to `make`.
+* To get a list of available commands, run `just`.
+* To run tests, use `just test`.
+
+## License
+
+* All project documentation and specification content is licensed under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) - Public Domain Dedication.
+* All code is dual licensed under [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0) and [MIT license](http://opensource.org/licenses/MIT), at your option.
+* Tile test data in the `/test` directory has different licenses depending on the source of that data.
+
+### Contribution
+
+Unless you explicitly state otherwise, any code contribution intentionally
+submitted for inclusion in the work by you, as defined in the
+Apache-2.0 license, shall be dual licensed as above, without any
+additional terms or conditions. Similarly, any documentation or specification
+contributions shall be licensed under CC0 1.0 Universal.
