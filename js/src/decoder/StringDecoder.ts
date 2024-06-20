@@ -1,6 +1,9 @@
 import { IntWrapper } from './IntWrapper';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
 import { IntegerDecoder } from './IntegerDecoder';
+import { BitSet } from 'bitset';
+
+const textDecoder = new TextDecoder("utf-8");
 
 export class StringDecoder {
 
@@ -13,7 +16,7 @@ export class StringDecoder {
 
     public static decode(
         data: Uint8Array, offset: IntWrapper, numStreams: number,
-        presentStream: Uint8Array, numValues: number) {
+        presentStream: BitSet, numValues: number) {
         let dictionaryLengthStream: number[] = null;
         let offsetStream: number[] = null;
         const dataStream: Uint8Array = null;
@@ -63,35 +66,32 @@ export class StringDecoder {
         }
     }
 
-    private static decodePlain(presentStream: Uint8Array, lengthStream: number[], utf8Values: Uint8Array, numValues: number): string[] {
+    private static decodePlain(presentStream: BitSet, lengthStream: number[], utf8Values: Uint8Array, numValues: number): string[] {
         const decodedValues: string[] = [];
         let lengthOffset = 0;
         let strOffset = 0;
-        const decoder = new TextDecoder("utf-8");
         for (let i = 0; i < numValues; i++) {
-            const present = presentStream[i];
+            const present = presentStream.get(i);
             if (present) {
                 const length = lengthStream[lengthOffset++];
-                const value = decoder.decode(utf8Values.slice(strOffset, strOffset + length));
+                const value = textDecoder.decode(utf8Values.slice(strOffset, strOffset + length));
                 decodedValues.push(value);
                 strOffset += length;
             } else {
                 decodedValues.push(null);
             }
         }
-
         return decodedValues;
     }
 
     private static decodeDictionary(
-        presentStream: Uint8Array, lengthStream: number[], utf8Values: Uint8Array,
+        presentStream: BitSet, lengthStream: number[], utf8Values: Uint8Array,
         dictionaryOffsets: number[], numValues: number
     ): string[] {
         const dictionary: string[] = [];
         let dictionaryOffset = 0;
-        const decoder = new TextDecoder("utf-8");
         for (const length of lengthStream) {
-            const value = decoder.decode(utf8Values.slice(dictionaryOffset, dictionaryOffset + length));
+            const value = textDecoder.decode(utf8Values.slice(dictionaryOffset, dictionaryOffset + length));
             dictionary.push(value);
             dictionaryOffset += length;
         }
@@ -100,7 +100,7 @@ export class StringDecoder {
         let offset = 0;
 
         for (let i = 0; i < numValues; i++) {
-            const present = presentStream[i];
+            const present = presentStream.get(i);
             if (present) {
                 const value = dictionary[dictionaryOffsets[offset++]];
                 values.push(value);

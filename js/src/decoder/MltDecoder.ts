@@ -9,6 +9,7 @@ import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';
 import { GeometryDecoder } from './GeometryDecoder';
 import { PropertyDecoder } from './PropertyDecoder';
+import { ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 
 class MltDecoder {
     private static ID_COLUMN_NAME = "id";
@@ -42,25 +43,29 @@ class MltDecoder {
                 if (columnName === "id") {
                     if (numStreams === 2) {
                         const presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                        const presentStream = DecodingUtils.decodeBooleanRle(tile, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
+                        const presentStream = DecodingUtils.decodeBooleanRle(tile, presentStreamMetadata.numValues(), offset);
+                    } else {
+                        throw new Error("Unsupported number of streams for ID column: " + numStreams);
                     }
-                    // TODO: handle switching on physicalType
-                    // const physicalType = columnMetadata.type.value.type.value;
-
                     const idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                    ids = idDataStreamMetadata.physicalLevelTechnique() === PhysicalLevelTechnique.FAST_PFOR
-                        ? IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).map(i => i as number)
-                        : IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
-
+                    const physicalType = columnMetadata.type.value.type.value;
+                    if (physicalType === ScalarType.UINT_32) {
+                        ids = IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false);
+                    } else if (physicalType === ScalarType.UINT_64){
+                        ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+                    } else {
+                        throw new Error("Unsupported ID column type: " + physicalType);
+                    }
                 } else if (columnName === "geometry") {
                     const geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
                     geometries = GeometryDecoder.decodeGeometry(geometryColumn);
                 } else {
                     const propertyColumn = PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
                     if (propertyColumn instanceof Map) {
-                        for (const [key, value] of propertyColumn.entries()) {
-                            properties[key] = value;
-                        }
+                        throw new Error("Nested properties are not implemented yet");
+                        // for (const [key, value] of propertyColumn.entries()) {
+                        //     properties[key] = value;
+                        // }
                     } else {
                         properties[columnName] = propertyColumn;
                     }
