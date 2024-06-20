@@ -9,3 +9,5 @@ target/
 build/
 test/output
 java/output
+test/benchmarks/**/*.mvt
+test/benchmarks/**/*.pbf

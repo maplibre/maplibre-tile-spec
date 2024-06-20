@@ -17,7 +17,7 @@ import org.apache.commons.lang3.ArrayUtils;
  * */
 public class IntegerEncoder {
 
-  static class IntegerEncodingResult {
+  public static class IntegerEncodingResult {
     public LogicalLevelTechnique logicalLevelTechnique1;
     public LogicalLevelTechnique logicalLevelTechnique2;
     public byte[] encodedValues;

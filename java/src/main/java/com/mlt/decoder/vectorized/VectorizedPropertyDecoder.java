@@ -116,7 +116,7 @@ public class VectorizedPropertyDecoder {
       BitVector nullabilityBuffer = null;
       var numValues = 0;
       if (numStreams == 0) {
-        /**
+        /*
          * The absence of an entire column can be identified by a zero value for the number of
          * streams.
          */
@@ -127,7 +127,7 @@ public class VectorizedPropertyDecoder {
         var vectorType =
             VectorizedDecodingUtils.getVectorTypeBooleanStream(
                 numFeatures, presentStreamMetadata.byteLength(), data, offset);
-        /**
+        /*
          * If vector type equals const create vector without a nullabilityBuffer which specifies
          * that the column is not nullable.The absence of a column can be specified by a zero value
          * for numValues

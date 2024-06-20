@@ -24,5 +24,13 @@ public class TestSettings {
           "country_region",
           "populated_place",
           "admin_division1",
-          "national_park");
+          "national_park",
+          "housenumber",
+          "continent",
+          "sov_capital",
+          "road");
+  /* Layers with ids which are unique per tile but contain no global information, so they can be reassigned
+   *  by the converter */
+  public static final List<String> ID_REASSIGNABLE_MVT_LAYERS =
+      List.of("transportation", "housenumber");
 }

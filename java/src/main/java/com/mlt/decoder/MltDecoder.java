@@ -118,6 +118,7 @@ public class MltDecoder {
 
       var propertyIndex = 0;
       var metadata = tileMetadata.getFeatureTables(featureTableId);
+
       Vector idVector = null;
       GeometryVector geometryVector = null;
       /* Id column always has to be the first column in a FeatureTable */

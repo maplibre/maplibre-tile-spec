@@ -12,13 +12,12 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.NotImplementedException;
-import org.jetbrains.annotations.NotNull;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class MltConverter {
-  private static byte VERSION = 1;
-  private static String ID_COLUMN_NAME = "id";
-  private static String GEOMETRY_COLUMN_NAME = "geometry";
+  private static final byte VERSION = 1;
+  private static final String ID_COLUMN_NAME = "id";
+  private static final String GEOMETRY_COLUMN_NAME = "geometry";
 
   /*
    * The tileset metadata are serialized to a separate protobuf file.
@@ -158,7 +157,7 @@ public class MltConverter {
     return tilesetBuilder.build();
   }
 
-  /**
+  /*
    * Converts a MVT file to a MLT file.
    *
    * @param mvt Tile to convert
@@ -190,35 +189,27 @@ public class MltConverter {
 
       var featureTableOptimizations =
           config.optimizations() == null ? null : config.optimizations().get(featureTableName);
-      var geometries = mvtFeatures.stream().map(f -> f.geometry()).collect(Collectors.toList());
 
-      var sortedFeatures =
-          sortAndOptimizeFeatures(
-              mvtFeatures, featureTableOptimizations, config, geometries, physicalLevelTechnique);
-
-      /* Encode geometry and property columns */
-      var encodedGeometryColumn =
-          GeometryEncoder.encodeGeometryColumn(
-              geometries, physicalLevelTechnique, new ArrayList<>());
+      var result =
+          sortFeaturesAndEncodeGeometryColumn(
+              config, featureTableOptimizations, mvtFeatures, mvtFeatures, physicalLevelTechnique);
+      var sortedFeatures = result.getLeft();
+      var encodedGeometryColumn = result.getRight();
       var encodedGeometryFieldMetadata =
-          EncodingUtils.encodeVarints(new long[] {encodedGeometryColumn.getLeft()}, false, false);
-      var propertyColumns = filterPropertyColumns(featureTableMetadata);
-      var encodedFeatureScopedPropertyColumns =
-          PropertyEncoder.encodePropertyColumns(
-              propertyColumns,
-              sortedFeatures,
-              config.useAdvancedEncodingSchemes(),
-              featureTableOptimizations != null
-                  ? featureTableOptimizations.columnMappings()
-                  : Optional.empty());
+          EncodingUtils.encodeVarints(
+              new long[] {encodedGeometryColumn.numStreams()}, false, false);
+
+      var encodedPropertyColumns =
+          encodePropertyColumns(
+              config, featureTableMetadata, sortedFeatures, featureTableOptimizations);
 
       var encodedFeatureTableInfo =
           EncodingUtils.encodeVarints(
               new long[] {
                 featureTableId++,
                 mvtLayer.tileExtent(),
-                encodedGeometryColumn.getRight(),
-                mvtFeatures.size()
+                encodedGeometryColumn.maxVertexValue(),
+                sortedFeatures.size()
               },
               false,
               false);
@@ -232,23 +223,93 @@ public class MltConverter {
                 .filter(f -> f.getName().equals(ID_COLUMN_NAME))
                 .findFirst()
                 .get();
-        var idColumn =
+        var encodedIdColumn =
             PropertyEncoder.encodeScalarPropertyColumn(
                 idMetadata,
-                mvtFeatures,
+                sortedFeatures,
                 physicalLevelTechnique,
                 config.useAdvancedEncodingSchemes());
-        mapLibreTileBuffer = CollectionUtils.concatByteArrays(mapLibreTileBuffer, idColumn);
+
+        mapLibreTileBuffer = CollectionUtils.concatByteArrays(mapLibreTileBuffer, encodedIdColumn);
       }
 
       mapLibreTileBuffer =
           CollectionUtils.concatByteArrays(
-              mapLibreTileBuffer, encodedGeometryFieldMetadata, encodedGeometryColumn.getMiddle());
-      mapLibreTileBuffer =
-          ArrayUtils.addAll(mapLibreTileBuffer, encodedFeatureScopedPropertyColumns);
+              mapLibreTileBuffer,
+              encodedGeometryFieldMetadata,
+              encodedGeometryColumn.encodedValues());
+      mapLibreTileBuffer = ArrayUtils.addAll(mapLibreTileBuffer, encodedPropertyColumns);
     }
 
     return mapLibreTileBuffer;
+  }
+
+  private static byte[] encodePropertyColumns(
+      ConversionConfig config,
+      MltTilesetMetadata.FeatureTableSchema featureTableMetadata,
+      List<Feature> sortedFeatures,
+      FeatureTableOptimizations featureTableOptimizations)
+      throws IOException {
+    var propertyColumns = filterPropertyColumns(featureTableMetadata);
+    return PropertyEncoder.encodePropertyColumns(
+        propertyColumns,
+        sortedFeatures,
+        config.useAdvancedEncodingSchemes(),
+        featureTableOptimizations != null
+            ? featureTableOptimizations.columnMappings()
+            : Optional.empty());
+  }
+
+  private static Pair<List<Feature>, GeometryEncoder.EncodedGeometryColumn>
+      sortFeaturesAndEncodeGeometryColumn(
+          ConversionConfig config,
+          FeatureTableOptimizations featureTableOptimizations,
+          List<Feature> sortedFeatures,
+          List<Feature> mvtFeatures,
+          PhysicalLevelTechnique physicalLevelTechnique) {
+    /*
+     * Following simple strategy is currently used for ordering the features when sorting is enabled:
+     * - if id column is present and ids should not be reassigned -> sort id column
+     * - if id column is presented and ids can be reassigned  -> sort geometry column (VertexOffsets)
+     *   and regenerate ids
+     * - if id column is not presented -> sort geometry column
+     * In general finding an optimal column arrangement is NP-hard, but by implementing a more sophisticated strategy
+     * based on the latest academic results in the future, the compression ratio can be further improved
+     * */
+
+    var isColumnSortable =
+        config.includeIds()
+            && featureTableOptimizations != null
+            && featureTableOptimizations.allowSorting();
+    if (isColumnSortable && !featureTableOptimizations.allowIdRegeneration()) {
+      sortedFeatures = sortFeaturesById(mvtFeatures);
+    }
+
+    var ids = sortedFeatures.stream().map(Feature::id).collect(Collectors.toList());
+    var geometries = sortedFeatures.stream().map(Feature::geometry).collect(Collectors.toList());
+
+    /* Only sort geometries if ids can be reassigned since sorting the id column turned out
+     * to be more efficient in the tests */
+    var sortSettings =
+        new GeometryEncoder.SortSettings(
+            isColumnSortable && featureTableOptimizations.allowIdRegeneration(), ids);
+    var encodedGeometryColumn =
+        GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, sortSettings);
+
+    if (encodedGeometryColumn.geometryColumnSorted()) {
+      sortedFeatures =
+          ids.stream()
+              .map(id -> mvtFeatures.stream().filter(fe -> fe.id() == id).findFirst().get())
+              .collect(Collectors.toList());
+    }
+
+    if (config.includeIds()
+        && featureTableOptimizations != null
+        && featureTableOptimizations.allowIdRegeneration()) {
+      sortedFeatures = generateSequenceIds(sortedFeatures);
+    }
+
+    return Pair.of(sortedFeatures, encodedGeometryColumn);
   }
 
   private static List<MltTilesetMetadata.Column> filterPropertyColumns(
@@ -259,80 +320,22 @@ public class MltConverter {
         .collect(Collectors.toList());
   }
 
-  // TODO: refactor -> proper implementation
-  private static List<Feature> sortAndOptimizeFeatures(
-      List<Feature> features,
-      FeatureTableOptimizations optimizations,
-      ConversionConfig config,
-      List<org.locationtech.jts.geom.Geometry> geometries,
-      PhysicalLevelTechnique physicalLevelTechnique) {
-    /*
-     * Simple strategy for reordering the features:
-     * - if id column is presented and ids can not be regenerated -> sort id column
-     * - if id column is presented and ids can be regenerated -> sort geometry column and regenerate ids
-     * - if id column is not presented -> sort geometry column
-     * In general finding an optimal column arrangement is NP-hard, but by implementing a more sophisticated strategy
-     * based on the latest academic results in the future, the compression ratio can be further improved.
-     * */
-
-    if (optimizations != null) {
-      /* Sort the FeatureTable based on the different settings */
-      if (!config.includeIds()) {
-        if (optimizations.allowSorting()) {
-          /** Sort geometries */
-          throw new NotImplementedException("Not yet implemented");
-        } else {
-          return features;
-        }
-      } else {
-        if (optimizations.allowSorting() && !optimizations.allowIdRegeneration()) {
-          /** Sort FeatureTable based on id */
-          return features.stream()
-              .sorted(Comparator.comparingLong(Feature::id))
-              .collect(Collectors.toList());
-        } else if (optimizations.allowSorting() && optimizations.allowIdRegeneration()) {
-          /** Sort geometries and reassign new Ids in ascending order to the features */
-          var ids = features.stream().map(f -> f.id()).sorted().collect(Collectors.toList());
-          // TODO: refactor -> quick and dirty way to sort features based on geometry
-          GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, ids);
-          var sortedFeatures = new ArrayList<Feature>();
-          var idCounter = 0;
-          for (var newId : ids) {
-            var feature = features.stream().filter(fe -> fe.id() == newId).findFirst().get();
-            sortedFeatures.add(new Feature(idCounter++, feature.geometry(), feature.properties()));
-          }
-          return sortedFeatures;
-        } else if (!optimizations.allowSorting() && optimizations.allowIdRegeneration()) {
-          /* Only reassign new Ids to the features in ascending order */
-          var sortedFeatures = new ArrayList<Feature>();
-          var idCounter = 0;
-          for (var feature : features) {
-            sortedFeatures.add(new Feature(idCounter++, feature.geometry(), feature.properties()));
-          }
-          return sortedFeatures;
-        } else {
-          return features;
-        }
-      }
-    } else {
-      // always sort the features based on the id or if not present on the geometry if dictionary is
-      // used
-      /** Sort FeatureTable based on id */
-      if (config.includeIds()) {
-        // TODO: enable again
-        // return
-        // features.stream().sorted(Comparator.comparingLong(Feature::id)).collect(Collectors.toList());
-        return features;
-      } else {
-        // TODO: implement
-        // throw new RuntimeException("Not implemented yet.");
-        return features;
-      }
-    }
+  private static List<Feature> sortFeaturesById(List<Feature> features) {
+    return features.stream()
+        .sorted(Comparator.comparingLong(Feature::id))
+        .collect(Collectors.toList());
   }
 
-  private static MltTilesetMetadata.@NotNull ScalarType getScalarType(
-      Map.Entry<String, Object> property) {
+  private static List<Feature> generateSequenceIds(List<Feature> features) {
+    var sortedFeatures = new ArrayList<Feature>();
+    var idCounter = 0;
+    for (var feature : features) {
+      sortedFeatures.add(new Feature(idCounter++, feature.geometry(), feature.properties()));
+    }
+    return sortedFeatures;
+  }
+
+  private static MltTilesetMetadata.ScalarType getScalarType(Map.Entry<String, Object> property) {
     var propertyValue = property.getValue();
     if (propertyValue instanceof Boolean) {
       return MltTilesetMetadata.ScalarType.BOOLEAN;
