@@ -1,5 +1,5 @@
 import Benchmark from 'benchmark';
-import { FastPFOR } from '../../src/encodings/fastpfor/index';
+import { FastPFOR } from '../src/encodings/fastpfor/index';
 import * as varint from 'varint'
 
 
