@@ -166,7 +166,7 @@ public class VectorizedPropertyDecoder {
               return new BooleanFlatVector(column.getName(), nullabilityBuffer, dataVector);
             } else {
               // TODO: handle const
-              throw new IllegalArgumentException("ConstBooleanVector ist not supported yet.");
+              throw new IllegalArgumentException("VectorType not supported yet: " + vectorType);
             }
           }
         case UINT_32:

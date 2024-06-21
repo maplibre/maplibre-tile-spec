@@ -8,14 +8,16 @@ import com.mlt.vector.FeatureTable;
 import java.util.Map;
 
 public class TestUtils {
-  public static void compareTilesVectorized(
+  public static int compareTilesVectorized(
       FeatureTable[] featureTables, MapboxVectorTile mvTile, boolean isFeatureTableSorted) {
+    int numErrors = 0;
     var mvtLayers = mvTile.layers();
     for (var i = 0; i < mvtLayers.size(); i++) {
       var featureTable = featureTables[i];
       var mvtLayer = mvtLayers.get(i);
       var mvtFeatures = mvtLayer.features();
       var featureIterator = featureTable.iterator();
+
       for (var j = 0; j < mvtFeatures.size(); j++) {
         var mltFeature = featureIterator.next();
         var mvtFeature =
@@ -54,7 +56,8 @@ public class TestUtils {
                 // TODO: fix -> currently the converter can't handle a triple nested property name
                 System.out.println(
                     "Skip verification for the name:ja:rm property name since it is currently"
-                        + "not supported in the converter.");
+                        + " not supported in the converter.");
+                numErrors++;
                 continue;
               }
 
@@ -66,9 +69,11 @@ public class TestUtils {
         }
       }
     }
+    return numErrors;
   }
 
-  public static void compareTilesSequential(MapLibreTile mlTile, MapboxVectorTile mvTile) {
+  public static int compareTilesSequential(MapLibreTile mlTile, MapboxVectorTile mvTile) {
+    int numErrors = 0;
     var mltLayers = mlTile.layers();
     var mvtLayers = mvTile.layers();
 
@@ -80,6 +85,7 @@ public class TestUtils {
       for (com.mlt.data.Feature mvtFeature : mvtFeatures) {
         var mltFeature =
             mltFeatures.stream().filter(f -> f.id() == mvtFeature.id()).findFirst().get();
+
         assertEquals(mvtFeature.id(), mltFeature.id());
 
         var mltGeometry = mltFeature.geometry();
@@ -89,15 +95,32 @@ public class TestUtils {
         var mltProperties = mltFeature.properties();
         var mvtProperties = mvtFeature.properties();
         for (var mvtProperty : mvtProperties.entrySet()) {
-          /*if(mvtProperty.getKey().contains("name:ja:rm")){
-              System.out.println(mvtProperty.getKey() + " " + mvtProperty.getValue() + " " + mltProperties.get(mvtProperty.getKey()) + " " + j + " " + i);
-              continue;
-          }*/
+          var mvtPropertyKey = mvtProperty.getKey();
+          if (mvtPropertyKey.equals("name:ja:rm")) {
+            System.out.println(
+                "Skip verification for the name:ja:rm property name since it is currently"
+                    + " not supported in the converter.");
+            numErrors++;
+            continue;
+          }
 
           var mltProperty = mltProperties.get(mvtProperty.getKey());
-          assertEquals(mvtProperty.getValue(), mltProperty);
+          if (mltProperty == null) {
+            // System.out.println("Failure comparing property " + mvtProperty.getKey() + " for
+            // feature: " + mvtFeature.id() + " as mltProperty is null");
+            numErrors++;
+          } else if (!mltProperty.equals(mvtProperty.getValue())) {
+            // System.out.println("Failure comparing property " +  mvtProperty.getKey() + " for
+            // feature: " + mvtFeature.id());
+            // System.out.println("    mvtProperty: " + mvtProperty.getValue());
+            // System.out.println("    mltProperty: " + mltProperty);
+            numErrors++;
+          } else {
+            assertEquals(mvtProperty.getValue(), mltProperty);
+          }
         }
       }
     }
+    return numErrors;
   }
 }
