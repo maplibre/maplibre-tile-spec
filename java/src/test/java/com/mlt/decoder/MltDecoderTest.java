@@ -67,6 +67,10 @@ public class MltDecoderTest {
         "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
   }
 
+  // TODO:
+  // once https://github.com/maplibre/maplibre-tile-spec/issues/182 is fixed
+  // add the "5-16-9" tile to the bingProvider
+  // and remove this test
   @Test
   public void currentlyFailingBingDecoding1() throws IOException {
     var exception =
