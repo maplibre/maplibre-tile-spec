@@ -38,9 +38,9 @@ jobs:
           java-version: '17'
       - uses: actions/setup-node@v4
         with:
-          node-version-file: 'js/.nvmrc'
+          node-version-file: '.nvmrc'
           cache: 'npm'
-          cache-dependency-path: 'js/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
       # currently requires java encoder to be run
       - name: Bench JS code
         run: just bench-js
