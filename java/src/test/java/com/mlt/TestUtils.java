@@ -40,8 +40,9 @@ public class TestUtils {
           numErrors++;
           continue;
         }
+        // TODO: remove the below special case once this bug is fixed:
+        // https://github.com/maplibre/maplibre-tile-spec/issues/181
         if (mvtPropertyKey.equals("id")) {
-          // TODO: Known issue where we discard id as a property
           continue;
         }
         var mltProperty = mltProperties.get(mvtPropertyKey);
