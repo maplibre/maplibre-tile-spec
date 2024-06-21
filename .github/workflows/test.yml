@@ -25,6 +25,7 @@ jobs:
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just lint-js
       - run: just test-js
+      - run: just bench-js
 
   lint-java:
     runs-on: ubuntu-latest

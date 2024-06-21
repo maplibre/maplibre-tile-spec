@@ -58,6 +58,14 @@ test-js:
 test-rust:
     cd rust && cargo test
 
+bench-js:
+    cd js && npm run bench
+
+bench-java:
+    cd java && ./gradlew jmh
+
+bench: bench-js bench-java
+
 # Run integration tests, ensuring that the output matches the expected output
 test-int: clean-int-test test-run-int (diff-dirs "test/output" "test/expected")
 
