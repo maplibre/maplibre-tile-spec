@@ -43,7 +43,7 @@ jobs:
           cache-dependency-path: 'js/package-lock.json'
       # currently requires java encoder to be run
       - name: Bench JS code
-      - run: just bench-js
+        run: just bench-js
 
   lint-java:
     runs-on: ubuntu-latest
