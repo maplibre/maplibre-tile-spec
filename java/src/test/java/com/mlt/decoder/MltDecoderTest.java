@@ -56,7 +56,7 @@ public class MltDecoderTest {
     var result =
         testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, true);
     assertEquals(
-      1148,
+        1148,
         result.numErrorsAdvanced,
         "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
   }
@@ -110,13 +110,16 @@ public class MltDecoderTest {
   @Test
   public void decodeOMTTilesSortedFail() throws IOException {
     var exception =
-    assertThrows(
-        Exception.class,
-        () ->
-           testTile("4_8_10", TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, true));
-    assertEquals(
-        "java.lang.IndexOutOfBoundsException",
-        exception.toString());
+        assertThrows(
+            Exception.class,
+            () ->
+                testTile(
+                    "4_8_10",
+                    TestSettings.OMT_MVT_PATH,
+                    DecoderType.BOTH,
+                    EncodingType.ADVANCED,
+                    true));
+    assertEquals("java.lang.IndexOutOfBoundsException", exception.toString());
   }
 
   private static Stream<String> omtProvider() {
@@ -176,10 +179,7 @@ public class MltDecoderTest {
       var result =
           testTile(
               tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.NONADVANCED, false);
-      assertEquals(
-          0,
-          result.numErrors,
-          "Error for " + tileId + "/advanced: " + result.numErrors);
+      assertEquals(0, result.numErrors, "Error for " + tileId + "/advanced: " + result.numErrors);
     }
   }
 
