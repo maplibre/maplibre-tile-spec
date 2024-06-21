@@ -57,7 +57,7 @@ const runSuite = async (tile) => {
                 const features = [];
                 for (const layer of decoded.layers) {
                   for (const feature of layer.features) {
-                    features.push(feature.toGeoJSON());
+                    features.push(feature.toGeoJSON(z, y, z));
                   }
                 }
                 deferred.resolve();
