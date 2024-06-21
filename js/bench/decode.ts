@@ -18,14 +18,14 @@ const tiles = [
   'bing/5-17-11',
 ];
 
-if (!existsSync('../java/build/libs/encode.jar')) {
+if (!existsSync('java/build/libs/encode.jar')) {
   console.log('encode.jar does not exist, building java project...');
-  execSync('./gradlew cli', { cwd: '../java' });
+  execSync('./gradlew cli', { cwd: 'java' });
 }
 tiles.forEach(tile => {
-  if (!existsSync(`../test/expected/${tile}.mlt.meta.pbf`)) {
+  if (!existsSync(`test/expected/${tile}.mlt.meta.pbf`)) {
     console.log('Generating MLT tiles & metadata');
-    const cmd = `java -jar ../java/build/libs/encode.jar -mvt ../test/fixtures/${tile}.mvt -metadata -decode -mlt ../test/expected/${tile}.mlt`;
+    const cmd = `java -jar java/build/libs/encode.jar -mvt test/fixtures/${tile}.mvt -metadata -decode -mlt test/expected/${tile}.mlt`;
     console.log(cmd)
     execSync(cmd);
   }
@@ -39,9 +39,9 @@ if (process.env.GITHUB_RUN_ID) {
 
 const runSuite = async (tile) => {
   console.log(`Running benchmarks for ${tile}`);
-  const metadata: Buffer = readFileSync(`../test/expected/${tile}.mlt.meta.pbf`);
-  const mvtTile: Buffer = readFileSync(`../test/fixtures/${tile}.mvt`);
-  const mltTile: Buffer = readFileSync(`../test/expected/${tile}.mlt`);
+  const metadata: Buffer = readFileSync(`test/expected/${tile}.mlt.meta.pbf`);
+  const mvtTile: Buffer = readFileSync(`test/fixtures/${tile}.mvt`);
+  const mltTile: Buffer = readFileSync(`test/expected/${tile}.mlt`);
   const uri = tile.split('/')[1].split('-').map(Number);
   const { z, x, y } = { z: uri[0], x: uri[1], y: uri[2] };
   const tilesetMetadata = TileSetMetadata.fromBinary(metadata);

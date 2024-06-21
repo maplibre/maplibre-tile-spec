@@ -4,7 +4,7 @@ import { MltDecoder, TileSetMetadata } from "../../../src/index";
 import { VectorTile } from '@mapbox/vector-tile';
 import Protobuf from 'pbf';
 
-const tilesDir = "../test/fixtures";
+const tilesDir = "test/fixtures";
 
 function getLayerByName(layers, name) {
     return layers.find(layer => layer.name === name);

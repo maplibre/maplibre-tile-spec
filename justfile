@@ -49,18 +49,18 @@ test-java-cli:
     java -jar ./build/libs/decode.jar -mlt output/advanced.mlt -vectorized
 
 install-js:
-    cd js && npm ci
+    npm ci
 
 # Run tests for JavaScript
 test-js: install-js
-    cd js && npm test
+    npm test
 
 # Run tests for Rust
 test-rust:
     cd rust && cargo test
 
 bench-js: install-js
-    cd js && npm run bench
+    npm run bench
 
 bench-java:
     cd java && ./gradlew jmh

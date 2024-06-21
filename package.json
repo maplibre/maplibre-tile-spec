@@ -4,14 +4,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "/dist"
+    "dist"
   ],
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "bench": "ts-node bench/decode.ts",
+    "bench": "ts-node js/bench/decode.ts",
     "test": "jest",
-    "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
+    "lint": "eslint --max-warnings=0 --fix --ext .ts js/src js/bench js/test",
     "format": "prettier --write \"**/*.ts\""
   },
   "devDependencies": {
