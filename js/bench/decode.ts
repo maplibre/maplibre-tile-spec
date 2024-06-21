@@ -31,6 +31,10 @@ tiles.forEach(tile => {
   }
 });
 
+if (process.env.GITHUB_RUN_ID) {
+  console.log('Running in CI, using smaller maxTime');
+}
+
 const runSuite = async (tile) => {
   console.log(`Running benchmarks for ${tile}`);
   const metadata: Buffer = readFileSync(`../test/expected/${tile}.mlt.meta.pbf`);
@@ -52,6 +56,7 @@ const runSuite = async (tile) => {
           })
           .add(`MLT ${tile}`, {
               defer: true,
+              maxTime: process.env.GITHUB_RUN_ID ?  .5 : 10,
               fn: (deferred: benchmark.Deferred) => {
                 const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
                 const features = [];
@@ -65,6 +70,7 @@ const runSuite = async (tile) => {
           })
           .add(`MVT ${tile}`, {
             defer: true,
+            maxTime: process.env.GITHUB_RUN_ID ?  .5 : 10,
             fn: (deferred: benchmark.Deferred) => {
                 const vectorTile = new VectorTile(new Protobuf(mvtTile));
                 const features = [];
