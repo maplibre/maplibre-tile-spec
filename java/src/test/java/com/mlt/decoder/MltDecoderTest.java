@@ -60,6 +60,8 @@ public class MltDecoderTest {
   public void decodeBingTiles(String tileId) throws IOException {
     var result =
         testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.BOTH, false);
+    // TODO assert that zero errors are found once
+    // https://github.com/maplibre/maplibre-tile-spec/issues/184 is fixed
     assertEquals(2, result.numErrors, "Error for " + tileId + "/non-advanced: " + result.numErrors);
     assertEquals(
         0,
