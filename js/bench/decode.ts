@@ -31,6 +31,12 @@ tiles.forEach(tile => {
   }
 });
 
+let maxTime = 10;
+if (process.env.GITHUB_RUN_ID) {
+  maxTime = 2;
+  console.log(`Running in CI, using smaller maxTime: ${maxTime} seconds`);
+}
+
 const runSuite = async (tile) => {
   console.log(`Running benchmarks for ${tile}`);
   const metadata: Buffer = readFileSync(`../test/expected/${tile}.mlt.meta.pbf`);
@@ -52,12 +58,13 @@ const runSuite = async (tile) => {
           })
           .add(`MLT ${tile}`, {
               defer: true,
+              maxTime: maxTime,
               fn: (deferred: benchmark.Deferred) => {
                 const decoded = MltDecoder.decodeMlTile(mltTile, tilesetMetadata);
                 const features = [];
                 for (const layer of decoded.layers) {
                   for (const feature of layer.features) {
-                    features.push(feature.toGeoJSON());
+                    features.push(feature.toGeoJSON(z, y, z));
                   }
                 }
                 deferred.resolve();
@@ -65,6 +72,7 @@ const runSuite = async (tile) => {
           })
           .add(`MVT ${tile}`, {
             defer: true,
+            maxTime: maxTime,
             fn: (deferred: benchmark.Deferred) => {
                 const vectorTile = new VectorTile(new Protobuf(mvtTile));
                 const features = [];

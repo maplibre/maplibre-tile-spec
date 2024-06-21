@@ -1,20 +1,42 @@
-import { Geometry } from './Geometry';
+import { Projection } from './Projection';
 
 export class Feature {
     id: number;
-    geometry: Geometry;
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    properties: { [key: string]: any };
-    constructor(id: number, geometry : Geometry, properties: { [key: string]: any }) {
+    extent: number;
+    geometry;
+    properties;
+    constructor(id: number, extent: number, geometry, properties) {
         this.id = id;
         this.geometry = geometry;
         this.properties = properties;
+        this.extent = extent;
     }
-    public toGeoJSON = () : object => {
+
+    public loadGeometry = () => {
+        if (typeof this.geometry.loadGeometry === 'function') {
+            return this.geometry.loadGeometry();
+        } else {
+            return [[this.geometry]];
+        }
+    }
+
+    public toGeoJSON = (x: number, y: number, z: number) => {
+        let geometry;
+        if (typeof this.geometry.toGeoJSON === 'function') {
+            geometry = this.geometry.toGeoJSON(this.extent, x, y, z);
+        } else {
+            const projection = new Projection(this.extent, x, y, z);
+            const projected = projection.project([this.geometry]);
+            geometry = {
+                "type": "Point",
+                "coordinates": projected[0]
+            };
+        }
         return {
-            "type": "Feature",
-            "geometry": this.geometry.toGeoJSON(),
-            "properties": this.properties
+            type: "Feature",
+            id: Number(this.id),
+            geometry: geometry,
+            properties: this.properties
         };
     }
 }
