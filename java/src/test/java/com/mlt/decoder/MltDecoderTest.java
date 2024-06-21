@@ -48,6 +48,19 @@ public class MltDecoderTest {
 
   /* Bing Maps tests --------------------------------------------------------- */
 
+  // TODO: after https://github.com/maplibre/maplibre-tile-spec/issues/186 is fixed
+  // remove this test and start testing all the Bing tiles with sorting enabled
+  @Test
+  public void decodeBingTilesSortedFail() throws IOException {
+    var tileId = "4-8-5";
+    var result =
+        testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, true);
+    assertEquals(
+      1148,
+        result.numErrorsAdvanced,
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
+  }
+
   private static Stream<String> bingProvider() {
     return Stream.of(
         "4-8-5", "4-9-5", "4-12-6", "4-13-6", "5-16-11", "5-17-11", "5-17-10", "6-32-22", "6-33-22",
