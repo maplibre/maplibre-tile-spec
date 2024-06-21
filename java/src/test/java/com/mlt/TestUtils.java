@@ -24,22 +24,15 @@ public class TestUtils {
       var mltGeometry = mltFeature.geometry();
       var mvtGeometry = mvtFeature.geometry();
       if (!mvtGeometry.equalsExact(mltGeometry)) {
-        System.out.println("Failure comparing geometry for feature: " + mvtFeature.id());
-        System.out.println("    mvtGeometry: " + mvtGeometry);
-        System.out.println("    mltGeometry: " + mltGeometry);
+        // System.out.println("Failure comparing geometry for feature: " + mvtFeature.id());
+        // System.out.println("    mvtGeometry: " + mvtGeometry);
+        // System.out.println("    mltGeometry: " + mltGeometry);
         numErrors++;
       }
       var mltProperties = mltFeature.properties();
       var mvtProperties = mvtFeature.properties();
       for (var mvtProperty : mvtProperties.entrySet()) {
         var mvtPropertyKey = mvtProperty.getKey();
-        if (mvtPropertyKey.equals("name:ja:rm")) {
-          System.out.println(
-              "Skip verification for the name:ja:rm property name since it is currently"
-                  + " not supported in the converter.");
-          numErrors++;
-          continue;
-        }
         // TODO: remove the below special case once this bug is fixed:
         // https://github.com/maplibre/maplibre-tile-spec/issues/181
         if (mvtPropertyKey.equals("id")) {
@@ -47,18 +40,18 @@ public class TestUtils {
         }
         var mltProperty = mltProperties.get(mvtPropertyKey);
         if (mltProperty == null) {
-          System.out.println(mvtFeature.id() + " mlt prop missing for " + mvtProperty.getKey());
-          System.out.println("  mvtProperties: " + mvtProperties);
-          System.out.println("  mltProperties: " + mltProperties);
+          // System.out.println(mvtFeature.id() + " mlt prop missing for " + mvtProperty.getKey());
+          // System.out.println("  mvtProperties: " + mvtProperties);
+          // System.out.println("  mltProperties: " + mltProperties);
           numErrors++;
         } else if (!mltProperty.equals(mvtProperty.getValue())) {
-          System.out.println(
-              "Failure comparing property "
-                  + mvtProperty.getKey()
-                  + " for feature: "
-                  + mvtFeature.id());
-          System.out.println("    mvtProperty: " + mvtProperty.getValue());
-          System.out.println("    mltProperty: " + mltProperty);
+          // System.out.println(
+          //     "Failure comparing property "
+          //         + mvtProperty.getKey()
+          //         + " for feature: "
+          //         + mvtFeature.id());
+          // System.out.println("    mvtProperty: " + mvtProperty.getValue());
+          // System.out.println("    mltProperty: " + mltProperty);
           numErrors++;
         } else {
           assertEquals(mvtProperty.getValue(), mltProperty);

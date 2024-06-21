@@ -115,17 +115,10 @@ public class MltDecoderTest {
   public void decodeOMTTiles(String tileId) throws IOException {
     var result =
         testTile(tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, false);
-    if (tileId == "2_2_2") {
-      assertEquals(
-          4,
-          result.numErrorsAdvanced,
-          "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
-    } else {
-      assertEquals(
-          0,
-          result.numErrorsAdvanced,
-          "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
-    }
+    assertEquals(
+        0,
+        result.numErrorsAdvanced,
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
   }
 
   @DisplayName("Decode OMT Tiles (non-advanced encodings)")
@@ -150,17 +143,10 @@ public class MltDecoderTest {
       var result =
           testTile(
               tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.NONADVANCED, false);
-      if (tileId == "2_2_2") {
-        assertEquals(
-            0,
-            result.numErrorsAdvanced,
-            "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
-      } else {
-        assertEquals(
-            0,
-            result.numErrorsAdvanced,
-            "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
-      }
+      assertEquals(
+          0,
+          result.numErrorsAdvanced,
+          "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
     }
   }
 
