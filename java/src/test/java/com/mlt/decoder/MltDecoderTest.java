@@ -130,8 +130,8 @@ public class MltDecoderTest {
   @MethodSource("omtProvider")
   public void decodeOMTTiles2(String tileId) throws IOException {
     if (tileId == "13_4265_5467" || tileId == "14_8298_10748" || tileId == "14_8299_10748") {
-      // System.out.println("Skipping test for " + tileId + "due to know issues with the
-      // converter");
+      // TODO remove this special case for these 3 tiles once this bug is fixed:
+      // https://github.com/maplibre/maplibre-tile-spec/issues/183
       var exception =
           assertThrows(
               Exception.class,
