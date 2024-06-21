@@ -90,14 +90,7 @@ public class TestUtils {
 
         var mltGeometry = mltFeature.geometry();
         var mvtGeometry = mvtFeature.geometry();
-        if (!mvtGeometry.toString().equals(mltGeometry.toString())) {
-          // System.out.println("Failure comparing geometries for feature: " + mvtFeature.id());
-          // System.out.println("    mvtGeometry: " + mvtGeometry);
-          // System.out.println("    mltGeometry: " + mltGeometry);
-          numErrors++;
-        } else {
-          assertEquals(mvtGeometry, mltGeometry);
-        }
+        assertEquals(mvtGeometry, mltGeometry);
 
         var mltProperties = mltFeature.properties();
         var mvtProperties = mvtFeature.properties();
