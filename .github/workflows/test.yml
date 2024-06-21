@@ -19,9 +19,9 @@ jobs:
         with: { tool: just }
       - uses: actions/setup-node@v4
         with:
-          node-version-file: 'js/.nvmrc'
+          node-version-file: '.nvmrc'
           cache: 'npm'
-          cache-dependency-path: 'js/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just lint-js
       - run: just test-js
