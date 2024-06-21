@@ -48,17 +48,18 @@ test-java-cli:
     # ensure we can decode the advanced tile
     java -jar ./build/libs/decode.jar -mlt output/advanced.mlt -vectorized
 
+install-js:
+    cd js && npm ci
 
 # Run tests for JavaScript
-test-js:
-    cd js && npm ci
+test-js: install-js
     cd js && npm test
 
 # Run tests for Rust
 test-rust:
     cd rust && cargo test
 
-bench-js:
+bench-js: install-js
     cd js && npm run bench
 
 bench-java:
