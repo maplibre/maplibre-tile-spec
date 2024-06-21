@@ -40,18 +40,18 @@ public class TestUtils {
         }
         var mltProperty = mltProperties.get(mvtPropertyKey);
         if (mltProperty == null) {
-          // System.out.println(mvtFeature.id() + " mlt prop missing for " + mvtProperty.getKey());
-          // System.out.println("  mvtProperties: " + mvtProperties);
-          // System.out.println("  mltProperties: " + mltProperties);
+          System.out.println(mvtFeature.id() + " mlt prop missing for " + mvtProperty.getKey());
+          System.out.println("  mvtProperties: " + mvtProperties);
+          System.out.println("  mltProperties: " + mltProperties);
           numErrors++;
         } else if (!mltProperty.equals(mvtProperty.getValue())) {
-          // System.out.println(
-          //     "Failure comparing property "
-          //         + mvtProperty.getKey()
-          //         + " for feature: "
-          //         + mvtFeature.id());
-          // System.out.println("    mvtProperty: " + mvtProperty.getValue());
-          // System.out.println("    mltProperty: " + mltProperty);
+          System.out.println(
+              "Failure comparing property "
+                  + mvtProperty.getKey()
+                  + " for feature: "
+                  + mvtFeature.id());
+          System.out.println("    mvtProperty: " + mvtProperty.getValue());
+          System.out.println("    mltProperty: " + mltProperty);
           numErrors++;
         } else {
           assertEquals(mvtProperty.getValue(), mltProperty);
