@@ -25,6 +25,24 @@ jobs:
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just lint-js
       - run: just test-js
+
+  bench-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: 'js/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: 'js/package-lock.json'
+      # currently requires java encoder to be run
+      - name: Bench JS code
       - run: just bench-js
 
   lint-java:
@@ -63,7 +81,7 @@ jobs:
     name: CI Finished
     runs-on: ubuntu-latest
     # List of all the other jobs that must pass for this job to start
-    needs: [ test-java, lint-java, test-js ]
+    needs: [ test-java, lint-java, test-js, bench-js ]
     steps:
       - name: Finished
         run: echo "CI finished successfully"
