@@ -92,6 +92,20 @@ public class MltDecoderTest {
 
   /* OpenMapTiles schema based vector tiles tests  --------------------------------------------------------- */
 
+  // TODO: after https://github.com/maplibre/maplibre-tile-spec/issues/185 is fixed
+  // remove this test and start testing all the OMT tiles with sorting enabled
+  @Test
+  public void decodeOMTTilesSortedFail() throws IOException {
+    var exception =
+    assertThrows(
+        Exception.class,
+        () ->
+           testTile("4_8_10", TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, true));
+    assertEquals(
+        "java.lang.IndexOutOfBoundsException",
+        exception.toString());
+  }
+
   private static Stream<String> omtProvider() {
     return Stream.of(
         "2_2_2",
@@ -115,7 +129,7 @@ public class MltDecoderTest {
         "14_8299_10748");
   }
 
-  @DisplayName("Decode OMT Tiles (advanced encodings)")
+  @DisplayName("Decode OMT Tiles (advanced encodings, non-sorted)")
   @ParameterizedTest()
   @MethodSource("omtProvider")
   public void decodeOMTTiles(String tileId) throws IOException {
@@ -151,8 +165,8 @@ public class MltDecoderTest {
               tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.NONADVANCED, false);
       assertEquals(
           0,
-          result.numErrorsAdvanced,
-          "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
+          result.numErrors,
+          "Error for " + tileId + "/advanced: " + result.numErrors);
     }
   }
 
@@ -184,27 +198,31 @@ public class MltDecoderTest {
     var mlTileAdvanced =
         MltConverter.convertMvt(
             mvTile, new ConversionConfig(includeIds, true, optimizations), tileMetadata);
-    int numErrors = 0;
-    int numErrorsAdvanced = 0;
+    int numErrors = -1;
+    int numErrorsAdvanced = -1;
     if (decoder == DecoderType.SEQUENTIAL || decoder == DecoderType.BOTH) {
       if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
         var decodedAdvanced = MltDecoder.decodeMlTile(mlTileAdvanced, tileMetadata);
+        if (numErrorsAdvanced == -1) numErrorsAdvanced = 0;
         numErrorsAdvanced +=
             TestUtils.compareTilesSequential(decodedAdvanced, mvTile, allowSorting);
       }
       if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
         var decoded = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+        if (numErrors == -1) numErrors = 0;
         numErrors += TestUtils.compareTilesSequential(decoded, mvTile, allowSorting);
       }
     }
     if (decoder == DecoderType.VECTORIZED || decoder == DecoderType.BOTH) {
       if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
         var decodedAdvanced = MltDecoder.decodeMlTileVectorized(mlTileAdvanced, tileMetadata);
+        if (numErrorsAdvanced == -1) numErrorsAdvanced = 0;
         numErrorsAdvanced +=
             TestUtils.compareTilesVectorized(decodedAdvanced, mvTile, allowSorting);
       }
       if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
         var decoded = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
+        if (numErrors == -1) numErrors = 0;
         numErrors += TestUtils.compareTilesVectorized(decoded, mvTile, allowSorting);
       }
     }
