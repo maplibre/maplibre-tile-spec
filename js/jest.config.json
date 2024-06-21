@@ -3,5 +3,6 @@
         "^.+\\.ts": "ts-jest"
     },
     "testRegex": "test/unit/(.*|(\\.|/)(test|spec))\\.(js|ts)$",
-    "moduleFileExtensions": ["ts", "js", "json", "node"]
+    "moduleFileExtensions": ["ts", "js", "json", "node"],
+    "workerThreads": true
 }
