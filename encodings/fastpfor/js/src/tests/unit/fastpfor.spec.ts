@@ -1,17 +1,15 @@
+import * as fs from 'node:fs';
+
 import test from 'ava';
 import * as varint from 'varint';
 
 import { FastPFOR } from '../../index';
 import { arraycopy } from '../../util';
 
-const FastPFOR_Raw_Test1: number[] = [ 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ,187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8,4 ];
-const FastPFOR_Raw_Test2: Uint32Array = new Uint32Array([ 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ,1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4,4 ]);
-const FastPFOR_Compressed_Test1: Uint32Array = new Uint32Array([ 256, 41, 277094666, -1977546686, 554189328, 138547362, -1575975903, 277094664, -2078209502, 554189328, 138547338, 1108386337, 277094664, -2078209886, 554312208, 138547332, 1108380193, 279060744, -2078209982, 554213904, 170004612, 1108378657, 277487880, -1574893502, 554189328, 144838788, 571507745, 277094666, -1977546686, 554189328, 138547362, -1575975903, 277094664, -2078209502, 554189328, 138547338, 1108386337, 277094664, -2078209886, 554312208, 138547332, 1108380193, 16, 1838341, 1346119700, -1601406876, -253966156, 4194304, 13, -1923532518, 1313254556, -1423498410, -925527151, 1692691145, 447902261, -1668458183, 1447970476, -1851054301, 1427 ]);
-const FastPFOR_Compressed_Test2: Uint32Array = new Uint32Array([ 512,49,613566752,153391681,306783378,546457892,1092915785,-1844894574,605178148,1226871369,-1841224558,613550372,1227100745,-1840701294,613564708,1227133449,-1840700398,613566752,153391681,306783378,546457892,1092915785,-1844894574,605178148,1226871369,-1841224558,613550372,1227100745,-1840701294,613564708,1227133449,-1840700398,613566752,153391681,306783378,546457892,1092915785,-1844894574,605178148,1226871369,-1841224558,613550372,1227100745,-1840701294,613564708,1227133449,-1840700398,613566752,153391681,306783378,58,2038275,673125387,1346845747,2020566107,-1600680829,-926960469,-253240109,521798651,588779268,1262499628,1936219988,-1685026948,-1011306588,-337586228,65524,134217728,52,1844505629,486539326,1047392492,-333643776,4091376,-252961536,15981,1844505629,486539326,1047392492,-333643776,4091376,-252961536,15981,1844505629,486539326,1047392492,-333643776,4091376,-252961536,15981,1844505629,486539326,1047392492,-333643776,4091376,-252961536,15981,1844505629,486539326,1047392492,-333643776,4091376,-252961536,15981,1844505629,486539326,1047392492,-333643776,4091376,-252961536,15981,1844505629,486539326,1047392492,0 ]);
+const file = fs.readFileSync("src/tests/assets/testdata.json", "utf8");
+const testdata = JSON.parse(file);
 
-let numbers: Uint32Array = new Uint32Array(280);
-
-function encodeArray(nums: number[]): Buffer {
+function encodeArray(nums: number[]): Uint8Array {
   const buffers: Buffer[] = [];
 
   // Encode each number to a varint and push it to the buffers array
@@ -21,45 +19,62 @@ function encodeArray(nums: number[]): Buffer {
   }
 
   // Concatenate all buffer parts into a single buffer
-  return Buffer.concat(buffers);
+  return new Uint8Array(Buffer.concat(buffers));
 }
-function decodeArray(buffer: Buffer) {
-  let offset = 0;
+function decodeArray(buffer: Uint8Array, unpacked_size: number) {
+  let numbers = new Uint8Array(unpacked_size);
   let number = 0;
 
   // Decode each varint from the buffer until the end of the buffer is reached
-  let i = 0;
-  for (let offset=0; offset < buffer.length; offset += varint.encodingLength(number)) {
+  for (let offset=0, i = 0; offset < buffer.length; offset += varint.encodingLength(number)) {
     number = varint.decode(buffer, offset);
     numbers[i] = number;
     i++;
   }
+  return numbers;
 }
 
 test("VarInt compress", (t) => {
-  var bytes = encodeArray(FastPFOR_Raw_Test1);
-  decodeArray(bytes);
+  var bytes = encodeArray(testdata.Raw.Medium);
+  var numbers = decodeArray(bytes, testdata.Raw.Medium.length);
 
-  t.deepEqual(new Uint32Array(FastPFOR_Raw_Test1), numbers);
+  // console.log(Array(bytes).toString());
+
+  t.deepEqual(new Uint8Array(testdata.Raw.Medium), numbers);
 })
+test("VarInt decompress", (t) => {
+  var numbers = decodeArray(testdata.Varint.Test1, testdata.Raw.Test1.length);
+
+  t.deepEqual(new Uint8Array(testdata.Raw.Test1), numbers);
+})
+// test("VarInt decompress (Medium)", (t) => {
+//   var numbers = decodeArray(testdata.Varint.Medium, testdata.Raw.Medium.length);
+//
+//   t.deepEqual(new Uint8Array(testdata.Raw.Medium), numbers);
+// })
+// test("VarInt decompress (Large)", (t) => {
+//   var numbers = decodeArray(testdata.Varint.Large, testdata.Raw.Large.length);
+//
+//   t.deepEqual(new Uint8Array(testdata.Raw.Large), numbers);
+// })
 test("FastPFOR decompress (Test 1)", (t) => {
   let core = FastPFOR.default();
 
-  var output = new Uint32Array(FastPFOR_Raw_Test1.length);
+  var output = new Uint32Array(Array(testdata.Raw.Test1).length);
 
   let model = {
-    input: FastPFOR_Compressed_Test1,
+    input: testdata.FastPFOR.Test1,
     inpos: 0,
     output: output,
     outpos: 0,
-    inlength: FastPFOR_Compressed_Test1.length,
+    inlength: Array(testdata.FastPFOR.Test1).length,
   };
   core.uncompress(model);
 
   var SmallInput: Uint32Array = new Uint32Array(model.outpos);
   var SmallOutput: Uint32Array = new Uint32Array(model.outpos);
 
-  arraycopy(new Uint32Array(FastPFOR_Raw_Test1), 0, SmallInput, 0, model.outpos);
+  arraycopy(new Uint32Array(testdata.Raw.Test1), 0, SmallInput, 0, model.outpos);
   arraycopy(output, 0, SmallOutput, 0, model.outpos);
 
   t.deepEqual(SmallOutput, SmallInput);
@@ -67,21 +82,43 @@ test("FastPFOR decompress (Test 1)", (t) => {
 test("FastPFOR decompress (Test 2)", (t) => {
   let core = FastPFOR.default();
 
-  var output = new Uint32Array(FastPFOR_Raw_Test2.length);
+  var output = new Uint32Array(Array(testdata.Raw.Test2).length);
 
   let model = {
-    input: FastPFOR_Compressed_Test2,
+    input: testdata.FastPFOR.Test2,
     inpos: 0,
     output: output,
     outpos: 0,
-    inlength: FastPFOR_Compressed_Test2.length,
+    inlength: Array(testdata.FastPFOR.Test2).length,
   };
   core.uncompress(model);
 
   var SmallInput = new Uint32Array(model.outpos);
   var SmallOutput = new Uint32Array(model.outpos);
 
-  arraycopy(FastPFOR_Raw_Test2, 0, SmallInput, 0, model.outpos);
+  arraycopy(new Uint32Array(testdata.Raw.Test2), 0, SmallInput, 0, model.outpos);
+  arraycopy(output, 0, SmallOutput, 0, model.outpos);
+
+  t.deepEqual(SmallOutput, SmallInput);
+});
+test("FastPFOR decompress (Medium)", (t) => {
+  let core = FastPFOR.default();
+
+  var output = new Uint32Array(Array(testdata.Raw.Medium).length);
+
+  let model = {
+    input: testdata.FastPFOR.Medium,
+    inpos: 0,
+    output: output,
+    outpos: 0,
+    inlength: Array(testdata.FastPFOR.Medium).length,
+  };
+  core.uncompress(model);
+
+  var SmallInput = new Uint32Array(model.outpos);
+  var SmallOutput = new Uint32Array(model.outpos);
+
+  arraycopy(new Uint32Array(testdata.Raw.Medium), 0, SmallInput, 0, model.outpos);
   arraycopy(output, 0, SmallOutput, 0, model.outpos);
 
   t.deepEqual(SmallOutput, SmallInput);

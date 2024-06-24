@@ -8,6 +8,7 @@
 // eslint-disable functional/prefer-readonly-type
 
 import ByteBuffer from 'bytebuffer';
+// import fs from 'node:fs';
 
 import { fastunpack } from './BitPacking';
 import { arraycopy, greatestMultiple } from './util';
@@ -138,3 +139,21 @@ export class FastPFOR {
     this.headlessUncompress({ input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, mynvalue: outlength });
   }
 }
+
+// setTimeout(() => {
+//
+//   let core = FastPFOR.default();
+//
+//   const file = fs.readFileSync("src/tests/assets/testdata.json", "utf8");
+//   const testdata = JSON.parse(file);
+//
+//   const output: Uint32Array = new Uint32Array(testdata.Raw.Large.length);
+//   core.uncompress({
+//     input: testdata.FastPFOR.Large,
+//     inpos: 0,
+//     output: output,
+//     outpos: 0
+//   });
+//
+//   console.log(output.toString());
+// }, 30000);
