@@ -67,7 +67,8 @@ public class MltDecoderTest {
         testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.BOTH, false);
     // TODO assert that zero errors are found once
     // https://github.com/maplibre/maplibre-tile-spec/issues/184 is fixed
-    assertEquals(2, result.numErrors(), "Error for " + tileId + "/non-advanced: " + result.numErrors());
+    assertEquals(
+        2, result.numErrors(), "Error for " + tileId + "/non-advanced: " + result.numErrors());
     assertEquals(
         0,
         result.numErrorsAdvanced(),
@@ -171,7 +172,8 @@ public class MltDecoderTest {
       var result =
           testTile(
               tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.NONADVANCED, false);
-      assertEquals(0, result.numErrors(), "Error for " + tileId + "/advanced: " + result.numErrors());
+      assertEquals(
+          0, result.numErrors(), "Error for " + tileId + "/advanced: " + result.numErrors());
     }
   }
 
