@@ -13,7 +13,7 @@ import { ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 export class MltDecoder {
     public static decodeMlTile(tile: Uint8Array, tileMetadata: TileSetMetadata): MapLibreTile {
         const offset = new IntWrapper(0);
-        const mltLayers: Layer[] = [];
+        const mltile = new MapLibreTile();
         while (offset.get() < tile.length) {
             let ids = [];
             let geometries = [];
@@ -62,12 +62,10 @@ export class MltDecoder {
                     }
                 }
             }
-
-            const layer = MltDecoder.convertToLayer(ids, extent, version, geometries, properties, metadata, numFeatures);
-            mltLayers.push(layer);
+            mltile.layers[metadata.name] = MltDecoder.convertToLayer(ids, extent, version, geometries, properties, metadata, numFeatures);
         }
 
-        return new MapLibreTile(mltLayers);
+        return mltile;
     }
 
     private static convertToLayer(ids: number[], extent, version, geometries, properties, metadata: FeatureTableSchema, numFeatures: number): Layer {

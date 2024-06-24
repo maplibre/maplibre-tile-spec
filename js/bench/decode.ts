@@ -55,46 +55,11 @@ if (process.env.GITHUB_RUN_ID) {
   console.log(`Running in CI, using smaller maxTime: ${maxTime} seconds`);
 }
 
-const mltDecode = (input, collector) => {
-  const decoded = MltDecoder.decodeMlTile(input.mltTile, input.tilesetMetadata);
+const decode = (decoded, collector) => {
   let count = 0;
-  const layerNames = decoded.layers.map(layer => layer.name).sort();
+  const layerNames = Object.keys(decoded.layers).sort();
   for (const layerName of layerNames) {
-    const layer = decoded.layers.find(layer => layer.name === layerName);
-    for (const feature of layer.features) {
-      const result = feature.loadGeometry();
-      if (collector) {
-        collector.push(result);
-      }
-      count++;
-    }
-  }
-  return count;
-}
-
-const mltDecodeJSON = (input, collector) => {
-  const decoded = MltDecoder.decodeMlTile(input.mltTile, input.tilesetMetadata);
-  let count = 0;
-  const layerNames = decoded.layers.map(layer => layer.name).sort();
-  for (const layerName of layerNames) {
-    const layer = decoded.layers.find(layer => layer.name === layerName);
-    for (const feature of layer.features) {
-      const result = feature.toGeoJSON(input.x, input.y, input.z);
-      if (collector) {
-        collector.push(result);
-      }
-      count++;
-    }
-  }
-  return count;
-}
-
-const mvtDecode = (input, collector) => {
-  const vectorTile = new VectorTile(new Protobuf(input.mvtTile));
-  const mvtLayers = Object.keys(vectorTile.layers).sort();
-  let count = 0;
-  for (const layerName of mvtLayers) {
-    const layer = vectorTile.layers[layerName];
+    const layer = decoded.layers[layerName];
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
       const result = feature.loadGeometry();
@@ -107,12 +72,11 @@ const mvtDecode = (input, collector) => {
   return count;
 }
 
-const mvtDecodeJSON = (input, collector) => {
-  const vectorTile = new VectorTile(new Protobuf(input.mvtTile));
-  const mvtLayers = Object.keys(vectorTile.layers).sort();
+const decodeJSON = (input, decoded, collector) => {
   let count = 0;
-  for (const layerName of mvtLayers) {
-    const layer = vectorTile.layers[layerName];
+  const layerNames = Object.keys(decoded.layers).sort();
+  for (const layerName of layerNames) {
+    const layer = decoded.layers[layerName];
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
       const result = feature.toGeoJSON(input.x, input.y, input.z);
@@ -139,8 +103,10 @@ const validate = async (input) => {
   return new Promise((resolve) => {
     const features = [];
     const mvtFeatures = [];
-    const mltCount = mltDecodeJSON(input, features);
-    const mvtCount = mvtDecodeJSON(input, mvtFeatures);
+    const decoded = MltDecoder.decodeMlTile(input.mltTile, input.tilesetMetadata);
+    const mltCount = decodeJSON(input, decoded, features);
+    const mvtDecoded = new VectorTile(new Protobuf(input.mvtTile));
+    const mvtCount = decodeJSON(input, mvtDecoded, mvtFeatures);
     assert(mltCount === mvtCount, `Feature count mismatch for ${input.tile}`);
     assert(features.length === mvtFeatures.length, `Feature array count mismatch for ${input.tile}`)
     assert(features.length > 0, `No features found for ${input.tile}`)
@@ -180,9 +146,9 @@ const validate = async (input) => {
   })
 }
 
-const runSuite = async (inputs) => {
+const runSuite = async (input) => {
   return new Promise((resolve) => {
-      const tile = inputs.tile;
+      const tile = input.tile;
       const suite = new benchmark.Suite;
       suite.on('cycle', function(event: Event) {
         console.log(String(event.target));
@@ -194,7 +160,8 @@ const runSuite = async (inputs) => {
             defer: true,
             maxTime: maxTime,
             fn: (deferred: benchmark.Deferred) => {
-                const count = mvtDecode(inputs,null);
+                const decoded = new VectorTile(new Protobuf(input.mvtTile));
+                const count = decode(decoded, null);
                 if (opts === null) {
                   opts = count;
                 } else {
@@ -218,7 +185,8 @@ const runSuite = async (inputs) => {
             defer: true,
             maxTime: maxTime,
             fn: (deferred: benchmark.Deferred) => {
-                const count = mltDecode(inputs,null);
+                const decoded = MltDecoder.decodeMlTile(input.mltTile, input.tilesetMetadata);
+                const count = decode(decoded, null);
                 if (opts === null) {
                   opts = count;
                 } else {
@@ -242,7 +210,8 @@ const runSuite = async (inputs) => {
             defer: true,
             maxTime: maxTime,
             fn: (deferred: benchmark.Deferred) => {
-                const count = mvtDecodeJSON(inputs,null);
+              const decoded = new VectorTile(new Protobuf(input.mvtTile));
+                const count = decodeJSON(input, decoded, null);
                 if (opts === null) {
                   opts = count;
                 } else {
@@ -266,7 +235,8 @@ const runSuite = async (inputs) => {
               defer: true,
               maxTime: maxTime,
               fn: (deferred: benchmark.Deferred) => {
-                const count = mltDecodeJSON(inputs,null);
+                const decoded = MltDecoder.decodeMlTile(input.mltTile, input.tilesetMetadata);
+                const count = decodeJSON(input, decoded, null);
                 if (opts === null) {
                   opts = count;
                 } else {
