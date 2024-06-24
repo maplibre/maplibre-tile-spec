@@ -1,15 +1,15 @@
 {
   "name": "maplibre-tile-spec",
   "version": "0.0.1",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "files": [
-    "/dist"
+    "/dist/src"
   ],
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "bench": "ts-node bench/decode.ts",
+    "bench": "npm run build && node dist/bench/decode.js --mlt --mvt --validate",
     "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\""

@@ -77,7 +77,12 @@ export class MltDecoder {
             /* eslint-disable @typescript-eslint/no-explicit-any */
             const p: { [key: string]: any } = {};
             for (const [key, value] of vals) {
-                p[key] = value ? value[j] : null;
+                if (value) {
+                    const val = value[j];
+                    if (val) {
+                        p[key] = val;
+                    }
+                }
             }
             features[j] = new Feature(ids[j], extent, geometries[j], p)
         }

@@ -156,9 +156,19 @@ describe("MltDecoder", () => {
                 } else {
                     expect(feature.loadGeometry()).toEqual(mvtFeature.loadGeometry());
                 }
-                const featProperties = JSON.stringify(Object.entries(feature.properties),printValue);
-                const mvtFeatProperties = JSON.stringify(Object.entries(mvtFeature.properties),printValue);
-                if (featProperties !== mvtFeatProperties) {
+                const featureKeys = Object.keys(feature.properties).sort();
+                const mvtFeatureKeys = Object.keys(mvtFeature.properties).sort();
+                // workaround https://github.com/maplibre/maplibre-tile-spec/issues/181
+                if (mvtFeatureKeys.indexOf('id') !== -1) {
+                  mvtFeatureKeys.splice(mvtFeatureKeys.indexOf('id'), 1);
+                }
+                const featureKeysString = JSON.stringify(featureKeys);
+                const mvtFeatureKeysString = JSON.stringify(mvtFeatureKeys);
+                // For Bing tiles, if we remove the missing id key, then keys should match
+                expect(featureKeysString).toEqual(mvtFeatureKeysString);
+                const featStringJSON = JSON.stringify(Object.entries(feature.properties),printValue);
+                const mvtFeatStringJSON = JSON.stringify(Object.entries(mvtFeature.properties),printValue);
+                if (featStringJSON !== mvtFeatStringJSON) {
                     // console.log(feature.id + ' for layer '  + layer.name + ' feature.properties', feature.properties);
                     // console.log(mvtFeature.id + ' for layer '  + layer.name + ' mvtFeature.properties', mvtFeature.properties);
                     numFeaturesErrors++;
