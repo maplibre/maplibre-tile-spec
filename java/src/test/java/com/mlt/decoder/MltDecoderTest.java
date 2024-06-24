@@ -34,15 +34,7 @@ enum EncodingType {
   ADVANCED
 }
 
-final class DecodingResult {
-  public final int numErrors;
-  public final int numErrorsAdvanced;
-
-  public DecodingResult(int first, int second) {
-    this.numErrors = first;
-    this.numErrorsAdvanced = second;
-  }
-}
+record DecodingResult(int numErrors, int numErrorsAdvanced) {}
 
 public class MltDecoderTest {
 
@@ -57,8 +49,8 @@ public class MltDecoderTest {
         testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, true);
     assertEquals(
         1148,
-        result.numErrorsAdvanced,
-        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
+        result.numErrorsAdvanced(),
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced());
   }
 
   private static Stream<String> bingProvider() {
@@ -75,11 +67,11 @@ public class MltDecoderTest {
         testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.BOTH, false);
     // TODO assert that zero errors are found once
     // https://github.com/maplibre/maplibre-tile-spec/issues/184 is fixed
-    assertEquals(2, result.numErrors, "Error for " + tileId + "/non-advanced: " + result.numErrors);
+    assertEquals(2, result.numErrors(), "Error for " + tileId + "/non-advanced: " + result.numErrors());
     assertEquals(
         0,
-        result.numErrorsAdvanced,
-        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
+        result.numErrorsAdvanced(),
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced());
   }
 
   // TODO:
@@ -153,8 +145,8 @@ public class MltDecoderTest {
         testTile(tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, false);
     assertEquals(
         0,
-        result.numErrorsAdvanced,
-        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced);
+        result.numErrorsAdvanced(),
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced());
   }
 
   @DisplayName("Decode OMT Tiles (non-advanced encodings)")
@@ -179,7 +171,7 @@ public class MltDecoderTest {
       var result =
           testTile(
               tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.NONADVANCED, false);
-      assertEquals(0, result.numErrors, "Error for " + tileId + "/advanced: " + result.numErrors);
+      assertEquals(0, result.numErrors(), "Error for " + tileId + "/advanced: " + result.numErrors());
     }
   }
 
