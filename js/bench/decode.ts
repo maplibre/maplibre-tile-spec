@@ -42,8 +42,10 @@ tiles.forEach(tile => {
 const willValidate = args.includes('--validate');
 const willRunMLT = args.includes('--mlt');
 const willRunMVT = args.includes('--mvt');
-if (!willRunMLT && !willRunMVT) {
-  console.error("Please provide at least one of --mlt or --mvt");
+const willRunMLTJSON = args.includes('--mltjson');
+const willRunMVTJSON = args.includes('--mvtjson');
+if (!willRunMLT && !willRunMVT && !willRunMLTJSON && !willRunMVTJSON) {
+  console.error("Please provide at least one of --mlt, --mltjson, --mvt, or --mvtjson flags to run benchmarks.");
   process.exit(1);
 }
 
@@ -60,9 +62,26 @@ const mltDecode = (input, collector) => {
   for (const layerName of layerNames) {
     const layer = decoded.layers.find(layer => layer.name === layerName);
     for (const feature of layer.features) {
-      const json = feature.toGeoJSON(input.x, input.y, input.z);
+      const result = feature.loadGeometry();
       if (collector) {
-        collector.push(json);
+        collector.push(result);
+      }
+      count++;
+    }
+  }
+  return count;
+}
+
+const mltDecodeJSON = (input, collector) => {
+  const decoded = MltDecoder.decodeMlTile(input.mltTile, input.tilesetMetadata);
+  let count = 0;
+  const layerNames = decoded.layers.map(layer => layer.name).sort();
+  for (const layerName of layerNames) {
+    const layer = decoded.layers.find(layer => layer.name === layerName);
+    for (const feature of layer.features) {
+      const result = feature.toGeoJSON(input.x, input.y, input.z);
+      if (collector) {
+        collector.push(result);
       }
       count++;
     }
@@ -78,9 +97,27 @@ const mvtDecode = (input, collector) => {
     const layer = vectorTile.layers[layerName];
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
-      const json = feature.toGeoJSON(input.x, input.y, input.z);
+      const result = feature.loadGeometry();
       if (collector) {
-        collector.push(json);
+        collector.push(result);
+      }
+      count++;
+    }
+  }
+  return count;
+}
+
+const mvtDecodeJSON = (input, collector) => {
+  const vectorTile = new VectorTile(new Protobuf(input.mvtTile));
+  const mvtLayers = Object.keys(vectorTile.layers).sort();
+  let count = 0;
+  for (const layerName of mvtLayers) {
+    const layer = vectorTile.layers[layerName];
+    for (let i = 0; i < layer.length; i++) {
+      const feature = layer.feature(i);
+      const result = feature.toGeoJSON(input.x, input.y, input.z);
+      if (collector) {
+        collector.push(result);
       }
       count++;
     }
@@ -102,8 +139,8 @@ const validate = async (input) => {
   return new Promise((resolve) => {
     const features = [];
     const mvtFeatures = [];
-    const mltCount = mltDecode(input, features);
-    const mvtCount = mvtDecode(input, mvtFeatures);
+    const mltCount = mltDecodeJSON(input, features);
+    const mvtCount = mvtDecodeJSON(input, mvtFeatures);
     assert(mltCount === mvtCount, `Feature count mismatch for ${input.tile}`);
     assert(features.length === mvtFeatures.length, `Feature array count mismatch for ${input.tile}`)
     assert(features.length > 0, `No features found for ${input.tile}`)
@@ -153,7 +190,7 @@ const runSuite = async (inputs) => {
       if (willRunMVT) {
         let opts = null;
         suite
-          .add(`MVT ${tile}`, {
+          .add(`MVT -> loadGeo ${tile}`, {
             defer: true,
             maxTime: maxTime,
             fn: (deferred: benchmark.Deferred) => {
@@ -170,18 +207,66 @@ const runSuite = async (inputs) => {
             }
           }).
           on('complete', () => {
-            console.log(`  Total MVT features processed: ${opts}`);
+            console.log(`  Total MVT features(loadGeometry) processed: ${opts}`);
             resolve(null);
           });
       }
       if (willRunMLT) {
         let opts = null;
         suite
-          .add(`MLT ${tile}`, {
+          .add(`MLT -> loadGeo ${tile}`, {
+            defer: true,
+            maxTime: maxTime,
+            fn: (deferred: benchmark.Deferred) => {
+                const count = mltDecode(inputs,null);
+                if (opts === null) {
+                  opts = count;
+                } else {
+                  if (count !== opts || count < 1) {
+                    console.error(`Feature count mismatch for ${tile}`);
+                    process.exit(1);
+                  }
+                }
+                deferred.resolve();
+            }
+          }).
+          on('complete', () => {
+            console.log(`  Total MLT features(loadGeometry) processed: ${opts}`);
+            resolve(null);
+          });
+      }
+      if (willRunMVTJSON) {
+        let opts = null;
+        suite
+          .add(`MVT -> GeoJSON ${tile}`, {
+            defer: true,
+            maxTime: maxTime,
+            fn: (deferred: benchmark.Deferred) => {
+                const count = mvtDecodeJSON(inputs,null);
+                if (opts === null) {
+                  opts = count;
+                } else {
+                  if (count !== opts || count < 1) {
+                    console.error(`Feature count mismatch for ${tile}`);
+                    process.exit(1);
+                  }
+                }
+                deferred.resolve();
+            }
+          }).
+          on('complete', () => {
+            console.log(`  Total MVT features(json) processed: ${opts}`);
+            resolve(null);
+          });
+      }
+      if (willRunMLTJSON) {
+        let opts = null;
+        suite
+          .add(`MLT -> GeoJSON ${tile}`, {
               defer: true,
               maxTime: maxTime,
               fn: (deferred: benchmark.Deferred) => {
-                const count = mltDecode(inputs,null);
+                const count = mltDecodeJSON(inputs,null);
                 if (opts === null) {
                   opts = count;
                 } else {
@@ -194,7 +279,7 @@ const runSuite = async (inputs) => {
               }
           }).
           on('complete', () => {
-            console.log(`  Total MLT features processed: ${opts}`);
+            console.log(`  Total MLT features(json) processed: ${opts}`);
             resolve(null);
           });
       }
