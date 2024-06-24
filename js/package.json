@@ -19,7 +19,7 @@
     "@bufbuild/protoc-gen-es": "^1.10.0",
     "@types/benchmark": "^2.1.2",
     "@types/jest": "^29.5.2",
-    "@types/node": "^20.14.7",
+    "@types/node": "^20.14.8",
     "@typescript-eslint/eslint-plugin": "^7.13.1",
     "@typescript-eslint/parser": "^7.13.1",
     "benchmark": "^2.1.4",
