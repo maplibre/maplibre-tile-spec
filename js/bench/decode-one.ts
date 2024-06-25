@@ -2,7 +2,7 @@
 
 import { MltDecoder, TileSetMetadata } from '../src/index';
 import { readFileSync, existsSync } from "fs";
-const { performance } = require("perf_hooks");
+import { performance } from "perf_hooks";
 
 const args = process.argv.slice(2);
 const mltFilePath = args[0];
@@ -17,6 +17,10 @@ if (!existsSync(mltFilePath)) {
 }
 
 const iterations = args[1] ? parseInt(args[1]) : 1000;
+if (Number.isNaN(iterations) || iterations < 1) {
+  console.error("Please provide a valid number of iterations");
+  process.exit(1);
+}
 
 const mltMetadataPbf = readFileSync(mltFilePath.replace('.advanced','') + ".meta.pbf");
 const tilesetMetadata = TileSetMetadata.fromBinary(mltMetadataPbf);
@@ -29,7 +33,7 @@ function decode() {
     const layer = decoded.layers[layerName];
     for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
-        const res = feature.loadGeometry();
+        feature.loadGeometry();
     }
   }
 }
