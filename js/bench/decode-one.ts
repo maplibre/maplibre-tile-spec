@@ -38,26 +38,29 @@ function decode() {
   }
 }
 
-let start = performance.now();
-let ops = 0;
+// Only do a warmup if we're running more than one iteration
+if (iterations > 100) {
+  let start = performance.now();
+  let ops = 0;
 
-for (let i=0; i<100; i++) {
-  decode();
-  ops++;
+  for (let i=0; i<100; i++) {
+    decode();
+    ops++;
+  }
+
+  let elapsed = (performance.now() - start);
+
+  console.log('Warmup: ' + Math.round(ops / (elapsed / 1000)) + ' ops/s | ' + Math.round(elapsed/ops) + ' ms/op (' + ops + ' runs sampled)');
 }
 
-let elapsed = (performance.now() - start);
-
-console.log('Warmup: ' + Math.round(ops / (elapsed / 1000)) + ' ops/s | ' + Math.round(elapsed/ops) + ' ms/op (' + ops + ' runs sampled)');
-
-start = performance.now();
-ops = 0;
+let start = performance.now();
+let ops = 0;
 
 for (let i=0; i<iterations; i++) {
   decode();
   ops++;
 }
 
-elapsed = (performance.now() - start);
+let elapsed = (performance.now() - start);
 
 console.log('Run: ' + Math.round(ops / (elapsed / 1000)) + ' ops/s | ' + Math.round(elapsed/ops) + ' ms/op (' + ops + ' runs sampled)');
