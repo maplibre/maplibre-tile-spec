@@ -1,18 +1,22 @@
 {
-  "name": "maplibre-tile-spec",
+  "name": "@maplibre/maplibre-tile-spec",
   "version": "0.0.1",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "files": [
-    "/dist"
+    "/dist/src"
   ],
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "bench": "ts-node bench/decode.ts",
+    "bench": "npm run build && node dist/bench/decode.js --mlt --mvt --validate",
     "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maplibre/maplibre-tile-spec.git"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.33.0",
@@ -20,12 +24,13 @@
     "@types/benchmark": "^2.1.2",
     "@types/jest": "^29.5.2",
     "@types/node": "^20.14.8",
-    "@typescript-eslint/eslint-plugin": "^7.13.1",
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
     "@typescript-eslint/parser": "^7.13.1",
     "benchmark": "^2.1.4",
     "eslint": "^8.57.0",
     "jest": "^29.5.0",
     "jest-matcher-deep-close-to": "^3.0.2",
+    "nyc": "^17.0.0",
     "prettier": "^3.3.2",
     "ts-jest": "^29.1.5",
     "ts-node": "^10.9.2",
