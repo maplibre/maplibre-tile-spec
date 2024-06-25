@@ -13,8 +13,8 @@ import me.lemire.integercompression.differential.Delta;
 public class StringFlatVector extends VariableSizeVector<String> implements Iterable<String> {
   private IntBuffer offsetBuffer;
 
-  public StringFlatVector(String name, IntBuffer lengthBuffer, ByteBuffer dataBuffer) {
-    super(name, lengthBuffer, dataBuffer);
+  public StringFlatVector(String name, IntBuffer lengthBuffer, ByteBuffer dataBuffer, int size) {
+    super(name, lengthBuffer, dataBuffer, size);
   }
 
   public StringFlatVector(
@@ -22,9 +22,16 @@ public class StringFlatVector extends VariableSizeVector<String> implements Iter
     super(name, nullabilityBuffer, lengthBuffer, dataBuffer);
   }
 
-  public static StringFlatVector createFromOffsetBuffer(
+  public static StringFlatVector createNonNullableVector(
       String name, BitVector nullabilityBuffer, IntBuffer offsetBuffer, ByteBuffer dataBuffer) {
     var vector = new StringFlatVector(name, nullabilityBuffer, null, dataBuffer);
+    vector.offsetBuffer = offsetBuffer;
+    return vector;
+  }
+
+  public static StringFlatVector createNonNullableVector(
+      String name, IntBuffer offsetBuffer, ByteBuffer dataBuffer, int size) {
+    var vector = new StringFlatVector(name, null, dataBuffer, size);
     vector.offsetBuffer = offsetBuffer;
     return vector;
   }

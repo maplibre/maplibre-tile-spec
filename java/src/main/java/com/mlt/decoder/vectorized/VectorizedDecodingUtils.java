@@ -1,5 +1,7 @@
 package com.mlt.decoder.vectorized;
 
+import com.mlt.decoder.DecodingUtils;
+import com.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 import com.mlt.metadata.stream.LogicalLevelTechnique;
 import com.mlt.metadata.stream.RleEncodedStreamMetadata;
 import com.mlt.metadata.stream.StreamMetadata;
@@ -7,12 +9,16 @@ import com.mlt.vector.BitVector;
 import com.mlt.vector.VectorType;
 import java.nio.*;
 import java.util.BitSet;
+import jdk.incubator.vector.IntVector;
+import jdk.incubator.vector.VectorSpecies;
 import me.lemire.integercompression.*;
+import org.apache.commons.lang3.tuple.Pair;
 
 /* the redundant implementations in this class are mainly to avoid branching and therefore speed up the decoding */
 public class VectorizedDecodingUtils {
 
   private static IntegerCODEC ic;
+  private static IntegerCODEC icVectorized;
 
   public static ByteBuffer decodeBooleanRle(byte[] buffer, int numBooleans, IntWrapper pos) {
     var numBytes = (int) Math.ceil(numBooleans / 8d);
@@ -89,8 +95,31 @@ public class VectorizedDecodingUtils {
     }
 
     int[] decodedValues = new int[numValues];
-
     ic.uncompress(intValues, new IntWrapper(0), intValues.length, decodedValues, new IntWrapper(0));
+
+    offset.add(byteLength);
+    return IntBuffer.wrap(decodedValues);
+  }
+
+  public static IntBuffer decodeFastPforVectorized(
+      byte[] buffer, int numValues, int byteLength, IntWrapper offset) {
+    if (icVectorized == null) {
+      icVectorized = new Composition(new VectorFastPFOR(), new VariableByte());
+    }
+
+    /* Create a vectorized conversion from the ByteBuffer to the IntBuffer */
+    // TODO: get rid of that conversion
+    IntBuffer intBuf =
+        ByteBuffer.wrap(buffer, offset.get(), byteLength).order(ByteOrder.BIG_ENDIAN).asIntBuffer();
+    var bufferSize = (int) Math.ceil(byteLength / 4d);
+    int[] intValues = new int[bufferSize];
+    for (var i = 0; i < intValues.length; i++) {
+      intValues[i] = intBuf.get(i);
+    }
+
+    int[] decodedValues = new int[numValues];
+    icVectorized.uncompress(
+        intValues, new IntWrapper(0), intValues.length, decodedValues, new IntWrapper(0));
 
     offset.add(byteLength);
     return IntBuffer.wrap(decodedValues);
@@ -170,6 +199,92 @@ public class VectorizedDecodingUtils {
    * Rle decoding
    * --------------------------------------------------------------------------------------
    */
+  private static final VectorSpecies<Integer> SPECIES = IntVector.SPECIES_PREFERRED;
+
+  public static int[] decodeUnsignedRleVectorized(int[] values, int[] runs, int numTotalValues) {
+    // Overflow of the number of integers based on the last broadcast
+    var overflow = runs[runs.length - 1] % SPECIES.length();
+    var overflowDst = new int[numTotalValues + overflow];
+    int pos = 0;
+    for (int run = 0; run < numTotalValues; run++) {
+      int count = runs[run];
+      IntVector runVector = IntVector.broadcast(SPECIES, values[run]);
+      int i = 0;
+      for (; i <= count; i += SPECIES.length()) {
+        runVector.intoArray(overflowDst, pos + i);
+      }
+      pos += count;
+    }
+
+    // TODO: get rid of that copy by using a view of the data with IntBuffer
+    var dst = new int[numTotalValues];
+    System.arraycopy(overflowDst, 0, dst, 0, numTotalValues);
+    return dst;
+  }
+
+  public static int[] decodeUnsignedRleVectorized(int[] data, int numRuns, int numTotalValues) {
+    // TODO: move creation of SPECIES out of the method
+    var SPECIES = IntVector.SPECIES_PREFERRED;
+    // TODO: quick and dirty -> refactor
+    var overflow = SPECIES.length();
+    var overflowDst = new int[numTotalValues + overflow];
+    int pos = 0;
+    var valueOffset = numRuns;
+    for (int i = 0; i < numRuns; i++) {
+      int runCnt = data[i];
+      IntVector runVector = IntVector.broadcast(SPECIES, data[valueOffset++]);
+      int j = 0;
+      for (; j <= runCnt; j += SPECIES.length()) {
+        runVector.intoArray(overflowDst, pos + j);
+      }
+      pos += runCnt;
+    }
+
+    var dst = new int[numTotalValues];
+    System.arraycopy(overflowDst, 0, dst, 0, numTotalValues);
+    return dst;
+  }
+
+  /*public static IntBuffer decodeUnsignedRleVectorized2(int[] values, int[] runs, int numTotalValues) {
+    // Overflow of the number of integers based on the last broadcast
+    var overflow = runs[runs.length - 1] % SPECIES.length();
+    var dst = IntBuffer.allocate(numTotalValues + overflow);
+    int pos = 0;
+    for (int run = 0; run < numTotalValues; run++) {
+      int count = runs[run];
+      IntVector runVector = IntVector.broadcast(SPECIES, values[run]);
+      int i = 0;
+      for (; i <= count; i += SPECIES.length()) {
+        var segment = MemorySegment.ofBuffer(dst);
+        runVector.intoMemorySegment(segment, pos + i, ByteOrder.nativeOrder());
+      }
+      pos += count;
+    }
+
+    return dst.limit(numTotalValues);
+  }*/
+
+  /*public static void decodeZigZagRleVectorized(int[] dst, int[] runlen, int[] values, int runcnt) {
+    int pos = 0;
+    for (int run = 0; run < runcnt; run++) {
+      // decodedVector = IntVector.fromArray(SPECIES, data, i);
+      // signVector = decodedVector.lanewise(VectorOperators.AND, 1).lanewise(VectorOperators.NEG);
+      // decodedVector = decodedVector.lanewise(VectorOperators.ASHR,
+      // 1).lanewise(VectorOperators.XOR, signVector)
+
+      int count = runlen[run];
+      IntVector runVector = IntVector.broadcast(SPECIES, values[run]);
+      int i = 0;
+      for (; i <= count; i += SPECIES.length()) {
+        runVector.intoArray(dst, pos + i);
+      }
+
+      pos += count;
+    }
+
+    // TODO: reset the overflowed elements
+  }*/
+
   public static IntBuffer decodeRle(int[] data, StreamMetadata streamMetadata, boolean isSigned) {
     var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
     return isSigned
@@ -194,6 +309,22 @@ public class VectorizedDecodingUtils {
     }
 
     return IntBuffer.wrap(values);
+  }
+
+  public static int[] decodeUnsignedRLE2(int[] data, int numRuns, int numTotalValues) {
+    var values = new int[numTotalValues];
+    var offset = 0;
+    for (var i = 0; i < numRuns; i++) {
+      var runLength = data[i];
+      var value = data[i + numRuns];
+      for (var j = offset; j < offset + runLength; j++) {
+        values[j] = value;
+      }
+
+      offset += runLength;
+    }
+
+    return values;
   }
 
   public static IntBuffer decodeZigZagRLE(int[] data, int numRuns, int numTotalValues) {
@@ -369,6 +500,28 @@ public class VectorizedDecodingUtils {
   public static int decodeZigZagConstRLE(int[] data) {
     var value = data[1];
     return (value >>> 1) ^ ((value << 31) >> 31);
+  }
+
+  public static Pair<Integer, Integer> decodeZigZagSequenceRLE(int[] data) {
+    /* base value and delta value are equal */
+    if (data.length == 2) {
+      var value = DecodingUtils.decodeZigZag(data[1]);
+      return Pair.of(value, value);
+    }
+
+    /* base value and delta value are not equal -> 2 runs and 2 values*/
+    return Pair.of(DecodingUtils.decodeZigZag(data[2]), DecodingUtils.decodeZigZag(data[3]));
+  }
+
+  public static Pair<Long, Long> decodeZigZagSequenceRLE(long[] data) {
+    /* base value and delta value are equal */
+    if (data.length == 2) {
+      var value = DecodingUtils.decodeZigZag(data[1]);
+      return Pair.of(value, value);
+    }
+
+    /* base value and delta value are not equal -> 2 runs and 2 values*/
+    return Pair.of(DecodingUtils.decodeZigZag(data[2]), DecodingUtils.decodeZigZag(data[3]));
   }
 
   public static long decodeUnsignedConstRLE(long[] data) {
@@ -619,16 +772,18 @@ public class VectorizedDecodingUtils {
   }
 
   public static VectorType getVectorTypeIntStream(StreamMetadata streamMetadata) {
-    var logicalLevelTechnique = streamMetadata.logicalLevelTechnique1();
-    if (logicalLevelTechnique.equals(LogicalLevelTechnique.RLE)) {
+    var logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1();
+    if (logicalLevelTechnique1.equals(LogicalLevelTechnique.RLE)) {
       return ((RleEncodedStreamMetadata) streamMetadata).runs() == 1
           ? VectorType.CONST
           : VectorType.FLAT;
     }
 
-    if (logicalLevelTechnique.equals(LogicalLevelTechnique.DELTA)
+    if (logicalLevelTechnique1.equals(LogicalLevelTechnique.DELTA)
         && streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)
-        && ((RleEncodedStreamMetadata) streamMetadata).runs() == 1) {
+        /* If base value equals delta value then one run else two runs */
+        && (((RleEncodedStreamMetadata) streamMetadata).runs() == 1
+            || ((RleEncodedStreamMetadata) streamMetadata).runs() == 2)) {
       return VectorType.SEQUENCE;
     }
 

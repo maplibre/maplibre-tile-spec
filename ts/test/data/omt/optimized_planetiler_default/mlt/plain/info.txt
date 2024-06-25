@@ -1,0 +1,2 @@
+Without advanced encodings like FSST and FastPfor
+Without Morton Dictionary encoding of the VertexBuffer

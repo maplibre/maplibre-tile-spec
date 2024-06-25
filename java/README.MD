@@ -7,3 +7,10 @@ Generate Java metadata classes from ``maplibre_tile_metdata.proto`` file:
 ```console
 protoc --java_out=src/main/java -I "..\..\spec\schema" mlt_tileset_metadata.proto
 ```
+
+To use the polygon pre-tessellation feature currently a separate Node.js application has to be started in the 
+tessellation directory via
+```console
+npm run serve
+```
+

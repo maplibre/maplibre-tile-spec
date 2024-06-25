@@ -1,0 +1,10 @@
+{
+  "db":  "",
+  "xyzTileIndices": [
+    {"minX": 0, "minY":0, "maxX": 1, "maxY": 1, "z": 1},
+    {"minX": 31, "minY":20, "maxX": 39, "maxY": 24, "z": 6},
+    {"minX": 4350, "minY":2830, "maxX": 4376, "maxY": 2856, "z": 13},
+    {"minX": 8700, "minY":5652, "maxX": 8752, "maxY": 5696, "z": 14}
+  ]
+}
+

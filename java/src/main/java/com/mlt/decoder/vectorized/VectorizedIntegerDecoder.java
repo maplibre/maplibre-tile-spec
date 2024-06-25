@@ -7,6 +7,7 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import me.lemire.integercompression.IntWrapper;
 import me.lemire.integercompression.differential.Delta;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class VectorizedIntegerDecoder {
 
@@ -46,7 +47,7 @@ public class VectorizedIntegerDecoder {
                 data, streamMetadata.numValues(), streamMetadata.byteLength(), offset)
             : VectorizedDecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
 
-    /**
+    /*
      * Only RLE encoding or a single not encoded value in the data stream can currently produce an
      * ConstVector
      */
@@ -60,6 +61,26 @@ public class VectorizedIntegerDecoder {
         : VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array());
   }
 
+  public static Pair<Integer, Integer> decodeSequenceIntStream(
+      byte[] data, IntWrapper offset, StreamMetadata streamMetadata) {
+    var values =
+        streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR
+            ? VectorizedDecodingUtils.decodeFastPfor(
+                data, streamMetadata.numValues(), streamMetadata.byteLength(), offset)
+            : VectorizedDecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
+
+    /* Only RLE encoding can currently produce a Sequence Vector. The values are always ZigZag encoded */
+    return VectorizedDecodingUtils.decodeZigZagSequenceRLE(values.array());
+  }
+
+  public static Pair<Long, Long> decodeSequenceLongStream(
+      byte[] data, IntWrapper offset, StreamMetadata streamMetadata) {
+    var values = VectorizedDecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
+
+    /*  Only RLE encoding can currently produce a Sequence Vector. The values are always ZigZag encoded */
+    return VectorizedDecodingUtils.decodeZigZagSequenceRLE(values.array());
+  }
+
   public static LongBuffer decodeLongStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned) {
     var values = VectorizedDecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
@@ -70,7 +91,7 @@ public class VectorizedIntegerDecoder {
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned) {
     var values = VectorizedDecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
 
-    /**
+    /*
      * Only RLE encoding or a single not encoded value in the data stream can currently produce an
      * ConstVector
      */
@@ -79,7 +100,7 @@ public class VectorizedIntegerDecoder {
       return isSigned ? DecodingUtils.decodeZigZag(value) : value;
     }
 
-    /** Only RLE encoding can currently produce an ConstVector */
+    /* Only RLE encoding can currently produce an ConstVector */
     return isSigned
         ? VectorizedDecodingUtils.decodeZigZagConstRLE(values.array())
         : VectorizedDecodingUtils.decodeUnsignedConstRLE(values.array());
@@ -105,21 +126,21 @@ public class VectorizedIntegerDecoder {
               VectorizedDecodingUtils.decodeUnsignedRLE(
                       values, rleMetadata.runs(), rleMetadata.numRleValues())
                   .array();
-          /** Currently delta values are always ZigZag encoded */
+          /* Currently delta values are always ZigZag encoded */
           VectorizedDecodingUtils.decodeZigZagDelta(values);
           return IntBuffer.wrap(values);
         }
 
         // TODO: check if zigzag encoding is needed -> if values are sorted in ascending order no
         // need for zigzag
-        // for only delta decoding without zigzag use Delta.fastinverseDelta(values) form Lemire
+        // for only delta decoding without zigzag use Delta.fastinverseDelta(values) from Lemire
         VectorizedDecodingUtils.decodeZigZagDelta(values);
         return IntBuffer.wrap(values);
       case RLE:
-        /** Currently no second logical level technique is used in combination with Rle */
+        /* Currently no second logical level technique is used in combination with Rle */
         return VectorizedDecodingUtils.decodeRle(values, streamMetadata, isSigned);
       case MORTON:
-        /**
+        /*
          * Currently always used in combination with delta encoding and without ZigZag encoding
          * since the values are sorted in ascending order. The data are stored internally in
          * compressed form since they can be in parallel decompressed on the GPU.
@@ -127,7 +148,7 @@ public class VectorizedIntegerDecoder {
         Delta.fastinverseDelta(values);
         return IntBuffer.wrap(values);
       case COMPONENTWISE_DELTA:
-        /** Currently only Vec2 is supported */
+        /* Currently only Vec2 is supported */
         VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(values);
         return IntBuffer.wrap(values);
       case NONE:
@@ -350,9 +371,4 @@ public class VectorizedIntegerDecoder {
 
     throw new IllegalArgumentException("The specified Logical level technique is not supported");
   }
-
-  /**
-   * Decode length streams to offsets streams for random access by adding an additional delta
-   * decoding step -----
-   */
 }

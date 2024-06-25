@@ -7,16 +7,23 @@ import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.decoder.vectorized.VectorizedGeometryDecoder;
 import com.mlt.decoder.vectorized.VectorizedIntegerDecoder;
 import com.mlt.decoder.vectorized.VectorizedPropertyDecoder;
+import com.mlt.metadata.stream.RleEncodedStreamMetadata;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.BitVector;
 import com.mlt.vector.FeatureTable;
 import com.mlt.vector.Vector;
+import com.mlt.vector.VectorType;
+import com.mlt.vector.constant.IntConstVector;
+import com.mlt.vector.constant.LongConstVector;
 import com.mlt.vector.flat.IntFlatVector;
 import com.mlt.vector.flat.LongFlatVector;
 import com.mlt.vector.geometry.GeometryVector;
+import com.mlt.vector.sequence.IntSequenceVector;
+import com.mlt.vector.sequence.LongSequenceVector;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.locationtech.jts.geom.Geometry;
 
@@ -34,15 +41,16 @@ public class MltDecoder {
     while (offset.get() < tile.length) {
       List<Long> ids = null;
       Geometry[] geometries = null;
-      var properties = new HashMap<String, List<?>>();
+      var properties = new HashMap<String, List<Object>>();
 
       var version = tile[offset.get()];
       offset.increment();
-      var infos = DecodingUtils.decodeVarint(tile, offset, 4);
+      var infos = DecodingUtils.decodeVarint(tile, offset, 5);
       var featureTableId = infos[0];
-      var tileExtent = infos[1];
-      var maxTileExtent = infos[2];
-      var numFeatures = infos[3];
+      var featureTableBodySize = infos[1];
+      var tileExtent = infos[2];
+      var maxTileExtent = infos[3];
+      var numFeatures = infos[4];
 
       var metadata = tileMetadata.getFeatureTables(featureTableId);
       for (var columnMetadata : metadata.getColumnsList()) {
@@ -53,6 +61,7 @@ public class MltDecoder {
         if (columnName.equals(ID_COLUMN_NAME)) {
           if (numStreams == 2) {
             var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+            // TODO: handle present stream -> should a id column even be nullable?
             var presentStream =
                 DecodingUtils.decodeBooleanRle(
                     tile,
@@ -68,7 +77,7 @@ public class MltDecoder {
                 IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
                     .mapToLong(i -> i)
                     .boxed()
-                    .toList();
+                    .collect(Collectors.toList());
           } else {
             ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
           }
@@ -78,14 +87,13 @@ public class MltDecoder {
         } else {
           var propertyColumn =
               PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
-          if (propertyColumn instanceof Map<?, ?> map) {
-            for (var a : map.entrySet()) {
-              properties.put(
-                  a.getKey().toString(),
-                  a.getValue() instanceof List<?> list ? list : List.of(a.getValue()));
+          if (propertyColumn instanceof HashMap<?, ?>) {
+            var p = ((Map<String, Object>) propertyColumn);
+            for (var a : p.entrySet()) {
+              properties.put(a.getKey(), (List<Object>) a.getValue());
             }
-          } else if (propertyColumn instanceof List<?> list) {
-            properties.put(columnName, list);
+          } else {
+            properties.put(columnName, (ArrayList) propertyColumn);
           }
         }
       }
@@ -110,76 +118,122 @@ public class MltDecoder {
     while (offset.get() < tile.length) {
       var version = tile[offset.get()];
       offset.increment();
-      var infos = DecodingUtils.decodeVarint(tile, offset, 4);
+      var infos = DecodingUtils.decodeVarint(tile, offset, 5);
       var featureTableId = infos[0];
-      var tileExtent = infos[1];
-      var maxTileExtent = infos[2];
-      var numFeatures = infos[3];
-
-      var propertyIndex = 0;
+      var featureTableBodySize = infos[1];
+      var tileExtent = infos[2];
+      var maxTileExtent = infos[3];
+      var numFeatures = infos[4];
       var metadata = tileMetadata.getFeatureTables(featureTableId);
 
       Vector idVector = null;
       GeometryVector geometryVector = null;
-      /* Id column always has to be the first column in a FeatureTable */
-      var numProperties =
-          metadata.getColumnsList().size()
-              - (metadata.getColumnsList().get(0).getName().equals(ID_COLUMN_NAME) ? 2 : 1);
-      var propertyVectors = new Vector[numProperties];
-      for (var columnMetadata : metadata.getColumnsList()) {
+      var propertyVectors = new ArrayList<Vector>();
+      var columList = metadata.getColumnsList();
+      for (var columnMetadata : columList) {
         var columnName = columnMetadata.getName();
         var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
 
         // TODO: add decoding of vector type to be compliant with the spec
-        // TODO: compare based on ids
         if (columnName.equals(ID_COLUMN_NAME)) {
           BitVector nullabilityBuffer = null;
           if (numStreams == 2) {
             var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-            var n =
+            var values =
                 VectorizedDecodingUtils.decodeBooleanRle(
                     tile, presentStreamMetadata.numValues(), offset);
-            nullabilityBuffer = new BitVector(n, presentStreamMetadata.numValues());
+            nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues());
           }
 
-          // TODO: are ids optional? -> if not transform to random access format
-          var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-          var idDataType = columnMetadata.getScalarType().getPhysicalType();
-          // TODO: check for const and sequence vectors to reduce decoding time
-          if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
-            var id =
-                VectorizedIntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false);
-            idVector = new IntFlatVector(columnName, nullabilityBuffer, id);
-          } else {
-            var id =
-                VectorizedIntegerDecoder.decodeLongStream(
-                    tile, offset, idDataStreamMetadata, false);
-            idVector = new LongFlatVector(columnName, nullabilityBuffer, id);
-          }
+          idVector = decodeIdColumn(tile, columnMetadata, offset, columnName, nullabilityBuffer);
         } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
           geometryVector =
               VectorizedGeometryDecoder.decodeToRandomAccessFormat(
                   tile, numStreams, offset, numFeatures);
         } else {
+          if (numStreams == 0 && columnMetadata.hasScalarType()) {
+            continue;
+          }
+
           var propertyVector =
               VectorizedPropertyDecoder.decodeToRandomAccessFormat(
                   tile, offset, columnMetadata, numStreams, numFeatures);
-          propertyVectors[propertyIndex++] = propertyVector;
+          if (propertyVector != null) {
+            propertyVectors.add(propertyVector);
+          }
         }
       }
 
       var featureTable =
-          new FeatureTable(metadata.getName(), idVector, geometryVector, propertyVectors);
+          new FeatureTable(
+              metadata.getName(), idVector, geometryVector, propertyVectors.toArray(new Vector[0]));
       featureTables[featureTableId] = featureTable;
     }
 
     return featureTables;
   }
 
+  private static Vector decodeIdColumn(
+      byte[] tile,
+      MltTilesetMetadata.Column columnMetadata,
+      IntWrapper offset,
+      String columnName,
+      BitVector nullabilityBuffer) {
+    /* If an id column is present the column is not allowed to be nullable */
+    var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+    var idDataType = columnMetadata.getScalarType().getPhysicalType();
+    var vectorType = VectorizedDecodingUtils.getVectorTypeIntStream(idDataStreamMetadata);
+    if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
+      // TODO: add support for const vector type -> but should not be allowed in id column
+      if (vectorType.equals(VectorType.FLAT)) {
+        var id =
+            VectorizedIntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false);
+        return new IntFlatVector(columnName, nullabilityBuffer, id);
+      } else if (vectorType.equals(VectorType.CONST)) {
+        var id =
+            VectorizedIntegerDecoder.decodeConstIntStream(
+                tile, offset, idDataStreamMetadata, false);
+        return new IntConstVector(columnName, nullabilityBuffer, id);
+      } else if (vectorType.equals(VectorType.SEQUENCE)) {
+        var id =
+            VectorizedIntegerDecoder.decodeSequenceIntStream(tile, offset, idDataStreamMetadata);
+        return new IntSequenceVector(
+            columnName,
+            id.getLeft(),
+            id.getRight(),
+            ((RleEncodedStreamMetadata) idDataStreamMetadata).numRleValues());
+      } else {
+        throw new IllegalArgumentException("Vector type not supported for id column.");
+      }
+    } else {
+      // TODO: add support for const vector type -> but should not be allowed in id column
+      if (vectorType.equals(VectorType.FLAT)) {
+        var id =
+            VectorizedIntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+        return new LongFlatVector(columnName, nullabilityBuffer, id);
+      } else if (vectorType.equals(VectorType.CONST)) {
+        var id =
+            VectorizedIntegerDecoder.decodeConstLongStream(
+                tile, offset, idDataStreamMetadata, false);
+        return new LongConstVector(columnName, nullabilityBuffer, id);
+      } else if (vectorType.equals(VectorType.SEQUENCE)) {
+        var id =
+            VectorizedIntegerDecoder.decodeSequenceLongStream(tile, offset, idDataStreamMetadata);
+        return new LongSequenceVector(
+            columnName,
+            id.getLeft(),
+            id.getRight(),
+            ((RleEncodedStreamMetadata) idDataStreamMetadata).numRleValues());
+      } else {
+        throw new IllegalArgumentException("Vector type not supported for id column.");
+      }
+    }
+  }
+
   private static Layer convertToLayer(
       List<Long> ids,
       Geometry[] geometries,
-      Map<String, List<?>> properties,
+      Map<String, List<Object>> properties,
       MltTilesetMetadata.FeatureTableSchema metadata,
       int numFeatures) {
     if (numFeatures != geometries.length || numFeatures != ids.size()) {

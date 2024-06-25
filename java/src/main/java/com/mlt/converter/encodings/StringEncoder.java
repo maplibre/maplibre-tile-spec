@@ -19,7 +19,10 @@ public class StringEncoder {
    * @param values Values to convert. If the value is not present null has to be added to the list
    */
   public static Pair<Integer, byte[]> encodeSharedDictionary(
-      List<List<String>> values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
+      List<List<String>> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean useFsstEncoding)
+      throws IOException {
     /*
      * compare single column encoding with shared dictionary encoding
      * Shared dictionary layout -> length, dictionary, present1, data1, present2, data2
@@ -31,9 +34,7 @@ public class StringEncoder {
     var dictionary = new ArrayList<String>();
     var dataStreams = new ArrayList<List<Integer>>(values.size());
     var presentStreams = new ArrayList<List<Boolean>>();
-    var j = 0;
     for (var column : values) {
-      j++;
       var presentStream = new ArrayList<Boolean>();
       presentStreams.add(presentStream);
       var dataStream = new ArrayList<Integer>();
@@ -58,17 +59,35 @@ public class StringEncoder {
       }
     }
 
+    if (dictionary.isEmpty()) {
+      /* Set number of streams to zero if no columns are present in this tile */
+      return Pair.of(0, new byte[0]);
+    }
+
     var encodedSharedDictionary = encodeDictionary(dictionary, physicalLevelTechnique, false, true);
-    var encodedSharedFsstDictionary =
-        encodeFsstDictionary(dictionary, physicalLevelTechnique, false, true);
+
+    byte[] encodedSharedFsstDictionary = null;
+    if (useFsstEncoding) {
+      encodedSharedFsstDictionary =
+          encodeFsstDictionary(dictionary, physicalLevelTechnique, false, true);
+    }
+
     var sharedDictionary =
-        encodedSharedFsstDictionary.length < encodedSharedDictionary.length
+        encodedSharedFsstDictionary != null
+                && encodedSharedFsstDictionary.length < encodedSharedDictionary.length
             ? encodedSharedFsstDictionary
             : encodedSharedDictionary;
 
     for (var i = 0; i < dataStreams.size(); i++) {
       var presentStream = presentStreams.get(i);
       var dataStream = dataStreams.get(i);
+
+      if (dataStream.isEmpty()) {
+        /* If no values are present in this column add zero for number of streams */
+        var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+        sharedDictionary = CollectionUtils.concatByteArrays(sharedDictionary, encodedFieldMetadata);
+        continue;
+      }
 
       var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
       var encodedPresentStream =
@@ -88,7 +107,10 @@ public class StringEncoder {
 
     // TODO: make present stream optional
     var numStreams =
-        (encodedSharedFsstDictionary.length < encodedSharedDictionary.length ? 5 : 3)
+        (encodedSharedFsstDictionary != null
+                    && encodedSharedFsstDictionary.length < encodedSharedDictionary.length
+                ? 5
+                : 3)
             + values.size() * 2;
     return Pair.of(numStreams, sharedDictionary);
   }
@@ -106,7 +128,7 @@ public class StringEncoder {
      * -> based on statistics if dictionary encoding is used
      * -> compare four possible encodings in size based on samples
      * */
-    // TODO: add plain encoding agian
+    // TODO: add plain encoding again
     // var plainEncodedColumn = encodePlain(values, physicalLevelTechnique);
     var dictionaryEncodedColumn = encodeDictionary(values, physicalLevelTechnique, true, false);
     if (!useFsstEncoding) {

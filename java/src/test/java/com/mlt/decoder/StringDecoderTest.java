@@ -39,7 +39,7 @@ public class StringDecoderTest {
             "TestTestTestTestTestTest10");
     var values = List.of(values1, values2);
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
     var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
@@ -61,12 +61,12 @@ public class StringDecoderTest {
 
   @Test
   @Disabled
-  public void decodeSharedDictionary_DictonaryEncoded() throws IOException {
+  public void decodeSharedDictionary_DictionaryEncoded() throws IOException {
     var values1 = List.of("Test", "Test2", "Test4", "Test2", "Test");
     var values2 = List.of("Test1", "Test2", "Test1", "Test5", "Test");
     var values = List.of(values1, values2);
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var test =
         MltTilesetMetadata.Field.newBuilder()
@@ -104,14 +104,14 @@ public class StringDecoderTest {
 
   @Test
   @Disabled
-  public void decodeSharedDictionary_NullValues_DictonaryEncoded() throws IOException {
+  public void decodeSharedDictionary_NullValues_DictionaryEncoded() throws IOException {
     var values1 = Arrays.asList("Test", null, "Test2", null, "Test4", "Test2", "Test");
     var values2 =
         Arrays.asList(
             null, "Test1", "Test2", "Test1", null, null, "Test5", null, "Test", null, null);
     var values = List.of(values1, values2);
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var test =
         MltTilesetMetadata.Field.newBuilder()
@@ -167,7 +167,7 @@ public class StringDecoderTest {
 
   @Test
   @Disabled
-  public void decodeSharedDictionary_NullValues_FsstDictonaryEncoded() throws IOException {
+  public void decodeSharedDictionary_NullValues_FsstDictionaryEncoded() throws IOException {
     var values1 =
         Arrays.asList(
             null,
@@ -191,7 +191,7 @@ public class StringDecoderTest {
             "TestTestTestTestTestTest10");
     var values = List.of(values1, values2);
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
     var test =
         MltTilesetMetadata.Field.newBuilder()
@@ -265,7 +265,8 @@ public class StringDecoderTest {
     }
 
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(List.of(values), PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(
+            List.of(values), PhysicalLevelTechnique.FAST_PFOR, false);
 
     var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
@@ -292,7 +293,8 @@ public class StringDecoderTest {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var tileMetadata =
-        MltConverter.createTilesetMetadata(mvTile, Optional.of(List.of(columnMapping)), true);
+        MltConverter.createTilesetMetadata(
+            List.of(mvTile), Optional.of(List.of(columnMapping)), true);
     var fieldMetadata =
         tileMetadata.getFeatureTables(0).getColumnsList().stream()
             .filter(f -> f.getName().equals("name"))
@@ -316,7 +318,7 @@ public class StringDecoderTest {
     }
 
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
@@ -354,7 +356,8 @@ public class StringDecoderTest {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var tileMetadata =
-        MltConverter.createTilesetMetadata(mvTile, Optional.of(List.of(columnMapping)), true);
+        MltConverter.createTilesetMetadata(
+            List.of(mvTile), Optional.of(List.of(columnMapping)), true);
     var fieldMetadata =
         tileMetadata.getFeatureTables(3).getColumnsList().stream()
             .filter(f -> f.getName().equals("name"))
@@ -378,7 +381,7 @@ public class StringDecoderTest {
     }
 
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
