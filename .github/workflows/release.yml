@@ -112,7 +112,6 @@ jobs:
         with:
           tag: ${{ steps.tag_version.outputs.new_tag }}
           name: ${{ steps.tag_version.outputs.new_tag }}
-          bodyFile: ${{ steps.release_notes.outputs.release_notes }}
           artifacts: "dist.zip"
           artifactContentType: "application/zip"
           allowUpdates: true
