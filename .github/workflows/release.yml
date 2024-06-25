@@ -57,7 +57,7 @@ jobs:
         id: package-version
         uses: martinbeentjes/npm-get-version-action@v1.3.1
         with:
-          path: js/package.json
+          path: js
 
       - name: Install
         working-directory: js
@@ -65,6 +65,7 @@ jobs:
 
       - name: Prepare release
         id: prepare_release
+        working-directory: js
         run: |
           RELEASE_TYPE=$(node -e "console.log(require('semver').prerelease('${{ steps.package-version.outputs.current-version }}') ? 'prerelease' : 'regular')")
           echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
