@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "bench": "npm run build && node dist/bench/decode.js --mlt --mvt --validate",
+    "bench": "npm run build && node dist/bench/decode.js --mlt --mvt --validate && node dist/bench/decode-one.js ../test/expected/bing/4-8-5.mlt",
     "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\""
