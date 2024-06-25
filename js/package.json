@@ -10,6 +10,7 @@
     "build": "tsc",
     "prepare": "npm run build",
     "bench": "npm run build && node dist/bench/decode.js --mlt --mvt --validate",
+    "build-bench": "npm run build && rollup -c bench/rollup.config.js --bundleConfigAsCjs",
     "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\""
@@ -21,6 +22,8 @@
   "devDependencies": {
     "@bufbuild/buf": "^1.33.0",
     "@bufbuild/protoc-gen-es": "^1.10.0",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
     "@types/benchmark": "^2.1.2",
     "@types/jest": "^29.5.2",
     "@types/node": "^20.14.8",
@@ -32,6 +35,7 @@
     "jest-matcher-deep-close-to": "^3.0.2",
     "nyc": "^17.0.0",
     "prettier": "^3.3.2",
+    "rollup": "^4.18.0",
     "ts-jest": "^29.1.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.1.3"
