@@ -19,7 +19,7 @@
     "url": "git+https://github.com/maplibre/maplibre-tile-spec.git"
   },
   "devDependencies": {
-    "@bufbuild/buf": "^1.33.0",
+    "@bufbuild/buf": "^1.34.0",
     "@bufbuild/protoc-gen-es": "^1.10.0",
     "@types/benchmark": "^2.1.2",
     "@types/jest": "^29.5.2",
