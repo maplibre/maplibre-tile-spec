@@ -1,5 +1,5 @@
 {
-  "name": "maplibre-tile-spec",
+  "name": "@maplibre/maplibre-tile-spec",
   "version": "0.0.1",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -13,6 +13,10 @@
     "test": "jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maplibre/maplibre-tile-spec.git"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.33.0",
