@@ -25,8 +25,9 @@ jobs:
 
       - name: Check if version has been updated
         id: check
-        working-directory: js
         uses: EndBug/version-check@v2
+        with:
+          file-name: js/package.json
           
     outputs:
       publish: ${{ steps.check.outputs.changed }}
