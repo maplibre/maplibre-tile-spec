@@ -91,7 +91,12 @@ public class VectorizedStringDecoder {
   }
 
   public static Vector decodeToRandomAccessFormat(
-      String name, byte[] data, IntWrapper offset, int numStreams, BitVector bitVector) {
+      String name,
+      byte[] data,
+      IntWrapper offset,
+      int numStreams,
+      BitVector bitVector,
+      int numFeatures) {
     // TODO: handle ConstVector
     IntBuffer dictionaryLengthStream = null;
     IntBuffer offsetStream = null;
@@ -149,11 +154,17 @@ public class VectorizedStringDecoder {
           symbolLengthStream,
           symbolTableStream);
     } else if (dictionaryStream != null) {
-      return StringDictionaryVector.createFromOffsetBuffer(
-          name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream);
+      return bitVector != null
+          ? StringDictionaryVector.createNullableVector(
+              name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream)
+          : StringDictionaryVector.createNonNullableVector(
+              name, offsetStream, dictionaryLengthStream, dictionaryStream, numFeatures);
     }
 
-    return StringFlatVector.createFromOffsetBuffer(name, bitVector, offsetStream, dictionaryStream);
+    return bitVector != null
+        ? StringFlatVector.createNonNullableVector(name, bitVector, offsetStream, dictionaryStream)
+        : StringFlatVector.createNonNullableVector(
+            name, offsetStream, dictionaryStream, numFeatures);
   }
 
   // TODO: create baseclass for shared dictionary

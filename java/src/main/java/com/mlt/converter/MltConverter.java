@@ -223,6 +223,7 @@ public class MltConverter {
                 .filter(f -> f.getName().equals(ID_COLUMN_NAME))
                 .findFirst()
                 .get();
+
         var encodedIdColumn =
             PropertyEncoder.encodeScalarPropertyColumn(
                 idMetadata,

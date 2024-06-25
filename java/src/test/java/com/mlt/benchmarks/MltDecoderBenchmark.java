@@ -1,4 +1,4 @@
-package com.mlt.decoder;
+package com.mlt.benchmarks;
 
 import com.mlt.TestSettings;
 import com.mlt.converter.ConversionConfig;
@@ -7,6 +7,7 @@ import com.mlt.converter.MltConverter;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
+import com.mlt.decoder.MltDecoder;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
