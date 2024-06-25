@@ -55,8 +55,9 @@ jobs:
 
       - name: Get version
         id: package-version
-        working-directory: js
         uses: martinbeentjes/npm-get-version-action@v1.3.1
+        with:
+          path: js/package.json
 
       - name: Install
         working-directory: js
