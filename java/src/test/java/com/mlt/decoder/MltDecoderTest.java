@@ -2,6 +2,7 @@ package com.mlt.decoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mlt.TestSettings;
 import com.mlt.TestUtils;
@@ -27,9 +28,30 @@ enum DecoderType {
   VECTORIZED
 }
 
+enum EncodingType {
+  BOTH,
+  NONADVANCED,
+  ADVANCED
+}
+
+record DecodingResult(int numErrors, int numErrorsAdvanced) {}
+
 public class MltDecoderTest {
 
   /* Bing Maps tests --------------------------------------------------------- */
+
+  // TODO: after https://github.com/maplibre/maplibre-tile-spec/issues/186 is fixed
+  // remove this test and start testing all the Bing tiles with sorting enabled
+  @Test
+  public void decodeBingTilesSortedFail() throws IOException {
+    var tileId = "4-8-5";
+    var result =
+        testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, true);
+    assertEquals(
+        1148,
+        result.numErrorsAdvanced(),
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced());
+  }
 
   private static Stream<String> bingProvider() {
     return Stream.of(
@@ -37,60 +59,59 @@ public class MltDecoderTest {
         "6-32-23", "6-32-21", "7-65-42", "7-66-42", "7-66-43", "7-66-44");
   }
 
-  @DisplayName("Decode Bing Tiles (Vectorized)")
+  @DisplayName("Decode Bing Tiles")
   @ParameterizedTest
   @MethodSource("bingProvider")
-  public void decodeBingTilesVectorized(String tileId) throws IOException {
-    int numErrors = testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.VECTORIZED, false);
+  public void decodeBingTiles(String tileId) throws IOException {
+    var result =
+        testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.BOTH, EncodingType.BOTH, false);
+    assertEquals(
+        0, result.numErrors(), "Error for " + tileId + "/non-advanced: " + result.numErrors());
     assertEquals(
         0,
-        numErrors,
-        "There should be no errors in the Bing tiles for "
-            + tileId
-            + " but there were "
-            + numErrors
-            + " errors");
+        result.numErrorsAdvanced(),
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced());
   }
 
-  // TODO Currently a lot of property errors are expected in the Bing tiles in SEQUENTIAL mode
-  // TODO: start testing more tiles once the decoder is fixed
-  public void decodeBingTilesSequential() throws IOException {
-    String tileId = "7-66-43";
-    int numErrors = testTile(tileId, TestSettings.BING_MVT_PATH, DecoderType.SEQUENTIAL, false);
-    assertEquals(
-        660,
-        numErrors,
-        "There should be no errors in the Bing tiles for "
-            + tileId
-            + " but there were "
-            + numErrors
-            + " errors");
-  }
-
+  // TODO:
+  // once https://github.com/maplibre/maplibre-tile-spec/issues/182 is fixed
+  // add the "5-16-9" tile to the bingProvider
+  // and remove this test
   @Test
   public void currentlyFailingBingDecoding1() throws IOException {
     var exception =
         assertThrows(
             Exception.class,
-            () -> testTile("5-16-9", TestSettings.BING_MVT_PATH, DecoderType.VECTORIZED, false));
+            () ->
+                testTile(
+                    "5-16-9",
+                    TestSettings.BING_MVT_PATH,
+                    DecoderType.VECTORIZED,
+                    EncodingType.ADVANCED,
+                    false));
     assertEquals(
         "java.lang.IllegalArgumentException: VectorType not supported yet: CONST",
         exception.toString());
   }
 
+  /* OpenMapTiles schema based vector tiles tests  --------------------------------------------------------- */
+
+  // TODO: after https://github.com/maplibre/maplibre-tile-spec/issues/185 is fixed
+  // remove this test and start testing all the OMT tiles with sorting enabled
   @Test
-  // Currently fails, need to root cause property decoding difference
-  public void currentlyFailingBingDecoding3() throws IOException {
+  public void decodeOMTTilesSortedFail() throws IOException {
     var exception =
         assertThrows(
-            org.opentest4j.AssertionFailedError.class,
-            () -> testTile("5-15-10", TestSettings.BING_MVT_PATH, DecoderType.VECTORIZED, false));
-    assertEquals(
-        "org.opentest4j.AssertionFailedError: expected: <(U.K.)> but was: <null>",
-        exception.toString());
+            Exception.class,
+            () ->
+                testTile(
+                    "4_8_10",
+                    TestSettings.OMT_MVT_PATH,
+                    DecoderType.BOTH,
+                    EncodingType.ADVANCED,
+                    true));
+    assertEquals("java.lang.IndexOutOfBoundsException", exception.toString());
   }
-
-  /* OpenMapTiles schema based vector tiles tests  --------------------------------------------------------- */
 
   private static Stream<String> omtProvider() {
     return Stream.of(
@@ -115,28 +136,58 @@ public class MltDecoderTest {
         "14_8299_10748");
   }
 
-  @DisplayName("Decode OMT Tiles")
+  @DisplayName("Decode OMT Tiles (advanced encodings, non-sorted)")
   @ParameterizedTest()
   @MethodSource("omtProvider")
   public void decodeOMTTiles(String tileId) throws IOException {
-    int numErrors = testTile(tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, false);
-    if (tileId == "2_2_2") {
-      // We expect errors currently in OMT tiles where name:ja:rm is present
-      assertEquals(4, numErrors, "There should be no errors in the OMT tiles: " + tileId);
+    var result =
+        testTile(tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.ADVANCED, false);
+    assertEquals(
+        0,
+        result.numErrorsAdvanced(),
+        "Error for " + tileId + "/advanced: " + result.numErrorsAdvanced());
+  }
+
+  @DisplayName("Decode OMT Tiles (non-advanced encodings)")
+  @ParameterizedTest()
+  @MethodSource("omtProvider")
+  public void decodeOMTTiles2(String tileId) throws IOException {
+    if (tileId == "13_4265_5467" || tileId == "14_8298_10748" || tileId == "14_8299_10748") {
+      // TODO remove this special case for these 3 tiles once this bug is fixed:
+      // https://github.com/maplibre/maplibre-tile-spec/issues/183
+      var exception =
+          assertThrows(
+              Exception.class,
+              () ->
+                  testTile(
+                      tileId,
+                      TestSettings.OMT_MVT_PATH,
+                      DecoderType.BOTH,
+                      EncodingType.NONADVANCED,
+                      false));
+      assertTrue(exception.toString().contains("ArrayIndexOutOfBoundsException"));
     } else {
-      assertEquals(0, numErrors, "There should be no errors in the OMT tiles: " + tileId);
+      var result =
+          testTile(
+              tileId, TestSettings.OMT_MVT_PATH, DecoderType.BOTH, EncodingType.NONADVANCED, false);
+      assertEquals(
+          0, result.numErrors(), "Error for " + tileId + "/advanced: " + result.numErrors());
     }
   }
 
   /* Test utility functions */
 
-  private int testTile(String tileId, String tileDirectory, DecoderType type, boolean allowSorting)
+  private DecodingResult testTile(
+      String tileId,
+      String tileDirectory,
+      DecoderType decoder,
+      EncodingType encoding,
+      boolean allowSorting)
       throws IOException {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Optional.of(List.of(columnMapping));
+    var columnMappings = Optional.<List<ColumnMapping>>empty();
     var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = false;
@@ -146,21 +197,40 @@ public class MltDecoderTest {
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
     var includeIds = true;
-    var useAdvancedEncodingSchemes = true;
     var mlTile =
         MltConverter.convertMvt(
-            mvTile,
-            new ConversionConfig(includeIds, useAdvancedEncodingSchemes, optimizations),
-            tileMetadata);
-    int numErrors = 0;
-    if (type == DecoderType.SEQUENTIAL || type == DecoderType.BOTH) {
-      var decoded = MltDecoder.decodeMlTile(mlTile, tileMetadata);
-      numErrors += TestUtils.compareTilesSequential(decoded, mvTile);
+            mvTile, new ConversionConfig(includeIds, false, optimizations), tileMetadata);
+    var mlTileAdvanced =
+        MltConverter.convertMvt(
+            mvTile, new ConversionConfig(includeIds, true, optimizations), tileMetadata);
+    int numErrors = -1;
+    int numErrorsAdvanced = -1;
+    if (decoder == DecoderType.SEQUENTIAL || decoder == DecoderType.BOTH) {
+      if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
+        var decodedAdvanced = MltDecoder.decodeMlTile(mlTileAdvanced, tileMetadata);
+        if (numErrorsAdvanced == -1) numErrorsAdvanced = 0;
+        numErrorsAdvanced +=
+            TestUtils.compareTilesSequential(decodedAdvanced, mvTile, allowSorting);
+      }
+      if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
+        var decoded = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+        if (numErrors == -1) numErrors = 0;
+        numErrors += TestUtils.compareTilesSequential(decoded, mvTile, allowSorting);
+      }
     }
-    if (type == DecoderType.VECTORIZED || type == DecoderType.BOTH) {
-      var decoded = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-      numErrors += TestUtils.compareTilesVectorized(decoded, mvTile, allowSorting);
+    if (decoder == DecoderType.VECTORIZED || decoder == DecoderType.BOTH) {
+      if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
+        var decodedAdvanced = MltDecoder.decodeMlTileVectorized(mlTileAdvanced, tileMetadata);
+        if (numErrorsAdvanced == -1) numErrorsAdvanced = 0;
+        numErrorsAdvanced +=
+            TestUtils.compareTilesVectorized(decodedAdvanced, mvTile, allowSorting);
+      }
+      if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
+        var decoded = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
+        if (numErrors == -1) numErrors = 0;
+        numErrors += TestUtils.compareTilesVectorized(decoded, mvTile, allowSorting);
+      }
     }
-    return numErrors;
+    return new DecodingResult(numErrors, numErrorsAdvanced);
   }
 }
