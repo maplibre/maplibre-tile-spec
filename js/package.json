@@ -1,5 +1,5 @@
 {
-  "name": "maplibre-tile-spec",
+  "name": "@maplibre/maplibre-tile-spec",
   "version": "0.0.1",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
