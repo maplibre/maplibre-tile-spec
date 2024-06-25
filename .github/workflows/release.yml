@@ -25,8 +25,9 @@ jobs:
 
       - name: Check if version has been updated
         id: check
-        working-directory: js
         uses: EndBug/version-check@v2
+        with:
+          file-name: js/package.json
           
     outputs:
       publish: ${{ steps.check.outputs.changed }}
@@ -54,8 +55,9 @@ jobs:
 
       - name: Get version
         id: package-version
-        working-directory: js
         uses: martinbeentjes/npm-get-version-action@v1.3.1
+        with:
+          path: js
 
       - name: Install
         working-directory: js
@@ -90,7 +92,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ORG_TOKEN }}
 
       - name: Tag commit and push
-        working-directory: js
         id: tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
@@ -103,7 +104,6 @@ jobs:
           zip -r dist dist
 
       - name: Create GitHub Release (regular)
-        working-directory: js
         id: create_regular_release
         if: ${{ steps.prepare_release.outputs.release_type == 'regular' }}
         uses: ncipollo/release-action@v1
@@ -112,14 +112,13 @@ jobs:
         with:
           tag: ${{ steps.tag_version.outputs.new_tag }}
           name: ${{ steps.tag_version.outputs.new_tag }}
-          artifacts: "dist.zip"
+          artifacts: "js/dist.zip"
           artifactContentType: "application/zip"
           allowUpdates: true
           draft: false
           prerelease: false
 
       - name: Create GitHub Release (prerelease)
-        working-directory: js
         id: create_prerelease
         if: ${{ steps.prepare_release.outputs.release_type == 'prerelease' }}
         uses: actions/create-release@v1
@@ -132,13 +131,12 @@ jobs:
           prerelease: true
 
       - name: Upload GitHub Release Assets (prerelease)
-        working-directory: js
         uses: actions/upload-release-asset@v1
         if: ${{ steps.prepare_release.outputs.release_type == 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_prerelease.outputs.upload_url }}
-          asset_path: ./dist.zip
+          asset_path: js/dist.zip
           asset_name: dist.zip
           asset_content_type: application/zip
