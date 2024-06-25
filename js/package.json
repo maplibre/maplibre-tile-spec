@@ -14,6 +14,10 @@
     "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\""
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maplibre/maplibre-tile-spec.git"
+  },
   "devDependencies": {
     "@bufbuild/buf": "^1.33.0",
     "@bufbuild/protoc-gen-es": "^1.10.0",
