@@ -1,11 +1,11 @@
 {
   "name": "fastpfor-ts",
   "version": "1.0.0",
-  "description": "description",
+  "description": "A decoder for the FastPFOR encoding schema",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
   "module": "build/module/index.js",
-  "repository": "https://github.com/YOUR_GITHUB_USER_NAME/sort-planet",
+  "repository": "https://github.com/Gh0stD3x/cov-tiles",
   "license": "MIT",
   "keywords": [],
   "compilerOptions": {
