@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/maplibre-tile-spec",
-  "version": "0.0.1-alpha.2",
+  "version": "0.0.1-alpha.3",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "files": [
