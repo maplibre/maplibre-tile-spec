@@ -1,4 +1,3 @@
-import { Feature } from 'geojson';
 import Point = require("@mapbox/point-geometry");
 
 class VectorTileFeature {
@@ -34,7 +33,7 @@ class VectorTileFeature {
     return newGeometry;
   }
 
-  toGeoJSON(x: Number, y: Number, z: Number): Feature {
+  toGeoJSON(x: Number, y: Number, z: Number): any {
     return this._raw.toGeoJSON(x, y, z);
   }
 }
