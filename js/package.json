@@ -9,8 +9,8 @@
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
-    "bench": "npm run build && npm run bench-mvt && npm run bench-mlt",
-    "bench-all": "npm run build && node dist/bench/decode.js --mlt --mvt",
+    "bench": "npm run build && npm run bench-mvt && npm run bench-mlt && npm run bench-bing",
+    "bench-bing": "node dist/bench/decode-bing.js --mlt --mvt",
     "bench-mlt": "node dist/bench/decode-mlt.js ../test/expected/bing/4-8-5.mlt",
     "bench-mvt": "node dist/bench/decode-mvt.js ../test/fixtures/bing/4-8-5.mvt",
     "test": "jest",
