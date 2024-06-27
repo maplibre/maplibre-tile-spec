@@ -1,3 +1,4 @@
+import { Layer } from '../data/Layer';
 import { VectorTileFeature } from './VectorTileFeature';
 
 class VectorTileLayer {
@@ -11,7 +12,7 @@ class VectorTileLayer {
   _values: any[];
   _features: VectorTileFeature[] = [];
 
-  constructor(layer) {
+  constructor(layer: Layer) {
     this.name = layer.name;
     this._features = layer.features.map((feature) => new VectorTileFeature(feature));
     this.length = this._features.length;
