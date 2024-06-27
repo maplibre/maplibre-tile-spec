@@ -6,6 +6,13 @@
   "files": [
     "/dist/src"
   ],
+  "license": "(MIT OR Apache-2.0)",
+  "homepage": "https://github.com/maplibre/maplibre-tile-spec/#readme",
+  "keywords": [
+    "maplibre",
+    "gis",
+    "vector"
+  ],
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
@@ -17,6 +24,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/maplibre/maplibre-tile-spec.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maplibre/maplibre-tile-spec/issues"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.34.0",
