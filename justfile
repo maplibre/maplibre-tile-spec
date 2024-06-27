@@ -60,7 +60,7 @@ test-rust:
     cd rust && cargo test
 
 bench-js: install-js
-    cd js && npm run bench
+    cd js && npm run bench && npm run bench-all
 
 bench-java:
     cd java && ./gradlew jmh
