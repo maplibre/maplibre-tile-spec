@@ -44,6 +44,7 @@
     "@types/varint": "^6.0.3",
     "bitset": "^5.1.1",
     "bytebuffer": "^5.0.1",
+    "geojson": "^0.5.0",
     "ieee754": "^1.2.1",
     "pbf": "^3.2.1",
     "varint": "^6.0.0"
