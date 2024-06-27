@@ -17,7 +17,6 @@ import com.mlt.vector.flat.LongFlatVector;
 import com.mlt.vector.geometry.GeometryVector;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.locationtech.jts.geom.Geometry;
 
@@ -35,7 +34,7 @@ public class MltDecoder {
     while (offset.get() < tile.length) {
       List<Long> ids = null;
       Geometry[] geometries = null;
-      var properties = new HashMap<String, List<Object>>();
+      var properties = new HashMap<String, List<?>>();
 
       var version = tile[offset.get()];
       offset.increment();
@@ -69,7 +68,7 @@ public class MltDecoder {
                 IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
                     .mapToLong(i -> i)
                     .boxed()
-                    .collect(Collectors.toList());
+                    .toList();
           } else {
             ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
           }
@@ -79,13 +78,14 @@ public class MltDecoder {
         } else {
           var propertyColumn =
               PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
-          if (propertyColumn instanceof HashMap<?, ?>) {
-            var p = ((Map<String, Object>) propertyColumn);
-            for (var a : p.entrySet()) {
-              properties.put(a.getKey(), (List<Object>) a.getValue());
+          if (propertyColumn instanceof Map<?, ?> map) {
+            for (var a : map.entrySet()) {
+              properties.put(
+                  a.getKey().toString(),
+                  a.getValue() instanceof List<?> list ? list : List.of(a.getValue()));
             }
-          } else {
-            properties.put(columnName, (ArrayList) propertyColumn);
+          } else if (propertyColumn instanceof List<?> list) {
+            properties.put(columnName, list);
           }
         }
       }
@@ -179,7 +179,7 @@ public class MltDecoder {
   private static Layer convertToLayer(
       List<Long> ids,
       Geometry[] geometries,
-      Map<String, List<Object>> properties,
+      Map<String, List<?>> properties,
       MltTilesetMetadata.FeatureTableSchema metadata,
       int numFeatures) {
     if (numFeatures != geometries.length || numFeatures != ids.size()) {

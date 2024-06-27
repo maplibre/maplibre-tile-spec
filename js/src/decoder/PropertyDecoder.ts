@@ -1,12 +1,12 @@
 import { StreamMetadata } from '../metadata/stream/StreamMetadata';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
-import { Column, ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 import { IntWrapper } from './IntWrapper';
 import { DecodingUtils } from './DecodingUtils';
 import { IntegerDecoder } from './IntegerDecoder';
 import { FloatDecoder } from './FloatDecoder';
 import { DoubleDecoder } from './DoubleDecoder';
 import { StringDecoder } from './StringDecoder';
+import { Column, ScalarType } from "../metadata/mlt_tileset_metadata_pb";
 
 class PropertyDecoder {
 
@@ -21,17 +21,17 @@ class PropertyDecoder {
             if (numStreams > 1) {
                 presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
                 numValues = presentStreamMetadata.numValues();
-                presentStream = DecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
+                presentStream = DecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(), offset);
             }
             const physicalType = column.type.value.type.value;
             switch (physicalType) {
                 case ScalarType.BOOLEAN: {
                     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-                    const dataStream = DecodingUtils.decodeBooleanRle(data, dataStreamMetadata.numValues(), dataStreamMetadata.byteLength(), offset);
+                    const dataStream = DecodingUtils.decodeBooleanRle(data, dataStreamMetadata.numValues(), offset);
                     const booleanValues: (boolean | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
-                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        const value = presentStream.get(i) ? dataStream.get(counter++) : null;
                         booleanValues[i] = value !== null ? Boolean(value) : null;
                     }
                     return booleanValues;
@@ -42,7 +42,7 @@ class PropertyDecoder {
                     const values: (number | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
-                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        const value = presentStream.get(i) ? dataStream[counter++] : null;
                         values[i] = value;
                     }
                     return values;
@@ -53,7 +53,7 @@ class PropertyDecoder {
                     const values: (number | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
-                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        const value = presentStream.get(i) ? dataStream[counter++] : null;
                         values[i] = value;
                     }
                     return values;
@@ -64,7 +64,7 @@ class PropertyDecoder {
                     const values: (number | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
-                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        const value = presentStream.get(i) ? dataStream[counter++] : null;
                         values[i] = value;
                     }
                     return values;
@@ -75,7 +75,7 @@ class PropertyDecoder {
                     const values: (number | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
-                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        const value = presentStream.get(i) ? dataStream[counter++] : null;
                         values[i] = value;
                     }
                     return values;
@@ -86,7 +86,7 @@ class PropertyDecoder {
                     const values: (bigint | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
-                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        const value = presentStream.get(i) ? dataStream[counter++] : null;
                         values[i] = value;
                     }
                     return values;
@@ -97,7 +97,7 @@ class PropertyDecoder {
                     const values: (bigint | null)[] = new Array(presentStreamMetadata.numValues());
                     let counter = 0;
                     for (let i = 0; i < presentStreamMetadata.numValues(); i++) {
-                        const value = presentStream[i] ? dataStream[counter++] : null;
+                        const value = presentStream.get(i) ? dataStream[counter++] : null;
                         values[i] = value;
                     }
                     return values;

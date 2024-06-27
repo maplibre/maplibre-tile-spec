@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id('com.diffplug.spotless') version '6.25.0'
     id 'me.champeau.jmh' version '0.7.2'
+    id 'jacoco'
 }
 
 repositories {
@@ -40,6 +41,11 @@ test {
         events "passed", "skipped", "failed"
         exceptionFormat "full"
     }
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
 }
 
 java {

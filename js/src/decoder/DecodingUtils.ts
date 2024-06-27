@@ -1,4 +1,5 @@
 import { IntWrapper } from './IntWrapper';
+import { BitSet } from 'bitset';
 
 export class DecodingUtils {
 
@@ -98,7 +99,7 @@ export class DecodingUtils {
         }
     }
 
-    public static decodeByteRle(buffer: Uint8Array, numBytes: number, byteSize: number, pos: IntWrapper): Uint8Array {
+    public static decodeByteRle(buffer: Uint8Array, numBytes: number, pos: IntWrapper): Uint8Array {
         const values = new Uint8Array(numBytes);
 
         let valueOffset = 0;
@@ -147,9 +148,9 @@ export class DecodingUtils {
         return values;
     }
 
-    public static decodeBooleanRle(buffer: Uint8Array, numBooleans: number, byteSize: number, pos: IntWrapper): Uint8Array {
-        const numBytes = Math.ceil(numBooleans / 8);
-        return this.decodeByteRle(buffer, numBytes, byteSize, pos);
+    public static decodeBooleanRle(buffer: Uint8Array, numBooleans: number, pos: IntWrapper): BitSet {
+        const numBytes = Math.ceil(numBooleans / 8.0);
+        return new BitSet(this.decodeByteRle(buffer, numBytes, pos));
     }
 
     public static decodeFloatsLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): Float32Array {

@@ -3,11 +3,12 @@ package com.mlt.converter.geometry;
 public abstract class SpaceFillingCurve {
   protected int numBits;
   protected int coordinateShift;
-  private int minBound;
-  private int maxBound;
+  private final int minBound;
+  private final int maxBound;
 
   public SpaceFillingCurve(int minVertexValue, int maxVertexValue) {
     var tileExtent = Math.abs(maxVertexValue);
+    var tileExtent = minVertexValue <= 0 ? maxVertexValue + 1 : maxVertexValue;
     if (minVertexValue < 0) {
       tileExtent += Math.abs(minVertexValue);
     }

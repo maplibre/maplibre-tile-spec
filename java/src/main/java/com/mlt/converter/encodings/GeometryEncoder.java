@@ -246,7 +246,6 @@ public class GeometryEncoder {
     if (plainVertexBufferSize <= dictionaryEncodedSize
         && plainVertexBufferSize <= mortonDictionaryEncodedSize) {
       // TODO: get rid of extra conversion
-      // TODO: refactor to use sorted points vertex buffer
       var encodedVertexBufferStream =
           encodeVertexBuffer(
               Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
