@@ -79,7 +79,7 @@ jobs:
         working-directory: js
         if: ${{ steps.prepare_release.outputs.release_type == 'regular' }}
         run: |
-          npm publish
+          npm publish --access=public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ORG_TOKEN }}
 
@@ -87,7 +87,7 @@ jobs:
         working-directory: js
         if: ${{ steps.prepare_release.outputs.release_type == 'prerelease' }}
         run: |
-          npm publish --tag next
+          npm publish --access=public --tag next
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ORG_TOKEN }}
 
