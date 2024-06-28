@@ -17,7 +17,7 @@ export const parseArgs = async (args: string[]): Promise<{ tilePath: string; ite
       process.exit(1);
     }
     await access(tilePath);
-    const iterations = args[1] ? parseInt(args[1]) : 1000;
+    const iterations = args[1] ? parseInt(args[1]) : 500;
     if (Number.isNaN(iterations) || iterations < 1) {
       throw new Error("Please provide a valid number of iterations");
     }
