@@ -22,7 +22,8 @@ const main = async (gzip: boolean) => {
       });
     };
     const size = toKb(compressed.length);
-    await bench(`MVT+gzip (${size}kb) 🍎`, decoder, iterations);
+    await bench(`🍎 MVT+gzip (${size}kb)`, decoder, false, iterations);
+    await bench(`🍏 MVT+gzip+earcut`, decoder, true, iterations);
   } else {
     const decoder = async () => {
       return new Promise((resolve) => {
@@ -30,7 +31,7 @@ const main = async (gzip: boolean) => {
       });
     };
     const size = toKb(data.length);
-    await bench(`MVT+raw (${size}kb) 🍐`, decoder, iterations);
+    await bench(`🍐 MVT+raw (${size}kb)`, decoder, false, iterations);
   }
 }
 
