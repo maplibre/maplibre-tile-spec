@@ -7,14 +7,10 @@ class VectorTileFeature {
   id: number;
 
   _raw: any;
-  _geometry: any;
-  _keys: string[];
-  _values: any[];
 
   constructor(feature) {
     this.properties = feature.properties;
     this.extent = feature.extent;
-    this._geometry = feature.geometry;
     this._raw = feature;
     if (feature.id !== null) {
       this.id = Number(feature.id);
