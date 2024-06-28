@@ -65,3 +65,19 @@ Therefore, pre-tessellation is of major research interest. It would involve:
  - Updating MapLibre to be able to push the pre-tessellated data as efficiently as possible to the GPU
 
 To unlock this in the spec, more investigations would be needed. See the additional discussion of this topic in the [bench/readme.md](bench/readme.md) and the open issue tracking it: https://github.com/maplibre/maplibre-tile-spec/issues/223. This feature could unlock a step change performance improvement to MapLibre rendering if designed well. Designing it well will require careful examination of MapLibre internals and consideration of backwards compatibility.
+
+## Avoiding unnessary data copies
+
+|Performance Estimate| Effort Estimate|
+|--------------------|----------------|
+| 5-10 ops/s         | Easy (hours)   |
+
+Data copying that can be avoided can avoid memory allocation altogether which can have a major impact on performance when the code is running in an application that already has high Garbage Collection pressure.
+
+There are several known places in the code where we are making copies that can likely be avoided.
+
+Notably a copy of the input array is being made in the Maplibre-gl-js POC demonstration at https://github.com/stamen/maplibre-gl-js/pull/1/files#diff-01db149dd1eb89289b02c1ce90021c0af4556f691c16811f6ef4f02c828e8721R75.
+
+Also a copy of the entire geometry array is being made in the mlt-vector-tile library at https://github.com/maplibre/maplibre-tile-spec/blob/d0fd989f62fec37e6498529a37f43185bbefa163/js/src/mlt-vector-tile-js/VectorTileFeature.ts#L21-L30
+
+
