@@ -2,7 +2,7 @@
     "transform": {
         "^.+\\.ts": "ts-jest"
     },
-    "testRegex": "test/unit/(.*|(\\.|/)(test|spec))\\.(js|ts)$",
+    "testRegex": "test/unit/.*.spec\\.(js|ts)$",
     "moduleFileExtensions": ["ts", "js", "json", "node"],
     "workerThreads": true
 }
