@@ -1,36 +1,36 @@
-# Future work on the Javascript decoder
+# Future Work on the JavaScript Decoder
 
-The Javascript decoder in this repo was written in June, 2024.
+The JavaScript decoder in this repo was written in June 2024.
 
-It is a direct port of the minimal code needed from the reference implementation in Java in order to decode an MLT tile.
+It is a direct port of the minimal code needed from the reference implementation in Java to decode an MLT tile.
 
-The only focus so far in development has been on correctness and no effort yet has gone into performance optimization.
+The only focus so far in development has been on correctness, and no effort has yet gone into performance optimization.
 
-Due to how the MLT specification is designed, both its flexibility and features, major opportunities exist to improve performance, as listed below:
+Due to the design of the MLT specification, with its flexibility and features, major opportunities exist to improve performance, as listed below:
 
-1. Advanced encodings
+1. Advanced Encodings
 
 - Performance estimate: 20-30 ops/s
-- Effort level: moderate (days)
+- Effort level: Moderate (days)
 
-One of the most novel aspects of the MLT specification is efficiency gained in the combination of column-oriented data with lightweight encodings tailored to the data type. To take advantage of this combo the MLT spec has support for what we refer to as "advanced encodings", but are mainly FastPFor and FSST.
+One of the most novel aspects of the MLT specification is the efficiency gained in combining column-oriented data with lightweight encodings tailored to the data type. To take advantage of this combination, the MLT spec supports what we refer to as "advanced encodings," which are mainly FastPFor and FSST.
 
-But currently the JS decoder has not yet attempted to support these such that the decoding performance benefits have not been realized and the input tiles are not yet as small as they could be.
+However, the JS decoder has not yet attempted to support these, such that the decoding performance benefits have not been realized, and the input tiles are not yet as small as they could be.
 
 Work on this is not yet planned, but it is tracked at https://github.com/maplibre/maplibre-tile-spec/issues/222.
 
-1. Lazy geometry decoding
+1. Lazy Geometry Decoding
 
-- Performance estimate: 50-70 ops/s
-- Effort level: moderate (days)
+- Performance estimate: 30-70 ops/s
+- Effort level: Moderate (days)
 
 Another novel aspect of the MLT specification is how feature-rich its geometry storage structure is. One of the features of its storage structure allows for on-demand (aka lazy) decoding of geometries. This allows a parser to iterate all features in a layer and only pay the cost of materializing geometries if needed and right when needed.
 
-But the JS decoder does not yet support this feature. Work on this is not yet planned, but it is tracked at https://github.com/maplibre/maplibre-tile-spec/issues/224
+However, the JS decoder does not yet support this feature. Work on this is not yet planned, but it is tracked at https://github.com/maplibre/maplibre-tile-spec/issues/224.
 
-1. Reducing memory allocations
+1. Reducing Memory Allocations
 
-- Performance estimate: 10-20 ops/s
+- Performance estimate: 10-25 ops/s
 - Effort level: easy-moderate (days)
 
 A large amount of array allocation is needed by the current JS decoder to translate the current column-oriented design of an MLT into the row-oriented format expected by MapLibre. So, we can achieve very easy performance improvements by optimizating this array allocation in obvious ways like pre-allocating when the final size is know and using TypedArrays over Array when allocation speed of the former is more effecient the the often slower access is not critical.
