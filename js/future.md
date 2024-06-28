@@ -30,24 +30,6 @@ Another novel aspect of the MLT specification is how feature-rich its geometry s
 
 However, the JS decoder does not yet support this feature. Work on this is not yet planned, but it is tracked at https://github.com/maplibre/maplibre-tile-spec/issues/224.
 
-## Reducing Memory Allocations
-
-|Performance Estimate| Effort Estimate|
-|--------------------|----------------|
-| 10-25 ops/s        | Moderate (days)|
-
-A large amount of array allocation is needed by the current JS decoder to translate the current column-oriented design of an MLT into the row-oriented format expected by MapLibre. So, we can achieve very easy performance improvements by optimizating this array allocation in obvious ways like pre-allocating when the final size is know and using TypedArrays over Array when allocation speed of the former is more effecient the the often slower access is not critical.
-
-But the bigger picture issue here is that too much time spent optimizing this may not be required because a bigger performance win awaits the developer who can effecitvely refactor MapLibre to work directly off of the column-oriented data. This would allow MapLibre to efficiently access data within a column without allocating the entire column of data in order to assemble a fully materialized feature. For example, the current MapLibre code expects fully materialize features with all their properties available in the expression evaluation/filtering path. It could be a big but 1. Optimizing text decoding
-
-## Optimizing text decoding
-
-|Performance Estimate| Effort Estimate|
-|--------------------|----------------|
-| 5-10 ops/s         | Easy (hours)   |
-
-The JS decoder needs to handle utf-8 encoded strings stored for feature properties. It uses the JS built-in [TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder), which is available in Node.js and Browsers. This decoder is known to be slow for short strings under 10 or so characters (which can be common) and relatively fast for long strings. So, we can speed up short string decoding by implementing our own utf8 decoder that has very little initialization overhead and efficient parsing.
-
 ## Pre-tessellation of polygons
 
 |Performance Estimate| Effort Estimate|
@@ -66,18 +48,34 @@ Therefore, pre-tessellation is of major research interest. It would involve:
 
 To unlock this in the spec, more investigations would be needed. See the additional discussion of this topic in the [bench/readme.md](bench/readme.md) and the open issue tracking it: https://github.com/maplibre/maplibre-tile-spec/issues/223. This feature could unlock a step change performance improvement to MapLibre rendering if designed well. Designing it well will require careful examination of MapLibre internals and consideration of backwards compatibility.
 
+## Reducing Memory Allocations
+
+|Performance Estimate| Effort Estimate|
+|--------------------|----------------|
+| 10-25 ops/s        | Moderate (days)|
+
+A large amount of array allocation is needed by the current JS decoder to translate the current column-oriented design of an MLT into the row-oriented format expected by MapLibre. So, we can achieve very easy performance improvements by optimizating this array allocation in obvious ways like pre-allocating when the final size is know and using TypedArrays over Array when allocation speed of the former is more effecient the the often slower access is not critical.
+
+But the bigger picture issue here is that too much time spent optimizing this may not be required because a bigger performance win awaits the developer who can effecitvely refactor MapLibre to work directly off of the column-oriented data. This would allow MapLibre to efficiently access data within a column without allocating the entire column of data in order to assemble a fully materialized feature. For example, the current MapLibre code expects fully materialize features with all their properties available in the expression evaluation/filtering path. It could be a big but 1. Optimizing text decoding
+
+## Optimizing text decoding
+
+|Performance Estimate| Effort Estimate|
+|--------------------|----------------|
+| 5-10 ops/s         | Easy (hours)   |
+
+The JS decoder needs to handle utf-8 encoded strings stored for feature properties. It uses the JS built-in [TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder), which is available in Node.js and Browsers. This decoder is known to be slow for short strings under 10 or so characters (which can be common) and relatively fast for long strings. So, we can speed up short string decoding by implementing our own utf8 decoder that has very little initialization overhead and efficient parsing.
+
 ## Avoiding unnessary data copies
 
 |Performance Estimate| Effort Estimate|
 |--------------------|----------------|
 | 5-10 ops/s         | Easy (hours)   |
 
-Data copying that can be avoided can avoid memory allocation altogether which can have a major impact on performance when the code is running in an application that already has high Garbage Collection pressure.
+Data copying that can be avoided will avoid memory allocation altogether which can have a major impact on performance when the code is running in an application that already has high Garbage Collection pressure.
 
 There are several known places in the code where we are making copies that can likely be avoided.
 
-Notably a copy of the input array is being made in the Maplibre-gl-js POC demonstration at https://github.com/stamen/maplibre-gl-js/pull/1/files#diff-01db149dd1eb89289b02c1ce90021c0af4556f691c16811f6ef4f02c828e8721R75.
+Notably a copy of the input array is being made in the maplibre-gl-js POC demonstration at https://github.com/stamen/maplibre-gl-js/pull/1/files#diff-01db149dd1eb89289b02c1ce90021c0af4556f691c16811f6ef4f02c828e8721R75.
 
 Also a copy of the entire geometry array is being made in the mlt-vector-tile library at https://github.com/maplibre/maplibre-tile-spec/blob/d0fd989f62fec37e6498529a37f43185bbefa163/js/src/mlt-vector-tile-js/VectorTileFeature.ts#L21-L30
-
-
