@@ -18,6 +18,7 @@ class VectorTileFeature {
   }
 
   loadGeometry(): Point[][] {
+    // TODO: optimize to avoid needing this deep copy 
     const newGeometry = [];
     const oldGeometry = this._raw.loadGeometry();
     for (let i = 0; i < oldGeometry.length; i++) {
