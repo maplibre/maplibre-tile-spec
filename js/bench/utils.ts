@@ -36,7 +36,7 @@ function msToSec(ms) {
 function logger(message: string, ops: number, elapsed: number) {
     const opsPerSec = Math.round(ops/msToSec(elapsed));
     const msPerOp = round(elapsed/ops,1);
-    console.log('-', opsPerSec, 'ops/s |', msPerOp, 'ms/op', 'for', message, '(runs:', ops,')');
+    console.log(`- ${opsPerSec} ops/s | ${msPerOp} ms/op for ${message} (runs: ${ops})`);
 }
 
 // Intended to match https://github.com/maplibre/maplibre-gl-js/blob/350064ecfe6c4bd074a19b5e7195cf010bede168/src/data/bucket/fill_bucket.ts#L172-L212
