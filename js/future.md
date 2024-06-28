@@ -48,7 +48,7 @@ Therefore, pre-tessellation is of major research interest. It would involve:
 
 To unlock this in the spec, more investigations would be needed. See the additional discussion of this topic in the [bench/readme.md](bench/readme.md) and the open issue tracking it: https://github.com/maplibre/maplibre-tile-spec/issues/223. This feature could unlock a step change performance improvement to MapLibre rendering if designed well. Designing it well will require careful examination of MapLibre internals and consideration of backwards compatibility.
 
-## Reducing Memory Allocations
+## Reducing Memory Allocations in column decoding
 
 |Performance Estimate| Effort Estimate|
 |--------------------|----------------|
@@ -57,6 +57,16 @@ To unlock this in the spec, more investigations would be needed. See the additio
 A large amount of array allocation is needed by the current JS decoder to translate the current column-oriented design of an MLT into the row-oriented format expected by MapLibre. So, we can achieve very easy performance improvements by optimizating this array allocation in obvious ways like pre-allocating when the final size is know and using TypedArrays over Array when allocation speed of the former is more effecient the the often slower access is not critical.
 
 But the bigger picture issue here is that too much time spent optimizing this may not be required because a bigger performance win awaits the developer who can effecitvely refactor MapLibre to work directly off of the column-oriented data. This would allow MapLibre to efficiently access data within a column without allocating the entire column of data in order to assemble a fully materialized feature. For example, the current MapLibre code expects fully materialize features with all their properties available in the expression evaluation/filtering path.
+
+## Flattening geometry storage
+
+|Performance Estimate| Effort Estimate|
+|--------------------|----------------|
+| 5-10 ops/s         | Moderate (days)|
+
+Currently polygon storage in the Javascript MLT decoder is inefficient, by design. During the rapid developent of the decoder we needed a practical way to ensure that the geometries were valid and being represented with full fidelity. To accomplish this the polygon outer ring (aka shell) is stored separating from the inner rings just like the Java decoder, which uses the highly robust JTS geometry engine. This made it easy to write tests for expected outputs and to convert the geometry to a GeoJSON represenation (also for testing).
+
+Now that things are working and we have good regression tests it is high time to flatten the geometry storage to avoid the multiple nested arrays being used. Flattening would reduce allocations and GC overhead. And it would make it less expensive to convert the geometry storage format into the geometry array that MapLibre expects to consume.
 
 ## Optimizing text decoding
 
