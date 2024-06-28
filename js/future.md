@@ -56,7 +56,7 @@ To unlock this in the spec, more investigations would be needed. See the additio
 
 A large amount of array allocation is needed by the current JS decoder to translate the current column-oriented design of an MLT into the row-oriented format expected by MapLibre. So, we can achieve very easy performance improvements by optimizating this array allocation in obvious ways like pre-allocating when the final size is know and using TypedArrays over Array when allocation speed of the former is more effecient the the often slower access is not critical.
 
-But the bigger picture issue here is that too much time spent optimizing this may not be required because a bigger performance win awaits the developer who can effecitvely refactor MapLibre to work directly off of the column-oriented data. This would allow MapLibre to efficiently access data within a column without allocating the entire column of data in order to assemble a fully materialized feature. For example, the current MapLibre code expects fully materialize features with all their properties available in the expression evaluation/filtering path. It could be a big but 1. Optimizing text decoding
+But the bigger picture issue here is that too much time spent optimizing this may not be required because a bigger performance win awaits the developer who can effecitvely refactor MapLibre to work directly off of the column-oriented data. This would allow MapLibre to efficiently access data within a column without allocating the entire column of data in order to assemble a fully materialized feature. For example, the current MapLibre code expects fully materialize features with all their properties available in the expression evaluation/filtering path.
 
 ## Optimizing text decoding
 
