@@ -90,7 +90,7 @@ const decode = async (impl, earcut: boolean) => {
       for (let i = 0; i < layer.length; i++) {
           const feature = layer.feature(i);
           const geometries = feature.loadGeometry();
-          if (geometries.length === 0) {
+          if (geometries.length > 0) {
             featureCount++;
           }
           if (earcut && feature.type === GeometryType.Polygon) {
