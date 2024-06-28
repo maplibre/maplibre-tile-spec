@@ -23,3 +23,5 @@ TODO
 1. Optimizing text decoding
 
 TODO
+
+1. pre-tessellation of polygons
