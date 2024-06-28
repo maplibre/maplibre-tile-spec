@@ -8,13 +8,11 @@ glob(searchPattern, (err, files) => {
         console.error('Error:', err);
         return;
     }
-    files.forEach((file) => {
+    for (const file of files) {
         console.log()
-        console.log(file);
         execSync(`node dist/bench/decode-mlt.js ${file} 100`,{stdio: 'inherit'});
         const mvt = file.replace(/\.mlt$/, '.mvt').replace('expected', 'fixtures');
         console.log()
-        console.log(mvt);
         execSync(`node dist/bench/decode-mvt.js ${mvt} 100`,{stdio: 'inherit'});
-    });
+    }
 });
