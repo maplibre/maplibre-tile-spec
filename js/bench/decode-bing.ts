@@ -11,10 +11,10 @@ glob(searchPattern, (err, files) => {
     files.forEach((file) => {
         console.log()
         console.log(file);
-        execSync(`node dist/bench/decode-mlt.js ${file}`,{stdio: 'inherit'});
+        execSync(`node dist/bench/decode-mlt.js ${file} 100`,{stdio: 'inherit'});
         const mvt = file.replace(/\.mlt$/, '.mvt').replace('expected', 'fixtures');
         console.log()
         console.log(mvt);
-        execSync(`node dist/bench/decode-mvt.js ${mvt}`,{stdio: 'inherit'});
+        execSync(`node dist/bench/decode-mvt.js ${mvt} 100`,{stdio: 'inherit'});
     });
 });

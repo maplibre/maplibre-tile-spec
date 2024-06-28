@@ -139,7 +139,7 @@ const stats = async (name: string, impl, earcut: boolean) => {
 export const bench = async (name: string, decoder: () => void, earcut: boolean, iterations: number) : Promise<void> => {
     const { featureCount, triangleCount } = await stats(name, decoder, earcut);
     // Only do a warmup if we're running more than 100 iterations for the main test
-    if (iterations > 50) {
+    if (iterations > 100) {
       await run('Warmup', decoder, earcut, featureCount, triangleCount, 50);
     }
     await run("Main  ", decoder, earcut, featureCount, triangleCount, iterations);
