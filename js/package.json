@@ -40,7 +40,7 @@
     "@typescript-eslint/eslint-plugin": "^7.14.1",
     "@typescript-eslint/parser": "^7.14.1",
     "benchmark": "^2.1.4",
-    "earcut": "^2.2.4",
+    "earcut": "^3.0.0",
     "eslint": "^8.57.0",
     "jest": "^29.5.0",
     "jest-matcher-deep-close-to": "^3.0.2",
