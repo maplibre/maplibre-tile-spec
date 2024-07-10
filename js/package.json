@@ -55,6 +55,7 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^1.10.0",
+    "@mapbox/point-geometry": "^0.1.0",
     "@types/bytebuffer": "^5.0.49",
     "bitset": "^5.1.1",
     "bytebuffer": "^5.0.1"
