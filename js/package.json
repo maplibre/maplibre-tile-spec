@@ -48,7 +48,7 @@
     "pbf": "^3.2.1",
     "prettier": "^3.3.2",
     "semver": "^7.6.2",
-    "ts-jest": "^29.1.5",
+    "ts-jest": "^29.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3",
     "varint": "^6.0.0"
