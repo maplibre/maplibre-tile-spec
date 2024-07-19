@@ -44,6 +44,7 @@ import org.jetbrains.annotations.NotNull;
 class SymbolTableBuilder {
   // TODO:
   // - more tests
+  // - improve symbol tests
   // - perf tests
   // - inline QSymbol?
   // - arraycopy vs. just moving bytes by size?
