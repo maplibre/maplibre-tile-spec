@@ -1,11 +1,16 @@
-package com.mlt.converter.encodings;
+package com.mlt.converter.encodings.fsst;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.mlt.converter.encodings.fsst.FsstEncoder;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class FsstEncoderTest {
 
