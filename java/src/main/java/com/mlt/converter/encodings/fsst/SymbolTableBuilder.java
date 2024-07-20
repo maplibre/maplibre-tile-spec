@@ -42,9 +42,6 @@ import org.jetbrains.annotations.NotNull;
  * on real-world data.
  */
 class SymbolTableBuilder {
-  // TODO:
-  // - improve symbol tests
-  // - perf tests
   static final int MAX_SYMBOL_LENGTH = 8;
   private static final int NUM_ITERS = 6;
   public static final int DEFAULT_SAMPLE_SIZE = 30_000;
