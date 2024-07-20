@@ -228,6 +228,9 @@ class SymbolTableBuilder {
       int cnt1 = counters.count1GetNext(pos1);
       if (cnt1 <= 0) continue;
       Symbol s1 = symbols[pos1];
+      // note from C++ implementation:
+      // heuristic: promoting single-byte symbols (*8) helps reduce exception rates and increases
+      // [de]compression speed
       addOrInc(
           cands, s1, (s1.length() == 1 ? 8L : 1L) * cnt1, (lastPass && !sampled) ? 1 : minCount);
 
