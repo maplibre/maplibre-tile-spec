@@ -5,8 +5,8 @@ import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.*;
 
 @State(Scope.Benchmark)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.SECONDS)
+@BenchmarkMode(Mode.Throughput)
 @Threads(value = 1)
 @Warmup(iterations = 5)
 @Measurement(iterations = 5)
@@ -40,42 +40,42 @@ public class FsstBenchmark {
   private static final Fsst JNI = new FsstJni();
 
   @Benchmark
-  public SymbolTable encodeJavaSmall() {
+  public SymbolTable encodeSmallJava() {
     return JAVA.encode(SMALL);
   }
 
   @Benchmark
-  public SymbolTable encodeJavaMedium() {
+  public SymbolTable encodeMediumJava() {
     return JAVA.encode(MEDIUM);
   }
 
   @Benchmark
-  public SymbolTable encodeJavaLarge() {
+  public SymbolTable encodeLargeJava() {
     return JAVA.encode(LARGE);
   }
 
   @Benchmark
-  public SymbolTable encodeJavaExtraLarge() {
+  public SymbolTable encodeExtraLargeJava() {
     return JAVA.encode(XLARGE);
   }
 
   @Benchmark
-  public SymbolTable encodeJniSmall() {
+  public SymbolTable encodeSmallJni() {
     return JNI.encode(SMALL);
   }
 
   @Benchmark
-  public SymbolTable encodeJniMedium() {
+  public SymbolTable encodeMediumJni() {
     return JNI.encode(MEDIUM);
   }
 
   @Benchmark
-  public SymbolTable encodeJniLarge() {
+  public SymbolTable encodeLargeJni() {
     return JNI.encode(LARGE);
   }
 
   @Benchmark
-  public SymbolTable encodeJniExtraLarge() {
+  public SymbolTable encodeExtraLargeJni() {
     return JNI.encode(XLARGE);
   }
 }
