@@ -1,6 +1,7 @@
 package com.mlt.converter.encodings.fsst;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -14,28 +15,10 @@ class FsstDebug implements Fsst {
   private static final AtomicLong javaSize = new AtomicLong();
   private static final AtomicInteger javaSmaller = new AtomicInteger();
   private static final AtomicInteger jniSmaller = new AtomicInteger();
+  private static final AtomicBoolean printed = new AtomicBoolean(false);
 
   static {
-    Runtime.getRuntime()
-        .addShutdownHook(
-            new Thread(
-                () -> {
-                  System.err.println(
-                      "java/jni:"
-                          + javaTime
-                          + "ms/"
-                          + jniTime
-                          + "ms "
-                          + javaSize
-                          + "/"
-                          + jniSize
-                          + " "
-                          + (javaSize.get() * 1d / jniSize.get())
-                          + " jni smaller "
-                          + jniSmaller
-                          + "/"
-                          + (javaSmaller.get() + jniSmaller.get()));
-                }));
+    Runtime.getRuntime().addShutdownHook(new Thread(FsstDebug::printStats));
   }
 
   @Override
@@ -52,20 +35,26 @@ class FsstDebug implements Fsst {
     jniSize.addAndGet(fromJni.weight());
     javaSize.addAndGet(fromJava.weight());
     (fromJava.weight() <= fromJni.weight() ? javaSmaller : jniSmaller).incrementAndGet();
-
-    //    if (fromJni.weight() < fromJava.weight()) {
-    //      System.err.println(
-    //          "java/jni: "
-    //              + (c - b)
-    //              + "ms/"
-    //              + (b - a)
-    //              + "ms "
-    //              + fromJava.weight()
-    //              + "/"
-    //              + fromJni.weight());
-    //      System.err.println("  java: " + fromJava.symbolString());
-    //      System.err.println("  jni: " + fromJni.symbolString());
-    //    }
     return fromJava;
+  }
+
+  public static void printStats() {
+    if (!printed.getAndSet(true)) {
+      System.err.println(
+          "java/jni:"
+              + javaTime
+              + "ms/"
+              + jniTime
+              + "ms "
+              + javaSize
+              + "/"
+              + jniSize
+              + " "
+              + (javaSize.get() * 1d / jniSize.get())
+              + " jni smaller "
+              + jniSmaller
+              + "/"
+              + (javaSmaller.get() + jniSmaller.get()));
+    }
   }
 }

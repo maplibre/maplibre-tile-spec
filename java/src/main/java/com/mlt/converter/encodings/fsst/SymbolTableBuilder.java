@@ -43,15 +43,14 @@ import org.jetbrains.annotations.NotNull;
  */
 class SymbolTableBuilder {
   // TODO:
-  // - more tests
   // - improve symbol tests
   // - perf tests
-  // - inline QSymbol?
   // - arraycopy vs. just moving bytes by size?
   // - fix reader 0 bytes
   // - byte arraylist resize max int
   static final int MAX_SYMBOL_LENGTH = 8;
   private static final int NUM_ITERS = 6;
+  public static final int DEFAULT_SAMPLE_SIZE = 30_000;
   private final int sampleSize;
   private final Symbol[] symbols = new Symbol[512];
 
@@ -64,7 +63,7 @@ class SymbolTableBuilder {
   private int nSymbols;
 
   private SymbolTableBuilder(int sampleSize) {
-    for (int code = 0; code < 255; code++) {
+    for (int code = 0; code < 256; code++) {
       symbols[code] = Symbol.of(code);
     }
     this.sampleSize = sampleSize;
@@ -73,7 +72,7 @@ class SymbolTableBuilder {
   /** Builds a symbol table with up to a 30kb sample and compresses {@code data} with it. */
   public static SymbolTable encode(byte[] data) {
     var buf = ByteBuffer.wrap(data);
-    return buildSymbolTable(buf, 30_000).encode(buf);
+    return buildSymbolTable(buf, DEFAULT_SAMPLE_SIZE).encode(buf);
   }
 
   public static SymbolTableBuilder buildSymbolTable(ByteBuffer data, int sampleSize) {
@@ -81,11 +80,11 @@ class SymbolTableBuilder {
     // and return the best one
     SymbolTableBuilder st = new SymbolTableBuilder(sampleSize);
     SymbolTableBuilder bestTable = st;
-    long bestGain = -data.capacity() * 2L;
+    long bestGain = Long.MIN_VALUE;
     Counters counters;
     Counters bestCounters = null;
     for (int i = 1; i <= NUM_ITERS; i++) {
-      counters = Counters.create();
+      counters = new Counters();
       long gain = st.compressCount(counters, data, i < NUM_ITERS);
       if (gain >= bestGain) {
         bestCounters = counters;
@@ -114,13 +113,14 @@ class SymbolTableBuilder {
   private byte[] encodeText(ByteBuffer text, int[] lens) {
     int cap = text.capacity();
     var encoded = new ByteArrayList(cap);
-    for (int in = 0; in < cap; ) {
-      int pos = findLongestSymbol(text, in);
+    for (int i = 0; i < cap; ) {
+      int pos = findLongestSymbol(text, i);
       if (pos <= 255) {
-        encoded.add(255, text.get(in++));
+        encoded.add(255, text.get(i++));
       } else {
+        pos -= 256;
         encoded.add(pos);
-        in += lens[pos];
+        i += lens[pos];
       }
     }
     return encoded.toArray();
@@ -233,10 +233,14 @@ class SymbolTableBuilder {
     for (int pos1 = 0; pos1 < max; pos1++) {
       int cnt1 = counters.count1GetNext(pos1);
       if (cnt1 <= 0) continue;
-      // heuristic: promoting single-byte symbols (*8) helps reduce exception rates and increases
-      // [de]compression speed
       Symbol s1 = symbols[pos1];
-      addOrInc(cands, s1, (s1.length() == 1 ? 8L : 1L) * cnt1, minCount);
+      if (!lastPass || sampled) {
+        // heuristic: promoting single-byte symbols (*8) helps reduce exception rates and increases
+        // [de]compression speed
+        addOrInc(cands, s1, (s1.length() == 1 ? 8L : 1L) * cnt1, lastPass ? 1 : minCount);
+      } else {
+        addOrInc(cands, s1, (long) s1.length() * cnt1, 1);
+      }
 
       // don't need pair-wise counts for last pass to just encode the data
       if (lastPass || s1.length() == MAX_SYMBOL_LENGTH) continue;
@@ -303,10 +307,6 @@ class SymbolTableBuilder {
   static class Counters {
     private final int[] count1 = new int[512];
     private final int[] count2 = new int[512 * 512];
-
-    public static Counters create() {
-      return new Counters();
-    }
 
     public void count1Inc(int pos1) {
       count1[pos1]++;

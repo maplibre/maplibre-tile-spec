@@ -8,13 +8,16 @@ import java.nio.ByteOrder;
 public interface Fsst {
   SymbolTable encode(byte[] data);
 
+  default byte[] decode(SymbolTable encoded) throws IOException {
+    return decode(encoded.symbols(), encoded.symbolLengths(), encoded.compressedData());
+  }
+
   default byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData)
       throws IOException {
     ByteArrayOutputStream decodedData = new ByteArrayOutputStream();
     ByteBuffer symbolsBuffer = ByteBuffer.wrap(symbols).order(ByteOrder.BIG_ENDIAN);
 
     int[] symbolOffsets = new int[symbolLengths.length];
-    symbolOffsets[0] = 0;
     for (int i = 1; i < symbolLengths.length; i++) {
       symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
     }
