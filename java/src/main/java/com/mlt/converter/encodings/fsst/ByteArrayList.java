@@ -19,21 +19,25 @@ class ByteArrayList {
   }
 
   public void add(int i, int j) {
-    ensureCapacity(length + 2);
+    ensureCapacity(2);
     buf[length] = (byte) i;
     buf[length + 1] = (byte) j;
     length += 2;
   }
 
   public void add(int i) {
-    ensureCapacity(length + 1);
+    ensureCapacity(1);
     buf[length++] = (byte) i;
   }
 
   public void add(byte[] bytes) {
-    ensureCapacity(length + bytes.length);
-    for (byte b : bytes) {
-      buf[length++] = b;
+    if (bytes.length == 1) {
+      add(bytes[0]);
+    } else if (bytes.length > 1) {
+      int n = bytes.length;
+      ensureCapacity(n);
+      System.arraycopy(bytes, 0, buf, length, n);
+      length += n;
     }
   }
 
@@ -41,9 +45,14 @@ class ByteArrayList {
     return Arrays.copyOf(buf, length);
   }
 
-  private void ensureCapacity(int size) {
-    if (size >= buf.length) {
-      buf = Arrays.copyOf(buf, buf.length + (buf.length >> 1));
+  private void ensureCapacity(int additions) {
+    if (buf.length - length < additions) {
+      int grow = Math.max(additions, buf.length >> 1);
+      int newSize = buf.length + grow;
+      if (newSize < 0) {
+        throw new OutOfMemoryError("Cannot add " + additions + " bytes to existing " + buf.length);
+      }
+      buf = Arrays.copyOf(buf, newSize);
     }
   }
 }

@@ -29,15 +29,12 @@ class Symbol implements Comparable<Symbol> {
   public static Symbol concat(Symbol a, Symbol b) {
     int len = Math.min(SymbolTableBuilder.MAX_SYMBOL_LENGTH, a.length + b.length);
     byte[] result = new byte[len];
-    int i;
+    System.arraycopy(a.bytes, 0, result, 0, a.length);
+    int todo = len - a.length;
+    if (todo > 0) System.arraycopy(b.bytes, 0, result, a.length, todo);
     int hash = a.hashcode;
-    for (i = 0; i < a.length && i < len; i++) {
-      result[i] = a.bytes[i];
-    }
-    for (int j = 0; i < len; i++, j++) {
-      var bb = b.bytes[j];
+    for (byte bb : b.bytes) {
       hash = 31 * hash + bb;
-      result[i] = bb;
     }
     return new Symbol(result, hash);
   }
