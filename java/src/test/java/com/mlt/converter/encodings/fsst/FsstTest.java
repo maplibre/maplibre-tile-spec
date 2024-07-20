@@ -76,7 +76,7 @@ class FsstTest {
   private static void test(byte[] input) throws IOException {
     var encodedJava = JAVA.encode(input);
     var encodedJni = JNI.encode(input);
-    int maxAllowed = Math.max((int) (encodedJni.weight() * 1.05), encodedJni.weight() + 2);
+    int maxAllowed = Math.max((int) (encodedJni.weight() * 1.02), encodedJni.weight() + 2);
     assertTrue(
         encodedJava.weight() <= maxAllowed,
         () ->

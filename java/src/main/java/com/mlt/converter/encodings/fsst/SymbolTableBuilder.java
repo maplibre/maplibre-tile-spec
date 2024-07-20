@@ -108,13 +108,13 @@ class SymbolTableBuilder {
     int cap = text.capacity();
     var encoded = new ByteArrayList(cap);
     for (int i = 0; i < cap; ) {
-      int pos = findLongestSymbol(text, i);
-      if (pos <= 255) {
+      int code = findLongestSymbol(text, i);
+      if (isEscapeCode(code)) {
         encoded.add(255, text.get(i++));
       } else {
-        pos -= 256;
-        encoded.add(pos);
-        i += lens[pos];
+        code -= 256;
+        encoded.add(code);
+        i += lens[code];
       }
     }
     return encoded.toArray();
@@ -152,10 +152,10 @@ class SymbolTableBuilder {
 
     // if not found, then look for a single-byte symbol
     var letter = text.get(offset) & 0xFF;
-    int start = sIndex[letter];
+    int code = sIndex[letter];
 
-    if (start >= 256) {
-      return start;
+    if (!isEscapeCode(code)) {
+      return code;
     }
 
     // otherwise just return the "escape code" for this symbol since it's not in the table
@@ -228,13 +228,8 @@ class SymbolTableBuilder {
       int cnt1 = counters.count1GetNext(pos1);
       if (cnt1 <= 0) continue;
       Symbol s1 = symbols[pos1];
-      if (!lastPass || sampled) {
-        // heuristic: promoting single-byte symbols (*8) helps reduce exception rates and increases
-        // [de]compression speed
-        addOrInc(cands, s1, (s1.length() == 1 ? 8L : 1L) * cnt1, lastPass ? 1 : minCount);
-      } else {
-        addOrInc(cands, s1, (long) s1.length() * cnt1, 1);
-      }
+      addOrInc(
+          cands, s1, (s1.length() == 1 ? 8L : 1L) * cnt1, (lastPass && !sampled) ? 1 : minCount);
 
       // don't need pair-wise counts for last pass to just encode the data
       if (lastPass || s1.length() == MAX_SYMBOL_LENGTH) continue;
