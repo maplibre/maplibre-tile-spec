@@ -245,7 +245,6 @@ class SymbolTableBuilder {
       }
     }
 
-    // TODO inline QSymbol here?
     PriorityQueue<QSymbol> pq = new PriorityQueue<>();
     for (var entry : cands.entrySet()) {
       pq.add(new QSymbol(entry.getValue(), entry.getKey()));
