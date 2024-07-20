@@ -83,7 +83,7 @@ class Symbol implements Comparable<Symbol> {
    * {@code ignore} bytes if we already know they match.
    */
   public boolean match(ByteBuffer text, int offset, int ignore) {
-    if (text.capacity() < offset + length()) {
+    if (text.capacity() < offset + length) {
       return false;
     }
     // optimization: when symbols are indexed by first 1 or 2 bytes, we already know those bytes
