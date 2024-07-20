@@ -81,11 +81,11 @@ class FsstTest {
         encodedJava.weight() <= maxAllowed,
         () ->
             """
-        Input: byte[%d]
-        Encoded java >5%% larger than JNI
-        Java: %s
-        JNI: %s
-        """
+            Input: byte[%d]
+            Encoded java >5%% larger than JNI
+            Java: %s
+            JNI: %s
+            """
                 .formatted(input.length, encodedJava, encodedJni));
     assertArrayEquals(input, JAVA.decode(encodedJava));
     assertArrayEquals(input, JAVA.decode(encodedJni));
