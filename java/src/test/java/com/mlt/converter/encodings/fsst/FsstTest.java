@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,31 @@ class FsstTest {
     test(input.getBytes(StandardCharsets.UTF_8));
   }
 
+  private static void assertSymbolSortOrder(SymbolTable table) {
+    int last = 2;
+    boolean ones = false;
+    for (int len : table.symbolLengths()) {
+      if (len == 1) {
+        ones = true;
+      }
+      if (ones) {
+        assertEquals(
+            1,
+            len,
+            () ->
+                "Expected symbols sorted by length with single-byte symbols last, got: "
+                    + Arrays.toString(table.symbolLengths()));
+      } else {
+        assertTrue(
+            len >= last,
+            () ->
+                "Expected symbols sorted by length with single-byte symbols last, got: "
+                    + Arrays.toString(table.symbolLengths()));
+        last = len;
+      }
+    }
+  }
+
   private static void test(byte[] input) throws IOException {
     var encodedJava = JAVA.encode(input);
     var encodedJni = JNI.encode(input);
@@ -87,6 +113,8 @@ class FsstTest {
             JNI: %s
             """
                 .formatted(input.length, encodedJava, encodedJni));
+    assertSymbolSortOrder(encodedJni);
+    assertSymbolSortOrder(encodedJava);
     assertArrayEquals(input, JAVA.decode(encodedJava));
     assertArrayEquals(input, JAVA.decode(encodedJni));
     assertArrayEquals(input, JNI.decode(encodedJava));

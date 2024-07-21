@@ -54,6 +54,12 @@ class SymbolTableBuilder {
   /** Index multi-byte symbols in symbols array by their first 2 bytes. */
   private final int[] sIndexByFirst2 = new int[(1 << 16) + 1];
 
+  /** Map from index in {@link #symbols} to a new index that sorts symbols by length descending */
+  private int[] sIndexByLength;
+
+  /** Map from index sorted by symbol length descending to original index in {@link #symbols} */
+  private int[] sIndexByLengthReverse;
+
   private int nSymbols;
 
   private SymbolTableBuilder(int sampleSize) {
@@ -89,14 +95,35 @@ class SymbolTableBuilder {
       if (i < NUM_ITERS) st = st.makeTable(counters, false, sampleSize < data.capacity());
     }
 
-    return bestTable.makeTable(bestCounters, true, sampleSize < data.capacity());
+    var result = bestTable.makeTable(bestCounters, true, sampleSize < data.capacity());
+    return result.sortSymbolsByLength();
+  }
+
+  private SymbolTableBuilder sortSymbolsByLength() {
+    // sort symbols by length ascending, with length 1 symbols last
+    sIndexByLength = new int[nSymbols];
+    sIndexByLengthReverse = new int[nSymbols];
+    int idx = 0;
+    // 2, 3, 4, 5, 6, 7, 8, 1
+    for (int b = 2; b <= MAX_SYMBOL_LENGTH + 1; b++) {
+      int len = b > MAX_SYMBOL_LENGTH ? 1 : b;
+      for (int i = 0; i < nSymbols; i++) {
+        var symbol = symbols[256 + i];
+        if (symbol.length() == len) {
+          int j = idx++;
+          sIndexByLength[i] = j;
+          sIndexByLengthReverse[j] = i;
+        }
+      }
+    }
+    return this;
   }
 
   private SymbolTable encode(ByteBuffer text) {
     var encodedSymbols = new ByteArrayList();
     int[] lengths = new int[nSymbols];
     for (int i = 0; i < nSymbols; i++) {
-      var symbol = this.symbols[256 + i];
+      var symbol = this.symbols[256 + sIndexByLengthReverse[i]];
       lengths[i] = symbol.length();
       encodedSymbols.add(symbol.bytes());
     }
@@ -113,9 +140,9 @@ class SymbolTableBuilder {
       if (isEscapeCode(code)) {
         encoded.add(255, text.get(i++));
       } else {
-        code -= 256;
-        encoded.add(code);
-        i += lens[code];
+        int symbol = sIndexByLength[code - 256];
+        encoded.add(symbol);
+        i += lens[symbol];
       }
     }
     return encoded.toArray();
