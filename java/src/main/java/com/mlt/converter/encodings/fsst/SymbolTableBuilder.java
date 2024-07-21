@@ -70,21 +70,22 @@ class SymbolTableBuilder {
   }
 
   public static SymbolTableBuilder buildSymbolTable(ByteBuffer data, int sampleSize) {
-    // main loop: init symbol table with single-byte symbols, then iteratively combine them
-    // and return the best one
+    // main loop: init symbol table with single-byte symbols...
     SymbolTableBuilder st = new SymbolTableBuilder(sampleSize);
     SymbolTableBuilder bestTable = st;
-    long bestGain = Long.MIN_VALUE;
+    long bestWeight = Long.MAX_VALUE;
     Counters counters;
     Counters bestCounters = null;
     for (int i = 1; i <= NUM_ITERS; i++) {
+      // then gather statistics about symbol frequencies and encoded data size
       counters = new Counters();
-      long gain = st.compressCount(counters, data, i < NUM_ITERS);
-      if (gain >= bestGain) {
+      long weight = st.compressCount(counters, data, i < NUM_ITERS);
+      if (weight <= bestWeight) {
         bestCounters = counters;
         bestTable = st;
-        bestGain = gain;
+        bestWeight = weight;
       }
+      // and iteratively combine symbols and return the best one
       if (i < NUM_ITERS) st = st.makeTable(counters, false, sampleSize < data.capacity());
     }
 
@@ -179,7 +180,7 @@ class SymbolTableBuilder {
 
   private long compressCount(Counters counters, ByteBuffer text, boolean secondPass) {
     if (text.capacity() == 0) return 0;
-    long gain = 0;
+    long weight = 0;
 
     for (var range : ranges(text.capacity())) {
       int start = range.start;
@@ -189,7 +190,7 @@ class SymbolTableBuilder {
       Symbol symbol = symbols[code1];
       int cur = start + symbol.length();
       start = cur;
-      gain += symbol.length() - (1 + (isEscapeCode(code1) ? 1 : 0));
+      weight += isEscapeCode(code1) ? 2 : 1;
       while (cur < end) {
         // count single symbol (i.e. an option is not extending it)
         counters.count1Inc(code1);
@@ -203,7 +204,7 @@ class SymbolTableBuilder {
         code2 = findLongestSymbol(text, cur);
         Symbol symbol2 = symbols[code2];
         cur += symbol2.length();
-        gain += symbol2.length() - (1 + (isEscapeCode(code2) ? 1 : 0));
+        weight += isEscapeCode(code2) ? 2 : 1;
         if (secondPass) { // no need to count pairs in final round
           // consider the symbol that is the concatenation of the two last symbols
           counters.count2Inc(code1, code2);
@@ -216,7 +217,11 @@ class SymbolTableBuilder {
         symbol = symbols[code1];
       }
     }
-    return gain;
+    // account for the encoded symbol table size
+    for (int i = 0; i < nSymbols; i++) {
+      weight += symbols[256 + i].length() + 1;
+    }
+    return weight;
   }
 
   private SymbolTableBuilder makeTable(Counters counters, boolean lastPass, boolean sampled) {
