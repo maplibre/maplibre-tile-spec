@@ -54,10 +54,13 @@ class SymbolTableBuilder {
   /** Index multi-byte symbols in symbols array by their first 2 bytes. */
   private final int[] sIndexByFirst2 = new int[(1 << 16) + 1];
 
-  /** Map from index in {@link #symbols} to a new index that sorts symbols by length descending */
+  /**
+   * Map from index in {@link #symbols} to a new index that sorts symbols by length ascending with
+   * single-byte symbols last
+   */
   private int[] sIndexByLength;
 
-  /** Map from index sorted by symbol length descending to original index in {@link #symbols} */
+  /** Map from index sorted by length to original index in {@link #symbols} */
   private int[] sIndexByLengthReverse;
 
   private int nSymbols;
