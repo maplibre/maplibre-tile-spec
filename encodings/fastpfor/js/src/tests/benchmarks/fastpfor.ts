@@ -17,14 +17,27 @@ const suite_medium = new Benchmark.Suite;
 const suite_large = new Benchmark.Suite;
 
 
+function encodeArray(buffer: Uint8Array) {
+  const numbers: Uint32Array = new Uint32Array(buffer.length);
+
+  for (let offset= 0, i = 0; offset < buffer.length; offset += varint.encodingLength(buffer[i]), i++) {
+    let number = varint.encode(buffer[i]);
+    for (let j = 0; j < varint.encodingLength(buffer[i]); j++)
+      numbers[offset] = number[j];
+  }
+
+  return numbers;
+}
 function decodeArray(buffer: Uint8Array, unpacked_size: number) {
   const numbers: Uint32Array = new Uint32Array(unpacked_size);
   let number = 0;
+
   for (let offset= 0, i = 0; offset < buffer.length; offset += varint.encodingLength(number)) {
     number = varint.decode(buffer, offset);
     numbers[i] = number;
     i++;
   }
+
   return numbers;
 }
 

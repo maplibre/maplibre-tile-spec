@@ -15,7 +15,7 @@ The random examples were generated with the following python script:
 ```python
 from random import randint
 
-size_of_test_data = 10000
+size_of_test_data = 100000
 percent_of_large_numbers = 10
 
 small_min = 0
