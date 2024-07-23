@@ -1,13 +1,23 @@
 # MapLibre Tiles (MLT)
 
-The MLT format is mainly inspired by the [MVT format](https://github.com/mapbox/vector-tile-spec) specification, but has been redesigned from the ground up to improve the following areas:
-
-- **Improved compression ratio** - up to 6x on large tiles, based on a column oriented layout with (custom) lightweight encodings
-- **Better decoding performance** - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
+The MapLibre Tile specification is mainly inspired by the [Mapbox Vector Tile (MVT)](https://github.com/mapbox/vector-tile-spec) specification, 
+but has been redesigned from the ground up to address the challenges of rapidly growing geospatial data volumes
+and complex next-generation geospatial source formats as well as to leverage the capabilities of modern hardware and APIs. 
+MLT is specifically designed for modern and next generation graphics APIs to enable high-performance processing and rendering of 
+large (planet-scale) 2D and 2.5 basemaps. In particular, MLT offers the following features:
+- **Improved compression ratio**: up to 6x on large tiles, based on a column oriented layout with recursively applied (custom) 
+    lightweight encodings. This leads to reduced latency, storage, and egress costs and, in particular, improved cache utilization
+- **Better decoding performance**: fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
 - **Support for linear referencing and m-values** to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
 - **Support 3D coordinates**, i.e. elevation
 - **Support complex types**, including nested properties, lists and maps
-- **Improved processing performance**: Based on an in-memory format that can be processed efficiently on the CPU and GPU and loaded directly into GPU buffers partially (like polygons in WebGL) or completely (in case of WebGPU compute shader usage) without additional processing
+- **Improved processing performance**, based on storage and in-memory formats that are specifically designed for modern GL APIs,
+allowing for efficient processing on both CPU and GPU. The formats are designed to be loaded into 
+GPU buffers with little or no additional processing
+
+📝 For a more in-depth exploration of MLT have a look at the [following slides](https://github.com/mactrem/presentations/blob/main/FOSS4G_2024_Europe/FOSS4G_2024_Europe.pdf) or watch
+[this talk](https://foss4ge.television.ee/stream/2024-07-03-LASTOOLS). 
+
 
 > [!CAUTION]
 > This format is still in the active research and development phase and is not ready for production use.
