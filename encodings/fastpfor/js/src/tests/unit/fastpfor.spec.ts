@@ -47,20 +47,30 @@ test("VarInt decompress", (t) => {
 
   t.deepEqual(new Uint8Array(testdata.Raw.Test1), numbers);
 })
-// test("VarInt decompress (Medium)", (t) => {
-//   var numbers = decodeArray(testdata.Varint.Medium, testdata.Raw.Medium.length);
-//
-//   t.deepEqual(new Uint8Array(testdata.Raw.Medium), numbers);
-// })
-// test("VarInt decompress (Large)", (t) => {
-//   var numbers = decodeArray(testdata.Varint.Large, testdata.Raw.Large.length);
-//
-//   t.deepEqual(new Uint8Array(testdata.Raw.Large), numbers);
-// })
+test("VarInt decompress (Test 1)", (t) => {
+  var numbers = decodeArray(testdata.Varint.Test1, testdata.Raw.Test1.length);
+
+  t.deepEqual(new Uint8Array(testdata.Raw.Test1), numbers);
+})
+test("VarInt decompress (Test 2)", (t) => {
+  var numbers = decodeArray(testdata.Varint.Test2, testdata.Raw.Test2.length);
+
+  t.deepEqual(new Uint8Array(testdata.Raw.Test2), numbers);
+})
+test("VarInt decompress (Medium)", (t) => {
+  var numbers = decodeArray(testdata.Varint.Medium, testdata.Raw.Medium.length);
+
+  t.deepEqual(new Uint8Array(testdata.Raw.Medium), numbers);
+})
+test("VarInt decompress (Large)", (t) => {
+  var numbers = decodeArray(testdata.Varint.Large, testdata.Raw.Large.length);
+
+  t.deepEqual(new Uint8Array(testdata.Raw.Large), numbers);
+})
 test("FastPFOR decompress (Test 1)", (t) => {
   let core = FastPFOR.default();
 
-  var output = new Uint32Array(Array(testdata.Raw.Test1).length);
+  var output = new Uint32Array(testdata.Raw.Test1.length);
 
   let model = {
     input: testdata.FastPFOR.Test1,
@@ -82,7 +92,7 @@ test("FastPFOR decompress (Test 1)", (t) => {
 test("FastPFOR decompress (Test 2)", (t) => {
   let core = FastPFOR.default();
 
-  var output = new Uint32Array(Array(testdata.Raw.Test2).length);
+  var output = new Uint32Array(testdata.Raw.Test2.length);
 
   let model = {
     input: testdata.FastPFOR.Test2,
@@ -104,7 +114,7 @@ test("FastPFOR decompress (Test 2)", (t) => {
 test("FastPFOR decompress (Medium)", (t) => {
   let core = FastPFOR.default();
 
-  var output = new Uint32Array(Array(testdata.Raw.Medium).length);
+  var output = new Uint32Array(testdata.Raw.Medium.length);
 
   let model = {
     input: testdata.FastPFOR.Medium,
@@ -119,6 +129,28 @@ test("FastPFOR decompress (Medium)", (t) => {
   var SmallOutput = new Uint32Array(model.outpos);
 
   arraycopy(new Uint32Array(testdata.Raw.Medium), 0, SmallInput, 0, model.outpos);
+  arraycopy(output, 0, SmallOutput, 0, model.outpos);
+
+  t.deepEqual(SmallOutput, SmallInput);
+});
+test("FastPFOR decompress (Large)", (t) => {
+  let core = FastPFOR.default();
+
+  var output = new Uint32Array(testdata.Raw.Large.length);
+
+  let model = {
+    input: testdata.FastPFOR.Large,
+    inpos: 0,
+    output: output,
+    outpos: 0,
+    inlength: Array(testdata.FastPFOR.Large).length,
+  };
+  core.uncompress(model);
+
+  var SmallInput = new Uint32Array(model.outpos);
+  var SmallOutput = new Uint32Array(model.outpos);
+
+  arraycopy(new Uint32Array(testdata.Raw.Large), 0, SmallInput, 0, model.outpos);
   arraycopy(output, 0, SmallOutput, 0, model.outpos);
 
   t.deepEqual(SmallOutput, SmallInput);

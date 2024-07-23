@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 import Benchmark from 'benchmark';
+import { encode } from 'varint';
 import * as varint from 'varint'
 import 'ava';
 
@@ -17,29 +18,32 @@ const suite_medium = new Benchmark.Suite;
 const suite_large = new Benchmark.Suite;
 
 
-function encodeArray(buffer: Uint8Array) {
-  const numbers: Uint32Array = new Uint32Array(buffer.length);
+function encodeArray(input: Uint32Array): Uint8Array {
+  const encoded: Uint8Array = new Uint8Array(input.reduce((total, num) => total + varint.encodingLength(num), 0));
+  let offset = 0;
 
-  for (let offset= 0, i = 0; offset < buffer.length; offset += varint.encodingLength(buffer[i]), i++) {
-    let number = varint.encode(buffer[i]);
-    for (let j = 0; j < varint.encodingLength(buffer[i]); j++)
-      numbers[offset] = number[j];
+  for (const num of input) {
+    const bytes = varint.encode(num, encoded, offset);
+    offset += bytes.length;
   }
 
-  return numbers;
+  return encoded;
 }
-function decodeArray(buffer: Uint8Array, unpacked_size: number) {
-  const numbers: Uint32Array = new Uint32Array(unpacked_size);
-  let number = 0;
+function decodeArray(input: Uint8Array): Uint32Array {
+  const decoded = new Uint32Array(input.length);
+  let offset = 0;
+  let index = 0;
 
-  for (let offset= 0, i = 0; offset < buffer.length; offset += varint.encodingLength(number)) {
-    number = varint.decode(buffer, offset);
-    numbers[i] = number;
-    i++;
+  while (offset < input.length) {
+    decoded[index++] = varint.decode(input, offset);
+    offset += varint.decode.bytes;
   }
 
-  return numbers;
+  return decoded.subarray(0, index);
 }
+
+
+
 
 const core = FastPFOR.default();
 
@@ -53,13 +57,27 @@ suite_test1.add("FastPFOR decompression (Test 1)", function () {
   });
 })
   .add("VarInt decompression  (Test 1)", function() {
-    decodeArray(testdata.Varint.Test1, testdata.Raw.Test1.length);
+    try {
+      decodeArray(testdata.Varint.Test1);
+    } catch (_) {
+      console.log("ERROR!!!");
+    }
   })
   .on('cycle', (event: Benchmark.Event) => {
-    console.log(String(event.target));
+    console.log("[*] " + String(event.target));
   })
   .on('complete', function() {
-    console.log('Fastest is ' + suite_test1.filter('fastest').map('name'));
+    console.log('[+] Fastest is ' + suite_test1.filter('fastest').map('name'));
+
+    // let coded: Uint8Array = encodeArray(testdata.Raw.Large);
+    // fs.writeFile("coded.txt", coded.toString(), function (err) { console.log("Failed to write (cod) => " + err) });
+
+
+    // let data: Uint32Array = readNumbersFromFile("C:\\Users\\BOEH_THO\\Desktop\\in.txt");
+    //
+    // let enc_data = encodeArray(data);
+    //
+    // writeNumbersToFile("C:\\Users\\BOEH_THO\\Desktop\\out.txt", enc_data);
   })
   .run();
 
@@ -73,13 +91,17 @@ suite_test2.add("FastPFOR decompression (Test 2)", function () {
   });
 })
   .add("VarInt decompression  (Test 2)", function() {
-    decodeArray(testdata.Varint.Test2, testdata.Raw.Test2.length);
+    try {
+      decodeArray(testdata.Varint.Test2);
+    } catch (_) {
+      console.log("ERROR!!!");
+    }
   })
   .on('cycle', (event: Benchmark.Event) => {
-    console.log(String(event.target));
+    console.log("[*] " + String(event.target));
   })
   .on('complete', function() {
-    console.log('Fastest is ' + suite_test2.filter('fastest').map('name'));
+    console.log('[+] Fastest is ' + suite_test2.filter('fastest').map('name'));
   })
   .run();
 
@@ -93,13 +115,17 @@ suite_medium.add("FastPFOR decompression (Medium)", function () {
   });
 })
   .add("VarInt decompression (Medium)", function() {
-    decodeArray(testdata.Varint.Medium, testdata.Raw.Medium.length);
+    try {
+      decodeArray(testdata.Varint.Medium);
+    } catch (_) {
+      console.log("ERROR!!!");
+    }
   })
   .on('cycle', (event: Benchmark.Event) => {
-    console.log(String(event.target));
+    console.log("[*] " + String(event.target));
   })
   .on('complete', function() {
-    console.log('Fastest is ' + suite_medium.filter('fastest').map('name'));
+    console.log('[+] Fastest is ' + suite_medium.filter('fastest').map('name'));
   })
   .run();
 
@@ -113,12 +139,16 @@ suite_large.add("FastPFOR decompression (Large)", function () {
   });
 })
   .add("VarInt decompression (Large)", function() {
-    decodeArray(testdata.Varint.Large, testdata.Raw.Large.length);
+    try {
+      decodeArray(testdata.Varint.Large);
+    } catch (_) {
+      console.log("ERROR!!!");
+    }
   })
   .on('cycle', (event: Benchmark.Event) => {
-    console.log(String(event.target));
+    console.log("[*] " + String(event.target));
   })
   .on('complete', function() {
-    console.log('Fastest is ' + suite_large.filter('fastest').map('name'));
+    console.log('[+] Fastest is ' + suite_large.filter('fastest').map('name'));
   })
   .run();
