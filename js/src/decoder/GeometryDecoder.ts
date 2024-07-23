@@ -7,7 +7,7 @@ import { IntWrapper } from './IntWrapper';
 import { StreamMetadataDecoder } from '../metadata/stream/StreamMetadataDecoder';
 import { PhysicalLevelTechnique } from '../metadata/stream/PhysicalLevelTechnique';
 import { GeometryFactory, Coordinate, LineString, Polygon, LinearRing } from '../data/Geometry';
-import Point = require("@mapbox/point-geometry");
+import Point from "@mapbox/point-geometry";
 
 export enum GeometryType {
     POINT,
@@ -142,11 +142,11 @@ export class GeometryDecoder {
                 if (!vertexOffsets || vertexOffsets.length === 0) {
                     const vertices = this.getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
                     vertexBufferOffset += numVertices * 2;
-                    geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
+                    geometries[geometryCounter++] = geometryFactory.createLineString(vertices as Point[]);
                 } else {
                     const vertices = this.decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
                     vertexOffsetsOffset += numVertices;
-                    geometries[geometryCounter++] = geometryFactory.createLineString(vertices);
+                    geometries[geometryCounter++] = geometryFactory.createLineString(vertices as Point[]);
                 }
             } else if (geometryType === GeometryType.POLYGON) {
                 const numRings = partOffsets[partOffsetCounter++];
@@ -179,7 +179,7 @@ export class GeometryDecoder {
                         const numVertices = containsPolygon
                             ? ringOffsets[ringOffsetsCounter++] : partOffsets[partOffsetCounter++];
                         const vertices = this.getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
-                        lineStrings[i] = geometryFactory.createLineString(vertices);
+                        lineStrings[i] = geometryFactory.createLineString(vertices as Point[]);
                         vertexBufferOffset += numVertices * 2;
                     }
                     geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
@@ -188,7 +188,7 @@ export class GeometryDecoder {
                         const numVertices = containsPolygon
                             ? ringOffsets[ringOffsetsCounter++] : partOffsets[partOffsetCounter++];
                         const vertices = this.decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
-                        lineStrings[i] = geometryFactory.createLineString(vertices);
+                        lineStrings[i] = geometryFactory.createLineString(vertices as Point[]);
                         vertexOffsetsOffset += numVertices;
                     }
                     geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
@@ -237,12 +237,12 @@ export class GeometryDecoder {
 
     private static getLinearRing(vertexBuffer: number[], startIndex: number, numVertices: number, geometryFactory: GeometryFactory): LinearRing {
         const linearRing = this.getLineString(vertexBuffer, startIndex, numVertices, true);
-        return geometryFactory.createLinearRing(linearRing);
+        return geometryFactory.createLinearRing(linearRing as Point[]);
     }
 
     private static decodeDictionaryEncodedLinearRing(vertexBuffer: number[], vertexOffsets: number[], vertexOffset: number, numVertices: number, geometryFactory: GeometryFactory): LinearRing {
         const linearRing = this.decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, true);
-        return geometryFactory.createLinearRing(linearRing);
+        return geometryFactory.createLinearRing(linearRing as Point[]);
     }
 
     private static getLineString(vertexBuffer: number[], startIndex: number, numVertices: number, closeLineString: boolean): Coordinate[] {
