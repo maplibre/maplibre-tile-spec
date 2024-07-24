@@ -1,15 +1,18 @@
 import { Projection } from './Projection';
+import { GeometryType } from './GeometryType';
 
 export class Feature {
     id: number;
     extent: number;
     geometry;
     properties;
+    type: GeometryType;
     constructor(id: number, extent: number, geometry, properties) {
         this.id = id;
         this.geometry = geometry;
         this.properties = properties;
         this.extent = extent;
+        this.type = geometry.type ? geometry.type() : GeometryType.Point;
     }
 
     public loadGeometry = () => {

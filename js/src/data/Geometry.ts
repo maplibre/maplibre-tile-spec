@@ -1,5 +1,6 @@
 import Point = require("@mapbox/point-geometry");
 import { Projection } from './Projection';
+import { GeometryType } from './GeometryType';
 
 export class Coordinate {
     x: number;
@@ -22,6 +23,9 @@ export class LineString {
             "coordinates": projection.project(this.points)
         };
     }
+    public type = () : GeometryType => {
+        return GeometryType.LineString;
+    }
     public loadGeometry = () => {
         return [this.points];
     }
@@ -39,6 +43,9 @@ export class MultiPoint {
             "coordinates": projection.project(this.points)
         };
     }
+    public type = () : GeometryType => {
+        return GeometryType.Point;
+    }
     public loadGeometry = () => {
         return this.points.map(p => [p]);
     }
@@ -55,6 +62,9 @@ export class LinearRing {
             "type": "LineString",
             "coordinates": projection.project(this.points)
         };
+    }
+    public type = () : GeometryType => {
+        return GeometryType.LineString;
     }
     public loadGeometry = () => {
         return [this.points];
@@ -85,6 +95,9 @@ export class Polygon {
             "coordinates": [projection.project(this.shell.points)]
         };
     }
+    public type = () : GeometryType => {
+        return GeometryType.Polygon;
+    }
     public loadGeometry = () => {
         if (this.rings.length) {
             const rings = [this.shell.points];
@@ -112,6 +125,9 @@ export class MultiLineString {
             "type": "MultiLineString",
             "coordinates": lines
         };
+    }
+    public type = () : GeometryType => {
+        return GeometryType.LineString;
     }
     public loadGeometry = () => {
         const lines = [];
@@ -143,6 +159,10 @@ export class MultiPolygon {
             "type": "MultiPolygon",
             "coordinates": polygons
         };
+    }
+
+    public type = () : GeometryType => {
+        return GeometryType.Polygon;
     }
 
     public loadGeometry = () => {
