@@ -1,6 +1,6 @@
 # fastpfor-ts
 
-A Typescript implementation of the FastPFOR integer compression algorithm
+A Typescript implementation of the FastPFOR integer compression algorithm (decompression only). This version in TypeScript does not support SIMD instructions.
 
 # Running the benchmarks
 
@@ -8,6 +8,8 @@ Can easily be done by running the `test` task in package.json, or
 ```
 npm run test
 ```
+
+![benchmarks.png](benchmarks.png)
 
 ---
 
