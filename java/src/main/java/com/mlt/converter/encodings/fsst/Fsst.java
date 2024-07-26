@@ -6,12 +6,11 @@ import java.io.IOException;
 public interface Fsst {
   SymbolTable encode(byte[] data);
 
-  default byte[] decode(SymbolTable encoded) throws IOException {
+  default byte[] decode(SymbolTable encoded) {
     return decode(encoded.symbols(), encoded.symbolLengths(), encoded.compressedData());
   }
 
-  default byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData)
-      throws IOException {
+  default byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData) {
     ByteArrayOutputStream decodedData = new ByteArrayOutputStream();
 
     int[] symbolOffsets = new int[symbolLengths.length];

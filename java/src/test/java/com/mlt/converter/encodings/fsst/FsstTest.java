@@ -24,29 +24,29 @@ class FsstTest {
   }
 
   @Test
-  void decode_simpleString_ValidEncodedAndDecoded() throws IOException {
+  void decode_simpleString_ValidEncodedAndDecoded() {
     test("AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC");
   }
 
   @Test
-  void decodeLongRepeated() throws IOException {
+  void decodeLongRepeated() {
     test("AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC".repeat(100));
   }
 
   @Test
-  void empty() throws IOException {
+  void empty() {
     test("");
   }
 
   @Test
-  void repeatedStrings() throws IOException {
+  void repeatedStrings() {
     for (int i = 1; i < 1000; i++) {
       test("a".repeat(i));
     }
   }
 
   @Test
-  void allBytes() throws IOException {
+  void allBytes() {
     byte[] toEncode = new byte[1000];
     for (int i = 0; i < toEncode.length; i++) {
       toEncode[i] = (byte) i;
@@ -70,7 +70,7 @@ class FsstTest {
     test(Files.readAllBytes(path));
   }
 
-  private static void test(String input) throws IOException {
+  private static void test(String input) {
     test(input.getBytes(StandardCharsets.UTF_8));
   }
 
@@ -99,7 +99,7 @@ class FsstTest {
     }
   }
 
-  private static void test(byte[] input) throws IOException {
+  private static void test(byte[] input) {
     var encodedJava = JAVA.encode(input);
     var encodedJni = JNI.encode(input);
     int maxAllowed = Math.max((int) (encodedJni.weight() * 1.02), encodedJni.weight() + 2);

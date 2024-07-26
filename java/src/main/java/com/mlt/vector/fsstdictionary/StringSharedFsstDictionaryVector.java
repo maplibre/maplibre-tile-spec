@@ -75,8 +75,6 @@ public class StringSharedFsstDictionaryVector extends VariableSizeVector<Map<Str
   }
 
   private void decodeDictionary() {
-    byte[] dictionaryBuffer;
-
     if (symbolLengthBuffer == null) {
       // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
       symbolLengthBuffer = offsetToLengthBuffer(symbolOffsetBuffer);
@@ -99,11 +97,7 @@ public class StringSharedFsstDictionaryVector extends VariableSizeVector<Map<Str
     System.arraycopy(dataBuffer.array(), dataBuffer.position(), data, 0, data.length);
 
     // TODO: refactor
-    try {
-      dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    byte[] dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
 
     var decodedDictionary = new ArrayList<String>();
     var strStart = 0;

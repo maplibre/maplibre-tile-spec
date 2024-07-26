@@ -86,22 +86,22 @@ public class FsstBenchmark {
   }
 
   @Benchmark
-  public byte[] decodeSmallJava() throws IOException {
+  public byte[] decodeSmallJava() {
     return JAVA.decode(SMALL_ENCODED);
   }
 
   @Benchmark
-  public byte[] decodeMediumJava() throws IOException {
+  public byte[] decodeMediumJava() {
     return JAVA.decode(MEDIUM_ENCODED);
   }
 
   @Benchmark
-  public byte[] decodeLargeJava() throws IOException {
+  public byte[] decodeLargeJava() {
     return JAVA.decode(LARGE_ENCODED);
   }
 
   @Benchmark
-  public byte[] decodeExtraLargeJava() throws IOException {
+  public byte[] decodeExtraLargeJava() {
     return JAVA.decode(XLARGE_ENCODED);
   }
 }

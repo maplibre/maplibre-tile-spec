@@ -28,8 +28,7 @@ public class FsstEncoder {
     return INSTANCE.encode(data);
   }
 
-  public static byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData)
-      throws IOException {
+  public static byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData) {
     return INSTANCE.decode(symbols, symbolLengths, compressedData);
   }
 }
