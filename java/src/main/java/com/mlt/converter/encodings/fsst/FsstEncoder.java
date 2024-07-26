@@ -1,6 +1,5 @@
 package com.mlt.converter.encodings.fsst;
 
-import java.io.IOException;
 import java.util.Locale;
 
 public class FsstEncoder {
@@ -28,6 +27,15 @@ public class FsstEncoder {
     return INSTANCE.encode(data);
   }
 
+  public static byte[] decode(
+      byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {
+    return INSTANCE.decode(symbols, symbolLengths, compressedData, decompressedLength);
+  }
+
+  /**
+   * @deprecated use {@link #decode(byte[], int[], byte[], int)} instead with an explicit length
+   */
+  @Deprecated
   public static byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData) {
     return INSTANCE.decode(symbols, symbolLengths, compressedData);
   }

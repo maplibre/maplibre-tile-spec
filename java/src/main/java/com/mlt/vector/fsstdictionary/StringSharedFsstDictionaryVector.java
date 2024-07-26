@@ -5,7 +5,6 @@ import static com.mlt.vector.fsstdictionary.StringFsstDictionaryVector.offsetToL
 import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.vector.VariableSizeVector;
 import com.mlt.vector.dictionary.DictionaryDataVector;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;

@@ -10,7 +10,8 @@ import java.util.Arrays;
  * @param compressedData Encoded text where a value less than 255 refers to that symbol from the
  *     table, and a value of 255 means the next byte should be used directly.
  */
-public record SymbolTable(byte[] symbols, int[] symbolLengths, byte[] compressedData) {
+public record SymbolTable(
+    byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {
   @Override
   public String toString() {
     return "SymbolTable{weight="
@@ -21,7 +22,9 @@ public record SymbolTable(byte[] symbols, int[] symbolLengths, byte[] compressed
         + symbolLengths.length
         + "], compressedData=byte["
         + compressedData.length
-        + "]}";
+        + "], decompressedLength="
+        + decompressedLength
+        + '}';
   }
 
   public int weight() {

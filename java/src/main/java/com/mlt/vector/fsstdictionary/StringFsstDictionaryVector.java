@@ -3,7 +3,6 @@ package com.mlt.vector.fsstdictionary;
 import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.vector.BitVector;
 import com.mlt.vector.VariableSizeVector;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;

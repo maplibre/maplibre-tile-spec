@@ -1,6 +1,5 @@
 package com.mlt.converter.encodings.fsst;
 
-import java.io.IOException;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.*;

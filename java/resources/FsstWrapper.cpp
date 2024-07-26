@@ -103,8 +103,8 @@ JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstJni_compress
 	
     // Create the Java SymbolTable object
     jclass symbolTableClass = env->FindClass("com/mlt/converter/encodings/fsst/SymbolTable");		
-    jmethodID symbolTableCtor = env->GetMethodID(symbolTableClass, "<init>", "([B[I[B)V");
-    jobject javaSymbolTable = env->NewObject(symbolTableClass, symbolTableCtor, symbolsArray, symbolLengthsArray, compressedData);
+    jmethodID symbolTableCtor = env->GetMethodID(symbolTableClass, "<init>", "([B[I[BI)V");
+    jobject javaSymbolTable = env->NewObject(symbolTableClass, symbolTableCtor, symbolsArray, symbolLengthsArray, compressedData, length);
 	
     return javaSymbolTable;
 }

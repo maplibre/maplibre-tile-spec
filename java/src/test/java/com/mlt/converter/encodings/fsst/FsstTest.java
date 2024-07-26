@@ -99,6 +99,7 @@ class FsstTest {
     }
   }
 
+  @SuppressWarnings("deprecation")
   private static void test(byte[] input) {
     var encodedJava = JAVA.encode(input);
     var encodedJni = JNI.encode(input);
@@ -119,6 +120,10 @@ class FsstTest {
     assertArrayEquals(input, JAVA.decode(encodedJni));
     assertArrayEquals(input, JNI.decode(encodedJava));
     assertArrayEquals(input, JNI.decode(encodedJni));
+    assertArrayEquals(
+        input,
+        JNI.decode(
+            encodedJava.symbols(), encodedJava.symbolLengths(), encodedJava.compressedData()));
     DEBUG.encode(input);
   }
 }

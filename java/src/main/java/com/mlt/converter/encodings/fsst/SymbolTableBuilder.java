@@ -133,7 +133,7 @@ class SymbolTableBuilder {
     }
     byte[] encodedText = encodeText(text, lengths);
 
-    return new SymbolTable(encodedSymbols.toArray(), lengths, encodedText);
+    return new SymbolTable(encodedSymbols.toArray(), lengths, encodedText, text.capacity());
   }
 
   private byte[] encodeText(ByteBuffer text, int[] lens) {
