@@ -27,6 +27,8 @@ package com.mlt.converter.encodings.fsst;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.IntStream;
+
+import com.carrotsearch.hppc.ByteArrayList;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -141,10 +143,10 @@ class SymbolTableBuilder {
     for (int i = 0; i < cap; ) {
       int code = findLongestSymbol(text, i);
       if (isEscapeCode(code)) {
-        encoded.add(255, text.get(i++));
+        encoded.add((byte) 255, text.get(i++));
       } else {
         int symbol = sIndexByLength[code - 256];
-        encoded.add(symbol);
+        encoded.add((byte) symbol);
         i += lens[symbol];
       }
     }
