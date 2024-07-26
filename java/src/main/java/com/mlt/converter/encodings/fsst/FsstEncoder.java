@@ -1,66 +1,42 @@
 package com.mlt.converter.encodings.fsst;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.FileSystems;
+import java.util.Locale;
 
 public class FsstEncoder {
+  public static final Fsst INSTANCE;
 
   static {
-    String os = System.getProperty("os.name").toLowerCase();
-    boolean isWindows = os.contains("win");
-    String moduleDir = "build/FsstWrapper.so";
-    if (isWindows) {
-      // TODO: figure out how to get cmake to put in common directory
-      moduleDir = "build/Release/FsstWrapper.so";
-    }
-    String modulePath =
-        FileSystems.getDefault().getPath(moduleDir).normalize().toAbsolutePath().toString();
+    String fsst = "jni";
     try {
-      System.load(modulePath);
-    } catch (UnsatisfiedLinkError e) {
-      System.out.println("Error: " + e.getMessage() + " - " + modulePath);
+      String env = System.getenv("FSST");
+      if (env != null) fsst = env.toLowerCase(Locale.ROOT);
+    } catch (SecurityException e) {
+      // use default value
     }
+    INSTANCE =
+        switch (fsst) {
+          case "java" -> new FsstJava();
+          case "debug" -> new FsstDebug();
+          default -> new FsstJni();
+        };
   }
+
+  private FsstEncoder() {}
 
   public static SymbolTable encode(byte[] data) {
-    return FsstEncoder.compress(data);
+    return INSTANCE.encode(data);
   }
 
-  public static byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData)
-      throws IOException {
-    ByteArrayOutputStream decodedData = new ByteArrayOutputStream();
-    ByteBuffer symbolsBuffer = ByteBuffer.wrap(symbols).order(ByteOrder.BIG_ENDIAN);
-
-    int[] symbolOffsets = new int[symbolLengths.length];
-    symbolOffsets[0] = 0;
-    for (int i = 1; i < symbolLengths.length; i++) {
-      symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
-    }
-
-    for (int i = 0; i < compressedData.length; i++) {
-      // In Java a byte[] is signed [-128 to 127], whereas in C++ it is unsigned [0 to 255]
-      // So we do a bit shifting operation to convert the values into unsigned values for easier
-      // handling
-      int symbolIndex = compressedData[i] & 0xFF;
-      // 255 is our escape byte -> take the next symbol as it is
-      if (symbolIndex == 255) {
-        decodedData.write(compressedData[++i] & 0xFF);
-      } else if (symbolIndex < symbolLengths.length) {
-        int symbolLength = symbolLengths[symbolIndex];
-        int symbolOffset = symbolOffsets[symbolIndex];
-        byte[] symbolBytes = new byte[symbolLength];
-        for (int j = 0; j < symbolLength; j++) {
-          symbolBytes[j] = symbolsBuffer.get(symbolOffset + j);
-        }
-        decodedData.write(symbolBytes);
-      }
-    }
-
-    return decodedData.toByteArray();
+  public static byte[] decode(
+      byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {
+    return INSTANCE.decode(symbols, symbolLengths, compressedData, decompressedLength);
   }
 
-  public static native SymbolTable compress(byte[] inputBytes);
+  /**
+   * @deprecated use {@link #decode(byte[], int[], byte[], int)} instead with an explicit length
+   */
+  @Deprecated
+  public static byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData) {
+    return INSTANCE.decode(symbols, symbolLengths, compressedData);
+  }
 }

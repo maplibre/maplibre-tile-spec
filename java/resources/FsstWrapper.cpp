@@ -64,7 +64,7 @@ SymbolTableStruct fsstCompress(std::vector<unsigned char> inputBytes) {
     return symbolTableStruct;
 }
 
-JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstEncoder_compress(JNIEnv* env, jclass cls, jbyteArray inputBytes) {
+JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstJni_compress(JNIEnv* env, jclass cls, jbyteArray inputBytes) {
     jbyte *bytes = env->GetByteArrayElements(inputBytes, NULL);
     jsize length = env->GetArrayLength(inputBytes);
 
@@ -103,8 +103,8 @@ JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstEncoder_comp
 	
     // Create the Java SymbolTable object
     jclass symbolTableClass = env->FindClass("com/mlt/converter/encodings/fsst/SymbolTable");		
-    jmethodID symbolTableCtor = env->GetMethodID(symbolTableClass, "<init>", "([B[I[B)V");
-    jobject javaSymbolTable = env->NewObject(symbolTableClass, symbolTableCtor, symbolsArray, symbolLengthsArray, compressedData);
+    jmethodID symbolTableCtor = env->GetMethodID(symbolTableClass, "<init>", "([B[I[BI)V");
+    jobject javaSymbolTable = env->NewObject(symbolTableClass, symbolTableCtor, symbolsArray, symbolLengthsArray, compressedData, length);
 	
     return javaSymbolTable;
 }

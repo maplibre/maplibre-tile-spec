@@ -26,6 +26,7 @@ dependencies {
     implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:23.1.0'
     implementation 'org.apache.orc:orc-core:1.8.1'
     implementation 'com.github.davidmoten:hilbert-curve:0.2.3'
+    implementation 'com.carrotsearch:hppc:0.10.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.3'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.3'
@@ -36,7 +37,7 @@ dependencies {
 test {
     useJUnitPlatform()
     testLogging {
-        outputs.upToDateWhen {false}
+        outputs.upToDateWhen { false }
         showStandardStreams = true
         events "passed", "skipped", "failed"
         exceptionFormat "full"
@@ -60,7 +61,7 @@ spotless {
         target 'src/*/java/**/*.java'
         googleJavaFormat('1.15.0')
         removeUnusedImports()
-     }
+    }
 }
 
 task compileWrapper(type: Exec) {
@@ -83,7 +84,7 @@ compileJava.dependsOn compileWrapper
 
 
 ["encode", "decode", "meta"].each { name ->
-    task "$name" (type: Jar, dependsOn: compileJava) {
+    task "$name"(type: Jar, dependsOn: compileJava) {
         archiveFileName = name + ".jar"
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
@@ -92,11 +93,11 @@ compileJava.dependsOn compileWrapper
     }
 }
 
-encode.manifest.attributes 'Implementation-Title' : 'encode an mlt from an mvt',
+encode.manifest.attributes 'Implementation-Title': 'encode an mlt from an mvt',
         'Main-Class': 'com.mlt.tools.Encode'
-decode.manifest.attributes 'Implementation-Title' : 'decode an mlt',
+decode.manifest.attributes 'Implementation-Title': 'decode an mlt',
         'Main-Class': 'com.mlt.tools.Decode'
-meta.manifest.attributes 'Implementation-Title' : 'generate a mltmetadata.pbf file from an mvt',
+meta.manifest.attributes 'Implementation-Title': 'generate a mltmetadata.pbf file from an mvt',
         'Main-Class': 'com.mlt.tools.Meta'
 
 task cli {

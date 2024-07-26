@@ -5,7 +5,6 @@ import static com.mlt.vector.fsstdictionary.StringFsstDictionaryVector.offsetToL
 import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.vector.VariableSizeVector;
 import com.mlt.vector.dictionary.DictionaryDataVector;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
@@ -75,8 +74,6 @@ public class StringSharedFsstDictionaryVector extends VariableSizeVector<Map<Str
   }
 
   private void decodeDictionary() {
-    byte[] dictionaryBuffer;
-
     if (symbolLengthBuffer == null) {
       // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
       symbolLengthBuffer = offsetToLengthBuffer(symbolOffsetBuffer);
@@ -99,11 +96,7 @@ public class StringSharedFsstDictionaryVector extends VariableSizeVector<Map<Str
     System.arraycopy(dataBuffer.array(), dataBuffer.position(), data, 0, data.length);
 
     // TODO: refactor
-    try {
-      dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    byte[] dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
 
     var decodedDictionary = new ArrayList<String>();
     var strStart = 0;
