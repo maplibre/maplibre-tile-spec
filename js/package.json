@@ -35,7 +35,7 @@
     "@maplibre/maplibre-gl-style-spec": "^20.3.0",
     "@types/benchmark": "^2.1.2",
     "@types/jest": "^29.5.2",
-    "@types/node": "^20.14.11",
+    "@types/node": "^20.14.12",
     "@types/varint": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^7.16.1",
     "@typescript-eslint/parser": "^7.16.1",
@@ -50,7 +50,7 @@
     "semver": "^7.6.3",
     "ts-jest": "^29.2.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.3",
+    "typescript": "^5.5.4",
     "varint": "^6.0.0"
   },
   "dependencies": {
