@@ -24,11 +24,10 @@ SOFTWARE.
 
 package com.mlt.converter.encodings.fsst;
 
+import com.carrotsearch.hppc.ByteArrayList;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.IntStream;
-
-import com.carrotsearch.hppc.ByteArrayList;
 import org.jetbrains.annotations.NotNull;
 
 /**

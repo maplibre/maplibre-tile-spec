@@ -2,8 +2,6 @@ package com.mlt.converter.encodings.fsst;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 public interface Fsst {
   SymbolTable encode(byte[] data);
@@ -15,7 +13,6 @@ public interface Fsst {
   default byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData)
       throws IOException {
     ByteArrayOutputStream decodedData = new ByteArrayOutputStream();
-    ByteBuffer symbolsBuffer = ByteBuffer.wrap(symbols).order(ByteOrder.BIG_ENDIAN);
 
     int[] symbolOffsets = new int[symbolLengths.length];
     for (int i = 1; i < symbolLengths.length; i++) {
@@ -31,13 +28,7 @@ public interface Fsst {
       if (symbolIndex == 255) {
         decodedData.write(compressedData[++i] & 0xFF);
       } else if (symbolIndex < symbolLengths.length) {
-        int symbolLength = symbolLengths[symbolIndex];
-        int symbolOffset = symbolOffsets[symbolIndex];
-        byte[] symbolBytes = new byte[symbolLength];
-        for (int j = 0; j < symbolLength; j++) {
-          symbolBytes[j] = symbolsBuffer.get(symbolOffset + j);
-        }
-        decodedData.write(symbolBytes);
+        decodedData.write(symbols, symbolOffsets[symbolIndex], symbolLengths[symbolIndex]);
       }
     }
 
