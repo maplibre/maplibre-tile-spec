@@ -21,7 +21,7 @@ dependencies {
     implementation 'me.lemire.integercompression:JavaFastPFOR:0.2.1'
     implementation 'com.google.guava:guava:33.2.1-jre'
     implementation 'commons-cli:commons-cli:1.8.0'
-    implementation 'org.slf4j:slf4j-simple:2.0.14'
+    implementation 'org.slf4j:slf4j-simple:2.0.15'
     implementation 'no.ecc.vectortile:java-vector-tile:1.3.23'
     implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:23.1.0'
     implementation 'org.apache.orc:orc-core:1.8.1'
