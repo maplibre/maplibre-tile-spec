@@ -16,7 +16,7 @@ group 'com.mlt'
 version '1.0-SNAPSHOT'
 
 dependencies {
-    implementation 'com.google.protobuf:protobuf-java:3.25.3'
+    implementation 'com.google.protobuf:protobuf-java:4.27.3'
     implementation 'org.locationtech.jts:jts-core:1.19.0'
     implementation 'me.lemire.integercompression:JavaFastPFOR:0.2.1'
     implementation 'com.google.guava:guava:33.2.1-jre'
