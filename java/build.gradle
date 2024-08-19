@@ -19,7 +19,7 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java:3.25.3'
     implementation 'org.locationtech.jts:jts-core:1.19.0'
     implementation 'me.lemire.integercompression:JavaFastPFOR:0.2.1'
-    implementation 'com.google.guava:guava:33.2.1-jre'
+    implementation 'com.google.guava:guava:33.3.0-jre'
     implementation 'commons-cli:commons-cli:1.8.0'
     implementation 'org.slf4j:slf4j-simple:2.0.16'
     implementation 'no.ecc.vectortile:java-vector-tile:1.3.23'
