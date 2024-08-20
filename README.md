@@ -16,7 +16,7 @@ allowing for efficient processing on both CPU and GPU. The formats are designed 
 GPU buffers with little or no additional processing
 
 📝 For a more in-depth exploration of MLT have a look at the [following slides](https://github.com/mactrem/presentations/blob/main/FOSS4G_2024_Europe/FOSS4G_2024_Europe.pdf) or watch
-[this talk](https://foss4ge.television.ee/stream/2024-07-03-LASTOOLS). 
+[this talk](https://www.youtube.com/watch?v=YHcoAFcsES0). 
 
 
 > [!CAUTION]
