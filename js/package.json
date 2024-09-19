@@ -44,7 +44,7 @@
     "eslint": "^8.57.1",
     "jest": "^29.5.0",
     "jest-matcher-deep-close-to": "^3.0.2",
-    "nyc": "^17.0.0",
+    "nyc": "^17.1.0",
     "pbf": "^3.2.1",
     "prettier": "^3.3.3",
     "semver": "^7.6.3",
