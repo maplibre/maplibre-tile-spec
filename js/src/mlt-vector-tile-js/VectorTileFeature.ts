@@ -1,4 +1,4 @@
-import Point = require("@mapbox/point-geometry");
+import Point from "@mapbox/point-geometry";
 
 class VectorTileFeature {
   properties: { [key: string]: any } = {};
