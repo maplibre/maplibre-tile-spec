@@ -12,7 +12,7 @@ import java.util.List;
 public class TriangulationUtils {
     private TriangulationUtils() {}
 
-    static TriangulatedPolygon triangulatePolygon(Polygon polygon) {
+    public static TriangulatedPolygon triangulatePolygon(Polygon polygon) {
         var convertedCoordinates = convertCoordinates(polygon.getCoordinates());
 
         List<Integer> triangles = Earcut.earcut(convertedCoordinates, null, 2);
@@ -23,14 +23,14 @@ public class TriangulationUtils {
         return new TriangulatedPolygon(indexBuffer, numTriangles);
     }
 
-    static TriangulatedPolygon triangulatePolygonWithHoles(MultiPolygon multiPolygon) {
+    public static TriangulatedPolygon triangulatePolygonWithHoles(MultiPolygon multiPolygon) {
         var holeIndex = 0;
 
         ArrayList<Double> multiPolygonCoordinates = new ArrayList<>();
         ArrayList<Integer> holeIndices = new ArrayList<>();
 
         for (int i = 0; i < multiPolygon.getNumGeometries(); i++) {
-            // assertion: first polygon defines the outer linear ring and the other polygons its holes!
+            // assertion: first polygon defines the outer linear ring and the other polygons define its holes!
             if (i == 0) {
                 holeIndex = multiPolygon.getGeometryN(i).getCoordinates().length;
                 holeIndices.add(holeIndex);
