@@ -35,7 +35,7 @@
     "@maplibre/maplibre-gl-style-spec": "^20.3.1",
     "@types/benchmark": "^2.1.2",
     "@types/jest": "^29.5.14",
-    "@types/node": "^20.14.12",
+    "@types/node": "^22.7.9",
     "@types/varint": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^7.16.1",
     "@typescript-eslint/parser": "^7.16.1",
