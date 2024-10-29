@@ -54,7 +54,7 @@
     "varint": "^6.0.0"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^1.10.0",
+    "@bufbuild/protobuf": "^2.2.1",
     "@types/bytebuffer": "^5.0.49",
     "bitset": "^5.1.1",
     "bytebuffer": "^5.0.1"
