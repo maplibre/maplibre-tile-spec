@@ -6,6 +6,7 @@ import static com.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 import com.google.common.collect.Lists;
 import com.mlt.converter.CollectionUtils;
 import com.mlt.converter.geometry.*;
+import com.mlt.converter.triangulation.VectorTileConverter;
 import com.mlt.metadata.stream.*;
 import java.util.*;
 import java.util.function.Function;
@@ -29,12 +30,15 @@ public class GeometryEncoder {
   public static Triple<Integer, byte[], Integer> encodeGeometryColumn(
       List<Geometry> geometries,
       PhysicalLevelTechnique physicalLevelTechnique,
-      List<Long> featureIds) {
+      List<Long> featureIds,
+      boolean triangulatePolygons) {
     var geometryTypes = new ArrayList<Integer>();
     var numGeometries = new ArrayList<Integer>();
     var numParts = new ArrayList<Integer>();
     var numRings = new ArrayList<Integer>();
     var vertexBuffer = new ArrayList<Vertex>();
+    var numTrianglesPerPolygon = new ArrayList<Integer>();
+    var indexBuffer = new ArrayList<Integer>();
     var containsPolygon =
         geometries.stream()
             .anyMatch(
@@ -70,6 +74,11 @@ public class GeometryEncoder {
             var polygon = (Polygon) geometry;
             var vertices = flatPolygon(polygon, numParts, numRings);
             vertexBuffer.addAll(vertices);
+            if (triangulatePolygons) {
+              var triangulatedPolygon = new VectorTileConverter(polygon);
+              indexBuffer.addAll(triangulatedPolygon.getIndexBuffer());
+              numTrianglesPerPolygon.addAll(triangulatedPolygon.getNumTrianglesPerPolygon());
+            }
             break;
           }
         case Geometry.TYPENAME_MULTILINESTRING:
@@ -97,6 +106,11 @@ public class GeometryEncoder {
               var polygon = (Polygon) multiPolygon.getGeometryN(i);
               var vertices = flatPolygon(polygon, numParts, numRings);
               vertexBuffer.addAll(vertices);
+            }
+            if (triangulatePolygons) {
+              var triangulatedPolygon = new VectorTileConverter(multiPolygon);
+              indexBuffer.addAll(triangulatedPolygon.getIndexBuffer());
+              numTrianglesPerPolygon.addAll(triangulatedPolygon.getNumTrianglesPerPolygon());
             }
             break;
           }
@@ -145,6 +159,21 @@ public class GeometryEncoder {
             Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
             physicalLevelTechnique,
             false);
+
+    var encodedIndexBuffer =
+        IntegerEncoder.encodeIntStream(
+            indexBuffer,
+            physicalLevelTechnique,
+            false,
+            PhysicalStreamType.OFFSET,
+            new LogicalStreamType(OffsetType.INDEX));
+    var encodedNumTrianglesBuffer =
+        IntegerEncoder.encodeIntStream(
+            numTrianglesPerPolygon,
+            physicalLevelTechnique,
+            false,
+            PhysicalStreamType.OFFSET,
+            new LogicalStreamType(OffsetType.INDEX));
     // TODO: should we do a potential recursive encoding again
     var encodedVertexDictionary =
         IntegerEncoder.encodeInt(
@@ -223,10 +252,15 @@ public class GeometryEncoder {
               Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
       numStreams++;
-      return Triple.of(
-          numStreams,
-          ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
-          maxVertexValue);
+      var result =
+          Triple.of(
+              numStreams,
+              ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
+              maxVertexValue);
+
+      return triangulatePolygons
+          ? buildTriangulatedTriple(result, encodedIndexBuffer, encodedNumTrianglesBuffer)
+          : result;
     } else if (dictionaryEncodedSize < plainVertexBufferSize
         && dictionaryEncodedSize <= mortonDictionaryEncodedSize) {
       var encodedVertexOffsetStream =
@@ -241,11 +275,17 @@ public class GeometryEncoder {
               Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
       numStreams += 2;
-      return Triple.of(
-          numStreams,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
-          maxVertexValue);
+
+      var result =
+          Triple.of(
+              numStreams,
+              CollectionUtils.concatByteArrays(
+                  encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
+              maxVertexValue);
+
+      return triangulatePolygons
+          ? buildTriangulatedTriple(result, encodedIndexBuffer, encodedNumTrianglesBuffer)
+          : result;
     } else {
       var encodedMortonVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
@@ -266,13 +306,18 @@ public class GeometryEncoder {
               ((encodedDictionaryOffsets.encodedValues.length + encodedVertexDictionary.encodedValues.length) -
               (encodedMortonEncodedDictionaryOffsets.encodedValues.length + encodedMortonVertexDictionary.encodedValues.length)) /1000d);
       System.out.println("Morton VertexDictionary encoding size: " + encodedMortonVertexOffsetStream.length /1000d);*/
-      return Triple.of(
-          numStreams,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams,
-              encodedMortonVertexOffsetStream,
-              encodedMortonEncodedVertexDictionaryStream),
-          maxVertexValue);
+      var result =
+          Triple.of(
+              numStreams,
+              CollectionUtils.concatByteArrays(
+                  encodedTopologyStreams,
+                  encodedMortonVertexOffsetStream,
+                  encodedMortonEncodedVertexDictionaryStream),
+              maxVertexValue);
+
+      return triangulatePolygons
+          ? buildTriangulatedTriple(result, encodedIndexBuffer, encodedNumTrianglesBuffer)
+          : result;
     }
   }
 
@@ -396,7 +441,6 @@ public class GeometryEncoder {
 
   private static List<Vertex> flatPolygon(
       Polygon polygon, List<Integer> partSize, List<Integer> ringSize) {
-    var vertexBuffer = new ArrayList<Vertex>();
     var numRings = polygon.getNumInteriorRing() + 1;
     partSize.add(numRings);
 
@@ -407,7 +451,7 @@ public class GeometryEncoder {
                 Arrays.copyOf(
                     exteriorRing.getCoordinates(), exteriorRing.getCoordinates().length - 1));
     var shellVertices = flatLineString(shell);
-    vertexBuffer.addAll(shellVertices);
+    var vertexBuffer = new ArrayList<Vertex>(shellVertices);
     ringSize.add(shell.getNumPoints());
 
     for (var i = 0; i < polygon.getNumInteriorRing(); i++) {
@@ -449,5 +493,16 @@ public class GeometryEncoder {
             .encode();
 
     return ArrayUtils.addAll(encodedMetadata, encodedValues);
+  }
+
+  private static Triple<Integer, byte[], Integer> buildTriangulatedTriple(
+      Triple<Integer, byte[], Integer> triple,
+      byte[] encodedIndexBuffer,
+      byte[] encodedNumTrianglesPerPolygon) {
+    return Triple.of(
+        triple.getLeft() + 2,
+        CollectionUtils.concatByteArrays(
+            triple.getMiddle(), encodedIndexBuffer, encodedNumTrianglesPerPolygon),
+        triple.getRight());
   }
 }

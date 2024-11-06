@@ -199,7 +199,7 @@ public class MltConverter {
       /* Encode geometry and property columns */
       var encodedGeometryColumn =
           GeometryEncoder.encodeGeometryColumn(
-              geometries, physicalLevelTechnique, new ArrayList<>());
+              geometries, physicalLevelTechnique, new ArrayList<>(), false);
       var encodedGeometryFieldMetadata =
           EncodingUtils.encodeVarints(new long[] {encodedGeometryColumn.getLeft()}, false, false);
       var propertyColumns = filterPropertyColumns(featureTableMetadata);
@@ -294,7 +294,7 @@ public class MltConverter {
           /** Sort geometries and reassign new Ids in ascending order to the features */
           var ids = features.stream().map(f -> f.id()).sorted().collect(Collectors.toList());
           // TODO: refactor -> quick and dirty way to sort features based on geometry
-          GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, ids);
+          GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, ids, false);
           var sortedFeatures = new ArrayList<Feature>();
           var idCounter = 0;
           for (var newId : ids) {
