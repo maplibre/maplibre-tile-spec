@@ -280,12 +280,16 @@ public class GeometryEncoder {
               Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
 
-      var encodedGeometryColumn = new EncodedGeometryColumn(
+      var encodedGeometryColumn =
+          new EncodedGeometryColumn(
               numStreams + 1,
               ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
               maxVertexValue,
               geometryColumnSorted);
-      return triangulatePolygons ? buildTriangulatedEncodedGeometryColumn(encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer) : encodedGeometryColumn;
+      return triangulatePolygons
+          ? buildTriangulatedEncodedGeometryColumn(
+              encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer)
+          : encodedGeometryColumn;
     } else if (dictionaryEncodedSize < plainVertexBufferSize
         && dictionaryEncodedSize <= mortonDictionaryEncodedSize) {
       var encodedVertexOffsetStream =
@@ -299,12 +303,18 @@ public class GeometryEncoder {
           encodeVertexBuffer(
               Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
-      var encodedGeometryColumn = new EncodedGeometryColumn(
-          numStreams + 2, CollectionUtils.concatByteArrays(encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
-          maxVertexValue,
-          false);
+      var encodedGeometryColumn =
+          new EncodedGeometryColumn(
+              numStreams + 2,
+              CollectionUtils.concatByteArrays(
+                  encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
+              maxVertexValue,
+              false);
 
-      return triangulatePolygons ? buildTriangulatedEncodedGeometryColumn(encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer) : encodedGeometryColumn;
+      return triangulatePolygons
+          ? buildTriangulatedEncodedGeometryColumn(
+              encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer)
+          : encodedGeometryColumn;
     } else {
       var encodedMortonVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
@@ -321,15 +331,20 @@ public class GeometryEncoder {
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
 
-      var encodedGeometryColumn = new EncodedGeometryColumn(
+      var encodedGeometryColumn =
+          new EncodedGeometryColumn(
               numStreams + 2,
-              CollectionUtils.concatByteArrays(encodedTopologyStreams,
-                      encodedMortonVertexOffsetStream,
-                      encodedMortonEncodedVertexDictionaryStream),
+              CollectionUtils.concatByteArrays(
+                  encodedTopologyStreams,
+                  encodedMortonVertexOffsetStream,
+                  encodedMortonEncodedVertexDictionaryStream),
               maxVertexValue,
               geometryColumnSorted);
 
-     return triangulatePolygons ? buildTriangulatedEncodedGeometryColumn(encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer) : encodedGeometryColumn;
+      return triangulatePolygons
+          ? buildTriangulatedEncodedGeometryColumn(
+              encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer)
+          : encodedGeometryColumn;
     }
   }
 
@@ -461,6 +476,11 @@ public class GeometryEncoder {
       EncodedGeometryColumn encodedGeometryColumn,
       byte[] encodedIndexBuffer,
       byte[] encodedNumTrianglesPerPolygon) {
-    return new EncodedGeometryColumn(encodedGeometryColumn.numStreams + 2, CollectionUtils.concatByteArrays(encodedGeometryColumn.encodedValues, encodedIndexBuffer, encodedNumTrianglesPerPolygon), encodedGeometryColumn.maxVertexValue, encodedGeometryColumn.geometryColumnSorted);
+    return new EncodedGeometryColumn(
+        encodedGeometryColumn.numStreams + 2,
+        CollectionUtils.concatByteArrays(
+            encodedGeometryColumn.encodedValues, encodedIndexBuffer, encodedNumTrianglesPerPolygon),
+        encodedGeometryColumn.maxVertexValue,
+        encodedGeometryColumn.geometryColumnSorted);
   }
 }

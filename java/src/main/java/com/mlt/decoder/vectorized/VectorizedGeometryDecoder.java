@@ -78,7 +78,9 @@ public class VectorizedGeometryDecoder {
               }
               break;
             default:
-              vertexOffsets = VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+              vertexOffsets =
+                  VectorizedIntegerDecoder.decodeIntStream(
+                      tile, offset, geometryStreamMetadata, false);
           }
           break;
         case DATA:

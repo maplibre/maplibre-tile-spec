@@ -18,8 +18,7 @@ import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.util.Assert;
 
 public class GeometryEncodingTest {
-  Path mvtFilePath =
-      Paths.get(TestSettings.BING_MVT_PATH, "4-8-5" + ".mvt");
+  Path mvtFilePath = Paths.get(TestSettings.BING_MVT_PATH, "4-8-5" + ".mvt");
 
   PhysicalLevelTechnique physicalLevelTechnique = PhysicalLevelTechnique.FAST_PFOR;
 
@@ -45,9 +44,13 @@ public class GeometryEncodingTest {
 
     var sortSettings = new GeometryEncoder.SortSettings(false, featureIds);
     var encodedGeometryColumn =
-        GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, sortSettings, true);
+        GeometryEncoder.encodeGeometryColumn(
+            geometries, physicalLevelTechnique, sortSettings, true);
     var decodedGeometryColumn =
-        VectorizedGeometryDecoder.decodeGeometryColumn(encodedGeometryColumn.encodedValues(), encodedGeometryColumn.numStreams(), new IntWrapper(0));
+        VectorizedGeometryDecoder.decodeGeometryColumn(
+            encodedGeometryColumn.encodedValues(),
+            encodedGeometryColumn.numStreams(),
+            new IntWrapper(0));
 
     Assert.isTrue(decodedGeometryColumn.indexBuffer().isPresent());
     Assert.isTrue(decodedGeometryColumn.numTrianglesPerPolygonBuffer().isPresent());
@@ -65,9 +68,13 @@ public class GeometryEncodingTest {
 
     var sortSettings = new GeometryEncoder.SortSettings(false, featureIds);
     var encodedGeometryColumn =
-        GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, sortSettings, true);
+        GeometryEncoder.encodeGeometryColumn(
+            geometries, physicalLevelTechnique, sortSettings, true);
     var decodedGeometryColumn =
-            VectorizedGeometryDecoder.decodeGeometryColumn(encodedGeometryColumn.encodedValues(), encodedGeometryColumn.numStreams(), new IntWrapper(0));
+        VectorizedGeometryDecoder.decodeGeometryColumn(
+            encodedGeometryColumn.encodedValues(),
+            encodedGeometryColumn.numStreams(),
+            new IntWrapper(0));
 
     var expectedTriangulatedPolygon =
         TriangulationUtils.triangulatePolygon((Polygon) polygonFeature.geometry());
@@ -99,9 +106,13 @@ public class GeometryEncodingTest {
     var sortSettings = new GeometryEncoder.SortSettings(false, featureIds);
 
     var encodedGeometryColumn =
-        GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, sortSettings, true);
+        GeometryEncoder.encodeGeometryColumn(
+            geometries, physicalLevelTechnique, sortSettings, true);
     var decodedGeometryColumn =
-            VectorizedGeometryDecoder.decodeGeometryColumn(encodedGeometryColumn.encodedValues(), encodedGeometryColumn.numStreams(), new IntWrapper(0));
+        VectorizedGeometryDecoder.decodeGeometryColumn(
+            encodedGeometryColumn.encodedValues(),
+            encodedGeometryColumn.numStreams(),
+            new IntWrapper(0));
 
     var expectedTriangulatedMultiPolygon =
         TriangulationUtils.triangulatePolygonWithHoles((MultiPolygon) polygonFeature.geometry());
