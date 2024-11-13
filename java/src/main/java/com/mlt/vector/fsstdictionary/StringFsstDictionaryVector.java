@@ -3,7 +3,6 @@ package com.mlt.vector.fsstdictionary;
 import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.vector.BitVector;
 import com.mlt.vector.VariableSizeVector;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
@@ -70,9 +69,6 @@ public class StringFsstDictionaryVector extends VariableSizeVector<String> {
   @Override
   protected String getValueFromBuffer(int index) {
     if (decodedValues == null) {
-      // TODO: refactor
-      byte[] dictionaryBuffer;
-
       if (symbolLengthBuffer == null) {
         // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
         symbolLengthBuffer = offsetToLengthBuffer(symbolTableOffsetBuffer);
@@ -89,11 +85,7 @@ public class StringFsstDictionaryVector extends VariableSizeVector<String> {
           symbolTable.length);
       var data = new byte[dataBuffer.limit() - dataBuffer.position()];
       System.arraycopy(dataBuffer.array(), dataBuffer.position(), data, 0, data.length);
-      try {
-        dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      byte[] dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
 
       var decodedDictionary = new ArrayList<String>();
       var strStart = 0;

@@ -3,7 +3,6 @@ package com.mlt.converter.encodings;
 import static com.mlt.converter.encodings.IntegerEncoder.encodeFastPfor;
 import static com.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 
-import com.google.common.collect.Lists;
 import com.mlt.converter.CollectionUtils;
 import com.mlt.converter.geometry.*;
 import com.mlt.converter.triangulation.VectorTileConverter;
@@ -18,19 +17,25 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 
 public class GeometryEncoder {
 
+  public record EncodedGeometryColumn(
+      int numStreams, byte[] encodedValues, int maxVertexValue, boolean geometryColumnSorted) {}
+
+  public record SortSettings(boolean isSortable, List<Long> featureIds) {}
+
   private GeometryEncoder() {}
 
   // TODO: add selection algorithms based on statistics and sampling
-  public static Triple<Integer, byte[], Integer> encodeGeometryColumn(
+  public static EncodedGeometryColumn encodeGeometryColumn(
       List<Geometry> geometries,
       PhysicalLevelTechnique physicalLevelTechnique,
-      List<Long> featureIds,
+      SortSettings sortSettings,
       boolean triangulatePolygons) {
     var geometryTypes = new ArrayList<Integer>();
     var numGeometries = new ArrayList<Integer>();
@@ -107,6 +112,20 @@ public class GeometryEncoder {
               var vertices = flatPolygon(polygon, numParts, numRings);
               vertexBuffer.addAll(vertices);
             }
+            break;
+          }
+        case Geometry.TYPENAME_MULTIPOINT:
+          {
+            geometryTypes.add(GeometryType.MULTIPOINT.ordinal());
+            var multiPoint = (MultiPoint) geometry;
+            var numPoints = multiPoint.getNumGeometries();
+            numGeometries.add(numPoints);
+            for (var i = 0; i < numPoints; i++) {
+              var point = (Point) multiPoint.getGeometryN(i);
+              var x = (int) point.getX();
+              var y = (int) point.getY();
+              vertexBuffer.add(new Vertex(x, y));
+            }
             if (triangulatePolygons) {
               var triangulatedPolygon = new VectorTileConverter(multiPolygon);
               indexBuffer.addAll(triangulatedPolygon.getIndexBuffer());
@@ -115,34 +134,32 @@ public class GeometryEncoder {
             break;
           }
         default:
-          throw new IllegalArgumentException("Specified geometry type is not (yet) supported.");
+          throw new IllegalArgumentException(
+              "Specified geometry type is not (yet) supported: " + geometryType);
       }
     }
 
     // TODO: get rid of that separate calculation
     var minVertexValue =
         Collections.min(
-            vertexBuffer.stream()
-                .flatMapToInt(v -> IntStream.of(v.x(), v.y()))
-                .boxed()
-                .collect(Collectors.toList()));
+            vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
     var maxVertexValue =
         Collections.max(
-            vertexBuffer.stream()
-                .flatMapToInt(v -> IntStream.of(v.x(), v.y()))
-                .boxed()
-                .collect(Collectors.toList()));
+            vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
 
     var hilbertCurve = new HilbertCurve(minVertexValue, maxVertexValue);
     var zOrderCurve = new ZOrderCurve(minVertexValue, maxVertexValue);
     // TODO: if the ratio is lower then 2 dictionary encoding has not to be considered?
     var vertexDictionary = addVerticesToDictionary(vertexBuffer, hilbertCurve);
     var mortonEncodedDictionary = addVerticesToMortonDictionary(vertexBuffer, zOrderCurve);
+
+    int[] hilbertIds = vertexDictionary.keySet().stream().mapToInt(d -> d).toArray();
     var dictionaryOffsets =
-        getVertexOffsets(vertexBuffer, (id) -> vertexDictionary.headMap(id).size(), hilbertCurve);
+        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(hilbertIds, id), hilbertCurve);
+
+    int[] mortonIds = mortonEncodedDictionary.stream().mapToInt(d -> d).toArray();
     var mortonEncodedDictionaryOffsets =
-        getVertexOffsets(
-            vertexBuffer, (id) -> mortonEncodedDictionary.headSet(id).size(), zOrderCurve);
+        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(mortonIds, id), zOrderCurve);
 
     /* Test if Plain, Vertex Dictionary or Morton Encoded Vertex Dictionary is the most efficient
      * -> Plain -> convert VertexBuffer with Delta Encoding and specified Physical Level Technique
@@ -188,22 +205,33 @@ public class GeometryEncoder {
     var encodedMortonEncodedDictionaryOffsets =
         IntegerEncoder.encodeInt(mortonEncodedDictionaryOffsets, physicalLevelTechnique, false);
 
-    // TODO: don't sort if it is not consumed that way
-    /* Quick and dirty approach -> sort if there are only geometries of type LineString in the FeatureTable */
-    if (numGeometries.size() == 0
-        && numRings.size() == 0
-        && featureIds.size() > 0
-        && numParts.size() == featureIds.size()) {
-      sortLineStrings(featureIds, numParts, mortonEncodedDictionaryOffsets);
+    // TODO: refactor this simple approach to also work with mixed geometries
+    var geometryColumnSorted = false;
+    if (sortSettings.isSortable && numGeometries.isEmpty() && numRings.isEmpty()) {
+      if (numParts.size() == sortSettings.featureIds.size()) {
+        /* Currently the VertexOffsets are only sorted if all geometries in the geometry column are of type LineString */
+        GeometryUtils.sortVertexOffsets(
+            numParts, mortonEncodedDictionaryOffsets, sortSettings.featureIds());
+        encodedMortonEncodedDictionaryOffsets =
+            IntegerEncoder.encodeInt(mortonEncodedDictionaryOffsets, physicalLevelTechnique, false);
+        geometryColumnSorted = true;
+      } else if (numParts.isEmpty()) {
+        GeometryUtils.sortPoints(vertexBuffer, hilbertCurve, sortSettings.featureIds);
+        zigZagDeltaVertexBuffer = zigZagDeltaEncodeVertices(vertexBuffer);
+        encodedVertexBuffer =
+            IntegerEncoder.encodeInt(
+                Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
+                physicalLevelTechnique,
+                false);
+        geometryColumnSorted = true;
+      }
     }
 
-    // TODO: check if byte rle encoding produces better results -> normally not if the ORC RLE V1
-    // approach is used
     var encodedTopologyStreams =
         IntegerEncoder.encodeIntStream(
             geometryTypes, physicalLevelTechnique, false, PhysicalStreamType.LENGTH, null);
     var numStreams = 1;
-    if (numGeometries.size() > 0) {
+    if (!numGeometries.isEmpty()) {
       var encodedNumGeometries =
           IntegerEncoder.encodeIntStream(
               numGeometries,
@@ -214,7 +242,7 @@ public class GeometryEncoder {
       encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumGeometries);
       numStreams++;
     }
-    if (numParts.size() > 0) {
+    if (!numParts.isEmpty()) {
       var encodedNumParts =
           IntegerEncoder.encodeIntStream(
               numParts,
@@ -225,7 +253,7 @@ public class GeometryEncoder {
       encodedTopologyStreams = ArrayUtils.addAll(encodedTopologyStreams, encodedNumParts);
       numStreams++;
     }
-    if (numRings.size() > 0) {
+    if (!numRings.isEmpty()) {
       var encodedNumRings =
           IntegerEncoder.encodeIntStream(
               numRings,
@@ -244,6 +272,7 @@ public class GeometryEncoder {
     var mortonDictionaryEncodedSize =
         encodedMortonEncodedDictionaryOffsets.encodedValues.length
             + encodedMortonVertexDictionary.encodedValues.length;
+
     if (plainVertexBufferSize <= dictionaryEncodedSize
         && plainVertexBufferSize <= mortonDictionaryEncodedSize) {
       // TODO: get rid of extra conversion
@@ -251,16 +280,12 @@ public class GeometryEncoder {
           encodeVertexBuffer(
               Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
-      numStreams++;
-      var result =
-          Triple.of(
-              numStreams,
-              ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
-              maxVertexValue);
 
-      return triangulatePolygons
-          ? buildTriangulatedTriple(result, encodedIndexBuffer, encodedNumTrianglesBuffer)
-          : result;
+      return new EncodedGeometryColumn(
+          numStreams + 1,
+          ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
+          maxVertexValue,
+          geometryColumnSorted);
     } else if (dictionaryEncodedSize < plainVertexBufferSize
         && dictionaryEncodedSize <= mortonDictionaryEncodedSize) {
       var encodedVertexOffsetStream =
@@ -274,18 +299,13 @@ public class GeometryEncoder {
           encodeVertexBuffer(
               Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
-      numStreams += 2;
 
-      var result =
-          Triple.of(
-              numStreams,
-              CollectionUtils.concatByteArrays(
-                  encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
-              maxVertexValue);
-
-      return triangulatePolygons
-          ? buildTriangulatedTriple(result, encodedIndexBuffer, encodedNumTrianglesBuffer)
-          : result;
+      return new EncodedGeometryColumn(
+          numStreams + 2,
+          CollectionUtils.concatByteArrays(
+              encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
+          maxVertexValue,
+          false);
     } else {
       var encodedMortonVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
@@ -294,30 +314,22 @@ public class GeometryEncoder {
               false,
               PhysicalStreamType.OFFSET,
               new LogicalStreamType(OffsetType.VERTEX));
+
       var encodedMortonEncodedVertexDictionaryStream =
           IntegerEncoder.encodeMortonStream(
               new ArrayList<>(mortonEncodedDictionary),
               zOrderCurve.numBits(),
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
-      numStreams += 2;
 
-      /*System.out.println("Use Morton VertexDictionary encoding, reduction: " +
-              ((encodedDictionaryOffsets.encodedValues.length + encodedVertexDictionary.encodedValues.length) -
-              (encodedMortonEncodedDictionaryOffsets.encodedValues.length + encodedMortonVertexDictionary.encodedValues.length)) /1000d);
-      System.out.println("Morton VertexDictionary encoding size: " + encodedMortonVertexOffsetStream.length /1000d);*/
-      var result =
-          Triple.of(
-              numStreams,
-              CollectionUtils.concatByteArrays(
-                  encodedTopologyStreams,
-                  encodedMortonVertexOffsetStream,
-                  encodedMortonEncodedVertexDictionaryStream),
-              maxVertexValue);
-
-      return triangulatePolygons
-          ? buildTriangulatedTriple(result, encodedIndexBuffer, encodedNumTrianglesBuffer)
-          : result;
+      return new EncodedGeometryColumn(
+          numStreams + 2,
+          CollectionUtils.concatByteArrays(
+              encodedTopologyStreams,
+              encodedMortonVertexOffsetStream,
+              encodedMortonEncodedVertexDictionaryStream),
+          maxVertexValue,
+          geometryColumnSorted);
     }
   }
 
@@ -329,56 +341,6 @@ public class GeometryEncoder {
     } else {
       numParts.add(numVertices);
     }
-  }
-
-  private static void sortLineStrings(
-      List<Long> featureIds, List<Integer> numParts, List<Integer> mortonEncodedDictionaryOffsets) {
-    // TODO: use an different proper optimization approach
-    /*
-     * Quick and dirty approach to sort the VertexOffsets of a VertexBuffer to reduce the deltas
-     * and therefore the overall size.
-     * The offsets are sorted based on the morton code of the first  vertex of a LineString.
-     * The order of the offsets of a LineString has to be preserved.
-     * */
-    var sortedDictionaryOffsets =
-        new TreeMap<Integer, Triple<List<Long>, List<Integer>, List<Integer>>>();
-    var partOffsetCounter = 0;
-    var idCounter = 0;
-    for (var numPart : numParts) {
-      var currentLineVertexOffsets =
-          mortonEncodedDictionaryOffsets.subList(partOffsetCounter, partOffsetCounter + numPart);
-      partOffsetCounter += numPart;
-
-      var featureId = featureIds.get(idCounter++);
-      var minVertexOffset = currentLineVertexOffsets.get(0);
-      if (sortedDictionaryOffsets.containsKey(minVertexOffset)) {
-        var sortedDictionaryOffset = sortedDictionaryOffsets.get(minVertexOffset);
-        sortedDictionaryOffset.getLeft().add(featureId);
-        sortedDictionaryOffset.getMiddle().addAll(currentLineVertexOffsets);
-        sortedDictionaryOffset.getRight().add(numPart);
-      } else {
-        sortedDictionaryOffsets.put(
-            minVertexOffset,
-            Triple.of(
-                Lists.newArrayList(featureId),
-                currentLineVertexOffsets,
-                Lists.newArrayList(numPart)));
-      }
-    }
-
-    var sortedOffsets =
-        sortedDictionaryOffsets.values().stream().flatMap(e -> e.getMiddle().stream()).toList();
-    var updatedFeatureIds =
-        sortedDictionaryOffsets.values().stream().flatMap(e -> e.getLeft().stream()).toList();
-    var updatedNumParts =
-        sortedDictionaryOffsets.values().stream().flatMap(e -> e.getRight().stream()).toList();
-
-    mortonEncodedDictionaryOffsets.clear();
-    mortonEncodedDictionaryOffsets.addAll(sortedOffsets);
-    featureIds.clear();
-    featureIds.addAll(updatedFeatureIds);
-    numParts.clear();
-    numParts.addAll(updatedNumParts);
   }
 
   public static int[] zigZagDeltaEncodeVertices(Collection<Vertex> vertices) {
@@ -451,7 +413,7 @@ public class GeometryEncoder {
                 Arrays.copyOf(
                     exteriorRing.getCoordinates(), exteriorRing.getCoordinates().length - 1));
     var shellVertices = flatLineString(shell);
-    var vertexBuffer = new ArrayList<Vertex>(shellVertices);
+    var vertexBuffer = new ArrayList<>(shellVertices);
     ringSize.add(shell.getNumPoints());
 
     for (var i = 0; i < polygon.getNumInteriorRing(); i++) {

@@ -102,7 +102,8 @@ public class MvtUtils {
       var mvtFeatures = layer.getGeometries();
       var features = new ArrayList<Feature>();
       for (var mvtFeature : mvtFeatures) {
-        var properties = ((LinkedHashMap<String, Object>) mvtFeature.getUserData());
+        Map<?, ?> properties =
+            mvtFeature.getUserData() instanceof Map<?, ?> map ? map : new LinkedHashMap<>();
         var id = (long) properties.get(ID_KEY);
         properties.remove(ID_KEY);
         // TODO: quick and dirty -> implement generic
@@ -117,10 +118,9 @@ public class MvtUtils {
     return new MapboxVectorTile(layers);
   }
 
-  private static LinkedHashMap<String, Object> transformNestedPropertyNames(
-      Map<String, Object> properties) {
+  private static Map<String, Object> transformNestedPropertyNames(Map<?, ?> properties) {
     var transformedProperties = new LinkedHashMap<String, Object>();
-    properties.forEach((k, v) -> transformedProperties.put(k.replace("_", ":"), v));
+    properties.forEach((k, v) -> transformedProperties.put(k.toString().replace("_", ":"), v));
     return transformedProperties;
   }
 }

@@ -4,14 +4,14 @@ public abstract class SpaceFillingCurve {
   protected int tileExtent;
   protected int numBits;
   protected int coordinateShift;
-  private int minBound;
-  private int maxBound;
+  private final int minBound;
+  private final int maxBound;
 
   public SpaceFillingCurve(int minVertexValue, int maxVertexValue) {
     if (maxVertexValue < 0) {
       throw new IllegalArgumentException("Max vertex value has to >= 0.");
     }
-    var tileExtent = maxVertexValue;
+    var tileExtent = minVertexValue <= 0 ? maxVertexValue + 1 : maxVertexValue;
     if (minVertexValue < 0) {
       tileExtent += Math.abs(minVertexValue);
     }

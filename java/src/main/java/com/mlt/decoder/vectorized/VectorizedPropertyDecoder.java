@@ -9,6 +9,7 @@ import com.mlt.vector.VectorType;
 import com.mlt.vector.constant.IntConstVector;
 import com.mlt.vector.constant.LongConstVector;
 import com.mlt.vector.flat.BooleanFlatVector;
+import com.mlt.vector.flat.DoubleFlatVector;
 import com.mlt.vector.flat.FloatFlatVector;
 import com.mlt.vector.flat.IntFlatVector;
 import com.mlt.vector.flat.LongFlatVector;
@@ -68,7 +69,7 @@ public class VectorizedPropertyDecoder {
                     data,
                     offset,
                     dataStreamMetadata,
-                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_32);
+                    scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_64);
             return presentStream != null
                 ? new LongFlatVector(column.getName(), presentStream, dataStream)
                 : new LongFlatVector(column.getName(), dataStream);
@@ -92,7 +93,7 @@ public class VectorizedPropertyDecoder {
           }
         default:
           throw new IllegalArgumentException(
-              "The specified data type for the field is currently not supported.");
+              "The specified data type for the field is currently not supported: " + scalarType);
       }
     }
 
@@ -115,7 +116,7 @@ public class VectorizedPropertyDecoder {
       BitVector nullabilityBuffer = null;
       var numValues = 0;
       if (numStreams == 0) {
-        /**
+        /*
          * The absence of an entire column can be identified by a zero value for the number of
          * streams.
          */
@@ -126,7 +127,7 @@ public class VectorizedPropertyDecoder {
         var vectorType =
             VectorizedDecodingUtils.getVectorTypeBooleanStream(
                 numFeatures, presentStreamMetadata.byteLength(), data, offset);
-        /**
+        /*
          * If vector type equals const create vector without a nullabilityBuffer which specifies
          * that the column is not nullable.The absence of a column can be specified by a zero value
          * for numValues
@@ -165,7 +166,7 @@ public class VectorizedPropertyDecoder {
               return new BooleanFlatVector(column.getName(), nullabilityBuffer, dataVector);
             } else {
               // TODO: handle const
-              throw new IllegalArgumentException("ConstBooleanVector ist not supported yet.");
+              throw new IllegalArgumentException("VectorType not supported yet: " + vectorType);
             }
           }
         case UINT_32:
@@ -225,9 +226,17 @@ public class VectorizedPropertyDecoder {
                     : VectorizedFloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
             return new FloatFlatVector(column.getName(), nullabilityBuffer, dataStream);
           }
-          /*case DOUBLE:{
-              break;
-          }*/
+        case DOUBLE:
+          {
+            // TODO: add rle encoding and ConstVector
+            var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+            var dataStream =
+                nullabilityBuffer != null
+                    ? VectorizedDoubleDecoder.decodeNullableDoubleStream(
+                        data, offset, dataStreamMetadata, nullabilityBuffer)
+                    : VectorizedDoubleDecoder.decodeDoubleStream(data, offset, dataStreamMetadata);
+            return new DoubleFlatVector(column.getName(), nullabilityBuffer, dataStream);
+          }
         case STRING:
           {
             return VectorizedStringDecoder.decodeToRandomAccessFormat(
@@ -235,7 +244,7 @@ public class VectorizedPropertyDecoder {
           }
         default:
           throw new IllegalArgumentException(
-              "The specified data type for the field is currently not supported.");
+              "The specified data type for the field is currently not supported: " + scalarType);
       }
     }
 

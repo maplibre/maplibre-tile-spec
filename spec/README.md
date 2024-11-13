@@ -330,10 +330,11 @@ and the DuckDB execution format and is tailored for the visualization use case. 
 usage within a GPU compute shader.
 The main design goals of the MLT in-memory format are:
 
+- Define a platform-agnostic representation to avoid the expensive materialization costs in particular for strings
 - Enable advanced CPU throughput by optimizing the memory layout for cache locality and SIMD instructions
-- Allow random (mainly constant time) access to all data, so it can also be parallel processed on the GPU (WebGPU compute shader)
+- Allow random (mainly constant time) access to all data, so it can also be parallel processed on the GPU (compute shader)
 - Provide compressed data structure which can be directly processed without decoding
-- Parts of the geometries of a tile should be already in a renderable form and can be therefore directly loaded into GPU buffers with no additional processing
+- Provide the geometries of a tile in a representation that can be (directly) loaded into GPU buffers with little or no additional processing
 
 The data are stored in continuous memory buffers, referred to as vectors, with additional metadata and an optional nullability bitmap
 for representing null values. The storage format contains a `VectorType` field in the metadata that tells the decoder
@@ -353,8 +354,12 @@ The MLT in-memory format supports the following vectors:
 > **_Note:_** Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
 > can be used to enable random access on delta encoded values as well
 
-In case a compressed vector can be used, this has the additional advantage that the conversion from the storage
+ In case a compressed vector can be used, this has the additional advantage that the conversion from the storage
 into in-memory format is basically a zero-copy operation.
+
+Following Apache Arrow's approach based on the [Intel performance guide](https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html),
+we recommend that decoders should allocate memory on aligned addresses with a multiple of 64-bytes (if possible).
+
 
 ### Technical Terminology
 

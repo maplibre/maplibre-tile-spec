@@ -22,7 +22,7 @@ public class PropertyEncoder {
       boolean useAdvancedEncodings,
       Optional<List<ColumnMapping>> columnMappings)
       throws IOException {
-    /**
+    /*
      * TODOs: - detect if column is nullable to get rid of the present stream - test boolean rle
      * against roaring bitmaps and integer encoding for present stream and boolean values - Add
      * vector type to field metadata
@@ -43,7 +43,7 @@ public class PropertyEncoder {
       } else if (columnMetadata.hasComplexType()
           && columnMetadata.getComplexType().getPhysicalType()
               == MltTilesetMetadata.ComplexType.STRUCT) {
-        if (!columnMappings.isPresent()) {
+        if (columnMappings.isEmpty()) {
           throw new IllegalArgumentException(
               "Column mappings are required for nested property columns.");
         }
@@ -103,7 +103,7 @@ public class PropertyEncoder {
                 featureScopedPropertyColumns, encodedFieldMetadata, nestedColumns.getRight());
       } else {
         throw new IllegalArgumentException(
-            "The specified data type for the field is currently not supported.");
+            "The specified data type for the field is currently not supported: " + columnMetadata);
       }
     }
 
@@ -151,6 +151,7 @@ public class PropertyEncoder {
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, intColumn);
         }
       case FLOAT:
+      case DOUBLE:
         {
           var floatColumn = encodeFloatColumn(features, columnMetadata.getName());
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
@@ -188,7 +189,7 @@ public class PropertyEncoder {
         }
       default:
         throw new IllegalArgumentException(
-            "The specified scalar data type is currently not supported.");
+            "The specified scalar data type is currently not supported: " + scalarType);
     }
   }
 
@@ -245,7 +246,15 @@ public class PropertyEncoder {
     for (var feature : features) {
       var propertyValue = feature.properties().get(fieldName);
       if (propertyValue != null) {
-        values.add((float) propertyValue);
+        switch (propertyValue.getClass().getSimpleName()) {
+          case "Double":
+            var doubleValue = (Double) propertyValue;
+            values.add(doubleValue.floatValue());
+            break;
+          default:
+            values.add((float) propertyValue);
+            break;
+        }
         present.add(true);
       } else {
         present.add(false);
@@ -255,14 +264,6 @@ public class PropertyEncoder {
     var encodedPresentStream =
         BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
     var encodedDataStream = FloatEncoder.encodeFloatStream(values);
-
-    // TODO: remove -> only test
-    var encodedPresentStream2 =
-        BooleanEncoder.encodeBooleanStreamOptimized(present, PhysicalStreamType.PRESENT);
-    // System.out.println(fieldName + "ORC encoded present stream: " + encodedPresentStream.length +
-    // " Optimized encoded present stream: "
-    //        + encodedPresentStream2.length);
-
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 

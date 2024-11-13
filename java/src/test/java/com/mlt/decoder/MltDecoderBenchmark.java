@@ -1,12 +1,12 @@
 package com.mlt.decoder;
 
+import com.mlt.TestSettings;
 import com.mlt.converter.ConversionConfig;
 import com.mlt.converter.FeatureTableOptimizations;
 import com.mlt.converter.MltConverter;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
-import com.mlt.test.constants.TestConstants;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -141,7 +141,7 @@ public class MltDecoderBenchmark {
   }
 
   private void benchmarkDecoding(String tileId) throws IOException {
-    var mvtFilePath = Paths.get(TestConstants.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
 
     var mvt = Files.readAllBytes(mvtFilePath);
     var mvtTimeElapsed = 0L;

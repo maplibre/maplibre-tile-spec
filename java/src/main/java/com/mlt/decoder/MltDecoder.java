@@ -7,7 +7,6 @@ import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import com.mlt.decoder.vectorized.VectorizedGeometryDecoder;
 import com.mlt.decoder.vectorized.VectorizedIntegerDecoder;
 import com.mlt.decoder.vectorized.VectorizedPropertyDecoder;
-import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.BitVector;
@@ -18,7 +17,6 @@ import com.mlt.vector.flat.LongFlatVector;
 import com.mlt.vector.geometry.GeometryVector;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.locationtech.jts.geom.Geometry;
 
@@ -36,7 +34,7 @@ public class MltDecoder {
     while (offset.get() < tile.length) {
       List<Long> ids = null;
       Geometry[] geometries = null;
-      var properties = new HashMap<String, List<Object>>();
+      var properties = new HashMap<String, List<?>>();
 
       var version = tile[offset.get()];
       offset.increment();
@@ -64,27 +62,30 @@ public class MltDecoder {
           }
 
           var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-          ids =
-              idDataStreamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR
-                  ? IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false)
-                      .stream()
-                      .mapToLong(i -> i)
-                      .boxed()
-                      .collect(Collectors.toList())
-                  : IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+          var idDataType = columnMetadata.getScalarType().getPhysicalType();
+          if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
+            ids =
+                IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
+                    .mapToLong(i -> i)
+                    .boxed()
+                    .toList();
+          } else {
+            ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+          }
         } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
           var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
           geometries = GeometryDecoder.decodeGeometry(geometryColumn);
         } else {
           var propertyColumn =
               PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
-          if (propertyColumn instanceof HashMap<?, ?>) {
-            var p = ((Map<String, Object>) propertyColumn);
-            for (var a : p.entrySet()) {
-              properties.put(a.getKey(), (List<Object>) a.getValue());
+          if (propertyColumn instanceof Map<?, ?> map) {
+            for (var a : map.entrySet()) {
+              properties.put(
+                  a.getKey().toString(),
+                  a.getValue() instanceof List<?> list ? list : List.of(a.getValue()));
             }
-          } else {
-            properties.put(columnName, (ArrayList) propertyColumn);
+          } else if (propertyColumn instanceof List<?> list) {
+            properties.put(columnName, list);
           }
         }
       }
@@ -117,6 +118,7 @@ public class MltDecoder {
 
       var propertyIndex = 0;
       var metadata = tileMetadata.getFeatureTables(featureTableId);
+
       Vector idVector = null;
       GeometryVector geometryVector = null;
       /* Id column always has to be the first column in a FeatureTable */
@@ -177,9 +179,20 @@ public class MltDecoder {
   private static Layer convertToLayer(
       List<Long> ids,
       Geometry[] geometries,
-      Map<String, List<Object>> properties,
+      Map<String, List<?>> properties,
       MltTilesetMetadata.FeatureTableSchema metadata,
       int numFeatures) {
+    if (numFeatures != geometries.length || numFeatures != ids.size()) {
+      System.out.println(
+          "Warning, in convertToLayer the size of ids("
+              + ids.size()
+              + "), geometries("
+              + geometries.length
+              + "), and features("
+              + numFeatures
+              + ") are not equal for layer: "
+              + metadata.getName());
+    }
     var features = new ArrayList<Feature>(numFeatures);
     for (var j = 0; j < numFeatures; j++) {
       var p = new HashMap<String, Object>();
