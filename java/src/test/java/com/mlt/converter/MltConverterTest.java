@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.util.Assert;
 
 public class MltConverterTest {
   ;
@@ -187,7 +188,7 @@ public class MltConverterTest {
     // TODO: fix -> either add columMappings per layer or global like when creating the scheme
     var optimizations = Map.of("place", optimization, "water_name", optimization);
     var conversionConfig = new ConversionConfig(true, true, optimizations);
-    var mlTile = MltConverter.convertMvt(mvTile, conversionConfig, tileMetadata);
+    var mlTile = MltConverter.convertMvt(mvTile, conversionConfig, tileMetadata, false);
 
     var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
     MltDecoderTest.compareTilesSequential(decodedMlTile, mvTile);
@@ -304,7 +305,7 @@ public class MltConverterTest {
     // TODO: fix -> either add columMappings per layer or global like when creating the scheme
     var optimizations = Map.of("place", optimization, "water_name", optimization);
     var conversionConfig = new ConversionConfig(true, true, optimizations);
-    var mlTile = MltConverter.convertMvt(mvTile, conversionConfig, tileMetadata);
+    var mlTile = MltConverter.convertMvt(mvTile, conversionConfig, tileMetadata, false);
 
     // var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
     // MltDecoderTest.compareTiles(decodedMlTile, mvTile);
@@ -361,7 +362,7 @@ public class MltConverterTest {
                   "aerodrome_label",
                   optimization);
           var conversionConfig = new ConversionConfig(true, true, optimizations);
-          var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
+          var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata, false);
 
           // var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
           // MltDecoderTest.compareTiles(decodedMlTile, decodedMvTile);
@@ -428,6 +429,29 @@ public class MltConverterTest {
     runBingTests(fileNames);
   }
 
+  @Test
+  public void convertMapTileAndTriangulatePolygons() throws IOException { // TODO: ADD test to validate indexBuffer
+    var mvtFilePath = Paths.get(TestConstants.BING_MVT_PATH, "4-8-5" + ".mvt");
+    var decodedMvTile = MvtUtils.decodeMvt(mvtFilePath);
+    var columnMapping = new ColumnMapping("name", ":", true);
+    var columnMappings = Optional.of(List.of(columnMapping));
+    var optimization =
+            new FeatureTableOptimizations(false, false, columnMappings);
+    var optimizations = Map.of("place", optimization, "water_name", optimization);
+    var conversionConfig = new ConversionConfig(true, true, optimizations);
+
+    var tileMetadata =
+            MltConverter.createTilesetMetadata(
+                    decodedMvTile, Optional.of(List.of(columnMapping)), true);
+
+    // converted to MLT
+    var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata, false);
+
+    var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+
+    Assert.isTrue(decodedMlTile.layers().size() > 0);
+  }
+
   private void runBingTests(List<String> fileNames) throws IOException {
     var compressionRatios = 0d;
     for (var fileName : fileNames) {
@@ -457,7 +481,7 @@ public class MltConverterTest {
     // TODO: fix -> either add columMappings per layer or global like when creating the scheme
     var optimizations = Map.of("place", optimization, "water_name", optimization);
     var conversionConfig = new ConversionConfig(true, true, optimizations);
-    var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
+    var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata, false);
 
     var decodedMlTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
     MltDecoderTest.compareTilesSequential(decodedMlTile, decodedMvTile);

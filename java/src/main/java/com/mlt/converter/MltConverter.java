@@ -170,7 +170,8 @@ public class MltConverter {
   public static byte[] convertMvt(
       MapboxVectorTile mvt,
       ConversionConfig config,
-      MltTilesetMetadata.TileSetMetadata tilesetMetadata)
+      MltTilesetMetadata.TileSetMetadata tilesetMetadata,
+      boolean triangulatePolygons)
       throws IOException {
     var physicalLevelTechnique =
         config.useAdvancedEncodingSchemes()
@@ -199,7 +200,7 @@ public class MltConverter {
       /* Encode geometry and property columns */
       var encodedGeometryColumn =
           GeometryEncoder.encodeGeometryColumn(
-              geometries, physicalLevelTechnique, new ArrayList<>(), false);
+              geometries, physicalLevelTechnique, new ArrayList<>(), triangulatePolygons);
       var encodedGeometryFieldMetadata =
           EncodingUtils.encodeVarints(new long[] {encodedGeometryColumn.getLeft()}, false, false);
       var propertyColumns = filterPropertyColumns(featureTableMetadata);

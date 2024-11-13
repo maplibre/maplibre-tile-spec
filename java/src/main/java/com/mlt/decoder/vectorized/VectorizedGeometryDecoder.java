@@ -1,8 +1,6 @@
 package com.mlt.decoder.vectorized;
 
-import com.mlt.metadata.stream.DictionaryType;
-import com.mlt.metadata.stream.MortonEncodedStreamMetadata;
-import com.mlt.metadata.stream.StreamMetadataDecoder;
+import com.mlt.metadata.stream.*;
 import com.mlt.vector.VectorType;
 import com.mlt.vector.geometry.GeometryVector;
 import com.mlt.vector.geometry.TopologyVector;
@@ -19,6 +17,8 @@ public class VectorizedGeometryDecoder {
       IntBuffer numRings,
       IntBuffer vertexOffsets,
       IntBuffer vertexBuffer,
+      Optional<IntBuffer> indexBuffer,
+      Optional<IntBuffer> numTrianglesPerPolygonBuffer,
       Optional<GeometryVector.MortonSettings> mortonSettings) {}
 
   private VectorizedGeometryDecoder() {}
@@ -35,6 +35,8 @@ public class VectorizedGeometryDecoder {
     IntBuffer numRings = null;
     IntBuffer vertexOffsets = null;
     IntBuffer vertexBuffer = null;
+    Optional<IntBuffer> indexBuffer = Optional.empty();
+    Optional<IntBuffer> numTrianglesPerPolygonBuffer = Optional.empty();
     Optional<GeometryVector.MortonSettings> mortonSettings = Optional.empty();
     for (var i = 0; i < numStreams - 1; i++) {
       var geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
@@ -61,8 +63,17 @@ public class VectorizedGeometryDecoder {
           }
           break;
         case OFFSET:
-          vertexOffsets =
-              VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+          switch (geometryStreamMetadata.logicalStreamType().offsetType()){
+            case INDEX:
+              if (indexBuffer.isEmpty()) {
+                indexBuffer = Optional.of(VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false));
+              }else {
+                numTrianglesPerPolygonBuffer = Optional.of(VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata,false));
+              }
+              break;
+            default:
+              vertexOffsets = VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+          }
           break;
         case DATA:
           if (DictionaryType.VERTEX.equals(
@@ -91,6 +102,8 @@ public class VectorizedGeometryDecoder {
         numRings,
         vertexOffsets,
         vertexBuffer,
+        indexBuffer,
+        numTrianglesPerPolygonBuffer,
         mortonSettings);
   }
 

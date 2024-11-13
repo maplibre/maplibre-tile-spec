@@ -322,7 +322,7 @@ public class MltDecoderTest {
             optimization);
     var mlTile =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(true, true, optimizations), tileMetadata);
+            mvTile, new ConversionConfig(true, true, optimizations), tileMetadata, false);
 
     decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
 
