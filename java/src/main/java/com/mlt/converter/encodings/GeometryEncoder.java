@@ -12,7 +12,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.tuple.Triple;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
@@ -112,6 +111,11 @@ public class GeometryEncoder {
               var vertices = flatPolygon(polygon, numParts, numRings);
               vertexBuffer.addAll(vertices);
             }
+            if (triangulatePolygons) {
+              var triangulatedPolygon = new VectorTileConverter(multiPolygon);
+              indexBuffer.addAll(triangulatedPolygon.getIndexBuffer());
+              numTrianglesPerPolygon.addAll(triangulatedPolygon.getNumTrianglesPerPolygon());
+            }
             break;
           }
         case Geometry.TYPENAME_MULTIPOINT:
@@ -125,11 +129,6 @@ public class GeometryEncoder {
               var x = (int) point.getX();
               var y = (int) point.getY();
               vertexBuffer.add(new Vertex(x, y));
-            }
-            if (triangulatePolygons) {
-              var triangulatedPolygon = new VectorTileConverter(multiPolygon);
-              indexBuffer.addAll(triangulatedPolygon.getIndexBuffer());
-              numTrianglesPerPolygon.addAll(triangulatedPolygon.getNumTrianglesPerPolygon());
             }
             break;
           }
@@ -281,11 +280,12 @@ public class GeometryEncoder {
               Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
 
-      return new EncodedGeometryColumn(
-          numStreams + 1,
-          ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
-          maxVertexValue,
-          geometryColumnSorted);
+      var encodedGeometryColumn = new EncodedGeometryColumn(
+              numStreams + 1,
+              ArrayUtils.addAll(encodedTopologyStreams, encodedVertexBufferStream),
+              maxVertexValue,
+              geometryColumnSorted);
+      return triangulatePolygons ? buildTriangulatedEncodedGeometryColumn(encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer) : encodedGeometryColumn;
     } else if (dictionaryEncodedSize < plainVertexBufferSize
         && dictionaryEncodedSize <= mortonDictionaryEncodedSize) {
       var encodedVertexOffsetStream =
@@ -299,13 +299,12 @@ public class GeometryEncoder {
           encodeVertexBuffer(
               Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
               physicalLevelTechnique);
-
-      return new EncodedGeometryColumn(
-          numStreams + 2,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
+      var encodedGeometryColumn = new EncodedGeometryColumn(
+          numStreams + 2, CollectionUtils.concatByteArrays(encodedTopologyStreams, encodedVertexOffsetStream, encodedVertexDictionaryStream),
           maxVertexValue,
           false);
+
+      return triangulatePolygons ? buildTriangulatedEncodedGeometryColumn(encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer) : encodedGeometryColumn;
     } else {
       var encodedMortonVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
@@ -322,14 +321,15 @@ public class GeometryEncoder {
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
 
-      return new EncodedGeometryColumn(
-          numStreams + 2,
-          CollectionUtils.concatByteArrays(
-              encodedTopologyStreams,
-              encodedMortonVertexOffsetStream,
-              encodedMortonEncodedVertexDictionaryStream),
-          maxVertexValue,
-          geometryColumnSorted);
+      var encodedGeometryColumn = new EncodedGeometryColumn(
+              numStreams + 2,
+              CollectionUtils.concatByteArrays(encodedTopologyStreams,
+                      encodedMortonVertexOffsetStream,
+                      encodedMortonEncodedVertexDictionaryStream),
+              maxVertexValue,
+              geometryColumnSorted);
+
+     return triangulatePolygons ? buildTriangulatedEncodedGeometryColumn(encodedGeometryColumn, encodedIndexBuffer, encodedNumTrianglesBuffer) : encodedGeometryColumn;
     }
   }
 
@@ -457,14 +457,10 @@ public class GeometryEncoder {
     return ArrayUtils.addAll(encodedMetadata, encodedValues);
   }
 
-  private static Triple<Integer, byte[], Integer> buildTriangulatedTriple(
-      Triple<Integer, byte[], Integer> triple,
+  private static EncodedGeometryColumn buildTriangulatedEncodedGeometryColumn(
+      EncodedGeometryColumn encodedGeometryColumn,
       byte[] encodedIndexBuffer,
       byte[] encodedNumTrianglesPerPolygon) {
-    return Triple.of(
-        triple.getLeft() + 2,
-        CollectionUtils.concatByteArrays(
-            triple.getMiddle(), encodedIndexBuffer, encodedNumTrianglesPerPolygon),
-        triple.getRight());
+    return new EncodedGeometryColumn(encodedGeometryColumn.numStreams + 2, CollectionUtils.concatByteArrays(encodedGeometryColumn.encodedValues, encodedIndexBuffer, encodedNumTrianglesPerPolygon), encodedGeometryColumn.maxVertexValue, encodedGeometryColumn.geometryColumnSorted);
   }
 }

@@ -193,7 +193,12 @@ public class MltConverter {
 
       var result =
           sortFeaturesAndEncodeGeometryColumn(
-              config, featureTableOptimizations, mvtFeatures, mvtFeatures, physicalLevelTechnique);
+              config,
+              featureTableOptimizations,
+              mvtFeatures,
+              mvtFeatures,
+              physicalLevelTechnique,
+              triangulatePolygons);
       var sortedFeatures = result.getLeft();
       var encodedGeometryColumn = result.getRight();
       var encodedGeometryFieldMetadata =
@@ -267,7 +272,8 @@ public class MltConverter {
           FeatureTableOptimizations featureTableOptimizations,
           List<Feature> sortedFeatures,
           List<Feature> mvtFeatures,
-          PhysicalLevelTechnique physicalLevelTechnique) {
+          PhysicalLevelTechnique physicalLevelTechnique,
+          Boolean triangulatePolygons) {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:
      * - if id column is present and ids should not be reassigned -> sort id column
@@ -295,7 +301,8 @@ public class MltConverter {
         new GeometryEncoder.SortSettings(
             isColumnSortable && featureTableOptimizations.allowIdRegeneration(), ids);
     var encodedGeometryColumn =
-        GeometryEncoder.encodeGeometryColumn(geometries, physicalLevelTechnique, sortSettings);
+        GeometryEncoder.encodeGeometryColumn(
+            geometries, physicalLevelTechnique, sortSettings, triangulatePolygons);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =

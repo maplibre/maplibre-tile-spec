@@ -63,12 +63,18 @@ public class VectorizedGeometryDecoder {
           }
           break;
         case OFFSET:
-          switch (geometryStreamMetadata.logicalStreamType().offsetType()){
+          switch (geometryStreamMetadata.logicalStreamType().offsetType()) {
             case INDEX:
               if (indexBuffer.isEmpty()) {
-                indexBuffer = Optional.of(VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false));
-              }else {
-                numTrianglesPerPolygonBuffer = Optional.of(VectorizedIntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata,false));
+                indexBuffer =
+                    Optional.of(
+                        VectorizedIntegerDecoder.decodeIntStream(
+                            tile, offset, geometryStreamMetadata, false));
+              } else {
+                numTrianglesPerPolygonBuffer =
+                    Optional.of(
+                        VectorizedIntegerDecoder.decodeIntStream(
+                            tile, offset, geometryStreamMetadata, false));
               }
               break;
             default:
