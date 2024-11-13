@@ -66,15 +66,15 @@ spotless {
     }
 }
 
-//task compileWrapper(type: Exec) {
-//    doFirst {
-//        if (System.properties['os.name'].toLowerCase().contains('windows')) {
-//            executable "./resources/compile-windows.bat"
-//        } else {
-//            executable "./resources/compile"
-//        }
-//    }
-//}
+task compileWrapper(type: Exec) {
+    doFirst {
+        if (System.properties['os.name'].toLowerCase().contains('windows')) {
+            executable "./resources/compile-windows.bat"
+        } else {
+            executable "./resources/compile"
+        }
+    }
+}
 
 gradle.projectsEvaluated {
     tasks.withType(JavaCompile) {
@@ -82,7 +82,7 @@ gradle.projectsEvaluated {
     }
 }
 
-//compileJava.dependsOn compileWrapper
+compileJava.dependsOn compileWrapper
 
 
 ["encode", "decode", "meta"].each { name ->
