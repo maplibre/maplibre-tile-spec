@@ -38,7 +38,7 @@
     "@types/node": "^20.14.12",
     "@types/varint": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^7.16.1",
-    "@typescript-eslint/parser": "^7.16.1",
+    "@typescript-eslint/parser": "^8.17.0",
     "benchmark": "^2.1.4",
     "earcut": "^2.2.4",
     "eslint": "^8.57.1",
