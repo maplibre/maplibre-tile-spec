@@ -1,10 +1,10 @@
-#include <tileset_metadata.hpp>
+#include <metadata/tileset.hpp>
 
 #include <optional>
 #include <variant>
 #include <vector>
 
-namespace mlt::tileset_metadata {
+namespace mlt::metadata::tileset {
 
 bool ScalarField::read(protozero::pbf_message<schema::ScalarField> message) {
     bool hasPhysical = false;
@@ -202,7 +202,8 @@ bool TileSetMetadata::read(protozero::pbf_message<schema::TileSetMetadata> messa
     while (message.next()) {
         switch (message.tag()) {
             case schema::TileSetMetadata::implicit_int32_version: {
-                const auto version = message.get_int32();
+                version = message.get_int32();
+
                 constexpr auto minVersion = 1;
                 if (version < minVersion) {
                     return false;
@@ -268,4 +269,4 @@ bool TileSetMetadata::read(protozero::pbf_message<schema::TileSetMetadata> messa
     return !featureTables.empty();
 }
 
-} // namespace mlt::tileset_metadata
+} // namespace mlt::metadata::tileset

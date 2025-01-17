@@ -7,7 +7,7 @@
 #include <variant>
 #include <vector>
 
-namespace mlt::tileset_metadata {
+namespace mlt::metadata::tileset {
 
 // Based on maplibre-tile-spec:spec/schema/mlt_tileset_metadata.proto commit
 // 4b92e986b5c5c1f4c3772a5cf7033fe5822deb5c
@@ -212,21 +212,21 @@ struct FeatureTableSchema {
 };
 
 struct TileSetMetadata {
-    std::int32_t version;
+    std::int32_t version = 0;
     std::vector<FeatureTableSchema> featureTables;
     std::string name;
     std::string description;
     std::string attribution;
     std::optional<std::int32_t> minZoom;
     std::optional<std::int32_t> maxZoom;
-    double boundLeft;
-    double boundBottom;
-    double boundRight;
-    double boundTop;
-    double centerLon;
-    double centerLat;
+    std::optional<double> boundLeft;
+    std::optional<double> boundBottom;
+    std::optional<double> boundRight;
+    std::optional<double> boundTop;
+    std::optional<double> centerLon;
+    std::optional<double> centerLat;
 
     bool read(protozero::pbf_message<schema::TileSetMetadata>);
 };
 
-} // namespace mlt::tileset_metadata
+} // namespace mlt::metadata::tileset
