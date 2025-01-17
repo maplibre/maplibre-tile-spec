@@ -19,6 +19,7 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/tile.hpp
     ${PROJECT_SOURCE_DIR}/include/metadata/stream.hpp
     ${PROJECT_SOURCE_DIR}/include/metadata/tileset.hpp
+    ${PROJECT_SOURCE_DIR}/include/util/buffer_stream.hpp
 )
 
 list(APPEND SRC_FILES

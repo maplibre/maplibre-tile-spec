@@ -1,34 +1,34 @@
 #pragma once
 
 #include <common.hpp>
+#include <util/buffer_stream.hpp>
 
 #include <stdexcept>
 
 namespace mlt::util::decoding {
 
-inline std::int32_t decodeVarint(DataView src, offset_t& offset) noexcept {
-    // Max 4 bytes supported.
-    auto b = src[offset++];
+inline std::int32_t decodeVarint(BufferStream& buffer) {
+    // Max 4 bytes supported
+    auto b = buffer.read();
     auto value = b & 0x7f;
     if (b & 0x80) {
-        b = src[offset++];
+        b = buffer.read();
         value |= (b & 0x7f) << 7;
         if (b & 0x80) {
-            b = src[offset++];
+            b = buffer.read();
             value |= (b & 0x7f) << 14;
             if (b & 0x80) {
-                value |= (src[offset++] & 0x7f) << 21;
+                value |= (buffer.read() & 0x7f) << 21;
             }
         }
     }
     return value;
 }
 
-inline std::int64_t decodeLongVarint(DataView bytes, offset_t& pos) {
+inline std::int64_t decodeLongVarint(BufferStream& buffer) {
     std::int64_t value = 0;
-    offset_t index = pos;
-    for (int shift = 0; index < bytes.size(); ) {
-        auto b = bytes[index++];
+    for (int shift = 0; buffer.available(); ) {
+        auto b = buffer.read();
         value |= (long)(b & 0x7F) << shift;
         if ((b & 0x80) == 0) {
             break;
@@ -40,56 +40,54 @@ inline std::int64_t decodeLongVarint(DataView bytes, offset_t& pos) {
             throw std::runtime_error("Varint too long");
         }
     }
-
-    pos = index;
     return value;
 }
 
 /// Decode N varints, retrurning the values in a `std::tuple`
 template <std::size_t N>
-auto decodeVarints(DataView src, offset_t& pos) noexcept;
+auto decodeVarints(BufferStream&);
 
 // TODO: variadic template magic so each one doesn't have to be explicit
 template <>
-inline auto decodeVarints<1ul>(DataView src, offset_t& pos) noexcept {
-    return decodeVarint(src, pos);
+inline auto decodeVarints<1ul>(BufferStream& buffer) {
+    return decodeVarint(buffer);
 }
 template <>
-inline auto decodeVarints<2ul>(DataView src, offset_t& pos) noexcept {
-    return std::make_tuple(decodeVarint(src, pos), decodeVarint(src, pos));
+inline auto decodeVarints<2ul>(BufferStream& buffer) {
+    return std::make_tuple(decodeVarint(buffer), decodeVarint(buffer));
 }
 template <>
-inline auto decodeVarints<3ul>(DataView src, offset_t& pos) noexcept {
-    return std::make_tuple(decodeVarint(src, pos), decodeVarint(src, pos), decodeVarint(src, pos));
+inline auto decodeVarints<3ul>(BufferStream& buffer) {
+    return std::make_tuple(decodeVarint(buffer), decodeVarint(buffer), decodeVarint(buffer));
 }
 template <>
-inline auto decodeVarints<4ul>(DataView src, offset_t& pos) noexcept {
+inline auto decodeVarints<4ul>(BufferStream& buffer) {
     return std::make_tuple(
-        decodeVarint(src, pos), decodeVarint(src, pos), decodeVarint(src, pos), decodeVarint(src, pos));
+        decodeVarint(buffer), decodeVarint(buffer), decodeVarint(buffer), decodeVarint(buffer));
 }
 
 /// Decode N varints into the by-reference arguments
 template <typename... Ts>
-void decodeVarints(DataView src, offset_t& pos, Ts&... values) noexcept {
-    (([&] { values = decodeVarint(src, pos); })(), ...);
+void decodeVarints(BufferStream& buffer, Ts&... values) {
+    (([&] { values = decodeVarint(buffer); })(), ...);
 }
 
 template <typename... Ts>
-void decodeLongVarints(DataView src, offset_t& pos, Ts&... values) {
-    (decodeLongVarint(src, pos, values), ...);
+void decodeLongVarints(BufferStream& buffer, Ts&... values) {
+    (decodeLongVarint(buffer, values), ...);
 }
 
-inline void decodeVarint(DataView src, offset_t& pos, int numValues, std::int32_t* output) noexcept {
+inline void decodeVarint(BufferStream& buffer, int numValues, std::int32_t* output) {
     offset_t dstOffset = 0;
     for (int i = 0; i < numValues; ++i) {
-        output[dstOffset++] = decodeVarint(src, pos);
+        output[dstOffset++] = decodeVarint(buffer);
     }
 }
 
-inline void decodeLongVarint(DataView src, offset_t& pos, int numValues, std::int64_t* output) {
+inline void decodeLongVarint(BufferStream& buffer, int numValues, std::int64_t* output) {
     offset_t dstOffset = 0;
     for (int i = 0; i < numValues; ++i) {
-        output[dstOffset++] = decodeLongVarint(src, pos);
+        output[dstOffset++] = decodeLongVarint(buffer);
     }
 }
 

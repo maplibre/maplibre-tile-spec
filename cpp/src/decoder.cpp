@@ -13,24 +13,25 @@ namespace {
 static constexpr std::string_view ID_COLUMN_NAME = "id";
 }
 
-MapLibreTile Decoder::decode(DataView tileData, const TileSetMetadata& tileMetadata) {
+MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMetadata) {
     using namespace metadata;
     using namespace metadata::tileset;
     using namespace util::decoding;
 
-    offset_t offset = 0;
+    auto tileData = BufferStream{tileData_};
+
     std::vector<Layer> layers;
     // layers.reserve(...);
 
     std::vector<std::uint8_t> buffer;
 
-    while (offset < tileData.size()) {
+    while (tileData.available()) {
         std::vector<Feature::id_t> ids;
         std::vector<Geometry> geometries;
         Feature::PropertyMap properties;
 
-        const auto version = tileData[offset++];
-        const auto [featureTableId, tileExtent, maxTileExtent, numFeatures] = decodeVarints<4>(tileData, offset);
+        const auto version = tileData.read();
+        const auto [featureTableId, tileExtent, maxTileExtent, numFeatures] = decodeVarints<4>(tileData);
 
         if (featureTableId < 0 || tileMetadata.featureTables.size() <= featureTableId) {
             throw std::runtime_error("invalid table id");
@@ -39,22 +40,22 @@ MapLibreTile Decoder::decode(DataView tileData, const TileSetMetadata& tileMetad
 
         for (const auto& columnMetadata : tableMetadata.columns) {
             const auto& columnName = columnMetadata.name;
-            const auto numStreams = decodeVarint(tileData, offset);
+            const auto numStreams = decodeVarint(tileData);
 
             // TODO: add decoding of vector type to be compliant with the spec
             // TODO: compare based on ids
 
             if (columnName == ID_COLUMN_NAME) {
                 if (numStreams == 2) {
-                    const auto presentStreamMetadata = stream::decode(tileData, offset);
+                    const auto presentStreamMetadata = stream::decode(tileData);
                     const auto bitCount = presentStreamMetadata->getNumValues();
                     buffer.resize((bitCount + 7) / 8);
-                    util::decoding::rle::decodeBoolean(tileData, offset, buffer.data(), bitCount, presentStreamMetadata->getByteLength());
+                    rle::decodeBoolean(tileData, buffer.data(), bitCount, presentStreamMetadata->getByteLength());
                     // TODO: result ignored?  We don't need to decode it then...
                     buffer.clear();
                 }
 
-                const auto idDataStreamMetadata = stream::decode(tileData, offset);
+                const auto idDataStreamMetadata = stream::decode(tileData);
                 if (!std::holds_alternative<ScalarColumn>(columnMetadata.type) ||
                     !std::holds_alternative<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type)) {
                     throw std::runtime_error("id column must be scalar and physical");
