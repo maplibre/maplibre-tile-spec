@@ -1,7 +1,9 @@
 #include <decoder.hpp>
 
-#include <decoding_utils.hpp>
-#include <stdexcept>
+#include <metadata/stream.hpp>
+#include <util/varint.hpp>
+#include <util/rle.hpp>
+#include "metadata/tileset.hpp"
 
 namespace mlt::decoder {
 
@@ -12,9 +14,15 @@ static constexpr std::string_view ID_COLUMN_NAME = "id";
 }
 
 MapLibreTile Decoder::decode(DataView tileData, const TileSetMetadata& tileMetadata) {
+    using namespace metadata;
+    using namespace metadata::tileset;
+    using namespace util::decoding;
+
     offset_t offset = 0;
     std::vector<Layer> layers;
     // layers.reserve(...);
+
+    std::vector<std::uint8_t> buffer;
 
     while (offset < tileData.size()) {
         std::vector<Feature::id_t> ids;
@@ -38,11 +46,58 @@ MapLibreTile Decoder::decode(DataView tileData, const TileSetMetadata& tileMetad
 
             if (columnName == ID_COLUMN_NAME) {
                 if (numStreams == 2) {
-                    // auto presentStreamMetadata = StreamMetadataDecoder.decode(tileData, offset);
-                    // auto presentStream = DecodingUtils.decodeBooleanRle(tileData, presentStreamMetadata.numValues(),
-                    // presentStreamMetadata.byteLength(), offset);
+                    const auto presentStreamMetadata = stream::decode(tileData, offset);
+                    const auto bitCount = presentStreamMetadata->getNumValues();
+                    buffer.resize((bitCount + 7) / 8);
+                    util::decoding::rle::decodeBoolean(tileData, offset, buffer.data(), bitCount, presentStreamMetadata->getByteLength());
+                    // TODO: result ignored?  We don't need to decode it then...
+                    buffer.clear();
                 }
+
+                const auto idDataStreamMetadata = stream::decode(tileData, offset);
+                if (!std::holds_alternative<ScalarColumn>(columnMetadata.type) ||
+                    !std::holds_alternative<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type)) {
+                    throw std::runtime_error("id column must be scalar and physical");
+                }
+                const auto idDataType = std::get<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type);
+#if 0
+                if (idDataType == ScalarType::UINT_32) {
+                    ids = rle::decodeInt<int>(tileData, offset, idDataStreamMetadata, false);
+                } else {
+                    ids = rle::decodeInt<long>(tileData, offset, idDataStreamMetadata, false);
+                }
+#endif
+#if 0
+          if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
+            ids =
+                IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
+                    .mapToLong(i -> i)
+                    .boxed()
+                    .toList();
+          } else {
+            ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+          }
+#endif
             }
+#if 0
+        } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
+          var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
+          geometries = GeometryDecoder.decodeGeometry(geometryColumn);
+        } else {
+          var propertyColumn =
+              PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
+          if (propertyColumn instanceof Map<?, ?> map) {
+            for (var a : map.entrySet()) {
+              properties.put(
+                  a.getKey().toString(),
+                  a.getValue() instanceof List<?> list ? list : List.of(a.getValue()));
+            }
+          } else if (propertyColumn instanceof List<?> list) {
+            properties.put(columnName, list);
+          }
+        }
+#endif
+            
             break;
         }
         break;
