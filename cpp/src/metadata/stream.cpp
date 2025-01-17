@@ -17,18 +17,18 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
 }
 } // namespace
 
-std::unique_ptr<StreamMetadata> decode(DataView tileData, offset_t& offset) {
-    auto streamMetadata = StreamMetadata::decode(tileData, offset);
+std::unique_ptr<StreamMetadata> decode(BufferStream& buffer) {
+    auto streamMetadata = StreamMetadata::decode(buffer);
 
     // Currently morton can't be combined with RLE only with delta 
     if (streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::MORTON) {
-        auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData, offset);
+        auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), buffer);
         return std::make_unique<MortonEncodedStreamMetadata>(std::move(result));
     }
     // Boolean RLE doesn't need additional information 
     else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE || streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
             streamMetadata.getPhysicalLevelTechnique() == PhysicalLevelTechnique::NONE) {
-        auto result = RleEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData, offset);
+        auto result = RleEncodedStreamMetadata::decodePartial(std::move(streamMetadata), buffer);
         return std::make_unique<RleEncodedStreamMetadata>(std::move(result));
     }
 
@@ -52,19 +52,19 @@ int StreamMetadata::getLogicalType() {
     return 0;
 }
 
-StreamMetadata StreamMetadata::decode(DataView tileData, offset_t& offset) {
-    const auto streamType = tileData[offset++];
+StreamMetadata StreamMetadata::decode(BufferStream& buffer) {
+    const auto streamType = buffer.read();
     const auto physicalStreamType = static_cast<PhysicalStreamType>(streamType >> 4);
     auto logicalStreamType = decodeLogicalStreamType(physicalStreamType, streamType & 0x0f);
 
-    const auto encodingsHeader = tileData[offset++] & 0xff;
+    const auto encodingsHeader = buffer.read() & 0xff;
     const auto logicalLevelTechnique1 = static_cast<LogicalLevelTechnique>(encodingsHeader >> 5);
     const auto logicalLevelTechnique2 = static_cast<LogicalLevelTechnique>((encodingsHeader >> 2) & 0x7);
     const auto physicalLevelTechnique = static_cast<PhysicalLevelTechnique>(encodingsHeader & 0x3);
 
     using namespace util::decoding;
     std::int32_t numValues, byteLength;
-    decodeVarints(tileData, offset, numValues, byteLength);
+    decodeVarints(buffer, numValues, byteLength);
 
     return {
         physicalStreamType,

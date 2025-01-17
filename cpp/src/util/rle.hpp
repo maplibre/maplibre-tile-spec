@@ -119,9 +119,9 @@ struct ByteRleDecoder {
 /// @param numBytes The number of bytes to write, and the size of `out`
 /// @param byteSize The number of bytes to consume from the source buffer
 /// @throws std::runtime_error The provided buffer does not contain enough data
-inline void decodeByte(DataView buffer, offset_t& pos, std::uint8_t* out, offset_t numBytes, offset_t byteSize) {
-    detail::ByteRleDecoder{buffer.data(), buffer.size()}.next(out, numBytes);
-    pos += byteSize;
+inline void decodeByte(BufferStream& buffer, std::uint8_t* out, offset_t numBytes, offset_t byteSize) {
+    detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
+    buffer.consume(byteSize);
 }
 
 /// Decode RLE input to a bitset
@@ -132,10 +132,10 @@ inline void decodeByte(DataView buffer, offset_t& pos, std::uint8_t* out, offset
 /// @param byteSize The number of bytes to consume from the source buffer
 /// @throws std::runtime_error The provided buffer does not contain enough data
 /// @note Bit counts not divisible by 8 will be padded with zeros
-inline void decodeBoolean(DataView buffer, offset_t& pos, std::uint8_t* out, offset_t numBits, offset_t byteSize) {
+inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, offset_t numBits, offset_t byteSize) {
     const auto numBytes = (numBits + 7) / 8;
-    detail::ByteRleDecoder{buffer.data(), buffer.size()}.next(out, numBytes);
-    pos += byteSize;
+    detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
+    buffer.consume(byteSize);
 }
 
 #if 0

@@ -11,7 +11,7 @@ class Decoder {
 public:
     using TileSetMetadata = metadata::tileset::TileSetMetadata;
 
-    MapLibreTile decode(DataView tileData, const TileSetMetadata&);
+    MapLibreTile decode(DataView, const TileSetMetadata&);
 };
 
 } // namespace mlt::decoder

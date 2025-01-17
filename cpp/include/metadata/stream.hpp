@@ -1,6 +1,7 @@
 #pragma once
 
 #include <common.hpp>
+#include <util/buffer_stream.hpp>
 #include <util/varint.hpp>
 
 #include <optional>
@@ -86,7 +87,7 @@ private:
 };
 
 class StreamMetadata;
-std::unique_ptr<StreamMetadata> decode(DataView, offset_t&);
+std::unique_ptr<StreamMetadata> decode(BufferStream&);
 
 class StreamMetadata {
 public:
@@ -123,8 +124,8 @@ private:
 
     friend class RleEncodedStreamMetadata;
     friend class MortonEncodedStreamMetadata;
-    friend std::unique_ptr<StreamMetadata> decode(DataView, offset_t&);
-    static StreamMetadata decode(DataView tileData, offset_t& offset);
+    friend std::unique_ptr<StreamMetadata> decode(BufferStream&);
+    static StreamMetadata decode(BufferStream&);
 
     PhysicalStreamType physicalStreamType;
     std::optional<LogicalStreamType> logicalStreamType;
@@ -178,13 +179,13 @@ public:
     RleEncodedStreamMetadata(const RleEncodedStreamMetadata&) = delete;
     RleEncodedStreamMetadata(RleEncodedStreamMetadata&&) = default;
 
-    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, DataView tileData, offset_t& offset) {
-      const auto [runs, numValues] = util::decoding::decodeVarints<2>(tileData, offset);
+    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
+      const auto [runs, numValues] = util::decoding::decodeVarints<2>(buffer);
       return RleEncodedStreamMetadata(std::move(streamMetadata), runs, numValues);
     }
 
-    static RleEncodedStreamMetadata decode(DataView tileData, offset_t& offset) {
-      return decodePartial(StreamMetadata::decode(tileData, offset), tileData, offset);
+    static RleEncodedStreamMetadata decode(BufferStream& buffer) {
+      return decodePartial(StreamMetadata::decode(buffer), buffer);
     }
 
     int getRuns() const { return runs; }
@@ -228,14 +229,14 @@ public:
       coordinateShift(coordinateShift_) {
     }
 
-    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, DataView tileData, offset_t& offset) {
-      const auto [numBits, coordShift] = util::decoding::decodeVarints<2>(tileData, offset);
+    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
+      const auto [numBits, coordShift] = util::decoding::decodeVarints<2>(buffer);
       return MortonEncodedStreamMetadata(std::move(streamMetadata), numBits, coordShift);
     }
 
-    static MortonEncodedStreamMetadata decode(DataView tileData, offset_t& offset) {
-      auto streamMetadata = StreamMetadata::decode(tileData, offset);
-      return decodePartial(std::move(streamMetadata), tileData, offset);
+    static MortonEncodedStreamMetadata decode(BufferStream& buffer) {
+      auto streamMetadata = StreamMetadata::decode(buffer);
+      return decodePartial(std::move(streamMetadata), buffer);
     }
 
     int getNumBits() const { return numBits; }
