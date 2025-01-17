@@ -16,12 +16,10 @@ public:
     Feature(const Feature&) = delete;
     Feature(Feature&&) = default;
 
-    Feature(id_t ident_, Geometry geometry_, PropertyMap properties_) :
-        ident(ident_),
-        geometry(std::move(geometry_)),
-        properties(std::move(properties_))
-    {
-    }
+    Feature(id_t ident_, Geometry geometry_, PropertyMap properties_)
+        : ident(ident_),
+          geometry(std::move(geometry_)),
+          properties(std::move(properties_)) {}
 
     id_t getID() const { return ident; }
     const Geometry& getGeometry() const { return geometry; }

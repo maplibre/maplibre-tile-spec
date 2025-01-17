@@ -4,6 +4,7 @@
 #include <decoding_utils.hpp>
 
 #include <optional>
+#include <memory>
 
 namespace mlt::metadata::stream {
 
@@ -55,25 +56,28 @@ enum class OffsetType {
 };
 
 enum class PhysicalStreamType {
-  PRESENT = 0,
-  DATA = 1,
-  OFFSET = 2,
-  LENGTH = 3,
+    PRESENT = 0,
+    DATA = 1,
+    OFFSET = 2,
+    LENGTH = 3,
 };
 
 class LogicalStreamType {
 public:
-    LogicalStreamType(DictionaryType type) : dictionaryType(type) {}
-    LogicalStreamType(OffsetType type) : offsetType(type) {}
-    LogicalStreamType(LengthType type) : lengthType(type) {}
+    LogicalStreamType(DictionaryType type)
+        : dictionaryType(type) {}
+    LogicalStreamType(OffsetType type)
+        : offsetType(type) {}
+    LogicalStreamType(LengthType type)
+        : lengthType(type) {}
 
     LogicalStreamType() = delete;
     LogicalStreamType(const LogicalStreamType&) = delete;
     LogicalStreamType(LogicalStreamType&&) = default;
 
     const std::optional<DictionaryType>& getDictionaryType() const { return dictionaryType; }
-    const std::optional<OffsetType>& getOffsetType() const { return offsetType;}
-    const std::optional<LengthType>& getLengthType() const { return lengthType;}
+    const std::optional<OffsetType>& getOffsetType() const { return offsetType; }
+    const std::optional<LengthType>& getLengthType() const { return lengthType; }
 
 private:
     std::optional<DictionaryType> dictionaryType;
@@ -81,24 +85,25 @@ private:
     std::optional<LengthType> lengthType;
 };
 
+class StreamMetadata;
+std::unique_ptr<StreamMetadata> decode(DataView, offset_t&);
+
 class StreamMetadata {
 public:
-  StreamMetadata(
-      PhysicalStreamType physicalStreamType_,
-      std::optional<LogicalStreamType> logicalStreamType_,
-      LogicalLevelTechnique logicalLevelTechnique1_,
-      LogicalLevelTechnique logicalLevelTechnique2_,
-      PhysicalLevelTechnique physicalLevelTechnique_,
-      int numValues_,
-      int byteLength_) :
-    physicalStreamType(physicalStreamType_),
-    logicalStreamType(std::move(logicalStreamType_)),
-    logicalLevelTechnique1(logicalLevelTechnique1_),
-    logicalLevelTechnique2(logicalLevelTechnique2_),
-    physicalLevelTechnique(physicalLevelTechnique_),
-    numValues(numValues_),
-    byteLength(byteLength_) {
-  }
+    StreamMetadata(PhysicalStreamType physicalStreamType_,
+                   std::optional<LogicalStreamType> logicalStreamType_,
+                   LogicalLevelTechnique logicalLevelTechnique1_,
+                   LogicalLevelTechnique logicalLevelTechnique2_,
+                   PhysicalLevelTechnique physicalLevelTechnique_,
+                   int numValues_,
+                   int byteLength_)
+        : physicalStreamType(physicalStreamType_),
+          logicalStreamType(std::move(logicalStreamType_)),
+          logicalLevelTechnique1(logicalLevelTechnique1_),
+          logicalLevelTechnique2(logicalLevelTechnique2_),
+          physicalLevelTechnique(physicalLevelTechnique_),
+          numValues(numValues_),
+          byteLength(byteLength_) {}
 
 private:
     int getLogicalType();
@@ -114,20 +119,6 @@ private:
     // After logical Level technique was applied -> when rle is used it is the length of the runs and values array
     int numValues;
     int byteLength;
-
-/*
-   byte[] encode() {
-    var encodedStreamType = (byte) ((physicalStreamType.ordinal()) << 4 | getLogicalType());
-    var encodedEncodingScheme =
-        (byte)
-            (logicalLevelTechnique1.ordinal() << 5
-                | logicalLevelTechnique2.ordinal() << 2
-                | physicalLevelTechnique.ordinal());
-    var encodedLengthInfo =
-        EncodingUtils.encodeVarints(new long[] {numValues, byteLength}, false, false);
-    return Bytes.concat(new byte[] {encodedStreamType, encodedEncodingScheme}, encodedLengthInfo);
-  }
-*/
 };
 
 #if 0
@@ -287,4 +278,4 @@ class MortonEncodedStreamMetadata extends StreamMetadata {
 
 class PdeEncodedMetadata {};
 
-} // mlt::metadata::stream
+} // namespace mlt::metadata::stream

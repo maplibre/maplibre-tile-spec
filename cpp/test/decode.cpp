@@ -9,37 +9,37 @@
 #include <regex>
 
 namespace {
-    std::vector<std::filesystem::path> findFiles(const std::filesystem::path& base, const std::regex& pattern) {
-        std::vector<std::filesystem::path> results;
-        for (const auto &entry : std::filesystem::directory_iterator(base)) {
-            std::smatch match;
-            const auto fileName = entry.path().filename().string();
-            if (entry.is_regular_file() && std::regex_match(fileName, match, pattern)) {
-                results.push_back(entry.path());
-            }
+std::vector<std::filesystem::path> findFiles(const std::filesystem::path& base, const std::regex& pattern) {
+    std::vector<std::filesystem::path> results;
+    for (const auto& entry : std::filesystem::directory_iterator(base)) {
+        std::smatch match;
+        const auto fileName = entry.path().filename().string();
+        if (entry.is_regular_file() && std::regex_match(fileName, match, pattern)) {
+            results.push_back(entry.path());
         }
-        return results;
     }
-
-    std::vector<std::ifstream::char_type> loadFile(const std::filesystem::path& path) {
-        std::ifstream file(path, std::ios::binary | std::ios::ate);
-        if (file.is_open()) {
-            const std::size_t size = file.tellg();
-            file.seekg(0);
-
-            std::vector<std::ifstream::char_type> buffer(size);
-            if (file.read(buffer.data(), size)) {
-                return buffer;
-            }
-        }
-        return {};
-    }
+    return results;
 }
+
+std::vector<std::ifstream::char_type> loadFile(const std::filesystem::path& path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (file.is_open()) {
+        const std::size_t size = file.tellg();
+        file.seekg(0);
+
+        std::vector<std::ifstream::char_type> buffer(size);
+        if (file.read(buffer.data(), size)) {
+            return buffer;
+        }
+    }
+    return {};
+}
+} // namespace
 
 TEST(Decode, metadata) {
     constexpr auto path = "../test/expected/simple";
     const std::regex metadataFilePattern{".*\\.mlt.meta.pbf"};
-    for (const auto &path : findFiles(path, metadataFilePattern)) {
+    for (const auto& path : findFiles(path, metadataFilePattern)) {
         std::cerr << "  Loading " << path.filename().string() << " ... ";
         const auto buffer = loadFile(path);
         EXPECT_FALSE(buffer.empty());
@@ -54,7 +54,7 @@ TEST(Decode, metadata) {
 TEST(Decode, tile) {
     constexpr auto path = "../test/expected/simple";
     const std::regex metadataFilePattern{".*\\.mlt"};
-    for (const auto &path : findFiles(path, metadataFilePattern)) {
+    for (const auto& path : findFiles(path, metadataFilePattern)) {
         std::cerr << "  Loading " << path.filename().string() << " ... ";
         auto buffer = loadFile(path);
         EXPECT_FALSE(buffer.empty());

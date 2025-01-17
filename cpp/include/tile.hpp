@@ -12,9 +12,8 @@ public:
     MapLibreTile(const MapLibreTile&) = delete;
     MapLibreTile(MapLibreTile&&) = default;
 
-    MapLibreTile(std::vector<Layer> layers_) :
-        layers(std::move(layers_)) {
-    }
+    MapLibreTile(std::vector<Layer> layers_)
+        : layers(std::move(layers_)) {}
 
     const std::vector<Layer>& getLayers() const { return layers; }
 

@@ -12,13 +12,11 @@ static constexpr std::string_view ID_COLUMN_NAME = "id";
 }
 
 MapLibreTile Decoder::decode(DataView tileData, const TileSetMetadata& tileMetadata) {
-
     offset_t offset = 0;
     std::vector<Layer> layers;
-    //layers.reserve(...);
+    // layers.reserve(...);
 
     while (offset < tileData.size()) {
-
         std::vector<Feature::id_t> ids;
         std::vector<Geometry> geometries;
         Feature::PropertyMap properties;
@@ -40,8 +38,9 @@ MapLibreTile Decoder::decode(DataView tileData, const TileSetMetadata& tileMetad
 
             if (columnName == ID_COLUMN_NAME) {
                 if (numStreams == 2) {
-                    //auto presentStreamMetadata = StreamMetadataDecoder.decode(tileData, offset);
-                    //auto presentStream = DecodingUtils.decodeBooleanRle(tileData, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
+                    // auto presentStreamMetadata = StreamMetadataDecoder.decode(tileData, offset);
+                    // auto presentStream = DecodingUtils.decodeBooleanRle(tileData, presentStreamMetadata.numValues(),
+                    // presentStreamMetadata.byteLength(), offset);
                 }
             }
             break;

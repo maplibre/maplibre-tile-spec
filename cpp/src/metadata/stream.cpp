@@ -5,17 +5,17 @@ namespace mlt::metadata::stream {
 namespace {
 std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType physicalStreamType, int value) {
     switch (physicalStreamType) {
-    case PhysicalStreamType::DATA:
-        return static_cast<DictionaryType>(value);
-    case PhysicalStreamType::OFFSET:
-        return static_cast<OffsetType>(value);
-    case PhysicalStreamType::LENGTH:
-        return static_cast<LengthType>(value);
-    case PhysicalStreamType::PRESENT:
-        return {};
+        case PhysicalStreamType::DATA:
+            return static_cast<DictionaryType>(value);
+        case PhysicalStreamType::OFFSET:
+            return static_cast<OffsetType>(value);
+        case PhysicalStreamType::LENGTH:
+            return static_cast<LengthType>(value);
+        case PhysicalStreamType::PRESENT:
+            return {};
     }
 }
-}
+} // namespace
 
 int StreamMetadata::getLogicalType() {
     if (logicalStreamType) {
@@ -59,4 +59,4 @@ StreamMetadata StreamMetadata::decode(DataView tileData, offset_t& offset) {
     };
 }
 
-} // mlt::metadata::stream
+} // namespace mlt::metadata::stream
