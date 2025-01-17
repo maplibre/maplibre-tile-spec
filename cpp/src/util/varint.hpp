@@ -1,12 +1,12 @@
 #pragma once
 
 #include <common.hpp>
+
 #include <stdexcept>
-#include <type_traits>
 
 namespace mlt::util::decoding {
 
-static std::int32_t decodeVarint(DataView src, offset_t& offset) noexcept {
+inline std::int32_t decodeVarint(DataView src, offset_t& offset) noexcept {
     // Max 4 bytes supported.
     auto b = src[offset++];
     auto value = b & 0x7f;
@@ -24,16 +24,16 @@ static std::int32_t decodeVarint(DataView src, offset_t& offset) noexcept {
     return value;
 }
 
-static std::int64_t decodeLongVarint(DataView bytes, offset_t& pos) {
+inline std::int64_t decodeLongVarint(DataView bytes, offset_t& pos) {
     std::int64_t value = 0;
-    int shift = 0;
     offset_t index = pos;
-    while (index < bytes.size()) {
+    for (int shift = 0; index < bytes.size(); ) {
         auto b = bytes[index++];
         value |= (long)(b & 0x7F) << shift;
         if ((b & 0x80) == 0) {
             break;
         }
+
         shift += 7;
         if (shift >= 64) {
             // TODO: do we really want exceptions?
@@ -79,18 +79,18 @@ void decodeLongVarints(DataView src, offset_t& pos, Ts&... values) {
     (decodeLongVarint(src, pos, values), ...);
 }
 
-static void decodeVarint(DataView src, offset_t& pos, int numValues, std::int32_t* output) noexcept {
+inline void decodeVarint(DataView src, offset_t& pos, int numValues, std::int32_t* output) noexcept {
     offset_t dstOffset = 0;
     for (int i = 0; i < numValues; ++i) {
         output[dstOffset++] = decodeVarint(src, pos);
     }
 }
 
-static void decodeLongVarint(DataView src, offset_t& pos, int numValues, std::int64_t* output) {
+inline void decodeLongVarint(DataView src, offset_t& pos, int numValues, std::int64_t* output) {
     offset_t dstOffset = 0;
     for (int i = 0; i < numValues; ++i) {
         output[dstOffset++] = decodeLongVarint(src, pos);
     }
 }
 
-} // namespace mlt::util::decoding
+}

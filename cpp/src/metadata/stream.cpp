@@ -17,6 +17,24 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
 }
 } // namespace
 
+std::unique_ptr<StreamMetadata> decode(DataView tileData, offset_t& offset) {
+    auto streamMetadata = StreamMetadata::decode(tileData, offset);
+
+    // Currently morton can't be combined with RLE only with delta 
+    if (streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::MORTON) {
+        auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData, offset);
+        return std::make_unique<MortonEncodedStreamMetadata>(std::move(result));
+    }
+    // Boolean RLE doesn't need additional information 
+    else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE || streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
+            streamMetadata.getPhysicalLevelTechnique() == PhysicalLevelTechnique::NONE) {
+        auto result = RleEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData, offset);
+        return std::make_unique<RleEncodedStreamMetadata>(std::move(result));
+    }
+
+    return std::make_unique<StreamMetadata>(std::move(streamMetadata));
+}
+
 int StreamMetadata::getLogicalType() {
     if (logicalStreamType) {
         if (logicalStreamType->getDictionaryType()) {

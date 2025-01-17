@@ -23,9 +23,14 @@ list(APPEND INCLUDE_FILES
 
 list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/decoder.cpp
-    ${PROJECT_SOURCE_DIR}/src/decoding_utils.hpp
     ${PROJECT_SOURCE_DIR}/src/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/metadata/tileset.cpp
+    ${PROJECT_SOURCE_DIR}/src/util/float.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/morton.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/pfor.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/rle.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/varint.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/zigzag.hpp
 )
 
 target_sources(mlt-cpp PRIVATE
