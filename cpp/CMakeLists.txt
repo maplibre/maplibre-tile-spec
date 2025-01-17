@@ -8,14 +8,24 @@ target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view)
 
 target_include_directories(mlt-cpp
     PUBLIC ${PROJECT_SOURCE_DIR}/include
+    PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
 list(APPEND INCLUDE_FILES
-    ${PROJECT_SOURCE_DIR}/include/tileset_metadata.hpp
+    ${PROJECT_SOURCE_DIR}/include/common.hpp
+    ${PROJECT_SOURCE_DIR}/include/decoder.hpp
+    ${PROJECT_SOURCE_DIR}/include/feature.hpp
+    ${PROJECT_SOURCE_DIR}/include/layer.hpp
+    ${PROJECT_SOURCE_DIR}/include/tile.hpp
+    ${PROJECT_SOURCE_DIR}/include/metadata/stream.hpp
+    ${PROJECT_SOURCE_DIR}/include/metadata/tileset.hpp
 )
 
 list(APPEND SRC_FILES
-    ${PROJECT_SOURCE_DIR}/src/tileset_metadata.cpp
+    ${PROJECT_SOURCE_DIR}/src/decoder.cpp
+    ${PROJECT_SOURCE_DIR}/src/decoding_utils.hpp
+    ${PROJECT_SOURCE_DIR}/src/metadata/stream.cpp
+    ${PROJECT_SOURCE_DIR}/src/metadata/tileset.cpp
 )
 
 target_sources(mlt-cpp PRIVATE

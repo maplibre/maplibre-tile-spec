@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.12)
 
 project (mlt-cpp-test)
 
-add_executable(mlt-cpp-test test_decode.cpp)
+add_executable(mlt-cpp-test decode.cpp)
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 target_compile_definitions(mlt-cpp-test PRIVATE PROTOZERO_USE_VIEW=std::string_view)
 target_include_directories(mlt-cpp-test PRIVATE "${protozero_SOURCE_DIR}/include")
