@@ -96,8 +96,8 @@ public:
                    LogicalLevelTechnique logicalLevelTechnique1_,
                    LogicalLevelTechnique logicalLevelTechnique2_,
                    PhysicalLevelTechnique physicalLevelTechnique_,
-                   int numValues_,
-                   int byteLength_)
+                   std::uint32_t numValues_,
+                   std::uint32_t byteLength_)
         : physicalStreamType(physicalStreamType_),
           logicalStreamType(std::move(logicalStreamType_)),
           logicalLevelTechnique1(logicalLevelTechnique1_),
@@ -116,8 +116,8 @@ public:
     LogicalLevelTechnique getLogicalLevelTechnique2() const { return logicalLevelTechnique2; }
     PhysicalLevelTechnique getPhysicalLevelTechnique() const { return physicalLevelTechnique; }
 
-    int getNumValues() const { return numValues; }
-    int getByteLength() const { return byteLength; }
+    std::uint32_t getNumValues() const { return numValues; }
+    std::uint32_t getByteLength() const { return byteLength; }
 
 private:
     int getLogicalType();
@@ -134,8 +134,8 @@ private:
     PhysicalLevelTechnique physicalLevelTechnique;
 
     // After logical Level technique was applied -> when rle is used it is the length of the runs and values array
-    int numValues;
-    int byteLength;
+    std::uint32_t numValues;
+    std::uint32_t byteLength;
 };
 
 class RleEncodedStreamMetadata : public StreamMetadata {
@@ -180,7 +180,7 @@ public:
     RleEncodedStreamMetadata(RleEncodedStreamMetadata&&) = default;
 
     static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
-      const auto [runs, numValues] = util::decoding::decodeVarints<2>(buffer);
+      const auto [runs, numValues] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
       return RleEncodedStreamMetadata(std::move(streamMetadata), runs, numValues);
     }
 
@@ -230,7 +230,7 @@ public:
     }
 
     static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
-      const auto [numBits, coordShift] = util::decoding::decodeVarints<2>(buffer);
+      const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
       return MortonEncodedStreamMetadata(std::move(streamMetadata), numBits, coordShift);
     }
 

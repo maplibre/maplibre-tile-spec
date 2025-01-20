@@ -14,12 +14,13 @@ T unsignedShiftRight(T value) noexcept {
 }
 
 template <typename T>
-requires std::is_integral_v<T>
+requires (std::is_integral_v<T> && std::is_signed_v<T>)
 T decodeZigZag(T encoded) noexcept {
     return detail::unsignedShiftRight<1>(encoded) ^ (-(encoded & 1));
 }
 
 template <typename T>
+requires (std::is_integral_v<T> && std::is_signed_v<T>)
 void decodeZigZag(T* encoded, offset_t count) noexcept {
     for (offset_t i = 0; i < count; ++i) {
         encoded[i] = decodeZigZag(encoded[i]);

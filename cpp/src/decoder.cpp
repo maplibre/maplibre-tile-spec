@@ -1,9 +1,10 @@
 #include <decoder.hpp>
 
+#include <decode/ints.hpp>
 #include <metadata/stream.hpp>
+#include <metadata/tileset.hpp>
 #include <util/varint.hpp>
 #include <util/rle.hpp>
-#include "metadata/tileset.hpp"
 
 namespace mlt::decoder {
 
@@ -31,7 +32,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
         Feature::PropertyMap properties;
 
         const auto version = tileData.read();
-        const auto [featureTableId, tileExtent, maxTileExtent, numFeatures] = decodeVarints<4>(tileData);
+        const auto [featureTableId, tileExtent, maxTileExtent, numFeatures] = decodeVarints<std::uint32_t, 4>(tileData);
 
         if (featureTableId < 0 || tileMetadata.featureTables.size() <= featureTableId) {
             throw std::runtime_error("invalid table id");
@@ -40,7 +41,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
 
         for (const auto& columnMetadata : tableMetadata.columns) {
             const auto& columnName = columnMetadata.name;
-            const auto numStreams = decodeVarint(tileData);
+            const auto numStreams = decodeVarint<std::uint32_t>(tileData);
 
             // TODO: add decoding of vector type to be compliant with the spec
             // TODO: compare based on ids
@@ -61,32 +62,36 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                     throw std::runtime_error("id column must be scalar and physical");
                 }
                 const auto idDataType = std::get<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type);
-#if 0
-                if (idDataType == ScalarType::UINT_32) {
-                    ids = rle::decodeInt<int>(tileData, offset, idDataStreamMetadata, false);
-                } else {
-                    ids = rle::decodeInt<long>(tileData, offset, idDataStreamMetadata, false);
+                switch (idDataType) {
+                    case metadata::tileset::schema::ScalarType::INT_32:
+                    case metadata::tileset::schema::ScalarType::UINT_32:
+                      IntegerDecoder::decodeIntStream<std::uint32_t, std::uint64_t>(tileData, ids, *idDataStreamMetadata, false);
+                      break;
+                    case metadata::tileset::schema::ScalarType::INT_64:
+                    case metadata::tileset::schema::ScalarType::UINT_64:
+                      IntegerDecoder::decodeIntStream<std::uint64_t>(tileData, ids, *idDataStreamMetadata, false);
+                      break;
+                    default: throw std::runtime_error("unsupported id data type");
                 }
-#endif
 #if 0
           if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
             ids =
-                IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
+                IntegerDecoder.decodeIntStream(tileData, idDataStreamMetadata, false).stream()
                     .mapToLong(i -> i)
                     .boxed()
                     .toList();
           } else {
-            ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+            ids = IntegerDecoder.decodeLongStream(tileData, idDataStreamMetadata, false);
           }
 #endif
             }
 #if 0
         } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
-          var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
+          var geometryColumn = GeometryDecoder.decodeGeometryColumn(tileData, numStreams);
           geometries = GeometryDecoder.decodeGeometry(geometryColumn);
         } else {
           var propertyColumn =
-              PropertyDecoder.decodePropertyColumn(tile, offset, columnMetadata, numStreams);
+              PropertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
           if (propertyColumn instanceof Map<?, ?> map) {
             for (var a : map.entrySet()) {
               properties.put(

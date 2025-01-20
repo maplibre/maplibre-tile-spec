@@ -2,6 +2,8 @@
 
 #include <common.hpp>
 
+#include <stdexcept>
+
 namespace mlt {
 
 struct BufferStream {
@@ -11,33 +13,41 @@ struct BufferStream {
     BufferStream(DataView data_)
         : data(data_), offset(0) {}
 
-    bool available(offset_t size = 1) const { return offset + size < data.size(); }
-
-    DataView::value_type read() {
-        if (!available()) {
-            throw std::runtime_error("Unexpected end of buffer");
-        }
-        return data[offset++];
-    }
-
-    DataView::value_type peek() const {
-        if (!available()) {
-            throw std::runtime_error("Unexpected end of buffer");
-        }
-        return data[offset];
-    }
-
-    const auto* getData() const { return data.data(); }
     auto getSize() const { return data.size(); }
+    auto getOffset() const { return offset; }
+    bool available(std::size_t size = 1) const { return offset + size < data.size(); }
+
+    template <typename T = std::uint8_t>
+    const T* getData() const { return reinterpret_cast<const T*>(data.data()); }
+    template <typename T = std::uint8_t>
+    const T* getReadPosition() const { return reinterpret_cast<const T*>(&data[offset]); }
+
+    template <typename T = std::uint8_t>
+    DataView::value_type read() {
+        check(sizeof(T));
+        const T* p = getReadPosition<T>();
+        consume(sizeof(T));
+        return *p;
+    }
+
+    template <typename T = std::uint8_t>
+    DataView::value_type peek() const {
+        check(sizeof(T));
+        return *getReadPosition<T>();
+    }
 
     void consume(offset_t count) {
-        if (!available(count)) {
-            throw std::runtime_error("Unexpected end of buffer");
-        }
+        check(count);
         offset += count;
     }
 
 private:
+    void check(std::size_t count) const {
+        if (!available(count)) {
+            throw std::runtime_error("Unexpected end of buffer");
+        }
+    }
+
     const DataView data;
     offset_t offset;
 };

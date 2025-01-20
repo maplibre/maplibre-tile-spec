@@ -24,6 +24,8 @@ list(APPEND INCLUDE_FILES
 
 list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/decoder.cpp
+    ${PROJECT_SOURCE_DIR}/src/decode/ints.hpp
+    ${PROJECT_SOURCE_DIR}/src/decode/ints.cpp
     ${PROJECT_SOURCE_DIR}/src/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/util/float.hpp
