@@ -1,8 +1,7 @@
 #pragma once
 
-#include <common.hpp>
-
-#include <cstdint>
+#include <type_traits>
+#include <util/buffer_stream.hpp>
 
 namespace mlt::util::decoding::rle {
 
@@ -10,9 +9,9 @@ namespace detail {
 // Borrowed from https://github.com/apache/orc, `/c++/src/ByteRLE.cc`, `ByteRleDecoderImpl::nextInternal`
 // Apache License 2.0
 struct ByteRleDecoder {
-    ByteRleDecoder(const char* buffer, size_t length)
-        : bufferStart(buffer),
-          bufferEnd(buffer + length) {}
+    ByteRleDecoder(const std::uint8_t* buffer, size_t length)
+        : bufferStart(reinterpret_cast<const char*>(buffer)),
+          bufferEnd(bufferStart + length) {}
 
     static constexpr size_t MINIMUM_REPEAT = 3;
     size_t remainingValues = 0;
@@ -112,9 +111,8 @@ struct ByteRleDecoder {
 };
 } // namespace rle::detail
 
-/// Decode RLE input to a byte array
+/// Decode RLE bytes to a byte array
 /// @param buffer The source data
-/// @param pos The starting position within the source data
 /// @param out The target for output
 /// @param numBytes The number of bytes to write, and the size of `out`
 /// @param byteSize The number of bytes to consume from the source buffer
@@ -124,9 +122,8 @@ inline void decodeByte(BufferStream& buffer, std::uint8_t* out, offset_t numByte
     buffer.consume(byteSize);
 }
 
-/// Decode RLE input to a bitset
+/// Decode RLE bits to a byte array
 /// @param buffer The source data
-/// @param pos The starting position within the source data
 /// @param out The target for output
 /// @param numBytes The number of bits to write, and the size of `out` multiplied by 8
 /// @param byteSize The number of bytes to consume from the source buffer
@@ -136,6 +133,28 @@ inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, offset_t numB
     const auto numBytes = (numBits + 7) / 8;
     detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
     buffer.consume(byteSize);
+}
+
+
+/// Decode RLE bits to int/long values
+/// @param buffer The source data
+/// @param out The target for output
+/// @param numRuns The number of RLE runs in the input
+/// @param numValues The total number of values encoded, and the size of `out`
+/// @throws std::runtime_error The provided buffer does not contain enough data
+template <typename T>
+requires (std::is_integral_v<T> && !std::is_const_v<T> && 2 <= sizeof(T) && sizeof(T) <= 8)
+void decodeInt(BufferStream& buffer, T* out, const offset_t numRuns, const offset_t numValues) {
+    auto offset = 0;
+    for (auto i = 0; i < numRuns; ++i) {
+        auto runLength = buffer.read<std::uint32_t>();
+        if (offset + runLength > numValues || !buffer.available(runLength * sizeof(T))) {
+            throw std::runtime_error("Unexpected end of buffer");
+        }
+        std::memcpy(out + offset, buffer.getReadPosition(), runLength * sizeof(T));
+        buffer.consume(runLength * sizeof(T));
+        offset += runLength;
+    }
 }
 
 #if 0

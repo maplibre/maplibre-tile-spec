@@ -63,8 +63,7 @@ StreamMetadata StreamMetadata::decode(BufferStream& buffer) {
     const auto physicalLevelTechnique = static_cast<PhysicalLevelTechnique>(encodingsHeader & 0x3);
 
     using namespace util::decoding;
-    std::int32_t numValues, byteLength;
-    decodeVarints(buffer, numValues, byteLength);
+    const auto [numValues, byteLength] = decodeVarints<std::uint32_t, 2>(buffer);
 
     return {
         physicalStreamType,
