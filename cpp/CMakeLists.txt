@@ -1,6 +1,8 @@
-cmake_minimum_required (VERSION 3.12)
+include(FetchContent)
 
-project (mlt-cpp)
+cmake_minimum_required (VERSION 3.12)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 15)
+project (mlt-cpp LANGUAGES CXX)
 
 add_library(mlt-cpp STATIC)
 set_property(TARGET mlt-cpp PROPERTY CXX_STANDARD 20)
@@ -30,7 +32,6 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/util/float.hpp
     ${PROJECT_SOURCE_DIR}/src/util/morton.hpp
-    ${PROJECT_SOURCE_DIR}/src/util/pfor.hpp
     ${PROJECT_SOURCE_DIR}/src/util/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/util/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/util/zigzag.hpp
@@ -41,13 +42,23 @@ target_sources(mlt-cpp PRIVATE
     ${SRC_FILES}
 )
 
-include(FetchContent)
+# Protozero
 fetchcontent_declare(protozero
-    git_repository https://github.com/mapbox/protozero.git
-    git_tag v1.7.1
+    GIT_REPOSITORY https://github.com/mapbox/protozero.git
+    GIT_TAG v1.7.1
 )
 FetchContent_MakeAvailable(protozero)
 target_include_directories(mlt-cpp PRIVATE "${protozero_SOURCE_DIR}/include")
+
+# FastPFor
+set(WITH_TEST OFF)  # The fastpfor gtest targets conflict with ours
+fetchcontent_declare(fastpfor
+    GIT_REPOSITORY https://github.com/fast-pack/FastPFor.git
+    GIT_TAG v0.2.0
+)
+FetchContent_MakeAvailable(fastpfor)
+target_include_directories(mlt-cpp PRIVATE "${fastpfor_SOURCE_DIR}/headers")
+target_compile_options(FastPFOR PRIVATE "-Wno-cast-align")
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/test)
 
