@@ -27,6 +27,6 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(gtest)
 target_include_directories(mlt-cpp-test PRIVATE "${gtest_SOURCE_DIR}/googletest/include")
 
-target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
+target_link_libraries(mlt-cpp-test mlt-cpp gtest_main FastPFOR)
 #gtest_discover_tests(mlt-cpp-test)
 

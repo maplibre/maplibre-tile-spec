@@ -14,6 +14,15 @@ namespace {
 static constexpr std::string_view ID_COLUMN_NAME = "id";
 }
 
+struct Decoder::Impl {
+    IntegerDecoder integerDecoder;
+};
+
+Decoder::Decoder()
+    : impl{std::make_unique<Impl>()} {}
+
+Decoder::~Decoder() = default;
+
 MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMetadata) {
     using namespace metadata;
     using namespace metadata::tileset;
@@ -65,13 +74,16 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                 switch (idDataType) {
                     case metadata::tileset::schema::ScalarType::INT_32:
                     case metadata::tileset::schema::ScalarType::UINT_32:
-                      IntegerDecoder::decodeIntStream<std::uint32_t, std::uint64_t>(tileData, ids, *idDataStreamMetadata, false);
-                      break;
+                        impl->integerDecoder.decodeIntStream<std::uint32_t, std::uint64_t>(
+                            tileData, ids, *idDataStreamMetadata, false);
+                        break;
                     case metadata::tileset::schema::ScalarType::INT_64:
                     case metadata::tileset::schema::ScalarType::UINT_64:
-                      IntegerDecoder::decodeIntStream<std::uint64_t>(tileData, ids, *idDataStreamMetadata, false);
-                      break;
-                    default: throw std::runtime_error("unsupported id data type");
+                        impl->integerDecoder.decodeIntStream<std::uint64_t>(
+                            tileData, ids, *idDataStreamMetadata, false);
+                        break;
+                    default:
+                        throw std::runtime_error("unsupported id data type");
                 }
 #if 0
           if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
@@ -103,7 +115,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
           }
         }
 #endif
-            
+
             break;
         }
         break;
