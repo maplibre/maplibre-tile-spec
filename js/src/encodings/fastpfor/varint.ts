@@ -5,12 +5,12 @@ export class VarInt implements IntegerCODEC, SkippableIntegerCODEC {
         return new VarInt();
     }
 
-    public uncompress(model: { input: Uint32Array; inpos: number; inlength: number; output: Uint32Array; outpos: number }) {
+    public uncompress(model: { input: Uint32Array; output: Uint32Array }) {
         let s = 0;
         let val = 0;
-        let p = model.inpos;
-        const finalp = model.inpos + model.inlength;
-        let tmpoutpos = model.outpos;
+        let p = 0;
+        const finalp = 0 + model.input.length;
+        let tmpoutpos = 0;
 
         for (let v = 0, shift = 0; p < finalp;) {
             val = model.input[p];
@@ -30,9 +30,6 @@ export class VarInt implements IntegerCODEC, SkippableIntegerCODEC {
                 shift += 7;
             }
         }
-
-        model.outpos = tmpoutpos;
-        model.inpos += model.inlength;
     }
 
     public headlessUncompress(model: {
