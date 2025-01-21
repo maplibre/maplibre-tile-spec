@@ -3,8 +3,9 @@
 #include <metadata/stream.hpp>
 #include <util/buffer_stream.hpp>
 
-#include /* fastpfor/ */ < fastpfor.h>
-#include /* fastpfor/ */ < compositecodec.h>
+// from fastpfor
+#include <fastpfor.h>
+#include <compositecodec.h>
 
 #include <stdexcept>
 #include <string>

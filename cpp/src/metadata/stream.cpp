@@ -20,14 +20,15 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
 std::unique_ptr<StreamMetadata> decode(BufferStream& buffer) {
     auto streamMetadata = StreamMetadata::decode(buffer);
 
-    // Currently morton can't be combined with RLE only with delta 
+    // Currently morton can't be combined with RLE only with delta
     if (streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::MORTON) {
         auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), buffer);
         return std::make_unique<MortonEncodedStreamMetadata>(std::move(result));
     }
-    // Boolean RLE doesn't need additional information 
-    else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE || streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
-            streamMetadata.getPhysicalLevelTechnique() == PhysicalLevelTechnique::NONE) {
+    // Boolean RLE doesn't need additional information
+    else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE ||
+              streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
+             streamMetadata.getPhysicalLevelTechnique() != PhysicalLevelTechnique::NONE) {
         auto result = RleEncodedStreamMetadata::decodePartial(std::move(streamMetadata), buffer);
         return std::make_unique<RleEncodedStreamMetadata>(std::move(result));
     }
