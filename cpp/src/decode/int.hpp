@@ -1,17 +1,22 @@
 #pragma once
 
+#include <cstdint>
 #include <metadata/stream.hpp>
+#include <type_traits>
 #include <util/buffer_stream.hpp>
+#include <util/vectorized.hpp>
+#include <util/zigzag.hpp>
 
 // from fastpfor
-#include <fastpfor.h>
 #include <compositecodec.h>
+#include <fastpfor.h>
+#include <variablebyte.h>
 
+#include <cassert>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-#include "variablebyte.h"
 
 namespace mlt::decoder {
 
@@ -25,32 +30,40 @@ public:
     ~IntegerDecoder() = default;
 
     template <typename T, typename TTarget = T>
+        requires(std::is_integral_v<T> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
+                 sizeof(T) <= sizeof(TTarget))
     void decodeIntArray(const std::vector<T>& values,
                         std::vector<TTarget>& out,
                         const StreamMetadata& streamMetadata,
                         bool isSigned) {
+        using namespace metadata::stream;
+        using namespace util::decoding;
         switch (streamMetadata.getLogicalLevelTechnique1()) {
-            case metadata::stream::LogicalLevelTechnique::NONE:
-                // if (isSigned) {
-                //     return decodeZigZag(values);
-                // }
-                // return Arrays.stream(values).boxed().collect(Collectors.toList());
-                throw std::runtime_error("Logical level technique NONE not implemented");
-            case metadata::stream::LogicalLevelTechnique::DELTA:
-                // if (streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)) {
-                //     var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
-                //     values =
-                //         DecodingUtils.decodeUnsignedRLE(
-                //             values, rleMetadata.runs(), rleMetadata.numRleValues());
-                //     return decodeZigZagDelta(values);
-                // }
-                // return decodeZigZagDelta(values);
-                throw std::runtime_error("Logical level technique DELTA not implemented");
-            case metadata::stream::LogicalLevelTechnique::COMPONENTWISE_DELTA:
-                // VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(values);
-                // return Arrays.stream(values).boxed().collect(Collectors.toList());
-                throw std::runtime_error("Logical level technique COMPONENTWISE_DELTA not implemented");
-            case metadata::stream::LogicalLevelTechnique::RLE: {
+            case LogicalLevelTechnique::NONE: {
+                assert(out.size() == values.size());
+                const auto f = isSigned ? [](T x){ return static_cast<TTarget>(decodeZigZag(x)); } : [](T x){ return static_cast<TTarget>(x); };
+                std::ranges::transform(values, out.begin(), f);
+                return;
+            }
+            case LogicalLevelTechnique::DELTA:
+                if (streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) {
+                    //     var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
+                    //     values =
+                    //         DecodingUtils.decodeUnsignedRLE(
+                    //             values, rleMetadata.runs(), rleMetadata.numRleValues());
+                    //     return decodeZigZagDelta(values);
+                    throw std::runtime_error("Logical level technique RLE-DELTA not implemented: ");
+                }
+                decodeZigZagDelta(values, out);
+            case LogicalLevelTechnique::COMPONENTWISE_DELTA:
+                if constexpr (std::is_same_v<TTarget, std::uint32_t>) {
+                    out = values;
+                    vectorized::decodeComponentwiseDeltaVec2(out);
+                    break;
+                }
+                throw std::runtime_error(
+                    "Logical level technique COMPONENTWISE_DELTA not implemented for 64-bit values");
+            case LogicalLevelTechnique::RLE: {
                 // auto rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
                 // auto decodedValues = decodeRLE(values, rleMetadata.runs(), rleMetadata.numRleValues());
                 // return isSigned
@@ -58,14 +71,14 @@ public:
                 //     : decodedValues;
                 throw std::runtime_error("Logical level technique RLE not implemented");
             }
-            case metadata::stream::LogicalLevelTechnique::MORTON:
+            case LogicalLevelTechnique::MORTON:
                 // TODO: zig-zag decode when morton second logical level technique
                 // return decodeMortonCodes(
                 //    values,
                 //    ((MortonEncodedStreamMetadata) streamMetadata).numBits(),
                 //    ((MortonEncodedStreamMetadata) streamMetadata).coordinateShift());
                 throw std::runtime_error("Logical level technique MORTON not implemented");
-            case metadata::stream::LogicalLevelTechnique::PSEUDODECIMAL:
+            case LogicalLevelTechnique::PSEUDODECIMAL:
             default:
                 throw std::runtime_error(
                     "The specified logical level technique is not supported for integers: " +
@@ -88,17 +101,123 @@ public:
                 decodeFastPfor(buffer, values.data(), metadata.getNumValues(), metadata.getByteLength());
                 break;
             case PhysicalLevelTechnique::VARINT:
-                decodeVarints<TDecode, TTarget>(buffer, out);
+                decodeVarints<TDecode>(buffer, values);
                 break;
             default:
                 throw std::runtime_error("Specified physical level technique not yet supported " +
                                          std::to_string(std::to_underlying(metadata.getPhysicalLevelTechnique())));
         }
+        out.resize(metadata.getNumValues());
         decodeIntArray<TDecode, TTarget>(values, out, metadata, isSigned);
     }
 
 private:
     FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
+
+    template <typename T>
+    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const offset_t numRuns) {
+        offset_t outPos = 0;
+        for (std::uint32_t i = 0; i < numRuns; ++i) {
+            const auto run = values[i];
+            const auto value = values[i + numRuns];
+            if (outPos + run > out.size()) {
+                throw std::runtime_error("RLE run exceeds output buffer size");
+            }
+            std::fill(std::next(out.begin(), outPos), std::next(out.begin(), outPos + run), value);
+        }
+    }
+
+    template <typename T>
+    static void decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const offset_t numRuns) {
+        offset_t outPos = 0;
+        T previousValue = 0;
+        for (std::uint32_t i = 0; i < numRuns; ++i) {
+            const auto run = values[i];
+            if (outPos + run > out.size()) {
+                throw std::runtime_error("RLE run exceeds output buffer size");
+            }
+
+            // TODO: check signs
+            const auto value = static_cast<std::make_signed_t<T>>(values[i + numRuns]);
+            const auto delta = util::decoding::decodeZigZag(value);
+            for (std::size_t j = 0; j < run; ++j) {
+                out[outPos++] = static_cast<T>(previousValue += delta);
+            }
+        }
+    }
+
+    template <typename T, typename TTarget>
+        requires(std::is_integral_v<T> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
+                 sizeof(T) <= sizeof(TTarget))
+    static void decodeZigZagDelta(const std::vector<T>& values, std::vector<TTarget>& out) {
+        assert(values.size() == out.size());
+        offset_t pos = 0;
+        T previousValue = 0;
+        for (const auto zigZagDelta : values) {
+            // TODO: check signs
+            const auto delta = util::decoding::decodeZigZag(zigZagDelta);
+            out[pos++] = static_cast<TTarget>(previousValue += delta);
+        }
+    }
+
+#if 0
+
+  private static List<Integer> decodeZigZagDelta(int[] data) {
+    var values = new ArrayList<Integer>(data.length);
+    var previousValue = 0;
+    for (var zigZagDelta : data) {
+      var delta = DecodingUtils.decodeZigZag(zigZagDelta);
+      var value = previousValue + delta;
+      values.add(value);
+      previousValue = value;
+    }
+
+    return values;
+  }
+
+  private static List<Integer> decodeDelta(int[] data) {
+    var values = new ArrayList<Integer>(data.length);
+    var previousValue = 0;
+    for (var delta : data) {
+      var value = previousValue + delta;
+      values.add(value);
+      previousValue = value;
+    }
+
+    return values;
+  }
+
+  private static List<Long> decodeZigZagDelta(long[] data) {
+    var values = new ArrayList<Long>(data.length);
+    var previousValue = 0l;
+    for (var zigZagDelta : data) {
+      var delta = DecodingUtils.decodeZigZag(zigZagDelta);
+      var value = previousValue + delta;
+      values.add(value);
+      previousValue = value;
+    }
+
+    return values;
+  }
+
+  private static List<Long> decodeZigZag(long[] data) {
+    var values = new ArrayList<Long>(data.length);
+    for (var zigZagDelta : data) {
+      var value = DecodingUtils.decodeZigZag(zigZagDelta);
+      values.add(value);
+    }
+    return values;
+  }
+
+  private static List<Integer> decodeZigZag(int[] data) {
+    var values = new ArrayList<Integer>(data.length);
+    for (var zigZagDelta : data) {
+      var value = DecodingUtils.decodeZigZag(zigZagDelta);
+      values.add(value);
+    }
+    return values;
+  }
+#endif
 
     template <typename T>
     void decodeFastPfor(BufferStream& buffer,
@@ -126,31 +245,32 @@ private:
             codec->decodeArray(encoded.data(), encodeSize, decoded.data(), decodeSize);
             assert(!memcmp(decoded.data(), data.data(), data.size() * sizeof(T)));
             */
+#if 0
+            var encodedValuesSlice = Arrays.copyOfRange(encodedValues, pos.get(), pos.get() + byteLength);
+            // TODO: get rid of that conversion
+            IntBuffer intBuf =
+                ByteBuffer.wrap(encodedValuesSlice)
+                    // TODO: change to little endian
+                    .order(ByteOrder.BIG_ENDIAN)
+                    .asIntBuffer();
+            int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+            for (var i = 0; i < intValues.length; i++) {
+            intValues[i] = intBuf.get(i);
+            }
+
+            int[] decodedValues = new int[numValues];
+            var inputOffset = new IntWrapper(0);
+            var outputOffset = new IntWrapper(0);
+            IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
+            ic.uncompress(intValues, inputOffset, intValues.length, decodedValues, outputOffset);
+
+            pos.add(byteLength);
+            return decodedValues;
+#endif
     }
 };
 
 #if 0
-    var encodedValuesSlice = Arrays.copyOfRange(encodedValues, pos.get(), pos.get() + byteLength);
-    // TODO: get rid of that conversion
-    IntBuffer intBuf =
-        ByteBuffer.wrap(encodedValuesSlice)
-            // TODO: change to little endian
-            .order(ByteOrder.BIG_ENDIAN)
-            .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
-    for (var i = 0; i < intValues.length; i++) {
-      intValues[i] = intBuf.get(i);
-    }
-
-    int[] decodedValues = new int[numValues];
-    var inputOffset = new IntWrapper(0);
-    var outputOffset = new IntWrapper(0);
-    IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
-    ic.uncompress(intValues, inputOffset, intValues.length, decodedValues, outputOffset);
-
-    pos.add(byteLength);
-    return decodedValues;
-  }
 
   public static int[] decodeFastPforDeltaCoordinates(
       byte[] encodedValues, int numValues, int byteLength, IntWrapper pos) {

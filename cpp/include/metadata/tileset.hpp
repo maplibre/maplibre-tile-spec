@@ -147,6 +147,15 @@ using schema::LogicalComplexType;
 using schema::LogicalScalarType;
 using schema::ScalarType;
 
+enum class GeometryType {
+    POINT = 0,
+    LINESTRING = 1,
+    POLYGON = 2,
+    MULTIPOINT = 3,
+    MULTILINESTRING = 4,
+    MULTIPOLYGON = 5,
+};
+
 struct ScalarField {
     std::variant<ScalarType, LogicalScalarType> type;
 

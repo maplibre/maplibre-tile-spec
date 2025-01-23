@@ -17,6 +17,7 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/common.hpp
     ${PROJECT_SOURCE_DIR}/include/decoder.hpp
     ${PROJECT_SOURCE_DIR}/include/feature.hpp
+    ${PROJECT_SOURCE_DIR}/include/geometry.hpp
     ${PROJECT_SOURCE_DIR}/include/layer.hpp
     ${PROJECT_SOURCE_DIR}/include/tile.hpp
     ${PROJECT_SOURCE_DIR}/include/metadata/stream.hpp
@@ -26,14 +27,19 @@ list(APPEND INCLUDE_FILES
 
 list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/decoder.cpp
-    ${PROJECT_SOURCE_DIR}/src/decode/ints.hpp
-    ${PROJECT_SOURCE_DIR}/src/decode/ints.cpp
+    ${PROJECT_SOURCE_DIR}/src/decode/geometry.hpp
+    ${PROJECT_SOURCE_DIR}/src/decode/int.cpp
+    ${PROJECT_SOURCE_DIR}/src/decode/int.hpp
+    ${PROJECT_SOURCE_DIR}/src/decode/property.hpp
+    ${PROJECT_SOURCE_DIR}/src/feature.cpp
     ${PROJECT_SOURCE_DIR}/src/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/util/float.hpp
     ${PROJECT_SOURCE_DIR}/src/util/morton.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/rle.cpp
     ${PROJECT_SOURCE_DIR}/src/util/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/util/varint.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/vectorized.hpp
     ${PROJECT_SOURCE_DIR}/src/util/zigzag.hpp
 )
 

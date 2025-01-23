@@ -1,6 +1,8 @@
 #include <decoder.hpp>
 
-#include <decode/ints.hpp>
+#include <decode/geometry.hpp>
+#include <decode/int.hpp>
+#include <decode/property.hpp>
 #include <metadata/stream.hpp>
 #include <metadata/tileset.hpp>
 #include <util/varint.hpp>
@@ -12,7 +14,8 @@ using namespace util::decoding;
 
 namespace {
 static constexpr std::string_view ID_COLUMN_NAME = "id";
-}
+static constexpr std::string_view GEOMETRY_COLUMN_NAME = "geometry";
+} // namespace
 
 struct Decoder::Impl {
     IntegerDecoder integerDecoder;
@@ -37,7 +40,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
 
     while (tileData.available()) {
         std::vector<Feature::id_t> ids;
-        std::vector<Geometry> geometries;
+        std::vector<std::unique_ptr<Geometry>> geometries;
         Feature::PropertyMap properties;
 
         const auto version = tileData.read();
@@ -58,11 +61,8 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
             if (columnName == ID_COLUMN_NAME) {
                 if (numStreams == 2) {
                     const auto presentStreamMetadata = stream::decode(tileData);
-                    const auto bitCount = presentStreamMetadata->getNumValues();
-                    buffer.resize((bitCount + 7) / 8);
-                    rle::decodeBoolean(tileData, buffer.data(), bitCount, presentStreamMetadata->getByteLength());
-                    // TODO: result ignored?  We don't need to decode it then...
-                    buffer.clear();
+                    // data ignored, don't decode it
+                    tileData.consume(presentStreamMetadata->getByteLength());
                 }
 
                 const auto idDataStreamMetadata = stream::decode(tileData);
@@ -70,6 +70,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                     !std::holds_alternative<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type)) {
                     throw std::runtime_error("id column must be scalar and physical");
                 }
+                ids.resize(idDataStreamMetadata->getNumValues());
                 const auto idDataType = std::get<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type);
                 switch (idDataType) {
                     case metadata::tileset::schema::ScalarType::INT_32:
@@ -85,38 +86,26 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                     default:
                         throw std::runtime_error("unsupported id data type");
                 }
-#if 0
-          if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
-            ids =
-                IntegerDecoder.decodeIntStream(tileData, idDataStreamMetadata, false).stream()
-                    .mapToLong(i -> i)
-                    .boxed()
-                    .toList();
-          } else {
-            ids = IntegerDecoder.decodeLongStream(tileData, idDataStreamMetadata, false);
-          }
-#endif
+            } else if (columnName == GEOMETRY_COLUMN_NAME) {
+                GeometryDecoder decoder;
+                const auto geometryColumn = decoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
+                geometries = decoder.decodeGeometry(geometryColumn);
+                break;
+            } else {
+                const auto propertyColumn = PropertyDecoder::decodePropertyColumn(tileData, columnMetadata, numStreams);
+                // if (propertyColumn instanceof Map<?, ?> map) {
+                //     for (const auto& [key, value] : std::get<std::map<std::string,
+                //     std::variant<std::vector<std::uint8_t>, std::string>>>(propertyColumn)) {
+                //         properties[key] = std::holds_alternative<std::vector<std::uint8_t>>(value) ?
+                //             std::get<std::vector<std::uint8_t>>(value) :
+                //             std::vector<std::uint8_t>{std::get<std::string>(value).begin(),
+                //             std::get<std::string>(value).end()};
+                //     }
+                // } else if (std::holds_alternative<std::vector<std::uint8_t>>(propertyColumn)) {
+                //     properties[columnName] = std::get<std::vector<std::uint8_t>>(propertyColumn);
+                // }
+                break;
             }
-#if 0
-        } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
-          var geometryColumn = GeometryDecoder.decodeGeometryColumn(tileData, numStreams);
-          geometries = GeometryDecoder.decodeGeometry(geometryColumn);
-        } else {
-          var propertyColumn =
-              PropertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
-          if (propertyColumn instanceof Map<?, ?> map) {
-            for (var a : map.entrySet()) {
-              properties.put(
-                  a.getKey().toString(),
-                  a.getValue() instanceof List<?> list ? list : List.of(a.getValue()));
-            }
-          } else if (propertyColumn instanceof List<?> list) {
-            properties.put(columnName, list);
-          }
-        }
-#endif
-
-            break;
         }
         break;
     }
