@@ -11,16 +11,22 @@ struct BufferStream {
     BufferStream(const BufferStream&) = delete;
     BufferStream(BufferStream&&) = default;
     BufferStream(DataView data_)
-        : data(data_), offset(0) {}
+        : data(data_),
+          offset(0) {}
 
     auto getSize() const { return data.size(); }
     auto getOffset() const { return offset; }
-    bool available(std::size_t size = 1) const { return offset + size < data.size(); }
+    auto getRemaining() const { return data.size() - offset; }
+    bool available(std::size_t size = 1) const { return size <= getRemaining(); }
 
     template <typename T = std::uint8_t>
-    const T* getData() const { return reinterpret_cast<const T*>(data.data()); }
+    const T* getData() const {
+        return reinterpret_cast<const T*>(data.data());
+    }
     template <typename T = std::uint8_t>
-    const T* getReadPosition() const { return reinterpret_cast<const T*>(&data[offset]); }
+    const T* getReadPosition() const {
+        return reinterpret_cast<const T*>(&data[offset]);
+    }
 
     template <typename T = std::uint8_t>
     DataView::value_type read() {

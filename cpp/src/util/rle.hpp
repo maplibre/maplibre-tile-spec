@@ -3,6 +3,10 @@
 #include <type_traits>
 #include <util/buffer_stream.hpp>
 
+namespace mlt::metadata::stream {
+class StreamMetadata;
+}
+
 namespace mlt::util::decoding::rle {
 
 namespace detail {
@@ -38,9 +42,11 @@ struct ByteRleDecoder {
             value = readByte();
         }
     }
-    void next(std::uint8_t* data, std::uint64_t numValues
+    void next(std::uint8_t* data,
+              std::uint64_t numValues
 #if SUPPORT_SKIP_NULL
-    , const char* notNull
+              ,
+              const char* notNull
 #endif
     ) {
         std::uint64_t position = 0;
@@ -109,7 +115,7 @@ struct ByteRleDecoder {
         }
     }
 };
-} // namespace rle::detail
+} // namespace detail
 
 /// Decode RLE bytes to a byte array
 /// @param buffer The source data
@@ -126,15 +132,16 @@ inline void decodeByte(BufferStream& buffer, std::uint8_t* out, offset_t numByte
 /// @param buffer The source data
 /// @param out The target for output
 /// @param numBytes The number of bits to write, and the size of `out` multiplied by 8
-/// @param byteSize The number of bytes to consume from the source buffer
 /// @throws std::runtime_error The provided buffer does not contain enough data
 /// @note Bit counts not divisible by 8 will be padded with zeros
-inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, offset_t numBits, offset_t byteSize) {
+inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, offset_t numBits) {
     const auto numBytes = (numBits + 7) / 8;
     detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
-    buffer.consume(byteSize);
 }
 
+/// Decode RLE bits to a vector
+/// @param consume Whether to consume input the source buffer (true) or leave it unchanged (false)
+void decodeBoolean(BufferStream&, std::vector<uint8_t>&, const metadata::stream::StreamMetadata&, bool consume);
 
 /// Decode RLE bits to int/long values
 /// @param buffer The source data
@@ -143,7 +150,7 @@ inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, offset_t numB
 /// @param numValues The total number of values encoded, and the size of `out`
 /// @throws std::runtime_error The provided buffer does not contain enough data
 template <typename T>
-requires (std::is_integral_v<T> && !std::is_const_v<T> && 2 <= sizeof(T) && sizeof(T) <= 8)
+    requires(std::is_integral_v<T> && !std::is_const_v<T> && 2 <= sizeof(T) && sizeof(T) <= 8)
 void decodeInt(BufferStream& buffer, T* out, const offset_t numRuns, const offset_t numValues) {
     auto offset = 0;
     for (auto i = 0; i < numRuns; ++i) {
@@ -189,4 +196,4 @@ void decodeInt(BufferStream& buffer, T* out, const offset_t numRuns, const offse
   }
 #endif
 
-}
+} // namespace mlt::util::decoding::rle
