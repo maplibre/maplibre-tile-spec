@@ -42,16 +42,13 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
     public headlessUncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, num: number }) : void {
         const mynvalue = greatestMultiple(model.num, FastPFOR.BLOCK_SIZE);
         const finalout = model.outpos.valueOf() + mynvalue;
-        const inner_model = { input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, thissize: 0 };
-        while (inner_model.outpos.valueOf() != finalout) {
-            inner_model.thissize = Math.min(this.pageSize, finalout - inner_model.outpos.valueOf());
-            this.decodePage(inner_model);
+        while (model.outpos.valueOf() != finalout) {
+            model.num = Math.min(this.pageSize, finalout - model.outpos.valueOf());
+            this.decodePage(model);
         }
-        model.output = inner_model.output;
-        model.outpos = inner_model.outpos;
     }
 
-    public decodePage(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, thissize: number }) {
+    public decodePage(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, num: number }) {
         const initpos = model.inpos.valueOf();
         const wheremeta = model.input[model.inpos];
         model.inpos += 1;
@@ -102,7 +99,7 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
         let tmpinpos = model.inpos.valueOf();
         this.byteContainer.flip();
 
-        for (let run = 0, run_end = model.thissize / FastPFOR.BLOCK_SIZE; run < run_end; ++run, tmpoutpos += FastPFOR.BLOCK_SIZE) {
+        for (let run = 0, run_end = model.num / FastPFOR.BLOCK_SIZE; run < run_end; ++run, tmpoutpos += FastPFOR.BLOCK_SIZE) {
             const b = this.byteContainer.readByte();
             const cexcept = this.byteContainer.readByte() & 0xFF;
             for (let k = 0; k < FastPFOR.BLOCK_SIZE; k += 32) {
