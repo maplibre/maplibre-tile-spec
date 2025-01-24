@@ -17,6 +17,11 @@ public:
 
     const std::vector<Layer>& getLayers() const { return layers; }
 
+    const Layer* getLayer(const std::string_view& name) const {
+        auto hit = std::ranges::find_if(layers, [&](const auto& layer) { return layer.getName() == name; });
+        return (hit != layers.end()) ? &*hit : nullptr;
+    }
+
 private:
     std::vector<Layer> layers;
 };

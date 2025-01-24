@@ -2,7 +2,10 @@ cmake_minimum_required (VERSION 3.12)
 
 project (mlt-cpp-test)
 
-add_executable(mlt-cpp-test decode.cpp)
+add_executable(mlt-cpp-test
+    decode.cpp
+    fastpfor.cpp
+)
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 target_compile_definitions(mlt-cpp-test PRIVATE PROTOZERO_USE_VIEW=std::string_view)
 target_include_directories(mlt-cpp-test PRIVATE "${protozero_SOURCE_DIR}/include")
@@ -26,6 +29,8 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(gtest)
 target_include_directories(mlt-cpp-test PRIVATE "${gtest_SOURCE_DIR}/googletest/include")
+
+target_include_directories(mlt-cpp-test PRIVATE "${fastpfor_SOURCE_DIR}/headers")
 
 target_link_libraries(mlt-cpp-test mlt-cpp gtest_main FastPFOR)
 #gtest_discover_tests(mlt-cpp-test)
