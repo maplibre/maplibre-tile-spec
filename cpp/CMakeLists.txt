@@ -31,11 +31,12 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/decode/int.cpp
     ${PROJECT_SOURCE_DIR}/src/decode/int.hpp
     ${PROJECT_SOURCE_DIR}/src/decode/property.hpp
+    ${PROJECT_SOURCE_DIR}/src/decode/string.hpp
     ${PROJECT_SOURCE_DIR}/src/feature.cpp
     ${PROJECT_SOURCE_DIR}/src/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/metadata/tileset.cpp
-    ${PROJECT_SOURCE_DIR}/src/util/float.hpp
     ${PROJECT_SOURCE_DIR}/src/util/morton.hpp
+    ${PROJECT_SOURCE_DIR}/src/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/util/rle.cpp
     ${PROJECT_SOURCE_DIR}/src/util/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/util/varint.hpp
@@ -49,6 +50,8 @@ target_sources(mlt-cpp PRIVATE
 )
 
 # Protozero
+set(WERROR OFF)
+set(DOXYGEN_FOUND OFF)
 fetchcontent_declare(protozero
     GIT_REPOSITORY https://github.com/mapbox/protozero.git
     GIT_TAG v1.7.1

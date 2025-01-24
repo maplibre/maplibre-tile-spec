@@ -12,43 +12,26 @@ namespace mlt::util::decoding::rle {
 namespace detail {
 // Borrowed from https://github.com/apache/orc, `/c++/src/ByteRLE.cc`, `ByteRleDecoderImpl::nextInternal`
 // Apache License 2.0
-struct ByteRleDecoder {
-    ByteRleDecoder(const std::uint8_t* buffer, size_t length)
+class ByteRleDecoder {
+public:
+    ByteRleDecoder(const std::uint8_t* buffer, size_t length) noexcept
         : bufferStart(reinterpret_cast<const char*>(buffer)),
           bufferEnd(bufferStart + length) {}
 
-    static constexpr size_t MINIMUM_REPEAT = 3;
-    size_t remainingValues = 0;
-    char value = 0;
-    const char* bufferStart;
-    const char* bufferEnd;
-    bool repeating = false;
+    ByteRleDecoder(const ByteRleDecoder&) = delete;
+    ByteRleDecoder(ByteRleDecoder&&) = delete;
+    ByteRleDecoder& operator=(const ByteRleDecoder&) = delete;
+    ByteRleDecoder& operator=(ByteRleDecoder&&) = delete;
 
-    char readByte() {
-        if (bufferStart == bufferEnd) {
-            throw std::runtime_error("Unexpected end of buffer");
-        }
-        return *bufferStart++;
-    }
+    std::size_t getBufferRemaining() const noexcept { return bufferEnd - bufferStart; }
 
-    void readHeader() {
-        const char ch = readByte();
-        if (ch < 0) {
-            remainingValues = static_cast<std::size_t>(-ch);
-            repeating = false;
-        } else {
-            remainingValues = static_cast<std::size_t>(ch) + MINIMUM_REPEAT;
-            repeating = true;
-            value = readByte();
-        }
-    }
     void next(std::uint8_t* data,
               std::uint64_t numValues
 #if SUPPORT_SKIP_NULL
               ,
               const char* notNull
 #endif
-    ) {
+              ) noexcept(false) {
         std::uint64_t position = 0;
 
 #if SUPPORT_SKIP_NULL
@@ -114,6 +97,33 @@ struct ByteRleDecoder {
 #endif
         }
     }
+
+private:
+    char readByte() noexcept(false) {
+        if (bufferStart == bufferEnd) {
+            throw std::runtime_error("Unexpected end of buffer");
+        }
+        return *bufferStart++;
+    }
+
+    void readHeader() noexcept(false) {
+        const char ch = readByte();
+        if (ch < 0) {
+            remainingValues = static_cast<std::size_t>(-ch);
+            repeating = false;
+        } else {
+            remainingValues = static_cast<std::size_t>(ch) + MINIMUM_REPEAT;
+            repeating = true;
+            value = readByte();
+        }
+    }
+
+    static constexpr size_t MINIMUM_REPEAT = 3;
+    size_t remainingValues = 0;
+    char value = 0;
+    const char* bufferStart;
+    const char* bufferEnd;
+    bool repeating = false;
 };
 } // namespace detail
 
@@ -123,7 +133,7 @@ struct ByteRleDecoder {
 /// @param numBytes The number of bytes to write, and the size of `out`
 /// @param byteSize The number of bytes to consume from the source buffer
 /// @throws std::runtime_error The provided buffer does not contain enough data
-inline void decodeByte(BufferStream& buffer, std::uint8_t* out, offset_t numBytes, offset_t byteSize) {
+inline void decodeByte(BufferStream& buffer, std::uint8_t* out, count_t numBytes, count_t byteSize) {
     detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
     buffer.consume(byteSize);
 }
@@ -134,7 +144,7 @@ inline void decodeByte(BufferStream& buffer, std::uint8_t* out, offset_t numByte
 /// @param numBytes The number of bits to write, and the size of `out` multiplied by 8
 /// @throws std::runtime_error The provided buffer does not contain enough data
 /// @note Bit counts not divisible by 8 will be padded with zeros
-inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, offset_t numBits) {
+inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, count_t numBits) {
     const auto numBytes = (numBits + 7) / 8;
     detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
 }
@@ -151,7 +161,7 @@ void decodeBoolean(BufferStream&, std::vector<uint8_t>&, const metadata::stream:
 /// @throws std::runtime_error The provided buffer does not contain enough data
 template <typename T>
     requires(std::is_integral_v<T> && !std::is_const_v<T> && 2 <= sizeof(T) && sizeof(T) <= 8)
-void decodeInt(BufferStream& buffer, T* out, const offset_t numRuns, const offset_t numValues) {
+void decodeInt(BufferStream& buffer, T* out, const count_t numRuns, const count_t numValues) {
     auto offset = 0;
     for (auto i = 0; i < numRuns; ++i) {
         auto runLength = buffer.read<std::uint32_t>();

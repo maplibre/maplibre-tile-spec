@@ -9,7 +9,7 @@ namespace mlt {
 
 using DataView = std::string_view;
 
-using offset_t = std::uint32_t;
+using count_t = std::uint32_t;
 
 #define MLT_LOG_WARN(s) std::cerr << s << '\n'
 

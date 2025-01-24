@@ -17,8 +17,8 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
 }
 } // namespace
 
-std::unique_ptr<StreamMetadata> decode(BufferStream& buffer) {
-    auto streamMetadata = StreamMetadata::decode(buffer);
+std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& buffer) {
+    auto streamMetadata = decodeInternal(buffer);
 
     // Currently morton can't be combined with RLE only with delta
     if (streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::MORTON) {
@@ -36,7 +36,7 @@ std::unique_ptr<StreamMetadata> decode(BufferStream& buffer) {
     return std::make_unique<StreamMetadata>(std::move(streamMetadata));
 }
 
-int StreamMetadata::getLogicalType() {
+int StreamMetadata::getLogicalType() const noexcept {
     if (logicalStreamType) {
         if (logicalStreamType->getDictionaryType()) {
             return std::to_underlying(*logicalStreamType->getDictionaryType());
@@ -53,7 +53,7 @@ int StreamMetadata::getLogicalType() {
     return 0;
 }
 
-StreamMetadata StreamMetadata::decode(BufferStream& buffer) {
+StreamMetadata StreamMetadata::decodeInternal(BufferStream& buffer) {
     const auto streamType = buffer.read();
     const auto physicalStreamType = static_cast<PhysicalStreamType>(streamType >> 4);
     auto logicalStreamType = decodeLogicalStreamType(physicalStreamType, streamType & 0x0f);

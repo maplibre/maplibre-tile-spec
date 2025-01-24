@@ -17,18 +17,18 @@ namespace mlt::geometry {
 struct GeometryColumn {
     GeometryColumn() = default;
     GeometryColumn(const GeometryColumn&) = delete;
-    GeometryColumn(GeometryColumn&&) = default;
+    GeometryColumn(GeometryColumn&&) noexcept = default;
     ~GeometryColumn() = default;
 
     GeometryColumn& operator=(const GeometryColumn&) = delete;
-    GeometryColumn& operator=(GeometryColumn&&) = default;
+    GeometryColumn& operator=(GeometryColumn&&) noexcept = default;
 
     std::vector<metadata::tileset::GeometryType> geometryTypes;
-    std::vector<std::uint32_t> numGeometries;
-    std::vector<std::uint32_t> numParts;
-    std::vector<std::uint32_t> numRings;
+    std::vector<std::uint32_t> geometryOffsets;
+    std::vector<std::uint32_t> partOffsets;
+    std::vector<std::uint32_t> ringOffsets;
     std::vector<std::uint32_t> vertexOffsets;
-    std::vector<std::uint32_t> vertexList;
+    std::vector<std::uint32_t> vertices;
 };
 } // namespace mlt::geometry
 
@@ -42,17 +42,17 @@ public:
 
     GeometryColumn decodeGeometryColumn(BufferStream& tileData,
                                         const metadata::tileset::Column& column,
-                                        std::uint32_t numStreams) {
+                                        std::uint32_t numStreams) noexcept(false) {
         using namespace util::decoding;
         using namespace metadata::stream;
 
         GeometryColumn geomColumn;
 
-        const auto geomTypeMetadata = metadata::stream::decode(tileData);
+        const auto geomTypeMetadata = StreamMetadata::decode(tileData);
         intDecoder.decodeIntStream<uint32_t>(tileData, geomColumn.geometryTypes, *geomTypeMetadata, /*isSigned=*/false);
 
         for (std::uint32_t i = 1; i < numStreams; ++i) {
-            const auto geomStreamMetadata = metadata::stream::decode(tileData);
+            const auto geomStreamMetadata = StreamMetadata::decode(tileData);
             switch (geomStreamMetadata->getPhysicalStreamType()) {
                 case PhysicalStreamType::LENGTH: {
                     if (!geomStreamMetadata->getLogicalStreamType() ||
@@ -60,17 +60,17 @@ public:
                         throw std::runtime_error("Length stream missing logical type: " + column.name);
                     }
                     const auto type = *geomStreamMetadata->getLogicalStreamType()->getLengthType();
-                    geomColumn.numGeometries.resize(geomStreamMetadata->getNumValues());
+                    geomColumn.geometryOffsets.resize(geomStreamMetadata->getNumValues());
                     std::optional<std::reference_wrapper<std::vector<std::uint32_t>>> target;
                     switch (type) {
                         case LengthType::GEOMETRIES:
-                            target = geomColumn.numGeometries;
+                            target = geomColumn.geometryOffsets;
                             break;
                         case LengthType::PARTS:
-                            target = geomColumn.numParts;
+                            target = geomColumn.partOffsets;
                             break;
                         case LengthType::RINGS:
-                            target = geomColumn.numRings;
+                            target = geomColumn.ringOffsets;
                             break;
                         default:
                         case LengthType::TRIANGLES:
@@ -94,15 +94,15 @@ public:
                     switch (type) {
                         case DictionaryType::VERTEX:
                             switch (geomStreamMetadata->getPhysicalLevelTechnique()) {
-                                case metadata::stream::PhysicalLevelTechnique::FAST_PFOR:
+                                case PhysicalLevelTechnique::FAST_PFOR:
                                     throw std::runtime_error("FastPfor encoding for geometries is not yet supported.");
                                     break;
-                                case metadata::stream::PhysicalLevelTechnique::NONE:
-                                case metadata::stream::PhysicalLevelTechnique::ALP:
+                                case PhysicalLevelTechnique::NONE:
+                                case PhysicalLevelTechnique::ALP:
                                     // TODO: other implementations are not clear on whether these are valid
-                                case metadata::stream::PhysicalLevelTechnique::VARINT:
+                                case PhysicalLevelTechnique::VARINT:
                                     intDecoder.decodeIntStream<std::uint32_t>(
-                                        tileData, geomColumn.vertexList, *geomStreamMetadata, /*isSigned=*/true);
+                                        tileData, geomColumn.vertices, *geomStreamMetadata, /*isSigned=*/true);
                                     break;
                             };
                             break;
@@ -125,30 +125,30 @@ public:
         return geomColumn;
     }
 
-    std::vector<std::unique_ptr<Geometry>> decodeGeometry(const GeometryColumn& geometryColumn) {
+    std::vector<std::unique_ptr<Geometry>> decodeGeometry(const GeometryColumn& geometryColumn) noexcept(false) {
         using namespace geometry;
         using metadata::tileset::GeometryType;
 
-        const auto& vertexList = geometryColumn.vertexList;
+        const auto& vertices = geometryColumn.vertices;
         const auto& vertexOffsets = geometryColumn.vertexOffsets;
-        const auto& geometryOffsets = geometryColumn.numGeometries;
-        const auto& partOffsets = geometryColumn.numParts;
-        const auto& ringOffsets = geometryColumn.numRings;
+        const auto& geometryOffsets = geometryColumn.geometryOffsets;
+        const auto& partOffsets = geometryColumn.partOffsets;
+        const auto& ringOffsets = geometryColumn.ringOffsets;
 
-        if (vertexList.empty()) {
+        if (vertices.empty()) {
             MLT_LOG_WARN("Warning: Vertex list is empty, skipping geometry decoding");
             return {};
         }
 
-        offset_t vertexBufferOffset = 0;
-        offset_t vertexOffsetsOffset = 0;
-        offset_t geometryCounter = 0;
-        offset_t geometryOffsetsCounter = 0;
-        offset_t ringOffsetsCounter = 0;
-        offset_t partOffsetCounter = 0;
+        count_t vertexBufferOffset = 0;
+        count_t vertexOffsetsOffset = 0;
+        count_t geometryCounter = 0;
+        count_t geometryOffsetsCounter = 0;
+        count_t ringOffsetsCounter = 0;
+        count_t partOffsetCounter = 0;
 
         std::vector<std::unique_ptr<Geometry>> geometries;
-        // geometries.reserve(...);
+        geometries.reserve(geometryColumn.geometryTypes.size());
         std::vector<Coordinate> coordBuffer;
 
         for (const auto geomType : geometryColumn.geometryTypes) {
@@ -170,107 +170,120 @@ public:
                     break;
                 }
                 case GeometryType::LINESTRING: {
-                    const auto numVertices = containsPolygon(geometryColumn) ? ringOffsets[ringOffsetsCounter++]
-                                                                             : partOffsets[partOffsetCounter++];
+                    const auto hasPolygon = containsPolygon(geometryColumn);
+                    const auto numVertices = hasPolygon ? ringOffsets[ringOffsetsCounter++]
+                                                        : partOffsets[partOffsetCounter++];
 
+                    std::vector<Coordinate> coords;
                     if (vertexOffsets.empty()) {
-                        auto vertices = getLineStringCoords(vertexList, vertexBufferOffset, numVertices, false);
+                        coords = getLineStringCoords(vertices, vertexBufferOffset, numVertices, false);
                         vertexBufferOffset += numVertices * 2;
-                        geometries.push_back(geometryFactory.createLineString(std::move(vertices)));
                     } else {
-                        const auto vertices = getDictionaryEncodedLineStringCoords(
-                            vertexList, vertexOffsets, vertexOffsetsOffset, numVertices, false);
+                        coords = getDictionaryEncodedLineStringCoords(
+                            vertices, vertexOffsets, vertexOffsetsOffset, numVertices, false);
                         vertexOffsetsOffset += numVertices;
-                        geometries.push_back(geometryFactory.createLineString(std::move(vertices)));
                     }
-
+                    geometries.push_back(geometryFactory.createLineString(std::move(coords)));
                     break;
                 }
-                case GeometryType::POLYGON:
-#if 0
-                const numRings = partOffsets[partOffsetCounter++];
-                const rings: LinearRing[] = new Array(numRings - 1);
-                let numVertices = ringOffsets[ringOffsetsCounter++];
-                if (!vertexOffsets || vertexOffsets.length === 0) {
-                    const shell = this.getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
-                    vertexBufferOffset += numVertices * 2;
-                    for (let i = 0; i < rings.length; i++) {
-                        numVertices = ringOffsets[ringOffsetsCounter++];
-                        rings[i] = this.getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
-                        vertexBufferOffset += numVertices * 2;
+                case GeometryType::POLYGON: {
+                    const auto numRings = partOffsets[partOffsetCounter++];
+                    Polygon::Shell shell;
+                    Polygon::RingVec rings;
+                    rings.reserve(numRings - 1);
+
+                    const auto shellVertices = ringOffsets[ringOffsetsCounter++];
+                    if (vertexOffsets.empty()) {
+                        shell = getLineStringCoords(vertices, vertexBufferOffset, shellVertices, true);
+                        vertexBufferOffset += shellVertices * 2;
+                    } else {
+                        shell = getDictionaryEncodedLineStringCoords(
+                            vertices, vertexOffsets, vertexOffsetsOffset, shellVertices, true);
+                        vertexOffsetsOffset += shellVertices;
                     }
-                    geometries[geometryCounter++] = geometryFactory.createPolygon(shell, rings);
-                } else {
-                    const shell = this.decodeDictionaryEncodedLinearRing(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
-                    vertexOffsetsOffset += numVertices;
-                    for (let i = 0; i < rings.length; i++) {
-                        numVertices = ringOffsets[ringOffsetsCounter++];
-                        rings[i] = this.decodeDictionaryEncodedLinearRing(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
-                        vertexOffsetsOffset += numVertices;
-                    }
-                    geometries[geometryCounter++] = geometryFactory.createPolygon(shell, rings);
-                }
-#endif
-                case GeometryType::MULTILINESTRING:
-#if 0
-                const numLineStrings = geometryOffsets[geometryOffsetsCounter++];
-                const lineStrings: LineString[] = new Array(numLineStrings);
-                if (!vertexOffsets || vertexOffsets.length === 0) {
-                    for (let i = 0; i < numLineStrings; i++) {
-                        const numVertices = containsPolygon
-                            ? ringOffsets[ringOffsetsCounter++] : partOffsets[partOffsetCounter++];
-                        const vertices = this.getLineString(vertexBuffer, vertexBufferOffset, numVertices, false);
-                        lineStrings[i] = geometryFactory.createLineString(vertices);
-                        vertexBufferOffset += numVertices * 2;
-                    }
-                    geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
-                } else {
-                    for (let i = 0; i < numLineStrings; i++) {
-                        const numVertices = containsPolygon
-                            ? ringOffsets[ringOffsetsCounter++] : partOffsets[partOffsetCounter++];
-                        const vertices = this.decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, false);
-                        lineStrings[i] = geometryFactory.createLineString(vertices);
-                        vertexOffsetsOffset += numVertices;
-                    }
-                    geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
-                }
-#endif
-                case GeometryType::MULTIPOLYGON:
-#if 0
-                const numPolygons = geometryOffsets[geometryOffsetsCounter++];
-                const polygons: Polygon[] = new Array(numPolygons);
-                if (!vertexOffsets || vertexOffsets.length === 0) {
-                    for (let i = 0; i < numPolygons; i++) {
-                        const numRings = partOffsets[partOffsetCounter++];
-                        const rings: LinearRing[] = new Array(numRings - 1);
-                        const numVertices = ringOffsets[ringOffsetsCounter++];
-                        const shell = this.getLinearRing(vertexBuffer, vertexBufferOffset, numVertices, geometryFactory);
-                        vertexBufferOffset += numVertices * 2;
-                        for (let j = 0; j < rings.length; j++) {
-                            const numRingVertices = ringOffsets[ringOffsetsCounter++];
-                            rings[j] = this.getLinearRing(vertexBuffer, vertexBufferOffset, numRingVertices, geometryFactory);
-                            vertexBufferOffset += numRingVertices * 2;
+
+                    const auto numVertices = ringOffsets[ringOffsetsCounter++];
+                    for (count_t i = 1; i < numRings; ++i) {
+                        if (vertexOffsets.empty()) {
+                            rings.push_back(getLineStringCoords(vertices, vertexBufferOffset, numVertices, true));
+                            vertexBufferOffset += numVertices * 2;
+                        } else {
+                            rings.push_back(getDictionaryEncodedLineStringCoords(
+                                vertices, vertexOffsets, vertexOffsetsOffset, numVertices, true));
+                            vertexOffsetsOffset += numVertices;
                         }
-                        polygons[i] = geometryFactory.createPolygon(shell, rings);
                     }
-                    geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
-                } else {
-                    for (let i = 0; i < numPolygons; i++) {
-                        const numRings = partOffsets[partOffsetCounter++];
-                        const rings: LinearRing[] = new Array(numRings - 1);
-                        const numVertices = ringOffsets[ringOffsetsCounter++];
-                        const shell = this.decodeDictionaryEncodedLinearRing(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
-                        vertexOffsetsOffset += numVertices;
-                        for (let j = 0; j < rings.length; j++) {
-                            const numRingVertices = ringOffsets[ringOffsetsCounter++];
-                            rings[j] = this.decodeDictionaryEncodedLinearRing(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
-                            vertexOffsetsOffset += numRingVertices;
-                        }
-                        polygons[i] = geometryFactory.createPolygon(shell, rings);
-                    }
-                    geometries[geometryCounter++] = geometryFactory.createMultiPolygon(polygons);
+
+                    geometries.push_back(geometryFactory.createPolygon(std::move(shell), std::move(rings)));
+                    break;
                 }
-#endif
+                case GeometryType::MULTILINESTRING: {
+                    const auto hasPolygon = containsPolygon(geometryColumn);
+                    const auto numLineStrings = geometryOffsets[geometryOffsetsCounter++];
+                    std::vector<std::vector<Coordinate>> lineStrings;
+                    for (count_t i = 0; i < numLineStrings; ++i) {
+                        const auto numVertices = hasPolygon ? ringOffsets[ringOffsetsCounter++]
+                                                            : partOffsets[partOffsetCounter++];
+                        std::vector<Coordinate> lineString;
+                        if (vertexOffsets.empty()) {
+                            lineString = getLineStringCoords(vertices, vertexBufferOffset, numVertices, false);
+                            vertexBufferOffset += numVertices * 2;
+                        } else {
+                            lineString = getDictionaryEncodedLineStringCoords(
+                                vertices, vertexOffsets, vertexOffsetsOffset, numVertices, false);
+                            vertexOffsetsOffset += numVertices;
+                        }
+                        lineStrings.push_back(std::move(lineString));
+                        lineString.clear();
+                    }
+                    geometries.push_back(geometryFactory.createMultiLineString(std::move(lineStrings)));
+                    break;
+                }
+                case GeometryType::MULTIPOLYGON: {
+                    const auto numPolygons = geometryOffsets[geometryOffsetsCounter++];
+                    std::vector<MultiPolygon::ShellRingsPair> polygons;
+                    std::vector<std::vector<Coordinate>> rings;
+                    if (vertexOffsets.empty()) {
+                        for (std::size_t i = 0; i < vertexOffsets.size(); ++i) {
+                            const auto numRings = partOffsets[partOffsetCounter++];
+                            const auto numVertices = ringOffsets[ringOffsetsCounter++];
+                            rings.reserve(numRings - 1);
+
+                            auto shell = getLineStringCoords(vertices, vertexBufferOffset, numVertices, true);
+                            vertexBufferOffset += numVertices * 2;
+
+                            for (count_t j = 1; j < numRings; ++j) {
+                                const auto numRingVertices = ringOffsets[ringOffsetsCounter++];
+                                rings.push_back(
+                                    getLineStringCoords(vertices, vertexBufferOffset, numRingVertices, true));
+                                vertexBufferOffset += numRingVertices * 2;
+                            }
+                            polygons.emplace_back(std::move(shell), std::move(rings));
+                            rings.clear();
+                        }
+                    } else {
+                        for (count_t i = 0; i < numPolygons; ++i) {
+                            const auto numRings = partOffsets[partOffsetCounter++];
+                            const auto numVertices = ringOffsets[ringOffsetsCounter++];
+                            rings.reserve(numRings - 1);
+
+                            auto shell = getDictionaryEncodedLineStringCoords(
+                                vertices, vertexOffsets, vertexOffsetsOffset, numVertices, true);
+                            vertexOffsetsOffset += numVertices;
+
+                            for (count_t j = 1; j < numRings; ++j) {
+                                const auto numRingVertices = ringOffsets[ringOffsetsCounter++];
+                                rings.push_back(getDictionaryEncodedLineStringCoords(
+                                    vertices, vertexOffsets, vertexOffsetsOffset, numVertices, true));
+                                vertexOffsetsOffset += numRingVertices;
+                            }
+                            polygons.emplace_back(std::move(shell), std::move(rings));
+                            rings.clear();
+                        }
+                    }
+                    geometries.push_back(geometryFactory.createMultiPolygon(std::move(polygons)));
+                    break;
+                }
                 default:
                     throw std::runtime_error("Unsupported geometry type: " +
                                              std::to_string(std::to_underlying(geomType)));
@@ -279,19 +292,28 @@ public:
         return geometries;
     }
 
-    static Coordinate nextPoint(const GeometryColumn& geometryColumn,
-                                offset_t& vertexBufferOffset,
-                                offset_t& vertexOffsetsOffset) {
+    inline static Coordinate nextPoint(const GeometryColumn& geometryColumn,
+                                       count_t& vertexBufferOffset,
+                                       count_t& vertexOffsetsOffset) noexcept(false) {
         if (geometryColumn.vertexOffsets.empty()) {
-            return {.x = static_cast<double>(geometryColumn.vertexList[vertexBufferOffset++]),
-                    .y = static_cast<double>(geometryColumn.vertexList[vertexBufferOffset++])};
+            if (geometryColumn.vertices.size() < vertexBufferOffset + 2) {
+                throw std::runtime_error("Vertex buffer underflow");
+            }
+            return {.x = static_cast<double>(geometryColumn.vertices[vertexBufferOffset++]),
+                    .y = static_cast<double>(geometryColumn.vertices[vertexBufferOffset++])};
+        }
+        if (geometryColumn.vertexOffsets.size() < vertexOffsetsOffset + 1) {
+            throw std::runtime_error("Vertex offset buffer underflow");
         }
         const auto offset = 2 * geometryColumn.vertexOffsets[vertexOffsetsOffset++];
-        return {.x = static_cast<double>(geometryColumn.vertexList[offset]),
-                .y = static_cast<double>(geometryColumn.vertexList[offset + 1])};
+        if (geometryColumn.vertices.size() < offset + 2) {
+            throw std::runtime_error("Vertex buffer underflow");
+        }
+        return {.x = static_cast<double>(geometryColumn.vertices[offset]),
+                .y = static_cast<double>(geometryColumn.vertices[offset + 1])};
     }
 
-    static bool containsPolygon(const GeometryColumn& geometryColumn) {
+    inline static bool containsPolygon(const GeometryColumn& geometryColumn) noexcept {
         return geometryColumn.geometryTypes.end() !=
                std::ranges::find_if(geometryColumn.geometryTypes, [](const auto type) {
                    return type == metadata::tileset::GeometryType::POLYGON ||
@@ -300,12 +322,12 @@ public:
     }
 
     static std::vector<Coordinate> getLineStringCoords(const std::vector<std::uint32_t>& vertexBuffer,
-                                                       offset_t startIndex,
-                                                       offset_t numVertices,
-                                                       bool closeLineString) {
+                                                       count_t startIndex,
+                                                       count_t numVertices,
+                                                       bool closeLineString) noexcept(false) {
         std::vector<Coordinate> coords;
         coords.reserve(closeLineString ? numVertices + 1 : numVertices);
-        std::generate_n(std::back_inserter(coords), numVertices, [&]() -> Coordinate {
+        std::generate_n(std::back_inserter(coords), numVertices, [&]() noexcept -> Coordinate {
             return {.x = static_cast<double>(vertexBuffer[startIndex++]),
                     .y = static_cast<double>(vertexBuffer[startIndex++])};
         });
@@ -317,12 +339,12 @@ public:
 
     static std::vector<Coordinate> getDictionaryEncodedLineStringCoords(const std::vector<std::uint32_t>& vertexBuffer,
                                                                         const std::vector<std::uint32_t>& vertexOffsets,
-                                                                        offset_t vertexOffset,
-                                                                        offset_t numVertices,
-                                                                        bool closeLineString) {
+                                                                        count_t vertexOffset,
+                                                                        count_t numVertices,
+                                                                        bool closeLineString) noexcept(false) {
         std::vector<Coordinate> coords;
         coords.reserve(closeLineString ? numVertices + 1 : numVertices);
-        for (offset_t i = 0; i < numVertices; ++i) {
+        for (count_t i = 0; i < numVertices; ++i) {
             const auto offset = 2 * vertexOffsets[vertexOffset + i];
             coords.emplace_back(static_cast<double>(vertexBuffer[offset]),
                                 static_cast<double>(vertexBuffer[offset + 1]));
@@ -332,18 +354,6 @@ public:
         }
         return coords;
     }
-
-#if 0
-    private static getLinearRing(vertexBuffer: number[], startIndex: number, numVertices: number, geometryFactory: GeometryFactory): LinearRing {
-        const linearRing = this.getLineString(vertexBuffer, startIndex, numVertices, true);
-        return geometryFactory.createLinearRing(linearRing);
-    }
-
-    private static decodeDictionaryEncodedLinearRing(vertexBuffer: number[], vertexOffsets: number[], vertexOffset: number, numVertices: number, geometryFactory: GeometryFactory): LinearRing {
-        const linearRing = this.decodeDictionaryEncodedLineString(vertexBuffer, vertexOffsets, vertexOffset, numVertices, true);
-        return geometryFactory.createLinearRing(linearRing);
-    }
-#endif
 
 private:
     IntegerDecoder intDecoder;

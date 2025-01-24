@@ -24,10 +24,13 @@ class IntegerDecoder {
 public:
     using StreamMetadata = metadata::stream::StreamMetadata;
 
-    IntegerDecoder() = default;
+    IntegerDecoder() noexcept(false) = default;
     IntegerDecoder(const IntegerDecoder&) = delete;
-    IntegerDecoder(IntegerDecoder&&) = default;
+    IntegerDecoder(IntegerDecoder&&) noexcept(false) = default;
     ~IntegerDecoder() = default;
+
+    IntegerDecoder& operator=(const IntegerDecoder&) = delete;
+    IntegerDecoder& operator=(IntegerDecoder&&) = delete;
 
     template <typename T, typename TTarget = T>
         requires(std::is_integral_v<T> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
@@ -35,7 +38,7 @@ public:
     void decodeIntArray(const std::vector<T>& values,
                         std::vector<TTarget>& out,
                         const StreamMetadata& streamMetadata,
-                        bool isSigned) {
+                        bool isSigned) noexcept(false) {
         using namespace metadata::stream;
         using namespace util::decoding;
         switch (streamMetadata.getLogicalLevelTechnique1()) {
@@ -91,7 +94,7 @@ public:
     void decodeIntStream(BufferStream& buffer,
                          std::vector<TTarget>& out,
                          const StreamMetadata& metadata,
-                         bool isSigned) {
+                         bool isSigned) noexcept(false) {
         using namespace util::decoding;
         using namespace metadata::stream;
 
@@ -115,8 +118,8 @@ private:
     FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
 
     template <typename T>
-    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const offset_t numRuns) {
-        offset_t outPos = 0;
+    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns) noexcept(false) {
+        count_t outPos = 0;
         for (std::uint32_t i = 0; i < numRuns; ++i) {
             const auto run = values[i];
             const auto value = values[i + numRuns];
@@ -128,8 +131,10 @@ private:
     }
 
     template <typename T>
-    static void decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const offset_t numRuns) {
-        offset_t outPos = 0;
+    static void decodeDeltaRLE(const std::vector<T>& values,
+                               std::vector<T>& out,
+                               const count_t numRuns) noexcept(false) {
+        count_t outPos = 0;
         T previousValue = 0;
         for (std::uint32_t i = 0; i < numRuns; ++i) {
             const auto run = values[i];
@@ -149,9 +154,12 @@ private:
     template <typename T, typename TTarget>
         requires(std::is_integral_v<T> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
                  sizeof(T) <= sizeof(TTarget))
-    static void decodeZigZagDelta(const std::vector<T>& values, std::vector<TTarget>& out) {
+    static void decodeZigZagDelta(const std::vector<T>& values, std::vector<TTarget>& out) noexcept(false) {
         assert(values.size() == out.size());
-        offset_t pos = 0;
+        if (out.size() < values.size()) {
+            throw std::runtime_error("insufficient output buffer");
+        }
+        count_t pos = 0;
         T previousValue = 0;
         for (const auto zigZagDelta : values) {
             // TODO: check signs
@@ -160,70 +168,11 @@ private:
         }
     }
 
-#if 0
-
-  private static List<Integer> decodeZigZagDelta(int[] data) {
-    var values = new ArrayList<Integer>(data.length);
-    var previousValue = 0;
-    for (var zigZagDelta : data) {
-      var delta = DecodingUtils.decodeZigZag(zigZagDelta);
-      var value = previousValue + delta;
-      values.add(value);
-      previousValue = value;
-    }
-
-    return values;
-  }
-
-  private static List<Integer> decodeDelta(int[] data) {
-    var values = new ArrayList<Integer>(data.length);
-    var previousValue = 0;
-    for (var delta : data) {
-      var value = previousValue + delta;
-      values.add(value);
-      previousValue = value;
-    }
-
-    return values;
-  }
-
-  private static List<Long> decodeZigZagDelta(long[] data) {
-    var values = new ArrayList<Long>(data.length);
-    var previousValue = 0l;
-    for (var zigZagDelta : data) {
-      var delta = DecodingUtils.decodeZigZag(zigZagDelta);
-      var value = previousValue + delta;
-      values.add(value);
-      previousValue = value;
-    }
-
-    return values;
-  }
-
-  private static List<Long> decodeZigZag(long[] data) {
-    var values = new ArrayList<Long>(data.length);
-    for (var zigZagDelta : data) {
-      var value = DecodingUtils.decodeZigZag(zigZagDelta);
-      values.add(value);
-    }
-    return values;
-  }
-
-  private static List<Integer> decodeZigZag(int[] data) {
-    var values = new ArrayList<Integer>(data.length);
-    for (var zigZagDelta : data) {
-      var value = DecodingUtils.decodeZigZag(zigZagDelta);
-      values.add(value);
-    }
-    return values;
-  }
-#endif
-
     template <typename T>
     void decodeFastPfor(BufferStream& buffer,
                         T* const result,
                         const std::size_t numValues,
-                        const std::size_t byteLength) {
+                        const std::size_t byteLength) noexcept(false) {
         const auto* inputValues = reinterpret_cast<const std::uint32_t*>(buffer.getReadPosition());
         auto resultCount = numValues;
         codec.decodeArray(inputValues, byteLength / sizeof(T), result, resultCount);
