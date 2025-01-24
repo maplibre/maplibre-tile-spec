@@ -9,6 +9,7 @@ struct Coordinate {
     const double x;
     const double y;
 };
+using CoordVec = std::vector<Coordinate>;
 
 class Geometry {
 public:
@@ -28,48 +29,88 @@ private:
 
 class MultiPoint : public Geometry {
 public:
-    MultiPoint(std::vector<Coordinate> coords)
+    MultiPoint(CoordVec coords)
         : coordinates(std::move(coords)) {}
 
 private:
-    std::vector<Coordinate> coordinates;
+    CoordVec coordinates;
 };
 
-class LineString : public Geometry {
+class LineString : public MultiPoint {
 public:
-    LineString(std::vector<Coordinate> coords)
-        : coordinates(std::move(coords)) {}
+    LineString(CoordVec coords)
+        : MultiPoint(std::move(coords)) {}
 
 private:
-    std::vector<Coordinate> coordinates;
+};
+
+class LinearRing : public MultiPoint {
+public:
+    LinearRing(CoordVec coords)
+        : MultiPoint(std::move(coords)) {}
+
+private:
+};
+
+class MultiLineString : public Geometry {
+public:
+    MultiLineString(std::vector<CoordVec> lineStrings_)
+        : lineStrings(std::move(lineStrings_)) {}
+
+private:
+    std::vector<CoordVec> lineStrings;
+};
+
+class Polygon : public Geometry {
+public:
+    using Shell = CoordVec;
+    using Ring = CoordVec;
+    using RingVec = std::vector<Ring>;
+
+    Polygon(Shell shell_, RingVec rings_)
+        : shell(std::move(shell_)),
+          rings(std::move(rings_)) {}
+
+private:
+    Shell shell;
+    RingVec rings;
+};
+
+class MultiPolygon : public Geometry {
+public:
+    using Shell = CoordVec;
+    using Ring = CoordVec;
+    using RingVec = std::vector<Ring>;
+    using ShellRingsPair = std::pair<Shell, RingVec>;
+
+    MultiPolygon(std::vector<ShellRingsPair> polygons_)
+        : polygons(std::move(polygons_)) {}
+
+private:
+    std::vector<ShellRingsPair> polygons;
 };
 
 class GeometryFactory {
 public:
     std::unique_ptr<Point> createPoint(const Coordinate& coord) { return std::make_unique<Point>(coord); }
-    std::unique_ptr<MultiPoint> createMultiPoint(std::vector<Coordinate> coords) {
+    std::unique_ptr<MultiPoint> createMultiPoint(CoordVec&& coords) {
         return std::make_unique<MultiPoint>(std::move(coords));
     }
-    std::unique_ptr<LineString> createLineString(std::vector<Coordinate> coords) {
+    std::unique_ptr<LineString> createLineString(CoordVec&& coords) {
         return std::make_unique<LineString>(std::move(coords));
     }
-#if 0
-    createLineString(vertices: Point[]) {
-        return new LineString(vertices);
+    std::unique_ptr<LineString> createLinearRing(CoordVec&& coords) {
+        return std::make_unique<LineString>(std::move(coords));
     }
-    createLinearRing(linearRing: Point[]): LinearRing {
-        return new LinearRing(linearRing);
+    std::unique_ptr<Polygon> createPolygon(CoordVec&& shell, std::vector<CoordVec>&& rings) {
+        return std::make_unique<Polygon>(std::move(shell), std::move(rings));
     }
-    createPolygon(shell: LinearRing, rings: LinearRing[]) {
-        return new Polygon(shell, rings);
+    std::unique_ptr<MultiLineString> createMultiLineString(std::vector<CoordVec>&& lineStrings) {
+        return std::make_unique<MultiLineString>(std::move(lineStrings));
     }
-    createMultiLineString(lineStrings: LineString[]) {
-        return new MultiLineString(lineStrings);
+    std::unique_ptr<MultiPolygon> createMultiPolygon(std::vector<MultiPolygon::ShellRingsPair>&& polygons) {
+        return std::make_unique<MultiPolygon>(std::move(polygons));
     }
-    createMultiPolygon(polygons: Polygon[]) {
-        return new MultiPolygon(polygons);
-    }
-#endif
 };
 
 } // namespace mlt

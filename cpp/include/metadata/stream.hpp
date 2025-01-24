@@ -65,29 +65,26 @@ enum class PhysicalStreamType {
 
 class LogicalStreamType {
 public:
-    LogicalStreamType(DictionaryType type)
+    LogicalStreamType(DictionaryType type) noexcept
         : dictionaryType(type) {}
-    LogicalStreamType(OffsetType type)
+    LogicalStreamType(OffsetType type) noexcept
         : offsetType(type) {}
-    LogicalStreamType(LengthType type)
+    LogicalStreamType(LengthType type) noexcept
         : lengthType(type) {}
 
     LogicalStreamType() = delete;
     LogicalStreamType(const LogicalStreamType&) = delete;
-    LogicalStreamType(LogicalStreamType&&) = default;
+    LogicalStreamType(LogicalStreamType&&) noexcept = default;
 
-    const std::optional<DictionaryType>& getDictionaryType() const { return dictionaryType; }
-    const std::optional<OffsetType>& getOffsetType() const { return offsetType; }
-    const std::optional<LengthType>& getLengthType() const { return lengthType; }
+    const std::optional<DictionaryType>& getDictionaryType() const noexcept { return dictionaryType; }
+    const std::optional<OffsetType>& getOffsetType() const noexcept { return offsetType; }
+    const std::optional<LengthType>& getLengthType() const noexcept { return lengthType; }
 
 private:
     std::optional<DictionaryType> dictionaryType;
     std::optional<OffsetType> offsetType;
     std::optional<LengthType> lengthType;
 };
-
-class StreamMetadata;
-std::unique_ptr<StreamMetadata> decode(BufferStream&);
 
 class StreamMetadata {
 public:
@@ -97,7 +94,7 @@ public:
                    LogicalLevelTechnique logicalLevelTechnique2_,
                    PhysicalLevelTechnique physicalLevelTechnique_,
                    std::uint32_t numValues_,
-                   std::uint32_t byteLength_)
+                   std::uint32_t byteLength_) noexcept
         : physicalStreamType(physicalStreamType_),
           logicalStreamType(std::move(logicalStreamType_)),
           logicalLevelTechnique1(logicalLevelTechnique1_),
@@ -105,10 +102,15 @@ public:
           physicalLevelTechnique(physicalLevelTechnique_),
           numValues(numValues_),
           byteLength(byteLength_) {}
+    virtual ~StreamMetadata() = default;
+
+    virtual LogicalLevelTechnique getMetadataType() const noexcept { return LogicalLevelTechnique::NONE; }
+
+    static std::unique_ptr<StreamMetadata> decode(BufferStream&) noexcept(false);
 
     StreamMetadata() = delete;
     StreamMetadata(const StreamMetadata&) = delete;
-    StreamMetadata(StreamMetadata&&) = default;
+    StreamMetadata(StreamMetadata&&) noexcept = default;
 
     PhysicalStreamType getPhysicalStreamType() const { return physicalStreamType; }
     const std::optional<LogicalStreamType>& getLogicalStreamType() const { return logicalStreamType; }
@@ -116,16 +118,16 @@ public:
     LogicalLevelTechnique getLogicalLevelTechnique2() const { return logicalLevelTechnique2; }
     PhysicalLevelTechnique getPhysicalLevelTechnique() const { return physicalLevelTechnique; }
 
-    std::uint32_t getNumValues() const { return numValues; }
-    std::uint32_t getByteLength() const { return byteLength; }
+    std::uint32_t getNumValues() const noexcept { return numValues; }
+    std::uint32_t getByteLength() const noexcept { return byteLength; }
 
 private:
-    int getLogicalType();
+    int getLogicalType() const noexcept;
 
     friend class RleEncodedStreamMetadata;
     friend class MortonEncodedStreamMetadata;
     friend std::unique_ptr<StreamMetadata> decode(BufferStream&);
-    static StreamMetadata decode(BufferStream&);
+    static StreamMetadata decodeInternal(BufferStream&);
 
     PhysicalStreamType physicalStreamType;
     std::optional<LogicalStreamType> logicalStreamType;
@@ -147,49 +149,48 @@ public:
      * @param runs Length of the runs array
      * @param numRleValues Used for pre-allocating the arrays on the client for faster decoding
      */
-    RleEncodedStreamMetadata(
-        PhysicalStreamType physicalStreamType_,
-        std::optional<LogicalStreamType> logicalStreamType_,
-        LogicalLevelTechnique logicalLevelTechnique1_,
-        LogicalLevelTechnique logicalLevelTechnique2_,
-        PhysicalLevelTechnique physicalLevelTechnique_,
-        int numValues_,
-        int byteLength_,
-        int runs_,
-        int numRleValues_) :
-      StreamMetadata(
-          physicalStreamType_,
-          std::move(logicalStreamType_),
-          logicalLevelTechnique1_,
-          logicalLevelTechnique2_,
-          physicalLevelTechnique_,
-          numValues_,
-          byteLength_),
-      runs(runs_),
-      numRleValues(numRleValues_) {
-    }
+    RleEncodedStreamMetadata(PhysicalStreamType physicalStreamType_,
+                             std::optional<LogicalStreamType> logicalStreamType_,
+                             LogicalLevelTechnique logicalLevelTechnique1_,
+                             LogicalLevelTechnique logicalLevelTechnique2_,
+                             PhysicalLevelTechnique physicalLevelTechnique_,
+                             int numValues_,
+                             int byteLength_,
+                             int runs_,
+                             int numRleValues_) noexcept
+        : StreamMetadata(physicalStreamType_,
+                         std::move(logicalStreamType_),
+                         logicalLevelTechnique1_,
+                         logicalLevelTechnique2_,
+                         physicalLevelTechnique_,
+                         numValues_,
+                         byteLength_),
+          runs(runs_),
+          numRleValues(numRleValues_) {}
 
-    RleEncodedStreamMetadata(StreamMetadata&& streamMetadata, int runs_, int numRleValues_) :
-      StreamMetadata(std::move(streamMetadata)),
-      runs(runs_),
-      numRleValues(numRleValues_) {
-    }
+    RleEncodedStreamMetadata(StreamMetadata&& streamMetadata, int runs_, int numRleValues_) noexcept
+        : StreamMetadata(std::move(streamMetadata)),
+          runs(runs_),
+          numRleValues(numRleValues_) {}
 
     RleEncodedStreamMetadata() = delete;
     RleEncodedStreamMetadata(const RleEncodedStreamMetadata&) = delete;
-    RleEncodedStreamMetadata(RleEncodedStreamMetadata&&) = default;
+    RleEncodedStreamMetadata(RleEncodedStreamMetadata&&) noexcept = default;
 
-    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
-      const auto [runs, numValues] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
-      return RleEncodedStreamMetadata(std::move(streamMetadata), runs, numValues);
+    LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::RLE; }
+
+    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata,
+                                                  BufferStream& buffer) noexcept(false) {
+        const auto [runs, numValues] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
+        return RleEncodedStreamMetadata(std::move(streamMetadata), runs, numValues);
     }
 
-    static RleEncodedStreamMetadata decode(BufferStream& buffer) {
-      return decodePartial(StreamMetadata::decode(buffer), buffer);
+    static RleEncodedStreamMetadata decode(BufferStream& buffer) noexcept(false) {
+        return decodePartial(decodeInternal(buffer), buffer);
     }
 
-    int getRuns() const { return runs; }
-    int getNumRleValues() const { return numRleValues; }
+    int getRuns() const noexcept { return runs; }
+    int getNumRleValues() const noexcept { return numRleValues; }
 
 private:
     int runs;
@@ -198,49 +199,44 @@ private:
 
 class MortonEncodedStreamMetadata : public StreamMetadata {
 public:
-    MortonEncodedStreamMetadata(
-        PhysicalStreamType physicalStreamType_,
-        LogicalStreamType logicalStreamType_,
-        LogicalLevelTechnique logicalLevelTechnique1_,
-        LogicalLevelTechnique logicalLevelTechnique2_,
-        PhysicalLevelTechnique physicalLevelTechnique_,
-        int numValues_,
-        int byteLength_,
-        int numBits_,
-        int coordinateShift_) :
-      StreamMetadata(
-          physicalStreamType_,
-          std::move(logicalStreamType_),
-          logicalLevelTechnique1_,
-          logicalLevelTechnique2_,
-          physicalLevelTechnique_,
-          numValues_,
-          byteLength_),
-      numBits(numBits_),
-      coordinateShift(coordinateShift_) {
+    MortonEncodedStreamMetadata(PhysicalStreamType physicalStreamType_,
+                                LogicalStreamType logicalStreamType_,
+                                LogicalLevelTechnique logicalLevelTechnique1_,
+                                LogicalLevelTechnique logicalLevelTechnique2_,
+                                PhysicalLevelTechnique physicalLevelTechnique_,
+                                int numValues_,
+                                int byteLength_,
+                                int numBits_,
+                                int coordinateShift_) noexcept
+        : StreamMetadata(physicalStreamType_,
+                         std::move(logicalStreamType_),
+                         logicalLevelTechnique1_,
+                         logicalLevelTechnique2_,
+                         physicalLevelTechnique_,
+                         numValues_,
+                         byteLength_),
+          numBits(numBits_),
+          coordinateShift(coordinateShift_) {}
+
+    MortonEncodedStreamMetadata(StreamMetadata&& streamMetadata, int numBits_, int coordinateShift_) noexcept
+        : StreamMetadata(std::move(streamMetadata)),
+          numBits(numBits_),
+          coordinateShift(coordinateShift_) {}
+
+    LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::MORTON; }
+
+    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata,
+                                                     BufferStream& buffer) noexcept(false) {
+        const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
+        return MortonEncodedStreamMetadata(std::move(streamMetadata), numBits, coordShift);
     }
 
-    MortonEncodedStreamMetadata(
-        StreamMetadata&& streamMetadata,
-        int numBits_,
-        int coordinateShift_) :
-      StreamMetadata(std::move(streamMetadata)),
-      numBits(numBits_),
-      coordinateShift(coordinateShift_) {
+    static MortonEncodedStreamMetadata decode(BufferStream& buffer) noexcept(false) {
+        return decodePartial(decodeInternal(buffer), buffer);
     }
 
-    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
-      const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
-      return MortonEncodedStreamMetadata(std::move(streamMetadata), numBits, coordShift);
-    }
-
-    static MortonEncodedStreamMetadata decode(BufferStream& buffer) {
-      auto streamMetadata = StreamMetadata::decode(buffer);
-      return decodePartial(std::move(streamMetadata), buffer);
-    }
-
-    int getNumBits() const { return numBits; }
-    int getCoordinateShift() const { return coordinateShift; }
+    int getNumBits() const noexcept { return numBits; }
+    int getCoordinateShift() const noexcept { return coordinateShift; }
 
 private:
     int numBits;
