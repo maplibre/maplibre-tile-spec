@@ -3030,7 +3030,10 @@ export function fastunpack(inArray: Uint32Array, inpos: number, outArray: Uint32
 }
 
 function fastunpack0(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray.fill(0, outpos, outpos + 32);
+  for (let i = 0; i < 32; i++) {
+    outArray[outpos + i] = 0;
+  }
+  // outArray.fill(0, outpos, outpos + 32);
 }
 
 function fastunpack1(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
