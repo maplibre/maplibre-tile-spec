@@ -28,7 +28,7 @@ struct GeometryColumn {
     std::vector<std::uint32_t> partOffsets;
     std::vector<std::uint32_t> ringOffsets;
     std::vector<std::uint32_t> vertexOffsets;
-    std::vector<std::uint32_t> vertices;
+    std::vector<std::int32_t> vertices;
 };
 } // namespace mlt::geometry
 
@@ -45,11 +45,13 @@ public:
                                         std::uint32_t numStreams) noexcept(false) {
         using namespace util::decoding;
         using namespace metadata::stream;
+        using namespace metadata::tileset;
 
         GeometryColumn geomColumn;
 
         const auto geomTypeMetadata = StreamMetadata::decode(tileData);
-        intDecoder.decodeIntStream<uint32_t>(tileData, geomColumn.geometryTypes, *geomTypeMetadata, /*isSigned=*/false);
+        intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, GeometryType>(
+            tileData, geomColumn.geometryTypes, *geomTypeMetadata);
 
         for (std::uint32_t i = 1; i < numStreams; ++i) {
             const auto geomStreamMetadata = StreamMetadata::decode(tileData);
@@ -60,7 +62,6 @@ public:
                         throw std::runtime_error("Length stream missing logical type: " + column.name);
                     }
                     const auto type = *geomStreamMetadata->getLogicalStreamType()->getLengthType();
-                    geomColumn.geometryOffsets.resize(geomStreamMetadata->getNumValues());
                     std::optional<std::reference_wrapper<std::vector<std::uint32_t>>> target;
                     switch (type) {
                         case LengthType::GEOMETRIES:
@@ -77,13 +78,12 @@ public:
                             throw std::runtime_error("Length stream type '" + std::to_string(std::to_underlying(type)) +
                                                      " not implemented: " + column.name);
                     }
-                    intDecoder.decodeIntStream<std::uint32_t>(
-                        tileData, target->get(), *geomStreamMetadata, /*isSigned=*/false);
+                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t>(
+                        tileData, target->get(), *geomStreamMetadata);
                     break;
                 }
                 case PhysicalStreamType::OFFSET:
-                    intDecoder.decodeIntStream<std::uint32_t>(
-                        tileData, geomColumn.vertexOffsets, *geomStreamMetadata, /*isSigned=*/false);
+                    intDecoder.decodeIntStream<std::uint32_t>(tileData, geomColumn.vertexOffsets, *geomStreamMetadata);
                     break;
                 case PhysicalStreamType::DATA: {
                     if (!geomStreamMetadata->getLogicalStreamType() ||
@@ -101,13 +101,20 @@ public:
                                 case PhysicalLevelTechnique::ALP:
                                     // TODO: other implementations are not clear on whether these are valid
                                 case PhysicalLevelTechnique::VARINT:
-                                    intDecoder.decodeIntStream<std::uint32_t>(
-                                        tileData, geomColumn.vertices, *geomStreamMetadata, /*isSigned=*/true);
+                                    intDecoder
+                                        .decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t, /*isSigned=*/true>(
+                                            tileData, geomColumn.vertices, *geomStreamMetadata);
                                     break;
                             };
                             break;
-                        case DictionaryType::MORTON:
+                        case DictionaryType::MORTON: {
+                            assert(geomStreamMetadata->getMetadataType() == LogicalLevelTechnique::MORTON);
+                            const auto& mortonStreamMetadata = static_cast<MortonEncodedStreamMetadata&>(
+                                *geomStreamMetadata);
+                            intDecoder.decodeMortonStream<std::uint32_t, std::int32_t>(
+                                tileData, geomColumn.vertices, mortonStreamMetadata);
                             break;
+                        }
                         case DictionaryType::NONE:
                         case DictionaryType::SINGLE:
                         case DictionaryType::SHARED:
@@ -321,7 +328,7 @@ public:
                });
     }
 
-    static std::vector<Coordinate> getLineStringCoords(const std::vector<std::uint32_t>& vertexBuffer,
+    static std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                                        count_t startIndex,
                                                        count_t numVertices,
                                                        bool closeLineString) noexcept(false) {
@@ -337,7 +344,7 @@ public:
         return coords;
     }
 
-    static std::vector<Coordinate> getDictionaryEncodedLineStringCoords(const std::vector<std::uint32_t>& vertexBuffer,
+    static std::vector<Coordinate> getDictionaryEncodedLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                                                         const std::vector<std::uint32_t>& vertexOffsets,
                                                                         count_t vertexOffset,
                                                                         count_t numVertices,
