@@ -1,6 +1,7 @@
 #pragma once
 
 #include <common.hpp>
+#include <type_traits>
 #include <util/buffer_stream.hpp>
 
 #include <stdexcept>
@@ -52,9 +53,9 @@ inline std::uint64_t decodeVarint(BufferStream& buffer) noexcept(false) {
 
 /// Decode N varints, retrurning the values in a `std::tuple`
 template <typename T, std::size_t N>
-    requires(std::is_integral_v<T>, 0 < N)
+    requires(std::is_integral_v<T> || std::is_enum_v<T>, 0 < N)
 auto decodeVarints(BufferStream& buffer) noexcept(false) {
-    auto v = std::make_tuple(decodeVarint<std::uint32_t>(buffer));
+    auto v = std::make_tuple(static_cast<T>(decodeVarint<std::uint32_t>(buffer)));
     if constexpr (N == 1) {
         return v;
     } else
@@ -64,13 +65,15 @@ auto decodeVarints(BufferStream& buffer) noexcept(false) {
 /// Decode N varints into the provided buffer
 /// Each result is cast to the target type.
 template <typename TDecode, typename TTarget = TDecode>
-    requires(std::is_integral_v<TDecode> && std::is_integral_v<TTarget> && sizeof(TDecode) <= sizeof(TTarget))
+    requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
+             sizeof(TDecode) <= sizeof(TTarget))
 void decodeVarints(BufferStream& buffer, count_t numValues, TTarget* out) noexcept(false) {
     std::generate_n(out, numValues, [&buffer]() { return static_cast<TTarget>(decodeVarint<TDecode>(buffer)); });
 }
 
 template <typename TDecode, typename TTarget = TDecode>
-    requires(std::is_integral_v<TDecode> && std::is_integral_v<TTarget> && sizeof(TDecode) <= sizeof(TTarget))
+    requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
+             sizeof(TDecode) <= sizeof(TTarget))
 void decodeVarints(BufferStream& buffer, std::vector<TTarget>& out) noexcept(false) {
     decodeVarints<TDecode, TTarget>(buffer, out.size(), out.data());
 }

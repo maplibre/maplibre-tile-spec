@@ -7,6 +7,17 @@
 
 namespace mlt::util::decoding {
 
+inline void decodeRaw(BufferStream& buffer,
+                      std::vector<std::uint8_t>& out,
+                      count_t numBytes,
+                      bool consume) noexcept(false) {
+    out.resize(numBytes);
+    std::copy(buffer.getReadPosition(), buffer.getReadPosition() + numBytes, out.begin());
+    if (consume) {
+        buffer.consume(numBytes);
+    }
+}
+
 template <typename T>
 void decodeRaw(BufferStream& buffer,
                std::vector<T>& out,

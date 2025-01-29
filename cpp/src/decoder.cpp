@@ -41,8 +41,6 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
     std::vector<Layer> layers;
     // layers.reserve(...);
 
-    std::vector<std::uint8_t> buffer;
-
     while (tileData.available()) {
         std::vector<Feature::id_t> ids;
         std::vector<std::unique_ptr<Geometry>> geometries;
@@ -81,12 +79,11 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                     case metadata::tileset::schema::ScalarType::INT_32:
                     case metadata::tileset::schema::ScalarType::UINT_32:
                         impl->integerDecoder.decodeIntStream<std::uint32_t, std::uint64_t>(
-                            tileData, ids, *idDataStreamMetadata, false);
+                            tileData, ids, *idDataStreamMetadata);
                         break;
                     case metadata::tileset::schema::ScalarType::INT_64:
                     case metadata::tileset::schema::ScalarType::UINT_64:
-                        impl->integerDecoder.decodeIntStream<std::uint64_t>(
-                            tileData, ids, *idDataStreamMetadata, false);
+                        impl->integerDecoder.decodeIntStream<std::uint64_t>(tileData, ids, *idDataStreamMetadata);
                         break;
                     default:
                         throw std::runtime_error("unsupported id data type");
@@ -96,14 +93,8 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                 const auto geometryColumn = decoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
                 geometries = decoder.decodeGeometry(geometryColumn);
             } else {
-                const auto propertyColumn = impl->propertyDecoder.decodePropertyColumn(
-                    tileData, columnMetadata, numStreams);
-                // if (propertyColumn instanceof Map<?, ?> map) {
-                //     nested properties not implemented
-                //     }
-                // } else {
-                //     properties[columnName] = propertyColumn;
-                // }
+                const auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
+                properties.emplace(columnMetadata.name, std::move(property));
             }
         }
 

@@ -11,6 +11,11 @@ using DataView = std::string_view;
 
 using count_t = std::uint32_t;
 
+template <typename T, std::size_t N>
+constexpr std::size_t countof(T (&)[N]) {
+    return N;
+}
+
 #define MLT_LOG_WARN(s) std::cerr << s << '\n'
 
 } // namespace mlt

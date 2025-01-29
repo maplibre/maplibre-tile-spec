@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <concepts>
 #include <type_traits>
 #include <util/buffer_stream.hpp>
 
@@ -154,23 +156,33 @@ inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, count_t numBi
 void decodeBoolean(BufferStream&, std::vector<uint8_t>&, const metadata::stream::StreamMetadata&, bool consume);
 
 /// Decode RLE bits to int/long values
-/// @param buffer The source data
-/// @param out The target for output
+/// @param in The source data
+/// @param out The target for output, must already be sized to contain the resulting data
 /// @param numRuns The number of RLE runs in the input
-/// @param numValues The total number of values encoded, and the size of `out`
 /// @throws std::runtime_error The provided buffer does not contain enough data
-template <typename T>
-    requires(std::is_integral_v<T> && !std::is_const_v<T> && 2 <= sizeof(T) && sizeof(T) <= 8)
-void decodeInt(BufferStream& buffer, T* out, const count_t numRuns, const count_t numValues) {
-    auto offset = 0;
+template <typename T, typename TTarget = T, typename F = std::function<TTarget(T)>>
+    requires(std::is_integral_v<T> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
+             sizeof(T) <= sizeof(TTarget) && std::regular_invocable<F, T> &&
+             std::is_same_v<std::invoke_result_t<F, T>, TTarget>)
+void decodeInt(
+    const std::vector<T>& in,
+    std::vector<TTarget>& out,
+    const count_t numRuns,
+    std::function<TTarget(T)> convert = [](T x) { return static_cast<TTarget>(x); }) {
+    count_t inOffset = 0;
+    count_t outOffset = 0;
     for (auto i = 0; i < numRuns; ++i) {
-        auto runLength = buffer.read<std::uint32_t>();
-        if (offset + runLength > numValues || !buffer.available(runLength * sizeof(T))) {
+        if (in.size() < inOffset + 2) {
             throw std::runtime_error("Unexpected end of buffer");
         }
-        std::memcpy(out + offset, buffer.getReadPosition(), runLength * sizeof(T));
-        buffer.consume(runLength * sizeof(T));
-        offset += runLength;
+        const T runLength = in[inOffset];
+        const TTarget runValue = convert(in[inOffset++ + numRuns]);
+        if (out.size() < outOffset + runLength) {
+            throw std::runtime_error("Unexpected end of buffer");
+        }
+
+        std::fill_n(std::next(out.begin(), outOffset), runLength, runValue);
+        outOffset += runLength;
     }
 }
 

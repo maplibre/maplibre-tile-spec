@@ -25,10 +25,12 @@ public:
 
     void decode(BufferStream& tileData,
                 count_t numStreams,
-                const std::vector<std::uint8_t>& presentStream,
                 count_t numValues,
+                const std::vector<std::uint8_t>& presentStream,
                 std::vector<std::string>& out) noexcept(false) {
         using namespace metadata::stream;
+
+        assert(numValues <= 8 * presentStream.size());
 
         std::vector<std::uint8_t> symDataStream;
         std::vector<std::uint8_t> dictDataStream;
@@ -41,8 +43,7 @@ public:
                 case PhysicalStreamType::PRESENT:
                     throw std::runtime_error("Present stream not supported for string columns");
                 case PhysicalStreamType::OFFSET:
-                    intDecoder.decodeIntStream<std::uint32_t>(
-                        tileData, offsetStream, *streamMetadata, /*isSigned=-*/ false);
+                    intDecoder.decodeIntStream<std::uint32_t>(tileData, offsetStream, *streamMetadata);
                     break;
                 case PhysicalStreamType::LENGTH: {
                     if (!streamMetadata->getLogicalStreamType() ||
@@ -51,7 +52,7 @@ public:
                     }
                     const auto type = *streamMetadata->getLogicalStreamType()->getLengthType();
                     auto& target = (type == LengthType::DICTIONARY) ? dictLengthStream : symLengthStream;
-                    intDecoder.decodeIntStream<std::uint32_t>(tileData, target, *streamMetadata, /*isSigned=-*/ false);
+                    intDecoder.decodeIntStream<std::uint32_t>(tileData, target, *streamMetadata);
                     break;
                 }
                 case PhysicalStreamType::DATA: {
@@ -61,7 +62,7 @@ public:
                     }
                     const auto type = *streamMetadata->getLogicalStreamType()->getDictionaryType();
                     auto& target = (type == DictionaryType::SINGLE) ? dictDataStream : symDataStream;
-                    util::decoding::decodeRaw(tileData, target, *streamMetadata, /*consume=*/true);
+                    util::decoding::decodeRaw(tileData, target, streamMetadata->getByteLength(), /*consume=*/true);
                     break;
                 }
             }

@@ -17,15 +17,13 @@ namespace mlt::decoder {
 
 class PropertyDecoder {
 public:
-    using PropertyMap = Feature::PropertyMap;
-
     PropertyDecoder(IntegerDecoder& intDecoder_, StringDecoder& stringDecoder_) noexcept(false)
         : intDecoder(intDecoder_),
           stringDecoder(stringDecoder_) {}
 
-    PropertyMap decodePropertyColumn(BufferStream& tileData,
-                                     const metadata::tileset::Column& column,
-                                     std::uint32_t numStreams) noexcept(false) {
+    Feature::Property decodePropertyColumn(BufferStream& tileData,
+                                           const metadata::tileset::Column& column,
+                                           std::uint32_t numStreams) noexcept(false) {
         using namespace metadata;
         using namespace metadata::stream;
         using namespace metadata::tileset;
@@ -33,8 +31,10 @@ public:
 
         if (std::holds_alternative<ScalarColumn>(column.type)) {
             std::vector<std::uint8_t> presentStream;
+            count_t presentValueCount = 0;
             if (numStreams > 1) {
                 const auto presentStreamMetadata = StreamMetadata::decode(tileData);
+                presentValueCount = presentStreamMetadata->getNumValues();
                 rle::decodeBoolean(tileData, presentStream, *presentStreamMetadata, /*consume=*/true);
             }
 
@@ -62,45 +62,53 @@ public:
                     break;
             }
 
-            std::vector<std::uint8_t> byteBuffer;
-            std::vector<std::uint32_t> intBuffer;
-            std::vector<std::uint64_t> longBuffer;
-            std::vector<float> floatBuffer;
-            std::vector<double> doubleBuffer;
             switch (scalarType) {
                 case ScalarType::BOOLEAN: {
+                    std::vector<std::uint8_t> byteBuffer;
                     rle::decodeBoolean(tileData, byteBuffer, *streamMetadata, /*consume=*/true);
-                    byteBuffer.clear();
                     break;
                 }
                 case ScalarType::INT_8:
                 case ScalarType::UINT_8:
                     throw std::runtime_error("8-bit integer type not implemented");
-                case ScalarType::INT_32:
+                case ScalarType::INT_32: {
+                    std::vector<std::uint32_t> intBuffer;
+                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/true>(
+                        tileData, intBuffer, *streamMetadata);
+                    return intBuffer;
+                }
                 case ScalarType::UINT_32: {
-                    const bool isSigned = (scalarType == ScalarType::INT_32);
-                    intDecoder.decodeIntStream<std::uint32_t>(tileData, intBuffer, *streamMetadata, isSigned);
-                    intBuffer.clear();
-                    break;
+                    std::vector<std::uint32_t> intBuffer;
+                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/false>(
+                        tileData, intBuffer, *streamMetadata);
+                    return intBuffer;
                 }
-                case ScalarType::INT_64:
+                case ScalarType::INT_64: {
+                    std::vector<std::uint64_t> longBuffer;
+                    intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/true>(
+                        tileData, longBuffer, *streamMetadata);
+                    return longBuffer;
+                }
                 case ScalarType::UINT_64: {
-                    const bool isSigned = (scalarType == ScalarType::INT_64);
-                    intDecoder.decodeIntStream<std::uint64_t>(tileData, longBuffer, *streamMetadata, isSigned);
-                    longBuffer.clear();
+                    std::vector<std::uint64_t> longBuffer;
+                    intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/false>(
+                        tileData, longBuffer, *streamMetadata);
+                    return longBuffer;
                 }
-                case ScalarType::FLOAT:
+                case ScalarType::FLOAT: {
+                    std::vector<float> floatBuffer;
                     decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
-                    floatBuffer.clear();
-                    break;
-                case ScalarType::DOUBLE:
+                    return floatBuffer;
+                }
+                case ScalarType::DOUBLE: {
+                    std::vector<double> doubleBuffer;
                     decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
-                    doubleBuffer.clear();
-                    break;
+                    return doubleBuffer;
+                }
                 case ScalarType::STRING: {
                     std::vector<std::string> strings;
-                    stringDecoder.decode(tileData, numStreams, presentStream, streamMetadata->getNumValues(), strings);
-                    break;
+                    stringDecoder.decode(tileData, numStreams - 1, presentValueCount, presentStream, strings);
+                    return strings;
                 }
                 default:
                     throw std::runtime_error("Unknown scalar type: " + std::to_string(std::to_underlying(scalarType)));

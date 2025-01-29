@@ -1,4 +1,6 @@
 #include <metadata/stream.hpp>
+#include <stdexcept>
+#include <utility>
 
 namespace mlt::metadata::stream {
 
@@ -20,7 +22,7 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
 std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& buffer) {
     auto streamMetadata = decodeInternal(buffer);
 
-    // Currently morton can't be combined with RLE only with delta
+    // Currently Morton can't be combined with RLE only with delta
     if (streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::MORTON) {
         auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), buffer);
         return std::make_unique<MortonEncodedStreamMetadata>(std::move(result));
@@ -32,7 +34,6 @@ std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& buffer) {
         auto result = RleEncodedStreamMetadata::decodePartial(std::move(streamMetadata), buffer);
         return std::make_unique<RleEncodedStreamMetadata>(std::move(result));
     }
-
     return std::make_unique<StreamMetadata>(std::move(streamMetadata));
 }
 
