@@ -27,7 +27,7 @@ std::vector<std::ifstream::char_type> loadFile(const std::filesystem::path& path
 
 const auto basePath = "../test/expected"s;
 
-auto loadTile(std::string path) {
+auto loadTile(const std::string& path) {
     auto buffer = loadFile(path);
     EXPECT_FALSE(buffer.empty());
 
@@ -79,16 +79,14 @@ TEST(Decode, SimpleMultiLineBoolean) {
 }
 
 TEST(Decode, SimpleMultiPolygonBoolean) {
-    // TODO: not fully supported
-    // const auto tile = loadTile(basePath + "/simple/multipolygon-boolean.mlt");
+    const auto tile = loadTile(basePath + "/simple/multipolygon-boolean.mlt");
 }
 
 TEST(Decode, Bing) {
-    // TODO: not fully supported
-    // const auto tile = loadTile(basePath + "/bing/4-13-6.mlt");
+    const auto tile = loadTile(basePath + "/bing/4-13-6.mlt");
 }
 
 TEST(Decode, OMT) {
     // TODO: not fully supported
-    // const auto tile = loadTile(basePath + "/omt/2_2_2.mlt");
+    const auto tile = loadTile(basePath + "/omt/2_2_2.mlt");
 }
