@@ -55,14 +55,17 @@ public:
             }
             case LogicalLevelTechnique::DELTA:
                 if (streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) {
-                    //     var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
-                    //     values =
-                    //         DecodingUtils.decodeUnsignedRLE(
-                    //             values, rleMetadata.runs(), rleMetadata.numRleValues());
-                    //     return decodeZigZagDelta(values);
-                    throw std::runtime_error("Logical level technique RLE-DELTA not implemented: ");
+                    if (streamMetadata.getMetadataType() != metadata::stream::LogicalLevelTechnique::RLE) {
+                        throw std::runtime_error("invalid RLE metadata");
+                    }
+                    const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
+                    out.resize(rleMetadata.getNumRleValues());
+                    rle::decodeInt<T, TTarget>(values, out, rleMetadata.getRuns());
+                    decodeZigZagDelta(out, out);
+                } else {
+                    out.resize(values.size());
+                    decodeZigZagDelta(values, out);
                 }
-                decodeZigZagDelta(values, out);
                 break;
             case LogicalLevelTechnique::COMPONENTWISE_DELTA:
                 if constexpr (std::is_same_v<TTarget, std::int32_t> || std::is_same_v<TTarget, std::uint32_t>) {
@@ -246,19 +249,21 @@ private:
         }
     }
 
+    /// Decode zigzag-delta values
+    /// @param values input values
+    /// @param out output values, must be the same size as the input
+    /// @note Input and output may reference the same vector
     template <typename T, typename TTarget>
-        requires(std::is_integral_v<T> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
+        requires(std::is_integral_v<underlying_type_t<T>> && std::is_integral_v<underlying_type_t<TTarget>> &&
                  sizeof(T) <= sizeof(TTarget))
-    static void decodeZigZagDelta(const std::vector<T>& values, std::vector<TTarget>& out) noexcept(false) {
-        out.resize(values.size());
-        if (out.size() < values.size()) {
-            throw std::runtime_error("insufficient output buffer");
-        }
+    static void decodeZigZagDelta(const std::vector<T>& values, std::vector<TTarget>& out) noexcept {
+        assert(out.size() == values.size());
         count_t pos = 0;
-        T previousValue = 0;
+        using ST = std::make_signed_t<underlying_type_t<T>>;
+        ST previousValue = 0;
         for (const auto zigZagDelta : values) {
-            // TODO: check signs
-            const auto delta = util::decoding::decodeZigZag(zigZagDelta);
+            // TODO: check signs?
+            const auto delta = static_cast<ST>(util::decoding::decodeZigZag(zigZagDelta));
             out[pos++] = static_cast<TTarget>(previousValue += delta);
         }
     }
