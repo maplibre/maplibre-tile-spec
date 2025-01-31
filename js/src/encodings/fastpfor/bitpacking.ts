@@ -5,7 +5,7 @@ import { arraycopy } from './util';
    *
    * @param inArray
    *                source array
-   * @param inArraypos
+   * @param inpos
    *                position in source array
    * @param outArray
    *                output array
@@ -2923,1618 +2923,1618 @@ function fastpackwithoutmask9(inArray: Uint32Array, inpos: number, outArray: Uin
  * @param bit
  *                how many bits to use per numbereger
  */
-export function fastunpack(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number, bit: number) {
-  switch (bit) {
+export function fastunpack(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number, bit: number }) {
+  switch (model.bit) {
     case 0:
-      fastunpack0(inArray, inpos, outArray, outpos);
+      fastunpack0(model);
       break;
     case 1:
-      fastunpack1(inArray, inpos, outArray, outpos);
+      fastunpack1(model);
       break;
     case 2:
-      fastunpack2(inArray, inpos, outArray, outpos);
+      fastunpack2(model);
       break;
     case 3:
-      fastunpack3(inArray, inpos, outArray, outpos);
+      fastunpack3(model);
       break;
     case 4:
-      fastunpack4(inArray, inpos, outArray, outpos);
+      fastunpack4(model);
       break;
     case 5:
-      fastunpack5(inArray, inpos, outArray, outpos);
+      fastunpack5(model);
       break;
     case 6:
-      fastunpack6(inArray, inpos, outArray, outpos);
+      fastunpack6(model);
       break;
     case 7:
-      fastunpack7(inArray, inpos, outArray, outpos);
+      fastunpack7(model);
       break;
     case 8:
-      fastunpack8(inArray, inpos, outArray, outpos);
+      fastunpack8(model);
       break;
     case 9:
-      fastunpack9(inArray, inpos, outArray, outpos);
+      fastunpack9(model);
       break;
     case 10:
-      fastunpack10(inArray, inpos, outArray, outpos);
+      fastunpack10(model);
       break;
     case 11:
-      fastunpack11(inArray, inpos, outArray, outpos);
+      fastunpack11(model);
       break;
     case 12:
-      fastunpack12(inArray, inpos, outArray, outpos);
+      fastunpack12(model);
       break;
     case 13:
-      fastunpack13(inArray, inpos, outArray, outpos);
+      fastunpack13(model);
       break;
     case 14:
-      fastunpack14(inArray, inpos, outArray, outpos);
+      fastunpack14(model);
       break;
     case 15:
-      fastunpack15(inArray, inpos, outArray, outpos);
+      fastunpack15(model);
       break;
     case 16:
-      fastunpack16(inArray, inpos, outArray, outpos);
+      fastunpack16(model);
       break;
     case 17:
-      fastunpack17(inArray, inpos, outArray, outpos);
+      fastunpack17(model);
       break;
     case 18:
-      fastunpack18(inArray, inpos, outArray, outpos);
+      fastunpack18(model);
       break;
     case 19:
-      fastunpack19(inArray, inpos, outArray, outpos);
+      fastunpack19(model);
       break;
     case 20:
-      fastunpack20(inArray, inpos, outArray, outpos);
+      fastunpack20(model);
       break;
     case 21:
-      fastunpack21(inArray, inpos, outArray, outpos);
+      fastunpack21(model);
       break;
     case 22:
-      fastunpack22(inArray, inpos, outArray, outpos);
+      fastunpack22(model);
       break;
     case 23:
-      fastunpack23(inArray, inpos, outArray, outpos);
+      fastunpack23(model);
       break;
     case 24:
-      fastunpack24(inArray, inpos, outArray, outpos);
+      fastunpack24(model);
       break;
     case 25:
-      fastunpack25(inArray, inpos, outArray, outpos);
+      fastunpack25(model);
       break;
     case 26:
-      fastunpack26(inArray, inpos, outArray, outpos);
+      fastunpack26(model);
       break;
     case 27:
-      fastunpack27(inArray, inpos, outArray, outpos);
+      fastunpack27(model);
       break;
     case 28:
-      fastunpack28(inArray, inpos, outArray, outpos);
+      fastunpack28(model);
       break;
     case 29:
-      fastunpack29(inArray, inpos, outArray, outpos);
+      fastunpack29(model);
       break;
     case 30:
-      fastunpack30(inArray, inpos, outArray, outpos);
+      fastunpack30(model);
       break;
     case 31:
-      fastunpack31(inArray, inpos, outArray, outpos);
+      fastunpack31(model);
       break;
     case 32:
-      fastunpack32(inArray, inpos, outArray, outpos);
+      fastunpack32(model);
       break;
     default:
       throw new Error("Unsupported bit width.");
   }
 }
 
-function fastunpack0(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray.fill(0, outpos, outpos + 32);
+function fastunpack0(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray.fill(0, model.outpos, model.outpos + 32);
 }
 
-function fastunpack1(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 1);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 1) & 1);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 2) & 1);
-  outArray[3 + outpos] = ((inArray[inpos] >>> 3) & 1);
-  outArray[4 + outpos] = ((inArray[inpos] >>> 4) & 1);
-  outArray[5 + outpos] = ((inArray[inpos] >>> 5) & 1);
-  outArray[6 + outpos] = ((inArray[inpos] >>> 6) & 1);
-  outArray[7 + outpos] = ((inArray[inpos] >>> 7) & 1);
-  outArray[8 + outpos] = ((inArray[inpos] >>> 8) & 1);
-  outArray[9 + outpos] = ((inArray[inpos] >>> 9) & 1);
-  outArray[10 + outpos] = ((inArray[inpos] >>> 10) & 1);
-  outArray[11 + outpos] = ((inArray[inpos] >>> 11) & 1);
-  outArray[12 + outpos] = ((inArray[inpos] >>> 12) & 1);
-  outArray[13 + outpos] = ((inArray[inpos] >>> 13) & 1);
-  outArray[14 + outpos] = ((inArray[inpos] >>> 14) & 1);
-  outArray[15 + outpos] = ((inArray[inpos] >>> 15) & 1);
-  outArray[16 + outpos] = ((inArray[inpos] >>> 16) & 1);
-  outArray[17 + outpos] = ((inArray[inpos] >>> 17) & 1);
-  outArray[18 + outpos] = ((inArray[inpos] >>> 18) & 1);
-  outArray[19 + outpos] = ((inArray[inpos] >>> 19) & 1);
-  outArray[20 + outpos] = ((inArray[inpos] >>> 20) & 1);
-  outArray[21 + outpos] = ((inArray[inpos] >>> 21) & 1);
-  outArray[22 + outpos] = ((inArray[inpos] >>> 22) & 1);
-  outArray[23 + outpos] = ((inArray[inpos] >>> 23) & 1);
-  outArray[24 + outpos] = ((inArray[inpos] >>> 24) & 1);
-  outArray[25 + outpos] = ((inArray[inpos] >>> 25) & 1);
-  outArray[26 + outpos] = ((inArray[inpos] >>> 26) & 1);
-  outArray[27 + outpos] = ((inArray[inpos] >>> 27) & 1);
-  outArray[28 + outpos] = ((inArray[inpos] >>> 28) & 1);
-  outArray[29 + outpos] = ((inArray[inpos] >>> 29) & 1);
-  outArray[30 + outpos] = ((inArray[inpos] >>> 30) & 1);
-  outArray[31 + outpos] = (inArray[inpos] >>> 31);
+function fastunpack1(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 1);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 1) & 1);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 2) & 1);
+  model.outArray[3 + model.outpos] = ((model.inArray[model.inpos] >>> 3) & 1);
+  model.outArray[4 + model.outpos] = ((model.inArray[model.inpos] >>> 4) & 1);
+  model.outArray[5 + model.outpos] = ((model.inArray[model.inpos] >>> 5) & 1);
+  model.outArray[6 + model.outpos] = ((model.inArray[model.inpos] >>> 6) & 1);
+  model.outArray[7 + model.outpos] = ((model.inArray[model.inpos] >>> 7) & 1);
+  model.outArray[8 + model.outpos] = ((model.inArray[model.inpos] >>> 8) & 1);
+  model.outArray[9 + model.outpos] = ((model.inArray[model.inpos] >>> 9) & 1);
+  model.outArray[10 + model.outpos] = ((model.inArray[model.inpos] >>> 10) & 1);
+  model.outArray[11 + model.outpos] = ((model.inArray[model.inpos] >>> 11) & 1);
+  model.outArray[12 + model.outpos] = ((model.inArray[model.inpos] >>> 12) & 1);
+  model.outArray[13 + model.outpos] = ((model.inArray[model.inpos] >>> 13) & 1);
+  model.outArray[14 + model.outpos] = ((model.inArray[model.inpos] >>> 14) & 1);
+  model.outArray[15 + model.outpos] = ((model.inArray[model.inpos] >>> 15) & 1);
+  model.outArray[16 + model.outpos] = ((model.inArray[model.inpos] >>> 16) & 1);
+  model.outArray[17 + model.outpos] = ((model.inArray[model.inpos] >>> 17) & 1);
+  model.outArray[18 + model.outpos] = ((model.inArray[model.inpos] >>> 18) & 1);
+  model.outArray[19 + model.outpos] = ((model.inArray[model.inpos] >>> 19) & 1);
+  model.outArray[20 + model.outpos] = ((model.inArray[model.inpos] >>> 20) & 1);
+  model.outArray[21 + model.outpos] = ((model.inArray[model.inpos] >>> 21) & 1);
+  model.outArray[22 + model.outpos] = ((model.inArray[model.inpos] >>> 22) & 1);
+  model.outArray[23 + model.outpos] = ((model.inArray[model.inpos] >>> 23) & 1);
+  model.outArray[24 + model.outpos] = ((model.inArray[model.inpos] >>> 24) & 1);
+  model.outArray[25 + model.outpos] = ((model.inArray[model.inpos] >>> 25) & 1);
+  model.outArray[26 + model.outpos] = ((model.inArray[model.inpos] >>> 26) & 1);
+  model.outArray[27 + model.outpos] = ((model.inArray[model.inpos] >>> 27) & 1);
+  model.outArray[28 + model.outpos] = ((model.inArray[model.inpos] >>> 28) & 1);
+  model.outArray[29 + model.outpos] = ((model.inArray[model.inpos] >>> 29) & 1);
+  model.outArray[30 + model.outpos] = ((model.inArray[model.inpos] >>> 30) & 1);
+  model.outArray[31 + model.outpos] = (model.inArray[model.inpos] >>> 31);
 }
 
-function fastunpack10(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 1023);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 10) & 1023);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 20) & 1023);
-  outArray[3 + outpos] = (inArray[inpos] >>> 30)
-| ((inArray[1 + inpos] & 255) << (10 - 8));
-  outArray[4 + outpos] = ((inArray[1 + inpos] >>> 8) & 1023);
-  outArray[5 + outpos] = ((inArray[1 + inpos] >>> 18) & 1023);
-  outArray[6 + outpos] = (inArray[1 + inpos] >>> 28)
-| ((inArray[2 + inpos] & 63) << (10 - 6));
-  outArray[7 + outpos] = ((inArray[2 + inpos] >>> 6) & 1023);
-  outArray[8 + outpos] = ((inArray[2 + inpos] >>> 16) & 1023);
-  outArray[9 + outpos] = (inArray[2 + inpos] >>> 26)
-| ((inArray[3 + inpos] & 15) << (10 - 4));
-  outArray[10 + outpos] = ((inArray[3 + inpos] >>> 4) & 1023);
-  outArray[11 + outpos] = ((inArray[3 + inpos] >>> 14) & 1023);
-  outArray[12 + outpos] = (inArray[3 + inpos] >>> 24)
-| ((inArray[4 + inpos] & 3) << (10 - 2));
-  outArray[13 + outpos] = ((inArray[4 + inpos] >>> 2) & 1023);
-  outArray[14 + outpos] = ((inArray[4 + inpos] >>> 12) & 1023);
-  outArray[15 + outpos] = (inArray[4 + inpos] >>> 22);
-  outArray[16 + outpos] = ((inArray[5 + inpos] >>> 0) & 1023);
-  outArray[17 + outpos] = ((inArray[5 + inpos] >>> 10) & 1023);
-  outArray[18 + outpos] = ((inArray[5 + inpos] >>> 20) & 1023);
-  outArray[19 + outpos] = (inArray[5 + inpos] >>> 30)
-| ((inArray[6 + inpos] & 255) << (10 - 8));
-  outArray[20 + outpos] = ((inArray[6 + inpos] >>> 8) & 1023);
-  outArray[21 + outpos] = ((inArray[6 + inpos] >>> 18) & 1023);
-  outArray[22 + outpos] = (inArray[6 + inpos] >>> 28)
-| ((inArray[7 + inpos] & 63) << (10 - 6));
-  outArray[23 + outpos] = ((inArray[7 + inpos] >>> 6) & 1023);
-  outArray[24 + outpos] = ((inArray[7 + inpos] >>> 16) & 1023);
-  outArray[25 + outpos] = (inArray[7 + inpos] >>> 26)
-| ((inArray[8 + inpos] & 15) << (10 - 4));
-  outArray[26 + outpos] = ((inArray[8 + inpos] >>> 4) & 1023);
-  outArray[27 + outpos] = ((inArray[8 + inpos] >>> 14) & 1023);
-  outArray[28 + outpos] = (inArray[8 + inpos] >>> 24)
-| ((inArray[9 + inpos] & 3) << (10 - 2));
-  outArray[29 + outpos] = ((inArray[9 + inpos] >>> 2) & 1023);
-  outArray[30 + outpos] = ((inArray[9 + inpos] >>> 12) & 1023);
-  outArray[31 + outpos] = (inArray[9 + inpos] >>> 22);
+function fastunpack10(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 1023);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 10) & 1023);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 20) & 1023);
+  model.outArray[3 + model.outpos] = (model.inArray[model.inpos] >>> 30)
+| ((model.inArray[1 + model.inpos] & 255) << (10 - 8));
+  model.outArray[4 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 8) & 1023);
+  model.outArray[5 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 18) & 1023);
+  model.outArray[6 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28)
+| ((model.inArray[2 + model.inpos] & 63) << (10 - 6));
+  model.outArray[7 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 6) & 1023);
+  model.outArray[8 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 16) & 1023);
+  model.outArray[9 + model.outpos] = (model.inArray[2 + model.inpos] >>> 26)
+| ((model.inArray[3 + model.inpos] & 15) << (10 - 4));
+  model.outArray[10 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 4) & 1023);
+  model.outArray[11 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 14) & 1023);
+  model.outArray[12 + model.outpos] = (model.inArray[3 + model.inpos] >>> 24)
+| ((model.inArray[4 + model.inpos] & 3) << (10 - 2));
+  model.outArray[13 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 2) & 1023);
+  model.outArray[14 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 12) & 1023);
+  model.outArray[15 + model.outpos] = (model.inArray[4 + model.inpos] >>> 22);
+  model.outArray[16 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 0) & 1023);
+  model.outArray[17 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 10) & 1023);
+  model.outArray[18 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 20) & 1023);
+  model.outArray[19 + model.outpos] = (model.inArray[5 + model.inpos] >>> 30)
+| ((model.inArray[6 + model.inpos] & 255) << (10 - 8));
+  model.outArray[20 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 8) & 1023);
+  model.outArray[21 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 18) & 1023);
+  model.outArray[22 + model.outpos] = (model.inArray[6 + model.inpos] >>> 28)
+| ((model.inArray[7 + model.inpos] & 63) << (10 - 6));
+  model.outArray[23 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 6) & 1023);
+  model.outArray[24 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 16) & 1023);
+  model.outArray[25 + model.outpos] = (model.inArray[7 + model.inpos] >>> 26)
+| ((model.inArray[8 + model.inpos] & 15) << (10 - 4));
+  model.outArray[26 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 4) & 1023);
+  model.outArray[27 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 14) & 1023);
+  model.outArray[28 + model.outpos] = (model.inArray[8 + model.inpos] >>> 24)
+| ((model.inArray[9 + model.inpos] & 3) << (10 - 2));
+  model.outArray[29 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 2) & 1023);
+  model.outArray[30 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 12) & 1023);
+  model.outArray[31 + model.outpos] = (model.inArray[9 + model.inpos] >>> 22);
 }
 
-function fastunpack11(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 2047);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 11) & 2047);
-  outArray[2 + outpos] = (inArray[inpos] >>> 22)
-| ((inArray[1 + inpos] & 1) << (11 - 1));
-  outArray[3 + outpos] = ((inArray[1 + inpos] >>> 1) & 2047);
-  outArray[4 + outpos] = ((inArray[1 + inpos] >>> 12) & 2047);
-  outArray[5 + outpos] = (inArray[1 + inpos] >>> 23)
-| ((inArray[2 + inpos] & 3) << (11 - 2));
-  outArray[6 + outpos] = ((inArray[2 + inpos] >>> 2) & 2047);
-  outArray[7 + outpos] = ((inArray[2 + inpos] >>> 13) & 2047);
-  outArray[8 + outpos] = (inArray[2 + inpos] >>> 24)
-| ((inArray[3 + inpos] & 7) << (11 - 3));
-  outArray[9 + outpos] = ((inArray[3 + inpos] >>> 3) & 2047);
-  outArray[10 + outpos] = ((inArray[3 + inpos] >>> 14) & 2047);
-  outArray[11 + outpos] = (inArray[3 + inpos] >>> 25)
-| ((inArray[4 + inpos] & 15) << (11 - 4));
-  outArray[12 + outpos] = ((inArray[4 + inpos] >>> 4) & 2047);
-  outArray[13 + outpos] = ((inArray[4 + inpos] >>> 15) & 2047);
-  outArray[14 + outpos] = (inArray[4 + inpos] >>> 26)
-| ((inArray[5 + inpos] & 31) << (11 - 5));
-  outArray[15 + outpos] = ((inArray[5 + inpos] >>> 5) & 2047);
-  outArray[16 + outpos] = ((inArray[5 + inpos] >>> 16) & 2047);
-  outArray[17 + outpos] = (inArray[5 + inpos] >>> 27)
-| ((inArray[6 + inpos] & 63) << (11 - 6));
-  outArray[18 + outpos] = ((inArray[6 + inpos] >>> 6) & 2047);
-  outArray[19 + outpos] = ((inArray[6 + inpos] >>> 17) & 2047);
-  outArray[20 + outpos] = (inArray[6 + inpos] >>> 28)
-| ((inArray[7 + inpos] & 127) << (11 - 7));
-  outArray[21 + outpos] = ((inArray[7 + inpos] >>> 7) & 2047);
-  outArray[22 + outpos] = ((inArray[7 + inpos] >>> 18) & 2047);
-  outArray[23 + outpos] = (inArray[7 + inpos] >>> 29)
-| ((inArray[8 + inpos] & 255) << (11 - 8));
-  outArray[24 + outpos] = ((inArray[8 + inpos] >>> 8) & 2047);
-  outArray[25 + outpos] = ((inArray[8 + inpos] >>> 19) & 2047);
-  outArray[26 + outpos] = (inArray[8 + inpos] >>> 30)
-| ((inArray[9 + inpos] & 511) << (11 - 9));
-  outArray[27 + outpos] = ((inArray[9 + inpos] >>> 9) & 2047);
-  outArray[28 + outpos] = ((inArray[9 + inpos] >>> 20) & 2047);
-  outArray[29 + outpos] = (inArray[9 + inpos] >>> 31)
-| ((inArray[10 + inpos] & 1023) << (11 - 10));
-  outArray[30 + outpos] = ((inArray[10 + inpos] >>> 10) & 2047);
-  outArray[31 + outpos] = (inArray[10 + inpos] >>> 21);
+function fastunpack11(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 2047);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 11) & 2047);
+  model.outArray[2 + model.outpos] = (model.inArray[model.inpos] >>> 22)
+| ((model.inArray[1 + model.inpos] & 1) << (11 - 1));
+  model.outArray[3 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 1) & 2047);
+  model.outArray[4 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 12) & 2047);
+  model.outArray[5 + model.outpos] = (model.inArray[1 + model.inpos] >>> 23)
+| ((model.inArray[2 + model.inpos] & 3) << (11 - 2));
+  model.outArray[6 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 2) & 2047);
+  model.outArray[7 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 13) & 2047);
+  model.outArray[8 + model.outpos] = (model.inArray[2 + model.inpos] >>> 24)
+| ((model.inArray[3 + model.inpos] & 7) << (11 - 3));
+  model.outArray[9 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 3) & 2047);
+  model.outArray[10 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 14) & 2047);
+  model.outArray[11 + model.outpos] = (model.inArray[3 + model.inpos] >>> 25)
+| ((model.inArray[4 + model.inpos] & 15) << (11 - 4));
+  model.outArray[12 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 4) & 2047);
+  model.outArray[13 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 15) & 2047);
+  model.outArray[14 + model.outpos] = (model.inArray[4 + model.inpos] >>> 26)
+| ((model.inArray[5 + model.inpos] & 31) << (11 - 5));
+  model.outArray[15 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 5) & 2047);
+  model.outArray[16 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 16) & 2047);
+  model.outArray[17 + model.outpos] = (model.inArray[5 + model.inpos] >>> 27)
+| ((model.inArray[6 + model.inpos] & 63) << (11 - 6));
+  model.outArray[18 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 6) & 2047);
+  model.outArray[19 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 17) & 2047);
+  model.outArray[20 + model.outpos] = (model.inArray[6 + model.inpos] >>> 28)
+| ((model.inArray[7 + model.inpos] & 127) << (11 - 7));
+  model.outArray[21 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 7) & 2047);
+  model.outArray[22 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 18) & 2047);
+  model.outArray[23 + model.outpos] = (model.inArray[7 + model.inpos] >>> 29)
+| ((model.inArray[8 + model.inpos] & 255) << (11 - 8));
+  model.outArray[24 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 8) & 2047);
+  model.outArray[25 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 19) & 2047);
+  model.outArray[26 + model.outpos] = (model.inArray[8 + model.inpos] >>> 30)
+| ((model.inArray[9 + model.inpos] & 511) << (11 - 9));
+  model.outArray[27 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 9) & 2047);
+  model.outArray[28 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 20) & 2047);
+  model.outArray[29 + model.outpos] = (model.inArray[9 + model.inpos] >>> 31)
+| ((model.inArray[10 + model.inpos] & 1023) << (11 - 10));
+  model.outArray[30 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 10) & 2047);
+  model.outArray[31 + model.outpos] = (model.inArray[10 + model.inpos] >>> 21);
 }
 
-function fastunpack12(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 4095);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 12) & 4095);
-  outArray[2 + outpos] = (inArray[inpos] >>> 24)
-| ((inArray[1 + inpos] & 15) << (12 - 4));
-  outArray[3 + outpos] = ((inArray[1 + inpos] >>> 4) & 4095);
-  outArray[4 + outpos] = ((inArray[1 + inpos] >>> 16) & 4095);
-  outArray[5 + outpos] = (inArray[1 + inpos] >>> 28)
-| ((inArray[2 + inpos] & 255) << (12 - 8));
-  outArray[6 + outpos] = ((inArray[2 + inpos] >>> 8) & 4095);
-  outArray[7 + outpos] = (inArray[2 + inpos] >>> 20);
-  outArray[8 + outpos] = ((inArray[3 + inpos] >>> 0) & 4095);
-  outArray[9 + outpos] = ((inArray[3 + inpos] >>> 12) & 4095);
-  outArray[10 + outpos] = (inArray[3 + inpos] >>> 24)
-| ((inArray[4 + inpos] & 15) << (12 - 4));
-  outArray[11 + outpos] = ((inArray[4 + inpos] >>> 4) & 4095);
-  outArray[12 + outpos] = ((inArray[4 + inpos] >>> 16) & 4095);
-  outArray[13 + outpos] = (inArray[4 + inpos] >>> 28)
-| ((inArray[5 + inpos] & 255) << (12 - 8));
-  outArray[14 + outpos] = ((inArray[5 + inpos] >>> 8) & 4095);
-  outArray[15 + outpos] = (inArray[5 + inpos] >>> 20);
-  outArray[16 + outpos] = ((inArray[6 + inpos] >>> 0) & 4095);
-  outArray[17 + outpos] = ((inArray[6 + inpos] >>> 12) & 4095);
-  outArray[18 + outpos] = (inArray[6 + inpos] >>> 24)
-| ((inArray[7 + inpos] & 15) << (12 - 4));
-  outArray[19 + outpos] = ((inArray[7 + inpos] >>> 4) & 4095);
-  outArray[20 + outpos] = ((inArray[7 + inpos] >>> 16) & 4095);
-  outArray[21 + outpos] = (inArray[7 + inpos] >>> 28)
-| ((inArray[8 + inpos] & 255) << (12 - 8));
-  outArray[22 + outpos] = ((inArray[8 + inpos] >>> 8) & 4095);
-  outArray[23 + outpos] = (inArray[8 + inpos] >>> 20);
-  outArray[24 + outpos] = ((inArray[9 + inpos] >>> 0) & 4095);
-  outArray[25 + outpos] = ((inArray[9 + inpos] >>> 12) & 4095);
-  outArray[26 + outpos] = (inArray[9 + inpos] >>> 24)
-| ((inArray[10 + inpos] & 15) << (12 - 4));
-  outArray[27 + outpos] = ((inArray[10 + inpos] >>> 4) & 4095);
-  outArray[28 + outpos] = ((inArray[10 + inpos] >>> 16) & 4095);
-  outArray[29 + outpos] = (inArray[10 + inpos] >>> 28)
-| ((inArray[11 + inpos] & 255) << (12 - 8));
-  outArray[30 + outpos] = ((inArray[11 + inpos] >>> 8) & 4095);
-  outArray[31 + outpos] = (inArray[11 + inpos] >>> 20);
+function fastunpack12(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 4095);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 12) & 4095);
+  model.outArray[2 + model.outpos] = (model.inArray[model.inpos] >>> 24)
+| ((model.inArray[1 + model.inpos] & 15) << (12 - 4));
+  model.outArray[3 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 4) & 4095);
+  model.outArray[4 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 16) & 4095);
+  model.outArray[5 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28)
+| ((model.inArray[2 + model.inpos] & 255) << (12 - 8));
+  model.outArray[6 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 8) & 4095);
+  model.outArray[7 + model.outpos] = (model.inArray[2 + model.inpos] >>> 20);
+  model.outArray[8 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 0) & 4095);
+  model.outArray[9 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 12) & 4095);
+  model.outArray[10 + model.outpos] = (model.inArray[3 + model.inpos] >>> 24)
+| ((model.inArray[4 + model.inpos] & 15) << (12 - 4));
+  model.outArray[11 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 4) & 4095);
+  model.outArray[12 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 16) & 4095);
+  model.outArray[13 + model.outpos] = (model.inArray[4 + model.inpos] >>> 28)
+| ((model.inArray[5 + model.inpos] & 255) << (12 - 8));
+  model.outArray[14 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 8) & 4095);
+  model.outArray[15 + model.outpos] = (model.inArray[5 + model.inpos] >>> 20);
+  model.outArray[16 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 0) & 4095);
+  model.outArray[17 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 12) & 4095);
+  model.outArray[18 + model.outpos] = (model.inArray[6 + model.inpos] >>> 24)
+| ((model.inArray[7 + model.inpos] & 15) << (12 - 4));
+  model.outArray[19 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 4) & 4095);
+  model.outArray[20 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 16) & 4095);
+  model.outArray[21 + model.outpos] = (model.inArray[7 + model.inpos] >>> 28)
+| ((model.inArray[8 + model.inpos] & 255) << (12 - 8));
+  model.outArray[22 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 8) & 4095);
+  model.outArray[23 + model.outpos] = (model.inArray[8 + model.inpos] >>> 20);
+  model.outArray[24 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 0) & 4095);
+  model.outArray[25 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 12) & 4095);
+  model.outArray[26 + model.outpos] = (model.inArray[9 + model.inpos] >>> 24)
+| ((model.inArray[10 + model.inpos] & 15) << (12 - 4));
+  model.outArray[27 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 4) & 4095);
+  model.outArray[28 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 16) & 4095);
+  model.outArray[29 + model.outpos] = (model.inArray[10 + model.inpos] >>> 28)
+| ((model.inArray[11 + model.inpos] & 255) << (12 - 8));
+  model.outArray[30 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 8) & 4095);
+  model.outArray[31 + model.outpos] = (model.inArray[11 + model.inpos] >>> 20);
 }
 
-function fastunpack13(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 8191);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 13) & 8191);
-  outArray[2 + outpos] = (inArray[inpos] >>> 26)
-| ((inArray[1 + inpos] & 127) << (13 - 7));
-  outArray[3 + outpos] = ((inArray[1 + inpos] >>> 7) & 8191);
-  outArray[4 + outpos] = (inArray[1 + inpos] >>> 20)
-| ((inArray[2 + inpos] & 1) << (13 - 1));
-  outArray[5 + outpos] = ((inArray[2 + inpos] >>> 1) & 8191);
-  outArray[6 + outpos] = ((inArray[2 + inpos] >>> 14) & 8191);
-  outArray[7 + outpos] = (inArray[2 + inpos] >>> 27)
-| ((inArray[3 + inpos] & 255) << (13 - 8));
-  outArray[8 + outpos] = ((inArray[3 + inpos] >>> 8) & 8191);
-  outArray[9 + outpos] = (inArray[3 + inpos] >>> 21)
-| ((inArray[4 + inpos] & 3) << (13 - 2));
-  outArray[10 + outpos] = ((inArray[4 + inpos] >>> 2) & 8191);
-  outArray[11 + outpos] = ((inArray[4 + inpos] >>> 15) & 8191);
-  outArray[12 + outpos] = (inArray[4 + inpos] >>> 28)
-| ((inArray[5 + inpos] & 511) << (13 - 9));
-  outArray[13 + outpos] = ((inArray[5 + inpos] >>> 9) & 8191);
-  outArray[14 + outpos] = (inArray[5 + inpos] >>> 22)
-| ((inArray[6 + inpos] & 7) << (13 - 3));
-  outArray[15 + outpos] = ((inArray[6 + inpos] >>> 3) & 8191);
-  outArray[16 + outpos] = ((inArray[6 + inpos] >>> 16) & 8191);
-  outArray[17 + outpos] = (inArray[6 + inpos] >>> 29)
-| ((inArray[7 + inpos] & 1023) << (13 - 10));
-  outArray[18 + outpos] = ((inArray[7 + inpos] >>> 10) & 8191);
-  outArray[19 + outpos] = (inArray[7 + inpos] >>> 23)
-| ((inArray[8 + inpos] & 15) << (13 - 4));
-  outArray[20 + outpos] = ((inArray[8 + inpos] >>> 4) & 8191);
-  outArray[21 + outpos] = ((inArray[8 + inpos] >>> 17) & 8191);
-  outArray[22 + outpos] = (inArray[8 + inpos] >>> 30)
-| ((inArray[9 + inpos] & 2047) << (13 - 11));
-  outArray[23 + outpos] = ((inArray[9 + inpos] >>> 11) & 8191);
-  outArray[24 + outpos] = (inArray[9 + inpos] >>> 24)
-| ((inArray[10 + inpos] & 31) << (13 - 5));
-  outArray[25 + outpos] = ((inArray[10 + inpos] >>> 5) & 8191);
-  outArray[26 + outpos] = ((inArray[10 + inpos] >>> 18) & 8191);
-  outArray[27 + outpos] = (inArray[10 + inpos] >>> 31)
-| ((inArray[11 + inpos] & 4095) << (13 - 12));
-  outArray[28 + outpos] = ((inArray[11 + inpos] >>> 12) & 8191);
-  outArray[29 + outpos] = (inArray[11 + inpos] >>> 25)
-| ((inArray[12 + inpos] & 63) << (13 - 6));
-  outArray[30 + outpos] = ((inArray[12 + inpos] >>> 6) & 8191);
-  outArray[31 + outpos] = (inArray[12 + inpos] >>> 19);
+function fastunpack13(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 8191);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 13) & 8191);
+  model.outArray[2 + model.outpos] = (model.inArray[model.inpos] >>> 26)
+| ((model.inArray[1 + model.inpos] & 127) << (13 - 7));
+  model.outArray[3 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 7) & 8191);
+  model.outArray[4 + model.outpos] = (model.inArray[1 + model.inpos] >>> 20)
+| ((model.inArray[2 + model.inpos] & 1) << (13 - 1));
+  model.outArray[5 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 1) & 8191);
+  model.outArray[6 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 14) & 8191);
+  model.outArray[7 + model.outpos] = (model.inArray[2 + model.inpos] >>> 27)
+| ((model.inArray[3 + model.inpos] & 255) << (13 - 8));
+  model.outArray[8 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 8) & 8191);
+  model.outArray[9 + model.outpos] = (model.inArray[3 + model.inpos] >>> 21)
+| ((model.inArray[4 + model.inpos] & 3) << (13 - 2));
+  model.outArray[10 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 2) & 8191);
+  model.outArray[11 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 15) & 8191);
+  model.outArray[12 + model.outpos] = (model.inArray[4 + model.inpos] >>> 28)
+| ((model.inArray[5 + model.inpos] & 511) << (13 - 9));
+  model.outArray[13 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 9) & 8191);
+  model.outArray[14 + model.outpos] = (model.inArray[5 + model.inpos] >>> 22)
+| ((model.inArray[6 + model.inpos] & 7) << (13 - 3));
+  model.outArray[15 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 3) & 8191);
+  model.outArray[16 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 16) & 8191);
+  model.outArray[17 + model.outpos] = (model.inArray[6 + model.inpos] >>> 29)
+| ((model.inArray[7 + model.inpos] & 1023) << (13 - 10));
+  model.outArray[18 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 10) & 8191);
+  model.outArray[19 + model.outpos] = (model.inArray[7 + model.inpos] >>> 23)
+| ((model.inArray[8 + model.inpos] & 15) << (13 - 4));
+  model.outArray[20 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 4) & 8191);
+  model.outArray[21 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 17) & 8191);
+  model.outArray[22 + model.outpos] = (model.inArray[8 + model.inpos] >>> 30)
+| ((model.inArray[9 + model.inpos] & 2047) << (13 - 11));
+  model.outArray[23 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 11) & 8191);
+  model.outArray[24 + model.outpos] = (model.inArray[9 + model.inpos] >>> 24)
+| ((model.inArray[10 + model.inpos] & 31) << (13 - 5));
+  model.outArray[25 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 5) & 8191);
+  model.outArray[26 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 18) & 8191);
+  model.outArray[27 + model.outpos] = (model.inArray[10 + model.inpos] >>> 31)
+| ((model.inArray[11 + model.inpos] & 4095) << (13 - 12));
+  model.outArray[28 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 12) & 8191);
+  model.outArray[29 + model.outpos] = (model.inArray[11 + model.inpos] >>> 25)
+| ((model.inArray[12 + model.inpos] & 63) << (13 - 6));
+  model.outArray[30 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 6) & 8191);
+  model.outArray[31 + model.outpos] = (model.inArray[12 + model.inpos] >>> 19);
 }
 
-function fastunpack14(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 16383);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 14) & 16383);
-  outArray[2 + outpos] = (inArray[inpos] >>> 28)
-| ((inArray[1 + inpos] & 1023) << (14 - 10));
-  outArray[3 + outpos] = ((inArray[1 + inpos] >>> 10) & 16383);
-  outArray[4 + outpos] = (inArray[1 + inpos] >>> 24)
-| ((inArray[2 + inpos] & 63) << (14 - 6));
-  outArray[5 + outpos] = ((inArray[2 + inpos] >>> 6) & 16383);
-  outArray[6 + outpos] = (inArray[2 + inpos] >>> 20)
-| ((inArray[3 + inpos] & 3) << (14 - 2));
-  outArray[7 + outpos] = ((inArray[3 + inpos] >>> 2) & 16383);
-  outArray[8 + outpos] = ((inArray[3 + inpos] >>> 16) & 16383);
-  outArray[9 + outpos] = (inArray[3 + inpos] >>> 30)
-| ((inArray[4 + inpos] & 4095) << (14 - 12));
-  outArray[10 + outpos] = ((inArray[4 + inpos] >>> 12) & 16383);
-  outArray[11 + outpos] = (inArray[4 + inpos] >>> 26)
-| ((inArray[5 + inpos] & 255) << (14 - 8));
-  outArray[12 + outpos] = ((inArray[5 + inpos] >>> 8) & 16383);
-  outArray[13 + outpos] = (inArray[5 + inpos] >>> 22)
-| ((inArray[6 + inpos] & 15) << (14 - 4));
-  outArray[14 + outpos] = ((inArray[6 + inpos] >>> 4) & 16383);
-  outArray[15 + outpos] = (inArray[6 + inpos] >>> 18);
-  outArray[16 + outpos] = ((inArray[7 + inpos] >>> 0) & 16383);
-  outArray[17 + outpos] = ((inArray[7 + inpos] >>> 14) & 16383);
-  outArray[18 + outpos] = (inArray[7 + inpos] >>> 28)
-| ((inArray[8 + inpos] & 1023) << (14 - 10));
-  outArray[19 + outpos] = ((inArray[8 + inpos] >>> 10) & 16383);
-  outArray[20 + outpos] = (inArray[8 + inpos] >>> 24)
-| ((inArray[9 + inpos] & 63) << (14 - 6));
-  outArray[21 + outpos] = ((inArray[9 + inpos] >>> 6) & 16383);
-  outArray[22 + outpos] = (inArray[9 + inpos] >>> 20)
-| ((inArray[10 + inpos] & 3) << (14 - 2));
-  outArray[23 + outpos] = ((inArray[10 + inpos] >>> 2) & 16383);
-  outArray[24 + outpos] = ((inArray[10 + inpos] >>> 16) & 16383);
-  outArray[25 + outpos] = (inArray[10 + inpos] >>> 30)
-| ((inArray[11 + inpos] & 4095) << (14 - 12));
-  outArray[26 + outpos] = ((inArray[11 + inpos] >>> 12) & 16383);
-  outArray[27 + outpos] = (inArray[11 + inpos] >>> 26)
-| ((inArray[12 + inpos] & 255) << (14 - 8));
-  outArray[28 + outpos] = ((inArray[12 + inpos] >>> 8) & 16383);
-  outArray[29 + outpos] = (inArray[12 + inpos] >>> 22)
-| ((inArray[13 + inpos] & 15) << (14 - 4));
-  outArray[30 + outpos] = ((inArray[13 + inpos] >>> 4) & 16383);
-  outArray[31 + outpos] = (inArray[13 + inpos] >>> 18);
+function fastunpack14(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 16383);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 14) & 16383);
+  model.outArray[2 + model.outpos] = (model.inArray[model.inpos] >>> 28)
+| ((model.inArray[1 + model.inpos] & 1023) << (14 - 10));
+  model.outArray[3 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 10) & 16383);
+  model.outArray[4 + model.outpos] = (model.inArray[1 + model.inpos] >>> 24)
+| ((model.inArray[2 + model.inpos] & 63) << (14 - 6));
+  model.outArray[5 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 6) & 16383);
+  model.outArray[6 + model.outpos] = (model.inArray[2 + model.inpos] >>> 20)
+| ((model.inArray[3 + model.inpos] & 3) << (14 - 2));
+  model.outArray[7 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 2) & 16383);
+  model.outArray[8 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 16) & 16383);
+  model.outArray[9 + model.outpos] = (model.inArray[3 + model.inpos] >>> 30)
+| ((model.inArray[4 + model.inpos] & 4095) << (14 - 12));
+  model.outArray[10 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 12) & 16383);
+  model.outArray[11 + model.outpos] = (model.inArray[4 + model.inpos] >>> 26)
+| ((model.inArray[5 + model.inpos] & 255) << (14 - 8));
+  model.outArray[12 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 8) & 16383);
+  model.outArray[13 + model.outpos] = (model.inArray[5 + model.inpos] >>> 22)
+| ((model.inArray[6 + model.inpos] & 15) << (14 - 4));
+  model.outArray[14 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 4) & 16383);
+  model.outArray[15 + model.outpos] = (model.inArray[6 + model.inpos] >>> 18);
+  model.outArray[16 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 0) & 16383);
+  model.outArray[17 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 14) & 16383);
+  model.outArray[18 + model.outpos] = (model.inArray[7 + model.inpos] >>> 28)
+| ((model.inArray[8 + model.inpos] & 1023) << (14 - 10));
+  model.outArray[19 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 10) & 16383);
+  model.outArray[20 + model.outpos] = (model.inArray[8 + model.inpos] >>> 24)
+| ((model.inArray[9 + model.inpos] & 63) << (14 - 6));
+  model.outArray[21 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 6) & 16383);
+  model.outArray[22 + model.outpos] = (model.inArray[9 + model.inpos] >>> 20)
+| ((model.inArray[10 + model.inpos] & 3) << (14 - 2));
+  model.outArray[23 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 2) & 16383);
+  model.outArray[24 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 16) & 16383);
+  model.outArray[25 + model.outpos] = (model.inArray[10 + model.inpos] >>> 30)
+| ((model.inArray[11 + model.inpos] & 4095) << (14 - 12));
+  model.outArray[26 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 12) & 16383);
+  model.outArray[27 + model.outpos] = (model.inArray[11 + model.inpos] >>> 26)
+| ((model.inArray[12 + model.inpos] & 255) << (14 - 8));
+  model.outArray[28 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 8) & 16383);
+  model.outArray[29 + model.outpos] = (model.inArray[12 + model.inpos] >>> 22)
+| ((model.inArray[13 + model.inpos] & 15) << (14 - 4));
+  model.outArray[30 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 4) & 16383);
+  model.outArray[31 + model.outpos] = (model.inArray[13 + model.inpos] >>> 18);
 }
 
-function fastunpack15(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 32767);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 15) & 32767);
-  outArray[2 + outpos] = (inArray[inpos] >>> 30)
-| ((inArray[1 + inpos] & 8191) << (15 - 13));
-  outArray[3 + outpos] = ((inArray[1 + inpos] >>> 13) & 32767);
-  outArray[4 + outpos] = (inArray[1 + inpos] >>> 28)
-| ((inArray[2 + inpos] & 2047) << (15 - 11));
-  outArray[5 + outpos] = ((inArray[2 + inpos] >>> 11) & 32767);
-  outArray[6 + outpos] = (inArray[2 + inpos] >>> 26)
-| ((inArray[3 + inpos] & 511) << (15 - 9));
-  outArray[7 + outpos] = ((inArray[3 + inpos] >>> 9) & 32767);
-  outArray[8 + outpos] = (inArray[3 + inpos] >>> 24)
-| ((inArray[4 + inpos] & 127) << (15 - 7));
-  outArray[9 + outpos] = ((inArray[4 + inpos] >>> 7) & 32767);
-  outArray[10 + outpos] = (inArray[4 + inpos] >>> 22)
-| ((inArray[5 + inpos] & 31) << (15 - 5));
-  outArray[11 + outpos] = ((inArray[5 + inpos] >>> 5) & 32767);
-  outArray[12 + outpos] = (inArray[5 + inpos] >>> 20)
-| ((inArray[6 + inpos] & 7) << (15 - 3));
-  outArray[13 + outpos] = ((inArray[6 + inpos] >>> 3) & 32767);
-  outArray[14 + outpos] = (inArray[6 + inpos] >>> 18)
-| ((inArray[7 + inpos] & 1) << (15 - 1));
-  outArray[15 + outpos] = ((inArray[7 + inpos] >>> 1) & 32767);
-  outArray[16 + outpos] = ((inArray[7 + inpos] >>> 16) & 32767);
-  outArray[17 + outpos] = (inArray[7 + inpos] >>> 31)
-| ((inArray[8 + inpos] & 16383) << (15 - 14));
-  outArray[18 + outpos] = ((inArray[8 + inpos] >>> 14) & 32767);
-  outArray[19 + outpos] = (inArray[8 + inpos] >>> 29)
-| ((inArray[9 + inpos] & 4095) << (15 - 12));
-  outArray[20 + outpos] = ((inArray[9 + inpos] >>> 12) & 32767);
-  outArray[21 + outpos] = (inArray[9 + inpos] >>> 27)
-| ((inArray[10 + inpos] & 1023) << (15 - 10));
-  outArray[22 + outpos] = ((inArray[10 + inpos] >>> 10) & 32767);
-  outArray[23 + outpos] = (inArray[10 + inpos] >>> 25)
-| ((inArray[11 + inpos] & 255) << (15 - 8));
-  outArray[24 + outpos] = ((inArray[11 + inpos] >>> 8) & 32767);
-  outArray[25 + outpos] = (inArray[11 + inpos] >>> 23)
-| ((inArray[12 + inpos] & 63) << (15 - 6));
-  outArray[26 + outpos] = ((inArray[12 + inpos] >>> 6) & 32767);
-  outArray[27 + outpos] = (inArray[12 + inpos] >>> 21)
-| ((inArray[13 + inpos] & 15) << (15 - 4));
-  outArray[28 + outpos] = ((inArray[13 + inpos] >>> 4) & 32767);
-  outArray[29 + outpos] = (inArray[13 + inpos] >>> 19)
-| ((inArray[14 + inpos] & 3) << (15 - 2));
-  outArray[30 + outpos] = ((inArray[14 + inpos] >>> 2) & 32767);
-  outArray[31 + outpos] = (inArray[14 + inpos] >>> 17);
+function fastunpack15(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 32767);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 15) & 32767);
+  model.outArray[2 + model.outpos] = (model.inArray[model.inpos] >>> 30)
+| ((model.inArray[1 + model.inpos] & 8191) << (15 - 13));
+  model.outArray[3 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 13) & 32767);
+  model.outArray[4 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28)
+| ((model.inArray[2 + model.inpos] & 2047) << (15 - 11));
+  model.outArray[5 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 11) & 32767);
+  model.outArray[6 + model.outpos] = (model.inArray[2 + model.inpos] >>> 26)
+| ((model.inArray[3 + model.inpos] & 511) << (15 - 9));
+  model.outArray[7 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 9) & 32767);
+  model.outArray[8 + model.outpos] = (model.inArray[3 + model.inpos] >>> 24)
+| ((model.inArray[4 + model.inpos] & 127) << (15 - 7));
+  model.outArray[9 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 7) & 32767);
+  model.outArray[10 + model.outpos] = (model.inArray[4 + model.inpos] >>> 22)
+| ((model.inArray[5 + model.inpos] & 31) << (15 - 5));
+  model.outArray[11 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 5) & 32767);
+  model.outArray[12 + model.outpos] = (model.inArray[5 + model.inpos] >>> 20)
+| ((model.inArray[6 + model.inpos] & 7) << (15 - 3));
+  model.outArray[13 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 3) & 32767);
+  model.outArray[14 + model.outpos] = (model.inArray[6 + model.inpos] >>> 18)
+| ((model.inArray[7 + model.inpos] & 1) << (15 - 1));
+  model.outArray[15 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 1) & 32767);
+  model.outArray[16 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 16) & 32767);
+  model.outArray[17 + model.outpos] = (model.inArray[7 + model.inpos] >>> 31)
+| ((model.inArray[8 + model.inpos] & 16383) << (15 - 14));
+  model.outArray[18 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 14) & 32767);
+  model.outArray[19 + model.outpos] = (model.inArray[8 + model.inpos] >>> 29)
+| ((model.inArray[9 + model.inpos] & 4095) << (15 - 12));
+  model.outArray[20 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 12) & 32767);
+  model.outArray[21 + model.outpos] = (model.inArray[9 + model.inpos] >>> 27)
+| ((model.inArray[10 + model.inpos] & 1023) << (15 - 10));
+  model.outArray[22 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 10) & 32767);
+  model.outArray[23 + model.outpos] = (model.inArray[10 + model.inpos] >>> 25)
+| ((model.inArray[11 + model.inpos] & 255) << (15 - 8));
+  model.outArray[24 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 8) & 32767);
+  model.outArray[25 + model.outpos] = (model.inArray[11 + model.inpos] >>> 23)
+| ((model.inArray[12 + model.inpos] & 63) << (15 - 6));
+  model.outArray[26 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 6) & 32767);
+  model.outArray[27 + model.outpos] = (model.inArray[12 + model.inpos] >>> 21)
+| ((model.inArray[13 + model.inpos] & 15) << (15 - 4));
+  model.outArray[28 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 4) & 32767);
+  model.outArray[29 + model.outpos] = (model.inArray[13 + model.inpos] >>> 19)
+| ((model.inArray[14 + model.inpos] & 3) << (15 - 2));
+  model.outArray[30 + model.outpos] = ((model.inArray[14 + model.inpos] >>> 2) & 32767);
+  model.outArray[31 + model.outpos] = (model.inArray[14 + model.inpos] >>> 17);
 }
 
-function fastunpack16(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 65535);
-  outArray[1 + outpos] = (inArray[inpos] >>> 16);
-  outArray[2 + outpos] = ((inArray[1 + inpos] >>> 0) & 65535);
-  outArray[3 + outpos] = (inArray[1 + inpos] >>> 16);
-  outArray[4 + outpos] = ((inArray[2 + inpos] >>> 0) & 65535);
-  outArray[5 + outpos] = (inArray[2 + inpos] >>> 16);
-  outArray[6 + outpos] = ((inArray[3 + inpos] >>> 0) & 65535);
-  outArray[7 + outpos] = (inArray[3 + inpos] >>> 16);
-  outArray[8 + outpos] = ((inArray[4 + inpos] >>> 0) & 65535);
-  outArray[9 + outpos] = (inArray[4 + inpos] >>> 16);
-  outArray[10 + outpos] = ((inArray[5 + inpos] >>> 0) & 65535);
-  outArray[11 + outpos] = (inArray[5 + inpos] >>> 16);
-  outArray[12 + outpos] = ((inArray[6 + inpos] >>> 0) & 65535);
-  outArray[13 + outpos] = (inArray[6 + inpos] >>> 16);
-  outArray[14 + outpos] = ((inArray[7 + inpos] >>> 0) & 65535);
-  outArray[15 + outpos] = (inArray[7 + inpos] >>> 16);
-  outArray[16 + outpos] = ((inArray[8 + inpos] >>> 0) & 65535);
-  outArray[17 + outpos] = (inArray[8 + inpos] >>> 16);
-  outArray[18 + outpos] = ((inArray[9 + inpos] >>> 0) & 65535);
-  outArray[19 + outpos] = (inArray[9 + inpos] >>> 16);
-  outArray[20 + outpos] = ((inArray[10 + inpos] >>> 0) & 65535);
-  outArray[21 + outpos] = (inArray[10 + inpos] >>> 16);
-  outArray[22 + outpos] = ((inArray[11 + inpos] >>> 0) & 65535);
-  outArray[23 + outpos] = (inArray[11 + inpos] >>> 16);
-  outArray[24 + outpos] = ((inArray[12 + inpos] >>> 0) & 65535);
-  outArray[25 + outpos] = (inArray[12 + inpos] >>> 16);
-  outArray[26 + outpos] = ((inArray[13 + inpos] >>> 0) & 65535);
-  outArray[27 + outpos] = (inArray[13 + inpos] >>> 16);
-  outArray[28 + outpos] = ((inArray[14 + inpos] >>> 0) & 65535);
-  outArray[29 + outpos] = (inArray[14 + inpos] >>> 16);
-  outArray[30 + outpos] = ((inArray[15 + inpos] >>> 0) & 65535);
-  outArray[31 + outpos] = (inArray[15 + inpos] >>> 16);
+function fastunpack16(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 65535);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 16);
+  model.outArray[2 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 0) & 65535);
+  model.outArray[3 + model.outpos] = (model.inArray[1 + model.inpos] >>> 16);
+  model.outArray[4 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 0) & 65535);
+  model.outArray[5 + model.outpos] = (model.inArray[2 + model.inpos] >>> 16);
+  model.outArray[6 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 0) & 65535);
+  model.outArray[7 + model.outpos] = (model.inArray[3 + model.inpos] >>> 16);
+  model.outArray[8 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 0) & 65535);
+  model.outArray[9 + model.outpos] = (model.inArray[4 + model.inpos] >>> 16);
+  model.outArray[10 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 0) & 65535);
+  model.outArray[11 + model.outpos] = (model.inArray[5 + model.inpos] >>> 16);
+  model.outArray[12 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 0) & 65535);
+  model.outArray[13 + model.outpos] = (model.inArray[6 + model.inpos] >>> 16);
+  model.outArray[14 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 0) & 65535);
+  model.outArray[15 + model.outpos] = (model.inArray[7 + model.inpos] >>> 16);
+  model.outArray[16 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 0) & 65535);
+  model.outArray[17 + model.outpos] = (model.inArray[8 + model.inpos] >>> 16);
+  model.outArray[18 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 0) & 65535);
+  model.outArray[19 + model.outpos] = (model.inArray[9 + model.inpos] >>> 16);
+  model.outArray[20 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 0) & 65535);
+  model.outArray[21 + model.outpos] = (model.inArray[10 + model.inpos] >>> 16);
+  model.outArray[22 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 0) & 65535);
+  model.outArray[23 + model.outpos] = (model.inArray[11 + model.inpos] >>> 16);
+  model.outArray[24 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 0) & 65535);
+  model.outArray[25 + model.outpos] = (model.inArray[12 + model.inpos] >>> 16);
+  model.outArray[26 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 0) & 65535);
+  model.outArray[27 + model.outpos] = (model.inArray[13 + model.inpos] >>> 16);
+  model.outArray[28 + model.outpos] = ((model.inArray[14 + model.inpos] >>> 0) & 65535);
+  model.outArray[29 + model.outpos] = (model.inArray[14 + model.inpos] >>> 16);
+  model.outArray[30 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 0) & 65535);
+  model.outArray[31 + model.outpos] = (model.inArray[15 + model.inpos] >>> 16);
 }
 
-function fastunpack17(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 131071);
-  outArray[1 + outpos] = (inArray[inpos] >>> 17)
-| ((inArray[1 + inpos] & 3) << (17 - 2));
-  outArray[2 + outpos] = ((inArray[1 + inpos] >>> 2) & 131071);
-  outArray[3 + outpos] = (inArray[1 + inpos] >>> 19)
-| ((inArray[2 + inpos] & 15) << (17 - 4));
-  outArray[4 + outpos] = ((inArray[2 + inpos] >>> 4) & 131071);
-  outArray[5 + outpos] = (inArray[2 + inpos] >>> 21)
-| ((inArray[3 + inpos] & 63) << (17 - 6));
-  outArray[6 + outpos] = ((inArray[3 + inpos] >>> 6) & 131071);
-  outArray[7 + outpos] = (inArray[3 + inpos] >>> 23)
-| ((inArray[4 + inpos] & 255) << (17 - 8));
-  outArray[8 + outpos] = ((inArray[4 + inpos] >>> 8) & 131071);
-  outArray[9 + outpos] = (inArray[4 + inpos] >>> 25)
-| ((inArray[5 + inpos] & 1023) << (17 - 10));
-  outArray[10 + outpos] = ((inArray[5 + inpos] >>> 10) & 131071);
-  outArray[11 + outpos] = (inArray[5 + inpos] >>> 27)
-| ((inArray[6 + inpos] & 4095) << (17 - 12));
-  outArray[12 + outpos] = ((inArray[6 + inpos] >>> 12) & 131071);
-  outArray[13 + outpos] = (inArray[6 + inpos] >>> 29)
-| ((inArray[7 + inpos] & 16383) << (17 - 14));
-  outArray[14 + outpos] = ((inArray[7 + inpos] >>> 14) & 131071);
-  outArray[15 + outpos] = (inArray[7 + inpos] >>> 31)
-| ((inArray[8 + inpos] & 65535) << (17 - 16));
-  outArray[16 + outpos] = (inArray[8 + inpos] >>> 16)
-| ((inArray[9 + inpos] & 1) << (17 - 1));
-  outArray[17 + outpos] = ((inArray[9 + inpos] >>> 1) & 131071);
-  outArray[18 + outpos] = (inArray[9 + inpos] >>> 18)
-| ((inArray[10 + inpos] & 7) << (17 - 3));
-  outArray[19 + outpos] = ((inArray[10 + inpos] >>> 3) & 131071);
-  outArray[20 + outpos] = (inArray[10 + inpos] >>> 20)
-| ((inArray[11 + inpos] & 31) << (17 - 5));
-  outArray[21 + outpos] = ((inArray[11 + inpos] >>> 5) & 131071);
-  outArray[22 + outpos] = (inArray[11 + inpos] >>> 22)
-| ((inArray[12 + inpos] & 127) << (17 - 7));
-  outArray[23 + outpos] = ((inArray[12 + inpos] >>> 7) & 131071);
-  outArray[24 + outpos] = (inArray[12 + inpos] >>> 24)
-| ((inArray[13 + inpos] & 511) << (17 - 9));
-  outArray[25 + outpos] = ((inArray[13 + inpos] >>> 9) & 131071);
-  outArray[26 + outpos] = (inArray[13 + inpos] >>> 26)
-| ((inArray[14 + inpos] & 2047) << (17 - 11));
-  outArray[27 + outpos] = ((inArray[14 + inpos] >>> 11) & 131071);
-  outArray[28 + outpos] = (inArray[14 + inpos] >>> 28)
-| ((inArray[15 + inpos] & 8191) << (17 - 13));
-  outArray[29 + outpos] = ((inArray[15 + inpos] >>> 13) & 131071);
-  outArray[30 + outpos] = (inArray[15 + inpos] >>> 30)
-| ((inArray[16 + inpos] & 32767) << (17 - 15));
-  outArray[31 + outpos] = (inArray[16 + inpos] >>> 15);
+function fastunpack17(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 131071);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 17)
+| ((model.inArray[1 + model.inpos] & 3) << (17 - 2));
+  model.outArray[2 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 2) & 131071);
+  model.outArray[3 + model.outpos] = (model.inArray[1 + model.inpos] >>> 19)
+| ((model.inArray[2 + model.inpos] & 15) << (17 - 4));
+  model.outArray[4 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 4) & 131071);
+  model.outArray[5 + model.outpos] = (model.inArray[2 + model.inpos] >>> 21)
+| ((model.inArray[3 + model.inpos] & 63) << (17 - 6));
+  model.outArray[6 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 6) & 131071);
+  model.outArray[7 + model.outpos] = (model.inArray[3 + model.inpos] >>> 23)
+| ((model.inArray[4 + model.inpos] & 255) << (17 - 8));
+  model.outArray[8 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 8) & 131071);
+  model.outArray[9 + model.outpos] = (model.inArray[4 + model.inpos] >>> 25)
+| ((model.inArray[5 + model.inpos] & 1023) << (17 - 10));
+  model.outArray[10 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 10) & 131071);
+  model.outArray[11 + model.outpos] = (model.inArray[5 + model.inpos] >>> 27)
+| ((model.inArray[6 + model.inpos] & 4095) << (17 - 12));
+  model.outArray[12 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 12) & 131071);
+  model.outArray[13 + model.outpos] = (model.inArray[6 + model.inpos] >>> 29)
+| ((model.inArray[7 + model.inpos] & 16383) << (17 - 14));
+  model.outArray[14 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 14) & 131071);
+  model.outArray[15 + model.outpos] = (model.inArray[7 + model.inpos] >>> 31)
+| ((model.inArray[8 + model.inpos] & 65535) << (17 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[8 + model.inpos] >>> 16)
+| ((model.inArray[9 + model.inpos] & 1) << (17 - 1));
+  model.outArray[17 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 1) & 131071);
+  model.outArray[18 + model.outpos] = (model.inArray[9 + model.inpos] >>> 18)
+| ((model.inArray[10 + model.inpos] & 7) << (17 - 3));
+  model.outArray[19 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 3) & 131071);
+  model.outArray[20 + model.outpos] = (model.inArray[10 + model.inpos] >>> 20)
+| ((model.inArray[11 + model.inpos] & 31) << (17 - 5));
+  model.outArray[21 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 5) & 131071);
+  model.outArray[22 + model.outpos] = (model.inArray[11 + model.inpos] >>> 22)
+| ((model.inArray[12 + model.inpos] & 127) << (17 - 7));
+  model.outArray[23 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 7) & 131071);
+  model.outArray[24 + model.outpos] = (model.inArray[12 + model.inpos] >>> 24)
+| ((model.inArray[13 + model.inpos] & 511) << (17 - 9));
+  model.outArray[25 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 9) & 131071);
+  model.outArray[26 + model.outpos] = (model.inArray[13 + model.inpos] >>> 26)
+| ((model.inArray[14 + model.inpos] & 2047) << (17 - 11));
+  model.outArray[27 + model.outpos] = ((model.inArray[14 + model.inpos] >>> 11) & 131071);
+  model.outArray[28 + model.outpos] = (model.inArray[14 + model.inpos] >>> 28)
+| ((model.inArray[15 + model.inpos] & 8191) << (17 - 13));
+  model.outArray[29 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 13) & 131071);
+  model.outArray[30 + model.outpos] = (model.inArray[15 + model.inpos] >>> 30)
+| ((model.inArray[16 + model.inpos] & 32767) << (17 - 15));
+  model.outArray[31 + model.outpos] = (model.inArray[16 + model.inpos] >>> 15);
 }
 
-function fastunpack18(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 262143);
-  outArray[1 + outpos] = (inArray[inpos] >>> 18)
-| ((inArray[1 + inpos] & 15) << (18 - 4));
-  outArray[2 + outpos] = ((inArray[1 + inpos] >>> 4) & 262143);
-  outArray[3 + outpos] = (inArray[1 + inpos] >>> 22)
-| ((inArray[2 + inpos] & 255) << (18 - 8));
-  outArray[4 + outpos] = ((inArray[2 + inpos] >>> 8) & 262143);
-  outArray[5 + outpos] = (inArray[2 + inpos] >>> 26)
-| ((inArray[3 + inpos] & 4095) << (18 - 12));
-  outArray[6 + outpos] = ((inArray[3 + inpos] >>> 12) & 262143);
-  outArray[7 + outpos] = (inArray[3 + inpos] >>> 30)
-| ((inArray[4 + inpos] & 65535) << (18 - 16));
-  outArray[8 + outpos] = (inArray[4 + inpos] >>> 16)
-| ((inArray[5 + inpos] & 3) << (18 - 2));
-  outArray[9 + outpos] = ((inArray[5 + inpos] >>> 2) & 262143);
-  outArray[10 + outpos] = (inArray[5 + inpos] >>> 20)
-| ((inArray[6 + inpos] & 63) << (18 - 6));
-  outArray[11 + outpos] = ((inArray[6 + inpos] >>> 6) & 262143);
-  outArray[12 + outpos] = (inArray[6 + inpos] >>> 24)
-| ((inArray[7 + inpos] & 1023) << (18 - 10));
-  outArray[13 + outpos] = ((inArray[7 + inpos] >>> 10) & 262143);
-  outArray[14 + outpos] = (inArray[7 + inpos] >>> 28)
-| ((inArray[8 + inpos] & 16383) << (18 - 14));
-  outArray[15 + outpos] = (inArray[8 + inpos] >>> 14);
-  outArray[16 + outpos] = ((inArray[9 + inpos] >>> 0) & 262143);
-  outArray[17 + outpos] = (inArray[9 + inpos] >>> 18)
-| ((inArray[10 + inpos] & 15) << (18 - 4));
-  outArray[18 + outpos] = ((inArray[10 + inpos] >>> 4) & 262143);
-  outArray[19 + outpos] = (inArray[10 + inpos] >>> 22)
-| ((inArray[11 + inpos] & 255) << (18 - 8));
-  outArray[20 + outpos] = ((inArray[11 + inpos] >>> 8) & 262143);
-  outArray[21 + outpos] = (inArray[11 + inpos] >>> 26)
-| ((inArray[12 + inpos] & 4095) << (18 - 12));
-  outArray[22 + outpos] = ((inArray[12 + inpos] >>> 12) & 262143);
-  outArray[23 + outpos] = (inArray[12 + inpos] >>> 30)
-| ((inArray[13 + inpos] & 65535) << (18 - 16));
-  outArray[24 + outpos] = (inArray[13 + inpos] >>> 16)
-| ((inArray[14 + inpos] & 3) << (18 - 2));
-  outArray[25 + outpos] = ((inArray[14 + inpos] >>> 2) & 262143);
-  outArray[26 + outpos] = (inArray[14 + inpos] >>> 20)
-| ((inArray[15 + inpos] & 63) << (18 - 6));
-  outArray[27 + outpos] = ((inArray[15 + inpos] >>> 6) & 262143);
-  outArray[28 + outpos] = (inArray[15 + inpos] >>> 24)
-| ((inArray[16 + inpos] & 1023) << (18 - 10));
-  outArray[29 + outpos] = ((inArray[16 + inpos] >>> 10) & 262143);
-  outArray[30 + outpos] = (inArray[16 + inpos] >>> 28)
-| ((inArray[17 + inpos] & 16383) << (18 - 14));
-  outArray[31 + outpos] = (inArray[17 + inpos] >>> 14);
+function fastunpack18(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 262143);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 18)
+| ((model.inArray[1 + model.inpos] & 15) << (18 - 4));
+  model.outArray[2 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 4) & 262143);
+  model.outArray[3 + model.outpos] = (model.inArray[1 + model.inpos] >>> 22)
+| ((model.inArray[2 + model.inpos] & 255) << (18 - 8));
+  model.outArray[4 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 8) & 262143);
+  model.outArray[5 + model.outpos] = (model.inArray[2 + model.inpos] >>> 26)
+| ((model.inArray[3 + model.inpos] & 4095) << (18 - 12));
+  model.outArray[6 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 12) & 262143);
+  model.outArray[7 + model.outpos] = (model.inArray[3 + model.inpos] >>> 30)
+| ((model.inArray[4 + model.inpos] & 65535) << (18 - 16));
+  model.outArray[8 + model.outpos] = (model.inArray[4 + model.inpos] >>> 16)
+| ((model.inArray[5 + model.inpos] & 3) << (18 - 2));
+  model.outArray[9 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 2) & 262143);
+  model.outArray[10 + model.outpos] = (model.inArray[5 + model.inpos] >>> 20)
+| ((model.inArray[6 + model.inpos] & 63) << (18 - 6));
+  model.outArray[11 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 6) & 262143);
+  model.outArray[12 + model.outpos] = (model.inArray[6 + model.inpos] >>> 24)
+| ((model.inArray[7 + model.inpos] & 1023) << (18 - 10));
+  model.outArray[13 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 10) & 262143);
+  model.outArray[14 + model.outpos] = (model.inArray[7 + model.inpos] >>> 28)
+| ((model.inArray[8 + model.inpos] & 16383) << (18 - 14));
+  model.outArray[15 + model.outpos] = (model.inArray[8 + model.inpos] >>> 14);
+  model.outArray[16 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 0) & 262143);
+  model.outArray[17 + model.outpos] = (model.inArray[9 + model.inpos] >>> 18)
+| ((model.inArray[10 + model.inpos] & 15) << (18 - 4));
+  model.outArray[18 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 4) & 262143);
+  model.outArray[19 + model.outpos] = (model.inArray[10 + model.inpos] >>> 22)
+| ((model.inArray[11 + model.inpos] & 255) << (18 - 8));
+  model.outArray[20 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 8) & 262143);
+  model.outArray[21 + model.outpos] = (model.inArray[11 + model.inpos] >>> 26)
+| ((model.inArray[12 + model.inpos] & 4095) << (18 - 12));
+  model.outArray[22 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 12) & 262143);
+  model.outArray[23 + model.outpos] = (model.inArray[12 + model.inpos] >>> 30)
+| ((model.inArray[13 + model.inpos] & 65535) << (18 - 16));
+  model.outArray[24 + model.outpos] = (model.inArray[13 + model.inpos] >>> 16)
+| ((model.inArray[14 + model.inpos] & 3) << (18 - 2));
+  model.outArray[25 + model.outpos] = ((model.inArray[14 + model.inpos] >>> 2) & 262143);
+  model.outArray[26 + model.outpos] = (model.inArray[14 + model.inpos] >>> 20)
+| ((model.inArray[15 + model.inpos] & 63) << (18 - 6));
+  model.outArray[27 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 6) & 262143);
+  model.outArray[28 + model.outpos] = (model.inArray[15 + model.inpos] >>> 24)
+| ((model.inArray[16 + model.inpos] & 1023) << (18 - 10));
+  model.outArray[29 + model.outpos] = ((model.inArray[16 + model.inpos] >>> 10) & 262143);
+  model.outArray[30 + model.outpos] = (model.inArray[16 + model.inpos] >>> 28)
+| ((model.inArray[17 + model.inpos] & 16383) << (18 - 14));
+  model.outArray[31 + model.outpos] = (model.inArray[17 + model.inpos] >>> 14);
 }
 
-function fastunpack19(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 524287);
-  outArray[1 + outpos] = (inArray[inpos] >>> 19)
-| ((inArray[1 + inpos] & 63) << (19 - 6));
-  outArray[2 + outpos] = ((inArray[1 + inpos] >>> 6) & 524287);
-  outArray[3 + outpos] = (inArray[1 + inpos] >>> 25)
-| ((inArray[2 + inpos] & 4095) << (19 - 12));
-  outArray[4 + outpos] = ((inArray[2 + inpos] >>> 12) & 524287);
-  outArray[5 + outpos] = (inArray[2 + inpos] >>> 31)
-| ((inArray[3 + inpos] & 262143) << (19 - 18));
-  outArray[6 + outpos] = (inArray[3 + inpos] >>> 18)
-| ((inArray[4 + inpos] & 31) << (19 - 5));
-  outArray[7 + outpos] = ((inArray[4 + inpos] >>> 5) & 524287);
-  outArray[8 + outpos] = (inArray[4 + inpos] >>> 24)
-| ((inArray[5 + inpos] & 2047) << (19 - 11));
-  outArray[9 + outpos] = ((inArray[5 + inpos] >>> 11) & 524287);
-  outArray[10 + outpos] = (inArray[5 + inpos] >>> 30)
-| ((inArray[6 + inpos] & 131071) << (19 - 17));
-  outArray[11 + outpos] = (inArray[6 + inpos] >>> 17)
-| ((inArray[7 + inpos] & 15) << (19 - 4));
-  outArray[12 + outpos] = ((inArray[7 + inpos] >>> 4) & 524287);
-  outArray[13 + outpos] = (inArray[7 + inpos] >>> 23)
-| ((inArray[8 + inpos] & 1023) << (19 - 10));
-  outArray[14 + outpos] = ((inArray[8 + inpos] >>> 10) & 524287);
-  outArray[15 + outpos] = (inArray[8 + inpos] >>> 29)
-| ((inArray[9 + inpos] & 65535) << (19 - 16));
-  outArray[16 + outpos] = (inArray[9 + inpos] >>> 16)
-| ((inArray[10 + inpos] & 7) << (19 - 3));
-  outArray[17 + outpos] = ((inArray[10 + inpos] >>> 3) & 524287);
-  outArray[18 + outpos] = (inArray[10 + inpos] >>> 22)
-| ((inArray[11 + inpos] & 511) << (19 - 9));
-  outArray[19 + outpos] = ((inArray[11 + inpos] >>> 9) & 524287);
-  outArray[20 + outpos] = (inArray[11 + inpos] >>> 28)
-| ((inArray[12 + inpos] & 32767) << (19 - 15));
-  outArray[21 + outpos] = (inArray[12 + inpos] >>> 15)
-| ((inArray[13 + inpos] & 3) << (19 - 2));
-  outArray[22 + outpos] = ((inArray[13 + inpos] >>> 2) & 524287);
-  outArray[23 + outpos] = (inArray[13 + inpos] >>> 21)
-| ((inArray[14 + inpos] & 255) << (19 - 8));
-  outArray[24 + outpos] = ((inArray[14 + inpos] >>> 8) & 524287);
-  outArray[25 + outpos] = (inArray[14 + inpos] >>> 27)
-| ((inArray[15 + inpos] & 16383) << (19 - 14));
-  outArray[26 + outpos] = (inArray[15 + inpos] >>> 14)
-| ((inArray[16 + inpos] & 1) << (19 - 1));
-  outArray[27 + outpos] = ((inArray[16 + inpos] >>> 1) & 524287);
-  outArray[28 + outpos] = (inArray[16 + inpos] >>> 20)
-| ((inArray[17 + inpos] & 127) << (19 - 7));
-  outArray[29 + outpos] = ((inArray[17 + inpos] >>> 7) & 524287);
-  outArray[30 + outpos] = (inArray[17 + inpos] >>> 26)
-| ((inArray[18 + inpos] & 8191) << (19 - 13));
-  outArray[31 + outpos] = (inArray[18 + inpos] >>> 13);
+function fastunpack19(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 524287);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 19)
+| ((model.inArray[1 + model.inpos] & 63) << (19 - 6));
+  model.outArray[2 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 6) & 524287);
+  model.outArray[3 + model.outpos] = (model.inArray[1 + model.inpos] >>> 25)
+| ((model.inArray[2 + model.inpos] & 4095) << (19 - 12));
+  model.outArray[4 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 12) & 524287);
+  model.outArray[5 + model.outpos] = (model.inArray[2 + model.inpos] >>> 31)
+| ((model.inArray[3 + model.inpos] & 262143) << (19 - 18));
+  model.outArray[6 + model.outpos] = (model.inArray[3 + model.inpos] >>> 18)
+| ((model.inArray[4 + model.inpos] & 31) << (19 - 5));
+  model.outArray[7 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 5) & 524287);
+  model.outArray[8 + model.outpos] = (model.inArray[4 + model.inpos] >>> 24)
+| ((model.inArray[5 + model.inpos] & 2047) << (19 - 11));
+  model.outArray[9 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 11) & 524287);
+  model.outArray[10 + model.outpos] = (model.inArray[5 + model.inpos] >>> 30)
+| ((model.inArray[6 + model.inpos] & 131071) << (19 - 17));
+  model.outArray[11 + model.outpos] = (model.inArray[6 + model.inpos] >>> 17)
+| ((model.inArray[7 + model.inpos] & 15) << (19 - 4));
+  model.outArray[12 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 4) & 524287);
+  model.outArray[13 + model.outpos] = (model.inArray[7 + model.inpos] >>> 23)
+| ((model.inArray[8 + model.inpos] & 1023) << (19 - 10));
+  model.outArray[14 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 10) & 524287);
+  model.outArray[15 + model.outpos] = (model.inArray[8 + model.inpos] >>> 29)
+| ((model.inArray[9 + model.inpos] & 65535) << (19 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[9 + model.inpos] >>> 16)
+| ((model.inArray[10 + model.inpos] & 7) << (19 - 3));
+  model.outArray[17 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 3) & 524287);
+  model.outArray[18 + model.outpos] = (model.inArray[10 + model.inpos] >>> 22)
+| ((model.inArray[11 + model.inpos] & 511) << (19 - 9));
+  model.outArray[19 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 9) & 524287);
+  model.outArray[20 + model.outpos] = (model.inArray[11 + model.inpos] >>> 28)
+| ((model.inArray[12 + model.inpos] & 32767) << (19 - 15));
+  model.outArray[21 + model.outpos] = (model.inArray[12 + model.inpos] >>> 15)
+| ((model.inArray[13 + model.inpos] & 3) << (19 - 2));
+  model.outArray[22 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 2) & 524287);
+  model.outArray[23 + model.outpos] = (model.inArray[13 + model.inpos] >>> 21)
+| ((model.inArray[14 + model.inpos] & 255) << (19 - 8));
+  model.outArray[24 + model.outpos] = ((model.inArray[14 + model.inpos] >>> 8) & 524287);
+  model.outArray[25 + model.outpos] = (model.inArray[14 + model.inpos] >>> 27)
+| ((model.inArray[15 + model.inpos] & 16383) << (19 - 14));
+  model.outArray[26 + model.outpos] = (model.inArray[15 + model.inpos] >>> 14)
+| ((model.inArray[16 + model.inpos] & 1) << (19 - 1));
+  model.outArray[27 + model.outpos] = ((model.inArray[16 + model.inpos] >>> 1) & 524287);
+  model.outArray[28 + model.outpos] = (model.inArray[16 + model.inpos] >>> 20)
+| ((model.inArray[17 + model.inpos] & 127) << (19 - 7));
+  model.outArray[29 + model.outpos] = ((model.inArray[17 + model.inpos] >>> 7) & 524287);
+  model.outArray[30 + model.outpos] = (model.inArray[17 + model.inpos] >>> 26)
+| ((model.inArray[18 + model.inpos] & 8191) << (19 - 13));
+  model.outArray[31 + model.outpos] = (model.inArray[18 + model.inpos] >>> 13);
 }
 
-function fastunpack2(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 3);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 2) & 3);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 4) & 3);
-  outArray[3 + outpos] = ((inArray[inpos] >>> 6) & 3);
-  outArray[4 + outpos] = ((inArray[inpos] >>> 8) & 3);
-  outArray[5 + outpos] = ((inArray[inpos] >>> 10) & 3);
-  outArray[6 + outpos] = ((inArray[inpos] >>> 12) & 3);
-  outArray[7 + outpos] = ((inArray[inpos] >>> 14) & 3);
-  outArray[8 + outpos] = ((inArray[inpos] >>> 16) & 3);
-  outArray[9 + outpos] = ((inArray[inpos] >>> 18) & 3);
-  outArray[10 + outpos] = ((inArray[inpos] >>> 20) & 3);
-  outArray[11 + outpos] = ((inArray[inpos] >>> 22) & 3);
-  outArray[12 + outpos] = ((inArray[inpos] >>> 24) & 3);
-  outArray[13 + outpos] = ((inArray[inpos] >>> 26) & 3);
-  outArray[14 + outpos] = ((inArray[inpos] >>> 28) & 3);
-  outArray[15 + outpos] = (inArray[inpos] >>> 30);
-  outArray[16 + outpos] = ((inArray[1 + inpos] >>> 0) & 3);
-  outArray[17 + outpos] = ((inArray[1 + inpos] >>> 2) & 3);
-  outArray[18 + outpos] = ((inArray[1 + inpos] >>> 4) & 3);
-  outArray[19 + outpos] = ((inArray[1 + inpos] >>> 6) & 3);
-  outArray[20 + outpos] = ((inArray[1 + inpos] >>> 8) & 3);
-  outArray[21 + outpos] = ((inArray[1 + inpos] >>> 10) & 3);
-  outArray[22 + outpos] = ((inArray[1 + inpos] >>> 12) & 3);
-  outArray[23 + outpos] = ((inArray[1 + inpos] >>> 14) & 3);
-  outArray[24 + outpos] = ((inArray[1 + inpos] >>> 16) & 3);
-  outArray[25 + outpos] = ((inArray[1 + inpos] >>> 18) & 3);
-  outArray[26 + outpos] = ((inArray[1 + inpos] >>> 20) & 3);
-  outArray[27 + outpos] = ((inArray[1 + inpos] >>> 22) & 3);
-  outArray[28 + outpos] = ((inArray[1 + inpos] >>> 24) & 3);
-  outArray[29 + outpos] = ((inArray[1 + inpos] >>> 26) & 3);
-  outArray[30 + outpos] = ((inArray[1 + inpos] >>> 28) & 3);
-  outArray[31 + outpos] = (inArray[1 + inpos] >>> 30);
+function fastunpack2(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 3);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 2) & 3);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 4) & 3);
+  model.outArray[3 + model.outpos] = ((model.inArray[model.inpos] >>> 6) & 3);
+  model.outArray[4 + model.outpos] = ((model.inArray[model.inpos] >>> 8) & 3);
+  model.outArray[5 + model.outpos] = ((model.inArray[model.inpos] >>> 10) & 3);
+  model.outArray[6 + model.outpos] = ((model.inArray[model.inpos] >>> 12) & 3);
+  model.outArray[7 + model.outpos] = ((model.inArray[model.inpos] >>> 14) & 3);
+  model.outArray[8 + model.outpos] = ((model.inArray[model.inpos] >>> 16) & 3);
+  model.outArray[9 + model.outpos] = ((model.inArray[model.inpos] >>> 18) & 3);
+  model.outArray[10 + model.outpos] = ((model.inArray[model.inpos] >>> 20) & 3);
+  model.outArray[11 + model.outpos] = ((model.inArray[model.inpos] >>> 22) & 3);
+  model.outArray[12 + model.outpos] = ((model.inArray[model.inpos] >>> 24) & 3);
+  model.outArray[13 + model.outpos] = ((model.inArray[model.inpos] >>> 26) & 3);
+  model.outArray[14 + model.outpos] = ((model.inArray[model.inpos] >>> 28) & 3);
+  model.outArray[15 + model.outpos] = (model.inArray[model.inpos] >>> 30);
+  model.outArray[16 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 0) & 3);
+  model.outArray[17 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 2) & 3);
+  model.outArray[18 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 4) & 3);
+  model.outArray[19 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 6) & 3);
+  model.outArray[20 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 8) & 3);
+  model.outArray[21 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 10) & 3);
+  model.outArray[22 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 12) & 3);
+  model.outArray[23 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 14) & 3);
+  model.outArray[24 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 16) & 3);
+  model.outArray[25 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 18) & 3);
+  model.outArray[26 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 20) & 3);
+  model.outArray[27 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 22) & 3);
+  model.outArray[28 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 24) & 3);
+  model.outArray[29 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 26) & 3);
+  model.outArray[30 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 28) & 3);
+  model.outArray[31 + model.outpos] = (model.inArray[1 + model.inpos] >>> 30);
 }
 
-function fastunpack20(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 1048575);
-  outArray[1 + outpos] = (inArray[inpos] >>> 20)
-| ((inArray[1 + inpos] & 255) << (20 - 8));
-  outArray[2 + outpos] = ((inArray[1 + inpos] >>> 8) & 1048575);
-  outArray[3 + outpos] = (inArray[1 + inpos] >>> 28)
-| ((inArray[2 + inpos] & 65535) << (20 - 16));
-  outArray[4 + outpos] = (inArray[2 + inpos] >>> 16)
-| ((inArray[3 + inpos] & 15) << (20 - 4));
-  outArray[5 + outpos] = ((inArray[3 + inpos] >>> 4) & 1048575);
-  outArray[6 + outpos] = (inArray[3 + inpos] >>> 24)
-| ((inArray[4 + inpos] & 4095) << (20 - 12));
-  outArray[7 + outpos] = (inArray[4 + inpos] >>> 12);
-  outArray[8 + outpos] = ((inArray[5 + inpos] >>> 0) & 1048575);
-  outArray[9 + outpos] = (inArray[5 + inpos] >>> 20)
-| ((inArray[6 + inpos] & 255) << (20 - 8));
-  outArray[10 + outpos] = ((inArray[6 + inpos] >>> 8) & 1048575);
-  outArray[11 + outpos] = (inArray[6 + inpos] >>> 28)
-| ((inArray[7 + inpos] & 65535) << (20 - 16));
-  outArray[12 + outpos] = (inArray[7 + inpos] >>> 16)
-| ((inArray[8 + inpos] & 15) << (20 - 4));
-  outArray[13 + outpos] = ((inArray[8 + inpos] >>> 4) & 1048575);
-  outArray[14 + outpos] = (inArray[8 + inpos] >>> 24)
-| ((inArray[9 + inpos] & 4095) << (20 - 12));
-  outArray[15 + outpos] = (inArray[9 + inpos] >>> 12);
-  outArray[16 + outpos] = ((inArray[10 + inpos] >>> 0) & 1048575);
-  outArray[17 + outpos] = (inArray[10 + inpos] >>> 20)
-| ((inArray[11 + inpos] & 255) << (20 - 8));
-  outArray[18 + outpos] = ((inArray[11 + inpos] >>> 8) & 1048575);
-  outArray[19 + outpos] = (inArray[11 + inpos] >>> 28)
-| ((inArray[12 + inpos] & 65535) << (20 - 16));
-  outArray[20 + outpos] = (inArray[12 + inpos] >>> 16)
-| ((inArray[13 + inpos] & 15) << (20 - 4));
-  outArray[21 + outpos] = ((inArray[13 + inpos] >>> 4) & 1048575);
-  outArray[22 + outpos] = (inArray[13 + inpos] >>> 24)
-| ((inArray[14 + inpos] & 4095) << (20 - 12));
-  outArray[23 + outpos] = (inArray[14 + inpos] >>> 12);
-  outArray[24 + outpos] = ((inArray[15 + inpos] >>> 0) & 1048575);
-  outArray[25 + outpos] = (inArray[15 + inpos] >>> 20)
-| ((inArray[16 + inpos] & 255) << (20 - 8));
-  outArray[26 + outpos] = ((inArray[16 + inpos] >>> 8) & 1048575);
-  outArray[27 + outpos] = (inArray[16 + inpos] >>> 28)
-| ((inArray[17 + inpos] & 65535) << (20 - 16));
-  outArray[28 + outpos] = (inArray[17 + inpos] >>> 16)
-| ((inArray[18 + inpos] & 15) << (20 - 4));
-  outArray[29 + outpos] = ((inArray[18 + inpos] >>> 4) & 1048575);
-  outArray[30 + outpos] = (inArray[18 + inpos] >>> 24)
-| ((inArray[19 + inpos] & 4095) << (20 - 12));
-  outArray[31 + outpos] = (inArray[19 + inpos] >>> 12);
+function fastunpack20(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 1048575);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 20)
+| ((model.inArray[1 + model.inpos] & 255) << (20 - 8));
+  model.outArray[2 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 8) & 1048575);
+  model.outArray[3 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28)
+| ((model.inArray[2 + model.inpos] & 65535) << (20 - 16));
+  model.outArray[4 + model.outpos] = (model.inArray[2 + model.inpos] >>> 16)
+| ((model.inArray[3 + model.inpos] & 15) << (20 - 4));
+  model.outArray[5 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 4) & 1048575);
+  model.outArray[6 + model.outpos] = (model.inArray[3 + model.inpos] >>> 24)
+| ((model.inArray[4 + model.inpos] & 4095) << (20 - 12));
+  model.outArray[7 + model.outpos] = (model.inArray[4 + model.inpos] >>> 12);
+  model.outArray[8 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 0) & 1048575);
+  model.outArray[9 + model.outpos] = (model.inArray[5 + model.inpos] >>> 20)
+| ((model.inArray[6 + model.inpos] & 255) << (20 - 8));
+  model.outArray[10 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 8) & 1048575);
+  model.outArray[11 + model.outpos] = (model.inArray[6 + model.inpos] >>> 28)
+| ((model.inArray[7 + model.inpos] & 65535) << (20 - 16));
+  model.outArray[12 + model.outpos] = (model.inArray[7 + model.inpos] >>> 16)
+| ((model.inArray[8 + model.inpos] & 15) << (20 - 4));
+  model.outArray[13 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 4) & 1048575);
+  model.outArray[14 + model.outpos] = (model.inArray[8 + model.inpos] >>> 24)
+| ((model.inArray[9 + model.inpos] & 4095) << (20 - 12));
+  model.outArray[15 + model.outpos] = (model.inArray[9 + model.inpos] >>> 12);
+  model.outArray[16 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 0) & 1048575);
+  model.outArray[17 + model.outpos] = (model.inArray[10 + model.inpos] >>> 20)
+| ((model.inArray[11 + model.inpos] & 255) << (20 - 8));
+  model.outArray[18 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 8) & 1048575);
+  model.outArray[19 + model.outpos] = (model.inArray[11 + model.inpos] >>> 28)
+| ((model.inArray[12 + model.inpos] & 65535) << (20 - 16));
+  model.outArray[20 + model.outpos] = (model.inArray[12 + model.inpos] >>> 16)
+| ((model.inArray[13 + model.inpos] & 15) << (20 - 4));
+  model.outArray[21 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 4) & 1048575);
+  model.outArray[22 + model.outpos] = (model.inArray[13 + model.inpos] >>> 24)
+| ((model.inArray[14 + model.inpos] & 4095) << (20 - 12));
+  model.outArray[23 + model.outpos] = (model.inArray[14 + model.inpos] >>> 12);
+  model.outArray[24 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 0) & 1048575);
+  model.outArray[25 + model.outpos] = (model.inArray[15 + model.inpos] >>> 20)
+| ((model.inArray[16 + model.inpos] & 255) << (20 - 8));
+  model.outArray[26 + model.outpos] = ((model.inArray[16 + model.inpos] >>> 8) & 1048575);
+  model.outArray[27 + model.outpos] = (model.inArray[16 + model.inpos] >>> 28)
+| ((model.inArray[17 + model.inpos] & 65535) << (20 - 16));
+  model.outArray[28 + model.outpos] = (model.inArray[17 + model.inpos] >>> 16)
+| ((model.inArray[18 + model.inpos] & 15) << (20 - 4));
+  model.outArray[29 + model.outpos] = ((model.inArray[18 + model.inpos] >>> 4) & 1048575);
+  model.outArray[30 + model.outpos] = (model.inArray[18 + model.inpos] >>> 24)
+| ((model.inArray[19 + model.inpos] & 4095) << (20 - 12));
+  model.outArray[31 + model.outpos] = (model.inArray[19 + model.inpos] >>> 12);
 }
 
-function fastunpack21(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 2097151);
-  outArray[1 + outpos] = (inArray[inpos] >>> 21)
-| ((inArray[1 + inpos] & 1023) << (21 - 10));
-  outArray[2 + outpos] = ((inArray[1 + inpos] >>> 10) & 2097151);
-  outArray[3 + outpos] = (inArray[1 + inpos] >>> 31)
-| ((inArray[2 + inpos] & 1048575) << (21 - 20));
-  outArray[4 + outpos] = (inArray[2 + inpos] >>> 20)
-| ((inArray[3 + inpos] & 511) << (21 - 9));
-  outArray[5 + outpos] = ((inArray[3 + inpos] >>> 9) & 2097151);
-  outArray[6 + outpos] = (inArray[3 + inpos] >>> 30)
-| ((inArray[4 + inpos] & 524287) << (21 - 19));
-  outArray[7 + outpos] = (inArray[4 + inpos] >>> 19)
-| ((inArray[5 + inpos] & 255) << (21 - 8));
-  outArray[8 + outpos] = ((inArray[5 + inpos] >>> 8) & 2097151);
-  outArray[9 + outpos] = (inArray[5 + inpos] >>> 29)
-| ((inArray[6 + inpos] & 262143) << (21 - 18));
-  outArray[10 + outpos] = (inArray[6 + inpos] >>> 18)
-| ((inArray[7 + inpos] & 127) << (21 - 7));
-  outArray[11 + outpos] = ((inArray[7 + inpos] >>> 7) & 2097151);
-  outArray[12 + outpos] = (inArray[7 + inpos] >>> 28)
-| ((inArray[8 + inpos] & 131071) << (21 - 17));
-  outArray[13 + outpos] = (inArray[8 + inpos] >>> 17)
-| ((inArray[9 + inpos] & 63) << (21 - 6));
-  outArray[14 + outpos] = ((inArray[9 + inpos] >>> 6) & 2097151);
-  outArray[15 + outpos] = (inArray[9 + inpos] >>> 27)
-| ((inArray[10 + inpos] & 65535) << (21 - 16));
-  outArray[16 + outpos] = (inArray[10 + inpos] >>> 16)
-| ((inArray[11 + inpos] & 31) << (21 - 5));
-  outArray[17 + outpos] = ((inArray[11 + inpos] >>> 5) & 2097151);
-  outArray[18 + outpos] = (inArray[11 + inpos] >>> 26)
-| ((inArray[12 + inpos] & 32767) << (21 - 15));
-  outArray[19 + outpos] = (inArray[12 + inpos] >>> 15)
-| ((inArray[13 + inpos] & 15) << (21 - 4));
-  outArray[20 + outpos] = ((inArray[13 + inpos] >>> 4) & 2097151);
-  outArray[21 + outpos] = (inArray[13 + inpos] >>> 25)
-| ((inArray[14 + inpos] & 16383) << (21 - 14));
-  outArray[22 + outpos] = (inArray[14 + inpos] >>> 14)
-| ((inArray[15 + inpos] & 7) << (21 - 3));
-  outArray[23 + outpos] = ((inArray[15 + inpos] >>> 3) & 2097151);
-  outArray[24 + outpos] = (inArray[15 + inpos] >>> 24)
-| ((inArray[16 + inpos] & 8191) << (21 - 13));
-  outArray[25 + outpos] = (inArray[16 + inpos] >>> 13)
-| ((inArray[17 + inpos] & 3) << (21 - 2));
-  outArray[26 + outpos] = ((inArray[17 + inpos] >>> 2) & 2097151);
-  outArray[27 + outpos] = (inArray[17 + inpos] >>> 23)
-| ((inArray[18 + inpos] & 4095) << (21 - 12));
-  outArray[28 + outpos] = (inArray[18 + inpos] >>> 12)
-| ((inArray[19 + inpos] & 1) << (21 - 1));
-  outArray[29 + outpos] = ((inArray[19 + inpos] >>> 1) & 2097151);
-  outArray[30 + outpos] = (inArray[19 + inpos] >>> 22)
-| ((inArray[20 + inpos] & 2047) << (21 - 11));
-  outArray[31 + outpos] = (inArray[20 + inpos] >>> 11);
+function fastunpack21(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 2097151);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 21)
+| ((model.inArray[1 + model.inpos] & 1023) << (21 - 10));
+  model.outArray[2 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 10) & 2097151);
+  model.outArray[3 + model.outpos] = (model.inArray[1 + model.inpos] >>> 31)
+| ((model.inArray[2 + model.inpos] & 1048575) << (21 - 20));
+  model.outArray[4 + model.outpos] = (model.inArray[2 + model.inpos] >>> 20)
+| ((model.inArray[3 + model.inpos] & 511) << (21 - 9));
+  model.outArray[5 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 9) & 2097151);
+  model.outArray[6 + model.outpos] = (model.inArray[3 + model.inpos] >>> 30)
+| ((model.inArray[4 + model.inpos] & 524287) << (21 - 19));
+  model.outArray[7 + model.outpos] = (model.inArray[4 + model.inpos] >>> 19)
+| ((model.inArray[5 + model.inpos] & 255) << (21 - 8));
+  model.outArray[8 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 8) & 2097151);
+  model.outArray[9 + model.outpos] = (model.inArray[5 + model.inpos] >>> 29)
+| ((model.inArray[6 + model.inpos] & 262143) << (21 - 18));
+  model.outArray[10 + model.outpos] = (model.inArray[6 + model.inpos] >>> 18)
+| ((model.inArray[7 + model.inpos] & 127) << (21 - 7));
+  model.outArray[11 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 7) & 2097151);
+  model.outArray[12 + model.outpos] = (model.inArray[7 + model.inpos] >>> 28)
+| ((model.inArray[8 + model.inpos] & 131071) << (21 - 17));
+  model.outArray[13 + model.outpos] = (model.inArray[8 + model.inpos] >>> 17)
+| ((model.inArray[9 + model.inpos] & 63) << (21 - 6));
+  model.outArray[14 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 6) & 2097151);
+  model.outArray[15 + model.outpos] = (model.inArray[9 + model.inpos] >>> 27)
+| ((model.inArray[10 + model.inpos] & 65535) << (21 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[10 + model.inpos] >>> 16)
+| ((model.inArray[11 + model.inpos] & 31) << (21 - 5));
+  model.outArray[17 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 5) & 2097151);
+  model.outArray[18 + model.outpos] = (model.inArray[11 + model.inpos] >>> 26)
+| ((model.inArray[12 + model.inpos] & 32767) << (21 - 15));
+  model.outArray[19 + model.outpos] = (model.inArray[12 + model.inpos] >>> 15)
+| ((model.inArray[13 + model.inpos] & 15) << (21 - 4));
+  model.outArray[20 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 4) & 2097151);
+  model.outArray[21 + model.outpos] = (model.inArray[13 + model.inpos] >>> 25)
+| ((model.inArray[14 + model.inpos] & 16383) << (21 - 14));
+  model.outArray[22 + model.outpos] = (model.inArray[14 + model.inpos] >>> 14)
+| ((model.inArray[15 + model.inpos] & 7) << (21 - 3));
+  model.outArray[23 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 3) & 2097151);
+  model.outArray[24 + model.outpos] = (model.inArray[15 + model.inpos] >>> 24)
+| ((model.inArray[16 + model.inpos] & 8191) << (21 - 13));
+  model.outArray[25 + model.outpos] = (model.inArray[16 + model.inpos] >>> 13)
+| ((model.inArray[17 + model.inpos] & 3) << (21 - 2));
+  model.outArray[26 + model.outpos] = ((model.inArray[17 + model.inpos] >>> 2) & 2097151);
+  model.outArray[27 + model.outpos] = (model.inArray[17 + model.inpos] >>> 23)
+| ((model.inArray[18 + model.inpos] & 4095) << (21 - 12));
+  model.outArray[28 + model.outpos] = (model.inArray[18 + model.inpos] >>> 12)
+| ((model.inArray[19 + model.inpos] & 1) << (21 - 1));
+  model.outArray[29 + model.outpos] = ((model.inArray[19 + model.inpos] >>> 1) & 2097151);
+  model.outArray[30 + model.outpos] = (model.inArray[19 + model.inpos] >>> 22)
+| ((model.inArray[20 + model.inpos] & 2047) << (21 - 11));
+  model.outArray[31 + model.outpos] = (model.inArray[20 + model.inpos] >>> 11);
 }
 
-function fastunpack22(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 4194303);
-  outArray[1 + outpos] = (inArray[inpos] >>> 22)
-| ((inArray[1 + inpos] & 4095) << (22 - 12));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 12)
-| ((inArray[2 + inpos] & 3) << (22 - 2));
-  outArray[3 + outpos] = ((inArray[2 + inpos] >>> 2) & 4194303);
-  outArray[4 + outpos] = (inArray[2 + inpos] >>> 24)
-| ((inArray[3 + inpos] & 16383) << (22 - 14));
-  outArray[5 + outpos] = (inArray[3 + inpos] >>> 14)
-| ((inArray[4 + inpos] & 15) << (22 - 4));
-  outArray[6 + outpos] = ((inArray[4 + inpos] >>> 4) & 4194303);
-  outArray[7 + outpos] = (inArray[4 + inpos] >>> 26)
-| ((inArray[5 + inpos] & 65535) << (22 - 16));
-  outArray[8 + outpos] = (inArray[5 + inpos] >>> 16)
-| ((inArray[6 + inpos] & 63) << (22 - 6));
-  outArray[9 + outpos] = ((inArray[6 + inpos] >>> 6) & 4194303);
-  outArray[10 + outpos] = (inArray[6 + inpos] >>> 28)
-| ((inArray[7 + inpos] & 262143) << (22 - 18));
-  outArray[11 + outpos] = (inArray[7 + inpos] >>> 18)
-| ((inArray[8 + inpos] & 255) << (22 - 8));
-  outArray[12 + outpos] = ((inArray[8 + inpos] >>> 8) & 4194303);
-  outArray[13 + outpos] = (inArray[8 + inpos] >>> 30)
-| ((inArray[9 + inpos] & 1048575) << (22 - 20));
-  outArray[14 + outpos] = (inArray[9 + inpos] >>> 20)
-| ((inArray[10 + inpos] & 1023) << (22 - 10));
-  outArray[15 + outpos] = (inArray[10 + inpos] >>> 10);
-  outArray[16 + outpos] = ((inArray[11 + inpos] >>> 0) & 4194303);
-  outArray[17 + outpos] = (inArray[11 + inpos] >>> 22)
-| ((inArray[12 + inpos] & 4095) << (22 - 12));
-  outArray[18 + outpos] = (inArray[12 + inpos] >>> 12)
-| ((inArray[13 + inpos] & 3) << (22 - 2));
-  outArray[19 + outpos] = ((inArray[13 + inpos] >>> 2) & 4194303);
-  outArray[20 + outpos] = (inArray[13 + inpos] >>> 24)
-| ((inArray[14 + inpos] & 16383) << (22 - 14));
-  outArray[21 + outpos] = (inArray[14 + inpos] >>> 14)
-| ((inArray[15 + inpos] & 15) << (22 - 4));
-  outArray[22 + outpos] = ((inArray[15 + inpos] >>> 4) & 4194303);
-  outArray[23 + outpos] = (inArray[15 + inpos] >>> 26)
-| ((inArray[16 + inpos] & 65535) << (22 - 16));
-  outArray[24 + outpos] = (inArray[16 + inpos] >>> 16)
-| ((inArray[17 + inpos] & 63) << (22 - 6));
-  outArray[25 + outpos] = ((inArray[17 + inpos] >>> 6) & 4194303);
-  outArray[26 + outpos] = (inArray[17 + inpos] >>> 28)
-| ((inArray[18 + inpos] & 262143) << (22 - 18));
-  outArray[27 + outpos] = (inArray[18 + inpos] >>> 18)
-| ((inArray[19 + inpos] & 255) << (22 - 8));
-  outArray[28 + outpos] = ((inArray[19 + inpos] >>> 8) & 4194303);
-  outArray[29 + outpos] = (inArray[19 + inpos] >>> 30)
-| ((inArray[20 + inpos] & 1048575) << (22 - 20));
-  outArray[30 + outpos] = (inArray[20 + inpos] >>> 20)
-| ((inArray[21 + inpos] & 1023) << (22 - 10));
-  outArray[31 + outpos] = (inArray[21 + inpos] >>> 10);
+function fastunpack22(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 4194303);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 22)
+| ((model.inArray[1 + model.inpos] & 4095) << (22 - 12));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 12)
+| ((model.inArray[2 + model.inpos] & 3) << (22 - 2));
+  model.outArray[3 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 2) & 4194303);
+  model.outArray[4 + model.outpos] = (model.inArray[2 + model.inpos] >>> 24)
+| ((model.inArray[3 + model.inpos] & 16383) << (22 - 14));
+  model.outArray[5 + model.outpos] = (model.inArray[3 + model.inpos] >>> 14)
+| ((model.inArray[4 + model.inpos] & 15) << (22 - 4));
+  model.outArray[6 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 4) & 4194303);
+  model.outArray[7 + model.outpos] = (model.inArray[4 + model.inpos] >>> 26)
+| ((model.inArray[5 + model.inpos] & 65535) << (22 - 16));
+  model.outArray[8 + model.outpos] = (model.inArray[5 + model.inpos] >>> 16)
+| ((model.inArray[6 + model.inpos] & 63) << (22 - 6));
+  model.outArray[9 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 6) & 4194303);
+  model.outArray[10 + model.outpos] = (model.inArray[6 + model.inpos] >>> 28)
+| ((model.inArray[7 + model.inpos] & 262143) << (22 - 18));
+  model.outArray[11 + model.outpos] = (model.inArray[7 + model.inpos] >>> 18)
+| ((model.inArray[8 + model.inpos] & 255) << (22 - 8));
+  model.outArray[12 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 8) & 4194303);
+  model.outArray[13 + model.outpos] = (model.inArray[8 + model.inpos] >>> 30)
+| ((model.inArray[9 + model.inpos] & 1048575) << (22 - 20));
+  model.outArray[14 + model.outpos] = (model.inArray[9 + model.inpos] >>> 20)
+| ((model.inArray[10 + model.inpos] & 1023) << (22 - 10));
+  model.outArray[15 + model.outpos] = (model.inArray[10 + model.inpos] >>> 10);
+  model.outArray[16 + model.outpos] = ((model.inArray[11 + model.inpos] >>> 0) & 4194303);
+  model.outArray[17 + model.outpos] = (model.inArray[11 + model.inpos] >>> 22)
+| ((model.inArray[12 + model.inpos] & 4095) << (22 - 12));
+  model.outArray[18 + model.outpos] = (model.inArray[12 + model.inpos] >>> 12)
+| ((model.inArray[13 + model.inpos] & 3) << (22 - 2));
+  model.outArray[19 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 2) & 4194303);
+  model.outArray[20 + model.outpos] = (model.inArray[13 + model.inpos] >>> 24)
+| ((model.inArray[14 + model.inpos] & 16383) << (22 - 14));
+  model.outArray[21 + model.outpos] = (model.inArray[14 + model.inpos] >>> 14)
+| ((model.inArray[15 + model.inpos] & 15) << (22 - 4));
+  model.outArray[22 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 4) & 4194303);
+  model.outArray[23 + model.outpos] = (model.inArray[15 + model.inpos] >>> 26)
+| ((model.inArray[16 + model.inpos] & 65535) << (22 - 16));
+  model.outArray[24 + model.outpos] = (model.inArray[16 + model.inpos] >>> 16)
+| ((model.inArray[17 + model.inpos] & 63) << (22 - 6));
+  model.outArray[25 + model.outpos] = ((model.inArray[17 + model.inpos] >>> 6) & 4194303);
+  model.outArray[26 + model.outpos] = (model.inArray[17 + model.inpos] >>> 28)
+| ((model.inArray[18 + model.inpos] & 262143) << (22 - 18));
+  model.outArray[27 + model.outpos] = (model.inArray[18 + model.inpos] >>> 18)
+| ((model.inArray[19 + model.inpos] & 255) << (22 - 8));
+  model.outArray[28 + model.outpos] = ((model.inArray[19 + model.inpos] >>> 8) & 4194303);
+  model.outArray[29 + model.outpos] = (model.inArray[19 + model.inpos] >>> 30)
+| ((model.inArray[20 + model.inpos] & 1048575) << (22 - 20));
+  model.outArray[30 + model.outpos] = (model.inArray[20 + model.inpos] >>> 20)
+| ((model.inArray[21 + model.inpos] & 1023) << (22 - 10));
+  model.outArray[31 + model.outpos] = (model.inArray[21 + model.inpos] >>> 10);
 }
 
-function fastunpack23(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 8388607);
-  outArray[1 + outpos] = (inArray[inpos] >>> 23)
-| ((inArray[1 + inpos] & 16383) << (23 - 14));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 14)
-| ((inArray[2 + inpos] & 31) << (23 - 5));
-  outArray[3 + outpos] = ((inArray[2 + inpos] >>> 5) & 8388607);
-  outArray[4 + outpos] = (inArray[2 + inpos] >>> 28)
-| ((inArray[3 + inpos] & 524287) << (23 - 19));
-  outArray[5 + outpos] = (inArray[3 + inpos] >>> 19)
-| ((inArray[4 + inpos] & 1023) << (23 - 10));
-  outArray[6 + outpos] = (inArray[4 + inpos] >>> 10)
-| ((inArray[5 + inpos] & 1) << (23 - 1));
-  outArray[7 + outpos] = ((inArray[5 + inpos] >>> 1) & 8388607);
-  outArray[8 + outpos] = (inArray[5 + inpos] >>> 24)
-| ((inArray[6 + inpos] & 32767) << (23 - 15));
-  outArray[9 + outpos] = (inArray[6 + inpos] >>> 15)
-| ((inArray[7 + inpos] & 63) << (23 - 6));
-  outArray[10 + outpos] = ((inArray[7 + inpos] >>> 6) & 8388607);
-  outArray[11 + outpos] = (inArray[7 + inpos] >>> 29)
-| ((inArray[8 + inpos] & 1048575) << (23 - 20));
-  outArray[12 + outpos] = (inArray[8 + inpos] >>> 20)
-| ((inArray[9 + inpos] & 2047) << (23 - 11));
-  outArray[13 + outpos] = (inArray[9 + inpos] >>> 11)
-| ((inArray[10 + inpos] & 3) << (23 - 2));
-  outArray[14 + outpos] = ((inArray[10 + inpos] >>> 2) & 8388607);
-  outArray[15 + outpos] = (inArray[10 + inpos] >>> 25)
-| ((inArray[11 + inpos] & 65535) << (23 - 16));
-  outArray[16 + outpos] = (inArray[11 + inpos] >>> 16)
-| ((inArray[12 + inpos] & 127) << (23 - 7));
-  outArray[17 + outpos] = ((inArray[12 + inpos] >>> 7) & 8388607);
-  outArray[18 + outpos] = (inArray[12 + inpos] >>> 30)
-| ((inArray[13 + inpos] & 2097151) << (23 - 21));
-  outArray[19 + outpos] = (inArray[13 + inpos] >>> 21)
-| ((inArray[14 + inpos] & 4095) << (23 - 12));
-  outArray[20 + outpos] = (inArray[14 + inpos] >>> 12)
-| ((inArray[15 + inpos] & 7) << (23 - 3));
-  outArray[21 + outpos] = ((inArray[15 + inpos] >>> 3) & 8388607);
-  outArray[22 + outpos] = (inArray[15 + inpos] >>> 26)
-| ((inArray[16 + inpos] & 131071) << (23 - 17));
-  outArray[23 + outpos] = (inArray[16 + inpos] >>> 17)
-| ((inArray[17 + inpos] & 255) << (23 - 8));
-  outArray[24 + outpos] = ((inArray[17 + inpos] >>> 8) & 8388607);
-  outArray[25 + outpos] = (inArray[17 + inpos] >>> 31)
-| ((inArray[18 + inpos] & 4194303) << (23 - 22));
-  outArray[26 + outpos] = (inArray[18 + inpos] >>> 22)
-| ((inArray[19 + inpos] & 8191) << (23 - 13));
-  outArray[27 + outpos] = (inArray[19 + inpos] >>> 13)
-| ((inArray[20 + inpos] & 15) << (23 - 4));
-  outArray[28 + outpos] = ((inArray[20 + inpos] >>> 4) & 8388607);
-  outArray[29 + outpos] = (inArray[20 + inpos] >>> 27)
-| ((inArray[21 + inpos] & 262143) << (23 - 18));
-  outArray[30 + outpos] = (inArray[21 + inpos] >>> 18)
-| ((inArray[22 + inpos] & 511) << (23 - 9));
-  outArray[31 + outpos] = (inArray[22 + inpos] >>> 9);
+function fastunpack23(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 8388607);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 23)
+| ((model.inArray[1 + model.inpos] & 16383) << (23 - 14));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 14)
+| ((model.inArray[2 + model.inpos] & 31) << (23 - 5));
+  model.outArray[3 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 5) & 8388607);
+  model.outArray[4 + model.outpos] = (model.inArray[2 + model.inpos] >>> 28)
+| ((model.inArray[3 + model.inpos] & 524287) << (23 - 19));
+  model.outArray[5 + model.outpos] = (model.inArray[3 + model.inpos] >>> 19)
+| ((model.inArray[4 + model.inpos] & 1023) << (23 - 10));
+  model.outArray[6 + model.outpos] = (model.inArray[4 + model.inpos] >>> 10)
+| ((model.inArray[5 + model.inpos] & 1) << (23 - 1));
+  model.outArray[7 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 1) & 8388607);
+  model.outArray[8 + model.outpos] = (model.inArray[5 + model.inpos] >>> 24)
+| ((model.inArray[6 + model.inpos] & 32767) << (23 - 15));
+  model.outArray[9 + model.outpos] = (model.inArray[6 + model.inpos] >>> 15)
+| ((model.inArray[7 + model.inpos] & 63) << (23 - 6));
+  model.outArray[10 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 6) & 8388607);
+  model.outArray[11 + model.outpos] = (model.inArray[7 + model.inpos] >>> 29)
+| ((model.inArray[8 + model.inpos] & 1048575) << (23 - 20));
+  model.outArray[12 + model.outpos] = (model.inArray[8 + model.inpos] >>> 20)
+| ((model.inArray[9 + model.inpos] & 2047) << (23 - 11));
+  model.outArray[13 + model.outpos] = (model.inArray[9 + model.inpos] >>> 11)
+| ((model.inArray[10 + model.inpos] & 3) << (23 - 2));
+  model.outArray[14 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 2) & 8388607);
+  model.outArray[15 + model.outpos] = (model.inArray[10 + model.inpos] >>> 25)
+| ((model.inArray[11 + model.inpos] & 65535) << (23 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[11 + model.inpos] >>> 16)
+| ((model.inArray[12 + model.inpos] & 127) << (23 - 7));
+  model.outArray[17 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 7) & 8388607);
+  model.outArray[18 + model.outpos] = (model.inArray[12 + model.inpos] >>> 30)
+| ((model.inArray[13 + model.inpos] & 2097151) << (23 - 21));
+  model.outArray[19 + model.outpos] = (model.inArray[13 + model.inpos] >>> 21)
+| ((model.inArray[14 + model.inpos] & 4095) << (23 - 12));
+  model.outArray[20 + model.outpos] = (model.inArray[14 + model.inpos] >>> 12)
+| ((model.inArray[15 + model.inpos] & 7) << (23 - 3));
+  model.outArray[21 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 3) & 8388607);
+  model.outArray[22 + model.outpos] = (model.inArray[15 + model.inpos] >>> 26)
+| ((model.inArray[16 + model.inpos] & 131071) << (23 - 17));
+  model.outArray[23 + model.outpos] = (model.inArray[16 + model.inpos] >>> 17)
+| ((model.inArray[17 + model.inpos] & 255) << (23 - 8));
+  model.outArray[24 + model.outpos] = ((model.inArray[17 + model.inpos] >>> 8) & 8388607);
+  model.outArray[25 + model.outpos] = (model.inArray[17 + model.inpos] >>> 31)
+| ((model.inArray[18 + model.inpos] & 4194303) << (23 - 22));
+  model.outArray[26 + model.outpos] = (model.inArray[18 + model.inpos] >>> 22)
+| ((model.inArray[19 + model.inpos] & 8191) << (23 - 13));
+  model.outArray[27 + model.outpos] = (model.inArray[19 + model.inpos] >>> 13)
+| ((model.inArray[20 + model.inpos] & 15) << (23 - 4));
+  model.outArray[28 + model.outpos] = ((model.inArray[20 + model.inpos] >>> 4) & 8388607);
+  model.outArray[29 + model.outpos] = (model.inArray[20 + model.inpos] >>> 27)
+| ((model.inArray[21 + model.inpos] & 262143) << (23 - 18));
+  model.outArray[30 + model.outpos] = (model.inArray[21 + model.inpos] >>> 18)
+| ((model.inArray[22 + model.inpos] & 511) << (23 - 9));
+  model.outArray[31 + model.outpos] = (model.inArray[22 + model.inpos] >>> 9);
 }
 
-function fastunpack24(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 16777215);
-  outArray[1 + outpos] = (inArray[inpos] >>> 24)
-| ((inArray[1 + inpos] & 65535) << (24 - 16));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 16)
-| ((inArray[2 + inpos] & 255) << (24 - 8));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 8);
-  outArray[4 + outpos] = ((inArray[3 + inpos] >>> 0) & 16777215);
-  outArray[5 + outpos] = (inArray[3 + inpos] >>> 24)
-| ((inArray[4 + inpos] & 65535) << (24 - 16));
-  outArray[6 + outpos] = (inArray[4 + inpos] >>> 16)
-| ((inArray[5 + inpos] & 255) << (24 - 8));
-  outArray[7 + outpos] = (inArray[5 + inpos] >>> 8);
-  outArray[8 + outpos] = ((inArray[6 + inpos] >>> 0) & 16777215);
-  outArray[9 + outpos] = (inArray[6 + inpos] >>> 24)
-| ((inArray[7 + inpos] & 65535) << (24 - 16));
-  outArray[10 + outpos] = (inArray[7 + inpos] >>> 16)
-| ((inArray[8 + inpos] & 255) << (24 - 8));
-  outArray[11 + outpos] = (inArray[8 + inpos] >>> 8);
-  outArray[12 + outpos] = ((inArray[9 + inpos] >>> 0) & 16777215);
-  outArray[13 + outpos] = (inArray[9 + inpos] >>> 24)
-| ((inArray[10 + inpos] & 65535) << (24 - 16));
-  outArray[14 + outpos] = (inArray[10 + inpos] >>> 16)
-| ((inArray[11 + inpos] & 255) << (24 - 8));
-  outArray[15 + outpos] = (inArray[11 + inpos] >>> 8);
-  outArray[16 + outpos] = ((inArray[12 + inpos] >>> 0) & 16777215);
-  outArray[17 + outpos] = (inArray[12 + inpos] >>> 24)
-| ((inArray[13 + inpos] & 65535) << (24 - 16));
-  outArray[18 + outpos] = (inArray[13 + inpos] >>> 16)
-| ((inArray[14 + inpos] & 255) << (24 - 8));
-  outArray[19 + outpos] = (inArray[14 + inpos] >>> 8);
-  outArray[20 + outpos] = ((inArray[15 + inpos] >>> 0) & 16777215);
-  outArray[21 + outpos] = (inArray[15 + inpos] >>> 24)
-| ((inArray[16 + inpos] & 65535) << (24 - 16));
-  outArray[22 + outpos] = (inArray[16 + inpos] >>> 16)
-| ((inArray[17 + inpos] & 255) << (24 - 8));
-  outArray[23 + outpos] = (inArray[17 + inpos] >>> 8);
-  outArray[24 + outpos] = ((inArray[18 + inpos] >>> 0) & 16777215);
-  outArray[25 + outpos] = (inArray[18 + inpos] >>> 24)
-| ((inArray[19 + inpos] & 65535) << (24 - 16));
-  outArray[26 + outpos] = (inArray[19 + inpos] >>> 16)
-| ((inArray[20 + inpos] & 255) << (24 - 8));
-  outArray[27 + outpos] = (inArray[20 + inpos] >>> 8);
-  outArray[28 + outpos] = ((inArray[21 + inpos] >>> 0) & 16777215);
-  outArray[29 + outpos] = (inArray[21 + inpos] >>> 24)
-| ((inArray[22 + inpos] & 65535) << (24 - 16));
-  outArray[30 + outpos] = (inArray[22 + inpos] >>> 16)
-| ((inArray[23 + inpos] & 255) << (24 - 8));
-  outArray[31 + outpos] = (inArray[23 + inpos] >>> 8);
+function fastunpack24(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 16777215);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 24)
+| ((model.inArray[1 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 16)
+| ((model.inArray[2 + model.inpos] & 255) << (24 - 8));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 8);
+  model.outArray[4 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 0) & 16777215);
+  model.outArray[5 + model.outpos] = (model.inArray[3 + model.inpos] >>> 24)
+| ((model.inArray[4 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[6 + model.outpos] = (model.inArray[4 + model.inpos] >>> 16)
+| ((model.inArray[5 + model.inpos] & 255) << (24 - 8));
+  model.outArray[7 + model.outpos] = (model.inArray[5 + model.inpos] >>> 8);
+  model.outArray[8 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 0) & 16777215);
+  model.outArray[9 + model.outpos] = (model.inArray[6 + model.inpos] >>> 24)
+| ((model.inArray[7 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[10 + model.outpos] = (model.inArray[7 + model.inpos] >>> 16)
+| ((model.inArray[8 + model.inpos] & 255) << (24 - 8));
+  model.outArray[11 + model.outpos] = (model.inArray[8 + model.inpos] >>> 8);
+  model.outArray[12 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 0) & 16777215);
+  model.outArray[13 + model.outpos] = (model.inArray[9 + model.inpos] >>> 24)
+| ((model.inArray[10 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[14 + model.outpos] = (model.inArray[10 + model.inpos] >>> 16)
+| ((model.inArray[11 + model.inpos] & 255) << (24 - 8));
+  model.outArray[15 + model.outpos] = (model.inArray[11 + model.inpos] >>> 8);
+  model.outArray[16 + model.outpos] = ((model.inArray[12 + model.inpos] >>> 0) & 16777215);
+  model.outArray[17 + model.outpos] = (model.inArray[12 + model.inpos] >>> 24)
+| ((model.inArray[13 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[18 + model.outpos] = (model.inArray[13 + model.inpos] >>> 16)
+| ((model.inArray[14 + model.inpos] & 255) << (24 - 8));
+  model.outArray[19 + model.outpos] = (model.inArray[14 + model.inpos] >>> 8);
+  model.outArray[20 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 0) & 16777215);
+  model.outArray[21 + model.outpos] = (model.inArray[15 + model.inpos] >>> 24)
+| ((model.inArray[16 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[22 + model.outpos] = (model.inArray[16 + model.inpos] >>> 16)
+| ((model.inArray[17 + model.inpos] & 255) << (24 - 8));
+  model.outArray[23 + model.outpos] = (model.inArray[17 + model.inpos] >>> 8);
+  model.outArray[24 + model.outpos] = ((model.inArray[18 + model.inpos] >>> 0) & 16777215);
+  model.outArray[25 + model.outpos] = (model.inArray[18 + model.inpos] >>> 24)
+| ((model.inArray[19 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[26 + model.outpos] = (model.inArray[19 + model.inpos] >>> 16)
+| ((model.inArray[20 + model.inpos] & 255) << (24 - 8));
+  model.outArray[27 + model.outpos] = (model.inArray[20 + model.inpos] >>> 8);
+  model.outArray[28 + model.outpos] = ((model.inArray[21 + model.inpos] >>> 0) & 16777215);
+  model.outArray[29 + model.outpos] = (model.inArray[21 + model.inpos] >>> 24)
+| ((model.inArray[22 + model.inpos] & 65535) << (24 - 16));
+  model.outArray[30 + model.outpos] = (model.inArray[22 + model.inpos] >>> 16)
+| ((model.inArray[23 + model.inpos] & 255) << (24 - 8));
+  model.outArray[31 + model.outpos] = (model.inArray[23 + model.inpos] >>> 8);
 }
 
-function fastunpack25(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 33554431);
-  outArray[1 + outpos] = (inArray[inpos] >>> 25)
-| ((inArray[1 + inpos] & 262143) << (25 - 18));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 18)
-| ((inArray[2 + inpos] & 2047) << (25 - 11));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 11)
-| ((inArray[3 + inpos] & 15) << (25 - 4));
-  outArray[4 + outpos] = ((inArray[3 + inpos] >>> 4) & 33554431);
-  outArray[5 + outpos] = (inArray[3 + inpos] >>> 29)
-| ((inArray[4 + inpos] & 4194303) << (25 - 22));
-  outArray[6 + outpos] = (inArray[4 + inpos] >>> 22)
-| ((inArray[5 + inpos] & 32767) << (25 - 15));
-  outArray[7 + outpos] = (inArray[5 + inpos] >>> 15)
-| ((inArray[6 + inpos] & 255) << (25 - 8));
-  outArray[8 + outpos] = (inArray[6 + inpos] >>> 8)
-| ((inArray[7 + inpos] & 1) << (25 - 1));
-  outArray[9 + outpos] = ((inArray[7 + inpos] >>> 1) & 33554431);
-  outArray[10 + outpos] = (inArray[7 + inpos] >>> 26)
-| ((inArray[8 + inpos] & 524287) << (25 - 19));
-  outArray[11 + outpos] = (inArray[8 + inpos] >>> 19)
-| ((inArray[9 + inpos] & 4095) << (25 - 12));
-  outArray[12 + outpos] = (inArray[9 + inpos] >>> 12)
-| ((inArray[10 + inpos] & 31) << (25 - 5));
-  outArray[13 + outpos] = ((inArray[10 + inpos] >>> 5) & 33554431);
-  outArray[14 + outpos] = (inArray[10 + inpos] >>> 30)
-| ((inArray[11 + inpos] & 8388607) << (25 - 23));
-  outArray[15 + outpos] = (inArray[11 + inpos] >>> 23)
-| ((inArray[12 + inpos] & 65535) << (25 - 16));
-  outArray[16 + outpos] = (inArray[12 + inpos] >>> 16)
-| ((inArray[13 + inpos] & 511) << (25 - 9));
-  outArray[17 + outpos] = (inArray[13 + inpos] >>> 9)
-| ((inArray[14 + inpos] & 3) << (25 - 2));
-  outArray[18 + outpos] = ((inArray[14 + inpos] >>> 2) & 33554431);
-  outArray[19 + outpos] = (inArray[14 + inpos] >>> 27)
-| ((inArray[15 + inpos] & 1048575) << (25 - 20));
-  outArray[20 + outpos] = (inArray[15 + inpos] >>> 20)
-| ((inArray[16 + inpos] & 8191) << (25 - 13));
-  outArray[21 + outpos] = (inArray[16 + inpos] >>> 13)
-| ((inArray[17 + inpos] & 63) << (25 - 6));
-  outArray[22 + outpos] = ((inArray[17 + inpos] >>> 6) & 33554431);
-  outArray[23 + outpos] = (inArray[17 + inpos] >>> 31)
-| ((inArray[18 + inpos] & 16777215) << (25 - 24));
-  outArray[24 + outpos] = (inArray[18 + inpos] >>> 24)
-| ((inArray[19 + inpos] & 131071) << (25 - 17));
-  outArray[25 + outpos] = (inArray[19 + inpos] >>> 17)
-| ((inArray[20 + inpos] & 1023) << (25 - 10));
-  outArray[26 + outpos] = (inArray[20 + inpos] >>> 10)
-| ((inArray[21 + inpos] & 7) << (25 - 3));
-  outArray[27 + outpos] = ((inArray[21 + inpos] >>> 3) & 33554431);
-  outArray[28 + outpos] = (inArray[21 + inpos] >>> 28)
-| ((inArray[22 + inpos] & 2097151) << (25 - 21));
-  outArray[29 + outpos] = (inArray[22 + inpos] >>> 21)
-| ((inArray[23 + inpos] & 16383) << (25 - 14));
-  outArray[30 + outpos] = (inArray[23 + inpos] >>> 14)
-| ((inArray[24 + inpos] & 127) << (25 - 7));
-  outArray[31 + outpos] = (inArray[24 + inpos] >>> 7);
+function fastunpack25(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 33554431);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 25)
+| ((model.inArray[1 + model.inpos] & 262143) << (25 - 18));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 18)
+| ((model.inArray[2 + model.inpos] & 2047) << (25 - 11));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 11)
+| ((model.inArray[3 + model.inpos] & 15) << (25 - 4));
+  model.outArray[4 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 4) & 33554431);
+  model.outArray[5 + model.outpos] = (model.inArray[3 + model.inpos] >>> 29)
+| ((model.inArray[4 + model.inpos] & 4194303) << (25 - 22));
+  model.outArray[6 + model.outpos] = (model.inArray[4 + model.inpos] >>> 22)
+| ((model.inArray[5 + model.inpos] & 32767) << (25 - 15));
+  model.outArray[7 + model.outpos] = (model.inArray[5 + model.inpos] >>> 15)
+| ((model.inArray[6 + model.inpos] & 255) << (25 - 8));
+  model.outArray[8 + model.outpos] = (model.inArray[6 + model.inpos] >>> 8)
+| ((model.inArray[7 + model.inpos] & 1) << (25 - 1));
+  model.outArray[9 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 1) & 33554431);
+  model.outArray[10 + model.outpos] = (model.inArray[7 + model.inpos] >>> 26)
+| ((model.inArray[8 + model.inpos] & 524287) << (25 - 19));
+  model.outArray[11 + model.outpos] = (model.inArray[8 + model.inpos] >>> 19)
+| ((model.inArray[9 + model.inpos] & 4095) << (25 - 12));
+  model.outArray[12 + model.outpos] = (model.inArray[9 + model.inpos] >>> 12)
+| ((model.inArray[10 + model.inpos] & 31) << (25 - 5));
+  model.outArray[13 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 5) & 33554431);
+  model.outArray[14 + model.outpos] = (model.inArray[10 + model.inpos] >>> 30)
+| ((model.inArray[11 + model.inpos] & 8388607) << (25 - 23));
+  model.outArray[15 + model.outpos] = (model.inArray[11 + model.inpos] >>> 23)
+| ((model.inArray[12 + model.inpos] & 65535) << (25 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[12 + model.inpos] >>> 16)
+| ((model.inArray[13 + model.inpos] & 511) << (25 - 9));
+  model.outArray[17 + model.outpos] = (model.inArray[13 + model.inpos] >>> 9)
+| ((model.inArray[14 + model.inpos] & 3) << (25 - 2));
+  model.outArray[18 + model.outpos] = ((model.inArray[14 + model.inpos] >>> 2) & 33554431);
+  model.outArray[19 + model.outpos] = (model.inArray[14 + model.inpos] >>> 27)
+| ((model.inArray[15 + model.inpos] & 1048575) << (25 - 20));
+  model.outArray[20 + model.outpos] = (model.inArray[15 + model.inpos] >>> 20)
+| ((model.inArray[16 + model.inpos] & 8191) << (25 - 13));
+  model.outArray[21 + model.outpos] = (model.inArray[16 + model.inpos] >>> 13)
+| ((model.inArray[17 + model.inpos] & 63) << (25 - 6));
+  model.outArray[22 + model.outpos] = ((model.inArray[17 + model.inpos] >>> 6) & 33554431);
+  model.outArray[23 + model.outpos] = (model.inArray[17 + model.inpos] >>> 31)
+| ((model.inArray[18 + model.inpos] & 16777215) << (25 - 24));
+  model.outArray[24 + model.outpos] = (model.inArray[18 + model.inpos] >>> 24)
+| ((model.inArray[19 + model.inpos] & 131071) << (25 - 17));
+  model.outArray[25 + model.outpos] = (model.inArray[19 + model.inpos] >>> 17)
+| ((model.inArray[20 + model.inpos] & 1023) << (25 - 10));
+  model.outArray[26 + model.outpos] = (model.inArray[20 + model.inpos] >>> 10)
+| ((model.inArray[21 + model.inpos] & 7) << (25 - 3));
+  model.outArray[27 + model.outpos] = ((model.inArray[21 + model.inpos] >>> 3) & 33554431);
+  model.outArray[28 + model.outpos] = (model.inArray[21 + model.inpos] >>> 28)
+| ((model.inArray[22 + model.inpos] & 2097151) << (25 - 21));
+  model.outArray[29 + model.outpos] = (model.inArray[22 + model.inpos] >>> 21)
+| ((model.inArray[23 + model.inpos] & 16383) << (25 - 14));
+  model.outArray[30 + model.outpos] = (model.inArray[23 + model.inpos] >>> 14)
+| ((model.inArray[24 + model.inpos] & 127) << (25 - 7));
+  model.outArray[31 + model.outpos] = (model.inArray[24 + model.inpos] >>> 7);
 }
 
-function fastunpack26(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 67108863);
-  outArray[1 + outpos] = (inArray[inpos] >>> 26)
-| ((inArray[1 + inpos] & 1048575) << (26 - 20));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 20)
-| ((inArray[2 + inpos] & 16383) << (26 - 14));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 14)
-| ((inArray[3 + inpos] & 255) << (26 - 8));
-  outArray[4 + outpos] = (inArray[3 + inpos] >>> 8)
-| ((inArray[4 + inpos] & 3) << (26 - 2));
-  outArray[5 + outpos] = ((inArray[4 + inpos] >>> 2) & 67108863);
-  outArray[6 + outpos] = (inArray[4 + inpos] >>> 28)
-| ((inArray[5 + inpos] & 4194303) << (26 - 22));
-  outArray[7 + outpos] = (inArray[5 + inpos] >>> 22)
-| ((inArray[6 + inpos] & 65535) << (26 - 16));
-  outArray[8 + outpos] = (inArray[6 + inpos] >>> 16)
-| ((inArray[7 + inpos] & 1023) << (26 - 10));
-  outArray[9 + outpos] = (inArray[7 + inpos] >>> 10)
-| ((inArray[8 + inpos] & 15) << (26 - 4));
-  outArray[10 + outpos] = ((inArray[8 + inpos] >>> 4) & 67108863);
-  outArray[11 + outpos] = (inArray[8 + inpos] >>> 30)
-| ((inArray[9 + inpos] & 16777215) << (26 - 24));
-  outArray[12 + outpos] = (inArray[9 + inpos] >>> 24)
-| ((inArray[10 + inpos] & 262143) << (26 - 18));
-  outArray[13 + outpos] = (inArray[10 + inpos] >>> 18)
-| ((inArray[11 + inpos] & 4095) << (26 - 12));
-  outArray[14 + outpos] = (inArray[11 + inpos] >>> 12)
-| ((inArray[12 + inpos] & 63) << (26 - 6));
-  outArray[15 + outpos] = (inArray[12 + inpos] >>> 6);
-  outArray[16 + outpos] = ((inArray[13 + inpos] >>> 0) & 67108863);
-  outArray[17 + outpos] = (inArray[13 + inpos] >>> 26)
-| ((inArray[14 + inpos] & 1048575) << (26 - 20));
-  outArray[18 + outpos] = (inArray[14 + inpos] >>> 20)
-| ((inArray[15 + inpos] & 16383) << (26 - 14));
-  outArray[19 + outpos] = (inArray[15 + inpos] >>> 14)
-| ((inArray[16 + inpos] & 255) << (26 - 8));
-  outArray[20 + outpos] = (inArray[16 + inpos] >>> 8)
-| ((inArray[17 + inpos] & 3) << (26 - 2));
-  outArray[21 + outpos] = ((inArray[17 + inpos] >>> 2) & 67108863);
-  outArray[22 + outpos] = (inArray[17 + inpos] >>> 28)
-| ((inArray[18 + inpos] & 4194303) << (26 - 22));
-  outArray[23 + outpos] = (inArray[18 + inpos] >>> 22)
-| ((inArray[19 + inpos] & 65535) << (26 - 16));
-  outArray[24 + outpos] = (inArray[19 + inpos] >>> 16)
-| ((inArray[20 + inpos] & 1023) << (26 - 10));
-  outArray[25 + outpos] = (inArray[20 + inpos] >>> 10)
-| ((inArray[21 + inpos] & 15) << (26 - 4));
-  outArray[26 + outpos] = ((inArray[21 + inpos] >>> 4) & 67108863);
-  outArray[27 + outpos] = (inArray[21 + inpos] >>> 30)
-| ((inArray[22 + inpos] & 16777215) << (26 - 24));
-  outArray[28 + outpos] = (inArray[22 + inpos] >>> 24)
-| ((inArray[23 + inpos] & 262143) << (26 - 18));
-  outArray[29 + outpos] = (inArray[23 + inpos] >>> 18)
-| ((inArray[24 + inpos] & 4095) << (26 - 12));
-  outArray[30 + outpos] = (inArray[24 + inpos] >>> 12)
-| ((inArray[25 + inpos] & 63) << (26 - 6));
-  outArray[31 + outpos] = (inArray[25 + inpos] >>> 6);
+function fastunpack26(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 67108863);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 26)
+| ((model.inArray[1 + model.inpos] & 1048575) << (26 - 20));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 20)
+| ((model.inArray[2 + model.inpos] & 16383) << (26 - 14));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 14)
+| ((model.inArray[3 + model.inpos] & 255) << (26 - 8));
+  model.outArray[4 + model.outpos] = (model.inArray[3 + model.inpos] >>> 8)
+| ((model.inArray[4 + model.inpos] & 3) << (26 - 2));
+  model.outArray[5 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 2) & 67108863);
+  model.outArray[6 + model.outpos] = (model.inArray[4 + model.inpos] >>> 28)
+| ((model.inArray[5 + model.inpos] & 4194303) << (26 - 22));
+  model.outArray[7 + model.outpos] = (model.inArray[5 + model.inpos] >>> 22)
+| ((model.inArray[6 + model.inpos] & 65535) << (26 - 16));
+  model.outArray[8 + model.outpos] = (model.inArray[6 + model.inpos] >>> 16)
+| ((model.inArray[7 + model.inpos] & 1023) << (26 - 10));
+  model.outArray[9 + model.outpos] = (model.inArray[7 + model.inpos] >>> 10)
+| ((model.inArray[8 + model.inpos] & 15) << (26 - 4));
+  model.outArray[10 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 4) & 67108863);
+  model.outArray[11 + model.outpos] = (model.inArray[8 + model.inpos] >>> 30)
+| ((model.inArray[9 + model.inpos] & 16777215) << (26 - 24));
+  model.outArray[12 + model.outpos] = (model.inArray[9 + model.inpos] >>> 24)
+| ((model.inArray[10 + model.inpos] & 262143) << (26 - 18));
+  model.outArray[13 + model.outpos] = (model.inArray[10 + model.inpos] >>> 18)
+| ((model.inArray[11 + model.inpos] & 4095) << (26 - 12));
+  model.outArray[14 + model.outpos] = (model.inArray[11 + model.inpos] >>> 12)
+| ((model.inArray[12 + model.inpos] & 63) << (26 - 6));
+  model.outArray[15 + model.outpos] = (model.inArray[12 + model.inpos] >>> 6);
+  model.outArray[16 + model.outpos] = ((model.inArray[13 + model.inpos] >>> 0) & 67108863);
+  model.outArray[17 + model.outpos] = (model.inArray[13 + model.inpos] >>> 26)
+| ((model.inArray[14 + model.inpos] & 1048575) << (26 - 20));
+  model.outArray[18 + model.outpos] = (model.inArray[14 + model.inpos] >>> 20)
+| ((model.inArray[15 + model.inpos] & 16383) << (26 - 14));
+  model.outArray[19 + model.outpos] = (model.inArray[15 + model.inpos] >>> 14)
+| ((model.inArray[16 + model.inpos] & 255) << (26 - 8));
+  model.outArray[20 + model.outpos] = (model.inArray[16 + model.inpos] >>> 8)
+| ((model.inArray[17 + model.inpos] & 3) << (26 - 2));
+  model.outArray[21 + model.outpos] = ((model.inArray[17 + model.inpos] >>> 2) & 67108863);
+  model.outArray[22 + model.outpos] = (model.inArray[17 + model.inpos] >>> 28)
+| ((model.inArray[18 + model.inpos] & 4194303) << (26 - 22));
+  model.outArray[23 + model.outpos] = (model.inArray[18 + model.inpos] >>> 22)
+| ((model.inArray[19 + model.inpos] & 65535) << (26 - 16));
+  model.outArray[24 + model.outpos] = (model.inArray[19 + model.inpos] >>> 16)
+| ((model.inArray[20 + model.inpos] & 1023) << (26 - 10));
+  model.outArray[25 + model.outpos] = (model.inArray[20 + model.inpos] >>> 10)
+| ((model.inArray[21 + model.inpos] & 15) << (26 - 4));
+  model.outArray[26 + model.outpos] = ((model.inArray[21 + model.inpos] >>> 4) & 67108863);
+  model.outArray[27 + model.outpos] = (model.inArray[21 + model.inpos] >>> 30)
+| ((model.inArray[22 + model.inpos] & 16777215) << (26 - 24));
+  model.outArray[28 + model.outpos] = (model.inArray[22 + model.inpos] >>> 24)
+| ((model.inArray[23 + model.inpos] & 262143) << (26 - 18));
+  model.outArray[29 + model.outpos] = (model.inArray[23 + model.inpos] >>> 18)
+| ((model.inArray[24 + model.inpos] & 4095) << (26 - 12));
+  model.outArray[30 + model.outpos] = (model.inArray[24 + model.inpos] >>> 12)
+| ((model.inArray[25 + model.inpos] & 63) << (26 - 6));
+  model.outArray[31 + model.outpos] = (model.inArray[25 + model.inpos] >>> 6);
 }
 
-function fastunpack27(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 134217727);
-  outArray[1 + outpos] = (inArray[inpos] >>> 27)
-| ((inArray[1 + inpos] & 4194303) << (27 - 22));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 22)
-| ((inArray[2 + inpos] & 131071) << (27 - 17));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 17)
-| ((inArray[3 + inpos] & 4095) << (27 - 12));
-  outArray[4 + outpos] = (inArray[3 + inpos] >>> 12)
-| ((inArray[4 + inpos] & 127) << (27 - 7));
-  outArray[5 + outpos] = (inArray[4 + inpos] >>> 7)
-| ((inArray[5 + inpos] & 3) << (27 - 2));
-  outArray[6 + outpos] = ((inArray[5 + inpos] >>> 2) & 134217727);
-  outArray[7 + outpos] = (inArray[5 + inpos] >>> 29)
-| ((inArray[6 + inpos] & 16777215) << (27 - 24));
-  outArray[8 + outpos] = (inArray[6 + inpos] >>> 24)
-| ((inArray[7 + inpos] & 524287) << (27 - 19));
-  outArray[9 + outpos] = (inArray[7 + inpos] >>> 19)
-| ((inArray[8 + inpos] & 16383) << (27 - 14));
-  outArray[10 + outpos] = (inArray[8 + inpos] >>> 14)
-| ((inArray[9 + inpos] & 511) << (27 - 9));
-  outArray[11 + outpos] = (inArray[9 + inpos] >>> 9)
-| ((inArray[10 + inpos] & 15) << (27 - 4));
-  outArray[12 + outpos] = ((inArray[10 + inpos] >>> 4) & 134217727);
-  outArray[13 + outpos] = (inArray[10 + inpos] >>> 31)
-| ((inArray[11 + inpos] & 67108863) << (27 - 26));
-  outArray[14 + outpos] = (inArray[11 + inpos] >>> 26)
-| ((inArray[12 + inpos] & 2097151) << (27 - 21));
-  outArray[15 + outpos] = (inArray[12 + inpos] >>> 21)
-| ((inArray[13 + inpos] & 65535) << (27 - 16));
-  outArray[16 + outpos] = (inArray[13 + inpos] >>> 16)
-| ((inArray[14 + inpos] & 2047) << (27 - 11));
-  outArray[17 + outpos] = (inArray[14 + inpos] >>> 11)
-| ((inArray[15 + inpos] & 63) << (27 - 6));
-  outArray[18 + outpos] = (inArray[15 + inpos] >>> 6)
-| ((inArray[16 + inpos] & 1) << (27 - 1));
-  outArray[19 + outpos] = ((inArray[16 + inpos] >>> 1) & 134217727);
-  outArray[20 + outpos] = (inArray[16 + inpos] >>> 28)
-| ((inArray[17 + inpos] & 8388607) << (27 - 23));
-  outArray[21 + outpos] = (inArray[17 + inpos] >>> 23)
-| ((inArray[18 + inpos] & 262143) << (27 - 18));
-  outArray[22 + outpos] = (inArray[18 + inpos] >>> 18)
-| ((inArray[19 + inpos] & 8191) << (27 - 13));
-  outArray[23 + outpos] = (inArray[19 + inpos] >>> 13)
-| ((inArray[20 + inpos] & 255) << (27 - 8));
-  outArray[24 + outpos] = (inArray[20 + inpos] >>> 8)
-| ((inArray[21 + inpos] & 7) << (27 - 3));
-  outArray[25 + outpos] = ((inArray[21 + inpos] >>> 3) & 134217727);
-  outArray[26 + outpos] = (inArray[21 + inpos] >>> 30)
-| ((inArray[22 + inpos] & 33554431) << (27 - 25));
-  outArray[27 + outpos] = (inArray[22 + inpos] >>> 25)
-| ((inArray[23 + inpos] & 1048575) << (27 - 20));
-  outArray[28 + outpos] = (inArray[23 + inpos] >>> 20)
-| ((inArray[24 + inpos] & 32767) << (27 - 15));
-  outArray[29 + outpos] = (inArray[24 + inpos] >>> 15)
-| ((inArray[25 + inpos] & 1023) << (27 - 10));
-  outArray[30 + outpos] = (inArray[25 + inpos] >>> 10)
-| ((inArray[26 + inpos] & 31) << (27 - 5));
-  outArray[31 + outpos] = (inArray[26 + inpos] >>> 5);
+function fastunpack27(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 134217727);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 27)
+| ((model.inArray[1 + model.inpos] & 4194303) << (27 - 22));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 22)
+| ((model.inArray[2 + model.inpos] & 131071) << (27 - 17));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 17)
+| ((model.inArray[3 + model.inpos] & 4095) << (27 - 12));
+  model.outArray[4 + model.outpos] = (model.inArray[3 + model.inpos] >>> 12)
+| ((model.inArray[4 + model.inpos] & 127) << (27 - 7));
+  model.outArray[5 + model.outpos] = (model.inArray[4 + model.inpos] >>> 7)
+| ((model.inArray[5 + model.inpos] & 3) << (27 - 2));
+  model.outArray[6 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 2) & 134217727);
+  model.outArray[7 + model.outpos] = (model.inArray[5 + model.inpos] >>> 29)
+| ((model.inArray[6 + model.inpos] & 16777215) << (27 - 24));
+  model.outArray[8 + model.outpos] = (model.inArray[6 + model.inpos] >>> 24)
+| ((model.inArray[7 + model.inpos] & 524287) << (27 - 19));
+  model.outArray[9 + model.outpos] = (model.inArray[7 + model.inpos] >>> 19)
+| ((model.inArray[8 + model.inpos] & 16383) << (27 - 14));
+  model.outArray[10 + model.outpos] = (model.inArray[8 + model.inpos] >>> 14)
+| ((model.inArray[9 + model.inpos] & 511) << (27 - 9));
+  model.outArray[11 + model.outpos] = (model.inArray[9 + model.inpos] >>> 9)
+| ((model.inArray[10 + model.inpos] & 15) << (27 - 4));
+  model.outArray[12 + model.outpos] = ((model.inArray[10 + model.inpos] >>> 4) & 134217727);
+  model.outArray[13 + model.outpos] = (model.inArray[10 + model.inpos] >>> 31)
+| ((model.inArray[11 + model.inpos] & 67108863) << (27 - 26));
+  model.outArray[14 + model.outpos] = (model.inArray[11 + model.inpos] >>> 26)
+| ((model.inArray[12 + model.inpos] & 2097151) << (27 - 21));
+  model.outArray[15 + model.outpos] = (model.inArray[12 + model.inpos] >>> 21)
+| ((model.inArray[13 + model.inpos] & 65535) << (27 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[13 + model.inpos] >>> 16)
+| ((model.inArray[14 + model.inpos] & 2047) << (27 - 11));
+  model.outArray[17 + model.outpos] = (model.inArray[14 + model.inpos] >>> 11)
+| ((model.inArray[15 + model.inpos] & 63) << (27 - 6));
+  model.outArray[18 + model.outpos] = (model.inArray[15 + model.inpos] >>> 6)
+| ((model.inArray[16 + model.inpos] & 1) << (27 - 1));
+  model.outArray[19 + model.outpos] = ((model.inArray[16 + model.inpos] >>> 1) & 134217727);
+  model.outArray[20 + model.outpos] = (model.inArray[16 + model.inpos] >>> 28)
+| ((model.inArray[17 + model.inpos] & 8388607) << (27 - 23));
+  model.outArray[21 + model.outpos] = (model.inArray[17 + model.inpos] >>> 23)
+| ((model.inArray[18 + model.inpos] & 262143) << (27 - 18));
+  model.outArray[22 + model.outpos] = (model.inArray[18 + model.inpos] >>> 18)
+| ((model.inArray[19 + model.inpos] & 8191) << (27 - 13));
+  model.outArray[23 + model.outpos] = (model.inArray[19 + model.inpos] >>> 13)
+| ((model.inArray[20 + model.inpos] & 255) << (27 - 8));
+  model.outArray[24 + model.outpos] = (model.inArray[20 + model.inpos] >>> 8)
+| ((model.inArray[21 + model.inpos] & 7) << (27 - 3));
+  model.outArray[25 + model.outpos] = ((model.inArray[21 + model.inpos] >>> 3) & 134217727);
+  model.outArray[26 + model.outpos] = (model.inArray[21 + model.inpos] >>> 30)
+| ((model.inArray[22 + model.inpos] & 33554431) << (27 - 25));
+  model.outArray[27 + model.outpos] = (model.inArray[22 + model.inpos] >>> 25)
+| ((model.inArray[23 + model.inpos] & 1048575) << (27 - 20));
+  model.outArray[28 + model.outpos] = (model.inArray[23 + model.inpos] >>> 20)
+| ((model.inArray[24 + model.inpos] & 32767) << (27 - 15));
+  model.outArray[29 + model.outpos] = (model.inArray[24 + model.inpos] >>> 15)
+| ((model.inArray[25 + model.inpos] & 1023) << (27 - 10));
+  model.outArray[30 + model.outpos] = (model.inArray[25 + model.inpos] >>> 10)
+| ((model.inArray[26 + model.inpos] & 31) << (27 - 5));
+  model.outArray[31 + model.outpos] = (model.inArray[26 + model.inpos] >>> 5);
 }
 
-function fastunpack28(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 268435455);
-  outArray[1 + outpos] = (inArray[inpos] >>> 28)
-| ((inArray[1 + inpos] & 16777215) << (28 - 24));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 24)
-| ((inArray[2 + inpos] & 1048575) << (28 - 20));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 20)
-| ((inArray[3 + inpos] & 65535) << (28 - 16));
-  outArray[4 + outpos] = (inArray[3 + inpos] >>> 16)
-| ((inArray[4 + inpos] & 4095) << (28 - 12));
-  outArray[5 + outpos] = (inArray[4 + inpos] >>> 12)
-| ((inArray[5 + inpos] & 255) << (28 - 8));
-  outArray[6 + outpos] = (inArray[5 + inpos] >>> 8)
-| ((inArray[6 + inpos] & 15) << (28 - 4));
-  outArray[7 + outpos] = (inArray[6 + inpos] >>> 4);
-  outArray[8 + outpos] = ((inArray[7 + inpos] >>> 0) & 268435455);
-  outArray[9 + outpos] = (inArray[7 + inpos] >>> 28)
-| ((inArray[8 + inpos] & 16777215) << (28 - 24));
-  outArray[10 + outpos] = (inArray[8 + inpos] >>> 24)
-| ((inArray[9 + inpos] & 1048575) << (28 - 20));
-  outArray[11 + outpos] = (inArray[9 + inpos] >>> 20)
-| ((inArray[10 + inpos] & 65535) << (28 - 16));
-  outArray[12 + outpos] = (inArray[10 + inpos] >>> 16)
-| ((inArray[11 + inpos] & 4095) << (28 - 12));
-  outArray[13 + outpos] = (inArray[11 + inpos] >>> 12)
-| ((inArray[12 + inpos] & 255) << (28 - 8));
-  outArray[14 + outpos] = (inArray[12 + inpos] >>> 8)
-| ((inArray[13 + inpos] & 15) << (28 - 4));
-  outArray[15 + outpos] = (inArray[13 + inpos] >>> 4);
-  outArray[16 + outpos] = ((inArray[14 + inpos] >>> 0) & 268435455);
-  outArray[17 + outpos] = (inArray[14 + inpos] >>> 28)
-| ((inArray[15 + inpos] & 16777215) << (28 - 24));
-  outArray[18 + outpos] = (inArray[15 + inpos] >>> 24)
-| ((inArray[16 + inpos] & 1048575) << (28 - 20));
-  outArray[19 + outpos] = (inArray[16 + inpos] >>> 20)
-| ((inArray[17 + inpos] & 65535) << (28 - 16));
-  outArray[20 + outpos] = (inArray[17 + inpos] >>> 16)
-| ((inArray[18 + inpos] & 4095) << (28 - 12));
-  outArray[21 + outpos] = (inArray[18 + inpos] >>> 12)
-| ((inArray[19 + inpos] & 255) << (28 - 8));
-  outArray[22 + outpos] = (inArray[19 + inpos] >>> 8)
-| ((inArray[20 + inpos] & 15) << (28 - 4));
-  outArray[23 + outpos] = (inArray[20 + inpos] >>> 4);
-  outArray[24 + outpos] = ((inArray[21 + inpos] >>> 0) & 268435455);
-  outArray[25 + outpos] = (inArray[21 + inpos] >>> 28)
-| ((inArray[22 + inpos] & 16777215) << (28 - 24));
-  outArray[26 + outpos] = (inArray[22 + inpos] >>> 24)
-| ((inArray[23 + inpos] & 1048575) << (28 - 20));
-  outArray[27 + outpos] = (inArray[23 + inpos] >>> 20)
-| ((inArray[24 + inpos] & 65535) << (28 - 16));
-  outArray[28 + outpos] = (inArray[24 + inpos] >>> 16)
-| ((inArray[25 + inpos] & 4095) << (28 - 12));
-  outArray[29 + outpos] = (inArray[25 + inpos] >>> 12)
-| ((inArray[26 + inpos] & 255) << (28 - 8));
-  outArray[30 + outpos] = (inArray[26 + inpos] >>> 8)
-| ((inArray[27 + inpos] & 15) << (28 - 4));
-  outArray[31 + outpos] = (inArray[27 + inpos] >>> 4);
+function fastunpack28(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 268435455);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 28)
+| ((model.inArray[1 + model.inpos] & 16777215) << (28 - 24));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 24)
+| ((model.inArray[2 + model.inpos] & 1048575) << (28 - 20));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 20)
+| ((model.inArray[3 + model.inpos] & 65535) << (28 - 16));
+  model.outArray[4 + model.outpos] = (model.inArray[3 + model.inpos] >>> 16)
+| ((model.inArray[4 + model.inpos] & 4095) << (28 - 12));
+  model.outArray[5 + model.outpos] = (model.inArray[4 + model.inpos] >>> 12)
+| ((model.inArray[5 + model.inpos] & 255) << (28 - 8));
+  model.outArray[6 + model.outpos] = (model.inArray[5 + model.inpos] >>> 8)
+| ((model.inArray[6 + model.inpos] & 15) << (28 - 4));
+  model.outArray[7 + model.outpos] = (model.inArray[6 + model.inpos] >>> 4);
+  model.outArray[8 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 0) & 268435455);
+  model.outArray[9 + model.outpos] = (model.inArray[7 + model.inpos] >>> 28)
+| ((model.inArray[8 + model.inpos] & 16777215) << (28 - 24));
+  model.outArray[10 + model.outpos] = (model.inArray[8 + model.inpos] >>> 24)
+| ((model.inArray[9 + model.inpos] & 1048575) << (28 - 20));
+  model.outArray[11 + model.outpos] = (model.inArray[9 + model.inpos] >>> 20)
+| ((model.inArray[10 + model.inpos] & 65535) << (28 - 16));
+  model.outArray[12 + model.outpos] = (model.inArray[10 + model.inpos] >>> 16)
+| ((model.inArray[11 + model.inpos] & 4095) << (28 - 12));
+  model.outArray[13 + model.outpos] = (model.inArray[11 + model.inpos] >>> 12)
+| ((model.inArray[12 + model.inpos] & 255) << (28 - 8));
+  model.outArray[14 + model.outpos] = (model.inArray[12 + model.inpos] >>> 8)
+| ((model.inArray[13 + model.inpos] & 15) << (28 - 4));
+  model.outArray[15 + model.outpos] = (model.inArray[13 + model.inpos] >>> 4);
+  model.outArray[16 + model.outpos] = ((model.inArray[14 + model.inpos] >>> 0) & 268435455);
+  model.outArray[17 + model.outpos] = (model.inArray[14 + model.inpos] >>> 28)
+| ((model.inArray[15 + model.inpos] & 16777215) << (28 - 24));
+  model.outArray[18 + model.outpos] = (model.inArray[15 + model.inpos] >>> 24)
+| ((model.inArray[16 + model.inpos] & 1048575) << (28 - 20));
+  model.outArray[19 + model.outpos] = (model.inArray[16 + model.inpos] >>> 20)
+| ((model.inArray[17 + model.inpos] & 65535) << (28 - 16));
+  model.outArray[20 + model.outpos] = (model.inArray[17 + model.inpos] >>> 16)
+| ((model.inArray[18 + model.inpos] & 4095) << (28 - 12));
+  model.outArray[21 + model.outpos] = (model.inArray[18 + model.inpos] >>> 12)
+| ((model.inArray[19 + model.inpos] & 255) << (28 - 8));
+  model.outArray[22 + model.outpos] = (model.inArray[19 + model.inpos] >>> 8)
+| ((model.inArray[20 + model.inpos] & 15) << (28 - 4));
+  model.outArray[23 + model.outpos] = (model.inArray[20 + model.inpos] >>> 4);
+  model.outArray[24 + model.outpos] = ((model.inArray[21 + model.inpos] >>> 0) & 268435455);
+  model.outArray[25 + model.outpos] = (model.inArray[21 + model.inpos] >>> 28)
+| ((model.inArray[22 + model.inpos] & 16777215) << (28 - 24));
+  model.outArray[26 + model.outpos] = (model.inArray[22 + model.inpos] >>> 24)
+| ((model.inArray[23 + model.inpos] & 1048575) << (28 - 20));
+  model.outArray[27 + model.outpos] = (model.inArray[23 + model.inpos] >>> 20)
+| ((model.inArray[24 + model.inpos] & 65535) << (28 - 16));
+  model.outArray[28 + model.outpos] = (model.inArray[24 + model.inpos] >>> 16)
+| ((model.inArray[25 + model.inpos] & 4095) << (28 - 12));
+  model.outArray[29 + model.outpos] = (model.inArray[25 + model.inpos] >>> 12)
+| ((model.inArray[26 + model.inpos] & 255) << (28 - 8));
+  model.outArray[30 + model.outpos] = (model.inArray[26 + model.inpos] >>> 8)
+| ((model.inArray[27 + model.inpos] & 15) << (28 - 4));
+  model.outArray[31 + model.outpos] = (model.inArray[27 + model.inpos] >>> 4);
 }
 
-function fastunpack29(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 536870911);
-  outArray[1 + outpos] = (inArray[inpos] >>> 29)
-| ((inArray[1 + inpos] & 67108863) << (29 - 26));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 26)
-| ((inArray[2 + inpos] & 8388607) << (29 - 23));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 23)
-| ((inArray[3 + inpos] & 1048575) << (29 - 20));
-  outArray[4 + outpos] = (inArray[3 + inpos] >>> 20)
-| ((inArray[4 + inpos] & 131071) << (29 - 17));
-  outArray[5 + outpos] = (inArray[4 + inpos] >>> 17)
-| ((inArray[5 + inpos] & 16383) << (29 - 14));
-  outArray[6 + outpos] = (inArray[5 + inpos] >>> 14)
-| ((inArray[6 + inpos] & 2047) << (29 - 11));
-  outArray[7 + outpos] = (inArray[6 + inpos] >>> 11)
-| ((inArray[7 + inpos] & 255) << (29 - 8));
-  outArray[8 + outpos] = (inArray[7 + inpos] >>> 8)
-| ((inArray[8 + inpos] & 31) << (29 - 5));
-  outArray[9 + outpos] = (inArray[8 + inpos] >>> 5)
-| ((inArray[9 + inpos] & 3) << (29 - 2));
-  outArray[10 + outpos] = ((inArray[9 + inpos] >>> 2) & 536870911);
-  outArray[11 + outpos] = (inArray[9 + inpos] >>> 31)
-| ((inArray[10 + inpos] & 268435455) << (29 - 28));
-  outArray[12 + outpos] = (inArray[10 + inpos] >>> 28)
-| ((inArray[11 + inpos] & 33554431) << (29 - 25));
-  outArray[13 + outpos] = (inArray[11 + inpos] >>> 25)
-| ((inArray[12 + inpos] & 4194303) << (29 - 22));
-  outArray[14 + outpos] = (inArray[12 + inpos] >>> 22)
-| ((inArray[13 + inpos] & 524287) << (29 - 19));
-  outArray[15 + outpos] = (inArray[13 + inpos] >>> 19)
-| ((inArray[14 + inpos] & 65535) << (29 - 16));
-  outArray[16 + outpos] = (inArray[14 + inpos] >>> 16)
-| ((inArray[15 + inpos] & 8191) << (29 - 13));
-  outArray[17 + outpos] = (inArray[15 + inpos] >>> 13)
-| ((inArray[16 + inpos] & 1023) << (29 - 10));
-  outArray[18 + outpos] = (inArray[16 + inpos] >>> 10)
-| ((inArray[17 + inpos] & 127) << (29 - 7));
-  outArray[19 + outpos] = (inArray[17 + inpos] >>> 7)
-| ((inArray[18 + inpos] & 15) << (29 - 4));
-  outArray[20 + outpos] = (inArray[18 + inpos] >>> 4)
-| ((inArray[19 + inpos] & 1) << (29 - 1));
-  outArray[21 + outpos] = ((inArray[19 + inpos] >>> 1) & 536870911);
-  outArray[22 + outpos] = (inArray[19 + inpos] >>> 30)
-| ((inArray[20 + inpos] & 134217727) << (29 - 27));
-  outArray[23 + outpos] = (inArray[20 + inpos] >>> 27)
-| ((inArray[21 + inpos] & 16777215) << (29 - 24));
-  outArray[24 + outpos] = (inArray[21 + inpos] >>> 24)
-| ((inArray[22 + inpos] & 2097151) << (29 - 21));
-  outArray[25 + outpos] = (inArray[22 + inpos] >>> 21)
-| ((inArray[23 + inpos] & 262143) << (29 - 18));
-  outArray[26 + outpos] = (inArray[23 + inpos] >>> 18)
-| ((inArray[24 + inpos] & 32767) << (29 - 15));
-  outArray[27 + outpos] = (inArray[24 + inpos] >>> 15)
-| ((inArray[25 + inpos] & 4095) << (29 - 12));
-  outArray[28 + outpos] = (inArray[25 + inpos] >>> 12)
-| ((inArray[26 + inpos] & 511) << (29 - 9));
-  outArray[29 + outpos] = (inArray[26 + inpos] >>> 9)
-| ((inArray[27 + inpos] & 63) << (29 - 6));
-  outArray[30 + outpos] = (inArray[27 + inpos] >>> 6)
-| ((inArray[28 + inpos] & 7) << (29 - 3));
-  outArray[31 + outpos] = (inArray[28 + inpos] >>> 3);
+function fastunpack29(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 536870911);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 29)
+| ((model.inArray[1 + model.inpos] & 67108863) << (29 - 26));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 26)
+| ((model.inArray[2 + model.inpos] & 8388607) << (29 - 23));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 23)
+| ((model.inArray[3 + model.inpos] & 1048575) << (29 - 20));
+  model.outArray[4 + model.outpos] = (model.inArray[3 + model.inpos] >>> 20)
+| ((model.inArray[4 + model.inpos] & 131071) << (29 - 17));
+  model.outArray[5 + model.outpos] = (model.inArray[4 + model.inpos] >>> 17)
+| ((model.inArray[5 + model.inpos] & 16383) << (29 - 14));
+  model.outArray[6 + model.outpos] = (model.inArray[5 + model.inpos] >>> 14)
+| ((model.inArray[6 + model.inpos] & 2047) << (29 - 11));
+  model.outArray[7 + model.outpos] = (model.inArray[6 + model.inpos] >>> 11)
+| ((model.inArray[7 + model.inpos] & 255) << (29 - 8));
+  model.outArray[8 + model.outpos] = (model.inArray[7 + model.inpos] >>> 8)
+| ((model.inArray[8 + model.inpos] & 31) << (29 - 5));
+  model.outArray[9 + model.outpos] = (model.inArray[8 + model.inpos] >>> 5)
+| ((model.inArray[9 + model.inpos] & 3) << (29 - 2));
+  model.outArray[10 + model.outpos] = ((model.inArray[9 + model.inpos] >>> 2) & 536870911);
+  model.outArray[11 + model.outpos] = (model.inArray[9 + model.inpos] >>> 31)
+| ((model.inArray[10 + model.inpos] & 268435455) << (29 - 28));
+  model.outArray[12 + model.outpos] = (model.inArray[10 + model.inpos] >>> 28)
+| ((model.inArray[11 + model.inpos] & 33554431) << (29 - 25));
+  model.outArray[13 + model.outpos] = (model.inArray[11 + model.inpos] >>> 25)
+| ((model.inArray[12 + model.inpos] & 4194303) << (29 - 22));
+  model.outArray[14 + model.outpos] = (model.inArray[12 + model.inpos] >>> 22)
+| ((model.inArray[13 + model.inpos] & 524287) << (29 - 19));
+  model.outArray[15 + model.outpos] = (model.inArray[13 + model.inpos] >>> 19)
+| ((model.inArray[14 + model.inpos] & 65535) << (29 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[14 + model.inpos] >>> 16)
+| ((model.inArray[15 + model.inpos] & 8191) << (29 - 13));
+  model.outArray[17 + model.outpos] = (model.inArray[15 + model.inpos] >>> 13)
+| ((model.inArray[16 + model.inpos] & 1023) << (29 - 10));
+  model.outArray[18 + model.outpos] = (model.inArray[16 + model.inpos] >>> 10)
+| ((model.inArray[17 + model.inpos] & 127) << (29 - 7));
+  model.outArray[19 + model.outpos] = (model.inArray[17 + model.inpos] >>> 7)
+| ((model.inArray[18 + model.inpos] & 15) << (29 - 4));
+  model.outArray[20 + model.outpos] = (model.inArray[18 + model.inpos] >>> 4)
+| ((model.inArray[19 + model.inpos] & 1) << (29 - 1));
+  model.outArray[21 + model.outpos] = ((model.inArray[19 + model.inpos] >>> 1) & 536870911);
+  model.outArray[22 + model.outpos] = (model.inArray[19 + model.inpos] >>> 30)
+| ((model.inArray[20 + model.inpos] & 134217727) << (29 - 27));
+  model.outArray[23 + model.outpos] = (model.inArray[20 + model.inpos] >>> 27)
+| ((model.inArray[21 + model.inpos] & 16777215) << (29 - 24));
+  model.outArray[24 + model.outpos] = (model.inArray[21 + model.inpos] >>> 24)
+| ((model.inArray[22 + model.inpos] & 2097151) << (29 - 21));
+  model.outArray[25 + model.outpos] = (model.inArray[22 + model.inpos] >>> 21)
+| ((model.inArray[23 + model.inpos] & 262143) << (29 - 18));
+  model.outArray[26 + model.outpos] = (model.inArray[23 + model.inpos] >>> 18)
+| ((model.inArray[24 + model.inpos] & 32767) << (29 - 15));
+  model.outArray[27 + model.outpos] = (model.inArray[24 + model.inpos] >>> 15)
+| ((model.inArray[25 + model.inpos] & 4095) << (29 - 12));
+  model.outArray[28 + model.outpos] = (model.inArray[25 + model.inpos] >>> 12)
+| ((model.inArray[26 + model.inpos] & 511) << (29 - 9));
+  model.outArray[29 + model.outpos] = (model.inArray[26 + model.inpos] >>> 9)
+| ((model.inArray[27 + model.inpos] & 63) << (29 - 6));
+  model.outArray[30 + model.outpos] = (model.inArray[27 + model.inpos] >>> 6)
+| ((model.inArray[28 + model.inpos] & 7) << (29 - 3));
+  model.outArray[31 + model.outpos] = (model.inArray[28 + model.inpos] >>> 3);
 }
 
-function fastunpack3(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 7);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 3) & 7);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 6) & 7);
-  outArray[3 + outpos] = ((inArray[inpos] >>> 9) & 7);
-  outArray[4 + outpos] = ((inArray[inpos] >>> 12) & 7);
-  outArray[5 + outpos] = ((inArray[inpos] >>> 15) & 7);
-  outArray[6 + outpos] = ((inArray[inpos] >>> 18) & 7);
-  outArray[7 + outpos] = ((inArray[inpos] >>> 21) & 7);
-  outArray[8 + outpos] = ((inArray[inpos] >>> 24) & 7);
-  outArray[9 + outpos] = ((inArray[inpos] >>> 27) & 7);
-  outArray[10 + outpos] = (inArray[inpos] >>> 30)
-| ((inArray[1 + inpos] & 1) << (3 - 1));
-  outArray[11 + outpos] = ((inArray[1 + inpos] >>> 1) & 7);
-  outArray[12 + outpos] = ((inArray[1 + inpos] >>> 4) & 7);
-  outArray[13 + outpos] = ((inArray[1 + inpos] >>> 7) & 7);
-  outArray[14 + outpos] = ((inArray[1 + inpos] >>> 10) & 7);
-  outArray[15 + outpos] = ((inArray[1 + inpos] >>> 13) & 7);
-  outArray[16 + outpos] = ((inArray[1 + inpos] >>> 16) & 7);
-  outArray[17 + outpos] = ((inArray[1 + inpos] >>> 19) & 7);
-  outArray[18 + outpos] = ((inArray[1 + inpos] >>> 22) & 7);
-  outArray[19 + outpos] = ((inArray[1 + inpos] >>> 25) & 7);
-  outArray[20 + outpos] = ((inArray[1 + inpos] >>> 28) & 7);
-  outArray[21 + outpos] = (inArray[1 + inpos] >>> 31)
-| ((inArray[2 + inpos] & 3) << (3 - 2));
-  outArray[22 + outpos] = ((inArray[2 + inpos] >>> 2) & 7);
-  outArray[23 + outpos] = ((inArray[2 + inpos] >>> 5) & 7);
-  outArray[24 + outpos] = ((inArray[2 + inpos] >>> 8) & 7);
-  outArray[25 + outpos] = ((inArray[2 + inpos] >>> 11) & 7);
-  outArray[26 + outpos] = ((inArray[2 + inpos] >>> 14) & 7);
-  outArray[27 + outpos] = ((inArray[2 + inpos] >>> 17) & 7);
-  outArray[28 + outpos] = ((inArray[2 + inpos] >>> 20) & 7);
-  outArray[29 + outpos] = ((inArray[2 + inpos] >>> 23) & 7);
-  outArray[30 + outpos] = ((inArray[2 + inpos] >>> 26) & 7);
-  outArray[31 + outpos] = (inArray[2 + inpos] >>> 29);
+function fastunpack3(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 7);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 3) & 7);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 6) & 7);
+  model.outArray[3 + model.outpos] = ((model.inArray[model.inpos] >>> 9) & 7);
+  model.outArray[4 + model.outpos] = ((model.inArray[model.inpos] >>> 12) & 7);
+  model.outArray[5 + model.outpos] = ((model.inArray[model.inpos] >>> 15) & 7);
+  model.outArray[6 + model.outpos] = ((model.inArray[model.inpos] >>> 18) & 7);
+  model.outArray[7 + model.outpos] = ((model.inArray[model.inpos] >>> 21) & 7);
+  model.outArray[8 + model.outpos] = ((model.inArray[model.inpos] >>> 24) & 7);
+  model.outArray[9 + model.outpos] = ((model.inArray[model.inpos] >>> 27) & 7);
+  model.outArray[10 + model.outpos] = (model.inArray[model.inpos] >>> 30)
+| ((model.inArray[1 + model.inpos] & 1) << (3 - 1));
+  model.outArray[11 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 1) & 7);
+  model.outArray[12 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 4) & 7);
+  model.outArray[13 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 7) & 7);
+  model.outArray[14 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 10) & 7);
+  model.outArray[15 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 13) & 7);
+  model.outArray[16 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 16) & 7);
+  model.outArray[17 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 19) & 7);
+  model.outArray[18 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 22) & 7);
+  model.outArray[19 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 25) & 7);
+  model.outArray[20 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 28) & 7);
+  model.outArray[21 + model.outpos] = (model.inArray[1 + model.inpos] >>> 31)
+| ((model.inArray[2 + model.inpos] & 3) << (3 - 2));
+  model.outArray[22 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 2) & 7);
+  model.outArray[23 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 5) & 7);
+  model.outArray[24 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 8) & 7);
+  model.outArray[25 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 11) & 7);
+  model.outArray[26 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 14) & 7);
+  model.outArray[27 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 17) & 7);
+  model.outArray[28 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 20) & 7);
+  model.outArray[29 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 23) & 7);
+  model.outArray[30 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 26) & 7);
+  model.outArray[31 + model.outpos] = (model.inArray[2 + model.inpos] >>> 29);
 }
 
-function fastunpack30(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 1073741823);
-  outArray[1 + outpos] = (inArray[inpos] >>> 30)
-| ((inArray[1 + inpos] & 268435455) << (30 - 28));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 28)
-| ((inArray[2 + inpos] & 67108863) << (30 - 26));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 26)
-| ((inArray[3 + inpos] & 16777215) << (30 - 24));
-  outArray[4 + outpos] = (inArray[3 + inpos] >>> 24)
-| ((inArray[4 + inpos] & 4194303) << (30 - 22));
-  outArray[5 + outpos] = (inArray[4 + inpos] >>> 22)
-| ((inArray[5 + inpos] & 1048575) << (30 - 20));
-  outArray[6 + outpos] = (inArray[5 + inpos] >>> 20)
-| ((inArray[6 + inpos] & 262143) << (30 - 18));
-  outArray[7 + outpos] = (inArray[6 + inpos] >>> 18)
-| ((inArray[7 + inpos] & 65535) << (30 - 16));
-  outArray[8 + outpos] = (inArray[7 + inpos] >>> 16)
-| ((inArray[8 + inpos] & 16383) << (30 - 14));
-  outArray[9 + outpos] = (inArray[8 + inpos] >>> 14)
-| ((inArray[9 + inpos] & 4095) << (30 - 12));
-  outArray[10 + outpos] = (inArray[9 + inpos] >>> 12)
-| ((inArray[10 + inpos] & 1023) << (30 - 10));
-  outArray[11 + outpos] = (inArray[10 + inpos] >>> 10)
-| ((inArray[11 + inpos] & 255) << (30 - 8));
-  outArray[12 + outpos] = (inArray[11 + inpos] >>> 8)
-| ((inArray[12 + inpos] & 63) << (30 - 6));
-  outArray[13 + outpos] = (inArray[12 + inpos] >>> 6)
-| ((inArray[13 + inpos] & 15) << (30 - 4));
-  outArray[14 + outpos] = (inArray[13 + inpos] >>> 4)
-| ((inArray[14 + inpos] & 3) << (30 - 2));
-  outArray[15 + outpos] = (inArray[14 + inpos] >>> 2);
-  outArray[16 + outpos] = ((inArray[15 + inpos] >>> 0) & 1073741823);
-  outArray[17 + outpos] = (inArray[15 + inpos] >>> 30)
-| ((inArray[16 + inpos] & 268435455) << (30 - 28));
-  outArray[18 + outpos] = (inArray[16 + inpos] >>> 28)
-| ((inArray[17 + inpos] & 67108863) << (30 - 26));
-  outArray[19 + outpos] = (inArray[17 + inpos] >>> 26)
-| ((inArray[18 + inpos] & 16777215) << (30 - 24));
-  outArray[20 + outpos] = (inArray[18 + inpos] >>> 24)
-| ((inArray[19 + inpos] & 4194303) << (30 - 22));
-  outArray[21 + outpos] = (inArray[19 + inpos] >>> 22)
-| ((inArray[20 + inpos] & 1048575) << (30 - 20));
-  outArray[22 + outpos] = (inArray[20 + inpos] >>> 20)
-| ((inArray[21 + inpos] & 262143) << (30 - 18));
-  outArray[23 + outpos] = (inArray[21 + inpos] >>> 18)
-| ((inArray[22 + inpos] & 65535) << (30 - 16));
-  outArray[24 + outpos] = (inArray[22 + inpos] >>> 16)
-| ((inArray[23 + inpos] & 16383) << (30 - 14));
-  outArray[25 + outpos] = (inArray[23 + inpos] >>> 14)
-| ((inArray[24 + inpos] & 4095) << (30 - 12));
-  outArray[26 + outpos] = (inArray[24 + inpos] >>> 12)
-| ((inArray[25 + inpos] & 1023) << (30 - 10));
-  outArray[27 + outpos] = (inArray[25 + inpos] >>> 10)
-| ((inArray[26 + inpos] & 255) << (30 - 8));
-  outArray[28 + outpos] = (inArray[26 + inpos] >>> 8)
-| ((inArray[27 + inpos] & 63) << (30 - 6));
-  outArray[29 + outpos] = (inArray[27 + inpos] >>> 6)
-| ((inArray[28 + inpos] & 15) << (30 - 4));
-  outArray[30 + outpos] = (inArray[28 + inpos] >>> 4)
-| ((inArray[29 + inpos] & 3) << (30 - 2));
-  outArray[31 + outpos] = (inArray[29 + inpos] >>> 2);
+function fastunpack30(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 1073741823);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 30)
+| ((model.inArray[1 + model.inpos] & 268435455) << (30 - 28));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28)
+| ((model.inArray[2 + model.inpos] & 67108863) << (30 - 26));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 26)
+| ((model.inArray[3 + model.inpos] & 16777215) << (30 - 24));
+  model.outArray[4 + model.outpos] = (model.inArray[3 + model.inpos] >>> 24)
+| ((model.inArray[4 + model.inpos] & 4194303) << (30 - 22));
+  model.outArray[5 + model.outpos] = (model.inArray[4 + model.inpos] >>> 22)
+| ((model.inArray[5 + model.inpos] & 1048575) << (30 - 20));
+  model.outArray[6 + model.outpos] = (model.inArray[5 + model.inpos] >>> 20)
+| ((model.inArray[6 + model.inpos] & 262143) << (30 - 18));
+  model.outArray[7 + model.outpos] = (model.inArray[6 + model.inpos] >>> 18)
+| ((model.inArray[7 + model.inpos] & 65535) << (30 - 16));
+  model.outArray[8 + model.outpos] = (model.inArray[7 + model.inpos] >>> 16)
+| ((model.inArray[8 + model.inpos] & 16383) << (30 - 14));
+  model.outArray[9 + model.outpos] = (model.inArray[8 + model.inpos] >>> 14)
+| ((model.inArray[9 + model.inpos] & 4095) << (30 - 12));
+  model.outArray[10 + model.outpos] = (model.inArray[9 + model.inpos] >>> 12)
+| ((model.inArray[10 + model.inpos] & 1023) << (30 - 10));
+  model.outArray[11 + model.outpos] = (model.inArray[10 + model.inpos] >>> 10)
+| ((model.inArray[11 + model.inpos] & 255) << (30 - 8));
+  model.outArray[12 + model.outpos] = (model.inArray[11 + model.inpos] >>> 8)
+| ((model.inArray[12 + model.inpos] & 63) << (30 - 6));
+  model.outArray[13 + model.outpos] = (model.inArray[12 + model.inpos] >>> 6)
+| ((model.inArray[13 + model.inpos] & 15) << (30 - 4));
+  model.outArray[14 + model.outpos] = (model.inArray[13 + model.inpos] >>> 4)
+| ((model.inArray[14 + model.inpos] & 3) << (30 - 2));
+  model.outArray[15 + model.outpos] = (model.inArray[14 + model.inpos] >>> 2);
+  model.outArray[16 + model.outpos] = ((model.inArray[15 + model.inpos] >>> 0) & 1073741823);
+  model.outArray[17 + model.outpos] = (model.inArray[15 + model.inpos] >>> 30)
+| ((model.inArray[16 + model.inpos] & 268435455) << (30 - 28));
+  model.outArray[18 + model.outpos] = (model.inArray[16 + model.inpos] >>> 28)
+| ((model.inArray[17 + model.inpos] & 67108863) << (30 - 26));
+  model.outArray[19 + model.outpos] = (model.inArray[17 + model.inpos] >>> 26)
+| ((model.inArray[18 + model.inpos] & 16777215) << (30 - 24));
+  model.outArray[20 + model.outpos] = (model.inArray[18 + model.inpos] >>> 24)
+| ((model.inArray[19 + model.inpos] & 4194303) << (30 - 22));
+  model.outArray[21 + model.outpos] = (model.inArray[19 + model.inpos] >>> 22)
+| ((model.inArray[20 + model.inpos] & 1048575) << (30 - 20));
+  model.outArray[22 + model.outpos] = (model.inArray[20 + model.inpos] >>> 20)
+| ((model.inArray[21 + model.inpos] & 262143) << (30 - 18));
+  model.outArray[23 + model.outpos] = (model.inArray[21 + model.inpos] >>> 18)
+| ((model.inArray[22 + model.inpos] & 65535) << (30 - 16));
+  model.outArray[24 + model.outpos] = (model.inArray[22 + model.inpos] >>> 16)
+| ((model.inArray[23 + model.inpos] & 16383) << (30 - 14));
+  model.outArray[25 + model.outpos] = (model.inArray[23 + model.inpos] >>> 14)
+| ((model.inArray[24 + model.inpos] & 4095) << (30 - 12));
+  model.outArray[26 + model.outpos] = (model.inArray[24 + model.inpos] >>> 12)
+| ((model.inArray[25 + model.inpos] & 1023) << (30 - 10));
+  model.outArray[27 + model.outpos] = (model.inArray[25 + model.inpos] >>> 10)
+| ((model.inArray[26 + model.inpos] & 255) << (30 - 8));
+  model.outArray[28 + model.outpos] = (model.inArray[26 + model.inpos] >>> 8)
+| ((model.inArray[27 + model.inpos] & 63) << (30 - 6));
+  model.outArray[29 + model.outpos] = (model.inArray[27 + model.inpos] >>> 6)
+| ((model.inArray[28 + model.inpos] & 15) << (30 - 4));
+  model.outArray[30 + model.outpos] = (model.inArray[28 + model.inpos] >>> 4)
+| ((model.inArray[29 + model.inpos] & 3) << (30 - 2));
+  model.outArray[31 + model.outpos] = (model.inArray[29 + model.inpos] >>> 2);
 }
 
-function fastunpack31(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 2147483647);
-  outArray[1 + outpos] = (inArray[inpos] >>> 31)
-| ((inArray[1 + inpos] & 1073741823) << (31 - 30));
-  outArray[2 + outpos] = (inArray[1 + inpos] >>> 30)
-| ((inArray[2 + inpos] & 536870911) << (31 - 29));
-  outArray[3 + outpos] = (inArray[2 + inpos] >>> 29)
-| ((inArray[3 + inpos] & 268435455) << (31 - 28));
-  outArray[4 + outpos] = (inArray[3 + inpos] >>> 28)
-| ((inArray[4 + inpos] & 134217727) << (31 - 27));
-  outArray[5 + outpos] = (inArray[4 + inpos] >>> 27)
-| ((inArray[5 + inpos] & 67108863) << (31 - 26));
-  outArray[6 + outpos] = (inArray[5 + inpos] >>> 26)
-| ((inArray[6 + inpos] & 33554431) << (31 - 25));
-  outArray[7 + outpos] = (inArray[6 + inpos] >>> 25)
-| ((inArray[7 + inpos] & 16777215) << (31 - 24));
-  outArray[8 + outpos] = (inArray[7 + inpos] >>> 24)
-| ((inArray[8 + inpos] & 8388607) << (31 - 23));
-  outArray[9 + outpos] = (inArray[8 + inpos] >>> 23)
-| ((inArray[9 + inpos] & 4194303) << (31 - 22));
-  outArray[10 + outpos] = (inArray[9 + inpos] >>> 22)
-| ((inArray[10 + inpos] & 2097151) << (31 - 21));
-  outArray[11 + outpos] = (inArray[10 + inpos] >>> 21)
-| ((inArray[11 + inpos] & 1048575) << (31 - 20));
-  outArray[12 + outpos] = (inArray[11 + inpos] >>> 20)
-| ((inArray[12 + inpos] & 524287) << (31 - 19));
-  outArray[13 + outpos] = (inArray[12 + inpos] >>> 19)
-| ((inArray[13 + inpos] & 262143) << (31 - 18));
-  outArray[14 + outpos] = (inArray[13 + inpos] >>> 18)
-| ((inArray[14 + inpos] & 131071) << (31 - 17));
-  outArray[15 + outpos] = (inArray[14 + inpos] >>> 17)
-| ((inArray[15 + inpos] & 65535) << (31 - 16));
-  outArray[16 + outpos] = (inArray[15 + inpos] >>> 16)
-| ((inArray[16 + inpos] & 32767) << (31 - 15));
-  outArray[17 + outpos] = (inArray[16 + inpos] >>> 15)
-| ((inArray[17 + inpos] & 16383) << (31 - 14));
-  outArray[18 + outpos] = (inArray[17 + inpos] >>> 14)
-| ((inArray[18 + inpos] & 8191) << (31 - 13));
-  outArray[19 + outpos] = (inArray[18 + inpos] >>> 13)
-| ((inArray[19 + inpos] & 4095) << (31 - 12));
-  outArray[20 + outpos] = (inArray[19 + inpos] >>> 12)
-| ((inArray[20 + inpos] & 2047) << (31 - 11));
-  outArray[21 + outpos] = (inArray[20 + inpos] >>> 11)
-| ((inArray[21 + inpos] & 1023) << (31 - 10));
-  outArray[22 + outpos] = (inArray[21 + inpos] >>> 10)
-| ((inArray[22 + inpos] & 511) << (31 - 9));
-  outArray[23 + outpos] = (inArray[22 + inpos] >>> 9)
-| ((inArray[23 + inpos] & 255) << (31 - 8));
-  outArray[24 + outpos] = (inArray[23 + inpos] >>> 8)
-| ((inArray[24 + inpos] & 127) << (31 - 7));
-  outArray[25 + outpos] = (inArray[24 + inpos] >>> 7)
-| ((inArray[25 + inpos] & 63) << (31 - 6));
-  outArray[26 + outpos] = (inArray[25 + inpos] >>> 6)
-| ((inArray[26 + inpos] & 31) << (31 - 5));
-  outArray[27 + outpos] = (inArray[26 + inpos] >>> 5)
-| ((inArray[27 + inpos] & 15) << (31 - 4));
-  outArray[28 + outpos] = (inArray[27 + inpos] >>> 4)
-| ((inArray[28 + inpos] & 7) << (31 - 3));
-  outArray[29 + outpos] = (inArray[28 + inpos] >>> 3)
-| ((inArray[29 + inpos] & 3) << (31 - 2));
-  outArray[30 + outpos] = (inArray[29 + inpos] >>> 2)
-| ((inArray[30 + inpos] & 1) << (31 - 1));
-  outArray[31 + outpos] = (inArray[30 + inpos] >>> 1);
+function fastunpack31(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 2147483647);
+  model.outArray[1 + model.outpos] = (model.inArray[model.inpos] >>> 31)
+| ((model.inArray[1 + model.inpos] & 1073741823) << (31 - 30));
+  model.outArray[2 + model.outpos] = (model.inArray[1 + model.inpos] >>> 30)
+| ((model.inArray[2 + model.inpos] & 536870911) << (31 - 29));
+  model.outArray[3 + model.outpos] = (model.inArray[2 + model.inpos] >>> 29)
+| ((model.inArray[3 + model.inpos] & 268435455) << (31 - 28));
+  model.outArray[4 + model.outpos] = (model.inArray[3 + model.inpos] >>> 28)
+| ((model.inArray[4 + model.inpos] & 134217727) << (31 - 27));
+  model.outArray[5 + model.outpos] = (model.inArray[4 + model.inpos] >>> 27)
+| ((model.inArray[5 + model.inpos] & 67108863) << (31 - 26));
+  model.outArray[6 + model.outpos] = (model.inArray[5 + model.inpos] >>> 26)
+| ((model.inArray[6 + model.inpos] & 33554431) << (31 - 25));
+  model.outArray[7 + model.outpos] = (model.inArray[6 + model.inpos] >>> 25)
+| ((model.inArray[7 + model.inpos] & 16777215) << (31 - 24));
+  model.outArray[8 + model.outpos] = (model.inArray[7 + model.inpos] >>> 24)
+| ((model.inArray[8 + model.inpos] & 8388607) << (31 - 23));
+  model.outArray[9 + model.outpos] = (model.inArray[8 + model.inpos] >>> 23)
+| ((model.inArray[9 + model.inpos] & 4194303) << (31 - 22));
+  model.outArray[10 + model.outpos] = (model.inArray[9 + model.inpos] >>> 22)
+| ((model.inArray[10 + model.inpos] & 2097151) << (31 - 21));
+  model.outArray[11 + model.outpos] = (model.inArray[10 + model.inpos] >>> 21)
+| ((model.inArray[11 + model.inpos] & 1048575) << (31 - 20));
+  model.outArray[12 + model.outpos] = (model.inArray[11 + model.inpos] >>> 20)
+| ((model.inArray[12 + model.inpos] & 524287) << (31 - 19));
+  model.outArray[13 + model.outpos] = (model.inArray[12 + model.inpos] >>> 19)
+| ((model.inArray[13 + model.inpos] & 262143) << (31 - 18));
+  model.outArray[14 + model.outpos] = (model.inArray[13 + model.inpos] >>> 18)
+| ((model.inArray[14 + model.inpos] & 131071) << (31 - 17));
+  model.outArray[15 + model.outpos] = (model.inArray[14 + model.inpos] >>> 17)
+| ((model.inArray[15 + model.inpos] & 65535) << (31 - 16));
+  model.outArray[16 + model.outpos] = (model.inArray[15 + model.inpos] >>> 16)
+| ((model.inArray[16 + model.inpos] & 32767) << (31 - 15));
+  model.outArray[17 + model.outpos] = (model.inArray[16 + model.inpos] >>> 15)
+| ((model.inArray[17 + model.inpos] & 16383) << (31 - 14));
+  model.outArray[18 + model.outpos] = (model.inArray[17 + model.inpos] >>> 14)
+| ((model.inArray[18 + model.inpos] & 8191) << (31 - 13));
+  model.outArray[19 + model.outpos] = (model.inArray[18 + model.inpos] >>> 13)
+| ((model.inArray[19 + model.inpos] & 4095) << (31 - 12));
+  model.outArray[20 + model.outpos] = (model.inArray[19 + model.inpos] >>> 12)
+| ((model.inArray[20 + model.inpos] & 2047) << (31 - 11));
+  model.outArray[21 + model.outpos] = (model.inArray[20 + model.inpos] >>> 11)
+| ((model.inArray[21 + model.inpos] & 1023) << (31 - 10));
+  model.outArray[22 + model.outpos] = (model.inArray[21 + model.inpos] >>> 10)
+| ((model.inArray[22 + model.inpos] & 511) << (31 - 9));
+  model.outArray[23 + model.outpos] = (model.inArray[22 + model.inpos] >>> 9)
+| ((model.inArray[23 + model.inpos] & 255) << (31 - 8));
+  model.outArray[24 + model.outpos] = (model.inArray[23 + model.inpos] >>> 8)
+| ((model.inArray[24 + model.inpos] & 127) << (31 - 7));
+  model.outArray[25 + model.outpos] = (model.inArray[24 + model.inpos] >>> 7)
+| ((model.inArray[25 + model.inpos] & 63) << (31 - 6));
+  model.outArray[26 + model.outpos] = (model.inArray[25 + model.inpos] >>> 6)
+| ((model.inArray[26 + model.inpos] & 31) << (31 - 5));
+  model.outArray[27 + model.outpos] = (model.inArray[26 + model.inpos] >>> 5)
+| ((model.inArray[27 + model.inpos] & 15) << (31 - 4));
+  model.outArray[28 + model.outpos] = (model.inArray[27 + model.inpos] >>> 4)
+| ((model.inArray[28 + model.inpos] & 7) << (31 - 3));
+  model.outArray[29 + model.outpos] = (model.inArray[28 + model.inpos] >>> 3)
+| ((model.inArray[29 + model.inpos] & 3) << (31 - 2));
+  model.outArray[30 + model.outpos] = (model.inArray[29 + model.inpos] >>> 2)
+| ((model.inArray[30 + model.inpos] & 1) << (31 - 1));
+  model.outArray[31 + model.outpos] = (model.inArray[30 + model.inpos] >>> 1);
 }
 
-function fastunpack32(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
+function fastunpack32(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
   for (let i=0; i < 32; i++)
-    outArray[outpos + i] = inArray[inpos + i];
+    model.outArray[model.outpos + i] = model.inArray[model.inpos + i];
 }
 
-function fastunpack4(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 15);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 4) & 15);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 8) & 15);
-  outArray[3 + outpos] = ((inArray[inpos] >>> 12) & 15);
-  outArray[4 + outpos] = ((inArray[inpos] >>> 16) & 15);
-  outArray[5 + outpos] = ((inArray[inpos] >>> 20) & 15);
-  outArray[6 + outpos] = ((inArray[inpos] >>> 24) & 15);
-  outArray[7 + outpos] = (inArray[inpos] >>> 28);
-  outArray[8 + outpos] = ((inArray[1 + inpos] >>> 0) & 15);
-  outArray[9 + outpos] = ((inArray[1 + inpos] >>> 4) & 15);
-  outArray[10 + outpos] = ((inArray[1 + inpos] >>> 8) & 15);
-  outArray[11 + outpos] = ((inArray[1 + inpos] >>> 12) & 15);
-  outArray[12 + outpos] = ((inArray[1 + inpos] >>> 16) & 15);
-  outArray[13 + outpos] = ((inArray[1 + inpos] >>> 20) & 15);
-  outArray[14 + outpos] = ((inArray[1 + inpos] >>> 24) & 15);
-  outArray[15 + outpos] = (inArray[1 + inpos] >>> 28);
-  outArray[16 + outpos] = ((inArray[2 + inpos] >>> 0) & 15);
-  outArray[17 + outpos] = ((inArray[2 + inpos] >>> 4) & 15);
-  outArray[18 + outpos] = ((inArray[2 + inpos] >>> 8) & 15);
-  outArray[19 + outpos] = ((inArray[2 + inpos] >>> 12) & 15);
-  outArray[20 + outpos] = ((inArray[2 + inpos] >>> 16) & 15);
-  outArray[21 + outpos] = ((inArray[2 + inpos] >>> 20) & 15);
-  outArray[22 + outpos] = ((inArray[2 + inpos] >>> 24) & 15);
-  outArray[23 + outpos] = (inArray[2 + inpos] >>> 28);
-  outArray[24 + outpos] = ((inArray[3 + inpos] >>> 0) & 15);
-  outArray[25 + outpos] = ((inArray[3 + inpos] >>> 4) & 15);
-  outArray[26 + outpos] = ((inArray[3 + inpos] >>> 8) & 15);
-  outArray[27 + outpos] = ((inArray[3 + inpos] >>> 12) & 15);
-  outArray[28 + outpos] = ((inArray[3 + inpos] >>> 16) & 15);
-  outArray[29 + outpos] = ((inArray[3 + inpos] >>> 20) & 15);
-  outArray[30 + outpos] = ((inArray[3 + inpos] >>> 24) & 15);
-  outArray[31 + outpos] = (inArray[3 + inpos] >>> 28);
+function fastunpack4(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 15);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 4) & 15);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 8) & 15);
+  model.outArray[3 + model.outpos] = ((model.inArray[model.inpos] >>> 12) & 15);
+  model.outArray[4 + model.outpos] = ((model.inArray[model.inpos] >>> 16) & 15);
+  model.outArray[5 + model.outpos] = ((model.inArray[model.inpos] >>> 20) & 15);
+  model.outArray[6 + model.outpos] = ((model.inArray[model.inpos] >>> 24) & 15);
+  model.outArray[7 + model.outpos] = (model.inArray[model.inpos] >>> 28);
+  model.outArray[8 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 0) & 15);
+  model.outArray[9 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 4) & 15);
+  model.outArray[10 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 8) & 15);
+  model.outArray[11 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 12) & 15);
+  model.outArray[12 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 16) & 15);
+  model.outArray[13 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 20) & 15);
+  model.outArray[14 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 24) & 15);
+  model.outArray[15 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28);
+  model.outArray[16 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 0) & 15);
+  model.outArray[17 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 4) & 15);
+  model.outArray[18 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 8) & 15);
+  model.outArray[19 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 12) & 15);
+  model.outArray[20 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 16) & 15);
+  model.outArray[21 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 20) & 15);
+  model.outArray[22 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 24) & 15);
+  model.outArray[23 + model.outpos] = (model.inArray[2 + model.inpos] >>> 28);
+  model.outArray[24 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 0) & 15);
+  model.outArray[25 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 4) & 15);
+  model.outArray[26 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 8) & 15);
+  model.outArray[27 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 12) & 15);
+  model.outArray[28 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 16) & 15);
+  model.outArray[29 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 20) & 15);
+  model.outArray[30 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 24) & 15);
+  model.outArray[31 + model.outpos] = (model.inArray[3 + model.inpos] >>> 28);
 }
 
-function fastunpack5(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 31);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 5) & 31);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 10) & 31);
-  outArray[3 + outpos] = ((inArray[inpos] >>> 15) & 31);
-  outArray[4 + outpos] = ((inArray[inpos] >>> 20) & 31);
-  outArray[5 + outpos] = ((inArray[inpos] >>> 25) & 31);
-  outArray[6 + outpos] = (inArray[inpos] >>> 30)
-| ((inArray[1 + inpos] & 7) << (5 - 3));
-  outArray[7 + outpos] = ((inArray[1 + inpos] >>> 3) & 31);
-  outArray[8 + outpos] = ((inArray[1 + inpos] >>> 8) & 31);
-  outArray[9 + outpos] = ((inArray[1 + inpos] >>> 13) & 31);
-  outArray[10 + outpos] = ((inArray[1 + inpos] >>> 18) & 31);
-  outArray[11 + outpos] = ((inArray[1 + inpos] >>> 23) & 31);
-  outArray[12 + outpos] = (inArray[1 + inpos] >>> 28)
-| ((inArray[2 + inpos] & 1) << (5 - 1));
-  outArray[13 + outpos] = ((inArray[2 + inpos] >>> 1) & 31);
-  outArray[14 + outpos] = ((inArray[2 + inpos] >>> 6) & 31);
-  outArray[15 + outpos] = ((inArray[2 + inpos] >>> 11) & 31);
-  outArray[16 + outpos] = ((inArray[2 + inpos] >>> 16) & 31);
-  outArray[17 + outpos] = ((inArray[2 + inpos] >>> 21) & 31);
-  outArray[18 + outpos] = ((inArray[2 + inpos] >>> 26) & 31);
-  outArray[19 + outpos] = (inArray[2 + inpos] >>> 31)
-| ((inArray[3 + inpos] & 15) << (5 - 4));
-  outArray[20 + outpos] = ((inArray[3 + inpos] >>> 4) & 31);
-  outArray[21 + outpos] = ((inArray[3 + inpos] >>> 9) & 31);
-  outArray[22 + outpos] = ((inArray[3 + inpos] >>> 14) & 31);
-  outArray[23 + outpos] = ((inArray[3 + inpos] >>> 19) & 31);
-  outArray[24 + outpos] = ((inArray[3 + inpos] >>> 24) & 31);
-  outArray[25 + outpos] = (inArray[3 + inpos] >>> 29)
-| ((inArray[4 + inpos] & 3) << (5 - 2));
-  outArray[26 + outpos] = ((inArray[4 + inpos] >>> 2) & 31);
-  outArray[27 + outpos] = ((inArray[4 + inpos] >>> 7) & 31);
-  outArray[28 + outpos] = ((inArray[4 + inpos] >>> 12) & 31);
-  outArray[29 + outpos] = ((inArray[4 + inpos] >>> 17) & 31);
-  outArray[30 + outpos] = ((inArray[4 + inpos] >>> 22) & 31);
-  outArray[31 + outpos] = (inArray[4 + inpos] >>> 27);
+function fastunpack5(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 31);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 5) & 31);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 10) & 31);
+  model.outArray[3 + model.outpos] = ((model.inArray[model.inpos] >>> 15) & 31);
+  model.outArray[4 + model.outpos] = ((model.inArray[model.inpos] >>> 20) & 31);
+  model.outArray[5 + model.outpos] = ((model.inArray[model.inpos] >>> 25) & 31);
+  model.outArray[6 + model.outpos] = (model.inArray[model.inpos] >>> 30)
+| ((model.inArray[1 + model.inpos] & 7) << (5 - 3));
+  model.outArray[7 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 3) & 31);
+  model.outArray[8 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 8) & 31);
+  model.outArray[9 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 13) & 31);
+  model.outArray[10 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 18) & 31);
+  model.outArray[11 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 23) & 31);
+  model.outArray[12 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28)
+| ((model.inArray[2 + model.inpos] & 1) << (5 - 1));
+  model.outArray[13 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 1) & 31);
+  model.outArray[14 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 6) & 31);
+  model.outArray[15 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 11) & 31);
+  model.outArray[16 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 16) & 31);
+  model.outArray[17 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 21) & 31);
+  model.outArray[18 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 26) & 31);
+  model.outArray[19 + model.outpos] = (model.inArray[2 + model.inpos] >>> 31)
+| ((model.inArray[3 + model.inpos] & 15) << (5 - 4));
+  model.outArray[20 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 4) & 31);
+  model.outArray[21 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 9) & 31);
+  model.outArray[22 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 14) & 31);
+  model.outArray[23 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 19) & 31);
+  model.outArray[24 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 24) & 31);
+  model.outArray[25 + model.outpos] = (model.inArray[3 + model.inpos] >>> 29)
+| ((model.inArray[4 + model.inpos] & 3) << (5 - 2));
+  model.outArray[26 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 2) & 31);
+  model.outArray[27 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 7) & 31);
+  model.outArray[28 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 12) & 31);
+  model.outArray[29 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 17) & 31);
+  model.outArray[30 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 22) & 31);
+  model.outArray[31 + model.outpos] = (model.inArray[4 + model.inpos] >>> 27);
 }
 
-function fastunpack6(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 63);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 6) & 63);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 12) & 63);
-  outArray[3 + outpos] = ((inArray[inpos] >>> 18) & 63);
-  outArray[4 + outpos] = ((inArray[inpos] >>> 24) & 63);
-  outArray[5 + outpos] = (inArray[inpos] >>> 30)
-| ((inArray[1 + inpos] & 15) << (6 - 4));
-  outArray[6 + outpos] = ((inArray[1 + inpos] >>> 4) & 63);
-  outArray[7 + outpos] = ((inArray[1 + inpos] >>> 10) & 63);
-  outArray[8 + outpos] = ((inArray[1 + inpos] >>> 16) & 63);
-  outArray[9 + outpos] = ((inArray[1 + inpos] >>> 22) & 63);
-  outArray[10 + outpos] = (inArray[1 + inpos] >>> 28)
-| ((inArray[2 + inpos] & 3) << (6 - 2));
-  outArray[11 + outpos] = ((inArray[2 + inpos] >>> 2) & 63);
-  outArray[12 + outpos] = ((inArray[2 + inpos] >>> 8) & 63);
-  outArray[13 + outpos] = ((inArray[2 + inpos] >>> 14) & 63);
-  outArray[14 + outpos] = ((inArray[2 + inpos] >>> 20) & 63);
-  outArray[15 + outpos] = (inArray[2 + inpos] >>> 26);
-  outArray[16 + outpos] = ((inArray[3 + inpos] >>> 0) & 63);
-  outArray[17 + outpos] = ((inArray[3 + inpos] >>> 6) & 63);
-  outArray[18 + outpos] = ((inArray[3 + inpos] >>> 12) & 63);
-  outArray[19 + outpos] = ((inArray[3 + inpos] >>> 18) & 63);
-  outArray[20 + outpos] = ((inArray[3 + inpos] >>> 24) & 63);
-  outArray[21 + outpos] = (inArray[3 + inpos] >>> 30)
-| ((inArray[4 + inpos] & 15) << (6 - 4));
-  outArray[22 + outpos] = ((inArray[4 + inpos] >>> 4) & 63);
-  outArray[23 + outpos] = ((inArray[4 + inpos] >>> 10) & 63);
-  outArray[24 + outpos] = ((inArray[4 + inpos] >>> 16) & 63);
-  outArray[25 + outpos] = ((inArray[4 + inpos] >>> 22) & 63);
-  outArray[26 + outpos] = (inArray[4 + inpos] >>> 28)
-| ((inArray[5 + inpos] & 3) << (6 - 2));
-  outArray[27 + outpos] = ((inArray[5 + inpos] >>> 2) & 63);
-  outArray[28 + outpos] = ((inArray[5 + inpos] >>> 8) & 63);
-  outArray[29 + outpos] = ((inArray[5 + inpos] >>> 14) & 63);
-  outArray[30 + outpos] = ((inArray[5 + inpos] >>> 20) & 63);
-  outArray[31 + outpos] = (inArray[5 + inpos] >>> 26);
+function fastunpack6(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 63);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 6) & 63);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 12) & 63);
+  model.outArray[3 + model.outpos] = ((model.inArray[model.inpos] >>> 18) & 63);
+  model.outArray[4 + model.outpos] = ((model.inArray[model.inpos] >>> 24) & 63);
+  model.outArray[5 + model.outpos] = (model.inArray[model.inpos] >>> 30)
+| ((model.inArray[1 + model.inpos] & 15) << (6 - 4));
+  model.outArray[6 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 4) & 63);
+  model.outArray[7 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 10) & 63);
+  model.outArray[8 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 16) & 63);
+  model.outArray[9 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 22) & 63);
+  model.outArray[10 + model.outpos] = (model.inArray[1 + model.inpos] >>> 28)
+| ((model.inArray[2 + model.inpos] & 3) << (6 - 2));
+  model.outArray[11 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 2) & 63);
+  model.outArray[12 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 8) & 63);
+  model.outArray[13 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 14) & 63);
+  model.outArray[14 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 20) & 63);
+  model.outArray[15 + model.outpos] = (model.inArray[2 + model.inpos] >>> 26);
+  model.outArray[16 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 0) & 63);
+  model.outArray[17 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 6) & 63);
+  model.outArray[18 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 12) & 63);
+  model.outArray[19 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 18) & 63);
+  model.outArray[20 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 24) & 63);
+  model.outArray[21 + model.outpos] = (model.inArray[3 + model.inpos] >>> 30)
+| ((model.inArray[4 + model.inpos] & 15) << (6 - 4));
+  model.outArray[22 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 4) & 63);
+  model.outArray[23 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 10) & 63);
+  model.outArray[24 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 16) & 63);
+  model.outArray[25 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 22) & 63);
+  model.outArray[26 + model.outpos] = (model.inArray[4 + model.inpos] >>> 28)
+| ((model.inArray[5 + model.inpos] & 3) << (6 - 2));
+  model.outArray[27 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 2) & 63);
+  model.outArray[28 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 8) & 63);
+  model.outArray[29 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 14) & 63);
+  model.outArray[30 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 20) & 63);
+  model.outArray[31 + model.outpos] = (model.inArray[5 + model.inpos] >>> 26);
 }
 
-function fastunpack7(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 127);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 7) & 127);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 14) & 127);
-  outArray[3 + outpos] = ((inArray[inpos] >>> 21) & 127);
-  outArray[4 + outpos] = (inArray[inpos] >>> 28)
-| ((inArray[1 + inpos] & 7) << (7 - 3));
-  outArray[5 + outpos] = ((inArray[1 + inpos] >>> 3) & 127);
-  outArray[6 + outpos] = ((inArray[1 + inpos] >>> 10) & 127);
-  outArray[7 + outpos] = ((inArray[1 + inpos] >>> 17) & 127);
-  outArray[8 + outpos] = ((inArray[1 + inpos] >>> 24) & 127);
-  outArray[9 + outpos] = (inArray[1 + inpos] >>> 31)
-| ((inArray[2 + inpos] & 63) << (7 - 6));
-  outArray[10 + outpos] = ((inArray[2 + inpos] >>> 6) & 127);
-  outArray[11 + outpos] = ((inArray[2 + inpos] >>> 13) & 127);
-  outArray[12 + outpos] = ((inArray[2 + inpos] >>> 20) & 127);
-  outArray[13 + outpos] = (inArray[2 + inpos] >>> 27)
-| ((inArray[3 + inpos] & 3) << (7 - 2));
-  outArray[14 + outpos] = ((inArray[3 + inpos] >>> 2) & 127);
-  outArray[15 + outpos] = ((inArray[3 + inpos] >>> 9) & 127);
-  outArray[16 + outpos] = ((inArray[3 + inpos] >>> 16) & 127);
-  outArray[17 + outpos] = ((inArray[3 + inpos] >>> 23) & 127);
-  outArray[18 + outpos] = (inArray[3 + inpos] >>> 30)
-| ((inArray[4 + inpos] & 31) << (7 - 5));
-  outArray[19 + outpos] = ((inArray[4 + inpos] >>> 5) & 127);
-  outArray[20 + outpos] = ((inArray[4 + inpos] >>> 12) & 127);
-  outArray[21 + outpos] = ((inArray[4 + inpos] >>> 19) & 127);
-  outArray[22 + outpos] = (inArray[4 + inpos] >>> 26)
-| ((inArray[5 + inpos] & 1) << (7 - 1));
-  outArray[23 + outpos] = ((inArray[5 + inpos] >>> 1) & 127);
-  outArray[24 + outpos] = ((inArray[5 + inpos] >>> 8) & 127);
-  outArray[25 + outpos] = ((inArray[5 + inpos] >>> 15) & 127);
-  outArray[26 + outpos] = ((inArray[5 + inpos] >>> 22) & 127);
-  outArray[27 + outpos] = (inArray[5 + inpos] >>> 29)
-| ((inArray[6 + inpos] & 15) << (7 - 4));
-  outArray[28 + outpos] = ((inArray[6 + inpos] >>> 4) & 127);
-  outArray[29 + outpos] = ((inArray[6 + inpos] >>> 11) & 127);
-  outArray[30 + outpos] = ((inArray[6 + inpos] >>> 18) & 127);
-  outArray[31 + outpos] = (inArray[6 + inpos] >>> 25);
+function fastunpack7(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 127);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 7) & 127);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 14) & 127);
+  model.outArray[3 + model.outpos] = ((model.inArray[model.inpos] >>> 21) & 127);
+  model.outArray[4 + model.outpos] = (model.inArray[model.inpos] >>> 28)
+| ((model.inArray[1 + model.inpos] & 7) << (7 - 3));
+  model.outArray[5 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 3) & 127);
+  model.outArray[6 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 10) & 127);
+  model.outArray[7 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 17) & 127);
+  model.outArray[8 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 24) & 127);
+  model.outArray[9 + model.outpos] = (model.inArray[1 + model.inpos] >>> 31)
+| ((model.inArray[2 + model.inpos] & 63) << (7 - 6));
+  model.outArray[10 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 6) & 127);
+  model.outArray[11 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 13) & 127);
+  model.outArray[12 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 20) & 127);
+  model.outArray[13 + model.outpos] = (model.inArray[2 + model.inpos] >>> 27)
+| ((model.inArray[3 + model.inpos] & 3) << (7 - 2));
+  model.outArray[14 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 2) & 127);
+  model.outArray[15 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 9) & 127);
+  model.outArray[16 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 16) & 127);
+  model.outArray[17 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 23) & 127);
+  model.outArray[18 + model.outpos] = (model.inArray[3 + model.inpos] >>> 30)
+| ((model.inArray[4 + model.inpos] & 31) << (7 - 5));
+  model.outArray[19 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 5) & 127);
+  model.outArray[20 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 12) & 127);
+  model.outArray[21 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 19) & 127);
+  model.outArray[22 + model.outpos] = (model.inArray[4 + model.inpos] >>> 26)
+| ((model.inArray[5 + model.inpos] & 1) << (7 - 1));
+  model.outArray[23 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 1) & 127);
+  model.outArray[24 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 8) & 127);
+  model.outArray[25 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 15) & 127);
+  model.outArray[26 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 22) & 127);
+  model.outArray[27 + model.outpos] = (model.inArray[5 + model.inpos] >>> 29)
+| ((model.inArray[6 + model.inpos] & 15) << (7 - 4));
+  model.outArray[28 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 4) & 127);
+  model.outArray[29 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 11) & 127);
+  model.outArray[30 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 18) & 127);
+  model.outArray[31 + model.outpos] = (model.inArray[6 + model.inpos] >>> 25);
 }
 
-function fastunpack8(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 255);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 8) & 255);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 16) & 255);
-  outArray[3 + outpos] = (inArray[inpos] >>> 24);
-  outArray[4 + outpos] = ((inArray[1 + inpos] >>> 0) & 255);
-  outArray[5 + outpos] = ((inArray[1 + inpos] >>> 8) & 255);
-  outArray[6 + outpos] = ((inArray[1 + inpos] >>> 16) & 255);
-  outArray[7 + outpos] = (inArray[1 + inpos] >>> 24);
-  outArray[8 + outpos] = ((inArray[2 + inpos] >>> 0) & 255);
-  outArray[9 + outpos] = ((inArray[2 + inpos] >>> 8) & 255);
-  outArray[10 + outpos] = ((inArray[2 + inpos] >>> 16) & 255);
-  outArray[11 + outpos] = (inArray[2 + inpos] >>> 24);
-  outArray[12 + outpos] = ((inArray[3 + inpos] >>> 0) & 255);
-  outArray[13 + outpos] = ((inArray[3 + inpos] >>> 8) & 255);
-  outArray[14 + outpos] = ((inArray[3 + inpos] >>> 16) & 255);
-  outArray[15 + outpos] = (inArray[3 + inpos] >>> 24);
-  outArray[16 + outpos] = ((inArray[4 + inpos] >>> 0) & 255);
-  outArray[17 + outpos] = ((inArray[4 + inpos] >>> 8) & 255);
-  outArray[18 + outpos] = ((inArray[4 + inpos] >>> 16) & 255);
-  outArray[19 + outpos] = (inArray[4 + inpos] >>> 24);
-  outArray[20 + outpos] = ((inArray[5 + inpos] >>> 0) & 255);
-  outArray[21 + outpos] = ((inArray[5 + inpos] >>> 8) & 255);
-  outArray[22 + outpos] = ((inArray[5 + inpos] >>> 16) & 255);
-  outArray[23 + outpos] = (inArray[5 + inpos] >>> 24);
-  outArray[24 + outpos] = ((inArray[6 + inpos] >>> 0) & 255);
-  outArray[25 + outpos] = ((inArray[6 + inpos] >>> 8) & 255);
-  outArray[26 + outpos] = ((inArray[6 + inpos] >>> 16) & 255);
-  outArray[27 + outpos] = (inArray[6 + inpos] >>> 24);
-  outArray[28 + outpos] = ((inArray[7 + inpos] >>> 0) & 255);
-  outArray[29 + outpos] = ((inArray[7 + inpos] >>> 8) & 255);
-  outArray[30 + outpos] = ((inArray[7 + inpos] >>> 16) & 255);
-  outArray[31 + outpos] = (inArray[7 + inpos] >>> 24);
+function fastunpack8(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 255);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 8) & 255);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 16) & 255);
+  model.outArray[3 + model.outpos] = (model.inArray[model.inpos] >>> 24);
+  model.outArray[4 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 0) & 255);
+  model.outArray[5 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 8) & 255);
+  model.outArray[6 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 16) & 255);
+  model.outArray[7 + model.outpos] = (model.inArray[1 + model.inpos] >>> 24);
+  model.outArray[8 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 0) & 255);
+  model.outArray[9 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 8) & 255);
+  model.outArray[10 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 16) & 255);
+  model.outArray[11 + model.outpos] = (model.inArray[2 + model.inpos] >>> 24);
+  model.outArray[12 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 0) & 255);
+  model.outArray[13 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 8) & 255);
+  model.outArray[14 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 16) & 255);
+  model.outArray[15 + model.outpos] = (model.inArray[3 + model.inpos] >>> 24);
+  model.outArray[16 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 0) & 255);
+  model.outArray[17 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 8) & 255);
+  model.outArray[18 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 16) & 255);
+  model.outArray[19 + model.outpos] = (model.inArray[4 + model.inpos] >>> 24);
+  model.outArray[20 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 0) & 255);
+  model.outArray[21 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 8) & 255);
+  model.outArray[22 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 16) & 255);
+  model.outArray[23 + model.outpos] = (model.inArray[5 + model.inpos] >>> 24);
+  model.outArray[24 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 0) & 255);
+  model.outArray[25 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 8) & 255);
+  model.outArray[26 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 16) & 255);
+  model.outArray[27 + model.outpos] = (model.inArray[6 + model.inpos] >>> 24);
+  model.outArray[28 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 0) & 255);
+  model.outArray[29 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 8) & 255);
+  model.outArray[30 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 16) & 255);
+  model.outArray[31 + model.outpos] = (model.inArray[7 + model.inpos] >>> 24);
 }
 
-function fastunpack9(inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number) {
-  outArray[outpos] = ((inArray[inpos] >>> 0) & 511);
-  outArray[1 + outpos] = ((inArray[inpos] >>> 9) & 511);
-  outArray[2 + outpos] = ((inArray[inpos] >>> 18) & 511);
-  outArray[3 + outpos] = (inArray[inpos] >>> 27)
-| ((inArray[1 + inpos] & 15) << (9 - 4));
-  outArray[4 + outpos] = ((inArray[1 + inpos] >>> 4) & 511);
-  outArray[5 + outpos] = ((inArray[1 + inpos] >>> 13) & 511);
-  outArray[6 + outpos] = ((inArray[1 + inpos] >>> 22) & 511);
-  outArray[7 + outpos] = (inArray[1 + inpos] >>> 31)
-| ((inArray[2 + inpos] & 255) << (9 - 8));
-  outArray[8 + outpos] = ((inArray[2 + inpos] >>> 8) & 511);
-  outArray[9 + outpos] = ((inArray[2 + inpos] >>> 17) & 511);
-  outArray[10 + outpos] = (inArray[2 + inpos] >>> 26)
-| ((inArray[3 + inpos] & 7) << (9 - 3));
-  outArray[11 + outpos] = ((inArray[3 + inpos] >>> 3) & 511);
-  outArray[12 + outpos] = ((inArray[3 + inpos] >>> 12) & 511);
-  outArray[13 + outpos] = ((inArray[3 + inpos] >>> 21) & 511);
-  outArray[14 + outpos] = (inArray[3 + inpos] >>> 30)
-| ((inArray[4 + inpos] & 127) << (9 - 7));
-  outArray[15 + outpos] = ((inArray[4 + inpos] >>> 7) & 511);
-  outArray[16 + outpos] = ((inArray[4 + inpos] >>> 16) & 511);
-  outArray[17 + outpos] = (inArray[4 + inpos] >>> 25)
-| ((inArray[5 + inpos] & 3) << (9 - 2));
-  outArray[18 + outpos] = ((inArray[5 + inpos] >>> 2) & 511);
-  outArray[19 + outpos] = ((inArray[5 + inpos] >>> 11) & 511);
-  outArray[20 + outpos] = ((inArray[5 + inpos] >>> 20) & 511);
-  outArray[21 + outpos] = (inArray[5 + inpos] >>> 29)
-| ((inArray[6 + inpos] & 63) << (9 - 6));
-  outArray[22 + outpos] = ((inArray[6 + inpos] >>> 6) & 511);
-  outArray[23 + outpos] = ((inArray[6 + inpos] >>> 15) & 511);
-  outArray[24 + outpos] = (inArray[6 + inpos] >>> 24)
-| ((inArray[7 + inpos] & 1) << (9 - 1));
-  outArray[25 + outpos] = ((inArray[7 + inpos] >>> 1) & 511);
-  outArray[26 + outpos] = ((inArray[7 + inpos] >>> 10) & 511);
-  outArray[27 + outpos] = ((inArray[7 + inpos] >>> 19) & 511);
-  outArray[28 + outpos] = (inArray[7 + inpos] >>> 28)
-| ((inArray[8 + inpos] & 31) << (9 - 5));
-  outArray[29 + outpos] = ((inArray[8 + inpos] >>> 5) & 511);
-  outArray[30 + outpos] = ((inArray[8 + inpos] >>> 14) & 511);
-  outArray[31 + outpos] = (inArray[8 + inpos] >>> 23);
+function fastunpack9(model: { inArray: Uint32Array, inpos: number, outArray: Uint32Array, outpos: number }) {
+  model.outArray[model.outpos] = ((model.inArray[model.inpos] >>> 0) & 511);
+  model.outArray[1 + model.outpos] = ((model.inArray[model.inpos] >>> 9) & 511);
+  model.outArray[2 + model.outpos] = ((model.inArray[model.inpos] >>> 18) & 511);
+  model.outArray[3 + model.outpos] = (model.inArray[model.inpos] >>> 27)
+| ((model.inArray[1 + model.inpos] & 15) << (9 - 4));
+  model.outArray[4 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 4) & 511);
+  model.outArray[5 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 13) & 511);
+  model.outArray[6 + model.outpos] = ((model.inArray[1 + model.inpos] >>> 22) & 511);
+  model.outArray[7 + model.outpos] = (model.inArray[1 + model.inpos] >>> 31)
+| ((model.inArray[2 + model.inpos] & 255) << (9 - 8));
+  model.outArray[8 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 8) & 511);
+  model.outArray[9 + model.outpos] = ((model.inArray[2 + model.inpos] >>> 17) & 511);
+  model.outArray[10 + model.outpos] = (model.inArray[2 + model.inpos] >>> 26)
+| ((model.inArray[3 + model.inpos] & 7) << (9 - 3));
+  model.outArray[11 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 3) & 511);
+  model.outArray[12 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 12) & 511);
+  model.outArray[13 + model.outpos] = ((model.inArray[3 + model.inpos] >>> 21) & 511);
+  model.outArray[14 + model.outpos] = (model.inArray[3 + model.inpos] >>> 30)
+| ((model.inArray[4 + model.inpos] & 127) << (9 - 7));
+  model.outArray[15 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 7) & 511);
+  model.outArray[16 + model.outpos] = ((model.inArray[4 + model.inpos] >>> 16) & 511);
+  model.outArray[17 + model.outpos] = (model.inArray[4 + model.inpos] >>> 25)
+| ((model.inArray[5 + model.inpos] & 3) << (9 - 2));
+  model.outArray[18 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 2) & 511);
+  model.outArray[19 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 11) & 511);
+  model.outArray[20 + model.outpos] = ((model.inArray[5 + model.inpos] >>> 20) & 511);
+  model.outArray[21 + model.outpos] = (model.inArray[5 + model.inpos] >>> 29)
+| ((model.inArray[6 + model.inpos] & 63) << (9 - 6));
+  model.outArray[22 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 6) & 511);
+  model.outArray[23 + model.outpos] = ((model.inArray[6 + model.inpos] >>> 15) & 511);
+  model.outArray[24 + model.outpos] = (model.inArray[6 + model.inpos] >>> 24)
+| ((model.inArray[7 + model.inpos] & 1) << (9 - 1));
+  model.outArray[25 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 1) & 511);
+  model.outArray[26 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 10) & 511);
+  model.outArray[27 + model.outpos] = ((model.inArray[7 + model.inpos] >>> 19) & 511);
+  model.outArray[28 + model.outpos] = (model.inArray[7 + model.inpos] >>> 28)
+| ((model.inArray[8 + model.inpos] & 31) << (9 - 5));
+  model.outArray[29 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 5) & 511);
+  model.outArray[30 + model.outpos] = ((model.inArray[8 + model.inpos] >>> 14) & 511);
+  model.outArray[31 + model.outpos] = (model.inArray[8 + model.inpos] >>> 23);
 }
