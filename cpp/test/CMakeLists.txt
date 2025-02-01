@@ -7,6 +7,15 @@ add_executable(mlt-cpp-test
     fastpfor.cpp
 )
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
+
+option(MLT_WITH_JSON "Include JSON support" ON)
+if(MLT_WITH_JSON)
+    target_include_directories(mlt-cpp-test PUBLIC "${json_SOURCE_DIR}/include")
+    target_compile_definitions(mlt-cpp-test PUBLIC MLT_WITH_JSON=1)
+endif(MLT_WITH_JSON)
+
+#target_include_directories(mlt-cpp-test PRIVATE "${PROJECT_SOURCE_DIR}/../include")
+
 target_compile_definitions(mlt-cpp-test PRIVATE PROTOZERO_USE_VIEW=std::string_view)
 target_include_directories(mlt-cpp-test PRIVATE "${protozero_SOURCE_DIR}/include")
 
@@ -34,4 +43,3 @@ target_include_directories(mlt-cpp-test PRIVATE "${fastpfor_SOURCE_DIR}/headers"
 
 target_link_libraries(mlt-cpp-test mlt-cpp gtest_main FastPFOR)
 #gtest_discover_tests(mlt-cpp-test)
-
