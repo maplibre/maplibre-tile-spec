@@ -205,6 +205,22 @@ describe("MltDecoder", () => {
 
 });
 
+import { MapLibreTile } from "../../../src/data/MapLibreTile";
+function tileJSON(name: string, tile: MapLibreTile) {
+    return {
+        layers: Object.entries(tile.layers).map(function ([name, layer]) {
+            return {
+                name: name,
+                version: 1, // layer.version,
+                extent: layer.extent,
+                features: layer.features.map(function (feature) {
+                    return feature.toGeoJSON(3,5,7);
+                })
+            };
+        })
+    };
+}
+
 function getTiles(pathname: string) {
     const fixtureDirname = Path.dirname(pathname);
     const searchDir = Path.join(tilesDir, fixtureDirname);
@@ -227,6 +243,16 @@ function getTiles(pathname: string) {
             const meta = fs.readFileSync(mltMetaPath);
             const mlt = MltDecoder.decodeMlTile(fs.readFileSync(mltPath), TileSetMetadata.fromBinary(meta));
             const mvt = new VectorTile(new Protobuf(fs.readFileSync(mvtPath)));
+
+            try {
+                const jsPath = mltPath.replace(/\.mlt$/, ".mlt.geojson");
+                if (!fs.existsSync(jsPath)) {
+                    const json = tileJSON(mvtFilename, mlt);
+                    const data = JSON.stringify(json, printValue, 2);
+                    fs.writeFileSync(jsPath, data, {encoding: "utf-8", flag: "w"});
+                }
+            } catch (ignored) {}
+
             return { mlt, mvt };
         })
 }

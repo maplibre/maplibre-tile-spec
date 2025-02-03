@@ -70,16 +70,22 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
     auto tile = decoder.decode({buffer.data(), buffer.size()}, metadata);
 
 #if MLT_WITH_JSON
+    // Load the GeoJSON file, if present
     auto jsonBuffer = loadFile(path + ".geojson");
     if (!jsonBuffer.empty()) {
         using json = nlohmann::json;
         const json::parser_callback_t callback = nullptr;
         const json expectedJSON = json::parse(
             jsonBuffer, nullptr, /*allow_exceptions=*/false, /*ignore_comments=*/true);
+
+        // Convert the tile we loaded to GeoJSON
         const auto actualJSON = mlt::GeoJSON::toGeoJSON(tile, {3, 5, 7});
+
+        // Compare the two
         auto diffJSON = json::diff(expectedJSON, actualJSON);
 
         // Eliminate differences due to extremely small floating-point value changes
+        constexpr auto epsilon = 1.0e-15;
         for (auto i = diffJSON.begin(); i != diffJSON.end();) {
             auto& node = *i;
             assert(node.is_object());
@@ -93,7 +99,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
                         const double expectedValue = expectedNode;
                         const double actualValue = actualNode;
                         const double error = std::fabs(expectedValue - actualValue) / actualValue;
-                        if (error < 1.0e-15) {
+                        if (error < epsilon) {
                             i = diffJSON.erase(i);
                             continue;
                         } else {
