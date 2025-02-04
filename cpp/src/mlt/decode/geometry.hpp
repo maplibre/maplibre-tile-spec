@@ -149,10 +149,9 @@ public:
 
         count_t vertexBufferOffset = 0;
         count_t vertexOffsetsOffset = 0;
-        count_t geometryCounter = 0;
         count_t geometryOffsetsCounter = 0;
-        count_t ringOffsetsCounter = 0;
         count_t partOffsetCounter = 0;
+        count_t ringOffsetsCounter = 0;
 
         std::vector<std::unique_ptr<Geometry>> geometries;
         geometries.reserve(geometryColumn.geometryTypes.size());
@@ -282,36 +281,36 @@ public:
                     std::vector<MultiPolygon::ShellRingsPair> polygons;
                     std::vector<std::vector<Coordinate>> rings;
                     if (vertexOffsets.empty()) {
-                        if (partOffsetCounter + vertexOffsets.size() >= partOffsets.size() ||
-                            ringOffsetsCounter + vertexOffsets.size() >= ringOffsets.size()) {
+                        if (partOffsetCounter + numPolygons > partOffsets.size() ||
+                            ringOffsetsCounter + numPolygons > ringOffsets.size()) {
                             throw std::runtime_error("geometry error");
                         }
-                        for (std::size_t i = 0; i < vertexOffsets.size(); ++i) {
+                        for (count_t i = 0; i < numPolygons; ++i) {
                             const auto numRings = partOffsets[partOffsetCounter++];
                             const auto numVertices = ringOffsets[ringOffsetsCounter++];
                             rings.reserve(numRings - 1);
 
                             auto shell = getLineStringCoords(vertices, vertexBufferOffset, numVertices, true);
-                            vertexBufferOffset += numVertices * 2;
+                            vertexBufferOffset += 2 * numVertices;
 
-                            if (ringOffsetsCounter + numRings > ringOffsets.size()) {
+                            if (ringOffsetsCounter + numRings - 1 > ringOffsets.size()) {
                                 throw std::runtime_error("geometry error");
                             }
                             for (count_t j = 1; j < numRings; ++j) {
                                 const auto numRingVertices = ringOffsets[ringOffsetsCounter++];
                                 rings.push_back(
                                     getLineStringCoords(vertices, vertexBufferOffset, numRingVertices, true));
-                                vertexBufferOffset += numRingVertices * 2;
+                                vertexBufferOffset += 2 * numRingVertices;
                             }
                             polygons.emplace_back(std::move(shell), std::move(rings));
                             rings.clear();
                         }
                     } else {
-                        if (partOffsetCounter + numPolygons >= partOffsets.size() ||
-                            ringOffsetsCounter + numPolygons >= ringOffsets.size()) {
+                        if (partOffsetCounter + vertexOffsets.size() >= partOffsets.size() ||
+                            ringOffsetsCounter + vertexOffsets.size() >= ringOffsets.size()) {
                             throw std::runtime_error("geometry error");
                         }
-                        for (count_t i = 0; i < numPolygons; ++i) {
+                        for (std::size_t i = 0; i < vertexOffsets.size(); ++i) {
                             const auto numRings = partOffsets[partOffsetCounter++];
                             const auto numVertices = ringOffsets[ringOffsetsCounter++];
                             rings.reserve(numRings - 1);
@@ -326,7 +325,7 @@ public:
                             for (count_t j = 1; j < numRings; ++j) {
                                 const auto numRingVertices = ringOffsets[ringOffsetsCounter++];
                                 rings.push_back(getDictionaryEncodedLineStringCoords(
-                                    vertices, vertexOffsets, vertexOffsetsOffset, numVertices, true));
+                                    vertices, vertexOffsets, vertexOffsetsOffset, numRingVertices, true));
                                 vertexOffsetsOffset += numRingVertices;
                             }
                             polygons.emplace_back(std::move(shell), std::move(rings));
@@ -341,6 +340,15 @@ public:
                                              std::to_string(std::to_underlying(geomType)));
             }
         }
+
+        // We should use up all the input
+        assert(geometryColumn.geometryTypes.size() == geometries.size());
+        assert(!vertexOffsets.empty() || vertexBufferOffset == vertices.size());
+        assert(vertexOffsets.empty() || vertexOffsetsOffset == vertexOffsets.size());
+        assert(geometryOffsetsCounter == geometryOffsets.size());
+        assert(partOffsetCounter == partOffsets.size());
+        assert(ringOffsetsCounter == ringOffsets.size());
+
         return geometries;
     }
 
