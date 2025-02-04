@@ -5,8 +5,12 @@ project (mlt-cpp-test)
 add_executable(mlt-cpp-test
     decode.cpp
     fastpfor.cpp
+    util.cpp
 )
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
+
+# Tests have access to private headers
+target_include_directories(mlt-cpp-test PUBLIC "${PROJECT_SOURCE_DIR}/../src")
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 if(MLT_WITH_JSON)
