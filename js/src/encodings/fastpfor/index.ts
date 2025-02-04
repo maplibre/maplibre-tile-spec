@@ -49,16 +49,18 @@ export class FastPFORDecoder {
         ));
     }
 
-    public uncompress(model: { input: Uint32Array, output: Uint32Array}): void {
-        model.output = new Uint32Array(model.input[0]);
+    public uncompress(input: Uint32Array): Uint32Array {
+        const output = new Uint32Array(input[0]);
 
         this.codec.headlessUncompress({
-            input: model.input,
+            input: input,
             inpos: 1,
-            inlength: model.input.length - 1,
-            output: model.output,
+            inlength: input.length - 1,
+            output: output,
             outpos: 0,
-            num: model.output.length
-        })
+            num: output.length
+        });
+
+        return output;
     }
 }

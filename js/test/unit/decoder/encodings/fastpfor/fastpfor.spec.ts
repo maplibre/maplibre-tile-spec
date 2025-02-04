@@ -19,19 +19,13 @@ const compressed4: Uint32Array = new Uint32Array([0, -2139062144, -2139062144, -
 const testFastPforDecompress = (input: Uint32Array, expectedOutput: Uint32Array) => {
     const core = FastPFORDecoder.default();
 
-    const output = new Uint32Array(input.length);
-    const outpos = 0;
+    const output = core.uncompress(input);
 
-    core.uncompress({
-        input: input,
-        output: output,
-    });
+    const expectedCompressed: Uint32Array = new Uint32Array(output.length);
+    arraycopy(new Uint32Array(expectedOutput), 0, expectedCompressed, 0, output.length);
 
-    const expectedCompressed: Uint32Array = new Uint32Array(outpos);
-    arraycopy(new Uint32Array(expectedOutput), 0, expectedCompressed, 0, outpos);
-
-    const actualCompressed = new Uint32Array(outpos);
-    arraycopy(output, 0, actualCompressed, 0, outpos);
+    const actualCompressed = new Uint32Array(output.length);
+    arraycopy(output, 0, actualCompressed, 0, output.length);
 
     expect(actualCompressed).toEqual(expectedCompressed);
 }
@@ -64,4 +58,17 @@ describe("FastPFor", () => {
         testFastPforDecompress(compressed, uncompressed);
     });
 
+    it("should decode stepped ascending values", async () => {
+        const compressed = new Uint32Array(fs.readFileSync("./test/data/250k_step_fastpfor.bin").buffer);
+
+        const uncompressed = new Uint32Array(250_000);
+        for (let i = 0; i < 250_000; i++) {
+            if (i % 65536 == 0)
+                uncompressed[i] = 1000000000;
+            else
+                uncompressed[i] = i % 4096;
+        }
+
+        testFastPforDecompress(compressed, uncompressed);
+    });
 });

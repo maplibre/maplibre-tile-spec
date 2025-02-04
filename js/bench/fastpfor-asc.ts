@@ -6,15 +6,6 @@ import {FastPFOR} from "../src/encodings/fastpfor/fastpfor";
 
 const suite = new Benchmark.Suite;
 
-// function decodeVarint(encodedData: Uint8Array, decodedData: Uint32Array) {
-//     let offset = 0;
-//     let i = 0;
-//     while (offset < encodedData.length) {
-//         const value = varint.decode(encodedData, offset);
-//         decodedData[i++] = value;
-//         offset += varint.decode.bytes;
-//     }
-// }
 
 const VARINT_ENCODED_VALUES = new Uint32Array(fs.readFileSync("test/data/250k_ascending_varint.bin").buffer);
 const FASTPFOR_ENCODED_VALUES = new Uint32Array(fs.readFileSync("test/data/250k_ascending_fastpfor.bin").buffer);
