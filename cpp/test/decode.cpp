@@ -112,11 +112,12 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
             ++i;
         }
 
-        std::cout << path
-                  << "\n"
-                  //<< "expected=" << expectedJSON.dump(2, ' ') << "\n"
-                  //<< "actual=" << actualJSON.dump(2, ' ') << "\n"
-                  << " diff=" << diffJSON.dump(2, ' ') << "\n";
+        if (!diffJSON.empty()) {
+            std::cout << path << ":\n"
+                    //<< "expected=" << expectedJSON.dump(2, ' ') << "\n"
+                    //<< "actual=" << actualJSON.dump(2, ' ') << "\n"
+                    << " diff=" << diffJSON.dump(2, ' ', false, json::error_handler_t::replace) << "\n";
+        }
     }
 #endif // MLT_WITH_JSON
 

@@ -29,7 +29,7 @@ public:
             {"geometry", buildAnyGeometryElement(feature.getGeometry(), projection)},
         };
         if (!feature.getProperties().empty()) {
-            result["properties"] = {};
+            result["properties"] = buildProperties(feature.getProperties());
         }
         return result;
     }
@@ -81,6 +81,7 @@ private:
         return std::move(array);
     }
 
+#pragma region Geometry
     /// Build the coordinate representation for a single coordinate, consisting of an array of `x` (longitude) and `y`
     /// (latitude)
     static json buildCoordinateArray(const Coordinate& coord, const Projection& projection) noexcept(false) {
@@ -172,6 +173,24 @@ private:
                                          std::to_string(std::to_underlying(geometry.type)));
         }
     }
+#pragma endregion Geometry
+
+#pragma region Properties
+    static json buildProperties(const PropertyMap& properties) {
+        auto result = json::object();
+        for (const auto& [key, value] : properties) {
+            result[key] = std::visit(PropertyVisitor(), value);
+        }
+        return result;
+    }
+
+    struct PropertyVisitor {
+        template <typename T>
+        json operator()(const T& value) const {
+            return value;
+        }
+    };
+#pragma endregion Properties
 };
 
 } // namespace mlt

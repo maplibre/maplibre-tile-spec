@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mlt/feature.hpp>
+#include <mlt/properties.hpp>
 
 #include <vector>
 
@@ -14,11 +15,12 @@ public:
     Layer(const Layer&) = delete;
     Layer(Layer&&) noexcept = default;
 
-    Layer(std::string name_, int version_, extent_t extent_, std::vector<Feature> features_) noexcept
+    Layer(std::string name_, int version_, extent_t extent_, std::vector<Feature> features_, PropertyVecMap properties_) noexcept
         : name(std::move(name_)),
           version(version_),
           extent(extent_),
-          features(std::move(features_)) {}
+          features(std::move(features_)),
+          properties(std::move(properties_)) {}
 
     const std::string& getName() const noexcept { return name; }
     int getVersion() const noexcept { return version; }
@@ -30,6 +32,7 @@ private:
     int version;
     extent_t extent;
     std::vector<Feature> features;
+    PropertyVecMap properties;
 };
 
 } // namespace mlt
