@@ -24,6 +24,7 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/layer.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/polyfill.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/projection.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/properties.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/tile.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/stream.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset.hpp

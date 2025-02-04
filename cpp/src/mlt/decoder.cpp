@@ -7,8 +7,11 @@
 #include <mlt/layer.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/properties.hpp>
 #include <mlt/util/varint.hpp>
 #include <mlt/util/rle.hpp>
+
+#include <cstddef>
 #include <stdexcept>
 
 namespace mlt::decoder {
@@ -45,7 +48,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
     while (tileData.available()) {
         std::vector<Feature::id_t> ids;
         std::vector<std::unique_ptr<Geometry>> geometries;
-        Feature::PropertyMap properties;
+        PropertyVecMap properties;
 
         const auto version = tileData.read();
         const auto [featureTableId, tileExtent, maxTileExtent, numFeatures] = decodeVarints<std::uint32_t, 4>(tileData);
@@ -110,20 +113,64 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
         if (numFeatures != ids.size() || numFeatures != geometries.size()) {
             throw std::runtime_error("ids and features mismatch");
         }
-        auto features = makeFeatures(ids, std::move(geometries), std::move(properties));
-        layers.emplace_back(tableMetadata.name, version, tileExtent, std::move(features));
+        auto features = makeFeatures(ids, std::move(geometries), properties);
+        layers.emplace_back(tableMetadata.name, version, tileExtent, std::move(features), std::move(properties));
     }
     return {std::move(layers)};
 }
 
+namespace {
+struct ExtractPropertyVisitor {
+    const std::size_t i;
+
+    template <typename T>
+    Property operator()(const T& vec) const;
+
+    template <typename T>
+    Property operator()(const std::vector<T>& vec) const {
+        if (i < vec.size()) {
+            return vec[i];
+        }
+        assert(false);
+        return nullptr;
+    }
+    template <>
+    Property operator()(const StringDictViews& vec) const {
+        if (i < vec.second.size()) {
+            return vec.second[i];
+        }
+        assert(false);
+        return nullptr;
+    }
+    template <>
+    Property operator()(const std::vector<std::uint8_t>& vec) const {
+        return (i / 8 < vec.size()) && (vec[i / 8] & (1 << (i & 8)));
+    }
+};
+}
+
 std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids,
                                            std::vector<std::unique_ptr<Geometry>>&& geometries,
-                                           const Feature::PropertyMap& /*properties*/) noexcept(false) {
+                                           const PropertyVecMap& propertyVecs) noexcept(false) {
     std::vector<Feature> features;
     features.reserve(ids.size());
 
-    for (count_t j = 0; j < ids.size(); ++j) {
-        features.push_back(Feature{ids[j], std::move(geometries[j]), {}});
+    std::unique_ptr<Geometry> noGeometry;
+
+    for (count_t i = 0; i < ids.size(); ++i) {
+        // TODO: Consider having features reference their parent layers and
+        //       get properties on-demand instead of splaying them out here.
+        PropertyMap properties;
+        properties.reserve(propertyVecs.size());
+        for (const auto& [key, vec] : propertyVecs) {
+            const auto value = std::visit(ExtractPropertyVisitor{i}, vec);
+            if (!std::holds_alternative<nullptr_t>(value)) {
+                properties.emplace(key, std::move(value));
+            }
+        }
+
+        auto& geom = (i < geometries.size()) ? geometries[i] : noGeometry;
+        features.push_back(Feature{ids[i], std::move(geom), std::move(properties)});
     }
     return features;
 }

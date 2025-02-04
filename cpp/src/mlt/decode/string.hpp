@@ -27,7 +27,8 @@ public:
                 count_t numStreams,
                 count_t numValues,
                 const std::vector<std::uint8_t>& presentStream,
-                std::vector<std::string>& out) noexcept(false) {
+                std::vector<std::uint8_t>& stringDataOut,
+                std::vector<std::string_view>& stringsOut) noexcept(false) {
         using namespace metadata::stream;
 
         assert(numValues <= 8 * presentStream.size());
@@ -71,11 +72,12 @@ public:
         if (!symDataStream.empty()) {
             throw std::runtime_error("FSST decoding not implemented");
         } else if (!dictDataStream.empty()) {
-            std::vector<std::string_view> out;
-            out.reserve(numValues);
-            decodeDictionary(presentStream, dictLengthStream, dictDataStream, offsetStream, out, numValues);
+            stringsOut.reserve(numValues);
+            decodeDictionary(presentStream, dictLengthStream, dictDataStream, offsetStream, stringsOut, numValues);
+            stringDataOut = std::move(dictDataStream);
         } else {
-            decodePlain(presentStream, dictLengthStream, dictDataStream, out, numValues);
+            decodePlain(presentStream, dictLengthStream, dictDataStream, stringsOut, numValues);
+            stringDataOut = std::move(dictDataStream);
         }
     }
 
@@ -85,7 +87,7 @@ private:
     static void decodePlain(const std::vector<std::uint8_t>& presentStream,
                             const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
-                            std::vector<std::string>& out,
+                            std::vector<std::string_view>& out,
                             count_t numValues) {
         for (count_t i = 0; i < numValues; ++i) {
             if (presentStream.empty() || presentStream[i / 8] & (1 << (i % 8))) {

@@ -3,9 +3,11 @@
 #include <mlt/common.hpp>
 #include <mlt/feature.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/properties.hpp>
 #include <mlt/tile.hpp>
 
 #include <memory>
+#include <vector>
 
 namespace mlt::decoder {
 
@@ -29,7 +31,7 @@ private:
 
     std::vector<Feature> makeFeatures(const std::vector<Feature::id_t>&,
                                       std::vector<std::unique_ptr<Geometry>>&&,
-                                      const Feature::PropertyMap&) noexcept(false);
+                                      const PropertyVecMap&) noexcept(false);
 };
 
 } // namespace mlt::decoder
