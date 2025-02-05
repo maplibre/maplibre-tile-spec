@@ -179,14 +179,23 @@ private:
     static json buildProperties(const PropertyMap& properties) {
         auto result = json::object();
         for (const auto& [key, value] : properties) {
-            result[key] = std::visit(PropertyVisitor(), value);
+            if (auto json = std::visit(PropertyVisitor(), value); json) {
+                result[key] = *json;
+            }
         }
         return result;
     }
 
     struct PropertyVisitor {
         template <typename T>
-        json operator()(const T& value) const {
+        std::optional<json> operator()(const std::optional<T>& value) const {
+            if (value) {
+                return *value;
+            }
+            return std::nullopt;
+        }
+        template <typename T>
+        std::optional<json> operator()(const T& value) const {
             return value;
         }
     };

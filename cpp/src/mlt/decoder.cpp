@@ -27,6 +27,7 @@ struct Decoder::Impl {
     IntegerDecoder integerDecoder;
     StringDecoder stringDecoder{integerDecoder};
     PropertyDecoder propertyDecoder{integerDecoder, stringDecoder};
+    GeometryDecoder geometryDecoder;
 };
 
 Decoder::Decoder() noexcept(false)
@@ -101,9 +102,9 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                         throw std::runtime_error("unsupported id data type");
                 }
             } else if (columnName == GEOMETRY_COLUMN_NAME) {
-                GeometryDecoder decoder;
-                const auto geometryColumn = decoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
-                geometries = decoder.decodeGeometry(geometryColumn);
+                const auto geometryColumn = impl->geometryDecoder.decodeGeometryColumn(
+                    tileData, columnMetadata, numStreams);
+                geometries = impl->geometryDecoder.decodeGeometry(geometryColumn);
             } else {
                 const auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
                 properties.emplace(columnMetadata.name, std::move(property));
@@ -143,11 +144,11 @@ struct ExtractPropertyVisitor {
         return nullptr;
     }
     template <>
-    Property operator()(const std::vector<std::uint8_t>& vec) const {
-        return (i / 8 < vec.size()) && (vec[i / 8] & (1 << (i & 8)));
+    Property operator()(const PackedBitset& vec) const {
+        return testBit(vec, i);
     }
 };
-}
+} // namespace
 
 std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids,
                                            std::vector<std::unique_ptr<Geometry>>&& geometries,
@@ -162,10 +163,13 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
         //       get properties on-demand instead of splaying them out here.
         PropertyMap properties;
         properties.reserve(propertyVecs.size());
-        for (const auto& [key, vec] : propertyVecs) {
-            const auto value = std::visit(ExtractPropertyVisitor{i}, vec);
-            if (!std::holds_alternative<nullptr_t>(value)) {
-                properties.emplace(key, std::move(value));
+        for (const auto& [key, val] : propertyVecs) {
+            const auto& [props, present] = val;
+            if (present.empty() || testBit(present, i)) {
+                const auto value = std::visit(ExtractPropertyVisitor{i}, props);
+                if (!std::holds_alternative<nullptr_t>(value)) {
+                    properties.emplace(key, std::move(value));
+                }
             }
         }
 
