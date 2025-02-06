@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/noncopyable.hpp>
 
 #include <algorithm>
 #include <type_traits>
@@ -14,13 +15,12 @@ namespace mlt::util::decoding::rle {
 namespace detail {
 // Borrowed from https://github.com/apache/orc, `/c++/src/ByteRLE.cc`, `ByteRleDecoderImpl::nextInternal`
 // Apache License 2.0
-class ByteRleDecoder {
+class ByteRleDecoder : public util::noncopyable {
 public:
+    ByteRleDecoder() = delete;
     ByteRleDecoder(const std::uint8_t* buffer, size_t length) noexcept
         : bufferStart(reinterpret_cast<const char*>(buffer)),
           bufferEnd(bufferStart + length) {}
-
-    ByteRleDecoder(const ByteRleDecoder&) = delete;
     ByteRleDecoder(ByteRleDecoder&&) = delete;
     ByteRleDecoder& operator=(const ByteRleDecoder&) = delete;
     ByteRleDecoder& operator=(ByteRleDecoder&&) = delete;

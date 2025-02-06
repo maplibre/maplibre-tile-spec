@@ -6,6 +6,7 @@
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/noncopyable.hpp>
 
 #include <algorithm>
 #include <stdexcept>
@@ -14,14 +15,12 @@
 #include <vector>
 
 namespace mlt::geometry {
-struct GeometryColumn {
+struct GeometryColumn : public util::noncopyable {
     GeometryColumn() = default;
-    GeometryColumn(const GeometryColumn&) = delete;
-    GeometryColumn(GeometryColumn&&) noexcept = default;
     ~GeometryColumn() = default;
 
-    GeometryColumn& operator=(const GeometryColumn&) = delete;
-    GeometryColumn& operator=(GeometryColumn&&) noexcept = default;
+    GeometryColumn(GeometryColumn&&) noexcept = default;
+    GeometryColumn& operator=(GeometryColumn&&) = delete;
 
     std::vector<metadata::tileset::GeometryType> geometryTypes;
     std::vector<std::uint32_t> geometryOffsets;

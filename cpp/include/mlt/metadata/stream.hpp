@@ -2,6 +2,7 @@
 
 #include <mlt/common.hpp>
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/noncopyable.hpp>
 #include <mlt/util/varint.hpp>
 
 #include <optional>
@@ -63,7 +64,7 @@ enum class PhysicalStreamType {
     LENGTH = 3,
 };
 
-class LogicalStreamType {
+class LogicalStreamType : public util::noncopyable {
 public:
     LogicalStreamType(DictionaryType type) noexcept
         : dictionaryType(type) {}
@@ -73,8 +74,8 @@ public:
         : lengthType(type) {}
 
     LogicalStreamType() = delete;
-    LogicalStreamType(const LogicalStreamType&) = delete;
     LogicalStreamType(LogicalStreamType&&) noexcept = default;
+    LogicalStreamType& operator=(LogicalStreamType&&) noexcept = default;
 
     const std::optional<DictionaryType>& getDictionaryType() const noexcept { return dictionaryType; }
     const std::optional<OffsetType>& getOffsetType() const noexcept { return offsetType; }
@@ -86,8 +87,9 @@ private:
     std::optional<LengthType> lengthType;
 };
 
-class StreamMetadata {
+class StreamMetadata : public util::noncopyable {
 public:
+    StreamMetadata() = delete;
     StreamMetadata(PhysicalStreamType physicalStreamType_,
                    std::optional<LogicalStreamType> logicalStreamType_,
                    LogicalLevelTechnique logicalLevelTechnique1_,
@@ -103,14 +105,12 @@ public:
           numValues(numValues_),
           byteLength(byteLength_) {}
     virtual ~StreamMetadata() = default;
+    StreamMetadata(StreamMetadata&&) noexcept = default;
+    StreamMetadata& operator=(StreamMetadata&&) noexcept = default;
 
     virtual LogicalLevelTechnique getMetadataType() const noexcept { return LogicalLevelTechnique::NONE; }
 
     static std::unique_ptr<StreamMetadata> decode(BufferStream&) noexcept(false);
-
-    StreamMetadata() = delete;
-    StreamMetadata(const StreamMetadata&) = delete;
-    StreamMetadata(StreamMetadata&&) noexcept = default;
 
     PhysicalStreamType getPhysicalStreamType() const { return physicalStreamType; }
     const std::optional<LogicalStreamType>& getLogicalStreamType() const { return logicalStreamType; }
@@ -174,8 +174,6 @@ public:
           numRleValues(numRleValues_) {}
 
     RleEncodedStreamMetadata() = delete;
-    RleEncodedStreamMetadata(const RleEncodedStreamMetadata&) = delete;
-    RleEncodedStreamMetadata(RleEncodedStreamMetadata&&) noexcept = default;
 
     LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::RLE; }
 
