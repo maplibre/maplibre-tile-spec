@@ -12,11 +12,20 @@ using json = nlohmann::json;
 struct JSONComparer {
     const double doubleEpsilon = 1.0e-15;
     bool operator()(const json& left, const json& right) const {
+        const auto leftDouble = getDouble(left);
+        const auto rightDouble = getDouble(right);
+
         // Very similar numbers are equivalent, even if one or both are in string form
-        if (const auto ld = getDouble(left), rd = getDouble(right); ld && rd) {
-            const auto md = (*ld + *rd) / 2;
-            return (std::fabs(*ld - *rd) / ((md == 0) ? 1 : md)) < doubleEpsilon;
+        if (leftDouble && rightDouble) {
+            const auto md = (*leftDouble + *rightDouble) / 2;
+            return (std::fabs(*leftDouble - *rightDouble) / ((md == 0) ? 1 : md)) < doubleEpsilon;
         }
+
+        // Missing entries are equivalent to numeric zeros
+        if ((left.is_null() && rightDouble == 0) || (right.is_null() && leftDouble == 0)) {
+            return true;
+        }
+
         // Empty objects and arrays are equivalent to missing entries
         if (((left.is_object() || left.is_array()) && left.empty() && right.is_null()) ||
             (left.is_null() && (right.is_object() || right.is_array()) && right.empty())) {
@@ -130,9 +139,12 @@ static json diff(const json& source,
             // second pass: traverse other object's elements
             for (auto it = target.cbegin(); it != target.cend(); ++it) {
                 if (source.find(it.key()) == source.end()) {
-                    // found a key that is not in this -> add it
-                    const auto path_key = concat(path, '/', escape(it.key()));
-                    result.push_back({{"op", "add"}, {"path", path_key}, {"value", it.value()}});
+                    // found a key that is not in this
+                    // If the value is equivalent to nothing, that's not a difference.
+                    if (!compare(json(), *it)) {
+                        const auto path_key = concat(path, '/', escape(it.key()));
+                        result.push_back({{"op", "add"}, {"path", path_key}, {"value", *it}});
+                    }
                 }
             }
 

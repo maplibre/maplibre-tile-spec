@@ -174,11 +174,14 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
             }
         };
 
-        // If there's a "present" bitstream, the values are optional, and the index is within present values.
+        // If there's a "present" bitstream, the index is within present values only
         if (!presentBits.empty()) {
-            if (featureCount * 8 <= presentBits.size()) {
+            if (presentBits.size() < (featureCount + 7) / 8) {
                 throw std::runtime_error("Invalid present stream");
             }
+
+            // This should have been checked during property construction
+            assert(propertyCount(layerProperties) == countSetBits(presentBits));
 
             // Place property N in the properties map for the feature corresponding to the Nth set bit
             std::size_t sourceIndex = 0;

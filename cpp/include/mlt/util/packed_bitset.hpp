@@ -39,12 +39,12 @@ static inline std::optional<std::size_t> nextSetBit(const PackedBitset& bits, st
     if (const auto partialBits = result & 7; partialBits) {
         byte >>= partialBits;
         if (!byte) {
+            // skip to the next byte
             if (++byteIndex == bits.size()) {
                 return {};
             }
-            // skip to the next byte
             result += (8 - partialBits);
-            byte = bits[byteIndex++];
+            byte = bits[byteIndex];
         }
     }
 
