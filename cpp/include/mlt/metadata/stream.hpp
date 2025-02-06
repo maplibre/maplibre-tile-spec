@@ -104,7 +104,7 @@ public:
           physicalLevelTechnique(physicalLevelTechnique_),
           numValues(numValues_),
           byteLength(byteLength_) {}
-    virtual ~StreamMetadata() = default;
+    virtual ~StreamMetadata() noexcept = default;
     StreamMetadata(StreamMetadata&&) noexcept = default;
     StreamMetadata& operator=(StreamMetadata&&) noexcept = default;
 
@@ -126,8 +126,8 @@ private:
 
     friend class RleEncodedStreamMetadata;
     friend class MortonEncodedStreamMetadata;
-    friend std::unique_ptr<StreamMetadata> decode(BufferStream&);
-    static StreamMetadata decodeInternal(BufferStream&);
+    friend std::unique_ptr<StreamMetadata> decode(BufferStream&) noexcept(false);
+    static StreamMetadata decodeInternal(BufferStream&) noexcept(false);
 
     PhysicalStreamType physicalStreamType;
     std::optional<LogicalStreamType> logicalStreamType;

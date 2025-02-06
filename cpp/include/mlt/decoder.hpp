@@ -17,7 +17,7 @@ public:
     using TileSetMetadata = metadata::tileset::TileSetMetadata;
 
     Decoder() noexcept(false);
-    ~Decoder();
+    ~Decoder() noexcept;
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;
 

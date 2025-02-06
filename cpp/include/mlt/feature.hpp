@@ -27,7 +27,7 @@ public:
     /// TODO: use a non-nullable type for the polymorphic geometry object
     Feature(id_t id, std::unique_ptr<Geometry>&& geometry, PropertyMap properties) noexcept(false);
 
-    ~Feature();
+    ~Feature() noexcept;
 
     id_t getID() const noexcept { return ident; }
     const Geometry& getGeometry() const noexcept { return *geometry; }

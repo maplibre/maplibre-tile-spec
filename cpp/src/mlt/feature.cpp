@@ -15,6 +15,6 @@ Feature::Feature(id_t ident_, std::unique_ptr<Geometry>&& geometry_, PropertyMap
     }
 }
 
-Feature::~Feature() = default;
+Feature::~Feature() noexcept = default;
 
 } // namespace mlt

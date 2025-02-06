@@ -6,7 +6,7 @@
 
 namespace mlt::metadata::tileset {
 
-bool ScalarField::read(protozero::pbf_message<schema::ScalarField> message) {
+bool ScalarField::read(protozero::pbf_message<schema::ScalarField> message) noexcept(false) {
     bool hasPhysical = false;
     bool hasLogical = false;
     while (message.next()) {
@@ -27,7 +27,7 @@ bool ScalarField::read(protozero::pbf_message<schema::ScalarField> message) {
     return (hasLogical != hasPhysical);
 }
 
-bool ComplexField::read(protozero::pbf_message<schema::ComplexField> message) {
+bool ComplexField::read(protozero::pbf_message<schema::ComplexField> message) noexcept(false) {
     bool hasPhysical = false;
     bool hasLogical = false;
 
@@ -56,7 +56,7 @@ bool ComplexField::read(protozero::pbf_message<schema::ComplexField> message) {
     return (hasLogical != hasPhysical);
 }
 
-bool ScalarColumn::read(protozero::pbf_message<schema::ScalarColumn> message) {
+bool ScalarColumn::read(protozero::pbf_message<schema::ScalarColumn> message) noexcept(false) {
     bool hasPhysical = false;
     bool hasLogical = false;
 
@@ -78,7 +78,7 @@ bool ScalarColumn::read(protozero::pbf_message<schema::ScalarColumn> message) {
     return (hasLogical != hasPhysical);
 }
 
-bool Field::read(protozero::pbf_message<schema::Field> message) {
+bool Field::read(protozero::pbf_message<schema::Field> message) noexcept(false) {
     bool hasScalar = false;
     bool hasComplex = false;
 
@@ -110,7 +110,7 @@ bool Field::read(protozero::pbf_message<schema::Field> message) {
     return (hasScalar != hasComplex);
 }
 
-bool ComplexColumn::read(protozero::pbf_message<schema::ComplexColumn> message) {
+bool ComplexColumn::read(protozero::pbf_message<schema::ComplexColumn> message) noexcept(false) {
     bool hasPhysical = false;
     bool hasLogical = false;
 
@@ -138,7 +138,7 @@ bool ComplexColumn::read(protozero::pbf_message<schema::ComplexColumn> message) 
     return (hasLogical != hasPhysical);
 }
 
-bool Column::read(protozero::pbf_message<schema::Column> message) {
+bool Column::read(protozero::pbf_message<schema::Column> message) noexcept(false) {
     bool hasScalar = false;
     bool hasComplex = false;
 
@@ -174,7 +174,7 @@ bool Column::read(protozero::pbf_message<schema::Column> message) {
     return !name.empty() && (hasScalar != hasComplex);
 }
 
-bool FeatureTableSchema::read(protozero::pbf_message<schema::FeatureTableSchema> message) {
+bool FeatureTableSchema::read(protozero::pbf_message<schema::FeatureTableSchema> message) noexcept(false) {
     while (message.next()) {
         switch (message.tag()) {
             case schema::FeatureTableSchema::implicit_string_name: // treated as
@@ -195,7 +195,7 @@ bool FeatureTableSchema::read(protozero::pbf_message<schema::FeatureTableSchema>
     return !name.empty() && !columns.empty();
 }
 
-bool TileSetMetadata::read(protozero::pbf_message<schema::TileSetMetadata> message) {
+bool TileSetMetadata::read(protozero::pbf_message<schema::TileSetMetadata> message) noexcept(false) {
     int boundCount = 0;
     int centerCount = 0;
 

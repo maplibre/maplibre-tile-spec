@@ -2,6 +2,7 @@
 
 #include <mlt/decode/geometry.hpp>
 #include <mlt/decode/int.hpp>
+#include <mlt/decode/int_template.hpp>
 #include <mlt/decode/property.hpp>
 #include <mlt/decode/string.hpp>
 #include <mlt/layer.hpp>
@@ -35,7 +36,7 @@ struct Decoder::Impl {
 Decoder::Decoder() noexcept(false)
     : impl{std::make_unique<Impl>()} {}
 
-Decoder::~Decoder() = default;
+Decoder::~Decoder() noexcept = default;
 
 MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMetadata) noexcept(false) {
     using namespace metadata;
@@ -131,22 +132,17 @@ struct ExtractPropertyVisitor {
 
     template <typename T>
     std::optional<Property> operator()(const std::vector<T>& vec) const {
-        if (i < vec.size()) {
-            return vec[i];
-        }
-        assert(false);
-        return std::nullopt;
+        assert(i < vec.size());
+        return (i < vec.size()) ? std::optional<Property>{vec[i]} : std::nullopt;
     }
     template <>
-    std::optional<Property> operator()(const StringDictViews& views) const {
-        if (i < views.getStrings().size()) {
-            return views.getStrings()[i];
-        }
-        assert(false);
-        return std::nullopt;
+    std::optional<Property> operator()(const StringDictViews& views) const noexcept(false) {
+        const auto& strings = views.getStrings();
+        assert(i < strings.size());
+        return (i < strings.size()) ? std::optional<Property>{strings[i]} : std::nullopt;
     }
     template <>
-    std::optional<Property> operator()(const PackedBitset& vec) const {
+    std::optional<Property> operator()(const PackedBitset& vec) const noexcept(false) {
         return testBit(vec, i);
     }
 };
@@ -196,7 +192,7 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
         }
     }
 
-    return util::generateVector<Feature>(featureCount, [&](const auto i) {
+    return util::generateVector<Feature>(featureCount, [&](const auto i) noexcept(false) {
         return Feature{ids[i], std::move(geometries[i]), std::move(properties[i])};
     });
 }

@@ -11,7 +11,7 @@ public:
 
 protected:
     constexpr noncopyable() noexcept = default;
-    ~noncopyable() = default;
+    ~noncopyable() noexcept = default;
 };
 
 } // namespace mlt::util
