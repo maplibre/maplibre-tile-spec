@@ -9,7 +9,7 @@ template <typename T, typename F>
     requires requires(F f, std::size_t i) {
         { f(i) } -> std::same_as<T>;
     }
-std::vector<T> generateVector(const std::size_t count, F generator) {
+std::vector<T> generateVector(const std::size_t count, F generator) noexcept(false) {
     std::vector<T> result;
     result.reserve(count);
     std::generate_n(std::back_inserter(result), count, [i = 0, f = std::move(generator)]() mutable { return f(i++); });

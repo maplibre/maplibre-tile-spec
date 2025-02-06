@@ -1,12 +1,11 @@
 #include <mlt/metadata/stream.hpp>
 
-#include <stdexcept>
 #include <utility>
 
 namespace mlt::metadata::stream {
 
 namespace {
-std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType physicalStreamType, int value) {
+std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType physicalStreamType, int value) noexcept {
     switch (physicalStreamType) {
         case PhysicalStreamType::DATA:
             return static_cast<DictionaryType>(value);
@@ -20,7 +19,7 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
 }
 } // namespace
 
-std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& buffer) {
+std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& buffer) noexcept(false) {
     auto streamMetadata = decodeInternal(buffer);
 
     // Currently Morton can't be combined with RLE only with delta
@@ -55,7 +54,7 @@ int StreamMetadata::getLogicalType() const noexcept {
     return 0;
 }
 
-StreamMetadata StreamMetadata::decodeInternal(BufferStream& buffer) {
+StreamMetadata StreamMetadata::decodeInternal(BufferStream& buffer) noexcept(false) {
     const auto streamType = buffer.read();
     const auto physicalStreamType = static_cast<PhysicalStreamType>(streamType >> 4);
     auto logicalStreamType = decodeLogicalStreamType(physicalStreamType, streamType & 0x0f);

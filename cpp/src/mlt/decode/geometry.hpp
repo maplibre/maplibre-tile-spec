@@ -17,7 +17,7 @@
 namespace mlt::geometry {
 struct GeometryColumn : public util::noncopyable {
     GeometryColumn() = default;
-    ~GeometryColumn() = default;
+    ~GeometryColumn() noexcept = default;
 
     GeometryColumn(GeometryColumn&&) noexcept = default;
     GeometryColumn& operator=(GeometryColumn&&) = delete;
