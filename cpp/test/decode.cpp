@@ -57,6 +57,10 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
 
 const auto basePath = "../test/expected"s;
 
+auto dump(const nlohmann::json& json) {
+    return json.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
+}
+
 std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
     auto metadataBuffer = loadFile(path + ".meta.pbf");
     if (metadataBuffer.empty()) {
@@ -90,9 +94,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
 
         // Convert the tile we loaded to GeoJSON
         const auto actualJSON = mlt::GeoJSON::toGeoJSON(tile, {3, 5, 7});
-
-        const auto actualJSONStr = actualJSON.dump(2, ' ', false, json::error_handler_t::replace);
-        writeFile(path + ".new.geojson", actualJSONStr);
+        writeFile(path + ".new.geojson", dump(actualJSON));
 
         // Compare the two
         const auto diffJSON = mlt::util::diff(expectedJSON, actualJSON, {});
@@ -100,9 +102,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
             std::error_code ec;
             std::filesystem::remove(path + ".diff.geojson", ec);
         } else {
-            const auto diffJSONStr = diffJSON.dump(2, ' ', false, json::error_handler_t::replace);
-            writeFile(path + ".diff.geojson", diffJSONStr);
-
+            writeFile(path + ".diff.geojson", dump(diffJSON));
             std::cout << path << ":" << diffJSON.size() << " changes\n";
         }
     }

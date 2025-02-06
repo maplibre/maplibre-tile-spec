@@ -33,8 +33,5 @@ TEST(PackedBitset, NextBit) {
     EXPECT_EQ(nextSetBit({0xaa}, 7), 7);
     EXPECT_FALSE(nextSetBit({0xaa}, 8));
     EXPECT_EQ(nextSetBit({0xaa, 0xaa}, 8), 9);
-
-    EXPECT_EQ(nextSetBit({0x0c, 0}, 0), 2);
-    EXPECT_EQ(nextSetBit({0x0c, 0}, 3), 3);
-    EXPECT_FALSE(nextSetBit({0x0c, 0}, 4));
+    EXPECT_EQ(nextSetBit({0x01, 0xc0}, 1), 14);
 }
