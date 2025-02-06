@@ -17,46 +17,6 @@
 
 namespace mlt::decoder {
 
-namespace {
-
-/// Use the "present" bitmask stream to expand a stream of values into a larger buffer.
-/// The actual number of values present in a data stream is the number of bits set in the present stream.
-/// We expand backward from the end so that we don't need to use a second buffer.
-template <typename T>
-void populateColumn(std::vector<T>& buffer, const PackedBitset& presentStream, const count_t numValues) {
-    if (presentStream.empty() || buffer.empty() || numValues <= buffer.size()) {
-        return;
-    }
-
-    auto sourceIndex = buffer.size() - 1;
-    auto targetIndex = numValues - 1;
-    auto byteIndex = (numValues - 1) / 8;
-    auto mask = 1 << ((numValues - 1) % 8);
-
-    buffer.resize(numValues);
-    for (auto value = presentStream[byteIndex];;) {
-        if (value & mask) {
-            buffer[targetIndex] = buffer[sourceIndex];
-            if (sourceIndex == 0) {
-                break;
-            }
-            --sourceIndex;
-        }
-        --targetIndex;
-
-        mask >>= 1;
-        if (!mask) {
-            if (byteIndex) {
-                mask = 1 << 7;
-                value = presentStream[--byteIndex];
-            } else {
-                break;
-            }
-        }
-    }
-}
-} // namespace
-
 class PropertyDecoder {
 public:
     PropertyDecoder(IntegerDecoder& intDecoder_, StringDecoder& stringDecoder_) noexcept(false)
@@ -132,7 +92,6 @@ public:
                 intBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/true>(
                     tileData, intBuffer, *streamMetadata);
-                populateColumn(intBuffer, presentStream, presentValueCount);
                 return {std::move(intBuffer), std::move(presentStream)};
             }
             case ScalarType::UINT_32: {
@@ -140,7 +99,6 @@ public:
                 intBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/false>(
                     tileData, intBuffer, *streamMetadata);
-                populateColumn(intBuffer, presentStream, presentValueCount);
                 return {std::move(intBuffer), std::move(presentStream)};
             }
             case ScalarType::INT_64: {
@@ -148,7 +106,6 @@ public:
                 longBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/true>(
                     tileData, longBuffer, *streamMetadata);
-                populateColumn(longBuffer, presentStream, presentValueCount);
                 return {std::move(longBuffer), std::move(presentStream)};
             }
             case ScalarType::UINT_64: {
@@ -156,21 +113,18 @@ public:
                 longBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/false>(
                     tileData, longBuffer, *streamMetadata);
-                populateColumn(longBuffer, presentStream, presentValueCount);
                 return {std::move(longBuffer), std::move(presentStream)};
             }
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
                 floatBuffer.reserve(streamMetadata->getNumValues());
                 decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
-                populateColumn(floatBuffer, presentStream, presentValueCount);
                 return {std::move(floatBuffer), std::move(presentStream)};
             }
             case ScalarType::DOUBLE: {
                 std::vector<double> doubleBuffer;
                 doubleBuffer.reserve(streamMetadata->getNumValues());
                 decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
-                populateColumn(doubleBuffer, presentStream, presentValueCount);
                 return {std::move(doubleBuffer), std::move(presentStream)};
             }
             case ScalarType::STRING: {

@@ -29,6 +29,8 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/stream.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/buffer_stream.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/packed_bitset.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
 )
 
 list(APPEND SRC_FILES

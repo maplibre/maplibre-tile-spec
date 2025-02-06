@@ -5,6 +5,7 @@ project (mlt-cpp-test)
 add_executable(mlt-cpp-test
     decode.cpp
     fastpfor.cpp
+    packed_bitset.cpp
     util.cpp
 )
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)

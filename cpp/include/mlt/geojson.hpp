@@ -52,6 +52,7 @@ public:
     }
 
 private:
+#pragma region JSON utils
     /// Create a json array object with pre-allocated space
     static json buildArray(std::size_t reservedSize) {
         json array = json::array();
@@ -80,6 +81,7 @@ private:
             std::forward<TRange>(sourceRange), std::back_inserter(array), std::forward<TFunc>(transform));
         return std::move(array);
     }
+#pragma endregion JSON utils
 
 #pragma region Geometry
     /// Build the coordinate representation for a single coordinate, consisting of an array of `x` (longitude) and `y`
@@ -180,7 +182,7 @@ private:
         auto result = json::object();
         for (const auto& [key, value] : properties) {
             if (auto json = std::visit(PropertyVisitor(), value); json) {
-                result[key] = *json;
+                result[key] = std::move(*json);
             }
         }
         return result;
