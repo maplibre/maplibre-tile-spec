@@ -191,10 +191,7 @@ private:
     struct PropertyVisitor {
         template <typename T>
         std::optional<json> operator()(const std::optional<T>& value) const {
-            if (value) {
-                return *value;
-            }
-            return std::nullopt;
+            return value ? operator()(*value) : std::nullopt;
         }
         template <typename T>
         std::optional<json> operator()(const T& value) const {

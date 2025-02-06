@@ -3,11 +3,14 @@
 #include <mlt/common.hpp>
 #include <mlt/decode/int.hpp>
 #include <mlt/metadata/stream.hpp>
+#include <mlt/properties.hpp>
+#include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/raw.hpp>
 
 #include <string>
 #include <stdexcept>
+#include <string_view>
 
 namespace mlt::decoder {
 
@@ -23,21 +26,17 @@ public:
      * -> fsst dictionary -> symbolTable, symbolLength, dictionary, length, present, data
      * */
 
-    void decode(BufferStream& tileData,
-                count_t numStreams,
-                count_t numValues,
-                const std::vector<std::uint8_t>& presentStream,
-                std::vector<std::uint8_t>& stringDataOut,
-                std::vector<std::string_view>& stringsOut) noexcept(false) {
+    StringDictViews decode(BufferStream& tileData, count_t numStreams, count_t numValues) noexcept(false) {
         using namespace metadata::stream;
-
-        assert(numValues <= 8 * presentStream.size());
+        using namespace util::decoding;
 
         std::vector<std::uint8_t> symDataStream;
         std::vector<std::uint8_t> dictDataStream;
         std::vector<std::uint32_t> offsetStream;
         std::vector<std::uint32_t> symLengthStream;
         std::vector<std::uint32_t> dictLengthStream;
+        std::vector<std::string_view> views;
+        views.reserve(numValues);
         for (count_t i = 0; i < numStreams; ++i) {
             auto streamMetadata = StreamMetadata::decode(tileData);
             switch (streamMetadata->getPhysicalStreamType()) {
@@ -63,7 +62,7 @@ public:
                     }
                     const auto type = *streamMetadata->getLogicalStreamType()->getDictionaryType();
                     auto& target = (type == DictionaryType::SINGLE) ? dictDataStream : symDataStream;
-                    util::decoding::decodeRaw(tileData, target, streamMetadata->getByteLength(), /*consume=*/true);
+                    decodeRaw(tileData, target, streamMetadata->getByteLength(), /*consume=*/true);
                     break;
                 }
             }
@@ -72,36 +71,29 @@ public:
         if (!symDataStream.empty()) {
             throw std::runtime_error("FSST decoding not implemented");
         } else if (!dictDataStream.empty()) {
-            stringsOut.reserve(numValues);
-            decodeDictionary(presentStream, dictLengthStream, dictDataStream, offsetStream, stringsOut, numValues);
-            stringDataOut = std::move(dictDataStream);
+            decodeDictionary(dictLengthStream, dictDataStream, offsetStream, views, numValues);
+            return {std::move(dictDataStream), std::move(views)};
         } else {
-            decodePlain(presentStream, dictLengthStream, dictDataStream, stringsOut, numValues);
-            stringDataOut = std::move(dictDataStream);
+            decodePlain(dictLengthStream, dictDataStream, views, numValues);
+            return {std::move(dictDataStream), std::move(views)};
         }
     }
 
 private:
     IntegerDecoder& intDecoder;
 
-    static void decodePlain(const std::vector<std::uint8_t>& presentStream,
-                            const std::vector<std::uint32_t>& lengthStream,
+    static void decodePlain(const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
                             std::vector<std::string_view>& out,
                             count_t numValues) {
         for (count_t i = 0; i < numValues; ++i) {
-            if (presentStream.empty() || presentStream[i / 8] & (1 << (i % 8))) {
-                const auto length = lengthStream[i];
-                const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + length);
-                out.emplace_back(bytes, length);
-            } else {
-                out.emplace_back();
-            }
+            const auto length = lengthStream[i];
+            const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + length);
+            out.emplace_back(bytes, length);
         }
     }
 
-    static void decodeDictionary(const std::vector<std::uint8_t>& presentStream,
-                                 const std::vector<std::uint32_t>& lengthStream,
+    static void decodeDictionary(const std::vector<std::uint32_t>& lengthStream,
                                  const std::vector<std::uint8_t>& utf8bytes,
                                  const std::vector<std::uint32_t>& offsets,
                                  std::vector<std::string_view>& out,
@@ -110,19 +102,15 @@ private:
 
         std::vector<std::string_view> dictionary;
         dictionary.reserve(lengthStream.size());
+
         count_t dictionaryOffset = 0;
         for (const auto length : lengthStream) {
             dictionary.emplace_back(utf8Ptr + dictionaryOffset, length);
             dictionaryOffset += length;
         }
 
-        auto offset = 0;
         for (count_t i = 0; i < numValues; ++i) {
-            if (presentStream.empty() || presentStream[i / 8] & (1 << (i % 8))) {
-                out.push_back(dictionary[offsets[offset++]]);
-            } else {
-                out.emplace_back();
-            }
+            out.push_back(dictionary[offsets[i]]);
         }
     }
 };

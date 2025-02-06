@@ -108,12 +108,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                     tileData, columnMetadata, numStreams);
                 geometries = impl->geometryDecoder.decodeGeometry(geometryColumn);
             } else {
-                const auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
-                if (!property.second.empty()) {
-                    const auto totalBits = countSetBits(property.second);
-                    assert(totalBits <= ids.size());
-                    assert(totalBits == propertyCount(property.first));
-                }
+                auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
                 properties.emplace(columnMetadata.name, std::move(property));
             }
         }
@@ -143,9 +138,9 @@ struct ExtractPropertyVisitor {
         return std::nullopt;
     }
     template <>
-    std::optional<Property> operator()(const StringDictViews& vec) const {
-        if (i < vec.second.size()) {
-            return vec.second[i];
+    std::optional<Property> operator()(const StringDictViews& views) const {
+        if (i < views.getStrings().size()) {
+            return views.getStrings()[i];
         }
         assert(false);
         return std::nullopt;
@@ -169,8 +164,9 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
     // TODO: Consider having features reference their parent layers and
     //       get properties on-demand instead of splaying them out here.
     std::vector<PropertyMap> properties(featureCount);
-    for (const auto& [key, val] : propertyVecs) {
-        const auto& [layerProperties, presentBits] = val;
+    for (const auto& [key, column] : propertyVecs) {
+        const auto& layerProperties = column.getProperties();
+        const auto& presentBits = column.getPresentBits();
 
         const auto applyProperty = [&](std::size_t sourceIndex, std::size_t targetIndex) {
             if (const auto value = std::visit(ExtractPropertyVisitor{sourceIndex}, layerProperties); value) {
@@ -180,7 +176,7 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
 
         // If there's a "present" bitstream, the values are optional, and the index is within present values.
         if (!presentBits.empty()) {
-            if (8 * presentBits.size() < featureCount) {
+            if (featureCount * 8 <= presentBits.size()) {
                 throw std::runtime_error("Invalid present stream");
             }
 

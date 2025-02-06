@@ -14,6 +14,7 @@
 #include <variant>
 #include <vector>
 #include "mlt/properties.hpp"
+#include "mlt/util/packed_bitset.hpp"
 
 namespace mlt::decoder {
 
@@ -48,6 +49,10 @@ public:
             if ((presentValueCount + 7) / 8 != presentStream.size()) {
                 throw std::runtime_error("invalid present stream");
             }
+            // TODO: Present stream should be optional so it need not be stored when all-true.
+            if (countSetBits(presentStream) == presentValueCount) {
+                presentStream.clear();
+            }
         }
 
         const auto scalarColumn = std::get<ScalarColumn>(column.type);
@@ -56,7 +61,7 @@ public:
         }
         const auto scalarType = std::get<ScalarType>(scalarColumn.type);
 
-        // Everything but string has a metadata
+        // Everything but string has stream metadata.
         std::unique_ptr<StreamMetadata> streamMetadata;
         switch (scalarType) {
             case ScalarType::BOOLEAN:
@@ -69,11 +74,30 @@ public:
             case ScalarType::FLOAT:
             case ScalarType::DOUBLE:
                 streamMetadata = StreamMetadata::decode(tileData);
+                break;
             default:
             case ScalarType::STRING:
+                // String always has present values stream.
+                if (!presentValueCount) {
+                    throw std::runtime_error("Missing present value column");
+                }
                 break;
         }
 
+        if (streamMetadata && presentValueCount && presentValueCount < streamMetadata->getNumValues()) {
+            throw std::runtime_error("Unexpected present value column");
+        }
+
+        const auto checkBits = [&](const auto& presentBuffer, const auto& propertyBuffer) {
+            if (!presentStream.empty()) {
+                const auto actualProperties = propertyCount(propertyBuffer);
+                const auto presentBits = countSetBits(presentBuffer);
+                if (actualProperties != presentBits) {
+                    throw std::runtime_error("Property count " + std::to_string(actualProperties) +
+                                             " doesn't match present bits " + std::to_string(presentBits));
+                }
+            }
+        };
         switch (scalarType) {
             case ScalarType::BOOLEAN: {
                 std::vector<std::uint8_t> byteBuffer;
@@ -82,6 +106,7 @@ public:
                     (streamMetadata->getNumValues() + 7) / 8 != byteBuffer.size()) {
                     throw std::runtime_error("column data incomplete");
                 }
+                assert(presentStream.empty() || presentStream.size() == byteBuffer.size());
                 return {byteBuffer, presentStream};
             }
             case ScalarType::INT_8:
@@ -92,46 +117,66 @@ public:
                 intBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/true>(
                     tileData, intBuffer, *streamMetadata);
-                return {std::move(intBuffer), std::move(presentStream)};
+
+                PropertyVec result{std::move(intBuffer)};
+                checkBits(presentStream, result);
+                return {std::move(result), std::move(presentStream)};
             }
             case ScalarType::UINT_32: {
                 std::vector<std::uint32_t> intBuffer;
                 intBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/false>(
                     tileData, intBuffer, *streamMetadata);
-                return {std::move(intBuffer), std::move(presentStream)};
+
+                PropertyVec result{std::move(intBuffer)};
+                checkBits(presentStream, result);
+                return {std::move(result), std::move(presentStream)};
             }
             case ScalarType::INT_64: {
                 std::vector<std::uint64_t> longBuffer;
                 longBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/true>(
                     tileData, longBuffer, *streamMetadata);
-                return {std::move(longBuffer), std::move(presentStream)};
+
+                PropertyVec result{std::move(longBuffer)};
+                checkBits(presentStream, result);
+                return {std::move(result), std::move(presentStream)};
             }
             case ScalarType::UINT_64: {
                 std::vector<std::uint64_t> longBuffer;
                 longBuffer.reserve(streamMetadata->getNumValues());
                 intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/false>(
                     tileData, longBuffer, *streamMetadata);
-                return {std::move(longBuffer), std::move(presentStream)};
+
+                PropertyVec result{std::move(longBuffer)};
+                checkBits(presentStream, result);
+                return {std::move(result), std::move(presentStream)};
             }
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
                 floatBuffer.reserve(streamMetadata->getNumValues());
                 decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
-                return {std::move(floatBuffer), std::move(presentStream)};
+
+                PropertyVec result{std::move(floatBuffer)};
+                checkBits(presentStream, result);
+                return {std::move(result), std::move(presentStream)};
             }
             case ScalarType::DOUBLE: {
                 std::vector<double> doubleBuffer;
                 doubleBuffer.reserve(streamMetadata->getNumValues());
                 decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
-                return {std::move(doubleBuffer), std::move(presentStream)};
+
+                PropertyVec result{std::move(doubleBuffer)};
+                checkBits(presentStream, result);
+                return {std::move(result), std::move(presentStream)};
             }
             case ScalarType::STRING: {
-                StringDictViews strings;
-                stringDecoder.decode(
-                    tileData, numStreams - 1, presentValueCount, presentStream, strings.first, strings.second);
-                return {PropertyVec{std::move(strings)}, std::move(presentStream)};
+                const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
+                auto strings = stringDecoder.decode(tileData, numStreams - 1, stringCount);
+
+                PropertyVec result{std::move(strings)};
+                checkBits(presentStream, result);
+                return {PropertyVec{std::move(result)}, std::move(presentStream)};
             }
             default:
                 throw std::runtime_error("Unknown scalar type: " + std::to_string(std::to_underlying(scalarType)));

@@ -1,18 +1,19 @@
 #pragma once
 
 #include <mlt/common.hpp>
+#include <mlt/util/noncopyable.hpp>
 
 #include <stdexcept>
 
 namespace mlt {
 
-struct BufferStream {
+struct BufferStream : public util::noncopyable {
     BufferStream() = delete;
-    BufferStream(const BufferStream&) = delete;
-    BufferStream(BufferStream&&) noexcept = default;
     BufferStream(DataView data_) noexcept
-        : data(data_),
+        : data(std::move(data_)),
           offset(0) {}
+    BufferStream(BufferStream&&) = delete;
+    BufferStream& operator=(BufferStream&&) = delete;
 
     auto getSize() const noexcept { return data.size(); }
     auto getOffset() const noexcept { return offset; }

@@ -1,19 +1,19 @@
 #pragma once
 
 #include <mlt/layer.hpp>
+#include <mlt/util/noncopyable.hpp>
 
 #include <vector>
 
 namespace mlt {
 
-class MapLibreTile {
+class MapLibreTile : public util::noncopyable {
 public:
     MapLibreTile() = delete;
-    MapLibreTile(const MapLibreTile&) = delete;
-    MapLibreTile(MapLibreTile&&) noexcept = default;
-
     MapLibreTile(std::vector<Layer> layers_) noexcept
         : layers(std::move(layers_)) {}
+    MapLibreTile(MapLibreTile&&) noexcept = default;
+    MapLibreTile& operator=(MapLibreTile&&) noexcept = default;
 
     const std::vector<Layer>& getLayers() const noexcept { return layers; }
 

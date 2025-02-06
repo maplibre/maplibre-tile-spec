@@ -2,6 +2,7 @@
 
 #include <mlt/metadata/stream.hpp>
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/noncopyable.hpp>
 #include <mlt/util/rle.hpp>
 #include <mlt/util/vectorized.hpp>
 #include <mlt/util/zigzag.hpp>
@@ -21,18 +22,18 @@
 
 namespace mlt::decoder {
 
-class IntegerDecoder {
+class IntegerDecoder : public util::noncopyable {
 public:
     using StreamMetadata = metadata::stream::StreamMetadata;
     using MortonEncodedStreamMetadata = metadata::stream::MortonEncodedStreamMetadata;
 
     IntegerDecoder() noexcept(false) = default;
-    IntegerDecoder(const IntegerDecoder&) = delete;
-    IntegerDecoder(IntegerDecoder&&) noexcept(false) = default;
     ~IntegerDecoder() = default;
 
-    IntegerDecoder& operator=(const IntegerDecoder&) = delete;
-    IntegerDecoder& operator=(IntegerDecoder&&) = delete;
+    IntegerDecoder(IntegerDecoder&&) noexcept(false) = delete;
+    // FastPFOR classes have implicitly-deleted assignment operators.
+    // We could create new ones, if really necessary.
+    IntegerDecoder& operator=(IntegerDecoder&&) noexcept(false) = delete;
 
     /// Decode a buffer of integers into another, according to the encoding scheme specified by the metadata
     /// @param values input values

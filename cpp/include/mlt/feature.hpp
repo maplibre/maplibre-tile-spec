@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mlt/properties.hpp>
+#include <mlt/util/noncopyable.hpp>
 
 #include <memory>
 
@@ -8,14 +9,14 @@ namespace mlt {
 
 class Geometry;
 
-class Feature {
+class Feature : public util::noncopyable {
 public:
     using id_t = std::uint64_t;
     using extent_t = std::uint32_t;
 
     Feature() = delete;
-    Feature(const Feature&) = delete;
     Feature(Feature&&) noexcept = default;
+    Feature& operator=(Feature&&) = delete;
 
     /// Construct a feature
     /// @param id Feature identifier

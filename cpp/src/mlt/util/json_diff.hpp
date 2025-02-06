@@ -12,9 +12,15 @@ using json = nlohmann::json;
 struct JSONComparer {
     const double doubleEpsilon = 1.0e-15;
     bool operator()(const json& left, const json& right) const {
+        // Very similar numbers are equivalent, even if one or both are in string form
         if (const auto ld = getDouble(left), rd = getDouble(right); ld && rd) {
             const auto md = (*ld + *rd) / 2;
             return (std::fabs(*ld - *rd) / ((md == 0) ? 1 : md)) < doubleEpsilon;
+        }
+        // Empty objects and arrays are equivalent to missing entries
+        if (((left.is_object() || left.is_array()) && left.empty() && right.is_null()) ||
+            (left.is_null() && (right.is_object() || right.is_array()) && right.empty())) {
+            return true;
         }
         return (left == right);
     }
@@ -112,8 +118,12 @@ static json diff(const json& source,
                     auto temp_diff = diff(it.value(), target[it.key()], path_key);
                     result.insert(result.end(), temp_diff.begin(), temp_diff.end());
                 } else {
-                    // found a key that is not in o -> remove it
-                    result.push_back(json::object({{"op", "remove"}, {"path", path_key}, {"value", source}}));
+                    // found a key that is not in o.
+                    // If the value is equivalent to nothing, that's not a difference.
+                    const auto& sourceValue = source[it.key()];
+                    if (!compare(sourceValue, json())) {
+                        result.push_back(json::object({{"op", "remove"}, {"path", path_key}, {"value", sourceValue}}));
+                    }
                 }
             }
 
