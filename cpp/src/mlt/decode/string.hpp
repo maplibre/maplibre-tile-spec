@@ -82,14 +82,23 @@ public:
 private:
     IntegerDecoder& intDecoder;
 
+    /// Drop the useless codepoint produced when a UTF-16 Byte-Order-Mark is included in the conversion to UTF-8
+    static std::string_view view(const char* bytes, std::size_t length) noexcept(false) {
+        if (length >= 3 && std::equal(bytes, bytes + 3, "\xEF\xBB\xBF")) {
+            bytes += 3;
+            length -= 3;
+        }
+        return {bytes, length};
+    }
+
     static void decodePlain(const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
                             std::vector<std::string_view>& out,
-                            count_t numValues) {
+                            count_t numValues) noexcept(false) {
         for (count_t i = 0; i < numValues; ++i) {
             const auto length = lengthStream[i];
             const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + length);
-            out.emplace_back(bytes, length);
+            out.push_back(view(bytes, length));
         }
     }
 
@@ -97,7 +106,7 @@ private:
                                  const std::vector<std::uint8_t>& utf8bytes,
                                  const std::vector<std::uint32_t>& offsets,
                                  std::vector<std::string_view>& out,
-                                 count_t numValues) {
+                                 count_t numValues) noexcept(false) {
         const auto* const utf8Ptr = reinterpret_cast<const char*>(utf8bytes.data());
 
         std::vector<std::string_view> dictionary;
@@ -105,7 +114,7 @@ private:
 
         count_t dictionaryOffset = 0;
         for (const auto length : lengthStream) {
-            dictionary.emplace_back(utf8Ptr + dictionaryOffset, length);
+            dictionary.push_back(view(utf8Ptr + dictionaryOffset, length));
             dictionaryOffset += length;
         }
 
