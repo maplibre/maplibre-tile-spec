@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <mlt/decoder.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/projection.hpp>
@@ -15,6 +16,7 @@ using namespace std::string_view_literals;
 
 #if MLT_WITH_JSON
 #include <mlt/geojson.hpp>
+#include <mlt/util/json_diff.hpp>
 #endif
 
 namespace {
@@ -83,7 +85,6 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
     auto jsonBuffer = loadFile(path + ".geojson");
     if (!jsonBuffer.empty()) {
         using json = nlohmann::json;
-        const json::parser_callback_t callback = nullptr;
         const json expectedJSON = json::parse(
             jsonBuffer, nullptr, /*allow_exceptions=*/false, /*ignore_comments=*/true);
 
@@ -94,36 +95,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
         writeFile(path + ".new.geojson", actualJSONStr);
 
         // Compare the two
-        auto diffJSON = json::diff(expectedJSON, actualJSON);
-
-        // Eliminate differences due to extremely small floating-point value changes
-        constexpr auto epsilon = 1.0e-15;
-        for (auto i = diffJSON.begin(); i != diffJSON.end();) {
-            auto& node = *i;
-            assert(node.is_object());
-            if (node["op"] == "replace" && node["value"].is_number()) {
-                const auto& path = node["path"];
-                if (path.is_string()) {
-                    const auto ptr = json::json_pointer{path};
-                    const auto& expectedNode = expectedJSON.at(ptr);
-                    const auto& actualNode = actualJSON.at(ptr);
-                    if (expectedNode.is_number_float() && actualNode.is_number_float()) {
-                        const double expectedValue = expectedNode;
-                        const double actualValue = actualNode;
-                        const double error = std::fabs(expectedValue - actualValue) / actualValue;
-                        if (error < epsilon) {
-                            i = diffJSON.erase(i);
-                            continue;
-                        } else {
-                            node["previous"] = expectedNode;
-                            node["error"] = error;
-                        }
-                    }
-                }
-            }
-            ++i;
-        }
-
+        const auto diffJSON = mlt::util::diff(expectedJSON, actualJSON, {});
         if (diffJSON.empty()) {
             std::error_code ec;
             std::filesystem::remove(path + ".diff.geojson", ec);
@@ -131,10 +103,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
             const auto diffJSONStr = diffJSON.dump(2, ' ', false, json::error_handler_t::replace);
             writeFile(path + ".diff.geojson", diffJSONStr);
 
-            std::cout << path << ":\n"
-                      << "expected=" << expectedJSON.dump(2, ' ', false, json::error_handler_t::replace) << "\n"
-                      << "actual=" << actualJSON.dump(2, ' ', false, json::error_handler_t::replace) << "\n"
-                      << " diff=" << diffJSON.dump(2, ' ', false, json::error_handler_t::replace) << "\n";
+            std::cout << path << ":" << diffJSON.size() << " changes\n";
         }
     }
 #endif // MLT_WITH_JSON
@@ -143,7 +112,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
 }
 
 } // namespace
-/*
+
 TEST(Decode, SimplePointBoolean) {
     const auto tile = loadTile(basePath + "/simple/point-boolean.mlt");
     ASSERT_TRUE(tile);
@@ -186,7 +155,7 @@ TEST(Decode, SimpleMultiPolygonBoolean) {
     const auto tile = loadTile(basePath + "/simple/multipolygon-boolean.mlt");
     ASSERT_TRUE(tile);
 }
-*/
+
 TEST(Decode, Bing) {
     const auto tile = loadTile(basePath + "/bing/4-13-6.mlt");
     ASSERT_TRUE(tile);

@@ -8,8 +8,10 @@
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/properties.hpp>
-#include <mlt/util/varint.hpp>
+#include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/rle.hpp>
+#include <mlt/util/stl.hpp>
+#include <mlt/util/varint.hpp>
 
 #include <cstddef>
 #include <stdexcept>
@@ -107,6 +109,11 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                 geometries = impl->geometryDecoder.decodeGeometry(geometryColumn);
             } else {
                 const auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
+                if (!property.second.empty()) {
+                    const auto totalBits = countSetBits(property.second);
+                    assert(totalBits <= ids.size());
+                    assert(totalBits == propertyCount(property.first));
+                }
                 properties.emplace(columnMetadata.name, std::move(property));
             }
         }
@@ -125,58 +132,74 @@ struct ExtractPropertyVisitor {
     const std::size_t i;
 
     template <typename T>
-    Property operator()(const T& vec) const;
+    std::optional<Property> operator()(const T& vec) const;
 
     template <typename T>
-    Property operator()(const std::vector<T>& vec) const {
+    std::optional<Property> operator()(const std::vector<T>& vec) const {
         if (i < vec.size()) {
             return vec[i];
         }
         assert(false);
-        return nullptr;
+        return std::nullopt;
     }
     template <>
-    Property operator()(const StringDictViews& vec) const {
+    std::optional<Property> operator()(const StringDictViews& vec) const {
         if (i < vec.second.size()) {
             return vec.second[i];
         }
         assert(false);
-        return nullptr;
+        return std::nullopt;
     }
     template <>
-    Property operator()(const PackedBitset& vec) const {
+    std::optional<Property> operator()(const PackedBitset& vec) const {
         return testBit(vec, i);
     }
 };
+
 } // namespace
 
 std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids,
                                            std::vector<std::unique_ptr<Geometry>>&& geometries,
                                            const PropertyVecMap& propertyVecs) noexcept(false) {
-    std::vector<Feature> features;
-    features.reserve(ids.size());
+    const auto featureCount = ids.size();
+    if (geometries.size() < featureCount) {
+        throw std::runtime_error("Invalid geometry count");
+    }
 
-    std::unique_ptr<Geometry> noGeometry;
+    // TODO: Consider having features reference their parent layers and
+    //       get properties on-demand instead of splaying them out here.
+    std::vector<PropertyMap> properties(featureCount);
+    for (const auto& [key, val] : propertyVecs) {
+        const auto& [layerProperties, presentBits] = val;
 
-    for (count_t i = 0; i < ids.size(); ++i) {
-        // TODO: Consider having features reference their parent layers and
-        //       get properties on-demand instead of splaying them out here.
-        PropertyMap properties;
-        properties.reserve(propertyVecs.size());
-        for (const auto& [key, val] : propertyVecs) {
-            const auto& [props, present] = val;
-            if (present.empty() || testBit(present, i)) {
-                const auto value = std::visit(ExtractPropertyVisitor{i}, props);
-                if (!std::holds_alternative<nullptr_t>(value)) {
-                    properties.emplace(key, std::move(value));
-                }
+        const auto applyProperty = [&](std::size_t sourceIndex, std::size_t targetIndex) {
+            if (const auto value = std::visit(ExtractPropertyVisitor{sourceIndex}, layerProperties); value) {
+                properties[targetIndex].emplace(key, *value);
+            }
+        };
+
+        // If there's a "present" bitstream, the values are optional, and the index is within present values.
+        if (!presentBits.empty()) {
+            if (8 * presentBits.size() < featureCount) {
+                throw std::runtime_error("Invalid present stream");
+            }
+
+            // Place property N in the properties map for the feature corresponding to the Nth set bit
+            std::size_t sourceIndex = 0;
+            for (auto i = nextSetBit(presentBits, 0); i; i = nextSetBit(presentBits, *i + 1)) {
+                applyProperty(sourceIndex++, *i);
+            }
+        } else {
+            // Place property N in the properties map for feature N
+            for (std::size_t i = 0; i < featureCount; ++i) {
+                applyProperty(i, i);
             }
         }
-
-        auto& geom = (i < geometries.size()) ? geometries[i] : noGeometry;
-        features.push_back(Feature{ids[i], std::move(geom), std::move(properties)});
     }
-    return features;
+
+    return util::generateVector<Feature>(featureCount, [&](const auto i) {
+        return Feature{ids[i], std::move(geometries[i]), std::move(properties[i])};
+    });
 }
 
 } // namespace mlt::decoder
