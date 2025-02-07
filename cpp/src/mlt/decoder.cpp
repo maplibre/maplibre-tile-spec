@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <stdexcept>
+#include "mlt/geometry.hpp"
 
 namespace mlt::decoder {
 
@@ -27,14 +28,17 @@ static constexpr std::string_view GEOMETRY_COLUMN_NAME = "geometry";
 } // namespace
 
 struct Decoder::Impl {
+    Impl(std::unique_ptr<GeometryFactory>&& geometryFactory)
+        : geometryDecoder(std::move(geometryFactory)) {}
+
     IntegerDecoder integerDecoder;
     StringDecoder stringDecoder{integerDecoder};
     PropertyDecoder propertyDecoder{integerDecoder, stringDecoder};
     GeometryDecoder geometryDecoder;
 };
 
-Decoder::Decoder() noexcept(false)
-    : impl{std::make_unique<Impl>()} {}
+Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory) noexcept(false)
+    : impl{std::make_unique<Impl>(std::move(geometryFactory))} {}
 
 Decoder::~Decoder() noexcept = default;
 

@@ -34,10 +34,15 @@ struct GeometryColumn : public util::noncopyable {
 namespace mlt::decoder {
 
 class GeometryDecoder {
-    GeometryFactory geometryFactory;
-
 public:
     using GeometryColumn = geometry::GeometryColumn;
+
+    GeometryDecoder(std::unique_ptr<GeometryFactory>&& geometryFactory_) noexcept(false)
+        : geometryFactory(std::move(geometryFactory_)) {
+        if (!geometryFactory) {
+            throw std::runtime_error("missing geometry factory");
+        }
+    }
 
     GeometryColumn decodeGeometryColumn(BufferStream& tileData,
                                         const metadata::tileset::Column& column,
@@ -160,7 +165,7 @@ public:
             switch (geomType) {
                 case GeometryType::POINT: {
                     auto coord = nextPoint(geometryColumn, vertexBufferOffset, vertexOffsetsOffset);
-                    geometries.push_back(geometryFactory.createPoint(coord));
+                    geometries.push_back(geometryFactory->createPoint(coord));
                     break;
                 }
                 case GeometryType::MULTIPOINT: {
@@ -173,7 +178,7 @@ public:
                     std::generate_n(std::back_inserter(coordBuffer), numPoints, [&] {
                         return nextPoint(geometryColumn, vertexBufferOffset, vertexOffsetsOffset);
                     });
-                    geometries.push_back(geometryFactory.createMultiPoint(std::move(coordBuffer)));
+                    geometries.push_back(geometryFactory->createMultiPoint(std::move(coordBuffer)));
                     coordBuffer.clear();
                     break;
                 }
@@ -196,7 +201,7 @@ public:
                             vertices, vertexOffsets, vertexOffsetsOffset, numVertices, false);
                         vertexOffsetsOffset += numVertices;
                     }
-                    geometries.push_back(geometryFactory.createLineString(std::move(coords)));
+                    geometries.push_back(geometryFactory->createLineString(std::move(coords)));
                     break;
                 }
                 case GeometryType::POLYGON: {
@@ -236,7 +241,7 @@ public:
                         }
                     }
 
-                    geometries.push_back(geometryFactory.createPolygon(std::move(shell), std::move(rings)));
+                    geometries.push_back(geometryFactory->createPolygon(std::move(shell), std::move(rings)));
                     break;
                 }
                 case GeometryType::MULTILINESTRING: {
@@ -268,7 +273,7 @@ public:
                         lineStrings.push_back(std::move(lineString));
                         lineString.clear();
                     }
-                    geometries.push_back(geometryFactory.createMultiLineString(std::move(lineStrings)));
+                    geometries.push_back(geometryFactory->createMultiLineString(std::move(lineStrings)));
                     break;
                 }
                 case GeometryType::MULTIPOLYGON: {
@@ -331,7 +336,7 @@ public:
                             rings.clear();
                         }
                     }
-                    geometries.push_back(geometryFactory.createMultiPolygon(std::move(polygons)));
+                    geometries.push_back(geometryFactory->createMultiPolygon(std::move(polygons)));
                     break;
                 }
                 default:
@@ -424,6 +429,7 @@ public:
     }
 
 private:
+    std::unique_ptr<GeometryFactory> geometryFactory;
     IntegerDecoder intDecoder;
 };
 
