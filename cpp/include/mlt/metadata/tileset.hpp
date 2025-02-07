@@ -158,7 +158,7 @@ enum class GeometryType {
 struct ScalarField {
     std::variant<ScalarType, LogicalScalarType> type;
 
-    bool read(protozero::pbf_message<schema::ScalarField>) noexcept(false);
+    bool read(protozero::pbf_message<schema::ScalarField>);
 };
 
 struct Field;
@@ -167,7 +167,7 @@ struct ComplexField {
     std::variant<ComplexType, LogicalComplexType> type;
     std::vector<Field> children;
 
-    bool read(protozero::pbf_message<schema::ComplexField>) noexcept(false);
+    bool read(protozero::pbf_message<schema::ComplexField>);
 };
 
 // Fields define nested or leaf types in the schema as part of a complex type
@@ -179,13 +179,13 @@ struct Field {
     bool nullable = false;
     std::variant<ScalarField, ComplexField> field;
 
-    bool read(protozero::pbf_message<schema::Field>) noexcept(false);
+    bool read(protozero::pbf_message<schema::Field>);
 };
 
 struct ScalarColumn {
     std::variant<ScalarType, LogicalScalarType> type;
 
-    bool read(protozero::pbf_message<schema::ScalarColumn>) noexcept(false);
+    bool read(protozero::pbf_message<schema::ScalarColumn>);
 };
 
 // The type tree is flattened in to a list via a pre-order traversal
@@ -199,7 +199,7 @@ struct ComplexColumn {
     // specifying the type of the value since the key is always a vec2<double>.
     std::vector<Field> children;
 
-    bool read(protozero::pbf_message<schema::ComplexColumn>) noexcept(false);
+    bool read(protozero::pbf_message<schema::ComplexColumn>);
 };
 
 // Column are top-level types in the schema
@@ -209,14 +209,14 @@ struct Column {
     ColumnScope columnScope = ColumnScope::FEATURE;
     std::variant<ScalarColumn, ComplexColumn> type;
 
-    bool read(protozero::pbf_message<schema::Column>) noexcept(false);
+    bool read(protozero::pbf_message<schema::Column>);
 };
 
 struct FeatureTableSchema {
     std::string name;
     std::vector<Column> columns;
 
-    bool read(protozero::pbf_message<schema::FeatureTableSchema>) noexcept(false);
+    bool read(protozero::pbf_message<schema::FeatureTableSchema>);
 };
 
 struct TileSetMetadata {
@@ -236,7 +236,7 @@ struct TileSetMetadata {
 
     /// Decode the tileset metadata from a protobuf message
     /// @throws protobuf::exception corrupted/truncated input data
-    bool read(protozero::pbf_message<schema::TileSetMetadata>) noexcept(false);
+    bool read(protozero::pbf_message<schema::TileSetMetadata>);
 };
 
 } // namespace mlt::metadata::tileset

@@ -16,7 +16,7 @@ namespace mlt::decoder {
 
 class StringDecoder {
 public:
-    StringDecoder(IntegerDecoder& intDecoder_) noexcept(false)
+    StringDecoder(IntegerDecoder& intDecoder_)
         : intDecoder(intDecoder_) {}
 
     /*
@@ -26,7 +26,7 @@ public:
      * -> fsst dictionary -> symbolTable, symbolLength, dictionary, length, present, data
      * */
 
-    StringDictViews decode(BufferStream& tileData, count_t numStreams, count_t numValues) noexcept(false) {
+    StringDictViews decode(BufferStream& tileData, count_t numStreams, count_t numValues) {
         using namespace metadata::stream;
         using namespace util::decoding;
 
@@ -83,7 +83,7 @@ private:
     IntegerDecoder& intDecoder;
 
     /// Drop the useless codepoint produced when a UTF-16 Byte-Order-Mark is included in the conversion to UTF-8
-    static std::string_view view(const char* bytes, std::size_t length) noexcept(false) {
+    static std::string_view view(const char* bytes, std::size_t length) {
         if (length >= 3 && std::equal(bytes, bytes + 3, "\xEF\xBB\xBF")) {
             bytes += 3;
             length -= 3;
@@ -94,7 +94,7 @@ private:
     static void decodePlain(const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
                             std::vector<std::string_view>& out,
-                            count_t numValues) noexcept(false) {
+                            count_t numValues) {
         for (count_t i = 0; i < numValues; ++i) {
             const auto length = lengthStream[i];
             const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + length);
@@ -106,7 +106,7 @@ private:
                                  const std::vector<std::uint8_t>& utf8bytes,
                                  const std::vector<std::uint32_t>& offsets,
                                  std::vector<std::string_view>& out,
-                                 count_t numValues) noexcept(false) {
+                                 count_t numValues) {
         const auto* const utf8Ptr = reinterpret_cast<const char*>(utf8bytes.data());
 
         std::vector<std::string_view> dictionary;

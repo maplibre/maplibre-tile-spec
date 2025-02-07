@@ -121,22 +121,20 @@ public:
     GeometryFactory() = default;
     virtual ~GeometryFactory() = default;
 
-    virtual std::unique_ptr<Geometry> createPoint(const Coordinate& coord) noexcept(false) {
-        return std::make_unique<Point>(coord);
-    }
-    virtual std::unique_ptr<Geometry> createMultiPoint(CoordVec&& coords) noexcept(false) {
+    virtual std::unique_ptr<Geometry> createPoint(const Coordinate& coord) { return std::make_unique<Point>(coord); }
+    virtual std::unique_ptr<Geometry> createMultiPoint(CoordVec&& coords) {
         return std::make_unique<MultiPoint>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createLineString(CoordVec&& coords) noexcept(false) {
+    virtual std::unique_ptr<Geometry> createLineString(CoordVec&& coords) {
         return std::make_unique<LineString>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createLinearRing(CoordVec&& coords) noexcept(false) {
+    virtual std::unique_ptr<Geometry> createLinearRing(CoordVec&& coords) {
         return std::make_unique<LineString>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createPolygon(CoordVec&& shell, std::vector<CoordVec>&& rings) noexcept(false) {
+    virtual std::unique_ptr<Geometry> createPolygon(CoordVec&& shell, std::vector<CoordVec>&& rings) {
         return std::make_unique<Polygon>(std::move(shell), std::move(rings));
     }
-    virtual std::unique_ptr<Geometry> createMultiLineString(std::vector<CoordVec>&& lineStrings) noexcept(false) {
+    virtual std::unique_ptr<Geometry> createMultiLineString(std::vector<CoordVec>&& lineStrings) {
         return std::make_unique<MultiLineString>(std::move(lineStrings));
     }
     virtual std::unique_ptr<Geometry> createMultiPolygon(std::vector<MultiPolygon::ShellRingsPair>&& polys) noexcept(

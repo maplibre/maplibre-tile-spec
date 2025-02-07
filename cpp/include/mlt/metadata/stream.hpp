@@ -110,7 +110,7 @@ public:
 
     virtual LogicalLevelTechnique getMetadataType() const noexcept { return LogicalLevelTechnique::NONE; }
 
-    static std::unique_ptr<StreamMetadata> decode(BufferStream&) noexcept(false);
+    static std::unique_ptr<StreamMetadata> decode(BufferStream&);
 
     PhysicalStreamType getPhysicalStreamType() const { return physicalStreamType; }
     const std::optional<LogicalStreamType>& getLogicalStreamType() const { return logicalStreamType; }
@@ -126,8 +126,8 @@ private:
 
     friend class RleEncodedStreamMetadata;
     friend class MortonEncodedStreamMetadata;
-    friend std::unique_ptr<StreamMetadata> decode(BufferStream&) noexcept(false);
-    static StreamMetadata decodeInternal(BufferStream&) noexcept(false);
+    friend std::unique_ptr<StreamMetadata> decode(BufferStream&);
+    static StreamMetadata decodeInternal(BufferStream&);
 
     PhysicalStreamType physicalStreamType;
     std::optional<LogicalStreamType> logicalStreamType;
@@ -177,13 +177,12 @@ public:
 
     LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::RLE; }
 
-    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata,
-                                                  BufferStream& buffer) noexcept(false) {
+    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
         const auto [runs, numValues] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
         return RleEncodedStreamMetadata(std::move(streamMetadata), runs, numValues);
     }
 
-    static RleEncodedStreamMetadata decode(BufferStream& buffer) noexcept(false) {
+    static RleEncodedStreamMetadata decode(BufferStream& buffer) {
         return decodePartial(decodeInternal(buffer), buffer);
     }
 
@@ -223,13 +222,12 @@ public:
 
     LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::MORTON; }
 
-    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata,
-                                                     BufferStream& buffer) noexcept(false) {
+    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
         const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
         return MortonEncodedStreamMetadata(std::move(streamMetadata), numBits, coordShift);
     }
 
-    static MortonEncodedStreamMetadata decode(BufferStream& buffer) noexcept(false) {
+    static MortonEncodedStreamMetadata decode(BufferStream& buffer) {
         return decodePartial(decodeInternal(buffer), buffer);
     }
 

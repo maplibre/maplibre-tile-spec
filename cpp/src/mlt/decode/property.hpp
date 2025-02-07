@@ -20,13 +20,13 @@ namespace mlt::decoder {
 
 class PropertyDecoder {
 public:
-    PropertyDecoder(IntegerDecoder& intDecoder_, StringDecoder& stringDecoder_) noexcept(false)
+    PropertyDecoder(IntegerDecoder& intDecoder_, StringDecoder& stringDecoder_)
         : intDecoder(intDecoder_),
           stringDecoder(stringDecoder_) {}
 
     PresentProperties decodePropertyColumn(BufferStream& tileData,
                                            const metadata::tileset::Column& column,
-                                           std::uint32_t numStreams) noexcept(false) {
+                                           std::uint32_t numStreams) {
         using namespace metadata;
         using namespace metadata::stream;
         using namespace metadata::tileset;

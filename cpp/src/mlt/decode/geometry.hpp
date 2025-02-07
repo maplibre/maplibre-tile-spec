@@ -37,7 +37,7 @@ class GeometryDecoder {
 public:
     using GeometryColumn = geometry::GeometryColumn;
 
-    GeometryDecoder(std::unique_ptr<GeometryFactory>&& geometryFactory_) noexcept(false)
+    GeometryDecoder(std::unique_ptr<GeometryFactory>&& geometryFactory_)
         : geometryFactory(std::move(geometryFactory_)) {
         if (!geometryFactory) {
             throw std::runtime_error("missing geometry factory");
@@ -46,7 +46,7 @@ public:
 
     GeometryColumn decodeGeometryColumn(BufferStream& tileData,
                                         const metadata::tileset::Column& column,
-                                        std::uint32_t numStreams) noexcept(false) {
+                                        std::uint32_t numStreams) {
         using namespace util::decoding;
         using namespace metadata::stream;
         using namespace metadata::tileset;
@@ -136,7 +136,7 @@ public:
         return geomColumn;
     }
 
-    std::vector<std::unique_ptr<Geometry>> decodeGeometry(const GeometryColumn& geometryColumn) noexcept(false) {
+    std::vector<std::unique_ptr<Geometry>> decodeGeometry(const GeometryColumn& geometryColumn) {
         using namespace geometry;
         using metadata::tileset::GeometryType;
 
@@ -358,7 +358,7 @@ public:
 
     inline static Coordinate nextPoint(const GeometryColumn& geometryColumn,
                                        count_t& vertexBufferOffset,
-                                       count_t& vertexOffsetsOffset) noexcept(false) {
+                                       count_t& vertexOffsetsOffset) {
         if (geometryColumn.vertexOffsets.empty()) {
             if (geometryColumn.vertices.size() < vertexBufferOffset + 2) {
                 throw std::runtime_error("Vertex buffer underflow");
@@ -388,7 +388,7 @@ public:
     static std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                                        count_t startIndex,
                                                        count_t numVertices,
-                                                       bool closeLineString) noexcept(false) {
+                                                       bool closeLineString) {
         std::vector<Coordinate> coords;
         coords.reserve(closeLineString ? numVertices + 1 : numVertices);
         if (startIndex + numVertices > vertexBuffer.size()) {
@@ -407,7 +407,7 @@ public:
                                                                         const std::vector<std::uint32_t>& vertexOffsets,
                                                                         const count_t vertexOffset,
                                                                         const count_t numVertices,
-                                                                        const bool closeLineString) noexcept(false) {
+                                                                        const bool closeLineString) {
         std::vector<Coordinate> coords;
         coords.reserve(closeLineString ? numVertices + 1 : numVertices);
         if (vertexOffset + numVertices > vertexOffsets.size()) {

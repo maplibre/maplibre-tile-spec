@@ -30,7 +30,7 @@ struct BufferStream : public util::noncopyable {
     }
 
     template <typename T = std::uint8_t>
-    DataView::value_type read() noexcept(false) {
+    DataView::value_type read() {
         check(sizeof(T));
         const T* p = getReadPosition<T>();
         consume(sizeof(T));
@@ -38,18 +38,18 @@ struct BufferStream : public util::noncopyable {
     }
 
     template <typename T = std::uint8_t>
-    DataView::value_type peek() const noexcept(false) {
+    DataView::value_type peek() const {
         check(sizeof(T));
         return *getReadPosition<T>();
     }
 
-    void consume(count_t count) noexcept(false) {
+    void consume(count_t count) {
         check(count);
         offset += count;
     }
 
 private:
-    void check(std::size_t count) const noexcept(false) {
+    void check(std::size_t count) const {
         if (!available(count)) {
             throw std::runtime_error("Unexpected end of buffer");
         }

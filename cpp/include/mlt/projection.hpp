@@ -18,7 +18,7 @@ public:
     Projection() = delete;
     Projection(const Projection&) noexcept = default;
     Projection(Projection&&) noexcept = default;
-    Projection(Layer::extent_t extent, const TileCoordinate& tile) noexcept(false)
+    Projection(Layer::extent_t extent, const TileCoordinate& tile)
         : size(extent * (1 << tile.z)),
           x0(extent * tile.x),
           y0(extent * tile.y),

@@ -9,7 +9,7 @@ namespace mlt::util::decoding::rle {
 void decodeBoolean(BufferStream& buffer,
                    std::vector<uint8_t>& out,
                    const metadata::stream::StreamMetadata& metadata,
-                   bool consume) noexcept(false) {
+                   bool consume) {
     const auto bitCount = metadata.getNumValues();
     const auto numBytes = (bitCount + 7) / 8;
     out.resize(numBytes);

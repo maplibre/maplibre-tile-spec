@@ -17,7 +17,7 @@ struct IntegerDecoder::Impl {
     std::vector<std::uint64_t> buffer8;
 };
 
-IntegerDecoder::IntegerDecoder() noexcept(false)
+IntegerDecoder::IntegerDecoder()
     : impl(std::make_unique<Impl>()) {}
 
 IntegerDecoder::~IntegerDecoder() noexcept = default;
@@ -41,7 +41,7 @@ template std::vector<std::uint64_t>& IntegerDecoder::getTempBuffer<std::uint64_t
 std::uint32_t IntegerDecoder::decodeFastPfor(BufferStream& buffer,
                                              std::uint32_t* const result,
                                              const std::size_t numValues,
-                                             const std::size_t byteLength) noexcept(false) {
+                                             const std::size_t byteLength) {
     const auto* inputValues = reinterpret_cast<const std::uint32_t*>(buffer.getReadPosition());
     auto resultCount = numValues;
     impl->codec.decodeArray(inputValues, byteLength / sizeof(std::uint32_t), result, resultCount);

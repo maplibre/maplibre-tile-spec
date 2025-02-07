@@ -22,7 +22,7 @@ class GeoJSON {
 public:
     using json = nlohmann::json;
 
-    static json toGeoJSON(const Feature& feature, const Projection& projection) noexcept(false) {
+    static json toGeoJSON(const Feature& feature, const Projection& projection) {
         auto result = json{
             {"type", "Feature"},
             {"id", feature.getID()},
@@ -34,7 +34,7 @@ public:
         return result;
     }
 
-    static json toGeoJSON(const Layer& layer, const TileCoordinate& tileCoord) noexcept(false) {
+    static json toGeoJSON(const Layer& layer, const TileCoordinate& tileCoord) {
         const auto projection = Projection{layer.getExtent(), tileCoord};
         const auto features = std::ranges::views::all(layer.getFeatures());
         return {
@@ -44,7 +44,7 @@ public:
             {"features", buildArray(features, [&](const auto& feature) { return toGeoJSON(feature, projection); })}};
     }
 
-    static json toGeoJSON(const MapLibreTile& tile, const TileCoordinate& tileCoord) noexcept(false) {
+    static json toGeoJSON(const MapLibreTile& tile, const TileCoordinate& tileCoord) {
         const auto layers = std::ranges::views::all(tile.getLayers());
         return {
             {"layers", buildArray(layers, [&](const auto& layer) { return toGeoJSON(layer, tileCoord); })},
@@ -54,7 +54,7 @@ public:
 private:
 #pragma region JSON utils
     /// Create a json array object with pre-allocated space
-    static json buildArray(std::size_t reservedSize) noexcept(false) {
+    static json buildArray(std::size_t reservedSize) {
         json array = json::array();
         assert(array.is_array());
         array.get_ref<nlohmann::json::array_t&>().reserve(reservedSize);
@@ -66,7 +66,7 @@ private:
         requires requires(TFunc f, typename std::ranges::range_rvalue_reference_t<TRange> v) {
             { f(v) } -> std::same_as<json>;
         }
-    static json buildArray(TRange sourceRange, TFunc transform) noexcept(false) {
+    static json buildArray(TRange sourceRange, TFunc transform) {
         return append(sourceRange, buildArray(std::ranges::size(sourceRange)), std::forward<TFunc>(transform));
     }
 
@@ -75,7 +75,7 @@ private:
         requires requires(TFunc f, typename std::ranges::range_rvalue_reference_t<TRange> v) {
             { f(v) } -> std::same_as<json>;
         }
-    static json append(TRange sourceRange, json&& array, TFunc transform) noexcept(false) {
+    static json append(TRange sourceRange, json&& array, TFunc transform) {
         assert(array.is_array());
         std::ranges::transform(
             std::forward<TRange>(sourceRange), std::back_inserter(array), std::forward<TFunc>(transform));
@@ -85,24 +85,22 @@ private:
 
 #pragma region Geometry
     /// Build the coordinate representation for a single coordinate
-    static json buildCoordinateArray(const Coordinate& coord, const Projection& projection) noexcept(false) {
+    static json buildCoordinateArray(const Coordinate& coord, const Projection& projection) {
         return buildProjectedCoordinateArray(projection.project(coord));
     }
 
     /// Build the coordinate representation for a single coordinate that has already been projected
-    static json buildProjectedCoordinateArray(const Coordinate& coord) noexcept(false) {
-        return json::array({coord.x, coord.y});
-    }
+    static json buildProjectedCoordinateArray(const Coordinate& coord) { return json::array({coord.x, coord.y}); }
 
     /// Build the coordinate representation for a collection of coordinates
-    static json buildCoordinatesArray(const CoordVec& coords, const Projection& projection) noexcept(false) {
+    static json buildCoordinatesArray(const CoordVec& coords, const Projection& projection) {
         return buildArray(coords, [&](const auto& coord) { return buildCoordinateArray(coord, projection); });
     }
 
     /// Build the coordinate representation for a polygon, consisting of the rings concatenated to the shell
     static json buildPolygonCoords(const CoordVec& polyShell,
                                    const std::vector<CoordVec>& polyRings,
-                                   const Projection& projection) noexcept(false) {
+                                   const Projection& projection) {
         auto result = buildArray(1 + polyRings.size());
         result.push_back(buildCoordinatesArray(polyShell, projection));
         return append(polyRings, std::move(result), [&](const auto& lineString) {
@@ -111,49 +109,49 @@ private:
     }
 
     /// Create the value type for the "geometry" entry in a GeoJSON feature with the given coordinate representation
-    static json buildGeometryElement(std::string_view type, json&& coords) noexcept(false) {
+    static json buildGeometryElement(std::string_view type, json&& coords) {
         return {
             {"type", type},
             {"coordinates", std::move(coords)},
         };
     }
 
-    static json buildGeometryElement(const Point& point, const Projection& projection) noexcept(false) {
+    static json buildGeometryElement(const Point& point, const Projection& projection) {
         return {
             {"type", "Point"},
             {"coordinates", buildCoordinateArray(point.getCoordinate(), projection)},
         };
     }
 
-    static json buildGeometryElement(const LineString& line, const Projection& projection) noexcept(false) {
+    static json buildGeometryElement(const LineString& line, const Projection& projection) {
         return buildGeometryElement("LineString", buildCoordinatesArray(line.getCoordinates(), projection));
     }
 
-    static json buildGeometryElement(const LinearRing& line, const Projection& projection) noexcept(false) {
+    static json buildGeometryElement(const LinearRing& line, const Projection& projection) {
         return buildGeometryElement("LineString", buildCoordinatesArray(line.getCoordinates(), projection));
     }
 
-    static json buildGeometryElement(const MultiPoint& points, const Projection& projection) noexcept(false) {
+    static json buildGeometryElement(const MultiPoint& points, const Projection& projection) {
         return buildGeometryElement("MultiPoint", buildCoordinatesArray(points.getCoordinates(), projection));
     }
 
-    static json buildGeometryElement(const MultiLineString& mls, const Projection& projection) noexcept(false) {
+    static json buildGeometryElement(const MultiLineString& mls, const Projection& projection) {
         return buildGeometryElement("MultiLineString", buildArray(mls.getLineStrings(), [&](const auto& lineString) {
                                         return buildCoordinatesArray(lineString, projection);
                                     }));
     }
 
-    static json buildGeometryElement(const Polygon& poly, const Projection& projection) noexcept(false) {
+    static json buildGeometryElement(const Polygon& poly, const Projection& projection) {
         return buildGeometryElement("Polygon", buildPolygonCoords(poly.getShell(), poly.getRings(), projection));
     }
 
-    static json buildGeometryElement(const MultiPolygon& poly, const Projection& projection) noexcept(false) {
+    static json buildGeometryElement(const MultiPolygon& poly, const Projection& projection) {
         return buildGeometryElement("MultiPolygon", buildArray(poly.getPolygons(), [&](const auto& poly) {
                                         return buildPolygonCoords(poly.first, poly.second, projection);
                                     }));
     }
 
-    static json buildAnyGeometryElement(const Geometry& geometry, const Projection& projection) noexcept(false) {
+    static json buildAnyGeometryElement(const Geometry& geometry, const Projection& projection) {
         switch (geometry.type) {
             case metadata::tileset::GeometryType::POINT:
                 return buildGeometryElement(static_cast<const Point&>(geometry), projection);
@@ -175,7 +173,7 @@ private:
 #pragma endregion Geometry
 
 #pragma region Properties
-    static json buildProperties(const PropertyMap& properties) noexcept(false) {
+    static json buildProperties(const PropertyMap& properties) {
         auto result = json::object();
         for (const auto& [key, value] : properties) {
             if (auto json = std::visit(PropertyVisitor(), value); json) {
@@ -187,11 +185,11 @@ private:
 
     struct PropertyVisitor {
         template <typename T>
-        std::optional<json> operator()(const std::optional<T>& value) const noexcept(false) {
+        std::optional<json> operator()(const std::optional<T>& value) const {
             return value ? operator()(*value) : std::nullopt;
         }
         template <typename T>
-        std::optional<json> operator()(const T& value) const noexcept(false) {
+        std::optional<json> operator()(const T& value) const {
             return value;
         }
     };
