@@ -27,21 +27,8 @@ public:
 
     std::size_t getBufferRemaining() const noexcept { return bufferEnd - bufferStart; }
 
-    void next(std::uint8_t* data,
-              std::uint64_t numValues
-#if SUPPORT_SKIP_NULL
-              ,
-              const char* notNull
-#endif
-              ) noexcept(false) {
+    void next(std::uint8_t* data, std::uint64_t numValues) noexcept(false) {
         std::uint64_t position = 0;
-
-#if SUPPORT_SKIP_NULL
-        // skip over null values
-        while (notNull && position < numValues && !notNull[position]) {
-            position += 1;
-        }
-#endif
 
         while (position < numValues) {
             // if we are out of values, read more
@@ -52,51 +39,21 @@ public:
             size_t count = std::min(static_cast<size_t>(numValues - position), remainingValues);
             uint64_t consumed = 0;
             if (repeating) {
-#if SUPPORT_SKIP_NULL
-                if (notNull) {
-                    for (uint64_t i = 0; i < count; ++i) {
-                        if (notNull[position + i]) {
-                            data[position + i] = value;
-                            consumed += 1;
-                        }
-                    }
-                } else
-#endif
-                {
-                    memset(data + position, value, count);
-                    consumed = count;
-                }
+                memset(data + position, value, count);
+                consumed = count;
             } else {
-#if SUPPORT_SKIP_NULL
-                if (notNull) {
-                    for (uint64_t i = 0; i < count; ++i) {
-                        if (notNull[position + i]) {
-                            data[position + i] = static_cast<char>(readByte());
-                            consumed += 1;
-                        }
-                    }
-                } else
-#endif
-                {
-                    uint64_t i = 0;
-                    while (i < count) {
-                        uint64_t copyBytes = std::min(static_cast<uint64_t>(count - i),
-                                                      static_cast<uint64_t>(bufferEnd - bufferStart));
-                        memcpy(data + position + i, bufferStart, copyBytes);
-                        bufferStart += copyBytes;
-                        i += copyBytes;
-                    }
-                    consumed = count;
+                uint64_t i = 0;
+                while (i < count) {
+                    uint64_t copyBytes = std::min(static_cast<uint64_t>(count - i),
+                                                  static_cast<uint64_t>(bufferEnd - bufferStart));
+                    memcpy(data + position + i, bufferStart, copyBytes);
+                    bufferStart += copyBytes;
+                    i += copyBytes;
                 }
+                consumed = count;
             }
             remainingValues -= consumed;
             position += count;
-
-#if SUPPORT_SKIP_NULL
-            while (notNull && position < numValues && !notNull[position]) {
-                position += 1;
-            }
-#endif
         }
     }
 
