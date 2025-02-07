@@ -3,10 +3,11 @@ cmake_minimum_required (VERSION 3.12)
 project (mlt-cpp-test)
 
 add_executable(mlt-cpp-test
-    decode.cpp
-    fastpfor.cpp
-    packed_bitset.cpp
-    util.cpp
+    test_decode.cpp
+    test_fastpfor.cpp
+    test_fsst.cpp
+    test_packed_bitset.cpp
+    test_util.cpp
 )
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 
@@ -35,6 +36,6 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(gtest)
 target_include_directories(mlt-cpp-test PRIVATE "${gtest_SOURCE_DIR}/googletest/include")
 
-target_include_directories(mlt-cpp-test PRIVATE "${fastpfor_SOURCE_DIR}/headers")
+target_include_directories(mlt-cpp-test PRIVATE "${fastpfor_SOURCE_DIR}/headers" "${fsst_SOURCE_DIR}")
 
-target_link_libraries(mlt-cpp-test PRIVATE mlt-cpp gtest_main FastPFOR protozero)
+target_link_libraries(mlt-cpp-test PRIVATE mlt-cpp gtest_main FastPFOR fsst protozero)
