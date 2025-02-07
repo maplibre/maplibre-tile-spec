@@ -4,8 +4,8 @@ cmake_minimum_required (VERSION 3.12)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 15)
 project (mlt-cpp LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
-set_property(TARGET mlt-cpp PROPERTY CXX_STANDARD 20)
 target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
@@ -68,14 +68,21 @@ fetchcontent_declare(protozero
 FetchContent_MakeAvailable(protozero)
 target_include_directories(mlt-cpp PRIVATE "${protozero_SOURCE_DIR}/include")
 
+# SIMD Everywhere (needed on ARM)
+fetchcontent_declare(simde
+  GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
+  GIT_TAG v0.8.3
+)
+FetchContent_MakeAvailable(simde)
+
 # FastPFor
-set(WITH_TEST OFF)  # The fastpfor gtest targets conflict with ours
+set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE)  # The fastpfor gtest targets conflict with ours
 fetchcontent_declare(fastpfor
     GIT_REPOSITORY https://github.com/fast-pack/FastPFor.git
     GIT_TAG v0.2.0
 )
 FetchContent_MakeAvailable(fastpfor)
-target_include_directories(mlt-cpp PRIVATE "${fastpfor_SOURCE_DIR}/headers")
+target_include_directories(mlt-cpp PRIVATE "${simde_SOURCE_DIR}" "${fastpfor_SOURCE_DIR}/headers")
 target_compile_options(FastPFOR PRIVATE "-Wno-cast-align")
 
 # json
