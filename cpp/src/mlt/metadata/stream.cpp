@@ -13,6 +13,7 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
             return static_cast<OffsetType>(value);
         case PhysicalStreamType::LENGTH:
             return static_cast<LengthType>(value);
+        default:
         case PhysicalStreamType::PRESENT:
             return {};
     }
