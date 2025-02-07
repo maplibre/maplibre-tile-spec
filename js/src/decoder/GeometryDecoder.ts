@@ -220,7 +220,7 @@ export class GeometryDecoder {
                         vertexOffsetsOffset += numVertices;
                         for (let j = 0; j < rings.length; j++) {
                             const numRingVertices = ringOffsets[ringOffsetsCounter++];
-                            rings[j] = this.decodeDictionaryEncodedLinearRing(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numVertices, geometryFactory);
+                            rings[j] = this.decodeDictionaryEncodedLinearRing(vertexBuffer, vertexOffsets, vertexOffsetsOffset, numRingVertices, geometryFactory);
                             vertexOffsetsOffset += numRingVertices;
                         }
                         polygons[i] = geometryFactory.createPolygon(shell, rings);
