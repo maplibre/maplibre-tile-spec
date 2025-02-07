@@ -139,17 +139,18 @@ struct ExtractPropertyVisitor {
         assert(i < vec.size());
         return (i < vec.size()) ? std::optional<Property>{vec[i]} : std::nullopt;
     }
-    template <>
-    std::optional<Property> operator()(const StringDictViews& views) const noexcept(false) {
-        const auto& strings = views.getStrings();
-        assert(i < strings.size());
-        return (i < strings.size()) ? std::optional<Property>{strings[i]} : std::nullopt;
-    }
-    template <>
-    std::optional<Property> operator()(const PackedBitset& vec) const noexcept(false) {
-        return testBit(vec, i);
-    }
 };
+
+template <>
+std::optional<Property> ExtractPropertyVisitor::operator()(const StringDictViews& views) const noexcept(false) {
+    const auto& strings = views.getStrings();
+    assert(i < strings.size());
+    return (i < strings.size()) ? std::optional<Property>{strings[i]} : std::nullopt;
+}
+template <>
+std::optional<Property> ExtractPropertyVisitor::operator()(const PackedBitset& vec) const noexcept(false) {
+    return testBit(vec, i);
+}
 
 } // namespace
 
