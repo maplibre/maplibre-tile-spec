@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as Path from "path";
 import { MltDecoder, TileSetMetadata } from "../../../src/index";
+import { MapLibreTile } from "../../../src/data/MapLibreTile";
 import { VectorTile } from '@mapbox/vector-tile';
 import Protobuf from 'pbf';
 
@@ -205,7 +206,6 @@ describe("MltDecoder", () => {
 
 });
 
-import { MapLibreTile } from "../../../src/data/MapLibreTile";
 function tileJSON(name: string, tile: MapLibreTile) {
     return {
         layers: Object.entries(tile.layers).map(function ([name, layer]) {
