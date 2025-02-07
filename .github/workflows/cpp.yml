@@ -1,0 +1,33 @@
+name: C++ CI
+
+on:
+  push:
+    paths:
+      - 'cpp/**'
+  pull_request:
+    paths:
+      - 'cpp/**'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-14, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        working-directory: cpp
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure with CMake
+        run: cmake -B build -S .
+
+      - name: Build the project
+        run: cmake --build build
+
+      - name: Run C++ tests
+        run: build/test/mlt-cpp-test
