@@ -40,14 +40,14 @@ public:
             size_t count = std::min(static_cast<size_t>(numValues - position), remainingValues);
             uint64_t consumed = 0;
             if (repeating) {
-                memset(data + position, value, count);
+                std::fill_n(data + position, count, value);
                 consumed = count;
             } else {
                 uint64_t i = 0;
                 while (i < count) {
                     uint64_t copyBytes = std::min(static_cast<uint64_t>(count - i),
                                                   static_cast<uint64_t>(bufferEnd - bufferStart));
-                    memcpy(data + position + i, bufferStart, copyBytes);
+                    std::copy(bufferStart, bufferStart + copyBytes, data + position + i);
                     bufferStart += copyBytes;
                     i += copyBytes;
                 }
