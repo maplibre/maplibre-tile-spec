@@ -1,6 +1,5 @@
 #pragma once
 
-#define PROTOZERO_USE_VIEW std::string_view
 #include <protozero/pbf_message.hpp>
 
 #include <optional>
