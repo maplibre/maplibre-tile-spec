@@ -3,6 +3,7 @@
 #include <mlt/common.hpp>
 #include <mlt/metadata/stream.hpp>
 
+#include <algorithm>
 #include <cassert>
 
 namespace mlt::util::decoding {
@@ -27,7 +28,8 @@ void decodeRaw(BufferStream& buffer,
     const auto numBytes = sizeof(T) * numValues;
     assert(numBytes == metadata.getByteLength());
     out.resize(numValues);
-    std::memcpy(out.data(), buffer.getReadPosition(), numBytes);
+    std::copy(
+        buffer.getReadPosition(), buffer.getReadPosition() + numBytes, reinterpret_cast<std::uint8_t*>(out.data()));
     if (consume) {
         buffer.consume(numBytes);
     }
