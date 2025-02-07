@@ -4,6 +4,7 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <algorithm>
+#include <functional>
 #include <type_traits>
 
 namespace mlt::metadata::stream {
