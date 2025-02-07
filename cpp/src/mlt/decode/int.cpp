@@ -25,15 +25,14 @@ IntegerDecoder::~IntegerDecoder() noexcept = default;
 template <typename T>
 std::vector<T>& IntegerDecoder::getTempBuffer() noexcept {
     // Can we make these covariant and eliminate the casts?
-    if constexpr (std::is_trivially_assignable_v<decltype(impl->buffer4)::reference, T>) {
+    constexpr auto is4 = std::is_trivially_assignable_v<decltype(impl->buffer4)::reference, T>;
+    constexpr auto is8 = std::is_trivially_assignable_v<decltype(impl->buffer8)::reference, T>;
+    static_assert(is4 || is8);
+    if constexpr (is4) {
         return reinterpret_cast<std::vector<T>&>(impl->buffer4);
-    } else if constexpr (std::is_trivially_assignable_v<decltype(impl->buffer8)::reference, T>) {
+    } else if constexpr (is8) {
         return static_cast<std::vector<T>&>(impl->buffer8);
     }
-    // Ideally this would be a `static_assert`, but that fails even if never reached by template expansion.
-    assert(false);
-    auto* fail = static_cast<std::vector<T>*>(nullptr);
-    return *fail;
 }
 template std::vector<std::int32_t>& IntegerDecoder::getTempBuffer<std::int32_t>() noexcept;
 template std::vector<std::uint32_t>& IntegerDecoder::getTempBuffer<std::uint32_t>() noexcept;
