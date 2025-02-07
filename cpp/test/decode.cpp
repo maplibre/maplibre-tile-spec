@@ -94,7 +94,6 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
 
         // Convert the tile we loaded to GeoJSON
         const auto actualJSON = mlt::GeoJSON::toGeoJSON(tile, {3, 5, 7});
-        writeFile(path + ".new.geojson", dump(actualJSON));
 
         // Compare the two
         const auto diffJSON = mlt::util::diff(expectedJSON, actualJSON, {});
@@ -102,8 +101,10 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
             std::error_code ec;
             std::filesystem::remove(path + ".diff.geojson", ec);
         } else {
+            // Dump the unexpected results to files for review
+            writeFile(path + ".new.geojson", dump(actualJSON));
             writeFile(path + ".diff.geojson", dump(diffJSON));
-            std::cout << path << ":" << diffJSON.size() << " changes\n";
+            std::cout << path << ":" << diffJSON.size() << " unexpected differences\n";
         }
     }
 #endif // MLT_WITH_JSON
@@ -126,9 +127,6 @@ TEST(Decode, SimplePointBoolean) {
 
     const auto& feature = mltLayer->getFeatures().front();
     EXPECT_EQ(feature.getID(), 1);
-    // TODO: geometry
-    // TODO: properties
-    // TODO: GeoJSON
 }
 
 TEST(Decode, SimpleLineBoolean) {
