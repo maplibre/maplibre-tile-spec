@@ -92,6 +92,15 @@ FetchContent_MakeAvailable(fastpfor)
 target_include_directories(mlt-cpp PRIVATE "${simde_SOURCE_DIR}" "${fastpfor_SOURCE_DIR}/headers")
 target_compile_options(FastPFOR PRIVATE "-Wno-cast-align")
 
+# FSST
+fetchcontent_declare(fsst
+    GIT_REPOSITORY https://github.com/cwida/fsst.git
+    GIT_BRANCH main # no releases yet
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(fsst)
+target_include_directories(mlt-cpp PRIVATE "${fsst_SOURCE_DIR}")
+
 # json
 if(MLT_WITH_JSON)
     message(STATUS "[MLT] Including GeoJSON support")
