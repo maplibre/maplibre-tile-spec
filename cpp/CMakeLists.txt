@@ -71,7 +71,7 @@ target_include_directories(mlt-cpp PRIVATE "${protozero_SOURCE_DIR}/include")
 # SIMD Everywhere (needed on ARM)
 fetchcontent_declare(simde
   GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
-  GIT_TAG v0.8.3
+  GIT_TAG v0.8.2
 )
 FetchContent_MakeAvailable(simde)
 
