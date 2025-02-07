@@ -14,10 +14,10 @@ struct SymbolTableStruct {
 
 SymbolTableStruct fsstCompress(std::vector<unsigned char> inputBytes) {
     unsigned long n = 1;
-    auto **srcBuf = (uint8_t **) calloc(n, sizeof(uint8_t *));
-    auto **dstBuf = (uint8_t **) calloc(n, sizeof(uint8_t *));
-    auto *srcLen = (size_t *) calloc(n, sizeof(size_t));
-    auto *dstLen = (size_t *) calloc(n, sizeof(size_t));
+    auto **srcBuf = (uint8_t **)calloc(n, sizeof(uint8_t *));
+    auto **dstBuf = (uint8_t **)calloc(n, sizeof(uint8_t *));
+    auto *srcLen = (size_t *)calloc(n, sizeof(size_t));
+    auto *dstLen = (size_t *)calloc(n, sizeof(size_t));
 
     srcBuf[0] = inputBytes.data();
     srcLen[0] = inputBytes.size();
@@ -35,13 +35,13 @@ SymbolTableStruct fsstCompress(std::vector<unsigned char> inputBytes) {
     uint32_t nSymbols = (version >> 8) & 0xFF;
 
     uint8_t lenHisto[8];
-    for(uint32_t i=0; i<8; i++)
-        lenHisto[i] = serialized_encoder_buf[9+i];
+    for (uint32_t i = 0; i < 8; i++) lenHisto[i] = serialized_encoder_buf[9 + i];
 
-    unsigned long output_buffer_size = 7 + 4 * before_size; //1024 * 1024 * 1024
-    auto output_buffer = (uint8_t *) calloc(output_buffer_size, sizeof(uint8_t));
+    unsigned long output_buffer_size = 7 + 4 * before_size; // 1024 * 1024 * 1024
+    auto output_buffer = (uint8_t *)calloc(output_buffer_size, sizeof(uint8_t));
 
-    fsst_compress(encoder, n, srcLen, const_cast<const uint8_t **>(srcBuf), output_buffer_size, output_buffer, dstLen, dstBuf);
+    fsst_compress(
+        encoder, n, srcLen, const_cast<const uint8_t **>(srcBuf), output_buffer_size, output_buffer, dstLen, dstBuf);
     size_t compressedDataLength = *dstLen;
 
     fsst_decoder_t decoder;
@@ -64,7 +64,9 @@ SymbolTableStruct fsstCompress(std::vector<unsigned char> inputBytes) {
     return symbolTableStruct;
 }
 
-JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstJni_compress(JNIEnv* env, jclass cls, jbyteArray inputBytes) {
+JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstJni_compress(JNIEnv *env,
+                                                                                 jclass cls,
+                                                                                 jbyteArray inputBytes) {
     jbyte *bytes = env->GetByteArrayElements(inputBytes, NULL);
     jsize length = env->GetArrayLength(inputBytes);
 
@@ -74,22 +76,23 @@ JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstJni_compress
     env->ReleaseByteArrayElements(inputBytes, bytes, 0);
 
     SymbolTableStruct result = fsstCompress(byteVector);
-	
+
     // Convert symbolLengths array and symbols array
     jsize nSymbols = (jint)result.nSymbols;
     jintArray symbolLengthsArray = env->NewIntArray(nSymbols);
-    jint* tempIntData = new jint[nSymbols];
+    jint *tempIntData = new jint[nSymbols];
 
     int totalSymbolLengths = 0;
-    for(int i = 0; i < nSymbols; i++) {
+    for (int i = 0; i < nSymbols; i++) {
         totalSymbolLengths += result.symbolLengths[i];
     }
 
     jbyteArray symbolsArray = env->NewByteArray(totalSymbolLengths);
     int offset = 0;
     for (int i = 0; i < nSymbols; i++) {
-        tempIntData[i] = (jint) result.symbolLengths[i];
-        env->SetByteArrayRegion(symbolsArray, offset, tempIntData[i], reinterpret_cast<const jbyte *>(&result.symbols[i]));
+        tempIntData[i] = (jint)result.symbolLengths[i];
+        env->SetByteArrayRegion(
+            symbolsArray, offset, tempIntData[i], reinterpret_cast<const jbyte *>(&result.symbols[i]));
         offset += tempIntData[i];
     }
 
@@ -97,14 +100,15 @@ JNIEXPORT jobject JNICALL Java_com_mlt_converter_encodings_fsst_FsstJni_compress
     delete[] tempIntData;
 
     // Convert compressedData to a Java byte array
-	auto compressedDataLength = result.compressedData.size();
+    auto compressedDataLength = result.compressedData.size();
     jbyteArray compressedData = env->NewByteArray(compressedDataLength);
-    env->SetByteArrayRegion(compressedData, 0, compressedDataLength, (jbyte*)&result.compressedData[0]);
-	
+    env->SetByteArrayRegion(compressedData, 0, compressedDataLength, (jbyte *)&result.compressedData[0]);
+
     // Create the Java SymbolTable object
-    jclass symbolTableClass = env->FindClass("com/mlt/converter/encodings/fsst/SymbolTable");		
+    jclass symbolTableClass = env->FindClass("com/mlt/converter/encodings/fsst/SymbolTable");
     jmethodID symbolTableCtor = env->GetMethodID(symbolTableClass, "<init>", "([B[I[BI)V");
-    jobject javaSymbolTable = env->NewObject(symbolTableClass, symbolTableCtor, symbolsArray, symbolLengthsArray, compressedData, length);
-	
+    jobject javaSymbolTable = env->NewObject(
+        symbolTableClass, symbolTableCtor, symbolsArray, symbolLengthsArray, compressedData, length);
+
     return javaSymbolTable;
 }

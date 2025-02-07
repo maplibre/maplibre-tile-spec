@@ -43,4 +43,3 @@ void async function go() {
   await main(data, decoder, tilesetMetadata, iterations, true);
   await main(data, decoder, tilesetMetadata, iterations, false);
 }()
-
