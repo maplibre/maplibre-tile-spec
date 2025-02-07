@@ -61,17 +61,23 @@ target_sources(mlt-cpp PRIVATE
 # Protozero
 set(WERROR OFF)
 set(DOXYGEN_FOUND OFF)
+set(BUILD_TESTING OFF CACHE BOOL "Disable tests in protozero" FORCE)
 fetchcontent_declare(protozero
     GIT_REPOSITORY https://github.com/mapbox/protozero.git
-    GIT_TAG v1.7.1
+    GIT_TAG v1.8.0
+    EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(protozero)
-target_include_directories(mlt-cpp PRIVATE "${protozero_SOURCE_DIR}/include")
+add_library(protozero INTERFACE)
+target_include_directories(protozero INTERFACE "${protozero_SOURCE_DIR}/include")
+
+target_link_libraries(mlt-cpp PRIVATE protozero)
 
 # SIMD Everywhere (needed on ARM)
 fetchcontent_declare(simde
   GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
   GIT_TAG v0.8.2
+  EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(simde)
 
@@ -79,7 +85,8 @@ FetchContent_MakeAvailable(simde)
 set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE)  # The fastpfor gtest targets conflict with ours
 fetchcontent_declare(fastpfor
     GIT_REPOSITORY https://github.com/fast-pack/FastPFor.git
-    GIT_TAG v0.2.0
+    GIT_TAG v0.3.0
+    EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(fastpfor)
 target_include_directories(mlt-cpp PRIVATE "${simde_SOURCE_DIR}" "${fastpfor_SOURCE_DIR}/headers")
@@ -91,6 +98,7 @@ if(MLT_WITH_JSON)
     fetchcontent_declare(json
         GIT_REPOSITORY https://github.com/nlohmann/json.git
         GIT_TAG v3.11.3
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(json)
     target_include_directories(mlt-cpp PUBLIC "${json_SOURCE_DIR}/include")

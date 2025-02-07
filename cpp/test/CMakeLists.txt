@@ -19,16 +19,7 @@ if(MLT_WITH_JSON)
     target_compile_definitions(mlt-cpp-test PUBLIC MLT_WITH_JSON=1)
 endif(MLT_WITH_JSON)
 
-#target_include_directories(mlt-cpp-test PRIVATE "${PROJECT_SOURCE_DIR}/../include")
-
 target_compile_definitions(mlt-cpp-test PRIVATE PROTOZERO_USE_VIEW=std::string_view)
-target_include_directories(mlt-cpp-test PRIVATE "${protozero_SOURCE_DIR}/include")
-
-# Why doesn't protozero set up its own include directory?
-target_include_directories(pbf-decoder PRIVATE "${protozero_SOURCE_DIR}/include")
-target_include_directories(reader_tests PRIVATE "${protozero_SOURCE_DIR}/include")
-target_include_directories(writer_tests PRIVATE "${protozero_SOURCE_DIR}/include")
-target_include_directories(unit_tests PRIVATE "${protozero_SOURCE_DIR}/include")
 
 include(FetchContent)
 set(BUILD_GMOCK OFF)
@@ -46,5 +37,4 @@ target_include_directories(mlt-cpp-test PRIVATE "${gtest_SOURCE_DIR}/googletest/
 
 target_include_directories(mlt-cpp-test PRIVATE "${fastpfor_SOURCE_DIR}/headers")
 
-target_link_libraries(mlt-cpp-test mlt-cpp gtest_main FastPFOR)
-#gtest_discover_tests(mlt-cpp-test)
+target_link_libraries(mlt-cpp-test PRIVATE mlt-cpp gtest_main FastPFOR protozero)
