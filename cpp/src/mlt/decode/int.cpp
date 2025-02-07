@@ -25,8 +25,8 @@ IntegerDecoder::~IntegerDecoder() noexcept = default;
 template <typename T>
 std::vector<T>& IntegerDecoder::getTempBuffer() noexcept {
     // Can we make these covariant and eliminate the casts?
-    constexpr auto is4 = std::is_trivially_assignable_v<decltype(impl->buffer4)::reference, T>;
-    constexpr auto is8 = std::is_trivially_assignable_v<decltype(impl->buffer8)::reference, T>;
+    constexpr auto is4 = std::is_trivially_assignable_v<typename decltype(impl->buffer4)::reference, T>;
+    constexpr auto is8 = std::is_trivially_assignable_v<typename decltype(impl->buffer8)::reference, T>;
     static_assert(is4 || is8);
     if constexpr (is4) {
         return reinterpret_cast<std::vector<T>&>(impl->buffer4);
