@@ -3,6 +3,7 @@
 #include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/noncopyable.hpp>
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>

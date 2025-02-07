@@ -363,8 +363,8 @@ public:
             if (geometryColumn.vertices.size() < vertexBufferOffset + 2) {
                 throw std::runtime_error("Vertex buffer underflow");
             }
-            return {.x = static_cast<double>(geometryColumn.vertices[vertexBufferOffset++]),
-                    .y = static_cast<double>(geometryColumn.vertices[vertexBufferOffset++])};
+            return {static_cast<double>(geometryColumn.vertices[vertexBufferOffset++]),
+                    static_cast<double>(geometryColumn.vertices[vertexBufferOffset++])};
         }
         if (geometryColumn.vertexOffsets.size() < vertexOffsetsOffset + 1) {
             throw std::runtime_error("Vertex offset buffer underflow");
@@ -373,8 +373,8 @@ public:
         if (geometryColumn.vertices.size() < offset + 2) {
             throw std::runtime_error("Vertex buffer underflow");
         }
-        return {.x = static_cast<double>(geometryColumn.vertices[offset]),
-                .y = static_cast<double>(geometryColumn.vertices[offset + 1])};
+        return {static_cast<double>(geometryColumn.vertices[offset]),
+                static_cast<double>(geometryColumn.vertices[offset + 1])};
     }
 
     inline static bool containsPolygon(const GeometryColumn& geometryColumn) noexcept {
@@ -395,8 +395,7 @@ public:
             throw std::runtime_error("geometry error");
         }
         std::generate_n(std::back_inserter(coords), numVertices, [&]() noexcept -> Coordinate {
-            return {.x = static_cast<double>(vertexBuffer[startIndex++]),
-                    .y = static_cast<double>(vertexBuffer[startIndex++])};
+            return {static_cast<double>(vertexBuffer[startIndex++]), static_cast<double>(vertexBuffer[startIndex++])};
         });
         if (closeLineString && !coords.empty()) {
             coords.emplace_back(coords.front());

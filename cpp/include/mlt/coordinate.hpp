@@ -5,8 +5,12 @@
 namespace mlt {
 
 struct Coordinate {
-    const double x;
-    const double y;
+    double x;
+    double y;
+
+    Coordinate(double x_, double y_)
+        : x(x_),
+          y(y_) {}
 };
 using CoordVec = std::vector<Coordinate>;
 
