@@ -82,7 +82,7 @@ struct PropertyCounter {
     std::size_t operator()(const StringDictViews& views) const noexcept { return views.getStrings().size(); }
 };
 } // namespace detail
-static inline std::size_t propertyCount(const PropertyVec& vec) noexcept(false) {
+static inline std::size_t propertyCount(const PropertyVec& vec) {
     return std::visit(detail::PropertyCounter(), vec);
 }
 

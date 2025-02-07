@@ -6,7 +6,7 @@
 
 namespace mlt {
 
-Feature::Feature(id_t ident_, std::unique_ptr<Geometry>&& geometry_, PropertyMap properties_) noexcept(false)
+Feature::Feature(id_t ident_, std::unique_ptr<Geometry>&& geometry_, PropertyMap properties_)
     : ident(ident_),
       geometry(std::move(geometry_)),
       properties(std::move(properties_)) {

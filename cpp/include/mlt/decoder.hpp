@@ -17,12 +17,12 @@ class Decoder : public util::noncopyable {
 public:
     using TileSetMetadata = metadata::tileset::TileSetMetadata;
 
-    Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory = std::make_unique<GeometryFactory>()) noexcept(false);
+    Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory = std::make_unique<GeometryFactory>());
     ~Decoder() noexcept;
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;
 
-    MapLibreTile decode(DataView, const TileSetMetadata&) noexcept(false);
+    MapLibreTile decode(DataView, const TileSetMetadata&);
 
 private:
     struct Impl;
@@ -30,7 +30,7 @@ private:
 
     std::vector<Feature> makeFeatures(const std::vector<Feature::id_t>&,
                                       std::vector<std::unique_ptr<Geometry>>&&,
-                                      const PropertyVecMap&) noexcept(false);
+                                      const PropertyVecMap&);
 };
 
 } // namespace mlt::decoder

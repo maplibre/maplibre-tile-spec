@@ -28,7 +28,7 @@ public:
 
     std::size_t getBufferRemaining() const noexcept { return bufferEnd - bufferStart; }
 
-    void next(std::uint8_t* data, std::uint64_t numValues) noexcept(false) {
+    void next(std::uint8_t* data, std::uint64_t numValues) {
         std::uint64_t position = 0;
 
         while (position < numValues) {
@@ -59,14 +59,14 @@ public:
     }
 
 private:
-    char readByte() noexcept(false) {
+    char readByte() {
         if (bufferStart == bufferEnd) {
             throw std::runtime_error("Unexpected end of buffer");
         }
         return *bufferStart++;
     }
 
-    void readHeader() noexcept(false) {
+    void readHeader() {
         const char ch = readByte();
         if (ch < 0) {
             remainingValues = static_cast<std::size_t>(-ch);

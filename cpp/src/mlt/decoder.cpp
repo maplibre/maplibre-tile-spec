@@ -37,12 +37,12 @@ struct Decoder::Impl {
     GeometryDecoder geometryDecoder;
 };
 
-Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory) noexcept(false)
+Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory)
     : impl{std::make_unique<Impl>(std::move(geometryFactory))} {}
 
 Decoder::~Decoder() noexcept = default;
 
-MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMetadata) noexcept(false) {
+MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMetadata) {
     using namespace metadata;
     using namespace metadata::stream;
     using namespace metadata::tileset;
@@ -142,13 +142,13 @@ struct ExtractPropertyVisitor {
 };
 
 template <>
-std::optional<Property> ExtractPropertyVisitor::operator()(const StringDictViews& views) const noexcept(false) {
+std::optional<Property> ExtractPropertyVisitor::operator()(const StringDictViews& views) const {
     const auto& strings = views.getStrings();
     assert(i < strings.size());
     return (i < strings.size()) ? std::optional<Property>{strings[i]} : std::nullopt;
 }
 template <>
-std::optional<Property> ExtractPropertyVisitor::operator()(const PackedBitset& vec) const noexcept(false) {
+std::optional<Property> ExtractPropertyVisitor::operator()(const PackedBitset& vec) const {
     return testBit(vec, i);
 }
 
@@ -156,7 +156,7 @@ std::optional<Property> ExtractPropertyVisitor::operator()(const PackedBitset& v
 
 std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids,
                                            std::vector<std::unique_ptr<Geometry>>&& geometries,
-                                           const PropertyVecMap& propertyVecs) noexcept(false) {
+                                           const PropertyVecMap& propertyVecs) {
     const auto featureCount = ids.size();
     if (geometries.size() < featureCount) {
         throw std::runtime_error("Invalid geometry count");
@@ -197,7 +197,7 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
         }
     }
 
-    return util::generateVector<Feature>(featureCount, [&](const auto i) noexcept(false) {
+    return util::generateVector<Feature>(featureCount, [&](const auto i) {
         return Feature{ids[i], std::move(geometries[i]), std::move(properties[i])};
     });
 }

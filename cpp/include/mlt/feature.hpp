@@ -25,7 +25,7 @@ public:
     /// @param properties Feature properties, optional
     /// @throws `std::runtime_error` Missing geometry
     /// TODO: use a non-nullable type for the polymorphic geometry object
-    Feature(id_t id, std::unique_ptr<Geometry>&& geometry, PropertyMap properties) noexcept(false);
+    Feature(id_t id, std::unique_ptr<Geometry>&& geometry, PropertyMap properties);
 
     ~Feature() noexcept;
 

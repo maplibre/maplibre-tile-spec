@@ -16,7 +16,7 @@ template <typename T, typename TTarget, bool isSigned>
              sizeof(T) <= sizeof(TTarget))
 void IntegerDecoder::decodeIntArray(const std::vector<T>& values,
                                     std::vector<TTarget>& out,
-                                    const StreamMetadata& streamMetadata) noexcept(false) {
+                                    const StreamMetadata& streamMetadata) {
     using namespace metadata::stream;
     using namespace util::decoding;
     switch (streamMetadata.getLogicalLevelTechnique1()) {
@@ -88,7 +88,7 @@ void IntegerDecoder::decodeIntArray(const std::vector<T>& values,
 template <typename TDecode, typename TInt, typename TTarget, bool isSigned>
 void IntegerDecoder::decodeIntStream(BufferStream& tileData,
                                      std::vector<TTarget>& out,
-                                     const StreamMetadata& metadata) noexcept(false) {
+                                     const StreamMetadata& metadata) {
     decodeIntStream<TDecode, TInt, TTarget, isSigned>(tileData, getTempBuffer<TInt>(), out, metadata);
 }
 
@@ -96,7 +96,7 @@ template <typename TDecode, typename TInt, typename TTarget, bool isSigned>
 void IntegerDecoder::decodeIntStream(BufferStream& tileData,
                                      std::vector<TInt>& buffer,
                                      std::vector<TTarget>& out,
-                                     const StreamMetadata& metadata) noexcept(false) {
+                                     const StreamMetadata& metadata) {
     decodeStream<TDecode, TInt, isSigned>(tileData, buffer, metadata);
     decodeIntArray<TInt, TTarget, isSigned>(buffer, out, metadata);
     buffer.clear();
@@ -105,7 +105,7 @@ void IntegerDecoder::decodeIntStream(BufferStream& tileData,
 template <typename TDecode, typename TInt, typename TTarget, bool Delta>
 void IntegerDecoder::decodeMortonStream(BufferStream& tileData,
                                         std::vector<TTarget>& out,
-                                        const MortonEncodedStreamMetadata& metadata) noexcept(false) {
+                                        const MortonEncodedStreamMetadata& metadata) {
     decodeMortonStream<TDecode, TInt, TTarget, Delta>(tileData, getTempBuffer<TInt>(), out, metadata);
 }
 
@@ -113,7 +113,7 @@ template <typename TDecode, typename TInt, typename TTarget, bool Delta>
 void IntegerDecoder::decodeMortonStream(BufferStream& tileData,
                                         std::vector<TInt>& buffer,
                                         std::vector<TTarget>& out,
-                                        const MortonEncodedStreamMetadata& metadata) noexcept(false) {
+                                        const MortonEncodedStreamMetadata& metadata) {
     decodeStream<TDecode, TInt>(tileData, buffer, metadata);
     out.resize(2 * buffer.size());
     decodeMortonCodes<TInt, TTarget, Delta>(buffer, out, metadata.getNumBits(), metadata.getCoordinateShift());
@@ -126,9 +126,7 @@ void IntegerDecoder::decodeMortonStream(BufferStream& tileData,
 
 template <typename TDecode, typename TTarget, bool isSigned>
     requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>))
-void IntegerDecoder::decodeStream(BufferStream& tileData,
-                                  std::vector<TTarget>& out,
-                                  const StreamMetadata& metadata) noexcept(false) {
+void IntegerDecoder::decodeStream(BufferStream& tileData, std::vector<TTarget>& out, const StreamMetadata& metadata) {
     using namespace metadata::stream;
 
     out.resize(metadata.getNumValues());
@@ -150,9 +148,7 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
 }
 
 template <typename T>
-void IntegerDecoder::decodeRLE(const std::vector<T>& values,
-                               std::vector<T>& out,
-                               const count_t numRuns) noexcept(false) {
+void IntegerDecoder::decodeRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns) {
     count_t outPos = 0;
     for (std::uint32_t i = 0; i < numRuns; ++i) {
         const auto run = values[i];
@@ -165,9 +161,7 @@ void IntegerDecoder::decodeRLE(const std::vector<T>& values,
 }
 
 template <typename T>
-void IntegerDecoder::decodeDeltaRLE(const std::vector<T>& values,
-                                    std::vector<T>& out,
-                                    const count_t numRuns) noexcept(false) {
+void IntegerDecoder::decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns) {
     count_t outPos = 0;
     T previousValue = 0;
     for (std::uint32_t i = 0; i < numRuns; ++i) {

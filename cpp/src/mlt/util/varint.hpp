@@ -11,10 +11,10 @@ namespace mlt::util::decoding {
 
 template <typename T>
     requires(std::is_integral_v<T>)
-T decodeVarint(BufferStream&) noexcept(false);
+T decodeVarint(BufferStream&);
 
 template <>
-inline std::uint32_t decodeVarint(BufferStream& buffer) noexcept(false) {
+inline std::uint32_t decodeVarint(BufferStream& buffer) {
     // Max 4 bytes supported
     auto b = static_cast<std::uint32_t>(buffer.read());
     auto value = static_cast<std::uint32_t>(b) & 0x7f;
@@ -33,7 +33,7 @@ inline std::uint32_t decodeVarint(BufferStream& buffer) noexcept(false) {
 }
 
 template <>
-inline std::uint64_t decodeVarint(BufferStream& buffer) noexcept(false) {
+inline std::uint64_t decodeVarint(BufferStream& buffer) {
     std::uint64_t value = 0;
     for (int shift = 0; buffer.available();) {
         auto b = static_cast<std::uint32_t>(buffer.read());
@@ -54,7 +54,7 @@ inline std::uint64_t decodeVarint(BufferStream& buffer) noexcept(false) {
 /// Decode N varints, retrurning the values in a `std::tuple`
 template <typename T, std::size_t N>
     requires(std::is_integral_v<T> || std::is_enum_v<T>, 0 < N)
-auto decodeVarints(BufferStream& buffer) noexcept(false) {
+auto decodeVarints(BufferStream& buffer) {
     auto v = std::make_tuple(static_cast<T>(decodeVarint<std::uint32_t>(buffer)));
     if constexpr (N == 1) {
         return v;
@@ -67,14 +67,14 @@ auto decodeVarints(BufferStream& buffer) noexcept(false) {
 template <typename TDecode, typename TTarget = TDecode>
     requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
              sizeof(TDecode) <= sizeof(TTarget))
-void decodeVarints(BufferStream& buffer, count_t numValues, TTarget* out) noexcept(false) {
+void decodeVarints(BufferStream& buffer, count_t numValues, TTarget* out) {
     std::generate_n(out, numValues, [&buffer]() { return static_cast<TTarget>(decodeVarint<TDecode>(buffer)); });
 }
 
 template <typename TDecode, typename TTarget = TDecode>
     requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
              sizeof(TDecode) <= sizeof(TTarget))
-void decodeVarints(BufferStream& buffer, std::vector<TTarget>& out) noexcept(false) {
+void decodeVarints(BufferStream& buffer, std::vector<TTarget>& out) {
     decodeVarints<TDecode, TTarget>(buffer, out.size(), out.data());
 }
 

@@ -11,7 +11,7 @@ using json = nlohmann::json;
 // Comparison functor that can compare stringified numbers and consider precision
 struct JSONComparer {
     const double doubleEpsilon = 1.0e-15;
-    bool operator()(const json& left, const json& right) const noexcept(false) {
+    bool operator()(const json& left, const json& right) const {
         const auto leftDouble = getDouble(left);
         const auto rightDouble = getDouble(right);
 
@@ -35,7 +35,7 @@ struct JSONComparer {
     }
 
 private:
-    static std::optional<double> getDouble(const json& v) noexcept(false) {
+    static std::optional<double> getDouble(const json& v) {
         switch (v.type()) {
             case nlohmann::json_abi_v3_11_3::detail::value_t::null:
                 return 0;
@@ -62,7 +62,7 @@ private:
 static json diff(const json& source,
                  const json& target,
                  const std::string& path = {},
-                 std::function<bool(const json&, const json&)> compare = JSONComparer()) noexcept(false) {
+                 std::function<bool(const json&, const json&)> compare = JSONComparer()) {
     using namespace nlohmann;
     using nlohmann::detail::concat;
     using nlohmann::detail::escape;

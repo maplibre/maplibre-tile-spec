@@ -19,13 +19,13 @@ public:
     using StreamMetadata = metadata::stream::StreamMetadata;
     using MortonEncodedStreamMetadata = metadata::stream::MortonEncodedStreamMetadata;
 
-    IntegerDecoder() noexcept(false);
+    IntegerDecoder();
     ~IntegerDecoder() noexcept;
 
-    IntegerDecoder(IntegerDecoder&&) noexcept(false) = delete;
+    IntegerDecoder(IntegerDecoder&&) = delete;
     // FastPFOR classes have implicitly-deleted assignment operators.
     // We could create new ones, if really necessary.
-    IntegerDecoder& operator=(IntegerDecoder&&) noexcept(false) = delete;
+    IntegerDecoder& operator=(IntegerDecoder&&) = delete;
 
     /// Decode a buffer of integers into another, according to the encoding scheme specified by the metadata
     /// @param values input values
@@ -34,9 +34,7 @@ public:
     template <typename T, typename TTarget = T, bool isSigned = std::is_signed_v<T>>
         requires((std::is_integral_v<T> || std::is_enum_v<T>) &&
                  (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) && sizeof(T) <= sizeof(TTarget))
-    void decodeIntArray(const std::vector<T>& values,
-                        std::vector<TTarget>& out,
-                        const StreamMetadata& streamMetadata) noexcept(false);
+    void decodeIntArray(const std::vector<T>& values, std::vector<TTarget>& out, const StreamMetadata& streamMetadata);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
@@ -47,9 +45,7 @@ public:
               typename TInt = TDecode,
               typename TTarget = TDecode,
               bool isSigned = std::is_signed_v<TDecode>>
-    void decodeIntStream(BufferStream& tileData,
-                         std::vector<TTarget>& out,
-                         const StreamMetadata& metadata) noexcept(false);
+    void decodeIntStream(BufferStream& tileData, std::vector<TTarget>& out, const StreamMetadata& metadata);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
@@ -63,18 +59,18 @@ public:
     void decodeIntStream(BufferStream& tileData,
                          std::vector<TInt>& buffer,
                          std::vector<TTarget>& out,
-                         const StreamMetadata& metadata) noexcept(false);
+                         const StreamMetadata& metadata);
 
     template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt, bool Delta = true>
     void decodeMortonStream(BufferStream& tileData,
                             std::vector<TTarget>& out,
-                            const MortonEncodedStreamMetadata& metadata) noexcept(false);
+                            const MortonEncodedStreamMetadata& metadata);
 
     template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt, bool Delta = true>
     void decodeMortonStream(BufferStream& tileData,
                             std::vector<TInt>& buffer,
                             std::vector<TTarget>& out,
-                            const MortonEncodedStreamMetadata& metadata) noexcept(false);
+                            const MortonEncodedStreamMetadata& metadata);
 
 private:
     struct Impl;
@@ -85,17 +81,13 @@ private:
 
     template <typename TDecode, typename TTarget = TDecode, bool isSigned = std::is_signed_v<TDecode>>
         requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>))
-    void decodeStream(BufferStream& tileData,
-                      std::vector<TTarget>& out,
-                      const StreamMetadata& metadata) noexcept(false);
+    void decodeStream(BufferStream& tileData, std::vector<TTarget>& out, const StreamMetadata& metadata);
 
     template <typename T>
-    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns) noexcept(false);
+    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns);
 
     template <typename T>
-    static void decodeDeltaRLE(const std::vector<T>& values,
-                               std::vector<T>& out,
-                               const count_t numRuns) noexcept(false);
+    static void decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns);
 
     /// Decode zigzag-delta values
     /// @param values input values
@@ -119,6 +111,6 @@ private:
     std::uint32_t decodeFastPfor(BufferStream& buffer,
                                  std::uint32_t* const result,
                                  const std::size_t numValues,
-                                 const std::size_t byteLength) noexcept(false);
+                                 const std::size_t byteLength);
 };
 } // namespace mlt::decoder
