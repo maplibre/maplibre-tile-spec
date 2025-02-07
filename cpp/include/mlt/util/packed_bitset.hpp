@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <cassert>
+#include <cstdint>
 #include <numeric>
 #include <optional>
 #include <vector>

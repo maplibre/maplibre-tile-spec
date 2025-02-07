@@ -28,9 +28,7 @@ public:
         }
     }
 
-    Coordinate project(const Coordinate& coord) const noexcept {
-        return {.x = projectX(coord.x), .y = projectY(coord.y)};
-    }
+    Coordinate project(const Coordinate& coord) const noexcept { return {projectX(coord.x), projectY(coord.y)}; }
 
 private:
     double projectX(double x) const noexcept { return (x + x0) * s1 - 180.0; }
