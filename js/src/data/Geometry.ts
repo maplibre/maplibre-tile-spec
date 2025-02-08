@@ -200,5 +200,3 @@ export class GeometryFactory {
         return new MultiPolygon(polygons);
     }
 }
-
-
