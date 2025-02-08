@@ -294,4 +294,3 @@ export class GeometryColumn {
         this.vertexList = vertexList;
     }
 }
-

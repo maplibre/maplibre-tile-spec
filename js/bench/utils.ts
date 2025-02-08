@@ -167,5 +167,3 @@ export const bench = async (name: string, decoder: () => void, earcut: boolean, 
     await run('Bench ', decoder, earcut, featureCount, triangleCount, iterations);
     return;
 }
-
-

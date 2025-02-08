@@ -13,5 +13,3 @@ Therefore COVT has also an option where the names are replaced by ids (u32) and 
 The metadata section for a layer of a COVT tile has the following structure:
 
 ![](./assets/metadata.png)
-
-

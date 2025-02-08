@@ -700,4 +700,3 @@ export class ComplexField extends Message<ComplexField> {
     return proto3.util.equals(ComplexField, a, b);
   }
 }
-
