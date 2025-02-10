@@ -8,4 +8,3 @@ The steps to create a new release are:
  3. The "release" workflow will detect a new release, package it, and publish it.
 
 See the `release` and `create-bump-version-pr` workflows for more information.
-
