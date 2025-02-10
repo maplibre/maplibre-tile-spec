@@ -143,7 +143,7 @@ public class CompressionBenchmarks {
 
     var mlTile =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(true, true, optimizations), tileMetadata);
+            mvTile, new ConversionConfig(true, true, optimizations), tileMetadata, false);
 
     if (reassignableLayers.isEmpty()) {
       /* Only test when the ids are not reassigned since it is verified based on the other tests */
