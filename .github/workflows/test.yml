@@ -52,7 +52,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
         run: just lint-java
 
@@ -68,7 +68,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
       - uses: gradle/actions/setup-gradle@v3
       - run: just test-java
       - run: just test-java-cli

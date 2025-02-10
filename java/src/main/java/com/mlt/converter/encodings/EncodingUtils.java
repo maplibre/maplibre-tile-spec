@@ -1,5 +1,6 @@
 package com.mlt.converter.encodings;
 
+import com.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -191,7 +192,6 @@ public class EncodingUtils {
 
     valueBuffer.add(values[values.length - 1]);
     runsBuffer.add(runs);
-
     return Pair.of(runsBuffer, valueBuffer);
   }
 
@@ -200,8 +200,6 @@ public class EncodingUtils {
      * Note that this does not use differential coding: if you are working on sorted lists,
      * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
      * */
-    // TODO: also test VectorFastPFOR -> patched version which should be faster
-
     var encodedValues = values;
     if (deltaEncode) {
       encodedValues = encodeDeltas(values);
@@ -212,6 +210,46 @@ public class EncodingUtils {
     }
 
     IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
+    IntWrapper inputoffset = new IntWrapper(0);
+    IntWrapper outputoffset = new IntWrapper(0);
+    int[] compressed = new int[encodedValues.length + 1024];
+    ic.compress(encodedValues, inputoffset, encodedValues.length, compressed, outputoffset);
+    var totalSize = outputoffset.intValue() * 4;
+
+    var compressedBuffer = new byte[totalSize];
+    var valueCounter = 0;
+    for (var i = 0; i < totalSize; i += 4) {
+      var value = compressed[valueCounter++];
+      var val1 = (byte) (value >>> 24);
+      var val2 = (byte) (value >>> 16);
+      var val3 = (byte) (value >>> 8);
+      var val4 = (byte) value;
+
+      compressedBuffer[i] = val1;
+      compressedBuffer[i + 1] = val2;
+      compressedBuffer[i + 2] = val3;
+      compressedBuffer[i + 3] = val4;
+    }
+
+    return compressedBuffer;
+  }
+
+  public static byte[] encodeFastPfor128Vectorized(
+      int[] values, boolean zigZagEncode, boolean deltaEncode) {
+    /*
+     * Note that this does not use differential coding: if you are working on sorted lists,
+     * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
+     * */
+    var encodedValues = values;
+    if (deltaEncode) {
+      encodedValues = encodeDeltas(values);
+    }
+
+    if (zigZagEncode) {
+      encodedValues = encodeZigZag(encodedValues);
+    }
+
+    IntegerCODEC ic = new Composition(new VectorFastPFOR(), new VariableByte());
     IntWrapper inputoffset = new IntWrapper(0);
     IntWrapper outputoffset = new IntWrapper(0);
     int[] compressed = new int[encodedValues.length + 1024];

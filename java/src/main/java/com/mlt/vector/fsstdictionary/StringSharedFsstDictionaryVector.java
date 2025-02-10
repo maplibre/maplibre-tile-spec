@@ -29,7 +29,8 @@ public class StringSharedFsstDictionaryVector extends VariableSizeVector<Map<Str
       IntBuffer symbolLengthBuffer,
       ByteBuffer symbolTableBuffer,
       DictionaryDataVector[] dictionaryDataVectors) {
-    super(name, lengthBuffer, dictionaryBuffer);
+    // TODO: refactor -> proper solution for StringSharedFsstDictionaryVector and size
+    super(name, lengthBuffer, dictionaryBuffer, 0);
     this.dictionaryDataVectors = dictionaryDataVectors;
     this.symbolLengthBuffer = symbolLengthBuffer;
     this.symbolTableBuffer = symbolTableBuffer;

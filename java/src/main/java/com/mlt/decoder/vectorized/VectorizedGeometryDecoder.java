@@ -94,7 +94,7 @@ public class VectorizedGeometryDecoder {
         mortonSettings);
   }
 
-  // TODO: get rid fo numFeatures parameter
+  // TODO: get rid of numFeatures parameter
   public static GeometryVector decodeToRandomAccessFormat(
       byte[] tile, int numStreams, IntWrapper offset, int numFeatures) {
     var geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);

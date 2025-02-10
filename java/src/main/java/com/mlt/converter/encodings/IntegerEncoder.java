@@ -181,7 +181,7 @@ public class IntegerEncoder {
 
     BiFunction<List<Integer>, Boolean, byte[]> encoder =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-            ? (v, s) -> encodeFastPfor(v, s)
+            ? IntegerEncoder::encodeFastPfor
             : (v, s) ->
                 encodeVarint(v.stream().mapToLong(i -> i).boxed().collect(Collectors.toList()), s);
 
@@ -194,7 +194,7 @@ public class IntegerEncoder {
     var deltaRlePhysicalLevelEncodedValuesLength = 0;
 
     /* Use selection logic from BTR Blocks -> https://github.com/maxi-k/btrblocks/blob/c954ffd31f0873003dbc26bf1676ac460d7a3b05/btrblocks/scheme/double/RLE.cpp#L17 */
-    /**
+    /*
      * if there are ony a view values (e.g. 4 times 1) rle only produces the same size then other
      * encodings. Since we want to force that all const streams use RLE encoding we use this current
      * workaround

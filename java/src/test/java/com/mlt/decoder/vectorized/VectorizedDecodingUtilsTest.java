@@ -110,7 +110,7 @@ public class VectorizedDecodingUtilsTest {
     var decodedValues = VectorizedDecodingUtils.decodeNullableZigZagDelta(bitVector, zigZagDeltas);
 
     assertEquals(expectedValues.length, decodedValues.length);
-    assertTrue(Arrays.equals(expectedValues, decodedValues));
+      assertArrayEquals(expectedValues, decodedValues);
   }
 
   @Test
@@ -127,7 +127,22 @@ public class VectorizedDecodingUtilsTest {
     var decodedValues = VectorizedDecodingUtils.decodeNullableZigZagDelta(bitVector, zigZagDeltas);
 
     assertEquals(expectedValues.length, decodedValues.length);
-    assertTrue(Arrays.equals(expectedValues, decodedValues));
+      assertArrayEquals(expectedValues, decodedValues);
+  }
+
+  @Test
+  void decodeUnsignedRLEVectorized() {
+    var values = new int[] {1, 1, 2, 2, 4, 5, 8, 8, 9};
+    var rleComponentBuffer = EncodingUtils.encodeRle(values);
+    var rleList = new ArrayList<>(rleComponentBuffer.getLeft());
+    rleList.addAll(rleComponentBuffer.getRight());
+    var rleBuffer = rleList.stream().mapToInt(i -> i).toArray();
+
+    var decodedValues =
+        VectorizedDecodingUtils.decodeUnsignedRleVectorized(
+            rleBuffer, rleComponentBuffer.getLeft().size(), values.length);
+
+    assertArrayEquals(values, decodedValues);
   }
 
   @Test
@@ -147,7 +162,7 @@ public class VectorizedDecodingUtilsTest {
             bitVector, rleBuffer, rleComponentBuffer.getLeft().size());
 
     assertEquals(expectedValues.length, decodedValues.capacity());
-    assertTrue(Arrays.equals(expectedValues, decodedValues.array()));
+      assertArrayEquals(expectedValues, decodedValues.array());
   }
 
   @Test
@@ -172,7 +187,7 @@ public class VectorizedDecodingUtilsTest {
             bitVector, rleBuffer, rleComponentBuffer.getLeft().size());
 
     assertEquals(expectedValues.length, decodedValues.capacity());
-    assertTrue(Arrays.equals(expectedValues, decodedValues.array()));
+      assertArrayEquals(expectedValues, decodedValues.array());
   }
 
   @Test
@@ -184,7 +199,7 @@ public class VectorizedDecodingUtilsTest {
         VectorizedDecodingUtils.decodeFastPfor(
             encodedValues, values.length, encodedValues.length, new IntWrapper(0));
 
-    assertTrue(Arrays.equals(values, decodedValues.array()));
+      assertArrayEquals(values, decodedValues.array());
   }
 
   @Test
@@ -195,7 +210,7 @@ public class VectorizedDecodingUtilsTest {
 
     VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(zigZagValues);
 
-    assertTrue(Arrays.equals(values, zigZagValues));
+      assertArrayEquals(values, zigZagValues);
   }
 
   @Test
@@ -209,6 +224,6 @@ public class VectorizedDecodingUtilsTest {
 
     VectorizedDecodingUtils.decodeComponentwiseDeltaVec2(zigZagValues);
 
-    assertTrue(Arrays.equals(values, zigZagValues));
+      assertArrayEquals(values, zigZagValues);
   }
 }

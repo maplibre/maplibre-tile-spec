@@ -130,9 +130,7 @@ public class CompressionBenchmarks {
     var columnMappings = Optional.of(List.of(columnMapping));
     var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
-    var allowIdRegeneration = false;
-    var optimization =
-        new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
+    var optimization = new FeatureTableOptimizations(allowSorting, false, columnMappings);
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
@@ -148,7 +146,12 @@ public class CompressionBenchmarks {
     if (reassignableLayers.isEmpty()) {
       /* Only test when the ids are not reassigned since it is verified based on the other tests */
       var decodedMlt = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-      TestUtils.compareTilesVectorized(decodedMlt, mvTile, allowSorting);
+      System.out.println("Comparing tiles: " + tilePath);
+      TestUtils.compareTilesVectorized(
+          decodedMlt,
+          mvTile,
+          allowSorting ? TestUtils.Optimization.SORTED : TestUtils.Optimization.NONE,
+          null);
     }
 
     var mvtSize = Files.readAllBytes(mvtFilePath).length;

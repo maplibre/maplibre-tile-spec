@@ -26,8 +26,9 @@ public class StringFsstDictionaryVector extends VariableSizeVector<String> {
       IntBuffer lengthBuffer,
       ByteBuffer dictionaryBuffer,
       IntBuffer symbolLengthBuffer,
-      ByteBuffer symbolTableBuffer) {
-    super(name, lengthBuffer, dictionaryBuffer);
+      ByteBuffer symbolTableBuffer,
+      int size) {
+    super(name, lengthBuffer, dictionaryBuffer, size);
     setBuffer(indexBuffer, symbolLengthBuffer, symbolTableBuffer);
   }
 

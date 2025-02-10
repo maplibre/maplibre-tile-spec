@@ -5,10 +5,10 @@ import com.mlt.vector.Vector;
 import java.nio.ByteBuffer;
 
 public class BooleanFlatVector extends Vector<ByteBuffer, Boolean> {
-  private BitVector dataVector;
+  private final BitVector dataVector;
 
-  public BooleanFlatVector(String name, BitVector dataVector) {
-    super(name, dataVector.getBuffer());
+  public BooleanFlatVector(String name, BitVector dataVector, int size) {
+    super(name, dataVector.getBuffer(), size);
     this.dataVector = dataVector;
   }
 

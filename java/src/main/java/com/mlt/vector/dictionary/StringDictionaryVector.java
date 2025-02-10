@@ -19,8 +19,12 @@ public class StringDictionaryVector extends VariableSizeVector<String> implement
   private int[] lazyOffsetBuffer;
 
   public StringDictionaryVector(
-      String name, IntBuffer indexBuffer, IntBuffer lengthBuffer, ByteBuffer dictionaryBuffer) {
-    super(name, lengthBuffer, dictionaryBuffer);
+      String name,
+      IntBuffer indexBuffer,
+      IntBuffer lengthBuffer,
+      ByteBuffer dictionaryBuffer,
+      int size) {
+    super(name, lengthBuffer, dictionaryBuffer, size);
     this.indexBuffer = indexBuffer;
   }
 
@@ -34,7 +38,18 @@ public class StringDictionaryVector extends VariableSizeVector<String> implement
     this.indexBuffer = indexBuffer;
   }
 
-  public static StringDictionaryVector createFromOffsetBuffer(
+  public static StringDictionaryVector createNonNullableVector(
+      String name,
+      IntBuffer indexBuffer,
+      IntBuffer offsetBuffer,
+      ByteBuffer dictionaryBuffer,
+      int size) {
+    var vector = new StringDictionaryVector(name, indexBuffer, null, dictionaryBuffer, size);
+    vector.offsetBuffer = offsetBuffer.array();
+    return vector;
+  }
+
+  public static StringDictionaryVector createNullableVector(
       String name,
       BitVector nullabilityBuffer,
       IntBuffer indexBuffer,
@@ -92,7 +107,7 @@ public class StringDictionaryVector extends VariableSizeVector<String> implement
 
       @Override
       public String next() {
-        if (nullabilityBuffer.isPresent() && !nullabilityBuffer.get().get(index)) {
+        if (nullabilityBuffer != null && !nullabilityBuffer.get(index)) {
           return null;
         }
 
@@ -121,8 +136,8 @@ public class StringDictionaryVector extends VariableSizeVector<String> implement
 
   public int size() {
     // TODO: change StringDictionaryVector to work with this encoding
-    return this.nullabilityBuffer.isPresent()
-        ? this.nullabilityBuffer.get().size()
+    return this.nullabilityBuffer != null
+        ? this.nullabilityBuffer.size()
         : this.indexBuffer.capacity();
   }
 

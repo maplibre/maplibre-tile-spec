@@ -17,7 +17,7 @@ public class FsstEncoder {
         switch (fsst) {
           case "java" -> new FsstJava();
           case "debug" -> new FsstDebug();
-          default -> new FsstJni();
+          default -> new FsstJava();
         };
   }
 
