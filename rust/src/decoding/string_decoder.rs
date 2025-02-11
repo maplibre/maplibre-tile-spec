@@ -259,4 +259,3 @@ impl StringDecoder {
         values
     }
 }
-

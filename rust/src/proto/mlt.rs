@@ -685,4 +685,3 @@ impl Default for OneOftype_pb {
 }
 
 }
-

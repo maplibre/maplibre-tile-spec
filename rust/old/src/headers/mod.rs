@@ -33,4 +33,3 @@ impl MLT {
         Self { feature_tables }
     }
 }
-

@@ -102,6 +102,3 @@ impl From<MultiPolygon> for Geometry {
         Self::MultiPolygon(x)
     }
 }
-
-
-
