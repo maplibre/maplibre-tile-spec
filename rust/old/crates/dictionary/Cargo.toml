@@ -1,0 +1,8 @@
+[package]
+name = "dictionary"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+maplibre-tile-spec = { path = "../../." }
+hashbrown = "0.14.5"
