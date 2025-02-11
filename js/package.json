@@ -46,7 +46,7 @@
     "jest-matcher-deep-close-to": "^3.0.2",
     "nyc": "^17.0.0",
     "pbf": "^3.2.1",
-    "prettier": "^3.3.3",
+    "prettier": "^3.4.2",
     "semver": "^7.6.3",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
