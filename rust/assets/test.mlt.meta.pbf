@@ -1,0 +1,41 @@
+]
+boundary
+id" 
+geometry* 
+admin:level" 
+disputed" 
+maritime" ¡
+
+water_name
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	»
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:int" 	
+
+name:latin" 	
+rank" 
+iso:a2" 	
+name:nonlatin" 	0
+water
+id" 
+geometry* 
+class" 	
