@@ -147,7 +147,6 @@ public:
         const auto& ringOffsets = geometryColumn.ringOffsets;
 
         if (vertices.empty()) {
-            MLT_LOG_WARN("Warning: Vertex list is empty, skipping geometry decoding");
             return {};
         }
 

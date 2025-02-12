@@ -3,7 +3,6 @@
 #include <mlt/polyfill.hpp>
 
 #include <cstdint>
-#include <iostream>
 #include <string_view>
 #include <type_traits>
 
@@ -27,7 +26,5 @@ template <typename T>
 struct underlying_type<T, true> : ::std::underlying_type<T> {};
 template <class T>
 using underlying_type_t = typename underlying_type<T>::type;
-
-#define MLT_LOG_WARN(s) std::cerr << s << '\n'
 
 } // namespace mlt
