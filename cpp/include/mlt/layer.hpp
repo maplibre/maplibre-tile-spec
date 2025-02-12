@@ -1,0 +1,43 @@
+#pragma once
+
+#include <mlt/feature.hpp>
+#include <mlt/properties.hpp>
+#include <mlt/util/noncopyable.hpp>
+
+#include <vector>
+
+namespace mlt {
+
+class Layer : public util::noncopyable {
+public:
+    using extent_t = std::uint32_t;
+
+    Layer() = delete;
+    Layer(std::string name_,
+          int version_,
+          extent_t extent_,
+          std::vector<Feature> features_,
+          PropertyVecMap properties_) noexcept
+        : name(std::move(name_)),
+          version(version_),
+          extent(extent_),
+          features(std::move(features_)),
+          properties(std::move(properties_)) {}
+
+    Layer(Layer&&) noexcept = default;
+    Layer& operator=(Layer&&) = delete;
+
+    const std::string& getName() const noexcept { return name; }
+    int getVersion() const noexcept { return version; }
+    extent_t getExtent() const noexcept { return extent; }
+    const std::vector<Feature>& getFeatures() const noexcept { return features; }
+
+private:
+    std::string name;
+    int version;
+    extent_t extent;
+    std::vector<Feature> features;
+    PropertyVecMap properties;
+};
+
+} // namespace mlt
