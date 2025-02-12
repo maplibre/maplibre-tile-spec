@@ -71,8 +71,6 @@ FetchContent_MakeAvailable(protozero)
 add_library(protozero INTERFACE)
 target_include_directories(protozero INTERFACE "${protozero_SOURCE_DIR}/include")
 
-target_link_libraries(mlt-cpp PRIVATE protozero)
-
 # SIMD Everywhere (needed on ARM)
 fetchcontent_declare(simde
   GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
@@ -116,4 +114,7 @@ else()
     message(STATUS "[MLT] No GeoJSON support")
 endif(MLT_WITH_JSON)
 
+target_link_libraries(mlt-cpp protozero FastPFOR)
+
 add_subdirectory(${PROJECT_SOURCE_DIR}/test)
+add_subdirectory(${PROJECT_SOURCE_DIR}/tool)

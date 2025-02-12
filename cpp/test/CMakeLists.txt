@@ -38,4 +38,4 @@ target_include_directories(mlt-cpp-test PRIVATE "${gtest_SOURCE_DIR}/googletest/
 
 target_include_directories(mlt-cpp-test PRIVATE "${fastpfor_SOURCE_DIR}/headers" "${fsst_SOURCE_DIR}")
 
-target_link_libraries(mlt-cpp-test PRIVATE mlt-cpp gtest_main FastPFOR fsst protozero)
+target_link_libraries(mlt-cpp-test mlt-cpp gtest_main FastPFOR fsst protozero)
