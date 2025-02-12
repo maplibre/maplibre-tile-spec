@@ -4,7 +4,6 @@
 
 #include <cassert>
 #include <type_traits>
-#include <vector>
 
 namespace mlt::util::decoding::vectorized {
 namespace {
@@ -32,12 +31,12 @@ T shift_and_xor(T t) {
 
 template <typename T>
     requires(std::is_integral_v<T> && sizeof(T) == 4)
-inline void decodeComponentwiseDeltaVec2(std::vector<T>& data) noexcept {
-    assert((data.size() % 2) == 0);
-    if (1 < data.size()) {
+inline void decodeComponentwiseDeltaVec2(T* const data, const std::size_t count) noexcept {
+    assert((count % 2) == 0);
+    if (1 < count) {
         data[0] = shift_and_xor(data[0]);
         data[1] = shift_and_xor(data[1]);
-        for (std::size_t i = 2; i + 1 < data.size(); i += 2) {
+        for (std::size_t i = 2; i + 1 < count; i += 2) {
             data[i] = shift_and_xor(data[i]) + data[i - 2];
             data[i + 1] = shift_and_xor(data[i + 1]) + data[i - 1];
         }

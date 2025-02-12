@@ -5,7 +5,6 @@
 
 #include <stdexcept>
 #include <type_traits>
-#include <vector>
 
 namespace mlt::util::decoding {
 
@@ -67,15 +66,8 @@ auto decodeVarints(BufferStream& buffer) {
 template <typename TDecode, typename TTarget = TDecode>
     requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
              sizeof(TDecode) <= sizeof(TTarget))
-void decodeVarints(BufferStream& buffer, count_t numValues, TTarget* out) {
+void decodeVarints(BufferStream& buffer, const count_t numValues, TTarget* out) {
     std::generate_n(out, numValues, [&buffer]() { return static_cast<TTarget>(decodeVarint<TDecode>(buffer)); });
-}
-
-template <typename TDecode, typename TTarget = TDecode>
-    requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
-             sizeof(TDecode) <= sizeof(TTarget))
-void decodeVarints(BufferStream& buffer, std::vector<TTarget>& out) {
-    decodeVarints<TDecode, TTarget>(buffer, out.size(), out.data());
 }
 
 } // namespace mlt::util::decoding

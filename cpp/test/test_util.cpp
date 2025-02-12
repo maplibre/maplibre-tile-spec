@@ -52,7 +52,7 @@ TEST(Util, ComponentwiseDeltaVec2) {
     for (std::size_t i = 0; i < componentwiseDeltaVec2Cases.size(); ++i) {
         const auto& [input, expected] = componentwiseDeltaVec2Cases[i];
         auto output = input;
-        decodeComponentwiseDeltaVec2(output);
+        decodeComponentwiseDeltaVec2(output.data(), output.size());
         EXPECT_EQ(output, expected);
     }
 }

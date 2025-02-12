@@ -123,23 +123,25 @@ template <typename T, typename TTarget = T, typename F = std::function<TTarget(T
              sizeof(T) <= sizeof(TTarget) && std::regular_invocable<F, T> &&
              std::is_same_v<std::invoke_result_t<F, T>, TTarget>)
 void decodeInt(
-    const std::vector<T>& in,
-    std::vector<TTarget>& out,
+    const T* const in,
+    const std::size_t inCount,
+    TTarget* const out,
+    const std::size_t outCount,
     const count_t numRuns,
     std::function<TTarget(T)> convert = [](T x) { return static_cast<TTarget>(x); }) {
     count_t inOffset = 0;
     count_t outOffset = 0;
     for (auto i = 0; i < numRuns; ++i) {
-        if (in.size() < inOffset + 2) {
+        if (inCount < inOffset + 2) {
             throw std::runtime_error("Unexpected end of buffer");
         }
         const T runLength = in[inOffset];
         const TTarget runValue = convert(in[inOffset++ + numRuns]);
-        if (out.size() < outOffset + runLength) {
+        if (outCount < outOffset + runLength) {
             throw std::runtime_error("Unexpected end of buffer");
         }
 
-        std::fill_n(std::next(out.begin(), outOffset), runLength, runValue);
+        std::fill_n(std::next(out, outOffset), runLength, runValue);
         outOffset += runLength;
     }
 }
