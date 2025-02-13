@@ -10,6 +10,15 @@ target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 
+set_target_properties(
+    mlt-cpp
+    PROPERTIES
+    INTERFACE_MAPLIBRE_NAME "MapLibre Tile Format"
+    INTERFACE_MAPLIBRE_URL "https://github.com/maplibre/maplibre-tile-spec"
+    INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
+    INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE-APACHE"
+)
+
 target_include_directories(mlt-cpp
     PUBLIC ${PROJECT_SOURCE_DIR}/include
     PRIVATE ${PROJECT_SOURCE_DIR}/src
