@@ -1,0 +1,17 @@
+[package]
+name = "mlt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "2.0.11"
+geozero = { version = "0.14", features = ["with-mvt"] }
+prost = "0.13.5"
+prost-types = "0.13.5"
+indexmap = "2.7.1"
+
+[build-dependencies]
+prost-build = "0.13.5"
+
+[lints.rust]
+dead_code = "allow"
