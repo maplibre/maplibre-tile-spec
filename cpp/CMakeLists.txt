@@ -16,7 +16,7 @@ set_target_properties(
     INTERFACE_MAPLIBRE_NAME "MapLibre Tile Format"
     INTERFACE_MAPLIBRE_URL "https://github.com/maplibre/maplibre-tile-spec"
     INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
-    INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE-APACHE"
+    INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
 )
 
 target_include_directories(mlt-cpp
