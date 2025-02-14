@@ -105,13 +105,8 @@ if(MLT_WITH_PROTOZERO)
         add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/protozero)
     endif()
 
-    # add_library(protozero INTERFACE)
-    # target_compile_definitions(protozero INTERFACE PROTOZERO_USE_VIEW=std::string_view)
     target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/protozero/include")
     target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view MLT_WITH_PROTOZERO=1)
-
-# target_include_directories(protozero INTERFACE "${PROJECT_SOURCE_DIR}/vendor/protozero/include")
-# target_link_libraries(mlt-cpp protozero)
 else()
     message(STATUS "[MLT] No Protozero")
 endif(MLT_WITH_PROTOZERO)
