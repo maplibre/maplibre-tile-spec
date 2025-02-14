@@ -1,5 +1,3 @@
-include(FetchContent)
-
 cmake_minimum_required(VERSION 3.12)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 15)
 project(mlt-cpp LANGUAGES CXX)
@@ -70,65 +68,65 @@ target_sources(mlt-cpp PRIVATE
     ${MLT_SRC_FILES}
 )
 
+# SIMD Everywhere (needed on ARM)
+target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
+
+# FastPFor
+set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
+    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fastpfor SYSTEM)
+else()
+    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fastpfor)
+    target_compile_options(FastPFOR PRIVATE "-Wno-cast-align")
+endif()
+
+target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
+
+# FSST
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
+    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fsst SYSTEM)
+else()
+    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fsst)
+endif()
+
+target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
+
 # Protozero
 if(MLT_WITH_PROTOZERO)
     message(STATUS "[MLT] Including Protozero")
     set(WERROR OFF)
     set(DOXYGEN_FOUND OFF)
     set(BUILD_TESTING OFF CACHE BOOL "Disable tests in protozero" FORCE)
-    fetchcontent_declare(protozero
-        GIT_REPOSITORY https://github.com/mapbox/protozero.git
-        GIT_TAG v1.8.0
-        EXCLUDE_FROM_ALL
-    )
-    FetchContent_MakeAvailable(protozero)
-    add_library(protozero INTERFACE)
-    target_compile_definitions(protozero INTERFACE PROTOZERO_USE_VIEW=std::string_view)
+
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
+        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/protozero SYSTEM)
+    else()
+        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/protozero)
+    endif()
+
+    # add_library(protozero INTERFACE)
+    # target_compile_definitions(protozero INTERFACE PROTOZERO_USE_VIEW=std::string_view)
+    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/protozero/include")
     target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view MLT_WITH_PROTOZERO=1)
-    target_include_directories(protozero INTERFACE "${protozero_SOURCE_DIR}/include")
-    target_link_libraries(mlt-cpp protozero)
+
+# target_include_directories(protozero INTERFACE "${PROJECT_SOURCE_DIR}/vendor/protozero/include")
+# target_link_libraries(mlt-cpp protozero)
 else()
     message(STATUS "[MLT] No Protozero")
 endif(MLT_WITH_PROTOZERO)
 
-# SIMD Everywhere (needed on ARM)
-fetchcontent_declare(simde
-    GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
-    GIT_TAG v0.8.2
-    EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(simde)
-
-# FastPFor
-set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
-fetchcontent_declare(fastpfor
-    GIT_REPOSITORY https://github.com/fast-pack/FastPFor.git
-    GIT_TAG v0.3.0
-    EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(fastpfor)
-target_include_directories(mlt-cpp PRIVATE "${simde_SOURCE_DIR}" "${fastpfor_SOURCE_DIR}/headers")
-target_compile_options(FastPFOR PRIVATE "-Wno-cast-align")
-
-# FSST
-fetchcontent_declare(fsst
-    GIT_REPOSITORY https://github.com/cwida/fsst.git
-    GIT_BRANCH main # no releases yet
-    EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(fsst)
-target_include_directories(mlt-cpp PRIVATE "${fsst_SOURCE_DIR}")
-
 # json
 if(MLT_WITH_JSON)
     message(STATUS "[MLT] Including GeoJSON support")
-    fetchcontent_declare(json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
-        GIT_TAG v3.11.3
-        EXCLUDE_FROM_ALL
-    )
-    FetchContent_MakeAvailable(json)
-    target_include_directories(mlt-cpp PUBLIC "${json_SOURCE_DIR}/include")
+
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
+        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/json SYSTEM)
+    else()
+        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/json)
+    endif()
+
+    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/json/include")
     target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_JSON=1)
 else()
     message(STATUS "[MLT] No GeoJSON support")
