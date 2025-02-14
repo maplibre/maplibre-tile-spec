@@ -81,7 +81,9 @@ else()
     target_compile_options(FastPFOR PRIVATE "-Wno-cast-align")
 endif()
 
+target_link_libraries(mlt-cpp FastPFOR)
 target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
+list(APPEND MLT_EXPORT_TARGETS FastPFOR)
 
 # FSST
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
@@ -95,13 +97,13 @@ target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
 # Protozero
 if(MLT_WITH_PROTOZERO)
     message(STATUS "[MLT] Including Protozero")
-    set(WERROR OFF)
-    set(DOXYGEN_FOUND OFF)
+    set(DOXYGEN_FOUND OFF CACHE BOOL "Disable doxygen in protozero" FORCE)
     set(BUILD_TESTING OFF CACHE BOOL "Disable tests in protozero" FORCE)
 
     if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
         add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/protozero SYSTEM)
     else()
+        set(WERROR OFF CACHE BOOL "Disable warnings in protozero" FORCE)
         add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/protozero)
     endif()
 
@@ -127,9 +129,9 @@ else()
     message(STATUS "[MLT] No GeoJSON support")
 endif(MLT_WITH_JSON)
 
-target_link_libraries(mlt-cpp FastPFOR)
-
 if(MLT_WITH_PROTOZERO)
     add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
 endif()
+
+export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)
