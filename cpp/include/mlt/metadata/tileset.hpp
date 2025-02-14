@@ -1,9 +1,5 @@
 #pragma once
 
-#if MLT_WITH_PROTOZERO
-#include <protozero/pbf_message.hpp>
-#endif
-
 #include <optional>
 #include <variant>
 #include <vector>
@@ -222,11 +218,5 @@ struct TileSetMetadata {
     std::optional<double> centerLon;
     std::optional<double> centerLat;
 };
-
-#if MLT_WITH_PROTOZERO
-/// Decode the tileset metadata from a protobuf message
-/// @throws protobuf::exception corrupted/truncated input data
-std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>);
-#endif
 
 } // namespace mlt::metadata::tileset

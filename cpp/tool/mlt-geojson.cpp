@@ -1,6 +1,9 @@
 #include <mlt/decoder.hpp>
 #include <mlt/metadata/tileset.hpp>
 
+#include <protozero/pbf_message.hpp>
+#include <mlt/metadata/tileset_protozero.hpp>
+
 #include <cstring>
 #include <iostream>
 #include <fstream>
