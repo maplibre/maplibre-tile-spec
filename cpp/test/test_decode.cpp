@@ -5,6 +5,9 @@
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/projection.hpp>
 
+#include <protozero/pbf_message.hpp>
+#include <mlt/metadata/tileset_protozero.hpp>
+
 #include <iostream>
 #include <filesystem>
 #include <fstream>
@@ -57,9 +60,11 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
 
 const auto basePath = "../test/expected"s;
 
+#if MLT_WITH_JSON
 auto dump(const nlohmann::json& json) {
     return json.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
 }
+#endif
 
 std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
     auto metadataBuffer = loadFile(path + ".meta.pbf");
@@ -68,9 +73,8 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
         return {};
     }
 
-    using mlt::metadata::tileset::TileSetMetadata;
-    TileSetMetadata metadata;
-    if (!metadata.read({metadataBuffer.data(), metadataBuffer.size()})) {
+    auto metadata = mlt::metadata::tileset::read({metadataBuffer.data(), metadataBuffer.size()});
+    if (!metadata) {
         std::cout << "    Failed to parse " + path + ".meta.pbf\n";
         return {};
     }
@@ -82,7 +86,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
     }
 
     mlt::decoder::Decoder decoder;
-    auto tile = decoder.decode({buffer.data(), buffer.size()}, metadata);
+    auto tile = decoder.decode({buffer.data(), buffer.size()}, *metadata);
 
 #if MLT_WITH_JSON
     // Load the GeoJSON file, if present

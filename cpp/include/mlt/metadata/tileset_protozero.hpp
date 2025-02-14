@@ -1,18 +1,24 @@
-#if MLT_WITH_PROTOZERO
+#pragma once
+
 #include <mlt/metadata/tileset.hpp>
-
-#include <protozero/pbf_message.hpp>
-
-#include <optional>
-#include <variant>
-#include <vector>
 
 namespace mlt::metadata::tileset {
 
-namespace {
+namespace detail {
+bool read(ScalarField&, protozero::pbf_message<schema::ScalarField>);
+bool read(ComplexField&, protozero::pbf_message<schema::ComplexField>);
+bool read(ScalarColumn&, protozero::pbf_message<schema::ScalarColumn>);
+bool read(Field&, protozero::pbf_message<schema::Field>);
+bool read(ComplexColumn&, protozero::pbf_message<schema::ComplexColumn>);
+bool read(Column&, protozero::pbf_message<schema::Column>);
+bool read(FeatureTableSchema&, protozero::pbf_message<schema::FeatureTableSchema>);
+} // namespace detail
 
-bool read(Field& field, protozero::pbf_message<schema::Field>);
+/// Decode the tileset metadata from a protobuf message
+/// @throws protobuf::exception corrupted/truncated input data
+std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>);
 
+namespace detail {
 bool read(ScalarField& field, protozero::pbf_message<schema::ScalarField> message) {
     bool hasPhysical = false;
     bool hasLogical = false;
@@ -201,8 +207,7 @@ bool read(FeatureTableSchema& schema, protozero::pbf_message<schema::FeatureTabl
     }
     return !schema.name.empty() && !schema.columns.empty();
 }
-
-} // namespace
+} // namespace detail
 
 std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata> message) {
     int boundCount = 0;
@@ -222,7 +227,7 @@ std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetada
             }
             case schema::TileSetMetadata::repeated_FeatureTableSchema_featureTables:
                 result.featureTables.resize(result.featureTables.size() + 1);
-                if (!read(result.featureTables.back(), message.get_message())) {
+                if (!detail::read(result.featureTables.back(), message.get_message())) {
                     return {};
                 }
                 break;
@@ -280,5 +285,3 @@ std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetada
 }
 
 } // namespace mlt::metadata::tileset
-
-#endif // MLT_WITH_PROTOZERO

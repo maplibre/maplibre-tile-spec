@@ -1,8 +1,8 @@
 include(FetchContent)
 
-cmake_minimum_required (VERSION 3.12)
+cmake_minimum_required(VERSION 3.12)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 15)
-project (mlt-cpp LANGUAGES CXX)
+project(mlt-cpp LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
@@ -24,7 +24,7 @@ target_include_directories(mlt-cpp
     PRIVATE ${PROJECT_SOURCE_DIR}/src
 )
 
-list(APPEND INCLUDE_FILES
+list(APPEND MLT_INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/common.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/decoder.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/feature.hpp
@@ -36,13 +36,14 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/tile.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/stream.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset_protozero.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/buffer_stream.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/packed_bitset.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/noncopyable.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
 )
 
-list(APPEND SRC_FILES
+list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/decoder.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/geometry.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/int.cpp
@@ -60,17 +61,13 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
 )
 
-if(MLT_WITH_PROTOZERO)
-    list(APPEND SRC_FILES ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp)
-endif(MLT_WITH_PROTOZERO)
-
 if(MLT_WITH_JSON)
-    list(APPEND INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/geojson.hpp)
+    list(APPEND MLT_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/geojson.hpp)
 endif(MLT_WITH_JSON)
 
 target_sources(mlt-cpp PRIVATE
-    ${INCLUDE_FILES}
-    ${SRC_FILES}
+    ${MLT_INCLUDE_FILES}
+    ${MLT_SRC_FILES}
 )
 
 # Protozero
@@ -96,14 +93,14 @@ endif(MLT_WITH_PROTOZERO)
 
 # SIMD Everywhere (needed on ARM)
 fetchcontent_declare(simde
-  GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
-  GIT_TAG v0.8.2
-  EXCLUDE_FROM_ALL
+    GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
+    GIT_TAG v0.8.2
+    EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(simde)
 
 # FastPFor
-set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE)  # The fastpfor gtest targets conflict with ours
+set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
 fetchcontent_declare(fastpfor
     GIT_REPOSITORY https://github.com/fast-pack/FastPFor.git
     GIT_TAG v0.3.0
@@ -139,7 +136,7 @@ endif(MLT_WITH_JSON)
 
 target_link_libraries(mlt-cpp FastPFOR)
 
-if(MLT_WITH_JSON AND MLT_WITH_PROTOZERO)
+if(MLT_WITH_PROTOZERO)
     add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
 endif()

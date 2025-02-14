@@ -27,7 +27,7 @@ jobs:
         run: cmake -B build -S .
 
       - name: Build the project
-        run: cmake --build build
+        run: cmake --build build --target mlt-cpp-test mlt-cpp-json
 
       - name: Run C++ tests
         run: build/test/mlt-cpp-test
