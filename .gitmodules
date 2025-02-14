@@ -1,0 +1,18 @@
+[submodule "cpp/vendor/googletest"]
+	path = cpp/test/vendor/googletest
+	url = https://github.com/google/googletest.git
+[submodule "cpp/vendor/protozero"]
+	path = cpp/vendor/protozero
+	url = https://github.com/mapbox/protozero.git
+[submodule "cpp/vendor/simde"]
+	path = cpp/vendor/simde
+	url = https://github.com/simd-everywhere/simde.git
+[submodule "cpp/vendor/fastpfor"]
+	path = cpp/vendor/fastpfor
+	url = https://github.com/fast-pack/FastPFor.git
+[submodule "cpp/vendor/fsst"]
+	path = cpp/vendor/fsst
+	url = https://github.com/cwida/fsst.git
+[submodule "cpp/vendor/json"]
+	path = cpp/vendor/json
+	url = https://github.com/nlohmann/json.git
