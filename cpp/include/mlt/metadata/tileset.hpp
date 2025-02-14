@@ -1,6 +1,8 @@
 #pragma once
 
+#if MLT_WITH_PROTOZERO
 #include <protozero/pbf_message.hpp>
+#endif
 
 #include <optional>
 #include <variant>
@@ -12,7 +14,7 @@ namespace mlt::metadata::tileset {
 // 4b92e986b5c5c1f4c3772a5cf7033fe5822deb5c
 namespace schema {
 
-enum class TileSetMetadata : protozero::pbf_tag_type {
+enum class TileSetMetadata : std::uint32_t {
     implicit_int32_version = 1,
     repeated_FeatureTableSchema_featureTables = 2,
     optional_string_name = 3,
@@ -24,13 +26,13 @@ enum class TileSetMetadata : protozero::pbf_tag_type {
     repeated_double_center = 9, // order longitude, latitude in WGS84
 };
 
-enum class FeatureTableSchema : protozero::pbf_tag_type {
+enum class FeatureTableSchema : std::uint32_t {
     implicit_string_name = 1,
     repeated_Column_columns = 2,
 };
 
 // Column are top-level types in the schema
-enum class Column : protozero::pbf_tag_type {
+enum class Column : std::uint32_t {
     implicit_string_name = 1,
     // specifies if the values are optional in the column and a present stream
     // should be used
@@ -41,7 +43,7 @@ enum class Column : protozero::pbf_tag_type {
     oneof_ComplexColumn_complexType = 5,
 };
 
-enum class ScalarColumn : protozero::pbf_tag_type {
+enum class ScalarColumn : std::uint32_t {
     oneof_ScalarType_physicalType = 4,
     oneof_LogicalScalarType_logicalType = 5,
 };
@@ -49,7 +51,7 @@ enum class ScalarColumn : protozero::pbf_tag_type {
 // The type tree is flattened in to a list via a pre-order traversal
 // Represents a column if it is a root (top-level) type or a child of a nested
 // type
-enum class ComplexColumn : protozero::pbf_tag_type {
+enum class ComplexColumn : std::uint32_t {
     oneof_ComplexType_physicalType = 4,
     oneof_LogicalComplexType_logicalType = 5,
 
@@ -61,7 +63,7 @@ enum class ComplexColumn : protozero::pbf_tag_type {
 
 // Fields define nested or leaf types in the schema as part of a complex type
 // definition
-enum class Field : protozero::pbf_tag_type {
+enum class Field : std::uint32_t {
     // name and nullable are only needed in combination with a struct not for vec,
     // list and map
     // Map -> has the order key type, value type
@@ -72,12 +74,12 @@ enum class Field : protozero::pbf_tag_type {
     oneof_ComplexField_complexField = 4,
 };
 
-enum class ScalarField : protozero::pbf_tag_type {
+enum class ScalarField : std::uint32_t {
     oneof_ScalarType_physicalType = 1,
     oneof_LogicalScalarType_logicalType = 2,
 };
 
-enum class ComplexField : protozero::pbf_tag_type {
+enum class ComplexField : std::uint32_t {
     oneof_ComplexType_physicalType = 1,
     oneof_LogicalComplexType_logicalType = 2,
     repeated_Field_children = 3,
@@ -157,8 +159,6 @@ enum class GeometryType {
 
 struct ScalarField {
     std::variant<ScalarType, LogicalScalarType> type;
-
-    bool read(protozero::pbf_message<schema::ScalarField>);
 };
 
 struct Field;
@@ -166,8 +166,6 @@ struct Field;
 struct ComplexField {
     std::variant<ComplexType, LogicalComplexType> type;
     std::vector<Field> children;
-
-    bool read(protozero::pbf_message<schema::ComplexField>);
 };
 
 // Fields define nested or leaf types in the schema as part of a complex type
@@ -178,14 +176,10 @@ struct Field {
     std::string name;
     bool nullable = false;
     std::variant<ScalarField, ComplexField> field;
-
-    bool read(protozero::pbf_message<schema::Field>);
 };
 
 struct ScalarColumn {
     std::variant<ScalarType, LogicalScalarType> type;
-
-    bool read(protozero::pbf_message<schema::ScalarColumn>);
 };
 
 // The type tree is flattened in to a list via a pre-order traversal
@@ -198,8 +192,6 @@ struct ComplexColumn {
     // since there layout is implicit known. RangeMap has only one child
     // specifying the type of the value since the key is always a vec2<double>.
     std::vector<Field> children;
-
-    bool read(protozero::pbf_message<schema::ComplexColumn>);
 };
 
 // Column are top-level types in the schema
@@ -208,15 +200,11 @@ struct Column {
     bool nullable = false;
     ColumnScope columnScope = ColumnScope::FEATURE;
     std::variant<ScalarColumn, ComplexColumn> type;
-
-    bool read(protozero::pbf_message<schema::Column>);
 };
 
 struct FeatureTableSchema {
     std::string name;
     std::vector<Column> columns;
-
-    bool read(protozero::pbf_message<schema::FeatureTableSchema>);
 };
 
 struct TileSetMetadata {
@@ -233,10 +221,12 @@ struct TileSetMetadata {
     std::optional<double> boundTop;
     std::optional<double> centerLon;
     std::optional<double> centerLat;
-
-    /// Decode the tileset metadata from a protobuf message
-    /// @throws protobuf::exception corrupted/truncated input data
-    bool read(protozero::pbf_message<schema::TileSetMetadata>);
 };
+
+#if MLT_WITH_PROTOZERO
+/// Decode the tileset metadata from a protobuf message
+/// @throws protobuf::exception corrupted/truncated input data
+std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>);
+#endif
 
 } // namespace mlt::metadata::tileset

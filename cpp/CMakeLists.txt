@@ -6,9 +6,9 @@ project (mlt-cpp LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
-target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
+option(MLT_WITH_PROTOZERO "Include Protozero decoding of tileset metadata" ON)
 
 set_target_properties(
     mlt-cpp
@@ -29,7 +29,6 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/decoder.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/feature.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/geometry.hpp
-    ${PROJECT_SOURCE_DIR}/include/mlt/geojson.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/layer.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/polyfill.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/projection.hpp
@@ -52,7 +51,6 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/string.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/feature.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
@@ -62,23 +60,39 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
 )
 
+if(MLT_WITH_PROTOZERO)
+    list(APPEND SRC_FILES ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp)
+endif(MLT_WITH_PROTOZERO)
+
+if(MLT_WITH_JSON)
+    list(APPEND INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/geojson.hpp)
+endif(MLT_WITH_JSON)
+
 target_sources(mlt-cpp PRIVATE
     ${INCLUDE_FILES}
     ${SRC_FILES}
 )
 
 # Protozero
-set(WERROR OFF)
-set(DOXYGEN_FOUND OFF)
-set(BUILD_TESTING OFF CACHE BOOL "Disable tests in protozero" FORCE)
-fetchcontent_declare(protozero
-    GIT_REPOSITORY https://github.com/mapbox/protozero.git
-    GIT_TAG v1.8.0
-    EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(protozero)
-add_library(protozero INTERFACE)
-target_include_directories(protozero INTERFACE "${protozero_SOURCE_DIR}/include")
+if(MLT_WITH_PROTOZERO)
+    message(STATUS "[MLT] Including Protozero")
+    set(WERROR OFF)
+    set(DOXYGEN_FOUND OFF)
+    set(BUILD_TESTING OFF CACHE BOOL "Disable tests in protozero" FORCE)
+    fetchcontent_declare(protozero
+        GIT_REPOSITORY https://github.com/mapbox/protozero.git
+        GIT_TAG v1.8.0
+        EXCLUDE_FROM_ALL
+    )
+    FetchContent_MakeAvailable(protozero)
+    add_library(protozero INTERFACE)
+    target_compile_definitions(protozero INTERFACE PROTOZERO_USE_VIEW=std::string_view)
+    target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view MLT_WITH_PROTOZERO=1)
+    target_include_directories(protozero INTERFACE "${protozero_SOURCE_DIR}/include")
+    target_link_libraries(mlt-cpp protozero)
+else()
+    message(STATUS "[MLT] No Protozero")
+endif(MLT_WITH_PROTOZERO)
 
 # SIMD Everywhere (needed on ARM)
 fetchcontent_declare(simde
@@ -123,7 +137,9 @@ else()
     message(STATUS "[MLT] No GeoJSON support")
 endif(MLT_WITH_JSON)
 
-target_link_libraries(mlt-cpp protozero FastPFOR)
+target_link_libraries(mlt-cpp FastPFOR)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/test)
-add_subdirectory(${PROJECT_SOURCE_DIR}/tool)
+if(MLT_WITH_JSON AND MLT_WITH_PROTOZERO)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
+endif()

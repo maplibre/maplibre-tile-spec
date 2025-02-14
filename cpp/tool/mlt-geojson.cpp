@@ -42,9 +42,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    using mlt::metadata::tileset::TileSetMetadata;
-    TileSetMetadata metadata;
-    if (!metadata.read({metadataBuffer.data(), metadataBuffer.size()})) {
+    // using mlt::metadata::tileset::TileSetMetadata;
+    const auto metadata = mlt::metadata::tileset::read({metadataBuffer.data(), metadataBuffer.size()});
+    if (!metadata) {
         std::cout << "Failed to parse " + baseName + ".meta.pbf\n";
         return 1;
     }
@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
     }
 
     mlt::decoder::Decoder decoder;
-    const auto tileData = decoder.decode({buffer.data(), buffer.size()}, metadata);
+    const auto tileData = decoder.decode({buffer.data(), buffer.size()}, *metadata);
     const auto tileJSON = mlt::GeoJSON::toGeoJSON(tileData, {3, 5, 7});
     std::cout << tileJSON.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
 
