@@ -69,30 +69,30 @@ target_sources(mlt-cpp PRIVATE
 )
 
 # SIMD Everywhere (needed on ARM)
-target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
+target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/../vendor/simde")
 
 # FastPFor
 set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fastpfor SYSTEM)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" SYSTEM)
 else()
-    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fastpfor)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor")
     target_compile_options(FastPFOR PRIVATE "-Wno-cast-align")
 endif()
 
 target_link_libraries(mlt-cpp FastPFOR)
-target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
+target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/fastpfor/headers")
 list(APPEND MLT_EXPORT_TARGETS FastPFOR)
 
 # FSST
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fsst SYSTEM)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fsst" "${CMAKE_CURRENT_BINARY_DIR}/fsst" SYSTEM)
 else()
-    add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/fsst)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fsst" "${CMAKE_CURRENT_BINARY_DIR}/fsst")
 endif()
 
-target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
+target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/fsst")
 
 # Protozero
 if(MLT_WITH_PROTOZERO)
@@ -101,13 +101,13 @@ if(MLT_WITH_PROTOZERO)
     set(BUILD_TESTING OFF CACHE BOOL "Disable tests in protozero" FORCE)
 
     if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/protozero SYSTEM)
+        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/protozero" "${CMAKE_CURRENT_BINARY_DIR}/protozero" SYSTEM)
     else()
         set(WERROR OFF CACHE BOOL "Disable warnings in protozero" FORCE)
-        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/protozero)
+        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/protozero" "${CMAKE_CURRENT_BINARY_DIR}/protozero")
     endif()
 
-    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/protozero/include")
+    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/protozero/include")
     target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view MLT_WITH_PROTOZERO=1)
 else()
     message(STATUS "[MLT] No Protozero")
@@ -118,12 +118,13 @@ if(MLT_WITH_JSON)
     message(STATUS "[MLT] Including GeoJSON support")
 
     if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/json SYSTEM)
+        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/json" "${CMAKE_CURRENT_BINARY_DIR}/json" SYSTEM)
     else()
-        add_subdirectory(${PROJECT_SOURCE_DIR}/vendor/json)
+        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/json" "${CMAKE_CURRENT_BINARY_DIR}/json")
     endif()
 
-    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/json/include")
+    set(json_SOURCE_DIR "${PROJECT_SOURCE_DIR}/../vendor/json")
+    target_include_directories(mlt-cpp PUBLIC "${json_SOURCE_DIR}/include")
     target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_JSON=1)
 else()
     message(STATUS "[MLT] No GeoJSON support")
