@@ -27,9 +27,9 @@ set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../../vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/../googletest" SYSTEM)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/../../vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/../googletest" EXCLUDE_FROM_ALL SYSTEM)
 else()
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../../vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/../googletest")
+    add_subdirectory("${PROJECT_SOURCE_DIR}/../../vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/../googletest" EXCLUDE_FROM_ALL)
 endif()
 
 target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
