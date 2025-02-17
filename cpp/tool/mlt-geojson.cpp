@@ -58,9 +58,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    mlt::decoder::Decoder decoder;
+    mlt::Decoder decoder;
     const auto tileData = decoder.decode({buffer.data(), buffer.size()}, *metadata);
-    const auto tileJSON = mlt::GeoJSON::toGeoJSON(tileData, {3, 5, 7});
+    const auto tileJSON = mlt::geojson::toGeoJSON(tileData, {3, 5, 7});
     std::cout << tileJSON.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
 
     return 0;

@@ -5,7 +5,6 @@
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/projection.hpp>
 
-#include <protozero/pbf_message.hpp>
 #include <mlt/metadata/tileset_protozero.hpp>
 
 #include <iostream>
@@ -85,7 +84,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
         return {};
     }
 
-    mlt::decoder::Decoder decoder;
+    mlt::Decoder decoder;
     auto tile = decoder.decode({buffer.data(), buffer.size()}, *metadata);
 
 #if MLT_WITH_JSON
@@ -97,7 +96,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
             jsonBuffer, nullptr, /*allow_exceptions=*/false, /*ignore_comments=*/true);
 
         // Convert the tile we loaded to GeoJSON
-        const auto actualJSON = mlt::GeoJSON::toGeoJSON(tile, {3, 5, 7});
+        const auto actualJSON = mlt::geojson::toGeoJSON(tile, {3, 5, 7});
 
         // Compare the two
         const auto diffJSON = mlt::util::diff(expectedJSON, actualJSON, {});

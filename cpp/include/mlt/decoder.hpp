@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-namespace mlt::decoder {
+namespace mlt {
 
 class Decoder : public util::noncopyable {
 public:
@@ -33,4 +33,4 @@ private:
                                       const PropertyVecMap&);
 };
 
-} // namespace mlt::decoder
+} // namespace mlt
