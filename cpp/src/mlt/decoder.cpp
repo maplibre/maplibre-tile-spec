@@ -18,8 +18,9 @@
 #include <stdexcept>
 #include "mlt/geometry.hpp"
 
-namespace mlt::decoder {
+namespace mlt {
 
+using namespace decoder;
 using namespace util::decoding;
 
 namespace {
@@ -202,4 +203,4 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
     });
 }
 
-} // namespace mlt::decoder
+} // namespace mlt

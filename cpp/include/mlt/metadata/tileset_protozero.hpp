@@ -2,16 +2,18 @@
 
 #include <mlt/metadata/tileset.hpp>
 
+#include <protozero/pbf_message.hpp>
+
 namespace mlt::metadata::tileset {
 
 namespace detail {
-bool read(ScalarField&, protozero::pbf_message<schema::ScalarField>);
-bool read(ComplexField&, protozero::pbf_message<schema::ComplexField>);
-bool read(ScalarColumn&, protozero::pbf_message<schema::ScalarColumn>);
-bool read(Field&, protozero::pbf_message<schema::Field>);
-bool read(ComplexColumn&, protozero::pbf_message<schema::ComplexColumn>);
-bool read(Column&, protozero::pbf_message<schema::Column>);
-bool read(FeatureTableSchema&, protozero::pbf_message<schema::FeatureTableSchema>);
+inline bool read(ScalarField&, protozero::pbf_message<schema::ScalarField>);
+inline bool read(ComplexField&, protozero::pbf_message<schema::ComplexField>);
+inline bool read(ScalarColumn&, protozero::pbf_message<schema::ScalarColumn>);
+inline bool read(Field&, protozero::pbf_message<schema::Field>);
+inline bool read(ComplexColumn&, protozero::pbf_message<schema::ComplexColumn>);
+inline bool read(Column&, protozero::pbf_message<schema::Column>);
+inline bool read(FeatureTableSchema&, protozero::pbf_message<schema::FeatureTableSchema>);
 } // namespace detail
 
 /// Decode the tileset metadata from a protobuf message
@@ -209,7 +211,7 @@ bool read(FeatureTableSchema& schema, protozero::pbf_message<schema::FeatureTabl
 }
 } // namespace detail
 
-std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata> message) {
+inline std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata> message) {
     int boundCount = 0;
     int centerCount = 0;
     TileSetMetadata result;

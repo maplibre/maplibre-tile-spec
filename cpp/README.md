@@ -11,7 +11,7 @@ CMake only build support.
 ## Build
 
 ```bash
-cmake -GNinja -Bbuild2 -S. && cmake --build build2 --target mlt-cpp-test mlt-cpp-json
+cmake -GNinja -Bbuild -S. && cmake --build build --target mlt-cpp-test mlt-cpp-json
 ```
 
 ## Use
@@ -27,15 +27,14 @@ To decode a tile:
 #include <mlt/metadata/tileset.hpp>
 
 // If using protozero to decode protobuf-encoded tileset metadata
-#include <protozero/pbf_message.hpp>
 #include <mlt/metadata/tileset_protozero.hpp>
 
-
 ...
+
 auto metadataBuffer = ...
 auto metadata = mlt::metadata::tileset::read({metadataBuffer.data(), metadataBuffer.size()});
 
-mlt::decoder::Decoder decoder;
+mlt::Decoder decoder;
 const auto tileData = decoder.decode({buffer.data(), buffer.size()}, metadata);
 ```
 
