@@ -72,16 +72,10 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
         return {};
     }
 
-    using mlt::metadata::tileset::schema::TileSetMetadata;
-    auto message = protozero::pbf_message<TileSetMetadata>(metadataBuffer.data(), metadataBuffer.size());
-    auto metadata = mlt::metadata::tileset::read(message);
+    auto metadata = mlt::metadata::tileset::read({metadataBuffer.data(), metadataBuffer.size()});
     if (!metadata) {
         std::cout << "    Failed to parse " + path + ".meta.pbf\n";
         return {};
-    }
-
-    if (message.length()) {
-        std::cerr << "Extra bytes after metadata: " + std::to_string(message.length()) + "\n";
     }
 
     auto buffer = loadFile(path);
