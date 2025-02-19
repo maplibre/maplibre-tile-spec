@@ -18,7 +18,7 @@ inline bool read(FeatureTableSchema&, protozero::pbf_message<schema::FeatureTabl
 
 /// Decode the tileset metadata from a protobuf message
 /// @throws protobuf::exception corrupted/truncated input data
-std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>);
+std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>&);
 
 namespace detail {
 bool read(ScalarField& field, protozero::pbf_message<schema::ScalarField> message) {
@@ -211,7 +211,7 @@ bool read(FeatureTableSchema& schema, protozero::pbf_message<schema::FeatureTabl
 }
 } // namespace detail
 
-inline std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata> message) {
+inline std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>& message) {
     int boundCount = 0;
     int centerCount = 0;
     TileSetMetadata result;
