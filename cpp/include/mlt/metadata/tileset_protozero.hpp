@@ -20,6 +20,10 @@ inline bool read(FeatureTableSchema&, protozero::pbf_message<schema::FeatureTabl
 /// @throws protobuf::exception corrupted/truncated input data
 std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>&);
 
+inline std::optional<TileSetMetadata> read(const protozero::pbf_message<schema::TileSetMetadata>& message) {
+    return read({message});
+}
+
 namespace detail {
 bool read(ScalarField& field, protozero::pbf_message<schema::ScalarField> message) {
     bool hasPhysical = false;
