@@ -17,7 +17,7 @@ inline bool read(FeatureTableSchema&, protozero::pbf_message<schema::FeatureTabl
 } // namespace detail
 
 /// Decode the tileset metadata from a protobuf message
-/// @throws protobuf::exception corrupted/truncated input data
+/// @throws `protozero::exception` corrupted/truncated input data
 std::optional<TileSetMetadata> read(protozero::pbf_message<schema::TileSetMetadata>);
 
 namespace detail {

@@ -48,6 +48,10 @@ public:
                     uint64_t copyBytes = std::min(static_cast<uint64_t>(count - i),
                                                   static_cast<uint64_t>(bufferEnd - bufferStart));
                     std::copy(bufferStart, bufferStart + copyBytes, data + position + i);
+                    if (!copyBytes) {
+                        // prevent infinite loop
+                        throw std::runtime_error("Unexpected end of buffer");
+                    }
                     bufferStart += copyBytes;
                     i += copyBytes;
                 }
@@ -67,12 +71,12 @@ private:
     }
 
     void readHeader() {
-        const char ch = readByte();
-        if (ch < 0) {
-            remainingValues = static_cast<std::size_t>(-ch);
+        const std::uint8_t ch = readByte();
+        if (ch & (1 << 7)) {
+            remainingValues = (ch ^ 0xff) + 1;
             repeating = false;
         } else {
-            remainingValues = static_cast<std::size_t>(ch) + MINIMUM_REPEAT;
+            remainingValues = ch + MINIMUM_REPEAT;
             repeating = true;
             value = readByte();
         }
