@@ -46,15 +46,17 @@ static inline std::optional<std::size_t> nextSetBit(const PackedBitset& bits,
             }
         }
 
-        for (; byteIndex < bits.size(); result += 8, byte = bits[byteIndex]) {
+        while (byteIndex < bits.size()) {
             // If this byte is non-zero, the next bit is within it
             if (byte) {
                 const auto ffs = std::countr_zero(byte);
-                assert(ffs < 8);
                 return result + ffs;
             }
             // Continue to the next byte
-            ++byteIndex;
+            if (++byteIndex < bits.size()) {
+                byte = bits[byteIndex];
+                result += 8;
+            }
         }
     }
     return {};
