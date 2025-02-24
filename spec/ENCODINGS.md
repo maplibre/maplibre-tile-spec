@@ -4,7 +4,7 @@
 
 No compression technique is applied on the data.
 Depending on the data type the data are stored in the following format:
-- Boolean: 
+- Boolean:
 - Integer: Little Endian byte order
 - Long: Little Endian byte order
 - Float: IEEE754 floating point numbers in Little Endian byte order
@@ -27,7 +27,7 @@ for implementation details.
 ## Dictionary Encoding
 
 Dictionary encoding is used to compactly represent repeated values and can be applied to ``String`` and ``Geometry`` columns.
-In addition to the actual distinct values stored in the `dictionary` stream, a separate `data` stream for the indices 
+In addition to the actual distinct values stored in the `dictionary` stream, a separate `data` stream for the indices
 into the dictionary is used.
 
 ### String Dictionary Encoding
@@ -43,7 +43,7 @@ All streams can be further compressed by recursively applying lightweight encodi
 
 #### FSST Dictionary Encoding
 
-Dictionary encoding needs fully repeating strings to reduce size. 
+Dictionary encoding needs fully repeating strings to reduce size.
 However, the attributes of geospatial data often contains strings which share a common prefix but are not completely equal
 such as the localized country names.
 FSST replaces frequently occurring substrings while maintaining support for efficient scans and random look-ups.
@@ -52,14 +52,14 @@ A FSST Dictionary encoded nullable string column contains of the following strea
 Present, SymbolLength, SymbolTable, String Length, Dictionary (Compressed Corpus)
 For implementation details see [the following paper](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf)
 
-Available implementations: 
+Available implementations:
 - C++: https://github.com/cwida/fsst
 - Java: Work in Progress
 - Js/WebAssembly decoder: Work in Progress (simple to implement)
 
 #### Shared Dictionary Encoding
 
-A Shared dictionary encoding can be used, to share a common dictionary between the columns. 
+A Shared dictionary encoding can be used, to share a common dictionary between the columns.
 In addition, nested fields can use a shared dictionary encoding, to share a common dictionary between the fields.
 This can be applied for example on localized values of the name:* columns of an OSM dataset that can be identical across fields.
 If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
@@ -74,7 +74,7 @@ SymbolLength, SymbolTable, String Length, Dictionary (Compressed Corpus), Presen
 ### Vertex Dictionary Encoding
 
 Uses an additional ``VertexOffsets`` stream for storing the indices to the coordinates of the vertices
-in the `VertexBuffer` stream. The vertices in the VertexBuffer are sorted on a Hilbert-Curve 
+in the `VertexBuffer` stream. The vertices in the VertexBuffer are sorted on a Hilbert-Curve
 and delta encoded in combination with a null suppression technique.
 
 #### Morton Vertex Dictionary Encoding
@@ -85,7 +85,7 @@ an Integer compression technique.
 
 ## Integer Encodings
 
-In general most data in MLT are stored in the form of arrays of integers. 
+In general most data in MLT are stored in the form of arrays of integers.
 Using efficient and fast algorithms for compressing arrays of integers is therefore crucial.
 
 ### Logical Level Technique
