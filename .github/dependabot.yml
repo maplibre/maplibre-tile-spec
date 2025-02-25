@@ -17,16 +17,40 @@ updates:
     schedule:
       interval: daily
       time: "02:00"
-    open-pull-requests-limit: 10
+    groups:
+      all-actions-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      all-actions-security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
   - package-ecosystem: "npm"
     directory: "/js"
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 20
     versioning-strategy: increase
+    groups:
+      all-actions-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      all-actions-security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
   - package-ecosystem: cargo
     directory: "/rust"
     schedule:
       interval: daily
       time: "02:00"
-    open-pull-requests-limit: 10
+    groups:
+      all-actions-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      all-actions-security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"

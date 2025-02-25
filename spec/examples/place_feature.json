@@ -5,16 +5,16 @@
     "id": { "type": "integer" },
     "geometry": { "type": "MultiPolygon" },
 	 "properties": {
-		"type": "object", 
+		"type": "object",
 		"properties": {
 			"speed": { "type": "number" },
 			"rank": { "type": "integer" },
-			"name": { 
-				"type": "object", 
+			"name": {
+				"type": "object",
 				"properties": {
 					"en": { "type": "string" },
 					"de": { "type": "string" }
-					
+
 				},
 				"required": ["en"]
 			}

@@ -28,7 +28,7 @@ jobs:
         uses: EndBug/version-check@v2
         with:
           file-name: js/package.json
-          
+
     outputs:
       publish: ${{ steps.check.outputs.changed }}
 
