@@ -1,6 +1,7 @@
 import {FastPFORDecoder} from "../../../../../src/encodings/fastpfor";
 import {arraycopy} from "../../../../../src/encodings/fastpfor/util";
 import fs from "fs";
+import {DecodingUtils} from "../../../../../src/decoder/DecodingUtils";
 
 const uncompressed1: Uint32Array = new Uint32Array([187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4]);
 const uncompressed2: Uint32Array = new Uint32Array([1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4, 1871143144, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7984, 4, 4, 4, 4, 4, 4, 4, 4]);
@@ -55,7 +56,10 @@ describe("FastPFor", () => {
             uncompressed[i] = i;
         }
 
-        testFastPforDecompress(compressed, uncompressed);
+        const zigzag = Array.from(compressed);
+        DecodingUtils.decodeZigZagArray(zigzag);
+
+        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
     });
 
     it("should decode stepped ascending values", async () => {
@@ -69,6 +73,29 @@ describe("FastPFor", () => {
                 uncompressed[i] = i % 4096;
         }
 
-        testFastPforDecompress(compressed, uncompressed);
+        const zigzag = Array.from(compressed);
+        DecodingUtils.decodeZigZagArray(zigzag);
+
+        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
+    });
+
+    it("should decode real x values", async () => {
+        const uncompressed = new Uint32Array(fs.readFileSync("./test/data/realx_raw.bin").buffer);
+        const compressed = new Uint32Array(fs.readFileSync("./test/data/realx_fastpfor.bin").buffer);
+
+        const zigzag = Array.from(compressed);
+        DecodingUtils.decodeZigZagArray(zigzag);
+
+        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
+    });
+
+    it("should decode real y values", async () => {
+        const uncompressed = new Uint32Array(fs.readFileSync("./test/data/realy_raw.bin").buffer);
+        const compressed = new Uint32Array(fs.readFileSync("./test/data/realy_fastpfor.bin").buffer);
+
+        const zigzag = Array.from(compressed);
+        DecodingUtils.decodeZigZagArray(zigzag);
+
+        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
     });
 });

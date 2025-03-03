@@ -13,7 +13,7 @@ const FASTPFOR_ENCODED_VALUES = new Uint32Array(fs.readFileSync("test/data/250k_
 const fastPfor = FastPFOR.default();
 const varint = VarInt.default();
 const fastpfor_output: Uint32Array = new Uint32Array(250_000);
-const varint_output: Uint32Array = new Uint32Array(250_000);
+let varint_output: Uint32Array = new Uint32Array(250_000);
 
 suite.add("FastPFOR decoding", function () {
     fastPfor.uncompress({
@@ -25,9 +25,8 @@ suite.add("FastPFOR decoding", function () {
     });
 })
     .add("VarInt decoding", function () {
-        varint.uncompress({
+        varint_output = varint.uncompress({
             input: VARINT_ENCODED_VALUES,
-            output: varint_output,
         });
     })
     .on('cycle', (event: Benchmark.Event) => {
