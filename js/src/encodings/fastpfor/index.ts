@@ -3,6 +3,9 @@ import {FastPFOR} from "./fastpfor";
 import {VarInt} from "./varint";
 
 
+// When in doubt use FastPFORDecoder
+
+
 export class SkippableComposition implements SkippableIntegerCODEC {
     F1: SkippableIntegerCODEC
     F2: SkippableIntegerCODEC
