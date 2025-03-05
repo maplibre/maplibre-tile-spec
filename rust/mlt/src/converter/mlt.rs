@@ -1,27 +1,40 @@
-use std::u64;
-
 use crate::converter::mvt::MapboxVectorTile;
-use crate::error::MltError;
+use crate::data::{Feature, Value};
 use crate::metadata::proto_tileset::{
-    column, complex_column::Type::PhysicalType, field, scalar_column, Column, ColumnScope,
-    ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn, ScalarType,
-    TileSetMetadata,
+    column, complex_column::Type::PhysicalType, field, scalar_column, scalar_field, Column,
+    ColumnScope, ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn, ScalarField,
+    ScalarType, TileSetMetadata,
 };
-use crate::metadata::proto_tileset::{scalar_field, ScalarField};
+use crate::metadata::PhysicalLevelTechnique;
+use crate::mvt::ColumnMapping;
 use crate::MltResult;
-use geozero::mvt;
-use indexmap::IndexMap;
+use geo_types::Geometry;
 
-use super::mvt::ColumnMapping;
+use indexmap::IndexMap;
+use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct FeatureTableOptimizations {
+    pub allow_sorting: bool,
+    pub allow_id_regeneration: bool,
+    pub column_mappings: Option<Vec<ColumnMapping>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConversionConfig {
+    pub include_ids: bool,
+    pub use_advanced_encoding_schemes: bool,
+    pub optimizations: HashMap<String, FeatureTableOptimizations>,
+}
 
 const VERSION: i32 = 1;
 const ID_COLUMN_NAME: &str = "id";
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
-fn create_tileset_metadata(
-    mvt: MapboxVectorTile,
+pub fn create_tileset_metadata(
+    mut mvt: MapboxVectorTile,
     is_id_present: bool,
-    column_mappings: Option<Vec<ColumnMapping>>,
+    column_mappings: Option<&[ColumnMapping]>,
 ) -> MltResult<TileSetMetadata> {
     let mut tileset = TileSetMetadata {
         version: VERSION,
@@ -35,7 +48,7 @@ fn create_tileset_metadata(
         center: Vec::new(),
     };
 
-    for layer in &mvt.layers {
+    for layer in &mut mvt.layers {
         let mut feature_table_scheme: IndexMap<String, Column> = IndexMap::new();
 
         if is_id_present {
@@ -44,10 +57,7 @@ fn create_tileset_metadata(
                 nullable: false,
                 column_scope: ColumnScope::Feature.into(),
                 r#type: {
-                    if layer.features.iter().all(|f| match f.id {
-                        Some(id) => id <= i32::MAX as u64,
-                        None => false,
-                    }) {
+                    if layer.features.iter().all(|f| f.id <= i32::MAX as i64) {
                         Some(column::Type::ScalarType(ScalarColumn {
                             r#type: Some(scalar_column::Type::PhysicalType(
                                 ScalarType::Uint32 as i32,
@@ -76,147 +86,144 @@ fn create_tileset_metadata(
         };
         feature_table_scheme.insert(GEOMETRY_COLUMN_NAME.to_string(), geometry_data);
 
-        let mut properties: Vec<(String, mvt::tile::Value)> = layer
-            .keys
-            .iter()
-            .zip(layer.values.iter())
-            .map(|(k, v)| (k.replace("_", ":"), v.clone()))
-            .collect();
-        properties.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
-
         let mut complex_property_column_schemes: IndexMap<String, ComplexColumn> = IndexMap::new();
 
-        for (property_key, property_value) in properties.iter() {
-            if feature_table_scheme.contains_key(property_key) {
-                continue;
-            }
-            let scalar_type = get_scalar_type(&property_value)?;
+        for feature in &mut layer.features {
+            feature.properties.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
 
-            // Column Mappings: the Java code does not have a unit test for this block of code.
-            // Hard to determine the expected behavior.
-            if column_mappings.is_some() {
-                if column_mappings.as_ref().map_or(false, |mappings| {
-                    mappings
-                        .iter()
-                        .any(|m| property_key == m.mvt_property_prefix.as_str())
-                }) && !complex_property_column_schemes.contains_key(property_key)
-                {
-                    // case where the top-level field is present like name (name:de, name:us, ...) and has a value.
-                    // In this case the field is mapped to the name default.
-                    let child_field = Field {
-                        name: Some("default".to_string()),
-                        nullable: Some(true),
-                        r#type: Some(field::Type::ScalarField(ScalarField {
-                            r#type: Some(scalar_field::Type::PhysicalType(scalar_type as i32)),
-                        })),
-                    };
-                    let field_metadata_builder = ComplexColumn {
-                        children: vec![child_field],
-                        r#type: Some(PhysicalType(ComplexType::Struct as i32)),
-                    };
-                    complex_property_column_schemes
-                        .insert(property_key.clone(), field_metadata_builder);
-                    continue;
-                } else if column_mappings.as_ref().map_or(false, |mappings| {
-                    mappings
-                        .iter()
-                        .any(|m| property_key == m.mvt_property_prefix.as_str())
-                }) && complex_property_column_schemes.contains_key(property_key)
-                    && complex_property_column_schemes
-                        .get(property_key)
-                        .map_or(false, |column| {
-                            column
-                                .children
-                                .iter()
-                                .any(|c| c.name.as_deref() == Some("default"))
-                        })
-                {
-                    // Case where the top-level field such as name is not present in the first feature
-                    let child_field = Field {
-                        name: Some("default".to_string()),
-                        nullable: Some(true),
-                        r#type: Some(field::Type::ScalarField(ScalarField {
-                            r#type: Some(scalar_field::Type::PhysicalType(scalar_type as i32)),
-                        })),
-                    };
-                    let column_mapping = column_mappings
-                        .as_ref()
-                        .expect("columnMappings.get() must not be null")
-                        .iter()
-                        .find(|m| property_key == m.mvt_property_prefix.as_str())
-                        .expect("No matching column mapping found");
-                    complex_property_column_schemes
-                        .get_mut(column_mapping.mvt_property_prefix.as_str())
-                        .expect("No matching column mapping found")
-                        .children
-                        .push(child_field);
-                    continue;
-                } else if column_mappings.as_ref().map_or(false, |mappings| {
-                    mappings.iter().any(|m| {
-                        property_key.contains(&m.mvt_property_prefix)
-                            && property_key.contains(&m.mvt_delimiter_sign)
-                    })
-                }) {
-                    let column_mapping = column_mappings
-                        .as_ref()
-                        .expect("columnMappings.get() must not be null")
-                        .iter()
-                        .find(|m| property_key == m.mvt_property_prefix.as_str())
-                        .expect("No matching column mapping found");
-                    let field_name = property_key
-                        .split(&column_mapping.mvt_delimiter_sign)
-                        .nth(1)
-                        .expect("No second element found in split");
-                    let children = Field {
-                        name: Some(field_name.to_string()),
-                        nullable: Some(true),
-                        r#type: Some(field::Type::ScalarField(ScalarField {
-                            r#type: Some(scalar_field::Type::PhysicalType(scalar_type as i32)),
-                        })),
-                    };
-                    if complex_property_column_schemes
-                        .contains_key(column_mapping.mvt_property_prefix.as_str())
-                    {
-                        // add the nested properties to the parent like the name:* properties to the name parent struct
-                        if !complex_property_column_schemes
-                            .get(column_mapping.mvt_property_prefix.as_str())
-                            .expect("No matching column mapping found")
-                            .children
-                            .iter()
-                            .any(|c| c.name.as_deref() == Some(field_name))
-                        {
-                            complex_property_column_schemes
-                                .get_mut(column_mapping.mvt_property_prefix.as_str())
-                                .expect("No matching column mapping found")
-                                .children
-                                .push(children);
-                        };
-                    } else {
-                        // Case where there is no explicit property available which serves as the name
-                        // for the top-level field. For example there is no name property only name:*
-                        let complex_column_builder = ComplexColumn {
-                            children: vec![children],
-                            r#type: Some(PhysicalType(ComplexType::Struct as i32)),
-                        };
-                        complex_property_column_schemes.insert(
-                            column_mapping.mvt_property_prefix.clone(),
-                            complex_column_builder,
-                        );
-                    }
+            for (property_key, property_value) in &feature.properties {
+                if feature_table_scheme.contains_key(property_key) {
                     continue;
                 }
-            }
+                let scalar_type = get_scalar_type(&property_value)?;
 
-            let column_scheme = Column {
-                name: property_key.clone(),
-                nullable: true,
-                column_scope: ColumnScope::Feature.into(),
-                r#type: Some(column::Type::ScalarType(ScalarColumn {
-                    r#type: Some(scalar_column::Type::PhysicalType(scalar_type as i32)),
-                })),
-            };
-            feature_table_scheme.insert(property_key.clone(), column_scheme);
+                // Column Mappings: the Java code does not have a unit test for this block of code.
+                // Hard to determine the expected behavior.
+                if let Some(mappings) = column_mappings {
+                    if mappings
+                        .iter()
+                        .any(|m| property_key == m.mvt_property_prefix.as_str())
+                        && !complex_property_column_schemes.contains_key(property_key)
+                    {
+                        // case where the top-level field is present like name (name:de, name:us, ...) and has a value.
+                        // In this case the field is mapped to the name default.
+                        let child_field = Field {
+                            name: Some("default".to_string()),
+                            nullable: Some(true),
+                            r#type: Some(field::Type::ScalarField(ScalarField {
+                                r#type: Some(scalar_field::Type::PhysicalType(scalar_type as i32)),
+                            })),
+                        };
+                        let field_metadata_builder = ComplexColumn {
+                            children: vec![child_field],
+                            r#type: Some(PhysicalType(ComplexType::Struct as i32)),
+                        };
+                        complex_property_column_schemes
+                            .insert(property_key.clone(), field_metadata_builder);
+                        continue;
+                    } else if column_mappings.as_ref().map_or(false, |mappings| {
+                        mappings
+                            .iter()
+                            .any(|m| property_key == m.mvt_property_prefix.as_str())
+                    }) && complex_property_column_schemes.contains_key(property_key)
+                        && complex_property_column_schemes.get(property_key).map_or(
+                            false,
+                            |column| {
+                                column
+                                    .children
+                                    .iter()
+                                    .any(|c| c.name.as_deref() == Some("default"))
+                            },
+                        )
+                    {
+                        // Case where the top-level field such as name is not present in the first feature
+                        let child_field = Field {
+                            name: Some("default".to_string()),
+                            nullable: Some(true),
+                            r#type: Some(field::Type::ScalarField(ScalarField {
+                                r#type: Some(scalar_field::Type::PhysicalType(scalar_type as i32)),
+                            })),
+                        };
+                        let column_mapping = column_mappings
+                            .as_ref()
+                            .expect("columnMappings.get() must not be null")
+                            .iter()
+                            .find(|m| property_key == m.mvt_property_prefix.as_str())
+                            .expect("No matching column mapping found");
+                        complex_property_column_schemes
+                            .get_mut(column_mapping.mvt_property_prefix.as_str())
+                            .expect("No matching column mapping found")
+                            .children
+                            .push(child_field);
+                        continue;
+                    } else if column_mappings.as_ref().map_or(false, |mappings| {
+                        mappings.iter().any(|m| {
+                            property_key.contains(&m.mvt_property_prefix)
+                                && property_key.contains(&m.mvt_delimiter_sign)
+                        })
+                    }) {
+                        let column_mapping = column_mappings
+                            .as_ref()
+                            .expect("columnMappings.get() must not be null")
+                            .iter()
+                            .find(|m| property_key == m.mvt_property_prefix.as_str())
+                            .expect("No matching column mapping found");
+                        let field_name = property_key
+                            .split(&column_mapping.mvt_delimiter_sign)
+                            .nth(1)
+                            .expect("No second element found in split");
+                        let children = Field {
+                            name: Some(field_name.to_string()),
+                            nullable: Some(true),
+                            r#type: Some(field::Type::ScalarField(ScalarField {
+                                r#type: Some(scalar_field::Type::PhysicalType(scalar_type as i32)),
+                            })),
+                        };
+                        if complex_property_column_schemes
+                            .contains_key(column_mapping.mvt_property_prefix.as_str())
+                        {
+                            // add the nested properties to the parent like the name:* properties to the name parent struct
+                            if !complex_property_column_schemes
+                                .get(column_mapping.mvt_property_prefix.as_str())
+                                .expect("No matching column mapping found")
+                                .children
+                                .iter()
+                                .any(|c| c.name.as_deref() == Some(field_name))
+                            {
+                                complex_property_column_schemes
+                                    .get_mut(column_mapping.mvt_property_prefix.as_str())
+                                    .expect("No matching column mapping found")
+                                    .children
+                                    .push(children);
+                            };
+                        } else {
+                            // Case where there is no explicit property available which serves as the name
+                            // for the top-level field. For example there is no name property only name:*
+                            let complex_column_builder = ComplexColumn {
+                                children: vec![children],
+                                r#type: Some(PhysicalType(ComplexType::Struct as i32)),
+                            };
+                            complex_property_column_schemes.insert(
+                                column_mapping.mvt_property_prefix.clone(),
+                                complex_column_builder,
+                            );
+                        }
+                        continue;
+                    }
+                }
+
+                let column_scheme = Column {
+                    name: property_key.clone(),
+                    nullable: true,
+                    column_scope: ColumnScope::Feature.into(),
+                    r#type: Some(column::Type::ScalarType(ScalarColumn {
+                        r#type: Some(scalar_column::Type::PhysicalType(scalar_type as i32)),
+                    })),
+                };
+                feature_table_scheme.insert(property_key.clone(), column_scheme);
+            }
         }
+        // End of properties loop
 
         let feature_table_schema_builder = FeatureTableSchema {
             name: layer.name.clone(),
@@ -229,35 +236,72 @@ fn create_tileset_metadata(
     Ok(tileset)
 }
 
-fn get_scalar_type(value: &mvt::tile::Value) -> MltResult<ScalarType> {
+fn get_scalar_type(value: &Value) -> MltResult<ScalarType> {
     match value {
-        mvt::tile::Value {
-            string_value: Some(_),
-            ..
-        } => Ok(ScalarType::String),
-        mvt::tile::Value {
-            float_value: Some(_),
-            ..
-        } => Ok(ScalarType::Float),
-        mvt::tile::Value {
-            double_value: Some(_),
-            ..
-        } => Ok(ScalarType::Double),
-        mvt::tile::Value {
-            int_value: Some(_), ..
-        } => Ok(ScalarType::Int32),
-        mvt::tile::Value {
-            uint_value: Some(_),
-            ..
-        } => Ok(ScalarType::Uint32),
-        mvt::tile::Value {
-            bool_value: Some(_),
-            ..
-        } => Ok(ScalarType::Boolean),
-        _ => Err(MltError::UnsupportedKeyType(
-            "Unsupported key value type".to_string(),
-        )),
+        Value::String(_) => Ok(ScalarType::String),
+        Value::Float(_) => Ok(ScalarType::Float),
+        Value::Double(_) => Ok(ScalarType::Double),
+        Value::Int(_) => Ok(ScalarType::Int32),
+        Value::Uint(_) => Ok(ScalarType::Uint32),
+        Value::Bool(_) => Ok(ScalarType::Boolean),
     }
+}
+
+pub fn convert_mvt(
+    mvt: MapboxVectorTile,
+    config: ConversionConfig,
+    tileset_metadata: TileSetMetadata,
+) -> MltResult<Vec<u8>> {
+    let physical_level_technique = if config.use_advanced_encoding_schemes {
+        PhysicalLevelTechnique::FastPfor
+    } else {
+        PhysicalLevelTechnique::Varint
+    };
+
+    let mut maplibre_tile_buffer: Vec<u8> = Vec::new();
+    let mut feature_table_id = 0;
+    for layer in mvt.layers {
+        let feature_table_name = layer.name;
+        // let mvt_features = layer.features;
+
+        let feature_table_metadata = tileset_metadata.feature_tables.get(feature_table_id);
+        let feature_table_optimizations = config.optimizations.get(&feature_table_name);
+        let result = sort_features_and_encode_geometry_column(
+            &config,
+            feature_table_optimizations,
+            &layer.features,
+            physical_level_technique,
+        );
+    }
+
+    Ok(vec![])
+}
+
+fn sort_features_and_encode_geometry_column(
+    config: &ConversionConfig,
+    feature_table_optimizations: Option<&FeatureTableOptimizations>,
+    mvt_features: &[Feature],
+    physical_level_technique: PhysicalLevelTechnique,
+) {
+
+    let is_column_sortable = config.include_ids
+        && feature_table_optimizations
+            .map(|opt| opt.allow_sorting)
+            .unwrap_or(false);
+
+    let mut sorted_features = mvt_features.to_vec();
+
+    if is_column_sortable
+        && feature_table_optimizations
+            .map(|opt| !opt.allow_id_regeneration)
+            .unwrap_or(false)
+    {
+        sorted_features.sort_by_key(|f| f.id);
+    }
+
+    let ids: Vec<i64> = sorted_features.iter().map(|f| f.id).collect();
+    let geometries: Vec<Geometry> = sorted_features.iter().map(|f| f.geometry.clone()).collect();
+
 }
 
 #[cfg(test)]

@@ -8,4 +8,8 @@ pub enum MltError {
     PropertyParseError(String),
     #[error("Unsupported key value type: {0}")]
     UnsupportedKeyType(String),
+    #[error("Failed to read file: {0}")]
+    FileReadError(#[from] std::io::Error),
+    #[error("Unsupported geometry type: {0}")]
+    UnsupportedGeometryType(String),
 }

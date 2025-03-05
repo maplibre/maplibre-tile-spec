@@ -9,6 +9,7 @@ geozero = { version = "0.14", features = ["with-mvt"] }
 prost = "0.13.5"
 prost-types = "0.13.5"
 indexmap = "2.7.1"
+geo-types = "0.7.15"
 
 [build-dependencies]
 prost-build = "0.13.5"
