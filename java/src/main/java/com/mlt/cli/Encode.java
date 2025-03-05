@@ -218,7 +218,7 @@ public class Encode {
       var conversionConfig =
           new ConversionConfig(includeIds, useAdvancedEncodingSchemes, optimizations);
       Timer timer = new Timer();
-      var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
+      var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata, false);
       if (willTime) timer.stop("encoding");
       if (willOutput) {
         Path outputPath = null;

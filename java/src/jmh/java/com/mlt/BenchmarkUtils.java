@@ -49,7 +49,10 @@ public class BenchmarkUtils {
             .collect(Collectors.toMap(l -> l, l -> optimization));
     var encodedMltTile =
         MltConverter.convertMvt(
-            encodedMvtTile.getRight(), new ConversionConfig(true, true, optimizations), metadata);
+            encodedMvtTile.getRight(),
+            new ConversionConfig(true, true, optimizations),
+            metadata,
+            false);
     encodedMltTiles.put(z, encodedMltTile);
   }
 
