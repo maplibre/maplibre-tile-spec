@@ -30,11 +30,11 @@ public:
         using namespace metadata::stream;
         using namespace util::decoding;
 
-        std::vector<std::uint8_t> symDataStream;
-        std::vector<std::uint8_t> dictDataStream;
+        std::optional<DictionaryType> dictType;
+        std::optional<LengthType> lengthType;
+        std::vector<std::uint8_t> dataStream;
         std::vector<std::uint32_t> offsetStream;
-        std::vector<std::uint32_t> symLengthStream;
-        std::vector<std::uint32_t> dictLengthStream;
+        std::vector<std::uint32_t> lengthStream;
         std::vector<std::string_view> views;
         views.reserve(numValues);
         for (count_t i = 0; i < numStreams; ++i) {
@@ -50,9 +50,8 @@ public:
                         !streamMetadata->getLogicalStreamType()->getLengthType()) {
                         throw std::runtime_error("Length stream missing logical type");
                     }
-                    const auto type = *streamMetadata->getLogicalStreamType()->getLengthType();
-                    auto& target = (type == LengthType::DICTIONARY) ? dictLengthStream : symLengthStream;
-                    intDecoder.decodeIntStream<std::uint32_t>(tileData, target, *streamMetadata);
+                    lengthType = *streamMetadata->getLogicalStreamType()->getLengthType();
+                    intDecoder.decodeIntStream<std::uint32_t>(tileData, lengthStream, *streamMetadata);
                     break;
                 }
                 case PhysicalStreamType::DATA: {
@@ -60,22 +59,21 @@ public:
                         !streamMetadata->getLogicalStreamType()->getDictionaryType()) {
                         throw std::runtime_error("Data stream missing logical type");
                     }
-                    const auto type = *streamMetadata->getLogicalStreamType()->getDictionaryType();
-                    auto& target = (type == DictionaryType::SINGLE) ? dictDataStream : symDataStream;
-                    decodeRaw(tileData, target, streamMetadata->getByteLength(), /*consume=*/true);
+                    dictType = *streamMetadata->getLogicalStreamType()->getDictionaryType();
+                    decodeRaw(tileData, dataStream, streamMetadata->getByteLength(), /*consume=*/true);
                     break;
                 }
             }
         }
 
-        if (!symDataStream.empty()) {
+        if (dictType == DictionaryType::FSST) {
             throw std::runtime_error("FSST decoding not implemented");
-        } else if (!dictDataStream.empty()) {
-            decodeDictionary(dictLengthStream, dictDataStream, offsetStream, views, numValues);
-            return {std::move(dictDataStream), std::move(views)};
+        } else if (dictType == DictionaryType::SINGLE) {
+            decodeDictionary(lengthStream, dataStream, offsetStream, views, numValues);
+            return {std::move(dataStream), std::move(views)};
         } else {
-            decodePlain(dictLengthStream, dictDataStream, views, numValues);
-            return {std::move(dictDataStream), std::move(views)};
+            decodePlain(lengthStream, dataStream, views, numValues);
+            return {std::move(dataStream), std::move(views)};
         }
     }
 

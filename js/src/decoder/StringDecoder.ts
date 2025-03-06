@@ -62,6 +62,7 @@ export class StringDecoder {
         } else if (dictionaryStream) {
             return this.decodeDictionary(presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, numValues);
         } else {
+            // TODO: dataStream is always null ?
             return this.decodePlain(presentStream, dictionaryLengthStream, dataStream, numValues);
         }
     }
