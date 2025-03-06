@@ -176,18 +176,27 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
 
     switch (metadata.getPhysicalLevelTechnique()) {
         case PhysicalLevelTechnique::FAST_PFOR: {
+            std::uint32_t* outPtr = nullptr;
             if constexpr (sizeof(*out) == sizeof(std::uint32_t)) {
-                auto* outPtr = reinterpret_cast<std::uint32_t*>(out);
-                const auto resultLength = decodeFastPfor(
-                    tileData, outPtr, metadata.getNumValues(), metadata.getByteLength());
-                if (resultLength != outSize) {
-                    throw std::runtime_error("Unexpected decode result (" + std::to_string(resultLength) + "," +
-                                             std::to_string(outSize) + ")");
-                }
-                break;
+                // Decode directly into the output buffer
+                outPtr = reinterpret_cast<std::uint32_t*>(out);
             } else {
-                throw std::runtime_error("FastPFOR not implemented for 64-bit values");
+                // Decode into a 32-bit temprary buffer
+                outPtr = getTempBuffer<std::uint32_t>(metadata.getNumValues());
             }
+
+            const auto resultLength = decodeFastPfor(
+                tileData, outPtr, metadata.getNumValues(), metadata.getByteLength());
+            if (resultLength != outSize) {
+                throw std::runtime_error("Unexpected decode result (" + std::to_string(resultLength) + "," +
+                                         std::to_string(outSize) + ")");
+            }
+
+            if constexpr (sizeof(*out) != sizeof(std::uint32_t)) {
+                // ... then extend to 64-bit output (`.mapToLong(i -> i)` in Java)
+                std::transform(outPtr, outPtr + resultLength, out, [](auto x) { return static_cast<TTarget>(x); });
+            }
+
             break;
         }
         case PhysicalLevelTechnique::VARINT:
