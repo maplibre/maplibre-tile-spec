@@ -100,7 +100,6 @@ public:
                             switch (geomStreamMetadata->getPhysicalLevelTechnique()) {
                                 case PhysicalLevelTechnique::FAST_PFOR:
                                     throw std::runtime_error("FastPfor encoding for geometries is not yet supported.");
-                                    break;
                                 case PhysicalLevelTechnique::NONE:
                                 case PhysicalLevelTechnique::ALP:
                                     // TODO: other implementations are not clear on whether these are valid
@@ -109,6 +108,8 @@ public:
                                         .decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t, /*isSigned=*/true>(
                                             tileData, geomColumn.vertices, *geomStreamMetadata);
                                     break;
+                                default:
+                                    throw std::runtime_error("Unsupported encoding for geometries: " + column.name);
                             };
                             break;
                         case DictionaryType::MORTON: {
@@ -119,6 +120,7 @@ public:
                                 tileData, geomColumn.vertices, mortonStreamMetadata);
                             break;
                         }
+                        default:
                         case DictionaryType::NONE:
                         case DictionaryType::SINGLE:
                         case DictionaryType::SHARED:
@@ -130,6 +132,8 @@ public:
                 }
                 case PhysicalStreamType::PRESENT:
                     break;
+                default:
+                    throw std::runtime_error("Unsupported logical stream type: " + column.name);
             }
         }
 
@@ -309,11 +313,11 @@ public:
                             rings.clear();
                         }
                     } else {
-                        if (partOffsetCounter + vertexOffsets.size() >= partOffsets.size() ||
-                            ringOffsetsCounter + vertexOffsets.size() >= ringOffsets.size()) {
+                        if (partOffsetCounter + numPolygons > partOffsets.size() ||
+                            ringOffsetsCounter + numPolygons > ringOffsets.size()) {
                             throw std::runtime_error("geometry error");
                         }
-                        for (std::size_t i = 0; i < vertexOffsets.size(); ++i) {
+                        for (std::size_t i = 0; i < numPolygons; ++i) {
                             const auto numRings = partOffsets[partOffsetCounter++];
                             const auto numVertices = ringOffsets[ringOffsetsCounter++];
                             rings.reserve(numRings - 1);
@@ -322,7 +326,7 @@ public:
                                 vertices, vertexOffsets, vertexOffsetsOffset, numVertices, true);
                             vertexOffsetsOffset += numVertices;
 
-                            if (ringOffsetsCounter + numRings > ringOffsets.size()) {
+                            if (ringOffsetsCounter + numRings - 1 > ringOffsets.size()) {
                                 throw std::runtime_error("geometry error");
                             }
                             for (count_t j = 1; j < numRings; ++j) {

@@ -84,7 +84,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
         return {};
     }
 
-    mlt::Decoder decoder;
+    mlt::Decoder decoder(true);
     auto tile = decoder.decode({buffer.data(), buffer.size()}, *metadata);
 
 #if MLT_WITH_JSON
