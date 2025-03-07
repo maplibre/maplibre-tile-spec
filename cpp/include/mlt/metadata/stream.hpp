@@ -10,16 +10,17 @@
 
 namespace mlt::metadata::stream {
 
-enum class DictionaryType {
+enum class DictionaryType : std::uint32_t {
     NONE = 0,
     SINGLE = 1,
     SHARED = 2,
     VERTEX = 3,
     MORTON = 4,
     FSST = 5,
+    VALUE_COUNT = 6,
 };
 
-enum class LengthType {
+enum class LengthType : std::uint32_t {
     VAR_BINARY = 0,
     GEOMETRIES = 1,
     PARTS = 2,
@@ -27,9 +28,10 @@ enum class LengthType {
     TRIANGLES = 4,
     SYMBOL = 5,
     DICTIONARY = 6,
+    VALUE_COUNT = 7,
 };
 
-enum class PhysicalLevelTechnique {
+enum class PhysicalLevelTechnique : std::uint32_t {
     NONE = 0,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
@@ -39,29 +41,33 @@ enum class PhysicalLevelTechnique {
     VARINT = 2,
     /// Adaptive Lossless floating-Point Compression
     ALP = 3,
+    VALUE_COUNT = 4,
 };
 
-enum class LogicalLevelTechnique {
+enum class LogicalLevelTechnique : std::uint32_t {
     NONE = 0,
     DELTA = 1,
     COMPONENTWISE_DELTA = 2,
     RLE = 3,
     MORTON = 4,
     PSEUDODECIMAL = 5,
+    VALUE_COUNT = 6,
 };
 
-enum class OffsetType {
+enum class OffsetType : std::uint32_t {
     VERTEX = 0,
     INDEX = 1,
     STRING = 2,
     KEY = 3,
+    VALUE_COUNT = 4,
 };
 
-enum class PhysicalStreamType {
+enum class PhysicalStreamType : std::uint32_t {
     PRESENT = 0,
     DATA = 1,
     OFFSET = 2,
     LENGTH = 3,
+    VALUE_COUNT = 4,
 };
 
 class LogicalStreamType : public util::noncopyable {

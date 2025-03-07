@@ -40,6 +40,8 @@ public:
         for (count_t i = 0; i < numStreams; ++i) {
             auto streamMetadata = StreamMetadata::decode(tileData);
             switch (streamMetadata->getPhysicalStreamType()) {
+                default:
+                    throw std::runtime_error("Unsupported stream type");
                 case PhysicalStreamType::PRESENT:
                     throw std::runtime_error("Present stream not supported for string columns");
                 case PhysicalStreamType::OFFSET:

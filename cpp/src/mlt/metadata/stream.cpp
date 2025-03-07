@@ -5,18 +5,35 @@
 namespace mlt::metadata::stream {
 
 namespace {
-std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType physicalStreamType, int value) noexcept {
+std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType physicalStreamType, int value) {
     switch (physicalStreamType) {
-        case PhysicalStreamType::DATA:
-            return static_cast<DictionaryType>(value);
-        case PhysicalStreamType::OFFSET:
-            return static_cast<OffsetType>(value);
-        case PhysicalStreamType::LENGTH:
-            return static_cast<LengthType>(value);
-        default:
+        case PhysicalStreamType::DATA: {
+            const auto type = static_cast<DictionaryType>(value);
+            if (type < DictionaryType::VALUE_COUNT) {
+                return type;
+            }
+            break;
+        }
+        case PhysicalStreamType::OFFSET: {
+            const auto type = static_cast<OffsetType>(value);
+            if (type < OffsetType::VALUE_COUNT) {
+                return type;
+            }
+            break;
+        }
+        case PhysicalStreamType::LENGTH: {
+            const auto type = static_cast<LengthType>(value);
+            if (type < LengthType::VALUE_COUNT) {
+                return type;
+            }
+            break;
+        }
         case PhysicalStreamType::PRESENT:
             return {};
+        default:
+            break;
     }
+    throw std::runtime_error("Invalid logical stream type: " + std::to_string(std::to_underlying(physicalStreamType)));
 }
 } // namespace
 
@@ -64,6 +81,13 @@ StreamMetadata StreamMetadata::decodeInternal(BufferStream& buffer) {
     const auto logicalLevelTechnique1 = static_cast<LogicalLevelTechnique>(encodingsHeader >> 5);
     const auto logicalLevelTechnique2 = static_cast<LogicalLevelTechnique>((encodingsHeader >> 2) & 0x7);
     const auto physicalLevelTechnique = static_cast<PhysicalLevelTechnique>(encodingsHeader & 0x3);
+
+    if (physicalStreamType >= PhysicalStreamType::VALUE_COUNT ||
+        logicalLevelTechnique1 >= LogicalLevelTechnique::VALUE_COUNT ||
+        logicalLevelTechnique2 >= LogicalLevelTechnique::VALUE_COUNT ||
+        physicalLevelTechnique >= PhysicalLevelTechnique::VALUE_COUNT) {
+        throw std::runtime_error("Invalid stream encoding");
+    }
 
     using namespace util::decoding;
     const auto [numValues, byteLength] = decodeVarints<std::uint32_t, 2>(buffer);
