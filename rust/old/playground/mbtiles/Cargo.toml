@@ -1,0 +1,14 @@
+[package]
+name = "mbtiles"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+geozero = { version = "0.14.0", features = ["with-mvt"] }
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+serde = "1.0.210"
+thiserror = "1.0.64"
+reqwest = { version = "0.12.7", features = ["blocking"] }
+flate2 = { version = "1.0.34" }
+num-derive = { version = "0.4.2" }
+byteme = "0.0.5"

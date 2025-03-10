@@ -1,0 +1,19 @@
+[package]
+name = "fastpfor-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+byteorder = { version = "1.5.0", default-features = false }
+bitpacking = { path = "../bitpacking" }
+maplibre-tile-spec = { path = "../../." }
+
+[dev-dependencies]
+lazy_static = "1.5.0"
+criterion = "0.5.1"
+spin = { version = "0.9.8", features = ["spin_mutex"] }
+varint = "0.9.0"
+
+[[bench]]
+name = "decode"
+harness = false

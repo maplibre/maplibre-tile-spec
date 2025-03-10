@@ -1,0 +1,12 @@
+[package]
+name = "varint"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+
+# Improves speed, by disabling size check
+disable_size_check = []
+
+[dependencies]

@@ -1,0 +1,16 @@
+[package]
+name = "delta"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["scalar"]
+
+scalar = []
+
+SIMDx2 = []
+SIMDx4 = []
+SIMDx8 = []
+
+[dependencies]
+maplibre-tile-spec = { path = "../../." }
