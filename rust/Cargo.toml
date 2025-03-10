@@ -13,7 +13,7 @@ crate-type = ["cdylib", "rlib"]
 wasm-bindgen = { version = "0.2.100", features = ["serde-serialize"]  }
 js-sys = "0.3.77"
 wasm-bindgen-futures = "0.4.50"
-serde = { version = "1.0.218", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 serde_derive = "^1.0.59"
 
 [dependencies.web-sys]
