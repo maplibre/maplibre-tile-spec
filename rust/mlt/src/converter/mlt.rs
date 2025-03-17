@@ -13,6 +13,22 @@ use geo_types::Geometry;
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
+struct SortSettings {
+    is_sortable: bool,
+    feature_ids: Vec<i64>,
+}
+
+impl SortSettings {
+    fn new(is_column_sortable: bool, feature_table_optimizations: Option<&FeatureTableOptimizations>, ids: Vec<i64>) -> Self {
+        let is_sortable = is_column_sortable 
+            && feature_table_optimizations
+                .map(|opt| opt.allow_id_regeneration)
+                .unwrap_or(false);
+
+        Self { is_sortable, feature_ids: ids }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FeatureTableOptimizations {
     pub allow_sorting: bool,
@@ -300,6 +316,9 @@ fn sort_features_and_encode_geometry_column(
     }
 
     let ids: Vec<i64> = sorted_features.iter().map(|f| f.id).collect();
+    let sort_settings = SortSettings::new(is_column_sortable, feature_table_optimizations, ids);
+
+    // Unnecessary cloning: fix later
     let geometries: Vec<Geometry> = sorted_features.iter().map(|f| f.geometry.clone()).collect();
 
 }

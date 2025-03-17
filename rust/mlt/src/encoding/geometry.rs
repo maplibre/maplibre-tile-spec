@@ -1,6 +1,5 @@
 use crate::metadata::PhysicalLevelTechnique;
 use geo_types::{Geometry, LineString, Polygon};
-use crate::MltError;
 
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u8)]
@@ -12,6 +11,12 @@ pub enum GeometryType {
     MultiLineString,
     MultiPolygon,
 }
+
+// #[derive(Debug, Clone, PartialEq)]
+// struct HilbertCurve {
+//     curve: SmallHilbertCurve,
+//     coordinate_shift: i32,
+// }
 
 pub struct Vertex {
     pub x: f64,
@@ -101,17 +106,25 @@ impl GeometryEncoder {
                 }
                 Geometry::MultiPolygon(mp) => {
                     geometry_types.push(GeometryType::MultiPolygon as u8);
-                    num_geometries.push(mp.iter().map(|p| p.exterior().points().len() as i32).sum());
+                    num_geometries
+                        .push(mp.iter().map(|p| p.exterior().points().len() as i32).sum());
                     mp.iter().for_each(|p| {
                         let vertices = flat_polygon(p, &mut num_parts, &mut num_rings);
                         vertex_buffer.extend(vertices);
                     });
                 }
-                _ => ()
-
-
+                _ => (),
             }
         }
+
+        let min_vertex_value = vertex_buffer
+            .iter()
+            .map(|v| v.x.min(v.y))
+            .fold(f64::INFINITY, |acc, x| acc.min(x));
+        let max_vertex_value = vertex_buffer
+            .iter()
+            .map(|v| v.x.max(v.y))
+            .fold(f64::NEG_INFINITY, |acc, x| acc.max(x));
 
         Vec::new() // Dummy
     }
