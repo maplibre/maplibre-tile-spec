@@ -15,16 +15,16 @@ T decodeVarint(BufferStream&);
 template <>
 inline std::uint32_t decodeVarint(BufferStream& buffer) {
     // Max 4 bytes supported
-    auto b = static_cast<std::uint32_t>(buffer.read());
+    auto b = buffer.read<std::uint8_t>();
     auto value = static_cast<std::uint32_t>(b) & 0x7f;
     if (b & 0x80) {
-        b = buffer.read();
-        value |= (b & 0x7f) << 7;
+        b = buffer.read<std::uint8_t>();
+        value |= static_cast<std::uint32_t>(b & 0x7f) << 7;
         if (b & 0x80) {
-            b = buffer.read();
-            value |= (b & 0x7f) << 14;
+            b = buffer.read<std::uint8_t>();
+            value |= static_cast<std::uint32_t>(b & 0x7f) << 14;
             if (b & 0x80) {
-                value |= (buffer.read() & 0x7f) << 21;
+                value |= (buffer.read<std::uint8_t>() & 0x7f) << 21;
             }
         }
     }
