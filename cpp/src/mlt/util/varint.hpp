@@ -16,7 +16,7 @@ template <>
 inline std::uint32_t decodeVarint(BufferStream& buffer) {
     // Max 4 bytes supported
     auto b = buffer.read<std::uint8_t>();
-    auto value = static_cast<std::uint32_t>(b) & 0x7f;
+    auto value = static_cast<std::uint32_t>(b & 0x7f);
     if (b & 0x80) {
         b = buffer.read<std::uint8_t>();
         value |= static_cast<std::uint32_t>(b & 0x7f) << 7;
@@ -24,7 +24,15 @@ inline std::uint32_t decodeVarint(BufferStream& buffer) {
             b = buffer.read<std::uint8_t>();
             value |= static_cast<std::uint32_t>(b & 0x7f) << 14;
             if (b & 0x80) {
-                value |= (buffer.read<std::uint8_t>() & 0x7f) << 21;
+                b = buffer.read<std::uint8_t>();
+                value |= static_cast<std::uint32_t>(b & 0x7f) << 21;
+                if (b & 0x80) {
+                    const auto v = static_cast<std::uint32_t>(buffer.read<std::uint8_t>() & 0x7f);
+                    if (v > 0x0f) {
+                        throw std::runtime_error("varint exceeds 32 bits");
+                    }
+                    value |= v << 28;
+                }
             }
         }
     }
@@ -35,15 +43,18 @@ template <>
 inline std::uint64_t decodeVarint(BufferStream& buffer) {
     std::uint64_t value = 0;
     for (int shift = 0; buffer.available();) {
-        auto b = static_cast<std::uint32_t>(buffer.read());
-        value |= (long)(b & 0x7F) << shift;
+        auto b = buffer.read<std::uint8_t>();
+        value |= static_cast<std::uint64_t>(b & 0x7F) << shift;
+
+        if (shift == 63 && b > 1) {
+            throw std::runtime_error("Varint too long");
+        }
         if ((b & 0x80) == 0) {
             break;
         }
 
         shift += 7;
         if (shift >= 64) {
-            // TODO: do we really want exceptions?
             throw std::runtime_error("Varint too long");
         }
     }

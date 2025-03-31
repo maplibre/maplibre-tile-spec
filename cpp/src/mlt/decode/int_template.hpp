@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mlt/common.hpp>
 #include <mlt/decode/int.hpp>
 
 #include <cassert>
@@ -135,6 +136,29 @@ void IntegerDecoder::decodeIntStream(BufferStream& tileData,
     decodeStream<TDecode, TInt, isSigned>(tileData, buffer, bufferSize, metadata);
     out.resize(getIntArrayBufferSize(bufferSize, metadata));
     decodeIntArray<TInt, TTarget, isSigned>(buffer, bufferSize, out.data(), out.size(), metadata);
+}
+
+template <typename TDecode, typename TInt, typename TTarget, bool isSigned>
+TTarget IntegerDecoder::decodeConstIntStream(BufferStream& tileData, const StreamMetadata& metadata) {
+    TInt buffer[2] = {0};
+    decodeStream<TDecode, TInt, isSigned>(tileData, &buffer[0], countof(buffer), metadata);
+
+    if (metadata.getNumValues() < 1 || metadata.getNumValues() > 2) {
+        throw std::runtime_error("unexpected number of values in constant stream");
+    }
+
+    if (metadata.getNumValues() == 1) {
+        if constexpr (isSigned) {
+            return decodeZigZagValue(buffer[0]);
+        } else {
+            return buffer[0];
+        }
+    }
+    if constexpr (isSigned) {
+        return decodeZigZagValue(buffer[1]);
+    } else {
+        return buffer[1];
+    }
 }
 
 template <typename TDecode, typename TInt, typename TTarget, bool Delta>

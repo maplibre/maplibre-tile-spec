@@ -35,8 +35,7 @@ public:
     template <typename T, typename TTarget = T, bool isSigned = std::is_signed_v<T>>
         requires((std::is_integral_v<T> || std::is_enum_v<T>) &&
                  (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) && sizeof(T) <= sizeof(TTarget))
-    void decodeIntArray(
-        const T* values, std::size_t count, TTarget* out, std::size_t outCount, const StreamMetadata& streamMetadata);
+    void decodeIntArray(const T* values, std::size_t count, TTarget* out, std::size_t outCount, const StreamMetadata&);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
@@ -47,7 +46,7 @@ public:
               typename TInt = TDecode,
               typename TTarget = TDecode,
               bool isSigned = std::is_signed_v<TDecode>>
-    void decodeIntStream(BufferStream& tileData, std::vector<TTarget>& out, const StreamMetadata& metadata);
+    void decodeIntStream(BufferStream& tileData, std::vector<TTarget>& out, const StreamMetadata&);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
@@ -58,11 +57,14 @@ public:
               typename TInt = TDecode,
               typename TTarget = TInt,
               bool isSigned = std::is_signed_v<TDecode>>
-    void decodeIntStream(BufferStream& tileData,
-                         TInt* buffer,
-                         std::size_t bufferSize,
-                         std::vector<TTarget>& out,
-                         const StreamMetadata& metadata);
+    void decodeIntStream(
+        BufferStream& tileData, TInt* buffer, std::size_t bufferSize, std::vector<TTarget>& out, const StreamMetadata&);
+
+    template <typename TDecode,
+              typename TInt = TDecode,
+              typename TTarget = TInt,
+              bool isSigned = std::is_signed_v<TDecode>>
+    TTarget decodeConstIntStream(BufferStream& tileData, const StreamMetadata&);
 
     template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt, bool Delta = true>
     void decodeMortonStream(BufferStream& tileData,
@@ -75,7 +77,7 @@ public:
                             std::size_t bufferSize,
                             TTarget* out,
                             std::size_t outCount,
-                            const MortonEncodedStreamMetadata& metadata);
+                            const MortonEncodedStreamMetadata&);
 
 private:
     struct Impl;
@@ -94,7 +96,7 @@ private:
 
     template <typename TDecode, typename TTarget = TDecode, bool isSigned = std::is_signed_v<TDecode>>
         requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>))
-    void decodeStream(BufferStream& tileData, TTarget* out, std::size_t outSize, const StreamMetadata& metadata);
+    void decodeStream(BufferStream& tileData, TTarget* out, std::size_t outSize, const StreamMetadata&);
 
     template <typename T>
     static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns);
