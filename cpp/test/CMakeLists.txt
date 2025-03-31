@@ -7,6 +7,7 @@ add_executable(mlt-cpp-test
     test_fsst.cpp
     test_packed_bitset.cpp
     test_util.cpp
+    test_varint.cpp
 )
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 
