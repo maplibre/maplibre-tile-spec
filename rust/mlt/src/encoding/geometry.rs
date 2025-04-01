@@ -12,12 +12,6 @@ pub enum GeometryType {
     MultiPolygon,
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// struct HilbertCurve {
-//     curve: SmallHilbertCurve,
-//     coordinate_shift: i32,
-// }
-
 pub struct Vertex {
     pub x: f64,
     pub y: f64,
@@ -46,6 +40,7 @@ impl SortSettings {
 
 pub struct GeometryEncoder;
 
+#[expect(dead_code, unused_variables)]
 impl GeometryEncoder {
     pub fn encode_geometry_column(
         geometries: Vec<Geometry>,

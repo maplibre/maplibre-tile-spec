@@ -263,6 +263,7 @@ fn get_scalar_type(value: &Value) -> MltResult<ScalarType> {
     }
 }
 
+#[expect(unused_variables)]
 pub fn convert_mvt(
     mvt: MapboxVectorTile,
     config: ConversionConfig,
@@ -274,8 +275,8 @@ pub fn convert_mvt(
         PhysicalLevelTechnique::Varint
     };
 
-    let mut maplibre_tile_buffer: Vec<u8> = Vec::new();
-    let mut feature_table_id = 0;
+    let maplibre_tile_buffer: Vec<u8> = Vec::new();
+    let feature_table_id = 0;
     for layer in mvt.layers {
         let feature_table_name = layer.name;
         // let mvt_features = layer.features;
@@ -293,6 +294,7 @@ pub fn convert_mvt(
     Ok(vec![])
 }
 
+#[expect(unused_variables)]
 fn sort_features_and_encode_geometry_column(
     config: &ConversionConfig,
     feature_table_optimizations: Option<&FeatureTableOptimizations>,

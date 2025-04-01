@@ -1,8 +1,9 @@
 mod common;
 
 use mlt::MltResult;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 #[test]
 fn test_mlt_tiles() -> MltResult<()> {
@@ -21,8 +22,16 @@ fn test_mlt_tiles() -> MltResult<()> {
         if mlt_file.file_name().unwrap() != "2_2_2.mlt" {
             continue;
         }
-        println!("Processing: {:?}", mlt_file);
+        test_tile(&mlt_file)?;
     }
+
+    Ok(())
+}
+
+fn test_tile(file: &Path) -> MltResult<()> {
+    let mut file = fs::File::open(file)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
 
     Ok(())
 }
