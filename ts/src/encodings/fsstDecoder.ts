@@ -29,5 +29,3 @@ export function decodeFsst(symbols: Uint8Array, symbolLengths: Uint32Array, comp
     }
     return new Uint8Array(decodedData);
 }
-
-

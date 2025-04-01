@@ -343,5 +343,3 @@ function filterMvtLayer(zoom: number, sourceLayerName: string, filter: (feature)
     }
     return selectionVector;
 }
-
-

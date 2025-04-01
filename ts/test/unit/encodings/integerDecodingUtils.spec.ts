@@ -73,5 +73,3 @@ function varintEncodeNum(value: number){
     const v = varint.encode(value);
     return new Uint8Array(v);
 }
-
-

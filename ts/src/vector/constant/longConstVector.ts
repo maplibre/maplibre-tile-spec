@@ -117,5 +117,3 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
     }
 
 }
-
-

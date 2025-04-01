@@ -189,5 +189,3 @@ function isNullabilityBuffer(sizeOrNullabilityBuffer: number | BitVector): sizeO
 
     return StringDecoder.decodeSharedDictionarySequential(data, offset, columnMetadata);
 }*/
-
-

@@ -703,5 +703,3 @@ export function decodeZigZagSequenceRleInt64(data: BigInt64Array): [baseValue: b
     /* base value and delta value are not equal -> 2 runs and 2 values*/
     return [decodeZigZagValueInt64(data[2]), decodeZigZagValueInt64(data[3])];
 }
-
-

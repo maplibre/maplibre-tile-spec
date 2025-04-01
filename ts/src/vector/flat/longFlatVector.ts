@@ -148,4 +148,3 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
     }
 
 }
-

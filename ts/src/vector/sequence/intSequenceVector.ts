@@ -84,4 +84,3 @@ export class IntSequenceVector extends SequenceVector<Int32Array, number> {
     }
 
 }
-

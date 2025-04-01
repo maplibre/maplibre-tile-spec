@@ -119,5 +119,3 @@ export class IntConstVector extends ConstVector<Int32Array, number> {
     }
 
 }
-
-

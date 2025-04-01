@@ -314,5 +314,5 @@ export default class IntegerStreamDecoder {
 
         return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
     }
-    
+
 }
