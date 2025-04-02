@@ -12,4 +12,6 @@ pub enum MltError {
     FileReadError(#[from] std::io::Error),
     #[error("Unsupported geometry type: {0}")]
     UnsupportedGeometryType(String),
+    #[error("Failed to decode protobuf: {0}")]
+    DecodeError(#[from] prost::DecodeError),
 }

@@ -10,7 +10,6 @@ fn test_mlt_tiles() -> MltResult<()> {
     let mlt_path = Path::new("../../test/expected/omt/");
     let all_files = fs::read_dir(mlt_path)?;
 
-    // Collect all mlt files
     let mlt_files: Vec<PathBuf> = all_files
         .filter_map(Result::ok)
         .map(|f| f.path())

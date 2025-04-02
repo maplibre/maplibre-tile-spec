@@ -4,6 +4,7 @@ mod metadata;
 mod data;
 mod encoding;
 
+pub use metadata::proto_tileset::TileSetMetadata;
 pub use converter::{
     mlt::{create_tileset_metadata, FeatureTableOptimizations},
     mvt,
