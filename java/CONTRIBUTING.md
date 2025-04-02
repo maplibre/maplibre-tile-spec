@@ -1,4 +1,3 @@
-
 To build the project run the following command:
 ````bash
 ./gradlew build
