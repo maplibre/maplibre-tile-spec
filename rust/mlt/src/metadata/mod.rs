@@ -63,4 +63,3 @@ mod tests {
         assert_eq!(actual, expected, "Feature table schema names do not match");
     }
 }
-
