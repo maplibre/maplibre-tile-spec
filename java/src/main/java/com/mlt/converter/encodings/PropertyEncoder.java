@@ -2,6 +2,7 @@ package com.mlt.converter.encodings;
 
 import com.google.common.primitives.Bytes;
 import com.mlt.converter.CollectionUtils;
+import com.mlt.converter.Settings;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.data.Feature;
 import com.mlt.metadata.stream.LogicalLevelTechnique;
@@ -34,6 +35,15 @@ public class PropertyEncoder {
     var i = 0;
     for (var columnMetadata : propertyColumns) {
       if (columnMetadata.hasScalarType()) {
+        if (features.stream()
+            .noneMatch(f -> f.properties().containsKey(columnMetadata.getName()))) {
+          /* Indicate a missing property column in the tile with a zero for the number of streams */
+          var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+          featureScopedPropertyColumns =
+              CollectionUtils.concatByteArrays(featureScopedPropertyColumns, encodedFieldMetadata);
+          continue;
+        }
+
         var encodedScalarPropertyColumn =
             encodeScalarPropertyColumn(
                 columnMetadata, features, physicalLevelTechnique, useAdvancedEncodings);
@@ -45,7 +55,8 @@ public class PropertyEncoder {
               == MltTilesetMetadata.ComplexType.STRUCT) {
         if (columnMappings.isEmpty()) {
           throw new IllegalArgumentException(
-              "Column mappings are required for nested property columns.");
+              "Column mappings are required for nested property column "
+                  + columnMetadata.getName());
         }
 
         // TODO: add present stream for struct column
@@ -62,7 +73,7 @@ public class PropertyEncoder {
               == MltTilesetMetadata.ScalarType.STRING) {
             if (columnMapping.useSharedDictionaryEncoding()) {
               // request all string columns in row and merge
-              if (nestedFieldMetadata.getName() == "default") {
+              if (nestedFieldMetadata.getName().equals("default")) {
                 var propertyColumn =
                     features.stream()
                         .map(f -> (String) f.properties().get(columnMapping.mvtPropertyPrefix()))
@@ -74,7 +85,7 @@ public class PropertyEncoder {
                 // tile instead for the full tileset
                 var mvtPropertyName =
                     columnMapping.mvtPropertyPrefix()
-                        + columnMapping.mvtDelimiterSign()
+                        + Settings.MLT_CHILD_FIELD_SEPARATOR
                         + nestedFieldMetadata.getName();
                 var propertyColumn =
                     features.stream()
@@ -92,12 +103,24 @@ public class PropertyEncoder {
           }
         }
 
+        if (sharedDictionary.stream().allMatch(List::isEmpty)) {
+          /* Set number of streams to zero if no columns are present in this tile */
+          var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+          return CollectionUtils.concatByteArrays(
+              featureScopedPropertyColumns, encodedFieldMetadata);
+        }
+
         var nestedColumns =
             StringEncoder.encodeSharedDictionary(
-                sharedDictionary, PhysicalLevelTechnique.FAST_PFOR);
-        var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+                sharedDictionary, physicalLevelTechnique, useAdvancedEncodings);
+        // TODO: fix -> ony quick and dirty fix
+        var numStreams = nestedColumns.getLeft() == 0 ? 0 : 1;
+        /* Set number of streams to zero if no columns are present in this tile */
+        var encodedFieldMetadata =
+            EncodingUtils.encodeVarints(new long[] {numStreams}, false, false);
+
         // TODO: add present stream and present stream metadata for struct column in addition
-        // to the FieldMetadata to compliant with the specification
+        // to the FieldMetadata to be compliant with the specification
         featureScopedPropertyColumns =
             CollectionUtils.concatByteArrays(
                 featureScopedPropertyColumns, encodedFieldMetadata, nestedColumns.getRight());
@@ -295,13 +318,6 @@ public class PropertyEncoder {
         IntegerEncoder.encodeIntStream(
             values, physicalLevelTechnique, isSigned, PhysicalStreamType.DATA, null);
 
-    // TODO: remove -> only test
-    var encodedPresentStream2 =
-        BooleanEncoder.encodeBooleanStreamOptimized(present, PhysicalStreamType.PRESENT);
-    // System.out.println(fieldName + "ORC encoded present stream: " + encodedPresentStream.length +
-    // " Optimized encoded present stream: "
-    //        + encodedPresentStream2.length);
-
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
@@ -324,14 +340,6 @@ public class PropertyEncoder {
         BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
     var encodedDataStream =
         IntegerEncoder.encodeLongStream(values, isSigned, PhysicalStreamType.DATA, null);
-
-    // TODO: remove -> only test
-    var encodedPresentStream2 =
-        BooleanEncoder.encodeBooleanStreamOptimized(present, PhysicalStreamType.PRESENT);
-    // System.out.println(fieldName + "ORC encoded present stream: " + encodedPresentStream.length +
-    // " Optimized encoded present stream: "
-    //        + encodedPresentStream2.length);
-
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 }

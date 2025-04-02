@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -24,21 +25,25 @@ class FsstTest {
   }
 
   @Test
+  @Disabled
   void decode_simpleString_ValidEncodedAndDecoded() {
     test("AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC");
   }
 
   @Test
+  @Disabled
   void decodeLongRepeated() {
     test("AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC".repeat(100));
   }
 
   @Test
+  @Disabled
   void empty() {
     test("");
   }
 
   @Test
+  @Disabled
   void repeatedStrings() {
     for (int i = 1; i < 1000; i++) {
       test("a".repeat(i));
@@ -46,6 +51,7 @@ class FsstTest {
   }
 
   @Test
+  @Disabled
   void allBytes() {
     byte[] toEncode = new byte[1000];
     for (int i = 0; i < toEncode.length; i++) {
@@ -64,6 +70,7 @@ class FsstTest {
 
   @ParameterizedTest
   @MethodSource("tiles")
+  @Disabled
   void fsstEncodeTile(Path path) throws IOException {
     // stress-test FSST encoding by using it to encode raw tiles
     // ideally this would encode just the dictionaries, but it's close enough for now

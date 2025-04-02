@@ -206,7 +206,7 @@ public class Encode {
       var columnMappings = Optional.<List<ColumnMapping>>empty();
       var isIdPresent = true;
       var tileMetadata =
-          MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+          MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
 
       var allowIdRegeneration = true;
       var allowSorting = false;

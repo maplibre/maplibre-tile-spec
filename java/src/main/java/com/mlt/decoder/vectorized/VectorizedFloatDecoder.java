@@ -23,11 +23,7 @@ public class VectorizedFloatDecoder {
   public static FloatBuffer decodeNullableFloatStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, BitVector nullabilityBuffer) {
     // TODO: refactor for performance
-    var floatBuffer =
-        ByteBuffer.wrap(data, offset.get(), streamMetadata.byteLength())
-            .order(ByteOrder.LITTLE_ENDIAN)
-            .asFloatBuffer();
-    offset.add(streamMetadata.byteLength());
+    var floatBuffer = decodeFloatStream(data, offset, streamMetadata);
 
     floatBuffer.position(0);
     var nullableFloatBuffer = new float[nullabilityBuffer.size()];
