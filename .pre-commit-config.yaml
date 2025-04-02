@@ -5,7 +5,7 @@
 exclude: |
   (?x)^(
       test/expected/.*
-      |java/gradlew(|\.bat)
+      |java/gradlew(\.bat)?
   )$
 
 ci:
