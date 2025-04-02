@@ -1,5 +1,5 @@
+benchmark/
 benchmarks/**/*.mvt
 benchmarks/**/*.pbf
+data/
 output/
-test/benchmark
-test/data
