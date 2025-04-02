@@ -1,0 +1,5 @@
+benchmarks/**/*.mvt
+benchmarks/**/*.pbf
+output/
+test/benchmark
+test/data
