@@ -5,8 +5,8 @@ import com.mlt.vector.Vector;
 import java.nio.LongBuffer;
 
 public class LongFlatVector extends Vector<LongBuffer, Long> {
-  public LongFlatVector(String name, LongBuffer dataBuffer) {
-    super(name, dataBuffer);
+  public LongFlatVector(String name, LongBuffer dataBuffer, int size) {
+    super(name, dataBuffer, size);
   }
 
   public LongFlatVector(String name, BitVector nullabilityBuffer, LongBuffer dataBuffer) {

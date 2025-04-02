@@ -73,7 +73,7 @@ public class Meta {
       var columnMappings = Optional.<List<ColumnMapping>>empty();
       var isIdPresent = true;
       var tileMetadata =
-          MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+          MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
       Path outputPath = null;
       if (cmd.hasOption(OUTPUT_DIR_ARG)) {
         var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);

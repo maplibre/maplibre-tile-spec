@@ -10,10 +10,10 @@ crate-type = ["cdylib", "rlib"]
 #default = ["console_error_panic_hook"]
 
 [dependencies]
-wasm-bindgen = { version = "0.2.74", features = ["serde-serialize"]  }
-js-sys = "0.3.51"
-wasm-bindgen-futures = "0.4.24"
-serde = { version = "1.0.203", features = ["derive"] }
+wasm-bindgen = { version = "0.2.100", features = ["serde-serialize"]  }
+js-sys = "0.3.77"
+wasm-bindgen-futures = "0.4.50"
+serde = { version = "1.0.219", features = ["derive"] }
 serde_derive = "^1.0.59"
 
 [dependencies.web-sys]
@@ -31,7 +31,7 @@ features = [
 #wee_alloc = { version = "0.4.5", optional = true }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.42"
+wasm-bindgen-test = "0.3.50"
 
 #[profile.release]
 # Tell `rustc` to optimize for small code size.

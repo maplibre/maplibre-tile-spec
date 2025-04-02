@@ -1,0 +1,5 @@
+Without advanced encodings like FSST and FastPfor
+Ids are optimized
+- regenerated in layers with ids which are unique per tile but contain no global information, so they can be
+  reassigned by the converter e.g. in transporation layer
+- mapped to integers in case of long for faster decoding

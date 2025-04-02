@@ -1,0 +1,2 @@
+Without advanced encodings like FSST and FastPfor
+VertexBuffer is Morton Dictionary encoded

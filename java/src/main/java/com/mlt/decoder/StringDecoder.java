@@ -1,5 +1,6 @@
 package com.mlt.decoder;
 
+import com.mlt.converter.Settings;
 import com.mlt.converter.encodings.fsst.FsstEncoder;
 import com.mlt.metadata.stream.DictionaryType;
 import com.mlt.metadata.stream.LengthType;
@@ -130,10 +131,11 @@ public class StringDecoder {
         }
       }
 
-      // TODO: get delimiter sign from column mappings
       var columnName =
           column.getName()
-              + (childField.getName() == "default" ? "" : (":" + childField.getName()));
+              + (childField.getName().equals("default")
+                  ? ""
+                  : (Settings.MLT_CHILD_FIELD_SEPARATOR + childField.getName()));
       // TODO: refactor to work also when present stream is null
       numValues.put(columnName, presentStreamMetadata.numValues());
       presentStreams.put(columnName, presentStream);

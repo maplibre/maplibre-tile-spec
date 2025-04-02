@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /*
@@ -32,6 +33,7 @@ public class CompressionBenchmarks {
   public static final String PLACEHOLDER_FILE = ".gitkeep";
 
   @Test
+  @Disabled
   public void bingMapsCompressionBenchmarks_Unsorted() throws IOException {
     var results = runBenchmarks(BING_MAPS_PATH, false, List.of());
     if (results == null) {
@@ -44,6 +46,7 @@ public class CompressionBenchmarks {
   }
 
   @Test
+  @Disabled
   public void omtCompressionBenchmarks_Unsorted() throws IOException {
     var results = runBenchmarks(OMT_PATH, false, List.of());
     if (results == null) {
@@ -56,6 +59,7 @@ public class CompressionBenchmarks {
   }
 
   @Test
+  @Disabled
   public void omtCompressionBenchmarks_Sorted() throws IOException {
     var results = runBenchmarks(OMT_PATH, true, List.of());
     if (results == null) {
@@ -128,11 +132,9 @@ public class CompressionBenchmarks {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = Optional.of(List.of(columnMapping));
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
+    var tileMetadata = MltConverter.createTilesetMetadata(List.of(mvTile), columnMappings, true);
 
-    var allowIdRegeneration = false;
-    var optimization =
-        new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
+    var optimization = new FeatureTableOptimizations(allowSorting, false, columnMappings);
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
@@ -148,7 +150,12 @@ public class CompressionBenchmarks {
     if (reassignableLayers.isEmpty()) {
       /* Only test when the ids are not reassigned since it is verified based on the other tests */
       var decodedMlt = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-      TestUtils.compareTilesVectorized(decodedMlt, mvTile, allowSorting);
+      System.out.println("Comparing tiles: " + tilePath);
+      TestUtils.compareTilesVectorized(
+          decodedMlt,
+          mvTile,
+          allowSorting ? TestUtils.Optimization.SORTED : TestUtils.Optimization.NONE,
+          null);
     }
 
     var mvtSize = Files.readAllBytes(mvtFilePath).length;

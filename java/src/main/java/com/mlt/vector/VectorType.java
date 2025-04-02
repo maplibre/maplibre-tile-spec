@@ -6,8 +6,4 @@ public enum VectorType {
   SEQUENCE,
   DICTIONARY,
   FSST_DICTIONARY;
-
-  /*public static VectorType getVectorTypeFromIntStream(int type) {
-      return Flat;
-  }*/
 }

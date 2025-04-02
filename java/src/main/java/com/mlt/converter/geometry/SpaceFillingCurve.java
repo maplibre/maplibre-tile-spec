@@ -8,24 +8,15 @@ public abstract class SpaceFillingCurve {
   private final int maxBound;
 
   public SpaceFillingCurve(int minVertexValue, int maxVertexValue) {
-    if (maxVertexValue < 0) {
-      throw new IllegalArgumentException("Max vertex value has to >= 0.");
-    }
-    var tileExtent = minVertexValue <= 0 ? maxVertexValue + 1 : maxVertexValue;
-    if (minVertexValue < 0) {
-      tileExtent += Math.abs(minVertexValue);
-    }
-
-    this.tileExtent = tileExtent;
-
-    numBits = (int) Math.ceil((Math.log(tileExtent) / Math.log(2)));
-
     // TODO: fix tile buffer problem
     /* Each tile can have a buffer around, which means the coordinate values are extended beyond the specified tileExtent.
      * Currently we are extending size tile size be half of to the size into each direction, which works well for the test tilesets.
      * But this leads to problems if the tile coordinates are not within this boundaries.
      * */
     coordinateShift = minVertexValue < 0 ? Math.abs(minVertexValue) : 0;
+    this.tileExtent = maxVertexValue + coordinateShift;
+    this.numBits = (int) Math.ceil((Math.log(this.tileExtent + 1) / Math.log(2)));
+    ;
     minBound = minVertexValue;
     maxBound = maxVertexValue;
   }

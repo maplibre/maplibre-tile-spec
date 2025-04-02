@@ -1,25 +1,8 @@
 package com.mlt.converter;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.mlt.TestSettings;
-import com.mlt.converter.mvt.ColumnMapping;
-import com.mlt.converter.mvt.MvtUtils;
-import com.mlt.metadata.tileset.MltTilesetMetadata;
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-
 public class MltConverterTest {
 
-  @Test
+  /*@Test
   @Disabled
   // Fails currently with org.opentest4j.AssertionFailedError: expected: <STRING> but was: <name:
   // "class"
@@ -65,7 +48,7 @@ public class MltConverterTest {
             .collect(Collectors.toList());
 
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
+    var mvtFilePath = Paths.get(OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var mapping = new ColumnMapping("name", ":", true);
@@ -118,7 +101,7 @@ public class MltConverterTest {
                   : waternameNameProperties;
           assertEquals(expectedPropertyNames.size(), nestedFields.size());
           for (var child : nestedFields) {
-            /* In this test all nested name:* fields are of type string */
+            //In this test all nested name:* fields are of type string
             assertEquals(
                 MltTilesetMetadata.ScalarType.STRING, child.getScalarField().getPhysicalType());
             assertTrue(expectedPropertyNames.contains(child.getName()));
@@ -127,4 +110,19 @@ public class MltConverterTest {
       }
     }
   }
+  */
+
+  /*@Test
+  public void createTileMetadata_OmtTileset_ValidMetadata() throws IOException {
+    var omtPath = Paths.get(OMT_MVT_PATH);
+    var mvtFiles = Files.list(omtPath).collect(Collectors.toList());
+
+    var mapping = new ColumnMapping("name", ":", true);
+    var tileMetadata =
+            MltConverter.createTilesetMetadata(mvtFiles, Optional.of(List.of(mapping)), true);
+
+    //TODO: add Test
+    assertEquals(10, tileMetadata.getFeatureTablesList().size());
+  }*/
+
 }

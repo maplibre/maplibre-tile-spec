@@ -1,5 +1,6 @@
 package com.mlt.converter.mvt;
 
+import com.mlt.converter.Settings;
 import com.mlt.data.Feature;
 import com.mlt.data.Layer;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.MvtReader;
@@ -14,6 +15,9 @@ import no.ecc.vectortile.VectorTileDecoder;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
+import org.springmeyer.Pbf;
+import org.springmeyer.VectorTile;
+import org.springmeyer.VectorTileLayer;
 
 public class MvtUtils {
   private static final String ID_KEY = "id";
@@ -50,7 +54,29 @@ public class MvtUtils {
     return MvtReader.loadMvt(mvtTile, geometryFactory, new TagKeyValueMapConverter(true, ID_KEY));
   }
 
-  private static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
+  /* Use the java port of the vector-tile-js library created by Dane Springmeyer.
+   * To get realistic number and have a fair comparison in terms of the decoding performance,
+   * the geometries of the features have to be decoded.
+   * */
+  public static Map<String, VectorTileLayer> decodeMvtMapbox(byte[] mvtTile) throws IOException {
+    Pbf pbf = new Pbf(mvtTile);
+    VectorTile vectorTile = new VectorTile(pbf, pbf.length);
+    for (var layer : vectorTile.layers.values()) {
+      for (int i = 0; i < layer.length; i++) {
+        var feature = layer.feature(i);
+        var geometry = feature.loadGeometry();
+      }
+    }
+
+    return vectorTile.layers;
+  }
+
+  public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
+    return decodeMvt(mvtTile, Optional.empty());
+  }
+
+  public static MapboxVectorTile decodeMvt(
+      byte[] mvtTile, Optional<List<ColumnMapping>> columnMappings) throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 
@@ -66,7 +92,7 @@ public class MvtUtils {
       for (var mvtFeature : layerFeatures) {
         var properties = new HashMap<>(mvtFeature.getAttributes());
         // TODO: quick and dirty -> implement generic
-        var transformedProperties = transformNestedPropertyNames(properties);
+        var transformedProperties = transformNestedPropertyNames(properties, columnMappings);
 
         var feature =
             new Feature(mvtFeature.getId(), mvtFeature.getGeometry(), transformedProperties);
@@ -107,7 +133,7 @@ public class MvtUtils {
         var id = (long) properties.get(ID_KEY);
         properties.remove(ID_KEY);
         // TODO: quick and dirty -> implement generic
-        var transformedProperties = transformNestedPropertyNames(properties);
+        var transformedProperties = transformNestedPropertyNames(properties, Optional.empty());
         var feature = new Feature(id, mvtFeature, transformedProperties);
         features.add(feature);
       }
@@ -118,9 +144,36 @@ public class MvtUtils {
     return new MapboxVectorTile(layers);
   }
 
-  private static Map<String, Object> transformNestedPropertyNames(Map<?, ?> properties) {
+  private static Map<String, Object> transformNestedPropertyNames(
+      Map<?, ?> properties, Optional<List<ColumnMapping>> columnMappings) {
     var transformedProperties = new LinkedHashMap<String, Object>();
-    properties.forEach((k, v) -> transformedProperties.put(k.toString().replace("_", ":"), v));
+    properties.forEach(
+        (k, v) -> {
+          /* Currently id is not supported as a property name in a FeatureTable,
+           *  so this quick workaround is implemented */
+          // TODO: refactor -> implement proper solution
+          final var key = k.toString();
+          if (k.equals(ID_KEY)) {
+            transformedProperties.put("_" + ID_KEY, v);
+            return;
+          }
+
+          if (columnMappings.isPresent()) {
+            var columnMapping =
+                columnMappings.get().stream()
+                    .filter(m -> key.startsWith(m.mvtPropertyPrefix()))
+                    .findFirst();
+            if (columnMapping.isPresent()) {
+              var transformedKey =
+                  key.replaceAll(
+                      columnMapping.get().mvtDelimiterSign(), Settings.MLT_CHILD_FIELD_SEPARATOR);
+              transformedProperties.put(transformedKey, v);
+              return;
+            }
+          }
+
+          transformedProperties.put(key, v);
+        });
     return transformedProperties;
   }
 }

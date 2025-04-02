@@ -19,7 +19,7 @@ public class StringSharedDictionaryVectorTest {
     var dict2 = List.of("Test4", "Test5", "Test6", "Test7");
     var sharedDict = List.of(dict1, dict2);
     var encodedDictionary =
-        StringEncoder.encodeSharedDictionary(sharedDict, PhysicalLevelTechnique.FAST_PFOR);
+        StringEncoder.encodeSharedDictionary(sharedDict, PhysicalLevelTechnique.FAST_PFOR, false);
     var test =
         MltTilesetMetadata.Field.newBuilder()
             .setName("Test")

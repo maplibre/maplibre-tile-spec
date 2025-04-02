@@ -28,7 +28,11 @@ public class TestSettings {
           "housenumber",
           "continent",
           "sov_capital",
-          "road");
+          "road",
+          "water",
+          "landuse",
+          "landcover",
+          "boundary");
   /* Layers with ids which are unique per tile but contain no global information, so they can be reassigned
    *  by the converter */
   public static final List<String> ID_REASSIGNABLE_MVT_LAYERS =

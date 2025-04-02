@@ -1,5 +1,6 @@
 package com.mlt.decoder.vectorized;
 
+import com.mlt.converter.Settings;
 import com.mlt.metadata.stream.DictionaryType;
 import com.mlt.metadata.stream.LengthType;
 import com.mlt.metadata.stream.RleEncodedStreamMetadata;
@@ -91,7 +92,12 @@ public class VectorizedStringDecoder {
   }
 
   public static Vector decodeToRandomAccessFormat(
-      String name, byte[] data, IntWrapper offset, int numStreams, BitVector bitVector) {
+      String name,
+      byte[] data,
+      IntWrapper offset,
+      int numStreams,
+      BitVector bitVector,
+      int numFeatures) {
     // TODO: handle ConstVector
     IntBuffer dictionaryLengthStream = null;
     IntBuffer offsetStream = null;
@@ -101,6 +107,10 @@ public class VectorizedStringDecoder {
     ByteBuffer symbolTableStream = null;
     for (var i = 0; i < numStreams; i++) {
       var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      if (streamMetadata.byteLength() == 0) {
+        continue;
+      }
+
       switch (streamMetadata.physicalStreamType()) {
         case OFFSET:
           {
@@ -149,11 +159,17 @@ public class VectorizedStringDecoder {
           symbolLengthStream,
           symbolTableStream);
     } else if (dictionaryStream != null) {
-      return StringDictionaryVector.createFromOffsetBuffer(
-          name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream);
+      return bitVector != null
+          ? StringDictionaryVector.createNullableVector(
+              name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream)
+          : StringDictionaryVector.createNonNullableVector(
+              name, offsetStream, dictionaryLengthStream, dictionaryStream, numFeatures);
     }
 
-    return StringFlatVector.createFromOffsetBuffer(name, bitVector, offsetStream, dictionaryStream);
+    return bitVector != null
+        ? StringFlatVector.createNonNullableVector(name, bitVector, offsetStream, dictionaryStream)
+        : StringFlatVector.createNonNullableVector(
+            name, offsetStream, dictionaryStream, numFeatures);
   }
 
   // TODO: create baseclass for shared dictionary
@@ -205,6 +221,11 @@ public class VectorizedStringDecoder {
     var i = 0;
     for (var childField : chieldFields) {
       var numStreams = VectorizedDecodingUtils.decodeVarint(data, offset, 1).get(0);
+      if (numStreams == 0) {
+        /* Column is not present in the tile */
+        continue;
+      }
+
       if (numStreams != 2
           || childField.hasComplexField()
           || childField.getScalarField().getPhysicalType()
@@ -220,10 +241,11 @@ public class VectorizedStringDecoder {
       var offsetStream =
           VectorizedIntegerDecoder.decodeIntStream(data, offset, offsetStreamMetadata, false);
 
-      // TODO: get delimiter sign from column mappings
       var columnName =
           column.getName()
-              + (childField.getName() == "default" ? "" : (":" + childField.getName()));
+              + (childField.getName().equals("default")
+                  ? ""
+                  : (Settings.MLT_CHILD_FIELD_SEPARATOR + childField.getName()));
       // TODO: refactor to work also when present stream is null
       var dataVector =
           new DictionaryDataVector(
@@ -257,13 +279,24 @@ public class VectorizedStringDecoder {
     boolean dictionaryStreamDecoded = false;
     while (!dictionaryStreamDecoded) {
       var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      if (streamMetadata.byteLength() == 0) {
+        // TODO: quick and dirty approach -> find proper solution
+        // continue;
+        System.out.println("error");
+      }
+
       switch (streamMetadata.physicalStreamType()) {
         case LENGTH:
           {
             if (LengthType.DICTIONARY.equals(streamMetadata.logicalStreamType().lengthType())) {
-              dictionaryOffsetBuffer =
-                  VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(
-                      data, offset, streamMetadata);
+              try {
+                dictionaryOffsetBuffer =
+                    VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(
+                        data, offset, streamMetadata);
+              } catch (Exception e) {
+                e.printStackTrace();
+              }
+
             } else {
               symbolOffsetBuffer =
                   VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(
@@ -294,6 +327,11 @@ public class VectorizedStringDecoder {
     var i = 0;
     for (var childField : childFields) {
       var numStreams = VectorizedDecodingUtils.decodeVarint(data, offset, 1).get(0);
+      if (numStreams == 0) {
+        /* Column is not present in the tile */
+        continue;
+      }
+
       if (numStreams != 2
           || childField.hasComplexField()
           || childField.getScalarField().getPhysicalType()
@@ -324,10 +362,11 @@ public class VectorizedStringDecoder {
                   new BitVector(presentStream, presentStreamMetadata.numValues()))
               : VectorizedIntegerDecoder.decodeIntStream(data, offset, offsetStreamMetadata, false);
 
-      // TODO: get delimiter sign from column mappings
       var columnName =
           column.getName()
-              + (childField.getName() == "default" ? "" : (":" + childField.getName()));
+              + (childField.getName().equals("default")
+                  ? ""
+                  : (Settings.MLT_CHILD_FIELD_SEPARATOR + childField.getName()));
       // TODO: refactor to work also when present stream is null
       var dataVector =
           new DictionaryDataVector(

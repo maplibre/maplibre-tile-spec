@@ -5,20 +5,6 @@ import java.util.Arrays;
 // Source: https://github.com/yhliu918/Learn-to-Compress
 public class LinearRegression {
 
-  /*public static void main(String[] args) {
-      double[] x = {1, 2, 3, 4, 5}; // example values
-      double[] y = {2, 4, 6, 8, 10}; // example values
-      int m = x.length;
-      double alpha = 0.01; // example learning rate
-      int iterations = 1000; // example number of iterations
-      double[] J = new double[iterations]; // to store cost history
-      double[] theta = gradientDescent(x, y, alpha, iterations, J);
-      System.out.println("Theta: " + theta[0] + ", " + theta[1]);
-
-      //var predictions = calculatePredictions(x, theta);
-      var deltas = calculateDeltas()
-  }*/
-
   public static double[] calculateDeltas(double[] indices, double[] actualValues, double[] theta) {
     var predictions = calculatePredictions(indices, theta);
 
