@@ -89,55 +89,55 @@ inline json buildGeometryElement(std::string_view type, json&& coords) {
     };
 }
 
-inline json buildGeometryElement(const Point& point, const Projection& projection) {
+inline json buildGeometryElement(const geometry::Point& point, const Projection& projection) {
     return {
         {"type", "Point"},
         {"coordinates", buildCoordinateArray(point.getCoordinate(), projection)},
     };
 }
 
-inline json buildGeometryElement(const LineString& line, const Projection& projection) {
+inline json buildGeometryElement(const geometry::LineString& line, const Projection& projection) {
     return buildGeometryElement("LineString", buildCoordinatesArray(line.getCoordinates(), projection));
 }
 
-inline json buildGeometryElement(const LinearRing& line, const Projection& projection) {
+inline json buildGeometryElement(const geometry::LinearRing& line, const Projection& projection) {
     return buildGeometryElement("LineString", buildCoordinatesArray(line.getCoordinates(), projection));
 }
 
-inline json buildGeometryElement(const MultiPoint& points, const Projection& projection) {
+inline json buildGeometryElement(const geometry::MultiPoint& points, const Projection& projection) {
     return buildGeometryElement("MultiPoint", buildCoordinatesArray(points.getCoordinates(), projection));
 }
 
-inline json buildGeometryElement(const MultiLineString& mls, const Projection& projection) {
+inline json buildGeometryElement(const geometry::MultiLineString& mls, const Projection& projection) {
     return buildGeometryElement("MultiLineString", buildArray(mls.getLineStrings(), [&](const auto& lineString) {
                                     return buildCoordinatesArray(lineString, projection);
                                 }));
 }
 
-inline json buildGeometryElement(const Polygon& poly, const Projection& projection) {
+inline json buildGeometryElement(const geometry::Polygon& poly, const Projection& projection) {
     return buildGeometryElement("Polygon", buildPolygonCoords(poly.getShell(), poly.getRings(), projection));
 }
 
-inline json buildGeometryElement(const MultiPolygon& poly, const Projection& projection) {
+inline json buildGeometryElement(const geometry::MultiPolygon& poly, const Projection& projection) {
     return buildGeometryElement("MultiPolygon", buildArray(poly.getPolygons(), [&](const auto& poly) {
                                     return buildPolygonCoords(poly.first, poly.second, projection);
                                 }));
 }
 
-inline json buildAnyGeometryElement(const Geometry& geometry, const Projection& projection) {
+inline json buildAnyGeometryElement(const geometry::Geometry& geometry, const Projection& projection) {
     switch (geometry.type) {
         case metadata::tileset::GeometryType::POINT:
-            return buildGeometryElement(static_cast<const Point&>(geometry), projection);
+            return buildGeometryElement(static_cast<const geometry::Point&>(geometry), projection);
         case metadata::tileset::GeometryType::LINESTRING:
-            return buildGeometryElement(static_cast<const LineString&>(geometry), projection);
+            return buildGeometryElement(static_cast<const geometry::LineString&>(geometry), projection);
         case metadata::tileset::GeometryType::POLYGON:
-            return buildGeometryElement(static_cast<const Polygon&>(geometry), projection);
+            return buildGeometryElement(static_cast<const geometry::Polygon&>(geometry), projection);
         case metadata::tileset::GeometryType::MULTIPOINT:
-            return buildGeometryElement(static_cast<const MultiPoint&>(geometry), projection);
+            return buildGeometryElement(static_cast<const geometry::MultiPoint&>(geometry), projection);
         case metadata::tileset::GeometryType::MULTILINESTRING:
-            return buildGeometryElement(static_cast<const MultiLineString&>(geometry), projection);
+            return buildGeometryElement(static_cast<const geometry::MultiLineString&>(geometry), projection);
         case metadata::tileset::GeometryType::MULTIPOLYGON:
-            return buildGeometryElement(static_cast<const MultiPolygon&>(geometry), projection);
+            return buildGeometryElement(static_cast<const geometry::MultiPolygon&>(geometry), projection);
         default:
             throw std::runtime_error("Unsupported geometry type " + std::to_string(std::to_underlying(geometry.type)));
     }
@@ -183,7 +183,9 @@ inline json toGeoJSON(const Feature& feature, const Projection& projection) {
 
 inline json toGeoJSON(const Layer& layer, const TileCoordinate& tileCoord) {
     const auto projection = Projection{layer.getExtent(), tileCoord};
-    const auto features = std::ranges::views::all(layer.getFeatures());
+    // const auto features = std::ranges::views::all(layer.getFeatures());
+    auto x = std::vector<Feature>{};
+    const auto features = std::ranges::views::all(x);
     return {{"name", layer.getName()},
             {"version", layer.getVersion()},
             {"extent", layer.getExtent()},

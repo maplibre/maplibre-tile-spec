@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-namespace mlt {
+namespace mlt::geometry {
 
 class Geometry : public util::noncopyable {
 public:
@@ -121,26 +121,27 @@ public:
     GeometryFactory() = default;
     virtual ~GeometryFactory() = default;
 
-    virtual std::unique_ptr<Geometry> createPoint(const Coordinate& coord) { return std::make_unique<Point>(coord); }
-    virtual std::unique_ptr<Geometry> createMultiPoint(CoordVec&& coords) {
+    virtual std::unique_ptr<Geometry> createPoint(const Coordinate& coord) const {
+        return std::make_unique<Point>(coord);
+    }
+    virtual std::unique_ptr<Geometry> createMultiPoint(CoordVec&& coords) const {
         return std::make_unique<MultiPoint>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createLineString(CoordVec&& coords) {
+    virtual std::unique_ptr<Geometry> createLineString(CoordVec&& coords) const {
         return std::make_unique<LineString>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createLinearRing(CoordVec&& coords) {
+    virtual std::unique_ptr<Geometry> createLinearRing(CoordVec&& coords) const {
         return std::make_unique<LineString>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createPolygon(CoordVec&& shell, std::vector<CoordVec>&& rings) {
+    virtual std::unique_ptr<Geometry> createPolygon(CoordVec&& shell, std::vector<CoordVec>&& rings) const {
         return std::make_unique<Polygon>(std::move(shell), std::move(rings));
     }
-    virtual std::unique_ptr<Geometry> createMultiLineString(std::vector<CoordVec>&& lineStrings) {
+    virtual std::unique_ptr<Geometry> createMultiLineString(std::vector<CoordVec>&& lineStrings) const {
         return std::make_unique<MultiLineString>(std::move(lineStrings));
     }
-    virtual std::unique_ptr<Geometry> createMultiPolygon(std::vector<MultiPolygon::ShellRingsPair>&& polys) noexcept(
-        false) {
+    virtual std::unique_ptr<Geometry> createMultiPolygon(std::vector<MultiPolygon::ShellRingsPair>&& polys) const {
         return std::make_unique<MultiPolygon>(std::move(polys));
     }
 };
 
-} // namespace mlt
+} // namespace mlt::geometry

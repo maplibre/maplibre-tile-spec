@@ -3,207 +3,23 @@
 #include <mlt/decode/int.hpp>
 #include <mlt/feature.hpp>
 #include <mlt/geometry.hpp>
+#include <mlt/geometry_vector.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/noncopyable.hpp>
 
-#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace mlt::geometry {
-
-struct MortonSettings {
-    int numBits;
-    int coordinateShift;
-};
-
-enum class VertexBufferType : std::uint32_t {
-    MORTON,
-    VEC_2,
-    VEC_3
-};
-
-struct TopologyVector : public util::noncopyable {
-    TopologyVector(std::vector<std::uint32_t>&& geometryOffsets_,
-                   std::vector<std::uint32_t>&& partOffsets_,
-                   std::vector<std::uint32_t>&& ringOffsets_) noexcept
-        : geometryOffsets(geometryOffsets_),
-          partOffsets(partOffsets_),
-          ringOffsets(ringOffsets_) {}
-
-private:
-    std::vector<std::uint32_t> geometryOffsets;
-    std::vector<std::uint32_t> partOffsets;
-    std::vector<std::uint32_t> ringOffsets;
-};
-
-struct GeometryVectorBase : public util::noncopyable {
-    using GeometryType = metadata::tileset::GeometryType;
-
-    virtual ~GeometryVectorBase() = default;
-
-    // TODO: generator pattern?
-    virtual std::vector<std::unique_ptr<Geometry>> getGeometry() const = 0;
-
-protected:
-    GeometryVectorBase(std::vector<std::uint32_t>&& indexBuffer_,
-                       std::vector<std::int32_t>&& vertexBuffer_,
-                       std::optional<TopologyVector>&& topologyVector_,
-                       std::optional<MortonSettings> mortonSettings_ = {}) noexcept
-        : indexBuffer(std::move(indexBuffer_)),
-          vertexBuffer(std::move(vertexBuffer_)),
-          topologyVector(std::move(topologyVector_)),
-          mortonSettings(mortonSettings_) {}
-
-private:
-    std::vector<std::uint32_t> indexBuffer;
-    std::vector<std::int32_t> vertexBuffer;
-    std::optional<TopologyVector> topologyVector;
-    std::optional<MortonSettings> mortonSettings;
-};
-
-struct GpuVector : public GeometryVectorBase {
-    GpuVector(std::vector<std::uint32_t>&& triangleOffsets_,
-              std::vector<std::uint32_t>&& indexBuffer_,
-              std::vector<std::int32_t>&& vertexBuffer_,
-              std::optional<TopologyVector>&& topologyVector_) noexcept
-        : GeometryVectorBase(std::move(indexBuffer_), std::move(vertexBuffer_), std::move(topologyVector_)),
-          triangleOffsets(std::move(triangleOffsets_)) {}
-
-    std::vector<std::unique_ptr<Geometry>> getGeometry() const override { throw std::runtime_error("not implemented"); }
-
-private:
-    std::vector<std::uint32_t> triangleOffsets;
-};
-
-struct ConstGpuVector : public GpuVector {
-    ConstGpuVector(std::uint32_t numGeometries_,
-                   GeometryType geometryType_,
-                   std::vector<std::uint32_t>&& triangleOffsets_,
-                   std::vector<std::uint32_t>&& indexBuffer_,
-                   std::vector<std::int32_t>&& vertexBuffer_,
-                   std::optional<TopologyVector>&& topologyVector_) noexcept
-        : GpuVector(std::move(triangleOffsets_),
-                    std::move(indexBuffer_),
-                    std::move(vertexBuffer_),
-                    std::move(topologyVector_)),
-          numGeometries(numGeometries_),
-          geometryType(geometryType_) {}
-
-    std::vector<std::unique_ptr<Geometry>> getGeometry() const override { throw std::runtime_error("not implemented"); }
-
-private:
-    std::uint32_t numGeometries;
-    GeometryType geometryType;
-};
-
-struct FlatGpuVector : public GpuVector {
-    FlatGpuVector(std::vector<GeometryType>&& geometryTypes_,
-                  std::vector<std::uint32_t>&& triangleOffsets_,
-                  std::vector<std::uint32_t>&& indexBuffer_,
-                  std::vector<std::int32_t>&& vertexBuffer_,
-                  std::optional<TopologyVector>&& topologyVector_ = {}) noexcept
-        : GpuVector(std::move(triangleOffsets_),
-                    std::move(indexBuffer_),
-                    std::move(vertexBuffer_),
-                    std::move(topologyVector_)),
-          geometryTypes(std::move(geometryTypes_)) {}
-
-    std::vector<std::unique_ptr<Geometry>> getGeometry() const override { throw std::runtime_error("not implemented"); }
-
-private:
-    std::vector<GeometryType> geometryTypes;
-};
-
-struct GeometryVector : public GeometryVectorBase {
-    GeometryVector(VertexBufferType vertexBufferType_,
-                   TopologyVector&& topologyVector_,
-                   std::vector<std::uint32_t>&& vertexOffsets_,
-                   std::vector<std::int32_t>&& vertexBuffer_,
-                   std::optional<MortonSettings> mortonSettings_) noexcept
-        : GeometryVectorBase(/*indexBuffer=*/{}, std::move(vertexBuffer_), std::move(topologyVector_), mortonSettings_),
-          vertexBufferType(vertexBufferType_),
-          vertexOffsets(std::move(vertexOffsets_)) {}
-
-    std::vector<std::unique_ptr<Geometry>> getGeometry() const override { throw std::runtime_error("not implemented"); }
-
-private:
-    VertexBufferType vertexBufferType;
-    std::vector<std::uint32_t> vertexOffsets;
-};
-
-struct ConstGeometryVector : public GeometryVector {
-    ConstGeometryVector(std::uint32_t numGeometries_,
-                        GeometryType geometryType_,
-                        VertexBufferType vertexBufferType_,
-                        TopologyVector&& topologyVector_,
-                        std::vector<std::uint32_t>&& vertexOffsets_,
-                        std::vector<std::int32_t>&& vertexBuffer_,
-                        std::optional<MortonSettings> mortonSettings_) noexcept
-        : GeometryVector(vertexBufferType_,
-                         std::move(topologyVector_),
-                         std::move(vertexOffsets_),
-                         std::move(vertexBuffer_),
-                         mortonSettings_),
-          numGeometries(numGeometries_),
-          geometryType(geometryType_) {}
-
-    std::vector<std::unique_ptr<Geometry>> getGeometry() const override { throw std::runtime_error("not implemented"); }
-
-private:
-    std::uint32_t numGeometries;
-    GeometryType geometryType;
-};
-
-struct FlatGeometryVector : public GeometryVector {
-    FlatGeometryVector(VertexBufferType vertexBufferType_,
-                       std::vector<GeometryType>&& geometryTypes_,
-                       TopologyVector&& topologyVector_,
-                       std::vector<std::uint32_t>&& vertexOffsets_,
-                       std::vector<std::int32_t>&& vertexBuffer_,
-                       std::optional<MortonSettings> mortonSettings_) noexcept
-        : GeometryVector(vertexBufferType_,
-                         std::move(topologyVector_),
-                         std::move(vertexOffsets_),
-                         std::move(vertexBuffer_),
-                         mortonSettings_),
-          geometryTypes(geometryTypes_) {}
-
-    std::vector<std::unique_ptr<Geometry>> getGeometry() const override { throw std::runtime_error("not implemented"); }
-
-private:
-    std::vector<GeometryType> geometryTypes;
-};
-
-struct GeometryColumn : public util::noncopyable {
-    GeometryColumn() = default;
-    ~GeometryColumn() noexcept = default;
-
-    GeometryColumn(GeometryColumn&&) noexcept = default;
-    GeometryColumn& operator=(GeometryColumn&&) = delete;
-
-    std::vector<metadata::tileset::GeometryType> geometryTypes;
-    std::vector<std::uint32_t> geometryOffsets;
-    std::vector<std::uint32_t> partOffsets;
-    std::vector<std::uint32_t> ringOffsets;
-    std::vector<std::uint32_t> vertexOffsets;
-    std::vector<std::uint32_t> indexBuffer;
-    std::vector<std::uint32_t> triangles;
-    std::vector<std::int32_t> vertices;
-
-    std::unique_ptr<GeometryVectorBase> geometryVector;
-};
-} // namespace mlt::geometry
-
 namespace mlt::decoder {
 
 class GeometryDecoder {
 public:
-    using GeometryColumn = geometry::GeometryColumn;
+    using GeometryFactory = geometry::GeometryFactory;
+    using GeometryVector = geometry::GeometryVector;
 
     GeometryDecoder(std::unique_ptr<GeometryFactory>&& geometryFactory_)
         : geometryFactory(std::move(geometryFactory_)) {
@@ -245,14 +61,21 @@ private:
     }
 
 public:
-    GeometryColumn decodeGeometryColumn(BufferStream& tileData,
-                                        const metadata::tileset::Column& column,
-                                        std::uint32_t numStreams) {
+    std::unique_ptr<GeometryVector> decodeGeometryColumn(BufferStream& tileData,
+                                                         const metadata::tileset::Column& column,
+                                                         std::uint32_t numStreams) {
         using namespace util::decoding;
         using namespace metadata::stream;
         using namespace metadata::tileset;
 
-        GeometryColumn geomColumn;
+        std::vector<metadata::tileset::GeometryType> geometryTypes;
+        std::vector<std::uint32_t> geometryOffsets;
+        std::vector<std::uint32_t> partOffsets;
+        std::vector<std::uint32_t> ringOffsets;
+        std::vector<std::uint32_t> vertexOffsets;
+        std::vector<std::uint32_t> indexBuffer;
+        std::vector<std::uint32_t> triangles;
+        std::vector<std::int32_t> vertices;
 
         const auto geomTypeMetadata = StreamMetadata::decode(tileData);
         if (!geomTypeMetadata) {
@@ -271,7 +94,7 @@ public:
 
         // Different geometry types are mixed in the geometry column
         intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, GeometryType>(
-            tileData, geomColumn.geometryTypes, *geomTypeMetadata);
+            tileData, geometryTypes, *geomTypeMetadata);
 
         std::optional<geometry::MortonSettings> mortonSettings;
 
@@ -288,16 +111,16 @@ public:
                     std::optional<std::reference_wrapper<std::vector<std::uint32_t>>> target;
                     switch (type) {
                         case LengthType::GEOMETRIES:
-                            target = geomColumn.geometryOffsets;
+                            target = geometryOffsets;
                             break;
                         case LengthType::PARTS:
-                            target = geomColumn.partOffsets;
+                            target = partOffsets;
                             break;
                         case LengthType::RINGS:
-                            target = geomColumn.ringOffsets;
+                            target = ringOffsets;
                             break;
                         case LengthType::TRIANGLES:
-                            target = geomColumn.triangles;
+                            target = triangles;
                             break;
                         default:
                             throw std::runtime_error("Length stream type '" + std::to_string(std::to_underlying(type)) +
@@ -323,10 +146,10 @@ public:
                     std::optional<std::reference_wrapper<std::vector<std::uint32_t>>> target;
                     switch (type) {
                         case OffsetType::VERTEX:
-                            target = geomColumn.vertexOffsets;
+                            target = vertexOffsets;
                             break;
                         case OffsetType::INDEX:
-                            target = geomColumn.indexBuffer;
+                            target = indexBuffer;
                             break;
                         default:
                             throw std::runtime_error("Offset stream type '" + std::to_string(std::to_underlying(type)) +
@@ -355,7 +178,7 @@ public:
                                 case PhysicalLevelTechnique::VARINT:
                                     intDecoder
                                         .decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t, /*isSigned=*/true>(
-                                            tileData, geomColumn.vertices, *geomStreamMetadata);
+                                            tileData, vertices, *geomStreamMetadata);
                                     break;
                                 default:
                                     throw std::runtime_error("Unsupported encoding for geometries: " + column.name);
@@ -369,7 +192,7 @@ public:
                                 .numBits = mortonStreamMetadata.getNumBits(),
                                 .coordinateShift = mortonStreamMetadata.getCoordinateShift()};
                             intDecoder.decodeMortonStream<std::uint32_t, std::int32_t>(
-                                tileData, geomColumn.vertices, mortonStreamMetadata);
+                                tileData, vertices, mortonStreamMetadata);
                             break;
                         }
                         default:
@@ -389,83 +212,67 @@ public:
             }
         }
 
-        if (!geomColumn.indexBuffer.empty() && geomColumn.partOffsets.empty()) {
+        if (!indexBuffer.empty() && partOffsets.empty()) {
             /* Case when the indices of a Polygon outline are not encoded in the data so no
              *  topology data are present in the tile */
-            geomColumn.geometryVector = std::make_unique<geometry::FlatGpuVector>(std::move(geomColumn.geometryTypes),
-                                                                                  std::move(geomColumn.triangles),
-                                                                                  std::move(geomColumn.indexBuffer),
-                                                                                  std::move(geomColumn.vertices));
-            return geomColumn;
+            return std::make_unique<geometry::FlatGpuVector>(
+                std::move(geometryTypes), std::move(triangles), std::move(indexBuffer), std::move(vertices));
         }
 
-        if (!geomColumn.geometryOffsets.empty()) {
-            auto geometryOffsets = geomColumn.geometryOffsets; // TODO: avoid copies
-            decodeRootLengthStream(geomColumn.geometryTypes,
-                                   geomColumn.geometryOffsets,
+        if (!geometryOffsets.empty()) {
+            auto geometryOffsetsCopy = geometryOffsets; // TODO: avoid copies
+            decodeRootLengthStream(geometryTypes,
+                                   geometryOffsetsCopy,
                                    /*bufferId=*/GeometryType::POLYGON,
                                    geometryOffsets);
-            if (!geomColumn.partOffsets.empty()) {
-                auto partOffsets = geomColumn.partOffsets;
-                if (!geomColumn.ringOffsets.empty()) {
-                    decodeLevel1LengthStream(geomColumn.geometryTypes,
-                                             geomColumn.geometryOffsets,
-                                             partOffsets,
+            if (!partOffsets.empty()) {
+                if (!ringOffsets.empty()) {
+                    auto partOffsetsCopy = partOffsets;
+                    decodeLevel1LengthStream(geometryTypes,
+                                             geometryOffsets,
+                                             partOffsetsCopy,
                                              /*isLineStringPresent=*/false,
-                                             geomColumn.partOffsets);
-                    auto ringOffsets = geomColumn.ringOffsets;
-                    decodeLevel2LengthStream(geomColumn.geometryTypes,
-                                             geomColumn.geometryOffsets,
-                                             geomColumn.partOffsets,
-                                             ringOffsets,
-                                             geomColumn.ringOffsets);
+                                             partOffsets);
+                    auto ringOffsetsCopy = ringOffsets;
+                    decodeLevel2LengthStream(geometryTypes, geometryOffsets, partOffsets, ringOffsetsCopy, ringOffsets);
                 } else {
+                    auto partOffsetsCopy = partOffsets;
                     decodeLevel1WithoutRingBufferLengthStream(
-                        geomColumn.geometryTypes, geomColumn.geometryOffsets, partOffsets, geomColumn.partOffsets);
+                        geometryTypes, geometryOffsets, partOffsetsCopy, partOffsets);
                 }
             }
-        } else if (!geomColumn.partOffsets.empty()) {
-            if (!geomColumn.ringOffsets.empty()) {
-                auto partOffsets = geomColumn.partOffsets;
-                auto ringOffsets = geomColumn.ringOffsets;
-                decodeRootLengthStream(
-                    geomColumn.geometryTypes, partOffsets, GeometryType::LINESTRING, geomColumn.partOffsets);
-                decodeLevel1LengthStream(geomColumn.geometryTypes,
+        } else if (!partOffsets.empty()) {
+            auto partOffsetsCopy = partOffsets;
+            if (!ringOffsets.empty()) {
+                auto ringOffsetsCopy = ringOffsets;
+                decodeRootLengthStream(geometryTypes, partOffsetsCopy, GeometryType::LINESTRING, partOffsets);
+                decodeLevel1LengthStream(geometryTypes,
                                          partOffsets,
-                                         geomColumn.ringOffsets,
+                                         ringOffsetsCopy,
                                          /*isLineStringPresent=*/true,
-                                         geomColumn.ringOffsets);
+                                         ringOffsets);
             } else {
-                auto partOffsets = geomColumn.partOffsets;
-                decodeRootLengthStream(
-                    geomColumn.geometryTypes, partOffsets, GeometryType::POINT, geomColumn.partOffsets);
+                decodeRootLengthStream(geometryTypes, partOffsetsCopy, GeometryType::POINT, partOffsets);
             }
         }
 
-        if (!geomColumn.indexBuffer.empty()) {
+        if (!indexBuffer.empty()) {
             /* Case when the indices of a Polygon outline are encoded in the tile */
-            geomColumn.geometryVector = std::make_unique<geometry::FlatGpuVector>(
-                std::move(geomColumn.geometryTypes),
-                std::move(geomColumn.triangles),
-                std::move(geomColumn.indexBuffer),
-                std::move(geomColumn.vertices),
-                geometry::TopologyVector(std::move(geomColumn.geometryOffsets),
-                                         std::move(geomColumn.partOffsets),
-                                         std::move(geomColumn.ringOffsets)));
-            return geomColumn;
+            return std::make_unique<geometry::FlatGpuVector>(
+                std::move(geometryTypes),
+                std::move(triangles),
+                std::move(indexBuffer),
+                std::move(vertices),
+                geometry::TopologyVector(std::move(geometryOffsets), std::move(partOffsets), std::move(ringOffsets)));
         }
 
-        geomColumn.geometryVector = std::make_unique<geometry::FlatGeometryVector>(
+        return std::make_unique<geometry::FlatGeometryVector>(
+            std::move(geometryTypes),
+            geometry::TopologyVector(std::move(geometryOffsets), std::move(partOffsets), std::move(ringOffsets)),
+            std::move(vertexOffsets),
+            std::move(vertices),
             mortonSettings ? geometry::VertexBufferType::MORTON : geometry::VertexBufferType::VEC_2,
-            std::move(geomColumn.geometryTypes),
-            geometry::TopologyVector(std::move(geomColumn.geometryOffsets),
-                                     std::move(geomColumn.partOffsets),
-                                     std::move(geomColumn.ringOffsets)),
-            std::move(geomColumn.vertexOffsets),
-            std::move(geomColumn.vertices),
             mortonSettings);
-
-        return geomColumn;
     }
 
     /*
@@ -476,6 +283,7 @@ public:
                                 const std::vector<std::uint32_t>& rootLengthStream,
                                 const metadata::tileset::GeometryType bufferId,
                                 std::vector<std::uint32_t>& rootBufferOffsets) {
+        assert(&rootLengthStream != &rootBufferOffsets);
         rootBufferOffsets.resize(geometryTypes.size() + 1);
         std::uint32_t previousOffset = rootBufferOffsets[0] = 0;
         std::uint32_t rootLengthCounter = 0;
@@ -496,6 +304,8 @@ public:
                                   const std::vector<std::uint32_t>& level1LengthBuffer,
                                   const bool isLineStringPresent,
                                   std::vector<std::uint32_t>& level1BufferOffsets) {
+        assert(&rootOffsetBuffer != &level1BufferOffsets);
+        assert(&level1LengthBuffer != &level1BufferOffsets);
         using metadata::tileset::GeometryType;
         level1BufferOffsets.resize(rootOffsetBuffer[rootOffsetBuffer.size() - 1] + 1);
         std::uint32_t previousOffset = level1BufferOffsets[0] = 0;
@@ -531,6 +341,8 @@ public:
                                                    const std::vector<std::uint32_t>& rootOffsetBuffer,
                                                    const std::vector<std::uint32_t>& level1LengthBuffer,
                                                    std::vector<std::uint32_t>& level1BufferOffsets) {
+        assert(&rootOffsetBuffer != &level1BufferOffsets);
+        assert(&level1LengthBuffer != &level1BufferOffsets);
         using metadata::tileset::GeometryType;
         level1BufferOffsets.resize(rootOffsetBuffer[rootOffsetBuffer.size() - 1] + 1);
         std::uint32_t previousOffset = level1BufferOffsets[0] = 0;
@@ -559,6 +371,9 @@ public:
                                   const std::vector<std::uint32_t>& level1OffsetBuffer,
                                   const std::vector<std::uint32_t>& level2LengthBuffer,
                                   std::vector<std::uint32_t>& level2BufferOffsets) {
+        assert(&rootOffsetBuffer != &level2BufferOffsets);
+        assert(&level1OffsetBuffer != &level2BufferOffsets);
+        assert(&level2LengthBuffer != &level2BufferOffsets);
         using metadata::tileset::GeometryType;
         level2BufferOffsets.resize(level1OffsetBuffer[level1OffsetBuffer.size() - 1] + 1);
         std::uint32_t previousOffset = level2BufferOffsets[0] = 0;
@@ -590,6 +405,7 @@ public:
         }
     }
 
+#if OLD_GEOM
     std::vector<std::unique_ptr<Geometry>> decodeGeometry(const GeometryColumn& geometryColumn) {
         using namespace geometry;
         using metadata::tileset::GeometryType;
@@ -879,6 +695,7 @@ public:
         }
         return coords;
     }
+#endif
 
 private:
     std::unique_ptr<GeometryFactory> geometryFactory;

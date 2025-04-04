@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include "mlt/geometry.hpp"
+#include "mlt/geometry_vector.hpp"
 
 namespace mlt {
 
@@ -57,7 +58,8 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
 
     while (tileData.available()) {
         std::vector<Feature::id_t> ids;
-        std::vector<std::unique_ptr<Geometry>> geometries;
+        // std::vector<std::unique_ptr<Geometry>> geometries;
+        std::unique_ptr<geometry::GeometryVector> geometryVector;
         PropertyVecMap properties;
 
         const auto version = tileData.read();
@@ -111,19 +113,18 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                         throw std::runtime_error("unsupported id data type");
                 }
             } else if (columnName == GEOMETRY_COLUMN_NAME) {
-                const auto geometryColumn = impl->geometryDecoder.decodeGeometryColumn(
-                    tileData, columnMetadata, numStreams);
-                geometries = impl->geometryDecoder.decodeGeometry(geometryColumn);
+                geometryVector = impl->geometryDecoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
             } else {
                 auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
                 properties.emplace(columnMetadata.name, std::move(property));
             }
         }
 
-        if (numFeatures != ids.size() || numFeatures != geometries.size()) {
-            throw std::runtime_error("ids and features mismatch");
-        }
-        auto features = makeFeatures(ids, std::move(geometries), properties);
+        // if (numFeatures != ids.size() || numFeatures != geometries.size()) {
+        //     throw std::runtime_error("ids and features mismatch");
+        // }
+        GeometryFactory factory;
+        auto features = makeFeatures(ids, geometryVector->getGeometries(factory), properties);
         layers.emplace_back(tableMetadata.name, version, tileExtent, std::move(features), std::move(properties));
     }
     return {std::move(layers)};
