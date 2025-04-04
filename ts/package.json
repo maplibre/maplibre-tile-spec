@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt",
-  "version": "0.0.1-alpha.4",
+  "version": "0.0.1-alpha.5",
   "main": "dist/mlt.js",
   "types": "dist/src/index.d.ts",
   "files": [
