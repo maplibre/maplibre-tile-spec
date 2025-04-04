@@ -65,7 +65,7 @@ auto dump(const nlohmann::json& json) {
 }
 #endif
 
-std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
+std::optional<mlt::MapLibreTile> loadTile(const std::string& path, bool legacy = true) {
     auto metadataBuffer = loadFile(path + ".meta.pbf");
     if (metadataBuffer.empty()) {
         std::cout << "    Failed to load " + path + ".meta.pbf\n";
@@ -84,7 +84,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path) {
         return {};
     }
 
-    mlt::Decoder decoder(true);
+    mlt::Decoder decoder(legacy);
     auto tile = decoder.decode({buffer.data(), buffer.size()}, *metadata);
 
 #if MLT_WITH_JSON

@@ -34,7 +34,7 @@ std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& ver
     std::vector<Coordinate> coords;
     coords.reserve(numVertices + 1);
     CHECK_BUFFER(startIndex + numVertices - 1, vertexBuffer);
-    for (std::uint32_t i = 1; i < numVertices; ++i) {
+    for (std::uint32_t i = 0; i < numVertices; ++i) {
         const auto x = vertexBuffer[startIndex++];
         coords.push_back(coord(x, vertexBuffer[startIndex++]));
     }
@@ -52,7 +52,7 @@ std::vector<Coordinate> getDictionaryEncodedLineStringCoords(const std::vector<s
     std::vector<Coordinate> coords;
     coords.reserve(numVertices + 1);
     CHECK_BUFFER(vertexOffset + numVertices - 1, vertexOffsets);
-    for (std::uint32_t i = 1; i < numVertices; ++i) {
+    for (std::uint32_t i = 0; i < numVertices; ++i) {
         const auto offset = 2 * vertexOffsets[vertexOffset++];
         CHECK_BUFFER(offset + 1, vertexBuffer);
         coords.push_back(coord(vertexBuffer[offset], vertexBuffer[offset + 1]));
@@ -93,7 +93,6 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
     std::uint32_t partOffsetCounter = 1;
     std::uint32_t ringOffsetsCounter = 1;
     std::uint32_t geometryOffsetsCounter = 1;
-    std::uint32_t geometryCounter = 0;
     std::uint32_t vertexBufferOffset = 0;
     std::uint32_t vertexOffsetsOffset = 0;
 
@@ -430,7 +429,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                                                                                    numRingVertices,
                                                                                    *mortonSettings,
                                                                                    /*closeLineString=*/true));
-                            vertexOffsetsOffset += numVertices;
+                            vertexOffsetsOffset += numRingVertices;
                         }
 
                         polygons.emplace_back(std::move(shell), std::move(rings));
