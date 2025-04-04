@@ -4,7 +4,6 @@
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/noncopyable.hpp>
 #include <mlt/util/rle.hpp>
-#include <mlt/util/morton.hpp>
 #include <mlt/util/vectorized.hpp>
 #include <mlt/util/zigzag.hpp>
 

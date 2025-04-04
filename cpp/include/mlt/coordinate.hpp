@@ -5,12 +5,15 @@
 namespace mlt {
 
 struct Coordinate {
-    double x;
-    double y;
+    float x;
+    float y;
 
-    Coordinate(double x_, double y_)
+    Coordinate(float x_, float y_) noexcept
         : x(x_),
           y(y_) {}
+
+    bool operator==(const Coordinate& other) const noexcept { return x == other.x && y == other.y; }
+    bool operator!=(const Coordinate& other) const noexcept { return !(*this == other); }
 };
 using CoordVec = std::vector<Coordinate>;
 

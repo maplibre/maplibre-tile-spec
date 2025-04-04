@@ -31,12 +31,13 @@ public:
     Coordinate project(const Coordinate& coord) const noexcept { return {projectX(coord.x), projectY(coord.y)}; }
 
 private:
-    double projectX(double x) const noexcept { return (x + x0) * s1 - 180.0; }
-    double projectY(double y) const noexcept {
-        return 2.0 * radToDeg(std::atan(std::exp(degToRad(180.0 - (y + y0) * s1)))) - 90.0;
+    float projectX(float x) const noexcept { return (x + x0) * s1 - 180.0f; }
+    float projectY(float y) const noexcept {
+        return 2.0f * radToDeg(std::atan(std::exp(degToRad(180.0f - (y + y0) * s1)))) - 90.0f;
     }
-    static double degToRad(double deg) noexcept { return deg * std::numbers::pi / 180.0; }
-    static double radToDeg(double rad) noexcept { return rad * 180 / std::numbers::pi; }
+
+    static float degToRad(float deg) noexcept { return deg * std::numbers::pi / 180.0; }
+    static float radToDeg(float rad) noexcept { return rad * 180 / std::numbers::pi; }
 
     std::uint64_t size;
     std::uint64_t x0;

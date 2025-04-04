@@ -7,12 +7,15 @@
 
 namespace mlt {
 
+namespace geometry {
 class Geometry;
+}
 
 class Feature : public util::noncopyable {
 public:
     using id_t = std::uint64_t;
     using extent_t = std::uint32_t;
+    using Geometry = geometry::Geometry;
 
     Feature() = delete;
     Feature(Feature&&) noexcept = default;

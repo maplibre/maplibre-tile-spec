@@ -2,6 +2,7 @@
 
 #include <mlt/common.hpp>
 #include <mlt/decode/int.hpp>
+#include <mlt/util/morton_curve.hpp>
 
 #include <cassert>
 #include <stdexcept>
@@ -296,9 +297,9 @@ void IntegerDecoder::decodeMortonCodes(const TDecode* const data,
         auto mortonCode = static_cast<std::uint32_t>(data[i]);
         if constexpr (delta) {
             mortonCode += previousMortonCode;
-        }
-        out[j++] = static_cast<TTarget>(decodeMorton(mortonCode, numBits) - coordinateShift);
-        out[j++] = static_cast<TTarget>(decodeMorton(mortonCode >> 1, numBits) - coordinateShift);
+        };
+        out[j++] = static_cast<TTarget>(util::MortonCurve::decode(mortonCode, numBits) - coordinateShift);
+        out[j++] = static_cast<TTarget>(util::MortonCurve::decode(mortonCode >> 1, numBits) - coordinateShift);
         if constexpr (delta) {
             previousMortonCode = mortonCode;
         }

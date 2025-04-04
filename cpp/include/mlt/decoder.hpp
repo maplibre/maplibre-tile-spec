@@ -16,9 +16,10 @@ namespace mlt {
 class Decoder : public util::noncopyable {
 public:
     using TileSetMetadata = metadata::tileset::TileSetMetadata;
+    using Geometry = geometry::Geometry;
+    using GeometryFactory = geometry::GeometryFactory;
 
-    Decoder(bool legacy = false,
-            std::unique_ptr<GeometryFactory>&& geometryFactory = std::make_unique<GeometryFactory>());
+    Decoder(bool legacy = false, std::unique_ptr<GeometryFactory>&& = std::make_unique<GeometryFactory>());
     ~Decoder() noexcept;
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;

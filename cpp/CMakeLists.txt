@@ -27,6 +27,7 @@ list(APPEND MLT_INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/decoder.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/feature.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/geometry.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/geometry_vector.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/layer.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/polyfill.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/projection.hpp
@@ -49,11 +50,13 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/property.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/string.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/feature.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/geometry_vector.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/morton.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/space_filling_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/vectorized.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
