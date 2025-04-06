@@ -4,6 +4,7 @@ use mlt::MltResult;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use mlt::read_metadata;
 
 #[test]
 fn test_mlt_tiles() -> MltResult<()> {
@@ -17,7 +18,6 @@ fn test_mlt_tiles() -> MltResult<()> {
         .collect();
 
     for mlt_file in mlt_files {
-        // Currently, only grab 2_2_2.mlt as it has matching metadata 2_2_2.mlt.meta.pbf
         if mlt_file.file_name().unwrap() != "2_2_2.mlt" {
             continue;
         }
@@ -28,9 +28,10 @@ fn test_mlt_tiles() -> MltResult<()> {
 }
 
 fn test_tile(file: &Path) -> MltResult<()> {
-    let mut file = fs::File::open(file)?;
+    let mut mlt_file = fs::File::open(file)?;
     let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
+    mlt_file.read_to_end(&mut buffer)?;
+    let meta = read_metadata(&file.with_extension("mlt.meta.pbf"))?;
 
     Ok(())
 }

@@ -1,6 +1,10 @@
 use geo_types::Geometry;
 use geozero::mvt;
 
+pub struct MapLibreTile {
+    pub layers: Vec<Layer>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     String(String),

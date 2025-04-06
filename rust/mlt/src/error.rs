@@ -13,5 +13,7 @@ pub enum MltError {
     #[error("Unsupported geometry type: {0}")]
     UnsupportedGeometryType(String),
     #[error("Failed to decode protobuf: {0}")]
-    DecodeError(#[from] prost::DecodeError),
+    DecodeError(String),
+    #[error("Failed to decode metadata: {0}")]
+    MetadataDecodeError(String),
 }
