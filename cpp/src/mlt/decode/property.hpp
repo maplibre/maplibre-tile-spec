@@ -49,10 +49,6 @@ public:
             if ((presentValueCount + 7) / 8 != presentStream.size()) {
                 throw std::runtime_error("invalid present stream");
             }
-            // TODO: Present stream should be optional so it need not be stored when all-true.
-            if (countSetBits(presentStream) == presentValueCount) {
-                presentStream.clear();
-            }
         }
 
         const auto scalarColumn = std::get<ScalarColumn>(column.type);
@@ -88,11 +84,12 @@ public:
             throw std::runtime_error("Unexpected present value column");
         }
 
-        const auto checkBits = [&](const auto& presentBuffer, const auto& propertyBuffer) {
+        const auto checkBits = [&](const auto& presentBuffer, const auto& propertyBuffer, bool isBoolean = false) {
             if (!presentStream.empty()) {
-                const auto actualProperties = propertyCount(propertyBuffer);
+                const auto actualProperties = propertyCount(propertyBuffer, isBoolean);
                 const auto presentBits = countSetBits(presentBuffer);
-                if (actualProperties != presentBits) {
+                if ((isBoolean && actualProperties / 8 != (presentBits + 7) / 8) ||
+                    (!isBoolean && actualProperties != presentBits)) {
                     throw std::runtime_error("Property count " + std::to_string(actualProperties) +
                                              " doesn't match present bits " + std::to_string(presentBits));
                 }
@@ -106,8 +103,9 @@ public:
                     (streamMetadata->getNumValues() + 7) / 8 != byteBuffer.size()) {
                     throw std::runtime_error("column data incomplete");
                 }
-                assert(presentStream.empty() || presentStream.size() == byteBuffer.size());
-                return {byteBuffer, presentStream};
+
+                checkBits(presentStream, byteBuffer, /*isBoolean=*/true);
+                return {scalarType, byteBuffer, presentStream};
             }
             case ScalarType::INT_8:
             case ScalarType::UINT_8:
@@ -120,7 +118,7 @@ public:
 
                 PropertyVec result{std::move(intBuffer)};
                 checkBits(presentStream, result);
-                return {std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::UINT_32: {
                 std::vector<std::uint32_t> intBuffer;
@@ -130,7 +128,7 @@ public:
 
                 PropertyVec result{std::move(intBuffer)};
                 checkBits(presentStream, result);
-                return {std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::INT_64: {
                 std::vector<std::uint64_t> longBuffer;
@@ -140,7 +138,7 @@ public:
 
                 PropertyVec result{std::move(longBuffer)};
                 checkBits(presentStream, result);
-                return {std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::UINT_64: {
                 std::vector<std::uint64_t> longBuffer;
@@ -150,7 +148,7 @@ public:
 
                 PropertyVec result{std::move(longBuffer)};
                 checkBits(presentStream, result);
-                return {std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
@@ -159,7 +157,7 @@ public:
 
                 PropertyVec result{std::move(floatBuffer)};
                 checkBits(presentStream, result);
-                return {std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::DOUBLE: {
                 std::vector<double> doubleBuffer;
@@ -168,7 +166,7 @@ public:
 
                 PropertyVec result{std::move(doubleBuffer)};
                 checkBits(presentStream, result);
-                return {std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::STRING: {
                 const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
@@ -176,7 +174,7 @@ public:
 
                 PropertyVec result{std::move(strings)};
                 checkBits(presentStream, result);
-                return {PropertyVec{std::move(result)}, std::move(presentStream)};
+                return {scalarType, PropertyVec{std::move(result)}, std::move(presentStream)};
             }
             default:
                 throw std::runtime_error("Unknown scalar type: " + std::to_string(std::to_underlying(scalarType)));

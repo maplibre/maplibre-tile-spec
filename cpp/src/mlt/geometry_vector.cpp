@@ -72,7 +72,7 @@ std::vector<Coordinate> getMortonEncodedLineStringCoords(const std::vector<std::
     std::vector<Coordinate> coords;
     coords.reserve(numVertices + 1);
     CHECK_BUFFER(vertexOffset + numVertices - 1, vertexOffsets);
-    for (std::uint32_t i = 1; i < numVertices; ++i) {
+    for (std::uint32_t i = 0; i < numVertices; ++i) {
         const auto offset = vertexOffsets[vertexOffset++];
         CHECK_BUFFER(offset, vertexBuffer);
         coords.push_back(
@@ -95,14 +95,6 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
     std::uint32_t geometryOffsetsCounter = 1;
     std::uint32_t vertexBufferOffset = 0;
     std::uint32_t vertexOffsetsOffset = 0;
-
-    if (!topologyVector) {
-        throw std::runtime_error("Missing topology vector");
-    }
-
-    const auto& geometryOffsets = topologyVector->getGeometryOffsets();
-    const auto& partOffsets = topologyVector->getPartOffsets();
-    const auto& ringOffsets = topologyVector->getRingOffsets();
 
     const auto containsPolygon = containsPolygonGeometry();
 
@@ -130,17 +122,24 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     geometries.push_back(factory.createPoint(util::MortonCurve::decode(
                         mortonCode, mortonSettings->numBits, mortonSettings->coordinateShift)));
                 }
-                if (!geometryOffsets.empty()) {
+                if (topologyVector && !topologyVector->getGeometryOffsets().empty()) {
                     geometryOffsetsCounter++;
                 }
-                if (!partOffsets.empty()) {
+                if (topologyVector && !topologyVector->getPartOffsets().empty()) {
                     partOffsetCounter++;
                 }
-                if (!ringOffsets.empty()) {
+                if (topologyVector && !topologyVector->getRingOffsets().empty()) {
                     ringOffsetsCounter++;
                 }
                 break;
             case GeometryType::MULTIPOINT: {
+                if (!topologyVector) {
+                    throw std::runtime_error("Multi-point geometry without topology vector");
+                }
+                const auto& geometryOffsets = topologyVector->getGeometryOffsets();
+                const auto& partOffsets = topologyVector->getPartOffsets();
+                const auto& ringOffsets = topologyVector->getRingOffsets();
+
                 CHECK_BUFFER(geometryOffsetsCounter, geometryOffsets);
                 const auto numPoints = geometryOffsets[geometryOffsetsCounter] -
                                        geometryOffsets[geometryOffsetsCounter - 1];
@@ -168,6 +167,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 break;
             }
             case GeometryType::LINESTRING: {
+                if (!topologyVector) {
+                    throw std::runtime_error("Linestring geometry without topology vector");
+                }
+                const auto& geometryOffsets = topologyVector->getGeometryOffsets();
+                const auto& partOffsets = topologyVector->getPartOffsets();
+                const auto& ringOffsets = topologyVector->getRingOffsets();
+
                 std::uint32_t numVertices = 0;
                 if (containsPolygon) {
                     CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
@@ -207,6 +213,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 break;
             }
             case GeometryType::POLYGON: {
+                if (!topologyVector) {
+                    throw std::runtime_error("Polygon geometry without topology vector");
+                }
+                const auto& geometryOffsets = topologyVector->getGeometryOffsets();
+                const auto& partOffsets = topologyVector->getPartOffsets();
+                const auto& ringOffsets = topologyVector->getRingOffsets();
+
                 CHECK_BUFFER(partOffsetCounter, partOffsets);
                 const auto numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                 partOffsetCounter++;
@@ -278,6 +291,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 break;
             }
             case GeometryType::MULTILINESTRING: {
+                if (!topologyVector) {
+                    throw std::runtime_error("Multi-Linestring geometry without topology vector");
+                }
+                const auto& geometryOffsets = topologyVector->getGeometryOffsets();
+                const auto& partOffsets = topologyVector->getPartOffsets();
+                const auto& ringOffsets = topologyVector->getRingOffsets();
+
                 CHECK_BUFFER(geometryOffsetsCounter, geometryOffsets);
                 const auto numLineStrings = geometryOffsets[geometryOffsetsCounter] -
                                             geometryOffsets[geometryOffsetsCounter - 1];
@@ -344,6 +364,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 break;
             }
             case GeometryType::MULTIPOLYGON: {
+                if (!topologyVector) {
+                    throw std::runtime_error("Multi-polygon geometry without topology vector");
+                }
+                const auto& geometryOffsets = topologyVector->getGeometryOffsets();
+                const auto& partOffsets = topologyVector->getPartOffsets();
+                const auto& ringOffsets = topologyVector->getRingOffsets();
+
                 CHECK_BUFFER(geometryOffsetsCounter, geometryOffsets);
                 const auto numPolygons = geometryOffsets[geometryOffsetsCounter] -
                                          geometryOffsets[geometryOffsetsCounter - 1];
