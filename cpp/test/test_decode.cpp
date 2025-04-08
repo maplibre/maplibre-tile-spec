@@ -96,7 +96,7 @@ std::optional<mlt::MapLibreTile> loadTile(const std::string& path, bool legacy =
             jsonBuffer, nullptr, /*allow_exceptions=*/false, /*ignore_comments=*/true);
 
         // Convert the tile we loaded to GeoJSON
-        const auto actualJSON = mlt::geojson::toGeoJSON(tile, {3, 5, 7});
+        const auto actualJSON = mlt::geojson::toGeoJSON(tile, {.x = 3, .y = 5, .z = 7});
 
         // Compare the two
         const auto diffJSON = mlt::util::diff(expectedJSON, actualJSON, {});

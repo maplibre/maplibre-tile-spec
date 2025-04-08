@@ -25,8 +25,8 @@ using namespace decoder;
 using namespace util::decoding;
 
 namespace {
-static constexpr std::string_view ID_COLUMN_NAME = "id";
-static constexpr std::string_view GEOMETRY_COLUMN_NAME = "geometry";
+constexpr std::string_view ID_COLUMN_NAME = "id";
+constexpr std::string_view GEOMETRY_COLUMN_NAME = "geometry";
 } // namespace
 
 struct Decoder::Impl {
@@ -120,9 +120,6 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
             }
         }
 
-        // if (numFeatures != ids.size() || numFeatures != geometries.size()) {
-        //     throw std::runtime_error("ids and features mismatch");
-        // }
         GeometryFactory factory;
         auto features = makeFeatures(ids, geometryVector->getGeometries(factory), properties);
         layers.emplace_back(tableMetadata.name, version, tileExtent, std::move(features), std::move(properties));
@@ -132,7 +129,9 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
 
 namespace {
 struct ExtractPropertyVisitor {
-    const std::size_t i;
+    ExtractPropertyVisitor(std::size_t i_, bool byteIsBooleans_)
+        : i(i_),
+          byteIsBooleans(byteIsBooleans_) {}
 
     template <typename T>
     std::optional<Property> operator()(const T& vec) const;
@@ -142,6 +141,19 @@ struct ExtractPropertyVisitor {
         assert(i < vec.size());
         return (i < vec.size()) ? std::optional<Property>{vec[i]} : std::nullopt;
     }
+
+    std::optional<Property> operator()(const std::vector<std::uint8_t>& vec) const {
+        if (byteIsBooleans) {
+            assert(i < 8 * vec.size());
+            return testBit(vec, i);
+        }
+        assert(i < vec.size());
+        return (i < vec.size()) ? std::optional<Property>{static_cast<std::uint32_t>(vec[i])} : std::nullopt;
+    }
+
+private:
+    const std::size_t i;
+    const bool byteIsBooleans;
 };
 
 template <>
@@ -171,10 +183,14 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
     for (const auto& [key, column] : propertyVecs) {
         const auto& layerProperties = column.getProperties();
         const auto& presentBits = column.getPresentBits();
+        const auto isBoolean = column.isBoolean();
 
         const auto applyProperty = [&](std::size_t sourceIndex, std::size_t targetIndex) {
-            if (const auto value = std::visit(ExtractPropertyVisitor{sourceIndex}, layerProperties); value) {
+            const auto value = std::visit(ExtractPropertyVisitor(sourceIndex, isBoolean), layerProperties);
+            if (value) {
                 properties[targetIndex].emplace(key, *value);
+            } else {
+                throw std::runtime_error("Missing property value");
             }
         };
 
@@ -184,8 +200,14 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
                 throw std::runtime_error("Invalid present stream");
             }
 
+#if !defined(NDEBUG)
             // This should have been checked during property construction
-            assert(propertyCount(layerProperties) == countSetBits(presentBits));
+            if (column.isBoolean()) {
+                assert(column.getPropertyCount() / 8 == (countSetBits(presentBits) + 7) / 8);
+            } else {
+                assert(column.getPropertyCount() == countSetBits(presentBits));
+            }
+#endif
 
             // Place property N in the properties map for the feature corresponding to the Nth set bit
             std::size_t sourceIndex = 0;

@@ -35,3 +35,23 @@ TEST(PackedBitset, NextBit) {
     EXPECT_EQ(nextSetBit({0xaa, 0xaa}, 8), 9);
     EXPECT_EQ(nextSetBit({0x01, 0xc0}, 1), 14);
 }
+
+TEST(PackedBitset, CountBits) {
+    EXPECT_EQ(countSetBits({}), 0);
+    EXPECT_EQ(countSetBits({0}), 0);
+    EXPECT_EQ(countSetBits({0, 0}), 0);
+
+    EXPECT_EQ(countSetBits({0x01}), 1);
+    EXPECT_EQ(countSetBits({0x02}), 1);
+    EXPECT_EQ(countSetBits({0x04}), 1);
+    EXPECT_EQ(countSetBits({0x08}), 1);
+    EXPECT_EQ(countSetBits({0x10}), 1);
+    EXPECT_EQ(countSetBits({0x20}), 1);
+    EXPECT_EQ(countSetBits({0x40}), 1);
+    EXPECT_EQ(countSetBits({0x80}), 1);
+    EXPECT_EQ(countSetBits({0x01, 0}), 1);
+
+    EXPECT_EQ(countSetBits({0, 0, 0, 4}), 1);
+
+    EXPECT_EQ(countSetBits({0xff}), 8);
+}
