@@ -1,2 +1,2 @@
 mod decode;
-mod varint;
+pub mod varint;
