@@ -41,7 +41,8 @@ pub enum OffsetType {
     Key,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TryFromPrimitive)]
+#[repr(u8)]
 pub enum PhysicalStreamType {
     Present,
     Data,
@@ -87,18 +88,10 @@ impl StreamMetadata {
             .get(offset.position() as usize)
             .ok_or_else(|| MltError::DecodeError("Failed to read stream type".to_string()))?;
 
-        let physical_stream_type = match stream_type >> 4 {
-            0 => PhysicalStreamType::Present,
-            1 => PhysicalStreamType::Data,
-            2 => PhysicalStreamType::Offset,
-            3 => PhysicalStreamType::Length,
-            _ => {
-                return Err(MltError::DecodeError(format!(
-                    "Invalid physical stream type: {}",
-                    stream_type >> 4
-                )))
-            }
-        };
+        let physical_stream_type = PhysicalStreamType::try_from(stream_type >> 4)
+            .map_err(|_| MltError::DecodeError(format!(
+                "Invalid physical stream type: {}", stream_type >> 4
+            )))?;
 
         let logical_stream_type = match physical_stream_type {
             PhysicalStreamType::Data => {
