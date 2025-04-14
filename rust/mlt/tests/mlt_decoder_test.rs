@@ -27,6 +27,7 @@ fn test_mlt_tiles() -> MltResult<()> {
     Ok(())
 }
 
+#[expect(unused_variables)]
 fn test_tile(file: &Path) -> MltResult<()> {
     let mut mlt_file = fs::File::open(file)?;
     let mut buffer = Vec::new();

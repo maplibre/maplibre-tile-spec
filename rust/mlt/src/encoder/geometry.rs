@@ -1,4 +1,4 @@
-use crate::metadata::PhysicalLevelTechnique;
+use crate::metadata::stream::PhysicalLevelTechnique;
 use geo_types::{Geometry, LineString, Polygon};
 
 #[derive(Debug, Clone, PartialEq)]

@@ -5,7 +5,7 @@ use crate::metadata::proto_tileset::{
     ColumnScope, ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn, ScalarField,
     ScalarType, TileSetMetadata,
 };
-use crate::metadata::PhysicalLevelTechnique;
+use crate::metadata::stream::PhysicalLevelTechnique;
 use crate::mvt::ColumnMapping;
 use crate::MltResult;
 use geo_types::Geometry;
@@ -287,7 +287,7 @@ pub fn convert_mvt(
             &config,
             feature_table_optimizations,
             &layer.features,
-            physical_level_technique,
+            physical_level_technique.clone(), // not great, change this later
         );
     }
 

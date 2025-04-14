@@ -10,7 +10,8 @@ prost = "0.13.5"
 prost-types = "0.13.5"
 indexmap = "2.7.1"
 geo-types = "0.7.15"
-fastpfor = { version = "0.6.2", features = ["cpp", "rust"] }
+fastpfor = { version = "0.6.2", features = ["rust"] }
+num_enum = "0.7.3"
 
 [build-dependencies]
 prost-build = "0.13.5"
