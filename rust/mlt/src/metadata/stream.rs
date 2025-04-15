@@ -1,110 +1,52 @@
 use crate::decoder::varint;
+use crate::metadata::stream_encoding::{
+    DictionaryType, LengthType, Logical, LogicalLevelTechnique, LogicalStreamType, OffsetType,
+    Physical, PhysicalLevelTechnique, PhysicalStreamType,
+};
 use crate::{MltError, MltResult};
 use fastpfor::rust::IncrementCursor;
-use num_enum::TryFromPrimitive;
 use std::io::Cursor;
 
+const MORTON: LogicalLevelTechnique = LogicalLevelTechnique::Morton;
+const RLE: LogicalLevelTechnique = LogicalLevelTechnique::Rle;
+
 #[derive(Debug, Clone)]
-pub enum LogicalStreamType {
-    Dictionary(DictionaryType),
-    Offset(OffsetType),
-    Length(LengthType),
+pub struct Rle {
+    pub runs: u32,
+    pub num_rle_values: u32,
 }
 
-#[derive(Debug, Clone, TryFromPrimitive)]
-#[repr(u8)]
-pub enum LengthType {
-    VarBinary,
-    Geometries,
-    Parts,
-    Rings,
-    Triangles,
-    Symbol,
-    Dictionary,
-}
-
-#[derive(Debug, Clone, TryFromPrimitive)]
-#[repr(u8)]
-pub enum DictionaryType {
-    None,
-    Single,
-    Shared,
-    Vertex,
-    Morton,
-    Fsst,
-}
-
-#[derive(Debug, Clone, TryFromPrimitive)]
-#[repr(u8)]
-pub enum OffsetType {
-    Vertex,
-    Index,
-    String,
-    Key,
-}
-
-#[derive(Debug, Clone, TryFromPrimitive)]
-#[repr(u8)]
-pub enum PhysicalStreamType {
-    Present,
-    Data,
-    Offset,
-    Length,
-}
-
-#[derive(Debug, Clone, TryFromPrimitive, PartialEq)]
-#[repr(u8)]
-pub enum LogicalLevelTechnique {
-    None,
-    Delta,
-    ComponentwiseDelta,
-    Rle,
-    Morton,
-    // Pseudodecimal Encoding of floats -> only for the exponent integer part an additional logical level technique is used.
-    // Both exponent and significant parts are encoded with the same physical level technique
-    Pde,
-}
-
-#[derive(Debug, Clone, TryFromPrimitive)]
-#[repr(u8)]
-pub enum PhysicalLevelTechnique {
-    None,
-    FastPfor,
-    Varint,
-    Alp,
+#[derive(Debug, Clone)]
+pub struct Morton {
+    pub num_bits: u32,
+    pub coordinate_shift: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct StreamMetadata {
-    physical_stream_type: PhysicalStreamType,
-    logical_stream_type: LogicalStreamType,
-    logical_level_technique1: LogicalLevelTechnique,
-    logical_level_technique2: LogicalLevelTechnique,
-    physical_level_technique: PhysicalLevelTechnique,
-    num_values: usize,
-    byte_length: usize,
+    logical: Logical,
+    physical: Physical,
+    num_values: u32,
+    byte_length: u32,
+    morton: Option<Morton>,
+    rle: Option<Rle>,
 }
 
-#[expect(dead_code, unused_variables)]
+#[expect(dead_code)]
 impl StreamMetadata {
     pub fn decode(tile: &[u8], offset: &mut Cursor<u32>) -> MltResult<Self> {
         let stream_type = tile
             .get(offset.position() as usize)
-            .ok_or_else(|| MltError::DecodeError("Failed to read stream type".to_string()))?;
+            .ok_or(MltError::DecodeError("Failed to read...".into()))?;
 
-        let physical_stream_type =
-            PhysicalStreamType::try_from(stream_type >> 4).map_err(|_| {
-                MltError::DecodeError(format!(
-                    "Invalid physical stream type: {}",
-                    stream_type >> 4
-                ))
-            })?;
+        let physical_stream_type = PhysicalStreamType::try_from(stream_type >> 4)
+            .map_err(|_| MltError::DecodeError("Invalid physical stream type".into()))?;
 
         let logical_stream_type = match physical_stream_type {
-            PhysicalStreamType::Data => LogicalStreamType::Dictionary(
+            PhysicalStreamType::Data => LogicalStreamType::Dictionary(Some(
                 DictionaryType::try_from(stream_type & 0xF)
                     .map_err(|_| MltError::DecodeError("Invalid dictionary type".into()))?,
-            ),
+            )),
             PhysicalStreamType::Offset => LogicalStreamType::Offset(
                 OffsetType::try_from(stream_type & 0xF)
                     .map_err(|_| MltError::DecodeError("Invalid offset type".into()))?,
@@ -119,6 +61,7 @@ impl StreamMetadata {
                 ));
             }
         };
+
         offset.increment();
 
         let encoding_header = *tile
@@ -144,26 +87,77 @@ impl StreamMetadata {
             .get(1)
             .ok_or_else(|| MltError::DecodeError("Failed to read byte length".to_string()))?;
 
-        // /* Currently morton can't be combined with RLE only with delta */
-        // if (streamMetadata.logicalLevelTechnique1().equals(LogicalLevelTechnique.MORTON)) {
-        //   return MortonEncodedStreamMetadata.decodePartial(streamMetadata, tile, offset);
-        // }
+        let mut metadata = StreamMetadata {
+            logical: Logical::new(
+                logical_stream_type,
+                logical_level_technique1,
+                logical_level_technique2,
+            ),
+            physical: Physical::new(physical_stream_type, physical_level_technique),
+            num_values: *num_values,
+            byte_length: *byte_length,
+            morton: None,
+            rle: None,
+        };
 
-        // Currently morton can't be combined with RLE only with delta
-        if logical_level_technique1 == LogicalLevelTechnique::Morton {
+        if metadata.logical.technique1 == Some(MORTON) {
+            metadata.partial_decode(&MORTON, tile, offset)?;
+            return Ok(metadata);
+        } else if (metadata.logical.technique1 == Some(RLE)
+            || metadata.logical.technique2 == Some(RLE))
+            && metadata.physical.technique.is_some()
+        {
+            metadata.partial_decode(&RLE, tile, offset)?;
+            return Ok(metadata);
         }
 
+        Ok(metadata)
+    }
+}
 
-        todo!("Implement the rest of the decoding logic");
+trait Encoding {
+    fn partial_decode(
+        &mut self,
+        r#type: &LogicalLevelTechnique,
+        tile: &[u8],
+        offset: &mut Cursor<u32>,
+    ) -> MltResult<()>;
+}
 
-        // return Ok(StreamMetadata {
-        //     physical_stream_type,
-        //     logical_stream_type,
-        //     logical_level_technique1,
-        //     logical_level_technique2,
-        //     physical_level_technique,
-        //     num_values: *num_values as usize,
-        //     byte_length: *byte_length as usize,
-        // });
+impl Encoding for StreamMetadata {
+    fn partial_decode(
+        &mut self,
+        r#type: &LogicalLevelTechnique,
+        tile: &[u8],
+        offset: &mut Cursor<u32>,
+    ) -> MltResult<()> {
+        let binding = varint::decode(tile, offset, 2);
+        let [val1, val2] = binding.as_slice() else {
+            return Err(MltError::DecodeError(
+                "Expected 2 values for partial decode".into(),
+            ));
+        };
+
+        match r#type {
+            LogicalLevelTechnique::Morton => {
+                self.morton = Some(Morton {
+                    num_bits: *val1,
+                    coordinate_shift: *val2,
+                });
+            }
+            LogicalLevelTechnique::Rle => {
+                self.rle = Some(Rle {
+                    runs: *val1,
+                    num_rle_values: *val2,
+                });
+            }
+            _ => {
+                return Err(MltError::DecodeError(
+                    "Invalid logical level technique for partial decode".into(),
+                ));
+            }
+        }
+
+        Ok(())
     }
 }

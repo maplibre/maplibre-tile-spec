@@ -5,7 +5,7 @@ use crate::metadata::proto_tileset::{
     ColumnScope, ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn, ScalarField,
     ScalarType, TileSetMetadata,
 };
-use crate::metadata::stream::PhysicalLevelTechnique;
+use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 use crate::mvt::ColumnMapping;
 use crate::MltResult;
 use geo_types::Geometry;
