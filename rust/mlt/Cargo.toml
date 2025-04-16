@@ -12,6 +12,9 @@ indexmap = "2.7.1"
 geo-types = "0.7.15"
 fastpfor = { version = "0.6.2", features = ["rust"] }
 num_enum = "0.7.3"
+bitvec = "1.0.1"
+bytes = "1.10.1"
+bytes-varint = "1.1.0"
 
 [build-dependencies]
 prost-build = "0.13.5"

@@ -16,4 +16,6 @@ pub enum MltError {
     DecodeError(String),
     #[error("Failed to decode metadata: {0}")]
     MetadataDecodeError(String),
+    #[error("Failed to decode: {0}")]
+    RleDecodeError(String),
 }

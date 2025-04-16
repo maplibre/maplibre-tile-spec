@@ -3,6 +3,7 @@ use crate::decoder::varint;
 use crate::data::MapLibreTile;
 use crate::metadata::proto_tileset::TileSetMetadata;
 use crate::{MltError, MltResult};
+use bytes::Bytes;
 use fastpfor::rust::IncrementCursor;
 use geo_types::Geometry;
 use std::io::Cursor;
@@ -12,10 +13,11 @@ const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
 // Impl in the future
 #[expect(unused_variables)]
-pub fn decode(tile: &[u8], tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
+pub fn decode(tile: &Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
     let mut offset = Cursor::new(0);
 
     while offset.position() < tile.len() as u64 {
+        println!("Offset: {}", offset.position());
         let ids: Vec<i64> = vec![];
         let geometries: Vec<Geometry> = vec![];
         // Not sure the best way to cover this right now
@@ -25,7 +27,7 @@ pub fn decode(tile: &[u8], tile_metadata: &TileSetMetadata) -> MltResult<MapLibr
             .get(offset.position() as usize)
             .ok_or_else(|| MltError::DecodeError("Failed to read version".to_string()))?;
         offset.increment();
-        let infos = varint::decode(tile, &mut offset, 5);
+        let infos = varint::decode(tile, 5, &mut offset);
         let feature_table_id = infos
             .get(0)
             .ok_or_else(|| MltError::DecodeError("Failed to read feature table id".to_string()))?;
@@ -54,32 +56,30 @@ pub fn decode(tile: &[u8], tile_metadata: &TileSetMetadata) -> MltResult<MapLibr
             })?;
 
         for col_metadata in metadata.columns.iter() {
-            let num_streams_vec = varint::decode(tile, &mut offset, 1);
+            let num_streams_vec = varint::decode(tile, 1, &mut offset);
             let num_streams = num_streams_vec.get(0).ok_or_else(|| {
                 MltError::DecodeError("Failed to retrieve num_streams".to_string())
             })?;
-            if col_metadata.name == ID_COLUMN_NAME {
-                if *num_streams == 2 {
-                    // Your logic here
-                }
-            }
+            // Column "id" ignore as currently no-op:
+            // https://github.com/maplibre/maplibre-tile-spec/blob/0a67590c338d6e93fd62043293e425be0b8cf85e/java/src/main/java/com/mlt/decoder/MltDecoder.java#L65
         }
     }
 
-    Ok(MapLibreTile { layers: vec![] })
+    todo!("Implement decode");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use crate::metadata::tileset::read_metadata;
+    use std::fs;
     use std::path::Path;
 
     #[test]
     #[expect(unused_variables)]
     fn test_decode() {
-        let data = fs::read("../../test/expected/omt/2_2_2.mlt").unwrap();
+        let raw = fs::read("../../test/expected/omt/2_2_2.mlt").unwrap();
+        let data = Bytes::from(raw);
         // Get metadata as a Path
         let metadata = read_metadata(Path::new("../../test/expected/omt/2_2_2.mlt.meta.pbf"));
         let tile = decode(&data, &metadata.expect("Failed to read metadata")).unwrap();
@@ -87,5 +87,7 @@ mod tests {
         //
         // assert_eq!(mlt.layers.len(), 1);
         // assert_eq!(mlt.layers[0].name, "layer_name");
+
+        todo!("Implement test_decode");
     }
 }

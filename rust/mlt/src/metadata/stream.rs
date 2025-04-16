@@ -6,6 +6,7 @@ use crate::metadata::stream_encoding::{
 use crate::{MltError, MltResult};
 use fastpfor::rust::IncrementCursor;
 use std::io::Cursor;
+use bytes::Bytes;
 
 const MORTON: LogicalLevelTechnique = LogicalLevelTechnique::Morton;
 const RLE: LogicalLevelTechnique = LogicalLevelTechnique::Rle;
@@ -34,7 +35,7 @@ pub struct StreamMetadata {
 
 #[expect(dead_code)]
 impl StreamMetadata {
-    pub fn decode(tile: &[u8], offset: &mut Cursor<u32>) -> MltResult<Self> {
+    pub fn decode(tile: &Bytes, offset: &mut Cursor<u32>) -> MltResult<Self> {
         let stream_type = tile
             .get(offset.position() as usize)
             .ok_or(MltError::DecodeError("Failed to read...".into()))?;
@@ -79,13 +80,13 @@ impl StreamMetadata {
 
         offset.increment();
 
-        let size_info = varint::decode(tile, offset, 2);
+        let size_info = varint::decode(tile, 2, offset);
         let num_values = size_info
             .get(0)
-            .ok_or_else(|| MltError::DecodeError("Failed to read number of values".to_string()))?;
+            .ok_or_else(|| MltError::DecodeError("Failed to read number of values".into()))?;
         let byte_length = size_info
             .get(1)
-            .ok_or_else(|| MltError::DecodeError("Failed to read byte length".to_string()))?;
+            .ok_or_else(|| MltError::DecodeError("Failed to read byte length".into()))?;
 
         let mut metadata = StreamMetadata {
             logical: Logical::new(
@@ -119,7 +120,7 @@ trait Encoding {
     fn partial_decode(
         &mut self,
         r#type: &LogicalLevelTechnique,
-        tile: &[u8],
+        tile: &Bytes,
         offset: &mut Cursor<u32>,
     ) -> MltResult<()>;
 }
@@ -128,10 +129,10 @@ impl Encoding for StreamMetadata {
     fn partial_decode(
         &mut self,
         r#type: &LogicalLevelTechnique,
-        tile: &[u8],
+        tile: &Bytes,
         offset: &mut Cursor<u32>,
     ) -> MltResult<()> {
-        let binding = varint::decode(tile, offset, 2);
+        let binding = varint::decode(tile, 2, offset);
         let [val1, val2] = binding.as_slice() else {
             return Err(MltError::DecodeError(
                 "Expected 2 values for partial decode".into(),
