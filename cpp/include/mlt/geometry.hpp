@@ -20,6 +20,9 @@ protected:
 public:
     virtual ~Geometry() noexcept = default;
 
+    void setTriangles(std::vector<std::uint32_t> triangles_) noexcept { triangles = std::move(triangles_); }
+    std::vector<std::uint32_t> triangles;
+
     const metadata::tileset::GeometryType type;
 };
 

@@ -58,6 +58,7 @@ protected:
                    std::vector<std::int32_t>&& vertexBuffer_,
                    VertexBufferType vertexBufferType_,
                    std::vector<std::uint32_t>&& vertexOffsets_,
+                   std::vector<std::uint32_t>&& triangleCounts_,
                    std::optional<TopologyVector>&& topologyVector_,
                    std::optional<MortonSettings> mortonSettings_ = {}) noexcept
         : numGeometries(numGeometries_),
@@ -67,8 +68,15 @@ protected:
           vertexBuffer(std::move(vertexBuffer_)),
           vertexBufferType(vertexBufferType_),
           vertexOffsets(std::move(vertexOffsets_)),
+          triangleCounts(std::move(triangleCounts_)),
           topologyVector(std::move(topologyVector_)),
           mortonSettings(mortonSettings_) {}
+
+    void applyTriangles(Geometry&,
+                        std::uint32_t& triangleOffset,
+                        std::uint32_t& indexBufferOffset,
+                        std::uint32_t totalVertices,
+                        bool multiPolygon) const;
 
 protected:
     std::uint32_t numGeometries;
@@ -78,6 +86,7 @@ protected:
     std::vector<std::int32_t> vertexBuffer;
     VertexBufferType vertexBufferType;
     std::vector<std::uint32_t> vertexOffsets;
+    std::vector<std::uint32_t> triangleCounts;
     std::optional<TopologyVector> topologyVector;
     std::optional<MortonSettings> mortonSettings;
 };
@@ -86,7 +95,7 @@ struct GpuVector : public GeometryVector {
     GpuVector(std::uint32_t numGeometries_,
               bool singleType_,
 
-              std::vector<std::uint32_t>&& triangleOffsets_,
+              std::vector<std::uint32_t>&& triangleCounts_,
               std::vector<std::uint32_t>&& indexBuffer_,
               std::vector<std::int32_t>&& vertexBuffer_,
               VertexBufferType vertexBufferType_,
@@ -97,25 +106,24 @@ struct GpuVector : public GeometryVector {
                          std::move(vertexBuffer_),
                          vertexBufferType_,
                          {},
-                         std::move(topologyVector_)),
-          triangleOffsets(std::move(triangleOffsets_)) {}
+                         std::move(triangleCounts_),
+                         std::move(topologyVector_)) {}
 
 private:
-    std::vector<std::uint32_t> triangleOffsets;
 };
 
 struct ConstGpuVector : public GpuVector {
     ConstGpuVector(std::uint32_t numGeometries_,
 
                    GeometryType geometryType_,
-                   std::vector<std::uint32_t>&& triangleOffsets_,
+                   std::vector<std::uint32_t>&& triangleCounts_,
                    std::vector<std::uint32_t>&& indexBuffer_,
                    std::vector<std::int32_t>&& vertexBuffer_,
                    VertexBufferType vertexBufferType_,
                    std::optional<TopologyVector>&& topologyVector_) noexcept
         : GpuVector(numGeometries_,
                     /*singleType=*/true,
-                    std::move(triangleOffsets_),
+                    std::move(triangleCounts_),
                     std::move(indexBuffer_),
                     std::move(vertexBuffer_),
                     vertexBufferType_,
@@ -134,13 +142,13 @@ private:
 
 struct FlatGpuVector : public GpuVector {
     FlatGpuVector(std::vector<GeometryType>&& geometryTypes_,
-                  std::vector<std::uint32_t>&& triangleOffsets_,
+                  std::vector<std::uint32_t>&& triangleCounts_,
                   std::vector<std::uint32_t>&& indexBuffer_,
                   std::vector<std::int32_t>&& vertexBuffer_,
                   std::optional<TopologyVector>&& topologyVector_ = {}) noexcept
         : GpuVector(geometryTypes_.size(),
                     /*singleType=*/false,
-                    std::move(triangleOffsets_),
+                    std::move(triangleCounts_),
                     std::move(indexBuffer_),
                     std::move(vertexBuffer_),
                     VertexBufferType::VEC_2,
@@ -177,6 +185,7 @@ struct CpuVector : public GeometryVector {
                          std::move(vertexBuffer_),
                          vertexBufferType_,
                          std::move(vertexOffsets_),
+                         {},
                          std::move(topologyVector_),
                          mortonSettings_) {}
 
