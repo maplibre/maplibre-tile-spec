@@ -76,6 +76,7 @@ target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/../vendor/simd
 
 # FastPFor
 set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
+set(SUPPORT_NEON ON CACHE BOOL "" FORCE)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
     add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)

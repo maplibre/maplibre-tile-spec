@@ -128,13 +128,6 @@ public:
                     }
                     intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t>(
                         tileData, target->get(), *geomStreamMetadata);
-
-                    // TODO: why? (integerStreamDecoder.ts:decodeLengthToOffsetBuffer)
-                    if (type == LengthType::TRIANGLES &&
-                        geomStreamMetadata->getLogicalLevelTechnique1() == LogicalLevelTechnique::NONE &&
-                        geomStreamMetadata->getLogicalLevelTechnique2() == LogicalLevelTechnique::NONE) {
-                        target->get().insert(target->get().begin(), 0);
-                    }
                     break;
                 }
                 case PhysicalStreamType::OFFSET: {
