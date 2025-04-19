@@ -90,7 +90,7 @@ impl GeometryEncoder {
                             &mut num_parts,
                             &mut num_rings,
                         );
-                        let vertices = flat_linestring(&l);
+                        let vertices = flat_linestring(l);
                         vertex_buffer.extend(vertices);
                     });
                 }
@@ -141,7 +141,6 @@ fn add_linestring(
 fn flat_linestring(line_string: &LineString) -> Vec<Vertex> {
     line_string
         .points()
-        .into_iter()
         .map(|v| Vertex { x: v.x(), y: v.y() })
         .collect()
 }

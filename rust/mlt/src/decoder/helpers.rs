@@ -11,7 +11,7 @@ pub fn decode_boolean_rle(
     byte_size: u32,
     pos: &mut Cursor<u32>,
 ) -> MltResult<BitVec> {
-    let num_bytes = (num_booleans + 7) / 8;
+    let num_bytes = num_booleans.div_ceil(8);
     let byte_stream = decode_byte_rle(buffer, num_bytes as usize, byte_size as usize, pos)?;
     // Java: BitSet.valueOf(byteStream);
     todo!("Implement decode_boolean_rle");

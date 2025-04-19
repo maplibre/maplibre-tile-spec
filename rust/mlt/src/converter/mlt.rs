@@ -118,7 +118,7 @@ pub fn create_tileset_metadata(
                 if feature_table_scheme.contains_key(property_key) {
                     continue;
                 }
-                let scalar_type = get_scalar_type(&property_value)?;
+                let scalar_type = get_scalar_type(property_value)?;
 
                 // Column Mappings: the Java code does not have a unit test for this block of code.
                 // Hard to determine the expected behavior.
@@ -144,20 +144,19 @@ pub fn create_tileset_metadata(
                         complex_property_column_schemes
                             .insert(property_key.clone(), field_metadata_builder);
                         continue;
-                    } else if column_mappings.as_ref().map_or(false, |mappings| {
+                    } else if column_mappings.as_ref().is_some_and(|mappings| {
                         mappings
                             .iter()
                             .any(|m| property_key == m.mvt_property_prefix.as_str())
                     }) && complex_property_column_schemes.contains_key(property_key)
-                        && complex_property_column_schemes.get(property_key).map_or(
-                            false,
-                            |column| {
+                        && complex_property_column_schemes
+                            .get(property_key)
+                            .is_some_and(|column| {
                                 column
                                     .children
                                     .iter()
                                     .any(|c| c.name.as_deref() == Some("default"))
-                            },
-                        )
+                            })
                     {
                         // Case where the top-level field such as name is not present in the first feature
                         let child_field = Field {
@@ -179,7 +178,7 @@ pub fn create_tileset_metadata(
                             .children
                             .push(child_field);
                         continue;
-                    } else if column_mappings.as_ref().map_or(false, |mappings| {
+                    } else if column_mappings.as_ref().is_some_and(|mappings| {
                         mappings.iter().any(|m| {
                             property_key.contains(&m.mvt_property_prefix)
                                 && property_key.contains(&m.mvt_delimiter_sign)
@@ -290,7 +289,7 @@ pub fn convert_mvt(
 
         let feature_table_metadata = tileset_metadata.feature_tables.get(feature_table_id);
         let feature_table_optimizations = config.optimizations.get(&feature_table_name);
-        let result = sort_features_and_encode_geometry_column(
+        sort_features_and_encode_geometry_column(
             &config,
             feature_table_optimizations,
             &layer.features,

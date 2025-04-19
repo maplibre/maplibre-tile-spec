@@ -29,7 +29,7 @@ pub fn decode(tile: &Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLib
         offset.increment();
         let infos = varint::decode(tile, 5, &mut offset);
         let feature_table_id = infos
-            .get(0)
+            .first()
             .ok_or_else(|| MltError::DecodeError("Failed to read feature table id".to_string()))?;
 
         let feature_table_body_size = infos.get(1).ok_or_else(|| {
@@ -57,7 +57,7 @@ pub fn decode(tile: &Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLib
 
         for col_metadata in metadata.columns.iter() {
             let num_streams_vec = varint::decode(tile, 1, &mut offset);
-            let num_streams = num_streams_vec.get(0).ok_or_else(|| {
+            let num_streams = num_streams_vec.first().ok_or_else(|| {
                 MltError::DecodeError("Failed to retrieve num_streams".to_string())
             })?;
             // Column "id" ignore as currently no-op:

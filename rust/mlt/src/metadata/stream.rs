@@ -82,7 +82,7 @@ impl StreamMetadata {
 
         let size_info = varint::decode(tile, 2, offset);
         let num_values = size_info
-            .get(0)
+            .first()
             .ok_or_else(|| MltError::DecodeError("Failed to read number of values".into()))?;
         let byte_length = size_info
             .get(1)
