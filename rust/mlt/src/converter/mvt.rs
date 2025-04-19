@@ -11,11 +11,11 @@ pub struct ColumnMapping {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MapboxVectorTile {
+pub struct MapVectorTile {
     pub layers: Vec<Layer>,
 }
 
-pub fn decode_mvt(mvt_tile: &[u8]) -> MapboxVectorTile {
+pub fn decode_mvt(mvt_tile: &[u8]) -> MapVectorTile {
     let mut tile = Tile::decode(mvt_tile).expect("Failed to decode MVT");
     let mut layers: Vec<Layer> = Vec::new();
     for layer in &mut tile.layers {
@@ -41,5 +41,5 @@ pub fn decode_mvt(mvt_tile: &[u8]) -> MapboxVectorTile {
             tile_extent: tile_extent.unwrap_or(4096) as i32, // default to 4096?
         });
     }
-    MapboxVectorTile { layers }
+    MapVectorTile { layers }
 }

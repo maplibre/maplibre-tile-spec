@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use geo_types::Geometry;
 use indexmap::IndexMap;
 
-use crate::converter::mvt::MapboxVectorTile;
+use crate::converter::mvt::MapVectorTile;
 use crate::data::{Feature, Value};
 use crate::metadata::proto_tileset::complex_column::Type::PhysicalType;
 use crate::metadata::proto_tileset::{
@@ -56,7 +56,7 @@ const ID_COLUMN_NAME: &str = "id";
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
 pub fn create_tileset_metadata(
-    mut mvt: MapboxVectorTile,
+    mut mvt: MapVectorTile,
     is_id_present: bool,
     column_mappings: Option<&[ColumnMapping]>,
 ) -> MltResult<TileSetMetadata> {
@@ -272,7 +272,7 @@ fn get_scalar_type(value: &Value) -> MltResult<ScalarType> {
 
 #[expect(unused_variables)]
 pub fn convert_mvt(
-    mvt: MapboxVectorTile,
+    mvt: MapVectorTile,
     config: ConversionConfig,
     tileset_metadata: TileSetMetadata,
 ) -> MltResult<Vec<u8>> {
