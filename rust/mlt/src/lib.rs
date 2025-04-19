@@ -5,10 +5,9 @@ mod encoder;
 mod error;
 mod metadata;
 
-pub use converter::{
-    mlt::{create_tileset_metadata, FeatureTableOptimizations},
-    mvt,
-};
+pub use converter::mlt::{create_tileset_metadata, FeatureTableOptimizations};
+pub use converter::mvt;
 pub use data::{Feature, Layer, Value};
 pub use error::{MltError, MltResult};
-pub use metadata::{proto_tileset::TileSetMetadata, tileset::read_metadata};
+pub use metadata::proto_tileset::TileSetMetadata;
+pub use metadata::tileset::read_metadata;

@@ -1,9 +1,11 @@
-use crate::metadata::proto_tileset::TileSetMetadata;
-use crate::{MltError, MltResult};
-use prost::Message;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
+
+use prost::Message;
+
+use crate::metadata::proto_tileset::TileSetMetadata;
+use crate::{MltError, MltResult};
 
 // Future: Impl for TileSetMetadata
 pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
@@ -38,9 +40,10 @@ fn test_read_mlt_file() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashSet;
     use std::path::Path;
+
+    use super::*;
 
     #[test]
     fn test_read_metadata() {

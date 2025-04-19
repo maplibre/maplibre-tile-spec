@@ -1,8 +1,7 @@
+use geozero::mvt::{Message, Tile};
+use geozero::ToGeo;
+
 use crate::data::{Feature, Layer, Value};
-use geozero::{
-    mvt::{Message, Tile},
-    ToGeo,
-};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnMapping {

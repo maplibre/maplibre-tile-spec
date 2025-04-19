@@ -1,17 +1,18 @@
+use std::collections::HashMap;
+
+use geo_types::Geometry;
+use indexmap::IndexMap;
+
 use crate::converter::mvt::MapboxVectorTile;
 use crate::data::{Feature, Value};
+use crate::metadata::proto_tileset::complex_column::Type::PhysicalType;
 use crate::metadata::proto_tileset::{
-    column, complex_column::Type::PhysicalType, field, scalar_column, scalar_field, Column,
-    ColumnScope, ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn, ScalarField,
-    ScalarType, TileSetMetadata,
+    column, field, scalar_column, scalar_field, Column, ColumnScope, ComplexColumn, ComplexType,
+    FeatureTableSchema, Field, ScalarColumn, ScalarField, ScalarType, TileSetMetadata,
 };
 use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 use crate::mvt::ColumnMapping;
 use crate::MltResult;
-use geo_types::Geometry;
-
-use indexmap::IndexMap;
-use std::collections::HashMap;
 
 struct SortSettings {
     is_sortable: bool,

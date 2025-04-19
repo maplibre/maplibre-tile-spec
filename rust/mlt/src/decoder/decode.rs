@@ -1,12 +1,13 @@
-use crate::decoder::varint;
+use std::io::Cursor;
 
-use crate::data::MapLibreTile;
-use crate::metadata::proto_tileset::TileSetMetadata;
-use crate::{MltError, MltResult};
 use bytes::Bytes;
 use fastpfor::rust::IncrementCursor;
 use geo_types::Geometry;
-use std::io::Cursor;
+
+use crate::data::MapLibreTile;
+use crate::decoder::varint;
+use crate::metadata::proto_tileset::TileSetMetadata;
+use crate::{MltError, MltResult};
 
 const ID_COLUMN_NAME: &str = "id";
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
@@ -70,10 +71,11 @@ pub fn decode(tile: &Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLib
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::metadata::tileset::read_metadata;
     use std::fs;
     use std::path::Path;
+
+    use super::*;
+    use crate::metadata::tileset::read_metadata;
 
     #[test]
     #[expect(unused_variables)]

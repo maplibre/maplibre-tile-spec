@@ -1,12 +1,14 @@
+use std::io::Cursor;
+
+use bytes::Bytes;
+use fastpfor::rust::IncrementCursor;
+
 use crate::decoder::varint;
 use crate::metadata::stream_encoding::{
     DictionaryType, LengthType, Logical, LogicalLevelTechnique, LogicalStreamType, OffsetType,
     Physical, PhysicalLevelTechnique, PhysicalStreamType,
 };
 use crate::{MltError, MltResult};
-use bytes::Bytes;
-use fastpfor::rust::IncrementCursor;
-use std::io::Cursor;
 
 const MORTON: LogicalLevelTechnique = LogicalLevelTechnique::Morton;
 const RLE: LogicalLevelTechnique = LogicalLevelTechnique::Rle;

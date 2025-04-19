@@ -1,6 +1,7 @@
+use std::io::Cursor;
+
 use bytes::Bytes;
 use bytes_varint::*;
-use std::io::Cursor;
 
 pub fn decode(input: &Bytes, num_values: usize, offset: &mut Cursor<u32>) -> Vec<u32> {
     let mut values = Vec::with_capacity(num_values);

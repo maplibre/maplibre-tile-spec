@@ -1,5 +1,6 @@
-use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 use geo_types::{Geometry, LineString, Polygon};
+
+use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u8)]

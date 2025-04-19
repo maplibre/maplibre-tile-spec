@@ -1,8 +1,10 @@
-use crate::{MltError, MltResult};
+use std::io::Cursor;
+
 use bitvec::prelude::*;
 use bytes::Bytes;
 use fastpfor::rust::IncrementCursor;
-use std::io::Cursor;
+
+use crate::{MltError, MltResult};
 
 #[expect(dead_code, unused_variables)]
 pub fn decode_boolean_rle(
