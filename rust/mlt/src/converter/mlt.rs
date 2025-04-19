@@ -19,13 +19,20 @@ struct SortSettings {
 }
 
 impl SortSettings {
-    fn new(is_column_sortable: bool, feature_table_optimizations: Option<&FeatureTableOptimizations>, ids: Vec<i64>) -> Self {
+    fn new(
+        is_column_sortable: bool,
+        feature_table_optimizations: Option<&FeatureTableOptimizations>,
+        ids: Vec<i64>,
+    ) -> Self {
         let is_sortable = is_column_sortable
             && feature_table_optimizations
                 .map(|opt| opt.allow_id_regeneration)
                 .unwrap_or(false);
 
-        Self { is_sortable, feature_ids: ids }
+        Self {
+            is_sortable,
+            feature_ids: ids,
+        }
     }
 }
 
@@ -301,7 +308,6 @@ fn sort_features_and_encode_geometry_column(
     mvt_features: &[Feature],
     physical_level_technique: PhysicalLevelTechnique,
 ) {
-
     let is_column_sortable = config.include_ids
         && feature_table_optimizations
             .map(|opt| opt.allow_sorting)
@@ -322,7 +328,6 @@ fn sort_features_and_encode_geometry_column(
 
     // Unnecessary cloning: fix later
     let geometries: Vec<Geometry> = sorted_features.iter().map(|f| f.geometry.clone()).collect();
-
 }
 
 #[cfg(test)]

@@ -4,17 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-thiserror = "2.0.11"
-geozero = { version = "0.14", features = ["with-mvt"] }
-prost = "0.13.5"
-prost-types = "0.13.5"
-indexmap = "2.7.1"
-geo-types = "0.7.15"
-fastpfor = { version = "0.6.2", features = ["rust"] }
-num_enum = "0.7.3"
 bitvec = "1.0.1"
 bytes = "1.10.1"
 bytes-varint = "1.1.0"
+fastpfor = { version = "0.6.2", features = ["rust"] }
+geo-types = "0.7.15"
+geozero = { version = "0.14", features = ["with-mvt"] }
+indexmap = "2.7.1"
+num_enum = "0.7.3"
+prost = "0.13.5"
+prost-types = "0.13.5"
+thiserror = "2.0.11"
 
 [build-dependencies]
 prost-build = "0.13.5"

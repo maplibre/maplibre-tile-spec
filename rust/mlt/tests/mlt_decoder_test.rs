@@ -1,10 +1,10 @@
 mod common;
 
+use mlt::read_metadata;
 use mlt::MltResult;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use mlt::read_metadata;
 
 #[test]
 fn test_mlt_tiles() -> MltResult<()> {

@@ -4,9 +4,9 @@ use crate::metadata::stream_encoding::{
     Physical, PhysicalLevelTechnique, PhysicalStreamType,
 };
 use crate::{MltError, MltResult};
+use bytes::Bytes;
 use fastpfor::rust::IncrementCursor;
 use std::io::Cursor;
-use bytes::Bytes;
 
 const MORTON: LogicalLevelTechnique = LogicalLevelTechnique::Morton;
 const RLE: LogicalLevelTechnique = LogicalLevelTechnique::Rle;

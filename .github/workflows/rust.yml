@@ -9,6 +9,10 @@ on:
     types: [ published ]
   workflow_dispatch:
 
+defaults:
+  run:
+    working-directory: ./rust
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,21 +20,21 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: just }
       - uses: actions/checkout@v4
-#
-# Uncomment this and below once the crate has been published to crates.io
-#
-#      - name: Ensure this crate has not yet been published (on release)
-#        if: github.event_name == 'release' && matrix.type == 'latest'
-#        run: just check-if-published
-      - uses: Swatinem/rust-cache@v2
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
       - run: just -v ci-test
-#      - name: Check semver
-#        uses: obi1kenobi/cargo-semver-checks-action@v2
-#      - name: Test packaging for publish
-#        run: |
-#          rustup install nightly --profile minimal
-#          just test-publish
+      #
+      # Uncomment this and below once the crate has been published to crates.io
+      #
+      # - if: github.event_name == 'release' && matrix.type == 'latest'
+      #   name: Ensure this crate has not yet been published (on release)
+      #   run: just check-if-published
+      # - name: Check semver
+      #   uses: obi1kenobi/cargo-semver-checks-action@v2
+      # - name: Test packaging for publish
+      #   run: |
+      #     rustup install nightly --profile minimal
+      #     just test-publish
 
   msrv:
     name: Test MSRV
@@ -39,8 +43,8 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: just }
       - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
       - name: Read crate metadata
         id: metadata
         run: echo "rust-version=$(sed -ne 's/rust-version *= *\"\(.*\)\"/\1/p' Cargo.toml)" >> $GITHUB_OUTPUT
