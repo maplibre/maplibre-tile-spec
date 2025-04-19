@@ -46,11 +46,15 @@ jobs:
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
       - name: Read crate metadata
-        id: metadata
-        run: echo "rust-version=$(sed -ne 's/rust-version *= *\"\(.*\)\"/\1/p' Cargo.toml)" >> $GITHUB_OUTPUT
+        id: msrv
+        run: |
+          CRATE_NAME=mlt
+          msrv="$(cargo metadata --format-version 1 | jq -r --arg CRATE_NAME "$CRATE_NAME"  '.packages | map(select(.name == $CRATE_NAME)) | first | .rust_version')"
+          echo "MSRV for crate $CRATE_NAME is '$msrv'"
+          echo "value=$msrv" >> $GITHUB_OUTPUT
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ steps.metadata.outputs.rust-version }}
+          toolchain: ${{ steps.msrv.outputs.value }}
           components: rustfmt
       - run: just -v ci-test-msrv
