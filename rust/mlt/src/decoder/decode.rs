@@ -17,13 +17,11 @@ const GEOMETRY_COLUMN_NAME: &str = "geometry";
 pub fn decode(tile: &mut Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
     // let mut offset = Cursor::new(0);
 
-
     while tile.has_remaining() {
         let ids: Vec<i64> = vec![];
         let geometries: Vec<Geometry> = vec![];
         // Not sure the best way to cover this right now
         // var properties = new HashMap<String, List<Object>>();
-
 
         let version = tile.get_u8();
 
