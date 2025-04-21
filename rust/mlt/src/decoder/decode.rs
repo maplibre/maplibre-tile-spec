@@ -13,7 +13,6 @@ const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
 #[expect(unused_variables)]
 pub fn decode(tile: &mut Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
-
     while tile.has_remaining() {
         let ids: Vec<i64> = vec![];
         let geometries: Vec<Geometry> = vec![];
@@ -81,10 +80,7 @@ mod tests {
     #[test]
     #[expect(unused_variables)]
     fn test_decode() {
-        let raw = fs::read(
-            "../../test/expected/omt/2_2_2.mlt",
-        )
-        .unwrap();
+        let raw = fs::read("../../test/expected/omt/2_2_2.mlt").unwrap();
         let mut data = Bytes::from(raw);
         let metadata = read_metadata(Path::new("../../test/expected/omt/2_2_2.mlt.meta.pbf"));
         let tile = decode(&mut data, &metadata.expect("Failed to read metadata")).unwrap();

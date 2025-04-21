@@ -5,12 +5,10 @@ use parquet::decoding::{Decoder, RleValueDecoder};
 
 use crate::{MltError, MltResult};
 
-
 pub fn decode_boolean_rle(
     buffer: &Bytes,
     num_booleans: u32,
-    #[expect(unused_variables)]
-    byte_size: u32,
+    #[expect(unused_variables)] byte_size: u32,
 ) -> MltResult<BitVec<u8, Lsb0>> {
     let num_bytes = (num_booleans + 7) / 8;
     let mut decoder = RleValueDecoder::<BoolType>::new();
