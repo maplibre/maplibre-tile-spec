@@ -1,11 +1,12 @@
-use crate::{MltError, MltResult};
+use std::io::Cursor;
+
 use bitvec::prelude::*;
 use bytes::{Buf, Bytes};
 use fastpfor::rust::IncrementCursor;
-use parquet::data_type::BoolType;
-use parquet::decoding::Decoder;
-use parquet::{data_type::ByteArrayType, decoding::RleValueDecoder};
-use std::io::Cursor;
+use parquet::data_type::{BoolType, ByteArrayType};
+use parquet::decoding::{Decoder, RleValueDecoder};
+
+use crate::{MltError, MltResult};
 
 // fn test() {
 //     let mut decoder = RleValueDecoder::<ByteArrayType>::new();

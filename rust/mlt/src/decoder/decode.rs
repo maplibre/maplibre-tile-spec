@@ -1,14 +1,15 @@
 use std::io::Cursor;
 
+use bytes::{Buf, Bytes};
+use fastpfor::rust::IncrementCursor;
+use geo_types::Geometry;
+
 use crate::data::MapLibreTile;
 use crate::decoder::helpers::decode_boolean_rle;
 use crate::decoder::varint;
 use crate::metadata::proto_tileset::TileSetMetadata;
 use crate::metadata::stream::StreamMetadata;
 use crate::{MltError, MltResult};
-use bytes::{Buf, Bytes};
-use fastpfor::rust::IncrementCursor;
-use geo_types::Geometry;
 
 const ID_COLUMN_NAME: &str = "id";
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
