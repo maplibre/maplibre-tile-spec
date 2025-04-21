@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use fastpfor::rust::IncrementCursor;
 
 use crate::decoder::varint;
@@ -9,7 +9,6 @@ use crate::metadata::stream_encoding::{
     Physical, PhysicalLevelTechnique, PhysicalStreamType,
 };
 use crate::{MltError, MltResult};
-use bytes::{Buf, Bytes};
 
 const MORTON: LogicalLevelTechnique = LogicalLevelTechnique::Morton;
 const RLE: LogicalLevelTechnique = LogicalLevelTechnique::Rle;
@@ -38,7 +37,6 @@ pub struct StreamMetadata {
 
 impl StreamMetadata {
     pub fn decode(tile: &mut Bytes) -> MltResult<Self> {
-
         // let stream_type = tile
         //     .get(offset.position() as usize)
         //     .ok_or(MltError::DecodeError("Failed to read...".into()))?;
@@ -126,11 +124,8 @@ impl StreamMetadata {
 }
 
 trait Encoding {
-    fn partial_decode(
-        &mut self,
-        r#type: &LogicalLevelTechnique,
-        tile: &mut Bytes,
-    ) -> MltResult<()>;
+    fn partial_decode(&mut self, r#type: &LogicalLevelTechnique, tile: &mut Bytes)
+        -> MltResult<()>;
 }
 
 impl Encoding for StreamMetadata {

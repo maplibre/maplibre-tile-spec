@@ -1,16 +1,13 @@
 use std::io::Cursor;
 
-use bytes::Bytes;
-use fastpfor::rust::IncrementCursor;
-use geo_types::Geometry;
 use crate::data::MapLibreTile;
+use crate::decoder::helpers::decode_boolean_rle;
 use crate::decoder::varint;
 use crate::metadata::proto_tileset::TileSetMetadata;
 use crate::metadata::stream::StreamMetadata;
 use crate::{MltError, MltResult};
-use crate::decoder::helpers::decode_boolean_rle;
-
 use bytes::{Buf, Bytes};
+use fastpfor::rust::IncrementCursor;
 use geo_types::Geometry;
 
 const ID_COLUMN_NAME: &str = "id";
@@ -20,11 +17,13 @@ const GEOMETRY_COLUMN_NAME: &str = "geometry";
 pub fn decode(tile: &mut Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
     // let mut offset = Cursor::new(0);
 
+
     while tile.has_remaining() {
         let ids: Vec<i64> = vec![];
         let geometries: Vec<Geometry> = vec![];
         // Not sure the best way to cover this right now
         // var properties = new HashMap<String, List<Object>>();
+
 
         let version = tile.get_u8();
 
@@ -69,7 +68,6 @@ pub fn decode(tile: &mut Bytes, tile_metadata: &TileSetMetadata) -> MltResult<Ma
                         *num_features,
                         present_stream_metadata.byte_length,
                     )?;
-
                 }
                 // Below is where the error occurs
                 let id_data_stream_metadata = StreamMetadata::decode(tile)?;
@@ -92,7 +90,10 @@ mod tests {
     #[test]
     #[expect(unused_variables)]
     fn test_decode() {
-        let raw = fs::read("/Users/employeeadmin/repositories/maplibre-tile-spec/test/expected/omt/2_2_2.mlt").unwrap();
+        let raw = fs::read(
+            "/Users/employeeadmin/repositories/maplibre-tile-spec/test/expected/omt/2_2_2.mlt",
+        )
+        .unwrap();
         // Print out the first 10 Bytes
         let mut data = Bytes::from(raw);
         println!("data: {:?}", &data[0..10]);
