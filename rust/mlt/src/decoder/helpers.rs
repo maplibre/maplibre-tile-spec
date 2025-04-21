@@ -1,8 +1,18 @@
 use std::io::Cursor;
 
 use bitvec::prelude::*;
+use bytes::{Buf, Bytes};
 use bytes::Bytes;
 use fastpfor::rust::IncrementCursor;
+use parquet::data_type::BoolType;
+use parquet::decoding::Decoder;
+use parquet::{data_type::ByteArrayType, decoding::RleValueDecoder};
+use std::io::Cursor;
+
+// fn test() {
+//     let mut decoder = RleValueDecoder::<ByteArrayType>::new();
+//     decoder.set_data(&[0, 1, 2, 3, 4, 5]);
+// }
 
 use crate::{MltError, MltResult};
 
@@ -11,6 +21,21 @@ pub fn decode_boolean_rle(
     buffer: &Bytes,
     num_booleans: u32,
     byte_size: u32,
+) -> MltResult<BitVec<u8, Lsb0>> {
+    let num_bytes = (num_booleans + 7) / 8;
+
+    let mut decoder = RleValueDecoder::<BoolType>::new();
+    decoder
+        .set_data(buffer.clone(), num_bytes as usize)
+        .map_err(|_| MltError::DecodeError("Failed to set data for RLE decoder".to_string()))?;
+
+    let mut bools = vec![false; num_booleans as usize];
+    let decoded = decoder
+        .get(&mut bools)
+        .map_err(|_| MltError::DecodeError("Failed to decode boolean RLE data".to_string()))?;
+
+    // Convert Vec<bool> to BitVec
+    let bitvec: BitVec<u8, Lsb0> = bools[..decoded].iter().copied().collect();
     pos: &mut Cursor<u32>,
 ) -> MltResult<BitVec> {
     let num_bytes = num_booleans.div_ceil(8);
@@ -42,53 +67,28 @@ pub fn decode_byte_rle(
 
     pos.add(byte_size as u32);
 
-    Ok(values)
+    Ok(bitvec)
 }
 
-// #[expect(unused_variables, unused_mut)]
-// fn decode_byte_rle(
-//     buffer: &Bytes,
-//     num_bytes: u32,
-//     byte_size: u32,
-//     pos: &mut Cursor<u32>,
-// ) -> MltResult<Vec<u8>> {
+// pub fn decode_byte_rle(buffer: &Bytes, num_bytes: usize, byte_size: usize) -> MltResult<Vec<u8>> {
+//     let mut reader = RleValueDecoder::<ByteArrayType>::new();
+//     reader
+//         .set_data(buffer.clone(), num_bytes)
+//         .map_err(|_| MltError::DecodeError("Failed to set data for RLE decoder".to_string()))?;
 //
-//     let mut remaining_count = 0;
-//     let mut current_value: Option<u8> = None;
+//     for _ in 0..num_bytes {
+//         // let byte = buffer.get_u8();
+//         // values.push(byte);
 //
-//     let mut values = vec![0; num_bytes as usize];
-//     for i in 0..num_bytes {
-//         if remaining_count == 0 {
-//             let count = buffer[pos.position() as usize];
-//             pos.set_position(pos.position() + 1);
-//             remaining_count = count & 0x7F;
-//             current_value = Some(count >> 7);
-//         }
-//
-//         if let Some(value) = current_value {
-//             values[i as usize] = value;
-//         }
-//
-//         remaining_count -= 1;
+//         // let byte = buffer
+//         //     .get(read_pos)
+//         //     .ok_or_else(|| MltError::DecodeError("Failed to read byte from buffer".to_string()))?;
+//         // values.push(*byte);
+//         // read_pos += 1;
 //     }
 //
+//     // pos.add(byte_size as u32);
 //
-//
+//     // Ok(values)
 //     todo!("Implement decode_byte_rle");
-// }
-
-// public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
-//     throws IOException {
-//   var inStream =
-//       InStream.create(
-//           "test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
-//   var reader = new RunLengthByteReader(inStream);
-//
-//   var values = new byte[numBytes];
-//   for (var i = 0; i < numBytes; i++) {
-//     values[i] = reader.next();
-//   }
-//
-//   pos.add(byteSize);
-//   return values;
 // }

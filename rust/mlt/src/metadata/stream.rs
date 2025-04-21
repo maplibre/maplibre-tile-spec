@@ -9,6 +9,7 @@ use crate::metadata::stream_encoding::{
     Physical, PhysicalLevelTechnique, PhysicalStreamType,
 };
 use crate::{MltError, MltResult};
+use bytes::{Buf, Bytes};
 
 const MORTON: LogicalLevelTechnique = LogicalLevelTechnique::Morton;
 const RLE: LogicalLevelTechnique = LogicalLevelTechnique::Rle;
@@ -30,17 +31,19 @@ pub struct StreamMetadata {
     logical: Logical,
     physical: Physical,
     num_values: u32,
-    byte_length: u32,
+    pub byte_length: u32,
     morton: Option<Morton>,
     rle: Option<Rle>,
 }
 
-#[expect(dead_code)]
 impl StreamMetadata {
-    pub fn decode(tile: &Bytes, offset: &mut Cursor<u32>) -> MltResult<Self> {
-        let stream_type = tile
-            .get(offset.position() as usize)
-            .ok_or(MltError::DecodeError("Failed to read...".into()))?;
+    pub fn decode(tile: &mut Bytes) -> MltResult<Self> {
+
+        // let stream_type = tile
+        //     .get(offset.position() as usize)
+        //     .ok_or(MltError::DecodeError("Failed to read...".into()))?;
+        let stream_type = tile.get_u8();
+        panic!("stream_type >> 4: {:?}", stream_type >> 4);
 
         let physical_stream_type = PhysicalStreamType::try_from(stream_type >> 4)
             .map_err(|_| MltError::DecodeError("Invalid physical stream type".into()))?;
@@ -65,12 +68,14 @@ impl StreamMetadata {
             }
         };
 
-        offset.increment();
+        // offset.increment();
+        tile.advance(1);
 
-        let encoding_header = *tile
-            .get(offset.position() as usize)
-            .ok_or_else(|| MltError::DecodeError("Failed to read encoding header".to_string()))?
-            & 0xFF;
+        // let encoding_header = *tile
+        //     .get(offset.position() as usize)
+        //     .ok_or_else(|| MltError::DecodeError("Failed to read encoding header".to_string()))?
+        //     & 0xFF;
+        let encoding_header = tile.get_u8();
 
         let logical_level_technique1 = LogicalLevelTechnique::try_from(encoding_header >> 5)
             .map_err(|_| MltError::DecodeError("Invalid logical level technique 1".into()))?;
@@ -80,9 +85,11 @@ impl StreamMetadata {
         let physical_level_technique = PhysicalLevelTechnique::try_from(encoding_header & 0x3)
             .map_err(|_| MltError::DecodeError("Invalid physical level technique".into()))?;
 
-        offset.increment();
+        // offset.increment();
 
-        let size_info = varint::decode(tile, 2, offset);
+        // let size_info = varint::decode(tile, 2, offset);
+        let size_info = varint::decode(tile, 2);
+        // new_offset = ???
         let num_values = size_info
             .first()
             .ok_or_else(|| MltError::DecodeError("Failed to read number of values".into()))?;
@@ -104,13 +111,13 @@ impl StreamMetadata {
         };
 
         if metadata.logical.technique1 == Some(MORTON) {
-            metadata.partial_decode(&MORTON, tile, offset)?;
+            metadata.partial_decode(&MORTON, tile)?;
             return Ok(metadata);
         } else if (metadata.logical.technique1 == Some(RLE)
             || metadata.logical.technique2 == Some(RLE))
             && metadata.physical.technique.is_some()
         {
-            metadata.partial_decode(&RLE, tile, offset)?;
+            metadata.partial_decode(&RLE, tile)?;
             return Ok(metadata);
         }
 
@@ -122,8 +129,7 @@ trait Encoding {
     fn partial_decode(
         &mut self,
         r#type: &LogicalLevelTechnique,
-        tile: &Bytes,
-        offset: &mut Cursor<u32>,
+        tile: &mut Bytes,
     ) -> MltResult<()>;
 }
 
@@ -131,10 +137,10 @@ impl Encoding for StreamMetadata {
     fn partial_decode(
         &mut self,
         r#type: &LogicalLevelTechnique,
-        tile: &Bytes,
-        offset: &mut Cursor<u32>,
+        tile: &mut Bytes,
     ) -> MltResult<()> {
-        let binding = varint::decode(tile, 2, offset);
+        // let binding = varint::decode(tile, 2, offset);
+        let binding = varint::decode(tile, 2);
         let [val1, val2] = binding.as_slice() else {
             return Err(MltError::DecodeError(
                 "Expected 2 values for partial decode".into(),
