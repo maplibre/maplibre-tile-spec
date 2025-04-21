@@ -1,8 +1,4 @@
-use std::io::Cursor;
-
 use bytes::{Buf, Bytes};
-use fastpfor::rust::IncrementCursor;
-
 use crate::decoder::varint;
 use crate::metadata::stream_encoding::{
     DictionaryType, LengthType, Logical, LogicalLevelTechnique, LogicalStreamType, OffsetType,
@@ -41,7 +37,6 @@ impl StreamMetadata {
         //     .get(offset.position() as usize)
         //     .ok_or(MltError::DecodeError("Failed to read...".into()))?;
         let stream_type = tile.get_u8();
-        panic!("stream_type >> 4: {:?}", stream_type >> 4);
 
         let physical_stream_type = PhysicalStreamType::try_from(stream_type >> 4)
             .map_err(|_| MltError::DecodeError("Invalid physical stream type".into()))?;

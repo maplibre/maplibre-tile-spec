@@ -1,5 +1,3 @@
-use std::io::Cursor;
-
 use bytes::Bytes;
 use bytes_varint::*;
 

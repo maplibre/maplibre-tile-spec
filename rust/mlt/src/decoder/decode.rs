@@ -1,7 +1,4 @@
-use std::io::Cursor;
-
 use bytes::{Buf, Bytes};
-use fastpfor::rust::IncrementCursor;
 use geo_types::Geometry;
 
 use crate::data::MapLibreTile;
@@ -16,13 +13,10 @@ const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
 #[expect(unused_variables)]
 pub fn decode(tile: &mut Bytes, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
-    // let mut offset = Cursor::new(0);
 
     while tile.has_remaining() {
         let ids: Vec<i64> = vec![];
         let geometries: Vec<Geometry> = vec![];
-        // Not sure the best way to cover this right now
-        // var properties = new HashMap<String, List<Object>>();
 
         let version = tile.get_u8();
 
@@ -68,9 +62,7 @@ pub fn decode(tile: &mut Bytes, tile_metadata: &TileSetMetadata) -> MltResult<Ma
                         present_stream_metadata.byte_length,
                     )?;
                 }
-                // Below is where the error occurs
                 let id_data_stream_metadata = StreamMetadata::decode(tile)?;
-                panic!("id_data_stream_metadata: {:?}", id_data_stream_metadata);
             }
         }
     }
@@ -90,19 +82,12 @@ mod tests {
     #[expect(unused_variables)]
     fn test_decode() {
         let raw = fs::read(
-            "/Users/employeeadmin/repositories/maplibre-tile-spec/test/expected/omt/2_2_2.mlt",
+            "../../test/expected/omt/2_2_2.mlt",
         )
         .unwrap();
-        // Print out the first 10 Bytes
         let mut data = Bytes::from(raw);
-        println!("data: {:?}", &data[0..10]);
-        // Get metadata as a Path
         let metadata = read_metadata(Path::new("../../test/expected/omt/2_2_2.mlt.meta.pbf"));
         let tile = decode(&mut data, &metadata.expect("Failed to read metadata")).unwrap();
-        // let mlt = MapLibreTile::decode(&data, &metadata).unwrap();
-        //
-        // assert_eq!(mlt.layers.len(), 1);
-        // assert_eq!(mlt.layers[0].name, "layer_name");
 
         todo!("Implement test_decode");
     }
