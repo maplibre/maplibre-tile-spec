@@ -85,38 +85,32 @@ private:
 
 class Polygon : public Geometry {
 public:
-    using Shell = CoordVec;
     using Ring = CoordVec;
     using RingVec = std::vector<Ring>;
 
-    Polygon(Shell shell_, RingVec rings_) noexcept
+    Polygon(RingVec rings_) noexcept
         : Geometry(GeometryType::POLYGON),
-          shell(std::move(shell_)),
           rings(std::move(rings_)) {}
 
-    const Shell& getShell() const noexcept { return shell; }
     const RingVec& getRings() const noexcept { return rings; }
 
 private:
-    Shell shell;
     RingVec rings;
 };
 
 class MultiPolygon : public Geometry {
 public:
-    using Shell = CoordVec;
     using Ring = CoordVec;
-    using RingVec = std::vector<Ring>;
-    using ShellRingsPair = std::pair<Shell, RingVec>;
+    using RingVec = std::vector<CoordVec>;
 
-    MultiPolygon(std::vector<ShellRingsPair> polygons_) noexcept
+    MultiPolygon(std::vector<RingVec> polygons_) noexcept
         : Geometry(GeometryType::MULTIPOLYGON),
           polygons(std::move(polygons_)) {}
 
-    const std::vector<ShellRingsPair>& getPolygons() const noexcept { return polygons; }
+    const std::vector<RingVec>& getPolygons() const noexcept { return polygons; }
 
 private:
-    std::vector<ShellRingsPair> polygons;
+    std::vector<RingVec> polygons;
 };
 
 class GeometryFactory {
@@ -136,13 +130,13 @@ public:
     virtual std::unique_ptr<Geometry> createLinearRing(CoordVec&& coords) const {
         return std::make_unique<LineString>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createPolygon(CoordVec&& shell, std::vector<CoordVec>&& rings) const {
-        return std::make_unique<Polygon>(std::move(shell), std::move(rings));
+    virtual std::unique_ptr<Geometry> createPolygon(std::vector<CoordVec>&& rings) const {
+        return std::make_unique<Polygon>(std::move(rings));
     }
     virtual std::unique_ptr<Geometry> createMultiLineString(std::vector<CoordVec>&& lineStrings) const {
         return std::make_unique<MultiLineString>(std::move(lineStrings));
     }
-    virtual std::unique_ptr<Geometry> createMultiPolygon(std::vector<MultiPolygon::ShellRingsPair>&& polys) const {
+    virtual std::unique_ptr<Geometry> createMultiPolygon(std::vector<MultiPolygon::RingVec>&& polys) const {
         return std::make_unique<MultiPolygon>(std::move(polys));
     }
 };
