@@ -106,17 +106,16 @@ class MultiPolygon : public Geometry {
 public:
     using Shell = CoordVec;
     using Ring = CoordVec;
-    using RingVec = std::vector<Ring>;
-    using ShellRingsPair = std::pair<Shell, RingVec>;
+    using RingVec = std::vector<CoordVec>;
 
-    MultiPolygon(std::vector<ShellRingsPair> polygons_) noexcept
+    MultiPolygon(std::vector<RingVec> polygons_) noexcept
         : Geometry(GeometryType::MULTIPOLYGON),
           polygons(std::move(polygons_)) {}
 
-    const std::vector<ShellRingsPair>& getPolygons() const noexcept { return polygons; }
+    const std::vector<RingVec>& getPolygons() const noexcept { return polygons; }
 
 private:
-    std::vector<ShellRingsPair> polygons;
+    std::vector<RingVec> polygons;
 };
 
 class GeometryFactory {
@@ -142,7 +141,7 @@ public:
     virtual std::unique_ptr<Geometry> createMultiLineString(std::vector<CoordVec>&& lineStrings) const {
         return std::make_unique<MultiLineString>(std::move(lineStrings));
     }
-    virtual std::unique_ptr<Geometry> createMultiPolygon(std::vector<MultiPolygon::ShellRingsPair>&& polys) const {
+    virtual std::unique_ptr<Geometry> createMultiPolygon(std::vector<MultiPolygon::RingVec>&& polys) const {
         return std::make_unique<MultiPolygon>(std::move(polys));
     }
 };
