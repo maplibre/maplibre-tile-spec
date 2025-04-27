@@ -2,6 +2,13 @@ use geo_types::{Geometry, LineString, Polygon};
 
 use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 
+pub struct GeometryScaling {
+    pub extent: i32,
+    pub min: f64,
+    pub max: f64,
+    pub scale: Option<f64>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u8)]
 pub enum GeometryType {

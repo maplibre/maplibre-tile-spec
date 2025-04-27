@@ -1,49 +1,42 @@
-use bitvec::prelude::*;
-use bytes::Bytes;
-use parquet::data_type::{BoolType, ByteArrayType};
-use parquet::decoding::{Decoder, RleValueDecoder};
+use crate::MltResult;
+use bytes::{Buf, Bytes};
 
-use crate::{MltError, MltResult};
-
-pub fn decode_boolean_rle(
-    buffer: &Bytes,
-    num_booleans: u32,
-    #[expect(unused_variables)] byte_size: u32,
-) -> MltResult<BitVec<u8, Lsb0>> {
-    let num_bytes = (num_booleans + 7) / 8;
-    let mut decoder = RleValueDecoder::<BoolType>::new();
-    decoder
-        .set_data(buffer.clone(), num_bytes as usize)
-        .map_err(|_| MltError::DecodeError("Failed to set data for RLE decoder".to_string()))?;
-    // let result = decoder.get(???)
-
-    // let byte_stream = decode_byte_rle(buffer, num_bytes as usize, byte_size as usize)?;
-    // let bits = BitVec::<u8, Lsb0>::from_vec(byte_stream);
-
-    // Ok(bits)
-    todo!("Implement decode_boolean_rle");
+/// Decodes boolean RLE from the buffer.
+/// - `num_booleans` is the total number of booleans (bits).
+/// - `byte_size` is inferred as `ceil(num_booleans / 8)`.
+pub fn decode_boolean_rle(tile: &mut Bytes, num_booleans: usize) -> MltResult<Vec<u8>> {
+    let num_bytes = num_booleans.div_ceil(8);
+    decode_byte_rle(tile, num_bytes)
 }
 
-#[expect(unused_variables)]
-pub fn decode_byte_rle(buffer: &Bytes, num_bytes: usize, byte_size: usize) -> MltResult<Vec<u8>> {
-    let mut reader = RleValueDecoder::<ByteArrayType>::new();
-    reader
-        .set_data(buffer.clone(), num_bytes)
-        .map_err(|_| MltError::DecodeError("Failed to set data for RLE decoder".to_string()))?;
+/// Decodes byte RLE from the buffer.
+/// - `num_bytes` is how many decoded bytes we expect.
+pub fn decode_byte_rle(tile: &mut Bytes, num_bytes: usize) -> MltResult<Vec<u8>> {
+    let mut result = Vec::with_capacity(num_bytes);
+    let mut value_offset = 0;
 
-    for _ in 0..num_bytes {
-        // let byte = buffer.get_u8();
-        // values.push(byte);
+    while value_offset < num_bytes {
+        let header = tile.get_u8();
 
-        // let byte = buffer
-        //     .get(read_pos)
-        //     .ok_or_else(|| MltError::DecodeError("Failed to read byte from buffer".to_string()))?;
-        // values.push(*byte);
-        // read_pos += 1;
+        if header <= 0x7F {
+            // Runs
+            let num_runs = header as usize + 3;
+            let value = tile.get_u8();
+            let end_value_offset = value_offset + num_runs;
+            result.resize(end_value_offset.min(num_bytes), value);
+            value_offset = end_value_offset.min(num_bytes);
+        } else {
+            // Literals
+            let num_literals = 256 - header as usize;
+            for _ in 0..num_literals {
+                if value_offset >= num_bytes {
+                    break;
+                }
+                result.push(tile.get_u8());
+                value_offset += 1;
+            }
+        }
     }
 
-    // pos.add(byte_size as u32);
-
-    // Ok(values)
-    todo!("Implement decode_byte_rle");
+    Ok(result)
 }

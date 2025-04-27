@@ -1,10 +1,11 @@
+use bytes::{Buf, Bytes};
+
 use crate::decoder::varint;
 use crate::metadata::stream_encoding::{
     DictionaryType, LengthType, Logical, LogicalLevelTechnique, LogicalStreamType, OffsetType,
     Physical, PhysicalLevelTechnique, PhysicalStreamType,
 };
 use crate::{MltError, MltResult};
-use bytes::{Buf, Bytes};
 
 const MORTON: LogicalLevelTechnique = LogicalLevelTechnique::Morton;
 const RLE: LogicalLevelTechnique = LogicalLevelTechnique::Rle;
@@ -25,7 +26,7 @@ pub struct Morton {
 pub struct StreamMetadata {
     logical: Logical,
     physical: Physical,
-    num_values: u32,
+    pub num_values: u32,
     pub byte_length: u32,
     morton: Option<Morton>,
     rle: Option<Rle>,

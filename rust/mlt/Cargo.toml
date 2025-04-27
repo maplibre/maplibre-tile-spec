@@ -16,7 +16,8 @@ num_enum = "0.7.3"
 prost = "0.13.5"
 prost-types = "0.13.5"
 thiserror = "2.0.11"
-parquet = { version = "55.0.0", features = ["experimental"] }
+zigzag = "0.1.0"
+serde_columnar = "0.3.11"
 
 [build-dependencies]
 prost-build = "0.13.5"

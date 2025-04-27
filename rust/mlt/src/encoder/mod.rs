@@ -1,1 +1,1 @@
-mod geometry;
+pub mod geometry;
