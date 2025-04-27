@@ -40,3 +40,19 @@ pub fn decode_byte_rle(tile: &mut Bytes, num_bytes: usize) -> MltResult<Vec<u8>>
 
     Ok(result)
 }
+
+#[test]
+fn test_decode_byte_rle() -> MltResult<()> {
+    let mut tile = Bytes::from_static(&[0x03, 0x01]);
+    let result = decode_byte_rle(&mut tile, 5)?;
+    assert_eq!(result, vec![1, 1, 1, 1, 1]);
+    Ok(())
+}
+
+#[test]
+fn test_decode_boolean_rle() -> MltResult<()> {
+    let mut tile = Bytes::from_static(&[0x03, 0x01]);
+    let result = decode_boolean_rle(&mut tile, 5)?;
+    assert_eq!(result, vec![1]);
+    Ok(())
+}
