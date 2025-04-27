@@ -22,81 +22,92 @@ pub struct Config {
     pub id_within_max_safe_integer: bool,
 }
 
-#[expect(unused_variables)]
-pub fn decode(
-    tile: &mut Bytes,
-    tile_metadata: &TileSetMetadata,
-    config: Option<Config>,
-) -> MltResult<MapLibreTile> {
-    while tile.has_remaining() {
-        let ids: Vec<i64> = vec![];
-        let geometries: Vec<Geometry> = vec![];
+pub struct Decoder {
+    pub tile: Bytes,
+    pub config: Option<Config>,
+}
 
-        let infos = varint::decode(tile, 5);
-        let version = tile.get_u8();
-
-        let feature_table_id = infos
-            .first()
-            .ok_or_else(|| MltError::DecodeError("Failed to read feature table id".to_string()))?;
-        let feature_table_body_size = infos.get(1).ok_or_else(|| {
-            MltError::DecodeError("Failed to read feature table body size".to_string())
-        })?;
-        let feature_table_metadata = tile_metadata
-            .feature_tables
-            .get(*feature_table_id as usize)
-            .ok_or_else(|| {
-                MltError::DecodeError(format!(
-                    "Failed to read feature table metadata for id {}",
-                    feature_table_id
-                ))
-            })?;
-
-        let property_column_names: Option<&String> = config.as_ref().and_then(|cfg| {
-            cfg.feature_table_decoding
-                .as_ref()
-                .and_then(|ftd| ftd.get(&feature_table_metadata.name))
-        });
-
-        if property_column_names.is_none() {
-            tile.advance(*feature_table_body_size as usize);
-            continue;
+impl Decoder {
+    pub fn new(tile: Vec<u8>, config: Option<Config>) -> Self {
+        Self {
+            tile: Bytes::from(tile),
+            config,
         }
+    }
+    #[expect(unused_variables)]
+    pub fn decode(&mut self, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
+        while self.tile.has_remaining() {
+            let ids: Vec<i64> = vec![];
+            let geometries: Vec<Geometry> = vec![];
 
-        let extent = infos
-            .get(2)
-            .ok_or_else(|| MltError::DecodeError("Failed to read tile extent".to_string()))?;
+            let infos = varint::decode(&mut self.tile, 5);
+            let version = self.tile.get_u8();
 
-        let max_tile_extent: i32 =
-            ZigZag::decode(*infos.get(3).ok_or_else(|| {
+            let feature_table_id = infos.first().ok_or_else(|| {
+                MltError::DecodeError("Failed to read feature table id".to_string())
+            })?;
+            let feature_table_body_size = infos.get(1).ok_or_else(|| {
+                MltError::DecodeError("Failed to read feature table body size".to_string())
+            })?;
+            let feature_table_metadata = tile_metadata
+                .feature_tables
+                .get(*feature_table_id as usize)
+                .ok_or_else(|| {
+                    MltError::DecodeError(format!(
+                        "Failed to read feature table metadata for id {}",
+                        feature_table_id
+                    ))
+                })?;
+
+            let property_column_names: Option<&String> = self.config.as_ref().and_then(|cfg| {
+                cfg.feature_table_decoding
+                    .as_ref()
+                    .and_then(|ftd| ftd.get(&feature_table_metadata.name))
+            });
+
+            if property_column_names.is_none() {
+                self.tile.advance(*feature_table_body_size as usize);
+                continue;
+            }
+
+            let extent = infos
+                .get(2)
+                .ok_or_else(|| MltError::DecodeError("Failed to read tile extent".to_string()))?;
+
+            let max_tile_extent: i32 = ZigZag::decode(*infos.get(3).ok_or_else(|| {
                 MltError::DecodeError("Failed to read max tile extent".to_string())
             })?);
 
-        let num_features = infos.get(4).ok_or_else(|| {
-            MltError::DecodeError("Failed to read number of features".to_string())
-        })?;
-
-        for col_metadata in feature_table_metadata.columns.iter() {
-            let num_streams_vec = varint::decode(tile, 1);
-            let num_streams = num_streams_vec.first().ok_or_else(|| {
-                MltError::DecodeError("Failed to retrieve num_streams".to_string())
+            let num_features = infos.get(4).ok_or_else(|| {
+                MltError::DecodeError("Failed to read number of features".to_string())
             })?;
-            if col_metadata.name == ID_COLUMN_NAME {
-                let mut nullability_buffer = BitVec::<u8, Lsb0>::EMPTY;
-                if *num_streams == 2 {
-                    let present_stream_metadata = StreamMetadata::decode(tile)?;
-                    let values =
-                        decode_boolean_rle(tile, present_stream_metadata.num_values as usize)?;
-                    nullability_buffer = BitVec::<u8, Lsb0>::with_capacity(*num_features as usize);
-                    nullability_buffer.extend(values.iter().copied());
-                }
 
-                // Dummy
-                nullability_buffer.resize(1, false);
+            for col_metadata in feature_table_metadata.columns.iter() {
+                let num_streams_vec = varint::decode(&mut self.tile, 1);
+                let num_streams = num_streams_vec.first().ok_or_else(|| {
+                    MltError::DecodeError("Failed to retrieve num_streams".to_string())
+                })?;
+                if col_metadata.name == ID_COLUMN_NAME {
+                    let mut nullability_buffer = BitVec::<u8, Lsb0>::EMPTY;
+                    if *num_streams == 2 {
+                        let present_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
+                        let values = decode_boolean_rle(
+                            &mut self.tile,
+                            present_stream_metadata.num_values as usize,
+                        )?;
+                        nullability_buffer =
+                            BitVec::<u8, Lsb0>::with_capacity(*num_features as usize);
+                        nullability_buffer.extend(values.iter().copied());
+                    }
+
+                    // Dummy
+                    nullability_buffer.resize(1, false);
+                }
             }
         }
-    }
 
-    todo!("Implement decode");
+        todo!("Implement decode");
+    }
 }
 
 #[cfg(test)]
@@ -112,11 +123,11 @@ mod tests {
     fn test_decode() {
         let raw = fs::read("../../ts/test/data/omt/unoptimized/mlt/plain/0_0_0.mlt")
             .expect("Failed to read file");
-        let mut data = Bytes::from(raw);
+        let mut mlt = Decoder::new(raw, None);
         let metadata = read_metadata(Path::new(
             "../../ts/test/data/omt/unoptimized/mlt/plain/tileset.pbf",
         ))
         .expect("Failed to read metadata");
-        let tile = decode(&mut data, &metadata, None).expect("Failed to read metadata");
+        let tile = mlt.decode(&metadata).expect("Failed to decode tile");
     }
 }
