@@ -11,17 +11,35 @@ const Bitpacking_Packed_Test3: Uint32Array = new Uint32Array([ -2124286322, 1138
 describe("Bitpacking", () => {
   it("Bitpacking unpacking (Test 1)", async () => {
     const packed = new Uint32Array(Bitpacking_Raw_Test1.length);
-    fastunpack(Bitpacking_Packed_Test1, 0, packed, 0, 3);
+    fastunpack({
+      input: Bitpacking_Packed_Test1,
+      inpos: 0,
+      output: packed,
+      outpos: 0,
+      bit: 3
+    });
     expect(Bitpacking_Raw_Test1).toEqual(packed);
   });
   it("Bitpacking unpacking (Test 2)", async () => {
     const packed = new Uint32Array(Bitpacking_Raw_Test2.length);
-    fastunpack(Bitpacking_Packed_Test2, 0, packed, 0, 5);
+    fastunpack({
+      input: Bitpacking_Packed_Test2,
+      inpos: 0,
+      output: packed,
+      outpos: 0,
+      bit: 5
+    });
     expect(Bitpacking_Raw_Test2).toEqual(packed);
   });
   it("Bitpacking unpacking (Test 3)", async () => {
     const packed = new Uint32Array(Bitpacking_Raw_Test3.length);
-    fastunpack(Bitpacking_Packed_Test3, 0, packed, 0, 6);
+    fastunpack({
+      input: Bitpacking_Packed_Test3,
+      inpos: 0,
+      output: packed,
+      outpos: 0,
+      bit: 6
+    });
     expect(Bitpacking_Raw_Test3).toEqual(packed);
   });
 })
