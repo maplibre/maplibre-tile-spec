@@ -85,26 +85,21 @@ private:
 
 class Polygon : public Geometry {
 public:
-    using Shell = CoordVec;
     using Ring = CoordVec;
     using RingVec = std::vector<Ring>;
 
-    Polygon(Shell shell_, RingVec rings_) noexcept
+    Polygon(RingVec rings_) noexcept
         : Geometry(GeometryType::POLYGON),
-          shell(std::move(shell_)),
           rings(std::move(rings_)) {}
 
-    const Shell& getShell() const noexcept { return shell; }
     const RingVec& getRings() const noexcept { return rings; }
 
 private:
-    Shell shell;
     RingVec rings;
 };
 
 class MultiPolygon : public Geometry {
 public:
-    using Shell = CoordVec;
     using Ring = CoordVec;
     using RingVec = std::vector<CoordVec>;
 
@@ -135,8 +130,8 @@ public:
     virtual std::unique_ptr<Geometry> createLinearRing(CoordVec&& coords) const {
         return std::make_unique<LineString>(std::move(coords));
     }
-    virtual std::unique_ptr<Geometry> createPolygon(CoordVec&& shell, std::vector<CoordVec>&& rings) const {
-        return std::make_unique<Polygon>(std::move(shell), std::move(rings));
+    virtual std::unique_ptr<Geometry> createPolygon(std::vector<CoordVec>&& rings) const {
+        return std::make_unique<Polygon>(std::move(rings));
     }
     virtual std::unique_ptr<Geometry> createMultiLineString(std::vector<CoordVec>&& lineStrings) const {
         return std::make_unique<MultiLineString>(std::move(lineStrings));

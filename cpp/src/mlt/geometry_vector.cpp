@@ -105,6 +105,8 @@ void GeometryVector::applyTriangles(Geometry& geom,
         indexBufferOffset += 3 * numTriangles;
 
         assert(std::ranges::all_of(triangles, [=](auto i) { return i < totalVertices; }));
+        assert(std::ranges::min(triangles) == 0);
+        assert(std::ranges::max(triangles) == totalVertices - 1);
         geom.setTriangles(std::move(triangles));
     }
 }
@@ -254,13 +256,14 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 ringOffsetsCounter++;
 
                 std::vector<CoordVec> rings;
-                rings.reserve(numRings - 1);
+                rings.reserve(numRings);
 
                 auto totalVertices = numVertices;
                 if (vertexOffsets.empty()) {
-                    auto shell = getLineStringCoords(
-                        vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/true);
+                    rings.push_back(getLineStringCoords(
+                        vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/true));
                     vertexBufferOffset += numVertices * 2;
+                    assert(triangleCounts.empty() || numVertices == rings.back().size() || numVertices == rings.back().size() - 1);
 
                     for (std::uint32_t i = 1; i < numRings; ++i) {
                         CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
@@ -272,13 +275,14 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                         vertexBufferOffset += numRingVertices * 2;
                         rings.push_back(
                             getLineStringCoords(vertexBuffer, vbo, numRingVertices, /*closeLineString=*/true));
+                        assert(triangleCounts.empty() || numRingVertices == rings.back().size() || numRingVertices == rings.back().size() - 1);
                     }
 
-                    auto newGeometry = factory.createPolygon(std::move(shell), std::move(rings));
+                    auto newGeometry = factory.createPolygon(std::move(rings));
                     applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, totalVertices, false);
                     geometries.push_back(std::move(newGeometry));
                 } else {
-                    auto shell = (vertexBufferType == VertexBufferType::VEC_2)
+                    rings.push_back((vertexBufferType == VertexBufferType::VEC_2)
                                      ? getDictionaryEncodedLineStringCoords(vertexBuffer,
                                                                             vertexOffsets,
                                                                             vertexOffsetsOffset,
@@ -289,8 +293,9 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                                                                         vertexOffsetsOffset,
                                                                         numVertices,
                                                                         *mortonSettings,
-                                                                        /*closeLineString=*/true);
+                                                                        /*closeLineString=*/true));
                     vertexOffsetsOffset += numVertices;
+                    assert(triangleCounts.empty() || numVertices == rings.back().size() || numVertices == rings.back().size() - 1);
 
                     auto totalVertices = numVertices;
                     for (std::uint32_t i = 1; i < numRings; ++i) {
@@ -314,9 +319,10 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                                                                    numRingVertices,
                                                                    *mortonSettings,
                                                                    /*closeLineString=*/true));
+                        assert(triangleCounts.empty() || numRingVertices == rings.back().size());
                     }
 
-                    auto newGeometry = factory.createPolygon(std::move(shell), std::move(rings));
+                    auto newGeometry = factory.createPolygon(std::move(rings));
                     applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, totalVertices, false);
                     geometries.push_back(std::move(newGeometry));
                 }
