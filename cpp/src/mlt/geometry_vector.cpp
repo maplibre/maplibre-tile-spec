@@ -260,10 +260,11 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
 
                 auto totalVertices = numVertices;
                 if (vertexOffsets.empty()) {
-                    rings.push_back(getLineStringCoords(
-                        vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/true));
+                    rings.push_back(
+                        getLineStringCoords(vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/true));
                     vertexBufferOffset += numVertices * 2;
-                    assert(triangleCounts.empty() || numVertices == rings.back().size() || numVertices == rings.back().size() - 1);
+                    assert(triangleCounts.empty() || numVertices == rings.back().size() ||
+                           numVertices == rings.back().size() - 1);
 
                     for (std::uint32_t i = 1; i < numRings; ++i) {
                         CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
@@ -275,7 +276,8 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                         vertexBufferOffset += numRingVertices * 2;
                         rings.push_back(
                             getLineStringCoords(vertexBuffer, vbo, numRingVertices, /*closeLineString=*/true));
-                        assert(triangleCounts.empty() || numRingVertices == rings.back().size() || numRingVertices == rings.back().size() - 1);
+                        assert(triangleCounts.empty() || numRingVertices == rings.back().size() ||
+                               numRingVertices == rings.back().size() - 1);
                     }
 
                     auto newGeometry = factory.createPolygon(std::move(rings));
@@ -283,19 +285,20 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     geometries.push_back(std::move(newGeometry));
                 } else {
                     rings.push_back((vertexBufferType == VertexBufferType::VEC_2)
-                                     ? getDictionaryEncodedLineStringCoords(vertexBuffer,
-                                                                            vertexOffsets,
-                                                                            vertexOffsetsOffset,
-                                                                            numVertices,
-                                                                            /*closeLineString=*/true)
-                                     : getMortonEncodedLineStringCoords(vertexBuffer,
-                                                                        vertexOffsets,
-                                                                        vertexOffsetsOffset,
-                                                                        numVertices,
-                                                                        *mortonSettings,
-                                                                        /*closeLineString=*/true));
+                                        ? getDictionaryEncodedLineStringCoords(vertexBuffer,
+                                                                               vertexOffsets,
+                                                                               vertexOffsetsOffset,
+                                                                               numVertices,
+                                                                               /*closeLineString=*/true)
+                                        : getMortonEncodedLineStringCoords(vertexBuffer,
+                                                                           vertexOffsets,
+                                                                           vertexOffsetsOffset,
+                                                                           numVertices,
+                                                                           *mortonSettings,
+                                                                           /*closeLineString=*/true));
                     vertexOffsetsOffset += numVertices;
-                    assert(triangleCounts.empty() || numVertices == rings.back().size() || numVertices == rings.back().size() - 1);
+                    assert(triangleCounts.empty() || numVertices == rings.back().size() ||
+                           numVertices == rings.back().size() - 1);
 
                     auto totalVertices = numVertices;
                     for (std::uint32_t i = 1; i < numRings; ++i) {
@@ -420,7 +423,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
 
                 std::vector<MultiPolygon::RingVec> polygons;
                 polygons.reserve(numPolygons);
-                
+
                 if (vertexOffsets.empty()) {
                     [[maybe_unused]] std::uint32_t totalVertices = 0;
                     for (std::uint32_t i = 0; i < numPolygons; ++i) {
@@ -477,17 +480,17 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                         rings.reserve(numRings);
 
                         rings.push_back((vertexBufferType == VertexBufferType::VEC_2)
-                                         ? getDictionaryEncodedLineStringCoords(vertexBuffer,
-                                                                                vertexOffsets,
-                                                                                vertexOffsetsOffset,
-                                                                                numVertices,
-                                                                                /*closeLineString=*/true)
-                                         : getMortonEncodedLineStringCoords(vertexBuffer,
-                                                                            vertexOffsets,
-                                                                            vertexOffsetsOffset,
-                                                                            numVertices,
-                                                                            *mortonSettings,
-                                                                            /*closeLineString=*/true));
+                                            ? getDictionaryEncodedLineStringCoords(vertexBuffer,
+                                                                                   vertexOffsets,
+                                                                                   vertexOffsetsOffset,
+                                                                                   numVertices,
+                                                                                   /*closeLineString=*/true)
+                                            : getMortonEncodedLineStringCoords(vertexBuffer,
+                                                                               vertexOffsets,
+                                                                               vertexOffsetsOffset,
+                                                                               numVertices,
+                                                                               *mortonSettings,
+                                                                               /*closeLineString=*/true));
                         vertexOffsetsOffset += numVertices;
 
                         for (std::uint32_t j = 1; j < numRings; ++j) {
