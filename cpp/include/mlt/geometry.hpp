@@ -5,6 +5,7 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace mlt::geometry {
@@ -20,10 +21,15 @@ protected:
 public:
     virtual ~Geometry() noexcept = default;
 
-    void setTriangles(std::vector<std::uint32_t> triangles_) noexcept { triangles = std::move(triangles_); }
-    std::vector<std::uint32_t> triangles;
+    const auto& getTriangles() const { return triangles; }
+    void setTriangles(std::span<const std::uint32_t> triangles_) noexcept {
+        triangles = triangles_;
+    }
 
     const metadata::tileset::GeometryType type;
+
+private:
+    std::span<const std::uint32_t> triangles;
 };
 
 class Point : public Geometry {
