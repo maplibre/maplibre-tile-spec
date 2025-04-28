@@ -89,7 +89,7 @@ std::vector<Coordinate> getMortonEncodedLineStringCoords(const std::vector<std::
 void GeometryVector::applyTriangles(Geometry& geom,
                                     std::uint32_t& triangleOffset,
                                     std::uint32_t& indexBufferOffset,
-                                    std::uint32_t totalVertices,
+                                    [[maybe_unused]] std::uint32_t totalVertices,
                                     [[maybe_unused]] bool multiPolygon) const {
     if (triangleCounts.empty()) {
         return;
@@ -98,16 +98,17 @@ void GeometryVector::applyTriangles(Geometry& geom,
     CHECK_BUFFER(triangleOffset, triangleCounts);
     const auto numTriangles = triangleCounts[triangleOffset++];
     if (numTriangles) {
-        CHECK_BUFFER(indexBufferOffset + 3 * numTriangles - 1, indexBuffer);
-        std::vector<std::uint32_t> triangles(3 * numTriangles);
-        std::copy(
-            &indexBuffer[indexBufferOffset], &indexBuffer[indexBufferOffset + 3 * numTriangles], triangles.begin());
+        CHECK_BUFFER(indexBufferOffset + (3 * numTriangles) - 1, indexBuffer);
+        assert(std::all_of(&indexBuffer[indexBufferOffset],
+                           &indexBuffer[indexBufferOffset + 3 * numTriangles],
+                           [=](auto i) { return i < totalVertices; }));
+#ifndef NDEBUG
+        const auto limits = std::ranges::minmax_element(&indexBuffer[indexBufferOffset],
+                                                        &indexBuffer[indexBufferOffset + (3 * numTriangles)]);
+        assert(*limits.min == 0 && *limits.max == totalVertices - 1);
+#endif
+        geom.setTriangles({&indexBuffer[indexBufferOffset], 3 * numTriangles});
         indexBufferOffset += 3 * numTriangles;
-
-        assert(std::ranges::all_of(triangles, [=](auto i) { return i < totalVertices; }));
-        assert(std::ranges::min(triangles) == 0);
-        assert(std::ranges::max(triangles) == totalVertices - 1);
-        geom.setTriangles(std::move(triangles));
     }
 }
 

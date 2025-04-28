@@ -51,6 +51,7 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/string.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/feature.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/geometry_vector.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/layer.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp

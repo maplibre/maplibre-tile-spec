@@ -122,7 +122,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
 
         GeometryFactory factory;
         auto features = makeFeatures(ids, geometryVector->getGeometries(factory), properties);
-        layers.emplace_back(tableMetadata.name, version, tileExtent, std::move(features), std::move(properties));
+        layers.emplace_back(tableMetadata.name, version, tileExtent, std::move(geometryVector), std::move(features), std::move(properties));
     }
     return {std::move(layers)};
 }

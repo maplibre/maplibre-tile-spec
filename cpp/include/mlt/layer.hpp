@@ -8,6 +8,10 @@
 
 namespace mlt {
 
+namespace geometry {
+class GeometryVector;
+}
+
 class Layer : public util::noncopyable {
 public:
     using extent_t = std::uint32_t;
@@ -16,14 +20,11 @@ public:
     Layer(std::string name_,
           int version_,
           extent_t extent_,
+          std::unique_ptr<geometry::GeometryVector>&& geometryVector_,
           std::vector<Feature> features_,
-          PropertyVecMap properties_) noexcept
-        : name(std::move(name_)),
-          version(version_),
-          extent(extent_),
-          features(std::move(features_)),
-          properties(std::move(properties_)) {}
-
+          PropertyVecMap properties_) noexcept;
+    ~Layer();
+      
     Layer(Layer&&) noexcept = default;
     Layer& operator=(Layer&&) = delete;
 
@@ -36,6 +37,10 @@ private:
     std::string name;
     int version;
     extent_t extent;
+
+    // Retain the geometry vector because features may reference data from it rather than making copies
+    std::unique_ptr<geometry::GeometryVector> geometryVector;
+
     std::vector<Feature> features;
     PropertyVecMap properties;
 };
