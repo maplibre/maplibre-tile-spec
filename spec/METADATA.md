@@ -79,6 +79,16 @@ StreamMetadata {
     byteLength: varint
 }
 
+RleEncodedStreamMetadata : StreamMetadata {
+    runs: varint
+    numRleValues: varint
+}
+
+MortonEncodedStreamMetadata : StreamMetadata {
+    numBits: u8
+    coordinateShift: varint
+}
+
 LogicalStreamType {
     dictionaryType: DictionaryType?
     offsetType: OffsetType?
