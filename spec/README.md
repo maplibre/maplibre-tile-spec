@@ -147,7 +147,7 @@ This had the advantage that encodings can be reused and implementation of encode
 |--------------|--------------------------------|--------------------------------------------|
 | Date         | Int32                          | number of days since Unix epoch            |
 | Timestamp    | Int64                          | number of milliseconds since Unix epoch    |
-| RangeMap     | RangeMap (Map<vec2<Double>, T>)| for storing linear referencing information |
+| RangeMap     | Map<vec2<Double>, T> | for storing linear referencing information |
 | Binary       | List<UInt8>                    |                                            |
 | JSON         | String                         |                                            |
 | Geometry     | vec2<Int32>                    |                                            |
