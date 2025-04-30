@@ -65,31 +65,26 @@ This physical streams are further divided into logical streams that add addition
 
 ##### Tileset Metadata
 
-Metadata for the tileset is stored separately, in [JSON format](schema/mlt_tileset_metadata.json).
+Global metadata for the tileset is stored separately, in [JSON format](schema/mlt_tileset_metadata.json).
 
-The tileset metadata file defines information for the full tileset is the equivalent to the TileJSON spec, which is commonly used in combination with MVT.
+The tileset metadata defines information for the full tileset is the equivalent to the TileJSON spec, which is commonly used in combination with MVT.
 
 By specifying the information once per tileset, the definition of redundant (shared) metadata per tile will be avoided,
 which can take some relevant space of the overall size on small tiles.
 
 ##### Tile Metadata
 
-Each tile contains a description of the `FeatureTable`s it contains, optionally interleaved with them.
-This allows layers to be blindly concatenated, or for a combined header to precede a set of concatenated `FeatureTable`s.
+Each `FeatureTable` is preceded by a `FeatureTableMetadata` describing it.
 
-Each group of 1 or more `FeatureTable`s is prefixed with a compact binary header:
+A tile consists of any number of:
 
-- Version, varint-encoded, currently 1
-- Zero or more of:
-  - Number of `FeatureTable` items, varint-encoded
-  - The size of each `FeatureTableMetadata`, varint-encoded
-  - The size of each `FeatureTable`, varint-encoded
-  - Each `FeatureTableMetadata`
-  - Each `FeatureTable`
+- The size of the `FeatureTableMetadata`, varint-encoded
+- One `FeatureTableMetadata`
+- One `FeatureTable`
 
-The `FeatureTableMetadata` is a fixed format (not yet described in detail) which closely resembles the previous protobuf `FeatureTableSchema` message definition.
+The `FeatureTableMetadata` is described in detail in [a separate document](METADATA.md).
 
-Within a `FeatureTable`, additional metadata describes the structure of the data:
+Within a `FeatureTable`, additional metadata describes the structure of each part:
 
 - **FieldMetadata**: contains information about the number of streams the field is divided and the vector type for efficient decoding into the in-memory format. Every Field (column) section is preceded by a `FieldMetadata` section.
 - **StreamMetdata**: contains information about the Stream such as the used encoding schemes
@@ -134,7 +129,7 @@ Complex types are composed of scalar types.
 | DataType         | Logical Types           | Description                                        | Layout        |
 |------------------|-------------------------|----------------------------------------------------|---------------|
 | List             | Binary (List<UInt8>)    |                                                    | Variable-Size |
-| Map              | RangeMap (Map<vec2d, T>)| additional key stream -> length, key, data streams | Variable-Size |
+| Map              | Map<vec2d, T> | additional key stream -> length, key, data streams | Variable-Size |
 | Struct           |                         |                                                    |               |
 | Vec2<T>, Vec3<T> | Geometry, GeometryZ     |                                                    | Fixed-Size    |
 
@@ -205,16 +200,8 @@ the selection strategy described in the [BTRBlocks](https://www.cs.cit.tum.de/fi
 
 ##### ID Column
 
-The `id` column is modeled separately from the properties for better compatibility with MVT and to narrow the int datatype for size reasons.
-By narrowing down to Uint32, FastPfor128 can be used.
-
-| Datatype       |            Encodings            |
-|----------------|:-------------------------------:|
-| Uint32, Uint64 | see available integer encodings |
-
-> **_Open Question:_** Should the ID column really be separately encoded for better compatibility
-> with MVT and to narrow it down to int for size reasons or give no special meaning to it and
-> let the user add them to the properties
+No `id` column is mandatory.  If identifiers are included, narrow them to
+Uin32, if possible, to enable the use of FastPfor128 encoding.
 
 ##### Geometry Column
 
@@ -308,9 +295,10 @@ in the file. Since the `id` colum in this example is not `nullable`, the present
 Choosing the right column for sorting the features can have significant impact on the size
 of the `FeatureTable`. To take full advantage of the columnar layout, sorting is crucial.
 To test every layer for every possible sorting order of every column is too costly.
-In the following, a simple ruleset is illustrated which proved to produce good results in the tests.
 
-**TBD**
+### 1.4 Encodings
+
+The details of encodings are specified in [a separate document](ENCODINGS.md).
 
 ## 2. In-Memory Format
 
@@ -357,12 +345,3 @@ into in-memory format is basically a zero-copy operation.
 
 Following Apache Arrow's approach based on the [Intel performance guide](https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html),
 we recommend that decoders should allocate memory on aligned addresses with a multiple of 64-bytes (if possible).
-
-### Technical Terminology
-
-in the following a small glossary to help disambiguate
-
-- **Column or Field**:
-- **Stream**:
-- **Feature**:
-- **FeatureTable**:
