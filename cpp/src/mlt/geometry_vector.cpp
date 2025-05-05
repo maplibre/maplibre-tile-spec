@@ -137,9 +137,10 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     geometries.push_back(
                         factory.createPoint({static_cast<float>(vertexBuffer[vertexBufferOffset]),
                                              static_cast<float>(vertexBuffer[vertexBufferOffset + 1])}));
+                    vertexBufferOffset += 2;
                 } else if (vertexBufferType == VertexBufferType::VEC_2) {
                     CHECK_BUFFER(vertexOffsetsOffset, vertexOffsets);
-                    const auto vertexOffset = vertexOffsets[vertexOffsetsOffset++];
+                    const auto vertexOffset = vertexOffsets[vertexOffsetsOffset++] * 2;
                     CHECK_BUFFER(vertexOffset + 1, vertexBuffer);
                     geometries.push_back(factory.createPoint({static_cast<float>(vertexBuffer[vertexOffset]),
                                                               static_cast<float>(vertexBuffer[vertexOffset + 1])}));
@@ -150,15 +151,12 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     geometries.push_back(factory.createPoint(util::MortonCurve::decode(
                         mortonCode, mortonSettings->numBits, mortonSettings->coordinateShift)));
                 }
-                if (topologyVector && !topologyVector->getGeometryOffsets().empty()) {
-                    geometryOffsetsCounter++;
-                }
-                if (topologyVector && !topologyVector->getPartOffsets().empty()) {
-                    partOffsetCounter++;
-                }
-                if (topologyVector && !topologyVector->getRingOffsets().empty()) {
-                    ringOffsetsCounter++;
-                }
+
+                // why increment things we didn't use?
+                if (topologyVector && !topologyVector->getGeometryOffsets().empty()) geometryOffsetsCounter++;
+                if (topologyVector && !topologyVector->getPartOffsets().empty()) partOffsetCounter++;
+                if (topologyVector && !topologyVector->getRingOffsets().empty()) ringOffsetsCounter++;
+
                 break;
             case GeometryType::MULTIPOINT: {
                 if (!topologyVector) {
@@ -198,23 +196,19 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 if (!topologyVector) {
                     throw std::runtime_error("Linestring geometry without topology vector");
                 }
-                const auto& geometryOffsets = topologyVector->getGeometryOffsets();
-                const auto& partOffsets = topologyVector->getPartOffsets();
-                const auto& ringOffsets = topologyVector->getRingOffsets();
 
                 std::uint32_t numVertices = 0;
                 if (containsPolygon) {
+                    const auto& ringOffsets = topologyVector->getRingOffsets();
                     CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
                     numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                     ringOffsetsCounter++;
                 } else {
+                    const auto& partOffsets = topologyVector->getPartOffsets();
                     CHECK_BUFFER(partOffsetCounter, partOffsets);
                     numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                 }
-                //?
-                if (!partOffsets.empty()) {
-                    partOffsetCounter++;
-                }
+                partOffsetCounter++;
 
                 std::vector<Coordinate> vertices;
                 if (vertexOffsets.empty()) {
@@ -235,6 +229,10 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                                                                       *mortonSettings,
                                                                       /*closeLineString=*/false);
                     vertexOffsetsOffset += numVertices;
+                }
+
+                if (topologyVector && !topologyVector->getGeometryOffsets().empty()) {
+                    geometryOffsetsCounter++;
                 }
 
                 geometries.push_back(factory.createLineString(std::move(vertices)));
@@ -331,7 +329,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     geometries.push_back(std::move(newGeometry));
                 }
 
-                if (!geometryOffsets.empty()) {
+                if (topologyVector && !topologyVector->getGeometryOffsets().empty()) {
                     geometryOffsetsCounter++;
                 }
                 break;
@@ -363,11 +361,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                             CHECK_BUFFER(partOffsetCounter, partOffsets);
                             numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                         }
-
-                        // ?
-                        if (!partOffsets.empty()) {
-                            partOffsetCounter++;
-                        }
+                        partOffsetCounter++;
 
                         lineStrings.push_back(getLineStringCoords(
                             vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/false));
@@ -385,11 +379,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                             CHECK_BUFFER(partOffsetCounter, partOffsets);
                             numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                         }
-
-                        // ?
-                        if (!partOffsets.empty()) {
-                            partOffsetCounter++;
-                        }
+                        partOffsetCounter++;
 
                         lineStrings.push_back((vertexBufferType == VertexBufferType::VEC_2)
                                                   ? getDictionaryEncodedLineStringCoords(vertexBuffer,
@@ -530,6 +520,23 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 throw std::runtime_error("Unsupported geometry type: " + std::to_string(std::to_underlying(geomType)));
         }
     }
+
+    // If we didn't use all the input data, that's a bug.
+    assert(indexBufferOffset == indexBuffer.size());
+    assert(triangleOffset == triangleCounts.size());
+
+    assert(!topologyVector || topologyVector->getPartOffsets().empty() ||
+           partOffsetCounter == topologyVector->getPartOffsets().size());
+    assert(!topologyVector || topologyVector->getRingOffsets().empty() ||
+           ringOffsetsCounter == topologyVector->getRingOffsets().size());
+    assert(!topologyVector || topologyVector->getGeometryOffsets().empty() ||
+           geometryOffsetsCounter == topologyVector->getGeometryOffsets().size());
+
+    // If we're using vertex offsets, we should have used all
+    // of them, and we won't have used vertex buffer offsets.
+    assert(!vertexOffsets.empty() || vertexBufferOffset == vertexBuffer.size());
+    assert(vertexOffsets.empty() || vertexOffsetsOffset == vertexOffsets.size());
+
     return geometries;
 }
 
