@@ -27,20 +27,23 @@ public:
     /// @param geometry Feature geometry, required
     /// @param properties Feature properties, optional
     /// @throws `std::runtime_error` Missing geometry
-    /// TODO: use a non-nullable type for the polymorphic geometry object
-    Feature(id_t id, std::unique_ptr<Geometry>&& geometry, PropertyMap properties);
+    Feature(id_t, std::unique_ptr<Geometry>&&, PropertyMap, const PropertyVecMap&, std::size_t propertyIndex_);
 
     ~Feature() noexcept;
 
     id_t getID() const noexcept { return ident; }
     const Geometry& getGeometry() const noexcept { return *geometry; }
     const PropertyMap& getProperties() const noexcept { return properties; }
+    const Property& getProperty(std::string_view key) const;
 
 private:
     id_t ident;
     extent_t extent;
     std::unique_ptr<Geometry> geometry;
     PropertyMap properties;
+
+    const PropertyVecMap& propertyMap; // owned by the containing layer
+    std::size_t propertyIndex;         // index of the property in the layer
 };
 
 } // namespace mlt
