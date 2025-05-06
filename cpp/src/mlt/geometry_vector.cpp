@@ -152,10 +152,9 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                         mortonCode, mortonSettings->numBits, mortonSettings->coordinateShift)));
                 }
 
-                // why increment things we didn't use?
-                if (topologyVector && !topologyVector->getGeometryOffsets().empty()) geometryOffsetsCounter++;
-                if (topologyVector && !topologyVector->getPartOffsets().empty()) partOffsetCounter++;
-                if (topologyVector && !topologyVector->getRingOffsets().empty()) ringOffsetsCounter++;
+                geometryOffsetsCounter++;
+                partOffsetCounter++;
+                ringOffsetsCounter++;
 
                 break;
             case GeometryType::MULTIPOINT: {
@@ -231,9 +230,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     vertexOffsetsOffset += numVertices;
                 }
 
-                if (topologyVector && !topologyVector->getGeometryOffsets().empty()) {
-                    geometryOffsetsCounter++;
-                }
+                geometryOffsetsCounter++;
 
                 geometries.push_back(factory.createLineString(std::move(vertices)));
                 break;
