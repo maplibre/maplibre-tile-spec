@@ -24,7 +24,7 @@ public:
           std::vector<Feature> features_,
           PropertyVecMap properties_) noexcept;
     ~Layer();
-      
+
     Layer(Layer&&) noexcept = default;
     Layer& operator=(Layer&&) = delete;
 

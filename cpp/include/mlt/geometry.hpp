@@ -22,9 +22,7 @@ public:
     virtual ~Geometry() noexcept = default;
 
     const auto& getTriangles() const { return triangles; }
-    void setTriangles(std::span<const std::uint32_t> triangles_) noexcept {
-        triangles = triangles_;
-    }
+    void setTriangles(std::span<const std::uint32_t> triangles_) noexcept { triangles = triangles_; }
 
     const metadata::tileset::GeometryType type;
 

@@ -27,8 +27,7 @@ public:
     /// @param geometry Feature geometry, required
     /// @param properties Feature properties, optional
     /// @throws `std::runtime_error` Missing geometry
-    Feature(id_t, std::unique_ptr<Geometry>&&, PropertyMap,
-            const PropertyVecMap&, std::size_t propertyIndex_);
+    Feature(id_t, std::unique_ptr<Geometry>&&, PropertyMap, const PropertyVecMap&, std::size_t propertyIndex_);
 
     ~Feature() noexcept;
 
@@ -43,8 +42,8 @@ private:
     std::unique_ptr<Geometry> geometry;
     PropertyMap properties;
 
-    const PropertyVecMap& propertyMap;  // owned by the containing layer
-    std::size_t propertyIndex;          // index of the property in the layer
+    const PropertyVecMap& propertyMap; // owned by the containing layer
+    std::size_t propertyIndex;         // index of the property in the layer
 };
 
 } // namespace mlt
