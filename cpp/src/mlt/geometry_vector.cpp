@@ -38,9 +38,12 @@ std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& ver
         const auto x = vertexBuffer[startIndex++];
         coords.push_back(coord(x, vertexBuffer[startIndex++]));
     }
-    if (closeLineString && !coords.empty() && coords.front() != coords.back()) {
-        coords.push_back(coords.front());
-    }
+
+    // This breaks embedded tessellation because it changes the indexes.
+    // Disabling it doesn't seem to break anything, is it needed?
+    // if (closeLineString && !coords.empty() && coords.front() != coords.back()) {
+    //     coords.push_back(coords.front());
+    // }
     return coords;
 }
 
