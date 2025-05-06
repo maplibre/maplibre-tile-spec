@@ -223,7 +223,7 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
     }
 
     return util::generateVector<Feature>(featureCount, [&](const auto i) {
-        return Feature{ids[i], std::move(geometries[i]), std::move(properties[i])};
+        return Feature{ids[i], std::move(geometries[i]), std::move(properties[i]), propertyVecs, i};
     });
 }
 
