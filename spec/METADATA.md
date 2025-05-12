@@ -1,96 +1,164 @@
-VectorType {
-    FLAT = 0
-    CONST = 1
-    FREQUENCY = 2
-    REE = 3
-    DICTIONARY = 4
+
+A feature table is a named collection of columns.
+
+```
+FeatureTableSchema {
+  name: string
+  columnCount: varint
+  columns: Column[columnCount]
 }
-PhysicalStreamType {
-    PRESENT = 0
-    DATA = 1
-    OFFSET = 2
-    LENGTH = 3
+```
+
+A column is either scalar or complex, and represents the values of some property for each feature or vertex.
+
+```
+Column {
+  name: string
+  options: ColumnOptions (u8)
+  variant {
+    scalarType: ScalarColumn
+    complexType: ComplexColumn
+  }
 }
 
-LogicalLevelTechnique {
-    NONE = 0
-    DELTA = 1
-    COMPONENTWISE_DELTA = 2
-    RLE = 3
-    MORTON = 4
-    PDE = 5
+flags ColumnOptions {
+  nullable = 1
+  complex = 2
+  vertexScope = 4 // For M-Values, a 1:1 Mapping for property and vertex
+                  // otherwise, a 1:1 Mapping of property and feature -> id and geometry
 }
-PhysicalLevelTechnique {
-    NONE = 0
-    FAST_PFOR = 1
-    VARINT = 2
-    ALP = 3
+```
+
+A scalar column represents a collection of a scalar type.
+
+```
+ScalarColumn {
+  options: ScalarColumnOptions
+  variant {
+    physicalType: ScalarType
+    logicalType: LogicalScalarType
+  }
 }
 
-DictionaryType {
-    NONE = 0
-    SINGLE = 1
-    SHARED = 2
-    VERTEX = 3
-    MORTON = 4
-    FSST = 5
+flags ScalarColumnOptions {
+  logical = 1
+}
+```
+
+A complex column represents a collection of a nested type described by a tree of `Field`s.
+
+The complex type tree is flattened in to a list via a pre-order traversal.  An instance represents a column if it is a root (top-level) type or, otherwise, a child of a nested type.
+
+The complex type `Geometry` and the logical type `BINARY` have no children since there layout is implicit.
+
+`RangeMap` has only one child specifying the type of the value since the key is always a `vec2<double>`.
+
+```
+ComplexColumn {
+  options: ComplexColumnOptions
+  variant {
+    physicalType: ComplexType
+    logicalType: LogicalComplexType
+  }
+  childrenCount: varint
+  children: Field[childrenCount]
 }
 
-OffsetType {
-    VERTEX = 0
-    INDEX = 1
-    STRING = 2
-    KEY = 3
+flags ComplexColumnOptions {
+  logical = 1
+}
+```
+
+Fields define nested or leaf types in the schema as part of a complex type definition.
+
+Name and nullable are only used in combination with a struct not for vec, list and map
+
+Map has the order key type, value type
+
+```
+Field {
+  options: FieldOptions (u8)
+  name: string?
+  variant {
+    scalarField: ScalarField
+    complexField: ComplexField
+  }
 }
 
-LengthType {
-    VAR_BINARY = 0
-    GEOMETRIES = 1
-    PARTS = 2
-    RINGS = 3
-    TRIANGLES = 4
-    SYMBOL = 5
-    DICTIONARY = 6
+flags FieldOptions {
+  named = 1
+  nullable = 2
+  complex = 4
+}
+```
+
+A scalar field contains non-nested types.
+
+```
+ScalarField {
+  options: ScalarFieldOptions (u8)
+  variant {
+    physicalType: ScalarType
+    logicalType: LogicalScalarType
+  }
 }
 
-FeatureTableMetadata {
-    version: u8
-    id: varint
-    featureTableBodySize: varint
-    layerExtent: varint
-    maxLayerExtent: varint
-    numFeatures: varint
-    fieldMetadata: FieldMetadata[]
+flags ScalarFieldOptions {
+  logical = 1
 }
 
-FieldMetadata {
-    numStreams: varint
-    vectorType: VectorType as u8
-    streamMetadata: StreamMetadata[]
+enum ScalarType {
+  BOOLEAN = 0
+  INT_8 = 1
+  UINT_8 = 2
+  INT_32 = 3
+  UINT_32 = 4
+  INT_64 = 5
+  UINT_64 = 6
+  FLOAT = 7
+  DOUBLE = 8
+  STRING = 9
+  INT_128 = 10
+  UINT_128 = 11
 }
 
-StreamMetadata {
-    physicalStreamType: PhysicalStreamType (bitfield: 4 bits)
-    logicalStreamType: LogicalStreamType (bitfield: 4 bits)
-    logicalLevelTechnique1 LogicalLevelTechnique (bitfield: 3 bits)
-    logicalLevelTechnique2 LogicalLevelTechnique (bitfield: 3 bits)
-    physicalLevelTechnique2 PhysicalLevelTechnique (bitfield: 2 bits)
-    numValues: varint
-    byteLength: varint
+enum LogicalScalarType {
+  TIMESTAMP = 0 // i64 number of milliseconds since Unix epoch
+  DATE = 1  // i32 number of days since Unix epoch
+  JSON = 2  // string
 }
 
-RleEncodedStreamMetadata : StreamMetadata {
-    runs: varint
-    numRleValues: varint
+```
+
+A complex field contains nested types.
+
+```
+ComplexField {
+  options: ComplexFieldOptions
+  variant {
+    physicalType: ComplexType
+    logicalType: LogicalComplexType
+  }
+  childCount: varint
+  children: Field[childCount]
 }
 
-MortonEncodedStreamMetadata : StreamMetadata {
-    numBits: u8
-    coordinateShift: varint
+flags ComplexFieldOptions {
+  logical = 1
 }
 
-LogicalStreamType {
-    dictionaryType: DictionaryType?
-    offsetType: OffsetType?
-    lengthType: LengthType?
+enum ComplexType {
+  VEC_2 = 0      // pair of any one of signed or unsigned 8-, 32-, 64-bit integers, Float or Double
+  VEC_3 = 1      // triple of any one of the same
+  GEOMETRY = 2   // vec2<i32> for the VertexBuffer stream with additional streams about the topology
+  GEOMETRY_Z = 3 // vec3<i32> for the VertexBuffer stream with additional streams about the topology
+  LIST = 4
+  MAP = 5
+  STRUCT = 6
 }
+
+enum LogicalComplexType {
+  BINARY = 0    // vec<u8>
+  RANGE_MAP = 1 // vec2<double> -> T
+}
+```

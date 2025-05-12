@@ -129,7 +129,7 @@ Complex types are composed of scalar types.
 | DataType         | Logical Types           | Description                                        | Layout        |
 |------------------|-------------------------|----------------------------------------------------|---------------|
 | List             | Binary (List<UInt8>)    |                                                    | Variable-Size |
-| Map              | Map<vec2d, T> | additional key stream -> length, key, data streams | Variable-Size |
+| Map              | Map<vec2d, T>           | additional key stream -> length, key, data streams | Variable-Size |
 | Struct           |                         |                                                    |               |
 | Vec2<T>, Vec3<T> | Geometry, GeometryZ     |                                                    | Fixed-Size    |
 
@@ -142,7 +142,7 @@ This had the advantage that encodings can be reused and implementation of encode
 |--------------|--------------------------------|--------------------------------------------|
 | Date         | Int32                          | number of days since Unix epoch            |
 | Timestamp    | Int64                          | number of milliseconds since Unix epoch    |
-| RangeMap     | Map<vec2<Double>, T> | for storing linear referencing information |
+| RangeMap     | Map<vec2<Double>, T>           | for storing linear referencing information |
 | Binary       | List<UInt8>                    |                                            |
 | JSON         | String                         |                                            |
 | Geometry     | vec2<Int32>                    |                                            |
@@ -174,13 +174,13 @@ For example the resulting integer columns of a dictionary encoding can be furthe
 The following encoding pool for specific data types was selected based on the analytics on the efficiency
 in terms of the compression ratio and decoding speed on test datasets such as the OpenMapTiles schema and Bing Maps based tilesets.
 
-| DataType | Logical  Level Technique                                                               | Physical Level Technique                                                                                                  | Description |
-|----------|----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|-------------|
-| Boolean  | [Boolean RLE](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) |                                                                                                                           |             |
-| Integer  | Plain, RLE, Delta, Delta-RLE                                                           | [SIMD-FastPFOR](https://arxiv.org/pdf/1209.2137.pdf), [Varint](https://protobuf.dev/programming-guides/encoding/#varints) |             |
-| Float    | Plain, RLE, Dictionary, [ALP](https://dl.acm.org/doi/pdf/10.1145/3626717)              |                                                                                                                           |             |
-| String   | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary |                                                                                                                           |             |
-| Geometry | Plain, Dictionary, Morton-Dictionary                                                   |                                                                                                                           |             |
+| DataType | Logical  Level Technique | Physical Level Technique | Description |
+|--|--|--|--|
+| Boolean  | [Boolean RLE](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) | | |
+| Integer  | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](https://arxiv.org/pdf/1209.2137.pdf), [Varint](https://protobuf.dev/programming-guides/encoding/#varints) | |
+| Float    | Plain, RLE, Dictionary, [ALP](https://dl.acm.org/doi/pdf/10.1145/3626717) | | |
+| String   | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
+| Geometry | Plain, Dictionary, Morton-Dictionary | | |
 
 Since SIMD-FastPFOR generally produces smaller data streams and is faster to decode, it should be preferred over Varint encoding.
 Varint encoding is mainly added to the encoding pool for compatibility reasons and it's simpler implementation compared to SIMD-FastPFOR.
@@ -200,8 +200,8 @@ the selection strategy described in the [BTRBlocks](https://www.cs.cit.tum.de/fi
 
 ##### ID Column
 
-No `id` column is mandatory.  If identifiers are included, narrow them to
-Uin32, if possible, to enable the use of FastPfor128 encoding.
+No `id` column is mandatory.  If an identifier column is included, it should be u64 or a narrower integer type for compatibility with MVT.
+Narrow the column to u32, if possible, to enable the use of FastPfor128 encoding.
 
 ##### Geometry Column
 

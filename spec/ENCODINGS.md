@@ -125,7 +125,7 @@ For implementation details see [Protobuf](https://protobuf.dev/programming-guide
 
 #### SIMD-FastPFOR
 
-Bit-aligned null suppression technique that compress an integer compress an integer using a minimal number of bits
+Bit-aligned null suppression technique that compresses an integer using a minimal number of bits
 by using a patched approach to store exceptions (outliers) in a separate section to keep the overall bit width small.
 
 see https://arxiv.org/pdf/1209.2137.pdf and https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code
