@@ -5,7 +5,9 @@
 #include <mlt/feature.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/properties.hpp>
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/rle.hpp>
 #include <mlt/util/raw.hpp>
 
@@ -13,8 +15,6 @@
 #include <string>
 #include <variant>
 #include <vector>
-#include "mlt/properties.hpp"
-#include "mlt/util/packed_bitset.hpp"
 
 namespace mlt::decoder {
 

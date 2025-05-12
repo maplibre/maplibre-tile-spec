@@ -10,7 +10,7 @@ namespace mlt {
 namespace geometry {
 class Geometry;
 }
-
+class Layer;
 class Feature : public util::noncopyable {
 public:
     using id_t = std::uint64_t;
@@ -23,27 +23,21 @@ public:
 
     /// Construct a feature
     /// @param id Feature identifier
-    /// @param extent Tile extent
     /// @param geometry Feature geometry, required
-    /// @param properties Feature properties, optional
-    /// @throws `std::runtime_error` Missing geometry
-    Feature(id_t, std::unique_ptr<Geometry>&&, PropertyMap, const PropertyVecMap&, std::size_t propertyIndex_);
+    /// @param index Index of the property in the layer
+    Feature(id_t id, std::unique_ptr<Geometry>&& geometry, std::size_t index);
 
     ~Feature() noexcept;
 
     id_t getID() const noexcept { return ident; }
+    std::uint32_t getIndex() const noexcept { return index; }
     const Geometry& getGeometry() const noexcept { return *geometry; }
-    const PropertyMap& getProperties() const noexcept { return properties; }
-    const Property& getProperty(std::string_view key) const;
+    std::optional<Property> getProperty(const std::string& key, const Layer&) const;
 
 private:
     id_t ident;
-    extent_t extent;
+    std::uint32_t index; // index of the property in the layer
     std::unique_ptr<Geometry> geometry;
-    PropertyMap properties;
-
-    const PropertyVecMap& propertyMap; // owned by the containing layer
-    std::size_t propertyIndex;         // index of the property in the layer
 };
 
 } // namespace mlt

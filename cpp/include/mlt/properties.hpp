@@ -79,22 +79,24 @@ public:
     using ScalarType = metadata::tileset::ScalarType;
 
     PresentProperties() = delete;
-    PresentProperties(ScalarType type_, PropertyVec properties_, PackedBitset present_) noexcept
-        : type(type_),
-          properties(std::move(properties_)),
-          present(std::move(present_)) {}
+    PresentProperties(ScalarType type_, PropertyVec properties_, const PackedBitset& present) noexcept;
 
-    const ScalarType getType() const noexcept { return type; }
-    const bool isBoolean() const noexcept { return type == ScalarType::BOOLEAN; }
+    ScalarType getType() const noexcept { return type; }
+    bool isBoolean() const noexcept { return type == ScalarType::BOOLEAN; }
     const PropertyVec& getProperties() const noexcept { return properties; }
-    const PackedBitset& getPresentBits() const noexcept { return present; }
 
-    const auto getPropertyCount() const { return propertyCount(properties, isBoolean()); }
+    std::uint32_t getPropertyCount() const { return propertyCount(properties, isBoolean()); }
+
+    std::optional<Property> getProperty(std::uint32_t logicalIndex) const;
 
 private:
     ScalarType type;
     PropertyVec properties;
-    PackedBitset present;
+
+    using ByteIndexVec = std::vector<std::uint8_t>;
+    using ShortIndexVec = std::vector<std::uint16_t>;
+    using IntIndexVec = std::vector<std::uint32_t>;
+    std::variant<std::monostate, ByteIndexVec, ShortIndexVec, IntIndexVec> physicalIndexes;
 };
 
 /// All the property columns for a layer

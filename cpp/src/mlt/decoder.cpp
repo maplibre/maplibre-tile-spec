@@ -5,6 +5,8 @@
 #include <mlt/decode/int_template.hpp>
 #include <mlt/decode/property.hpp>
 #include <mlt/decode/string.hpp>
+#include <mlt/geometry.hpp>
+#include <mlt/geometry_vector.hpp>
 #include <mlt/layer.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
@@ -16,8 +18,6 @@
 
 #include <cstddef>
 #include <stdexcept>
-#include "mlt/geometry.hpp"
-#include "mlt/geometry_vector.hpp"
 
 namespace mlt {
 
@@ -30,13 +30,14 @@ constexpr std::string_view GEOMETRY_COLUMN_NAME = "geometry";
 } // namespace
 
 struct Decoder::Impl {
-    Impl(std::unique_ptr<GeometryFactory>&& geometryFactory)
-        : geometryDecoder(std::move(geometryFactory)) {}
+    Impl(std::unique_ptr<GeometryFactory>&& geometryFactory_)
+        : geometryFactory(std::move(geometryFactory_)) {}
 
     IntegerDecoder integerDecoder;
     StringDecoder stringDecoder{integerDecoder};
     PropertyDecoder propertyDecoder{integerDecoder, stringDecoder};
     GeometryDecoder geometryDecoder;
+    std::unique_ptr<GeometryFactory> geometryFactory;
 };
 
 Decoder::Decoder(bool legacy_, std::unique_ptr<GeometryFactory>&& geometryFactory)
@@ -120,116 +121,25 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
             }
         }
 
-        GeometryFactory factory;
-        auto features = makeFeatures(ids, geometryVector->getGeometries(factory), properties);
         layers.emplace_back(tableMetadata.name,
                             version,
                             tileExtent,
                             std::move(geometryVector),
-                            std::move(features),
+                            makeFeatures(ids, geometryVector->getGeometries(*impl->geometryFactory)),
                             std::move(properties));
     }
     return {std::move(layers)};
 }
 
-namespace {
-struct ExtractPropertyVisitor {
-    ExtractPropertyVisitor(std::size_t i_, bool byteIsBooleans_)
-        : i(i_),
-          byteIsBooleans(byteIsBooleans_) {}
-
-    template <typename T>
-    std::optional<Property> operator()(const T& vec) const;
-
-    template <typename T>
-    std::optional<Property> operator()(const std::vector<T>& vec) const {
-        assert(i < vec.size());
-        return (i < vec.size()) ? std::optional<Property>{vec[i]} : std::nullopt;
-    }
-
-    std::optional<Property> operator()(const std::vector<std::uint8_t>& vec) const {
-        if (byteIsBooleans) {
-            assert(i < 8 * vec.size());
-            return testBit(vec, i);
-        }
-        assert(i < vec.size());
-        return (i < vec.size()) ? std::optional<Property>{static_cast<std::uint32_t>(vec[i])} : std::nullopt;
-    }
-
-private:
-    const std::size_t i;
-    const bool byteIsBooleans;
-};
-
-template <>
-std::optional<Property> ExtractPropertyVisitor::operator()(const StringDictViews& views) const {
-    const auto& strings = views.getStrings();
-    assert(i < strings.size());
-    return (i < strings.size()) ? std::optional<Property>{strings[i]} : std::nullopt;
-}
-template <>
-std::optional<Property> ExtractPropertyVisitor::operator()(const PackedBitset& vec) const {
-    return testBit(vec, i);
-}
-
-} // namespace
-
 std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids,
-                                           std::vector<std::unique_ptr<Geometry>>&& geometries,
-                                           const PropertyVecMap& propertyVecs) {
+                                           std::vector<std::unique_ptr<Geometry>>&& geometries) {
     const auto featureCount = ids.size();
     if (geometries.size() < featureCount) {
         throw std::runtime_error("Invalid geometry count");
     }
 
-    // TODO: Consider having features reference their parent layers and
-    //       get properties on-demand instead of splaying them out here.
-    std::vector<PropertyMap> properties(featureCount);
-    for (const auto& [key, column] : propertyVecs) {
-        const auto& layerProperties = column.getProperties();
-        const auto& presentBits = column.getPresentBits();
-        const auto isBoolean = column.isBoolean();
-
-        const auto applyProperty = [&](std::size_t sourceIndex, std::size_t targetIndex) {
-            const auto value = std::visit(ExtractPropertyVisitor(sourceIndex, isBoolean), layerProperties);
-            if (value) {
-                properties[targetIndex].emplace(key, *value);
-            } else {
-                throw std::runtime_error("Missing property value");
-            }
-        };
-
-        // If there's a "present" bitstream, the index is within present values only
-        if (!presentBits.empty()) {
-            if (presentBits.size() < (featureCount + 7) / 8) {
-                throw std::runtime_error("Invalid present stream");
-            }
-
-#if !defined(NDEBUG)
-            // This should have been checked during property construction
-            if (column.isBoolean()) {
-                assert(column.getPropertyCount() / 8 == (countSetBits(presentBits) + 7) / 8);
-            } else {
-                assert(column.getPropertyCount() == countSetBits(presentBits));
-            }
-#endif
-
-            // Place property N in the properties map for the feature corresponding to the Nth set bit
-            std::size_t sourceIndex = 0;
-            for (auto i = nextSetBit(presentBits, 0); i; i = nextSetBit(presentBits, *i + 1)) {
-                applyProperty(sourceIndex++, *i);
-            }
-        } else {
-            // Place property N in the properties map for feature N
-            for (std::size_t i = 0; i < featureCount; ++i) {
-                applyProperty(i, i);
-            }
-        }
-    }
-
-    return util::generateVector<Feature>(featureCount, [&](const auto i) {
-        return Feature{ids[i], std::move(geometries[i]), std::move(properties[i]), propertyVecs, i};
-    });
+    return util::generateVector<Feature>(featureCount,
+                                         [&](const auto i) { return Feature{ids[i], std::move(geometries[i]), i}; });
 }
 
 } // namespace mlt

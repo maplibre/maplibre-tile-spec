@@ -31,9 +31,7 @@ private:
     std::unique_ptr<Impl> impl;
     bool legacy;
 
-    std::vector<Feature> makeFeatures(const std::vector<Feature::id_t>&,
-                                      std::vector<std::unique_ptr<Geometry>>&&,
-                                      const PropertyVecMap&);
+    std::vector<Feature> makeFeatures(const std::vector<Feature::id_t>&, std::vector<std::unique_ptr<Geometry>>&&);
 };
 
 } // namespace mlt

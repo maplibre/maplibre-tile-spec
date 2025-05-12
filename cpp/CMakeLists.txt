@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.12)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 15)
 project(mlt-cpp LANGUAGES CXX)
+
+# Use the same deployment target as the parent project, if set.
+if (NOT MLT_OSX_DEPLOYMENT_TARGET)
+    set(MLT_OSX_DEPLOYMENT_TARGET 16)
+endif()
+set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
 
 set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
@@ -53,6 +58,7 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/geometry_vector.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/layer.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
