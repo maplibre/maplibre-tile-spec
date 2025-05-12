@@ -19,6 +19,7 @@ static inline bool testBit(const PackedBitset& bitset, std::size_t i) noexcept {
 
 /// Get the total number of bits set
 static inline std::size_t countSetBits(const PackedBitset& bitset) {
+    // NOLINTNEXTLINE(boost-use-ranges)
     return std::accumulate(
         bitset.begin(), bitset.end(), 0, [](const auto total, const auto byte) { return total + std::popcount(byte); });
 }

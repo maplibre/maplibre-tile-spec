@@ -32,6 +32,7 @@ public:
     int getVersion() const noexcept { return version; }
     extent_t getExtent() const noexcept { return extent; }
     const std::vector<Feature>& getFeatures() const noexcept { return features; }
+    const PropertyVecMap& getProperties() const { return properties; }
 
 private:
     std::string name;
