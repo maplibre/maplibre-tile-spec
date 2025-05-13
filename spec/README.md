@@ -95,9 +95,10 @@ specific tile, no `id` is needed.
 The absence of an entire field in a tile can be identified by a zero value for the number of streams.
 All integers in the metadata sections are `Varint`-encoded if u32 is used or bit-packed in case of an u8 data type.
 
-![](./assets/feature_table_metadata.png)
-
 ![](./assets/FeatureTableSchema.mermaid)
+
+[FeatureTableSchema diagram](./assets/FeatureTableSchema.mermaid)
+
 
 #### 1.2.2 Type system
 
