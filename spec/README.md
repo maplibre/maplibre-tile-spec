@@ -97,6 +97,8 @@ All integers in the metadata sections are `Varint`-encoded if u32 is used or bit
 
 ![](./assets/feature_table_metadata.png)
 
+![](./assets/FeatureTableSchema.mermaid)
+
 #### 1.2.2 Type system
 
 The types system of MLT is divided into physical and logical types.
