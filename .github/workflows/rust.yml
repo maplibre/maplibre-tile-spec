@@ -16,6 +16,9 @@ defaults:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust/mlt
     steps:
       - uses: taiki-e/install-action@v2
         with: { tool: just }
@@ -39,6 +42,9 @@ jobs:
   msrv:
     name: Test MSRV
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust/mlt
     steps:
       - uses: taiki-e/install-action@v2
         with: { tool: just }
