@@ -340,9 +340,6 @@ mod tests {
         let data = &include_bytes!("../../../../test/fixtures/bing/4-12-6.mvt")[..];
         let tile = decode_mvt(data);
         let metadata = create_tileset_metadata(tile.clone(), true, None);
-        assert_eq!(
-            metadata.unwrap().feature_tables.len(),
-            tile.layers.iter().count()
-        );
+        assert_eq!(metadata.unwrap().feature_tables.len(), tile.layers.len());
     }
 }
