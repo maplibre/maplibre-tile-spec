@@ -23,6 +23,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: just }
       - uses: actions/checkout@v4
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
       - run: just -v ci-test
