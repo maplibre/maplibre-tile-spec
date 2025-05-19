@@ -4,6 +4,7 @@ mod decoder;
 mod encoder;
 mod error;
 mod metadata;
+mod vector;
 
 pub use converter::mlt::{create_tileset_metadata, FeatureTableOptimizations};
 pub use converter::mvt;
