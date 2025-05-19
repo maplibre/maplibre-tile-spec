@@ -9,10 +9,6 @@ on:
     types: [ published ]
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: ./rust
-
 jobs:
   install-protoc:
     runs-on: ubuntu-latest
