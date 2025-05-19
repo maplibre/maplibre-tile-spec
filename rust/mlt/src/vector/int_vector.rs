@@ -5,5 +5,5 @@ enum IntVector {
     IntSequenceVector,
     LongSequenceVector,
     IntConstVector,
-    LongConstVector
+    LongConstVector,
 }
