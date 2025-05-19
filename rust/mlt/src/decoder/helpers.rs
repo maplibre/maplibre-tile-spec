@@ -1,5 +1,6 @@
-use crate::MltResult;
 use bytes::{Buf, Bytes};
+
+use crate::MltResult;
 
 /// Decodes boolean RLE from the buffer.
 /// - `num_booleans` is the total number of booleans (bits).
