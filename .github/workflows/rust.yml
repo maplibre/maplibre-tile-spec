@@ -1,0 +1,74 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ./rust
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust/mlt
+    steps:
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/checkout@v4
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
+      - run: just -v ci-test
+      #
+      # Uncomment this and below once the crate has been published to crates.io
+      #
+      # - if: github.event_name == 'release' && matrix.type == 'latest'
+      #   name: Ensure this crate has not yet been published (on release)
+      #   run: just check-if-published
+      # - name: Check semver
+      #   uses: obi1kenobi/cargo-semver-checks-action@v2
+      # - name: Test packaging for publish
+      #   run: |
+      #     rustup install nightly --profile minimal
+      #     just test-publish
+
+  msrv:
+    name: Test MSRV
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./rust/mlt
+    steps:
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - uses: actions/checkout@v4
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
+      - name: Read crate metadata
+        id: msrv
+        run: |
+          CRATE_NAME=mlt
+          msrv="$(cargo metadata --format-version 1 | jq -r --arg CRATE_NAME "$CRATE_NAME"  '.packages | map(select(.name == $CRATE_NAME)) | first | .rust_version')"
+          echo "MSRV for crate $CRATE_NAME is '$msrv'"
+          echo "value=$msrv" >> $GITHUB_OUTPUT
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.msrv.outputs.value }}
+          components: rustfmt
+      - run: just -v ci-test-msrv
