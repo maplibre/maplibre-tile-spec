@@ -40,8 +40,10 @@ impl Decoder {
             let ids: Vec<i64> = vec![];
             let geometries: Vec<Geometry> = vec![];
 
-            let infos = varint::decode(&mut self.tile, 5);
             let version = self.tile.get_u8();
+            let infos = varint::decode(&mut self.tile, 5);
+
+            println!("infos: {:?}", infos);
 
             let feature_table_id = infos.first().ok_or_else(|| {
                 MltError::DecodeError("Failed to read feature table id".to_string())
@@ -106,7 +108,10 @@ impl Decoder {
             }
         }
 
-        todo!("Implement decode");
+        // TODO: Implement the rest of the decoding logic
+        // For now, just return an empty MapLibreTile
+        // This is a placeholder to avoid compilation errors
+        Ok(MapLibreTile { layers: vec![] })
     }
 }
 
@@ -128,6 +133,11 @@ mod tests {
             "../../ts/test/data/omt/unoptimized/mlt/plain/tileset.pbf",
         ))
         .expect("Failed to read metadata");
+
+        // Write metadata to a txt file
+        let metadata_str = format!("{:#?}", metadata);
+        fs::write("metadata_output.txt", metadata_str).expect("Failed to write metadata to file");
+
         let tile = mlt.decode(&metadata).expect("Failed to decode tile");
     }
 }
