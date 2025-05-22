@@ -33,8 +33,8 @@ std::vector<std::ifstream::char_type> loadFile(const std::string& path) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 2 || !std::strcmp(argv[1], "--help")) {
-        std::cerr << "Usage: " << argv[0] << " <tile file>\n";
+    if ((argc != 2 && argc != 5) || !std::strcmp(argv[1], "--help")) {
+        std::cerr << "Usage: " << argv[0] << " <tile file> [<z> <x> <y>]\n";
         return 1;
     }
 
@@ -43,6 +43,15 @@ int main(int argc, char** argv) {
     if (metadataBuffer.empty()) {
         std::cout << "Failed to load " + baseName + ".meta.pbf\n";
         return 1;
+    }
+
+    std::uint32_t x = 0;
+    std::uint32_t y = 0;
+    std::uint32_t z = 0;
+    if (argc == 5) {
+        z = std::stoul(argv[2]);
+        x = std::stoul(argv[3]);
+        y = std::stoul(argv[4]);
     }
 
     // using mlt::metadata::tileset::TileSetMetadata;
@@ -60,7 +69,7 @@ int main(int argc, char** argv) {
 
     mlt::Decoder decoder;
     const auto tileData = decoder.decode({buffer.data(), buffer.size()}, *metadata);
-    const auto tileJSON = mlt::geojson::toGeoJSON(tileData, {3, 5, 7});
+    const auto tileJSON = mlt::geojson::toGeoJSON(tileData, {.x = x, .y = y, .z = z});
     std::cout << tileJSON.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
 
     return 0;

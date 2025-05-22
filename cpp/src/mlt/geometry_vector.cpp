@@ -30,7 +30,7 @@ inline Coordinate coord(std::int32_t x, std::int32_t y) {
 std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                             std::uint32_t startIndex,
                                             const std::uint32_t numVertices,
-                                            bool closeLineString) {
+                                            [[maybe_unused]] bool closeLineString) {
     std::vector<Coordinate> coords;
     coords.reserve(numVertices + 1);
     CHECK_BUFFER(startIndex + numVertices - 1, vertexBuffer);
