@@ -19,11 +19,11 @@ rust/mlt/
 │   ├── vector/        # SIMD/vector helper types and ops
 │   ├── error.rs       # MltError, MltResult
 │   ├── lib.rs         # Crate root and public API
-│   └── README.md      
-├── build.rs           
-├── Cargo.toml         
+│   └── README.md
+├── build.rs
+├── Cargo.toml
 ├── justfile           # Job runner
-└── README.md   
+└── README.md
 ```
 
 ---
