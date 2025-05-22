@@ -71,11 +71,8 @@ inline json buildCoordinatesArray(const CoordVec& coords, const Projection& proj
 }
 
 /// Build the coordinate representation for a polygon, consisting of the rings concatenated to the shell
-inline json buildPolygonCoords(const CoordVec& polyShell,
-                               const std::vector<CoordVec>& polyRings,
-                               const Projection& projection) {
-    auto result = buildArray(1 + polyRings.size());
-    result.push_back(buildCoordinatesArray(polyShell, projection));
+inline json buildPolygonCoords(const std::vector<CoordVec>& polyRings, const Projection& projection) {
+    auto result = buildArray(polyRings.size());
     return append(polyRings, std::move(result), [&](const auto& lineString) {
         return buildCoordinatesArray(lineString, projection);
     });
@@ -115,12 +112,12 @@ inline json buildGeometryElement(const geometry::MultiLineString& mls, const Pro
 }
 
 inline json buildGeometryElement(const geometry::Polygon& poly, const Projection& projection) {
-    return buildGeometryElement("Polygon", buildPolygonCoords(poly.getShell(), poly.getRings(), projection));
+    return buildGeometryElement("Polygon", buildPolygonCoords(poly.getRings(), projection));
 }
 
 inline json buildGeometryElement(const geometry::MultiPolygon& poly, const Projection& projection) {
     return buildGeometryElement("MultiPolygon", buildArray(poly.getPolygons(), [&](const auto& poly) {
-                                    return buildPolygonCoords(poly.first, poly.second, projection);
+                                    return buildPolygonCoords(poly, projection);
                                 }));
 }
 
@@ -147,20 +144,18 @@ inline json buildAnyGeometryElement(const geometry::Geometry& geometry, const Pr
 #pragma region Properties
 struct PropertyVisitor {
     template <typename T>
-    std::optional<json> operator()(const std::optional<T>& value) const {
-        return value ? operator()(*value) : std::nullopt;
-    }
-    template <typename T>
     std::optional<json> operator()(const T& value) const {
         return value;
     }
 };
 
-inline json buildProperties(const PropertyMap& properties) {
+inline json buildProperties(const Layer& layer, const Feature& feature) {
     auto result = json::object();
-    for (const auto& [key, value] : properties) {
-        if (auto json = std::visit(PropertyVisitor(), value); json) {
-            result[key] = std::move(*json);
+    for (const auto& [key, _] : layer.getProperties()) {
+        if (const auto property = feature.getProperty(key, layer); property) {
+            if (auto json = std::visit(PropertyVisitor(), *property); json) {
+                result[key] = std::move(*json);
+            }
         }
     }
     return result;
@@ -169,28 +164,26 @@ inline json buildProperties(const PropertyMap& properties) {
 
 } // namespace detail
 
-inline json toGeoJSON(const Feature& feature, const Projection& projection) {
+inline json toGeoJSON(const Layer& layer, const Feature& feature, const Projection& projection) {
     auto result = json{
         {"type", "Feature"},
         {"id", feature.getID()},
         {"geometry", detail::buildAnyGeometryElement(feature.getGeometry(), projection)},
     };
-    if (!feature.getProperties().empty()) {
-        result["properties"] = detail::buildProperties(feature.getProperties());
+    if (!layer.getProperties().empty()) {
+        result["properties"] = detail::buildProperties(layer, feature);
     }
     return result;
 }
 
 inline json toGeoJSON(const Layer& layer, const TileCoordinate& tileCoord) {
     const auto projection = Projection{layer.getExtent(), tileCoord};
-    // const auto features = std::ranges::views::all(layer.getFeatures());
-    auto x = std::vector<Feature>{};
-    const auto features = std::ranges::views::all(x);
+    const auto features = std::ranges::views::all(layer.getFeatures());
     return {{"name", layer.getName()},
             {"version", layer.getVersion()},
             {"extent", layer.getExtent()},
             {"features",
-             detail::buildArray(features, [&](const auto& feature) { return toGeoJSON(feature, projection); })}};
+             detail::buildArray(features, [&](const auto& feature) { return toGeoJSON(layer, feature, projection); })}};
 }
 
 inline json toGeoJSON(const MapLibreTile& tile, const TileCoordinate& tileCoord) {

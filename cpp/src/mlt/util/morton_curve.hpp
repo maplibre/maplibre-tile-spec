@@ -21,12 +21,12 @@ public:
                 static_cast<float>(decode(mortonCode >> 1, numBits) - coordinateShift)};
     }
 
-    static std::uint32_t decode(std::uint32_t code, std::uint32_t numBits) noexcept {
+    static std::int32_t decode(std::uint32_t code, std::uint32_t numBits) noexcept {
         std::uint32_t coordinate = 0;
         for (std::uint32_t i = 0; i < numBits; ++i) {
             coordinate |= (code & (1ul << (2 * i))) >> i;
         }
-        return coordinate;
+        return static_cast<std::int32_t>(coordinate);
     }
 
 private:
