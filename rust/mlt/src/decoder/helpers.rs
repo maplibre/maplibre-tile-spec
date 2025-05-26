@@ -1,6 +1,8 @@
 use bytes::{Buf, Bytes};
 
-use crate::MltResult;
+#[allow(unused_imports)]
+use crate::metadata::proto_tileset::{column, scalar_column, Column, ScalarColumn, ScalarType};
+use crate::{MltError, MltResult};
 
 /// Decodes boolean RLE from the buffer.
 /// - `num_booleans` is the total number of booleans (bits).
@@ -42,6 +44,22 @@ pub fn decode_byte_rle(tile: &mut Bytes, num_bytes: usize) -> MltResult<Vec<u8>>
     Ok(result)
 }
 
+/// Get the physical scalarType from a Column metadata.
+pub fn get_data_type_from_column(column_metadata: &Column) -> MltResult<ScalarType> {
+    match column_metadata.r#type.as_ref() {
+        Some(column::Type::ScalarType(scalar_column)) => match scalar_column.r#type {
+            Some(scalar_column::Type::PhysicalType(scalar_type)) => {
+                ScalarType::try_from(scalar_type)
+                    .map_err(|_| MltError::DecodeError("Invalid scalar type value".to_string()))
+            }
+            _ => Err(MltError::DecodeError(
+                "Missing or unsupported scalar type".to_string(),
+            )),
+        },
+        _ => Err(MltError::DecodeError("Missing column type".to_string())),
+    }
+}
+
 #[test]
 fn test_decode_byte_rle() -> MltResult<()> {
     let mut tile = Bytes::from_static(&[0x03, 0x01]);
@@ -56,4 +74,18 @@ fn test_decode_boolean_rle() -> MltResult<()> {
     let result = decode_boolean_rle(&mut tile, 5)?;
     assert_eq!(result, vec![1]);
     Ok(())
+}
+
+#[test]
+fn test_get_data_type_from_column() {
+    let column_metadata = Column {
+        name: "id".to_string(),
+        nullable: false,
+        column_scope: 0,
+        r#type: Some(column::Type::ScalarType(ScalarColumn {
+            r#type: Some(scalar_column::Type::PhysicalType(ScalarType::Uint32 as i32)),
+        })),
+    };
+    let data_type = get_data_type_from_column(&column_metadata).expect("should parse ScalarType");
+    assert_eq!(data_type, ScalarType::Uint32);
 }
