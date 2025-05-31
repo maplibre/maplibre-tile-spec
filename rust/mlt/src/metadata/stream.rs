@@ -62,9 +62,6 @@ impl StreamMetadata {
             }
         };
 
-        // offset.increment();
-        tile.advance(1);
-
         // let encoding_header = *tile
         //     .get(offset.position() as usize)
         //     .ok_or_else(|| MltError::DecodeError("Failed to read encoding header".to_string()))?
