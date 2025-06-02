@@ -25,15 +25,26 @@ pub struct Config {
 pub struct Decoder {
     pub tile: Bytes,
     pub config: Option<Config>,
+    pub original_tile_size: usize,
 }
 
 impl Decoder {
     pub fn new(tile: Vec<u8>, config: Option<Config>) -> Self {
+        let tile = Bytes::from(tile);
         Self {
-            tile: Bytes::from(tile),
+            original_tile_size: tile.len(),
+            tile,
             config,
         }
     }
+
+    // Returns the offset of the tile data for debugging purposes
+    // NOTE: This is a temporary workaround to track the offset,
+    // and should be removed once `Bytes` supports offset tracking internally.
+    pub fn offset(&self) -> usize {
+        self.original_tile_size - self.tile.len()
+    }
+
     #[expect(unused_variables)]
     pub fn decode(&mut self, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
         while self.tile.has_remaining() {
