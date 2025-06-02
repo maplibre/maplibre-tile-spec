@@ -41,6 +41,7 @@ pub enum LogicalStreamType {
 #[derive(Debug, Clone, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum LogicalLevelTechnique {
+    None,
     Delta,
     ComponentwiseDelta,
     Rle,
@@ -52,14 +53,14 @@ pub enum LogicalLevelTechnique {
 
 #[derive(Debug, Clone)]
 pub struct Logical {
-    r#type: LogicalStreamType,
+    pub r#type: Option<LogicalStreamType>,
     pub technique1: Option<LogicalLevelTechnique>,
     pub technique2: Option<LogicalLevelTechnique>,
 }
 
 impl Logical {
     pub fn new(
-        r#type: LogicalStreamType,
+        r#type: Option<LogicalStreamType>,
         technique1: LogicalLevelTechnique,
         technique2: LogicalLevelTechnique,
     ) -> Self {
@@ -71,7 +72,7 @@ impl Logical {
     }
 }
 
-#[derive(Debug, Clone, TryFromPrimitive)]
+#[derive(Debug, Clone, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum PhysicalStreamType {
     Present,
@@ -83,6 +84,7 @@ pub enum PhysicalStreamType {
 #[derive(Debug, Clone, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum PhysicalLevelTechnique {
+    None,
     FastPfor,
     Varint,
     Alp,
@@ -90,15 +92,12 @@ pub enum PhysicalLevelTechnique {
 
 #[derive(Debug, Clone)]
 pub struct Physical {
-    r#type: PhysicalStreamType,
-    pub technique: Option<PhysicalLevelTechnique>,
+    pub r#type: PhysicalStreamType,
+    pub technique: PhysicalLevelTechnique,
 }
 
 impl Physical {
     pub fn new(r#type: PhysicalStreamType, technique: PhysicalLevelTechnique) -> Self {
-        Self {
-            r#type,
-            technique: Some(technique),
-        }
+        Self { r#type, technique }
     }
 }
