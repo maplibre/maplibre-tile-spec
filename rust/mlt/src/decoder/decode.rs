@@ -6,10 +6,10 @@ use geo_types::Geometry;
 use zigzag::ZigZag;
 
 use crate::data::MapLibreTile;
-use crate::decoder::helpers::decode_boolean_rle;
+use crate::decoder::helpers::{decode_boolean_rle, get_data_type_from_column};
 use crate::decoder::varint;
 use crate::encoder::geometry::GeometryScaling;
-use crate::metadata::proto_tileset::{column, scalar_column, Column, ScalarType, TileSetMetadata};
+use crate::metadata::proto_tileset::{Column, TileSetMetadata};
 use crate::metadata::stream::StreamMetadata;
 use crate::{MltError, MltResult};
 
@@ -123,23 +123,7 @@ impl Decoder {
         id_within_max_safe_integer: bool,
     ) -> MltResult<()> {
         let id_data_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
-
-        let id_data_type = match column_metadata.r#type.as_ref() {
-            Some(column::Type::ScalarType(scalar_column)) => match scalar_column.r#type {
-                Some(scalar_column::Type::PhysicalType(scalar_type)) => {
-                    ScalarType::try_from(scalar_type).map_err(|_| {
-                        MltError::DecodeError("Invalid scalar type value".to_string())
-                    })?
-                }
-                _ => {
-                    return Err(MltError::DecodeError(
-                        "Missing or unsupported scalar type".to_string(),
-                    ))
-                }
-            },
-            _ => return Err(MltError::DecodeError("Missing column type".to_string())),
-        };
-
+        let id_data_type = get_data_type_from_column(column_metadata)?;
         Ok(())
     }
 }
