@@ -149,7 +149,8 @@ mod tests {
 
         // Write metadata to a txt file
         let metadata_str = format!("{:#?}", metadata);
-        fs::write("metadata_output.txt", metadata_str).expect("Failed to write metadata to file");
+        fs::write("../target/metadata_output.txt", metadata_str)
+            .expect("Failed to write metadata to file");
 
         let tile = mlt.decode(&metadata).expect("Failed to decode tile");
     }

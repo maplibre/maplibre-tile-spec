@@ -1,74 +1,97 @@
-name: Build
+name: Rust CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
   release:
     types: [ published ]
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: ./rust
+    shell: bash
+    working-directory: ./rust/mlt
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./rust/mlt
     steps:
-      - uses: taiki-e/install-action@v2
-        with: { tool: just }
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
-      - run: just -v ci-test
-      #
-      # Uncomment this and below once the crate has been published to crates.io
-      #
-      # - if: github.event_name == 'release' && matrix.type == 'latest'
-      #   name: Ensure this crate has not yet been published (on release)
-      #   run: just check-if-published
-      # - name: Check semver
-      #   uses: obi1kenobi/cargo-semver-checks-action@v2
-      # - name: Test packaging for publish
-      #   run: |
-      #     rustup install nightly --profile minimal
-      #     just test-publish
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      #- if: github.event_name == 'release'
+      #  name: Ensure this crate has not yet been published (on release)
+      #  run: just check-if-published
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - run: just ci-test
+      #- name: Check semver
+      #  uses: obi1kenobi/cargo-semver-checks-action@v2
 
-  msrv:
+  test-msrv:
     name: Test MSRV
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./rust/mlt
     steps:
-      - uses: taiki-e/install-action@v2
-        with: { tool: just }
       - uses: actions/checkout@v4
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
-      - name: Read crate metadata
+      - uses: taiki-e/install-action@v2
+        with: { tool: just }
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Read MSRV
         id: msrv
-        run: |
-          CRATE_NAME=mlt
-          msrv="$(cargo metadata --format-version 1 | jq -r --arg CRATE_NAME "$CRATE_NAME"  '.packages | map(select(.name == $CRATE_NAME)) | first | .rust_version')"
-          echo "MSRV for crate $CRATE_NAME is '$msrv'"
-          echo "value=$msrv" >> $GITHUB_OUTPUT
-      - name: Install Rust
+        run: echo "value=$(just get-msrv)" >> $GITHUB_OUTPUT
+      - name: Install MSRV Rust ${{ steps.msrv.outputs.value }}
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-          components: rustfmt
-      - run: just -v ci-test-msrv
+      - run: just ci_mode=0 ci-test-msrv  # Ignore warnings in MSRV
+
+  coverage:
+    name: Code Coverage
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-llvm-cov' }
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Generate code coverage
+        run: just ci-coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: target/llvm-cov/codecov.info
+          fail_ci_if_error: true
+
+  # This job checks if any of the previous jobs failed or were canceled.
+  # This approach also allows some jobs to be skipped if they are not needed.
+  ci-passed:
+    if: always()
+    needs: [ test, test-msrv ]
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
+
+  release:
+    # Some dependencies of the `ci-passed` job might be skipped, but we still want to run if the `ci-passed` job succeeded.
+    if: always() && startsWith(github.ref, 'refs/tags/') && needs.ci-passed.result == 'success'
+    name: Publish to crates.io
+    needs: [ ci-passed ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish to crates.io
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
