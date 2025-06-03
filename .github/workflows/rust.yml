@@ -44,7 +44,7 @@ jobs:
         with: { tool: just }
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Read crate metadata
+      - name: Read MSRV
         id: msrv
         run: echo "value=$(just get-msrv)" >> $GITHUB_OUTPUT
       - name: Install MSRV Rust ${{ steps.msrv.outputs.value }}
