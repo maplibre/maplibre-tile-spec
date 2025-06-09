@@ -1,5 +1,6 @@
-use bytes::{Buf, Bytes};
+use bytes::Buf;
 
+use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
 use crate::metadata::stream_encoding::{
     DictionaryType, LengthType, Logical, LogicalLevelTechnique, LogicalStreamType, OffsetType,
@@ -33,7 +34,7 @@ pub struct StreamMetadata {
 }
 
 impl StreamMetadata {
-    pub fn decode(tile: &mut Bytes) -> MltResult<Self> {
+    pub fn decode(tile: &mut TrackedBytes) -> MltResult<Self> {
         // let stream_type = tile
         //     .get(offset.position() as usize)
         //     .ok_or(MltError::DecodeError("Failed to read...".into()))?;
@@ -116,15 +117,18 @@ impl StreamMetadata {
 }
 
 trait Encoding {
-    fn partial_decode(&mut self, r#type: &LogicalLevelTechnique, tile: &mut Bytes)
-        -> MltResult<()>;
+    fn partial_decode(
+        &mut self,
+        r#type: &LogicalLevelTechnique,
+        tile: &mut TrackedBytes,
+    ) -> MltResult<()>;
 }
 
 impl Encoding for StreamMetadata {
     fn partial_decode(
         &mut self,
         r#type: &LogicalLevelTechnique,
-        tile: &mut Bytes,
+        tile: &mut TrackedBytes,
     ) -> MltResult<()> {
         // let binding = varint::decode(tile, 2, offset);
         let binding = varint::decode(tile, 2);
@@ -161,7 +165,6 @@ impl Encoding for StreamMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
 
     #[test]
     fn test_decode_stream_metadata() {
@@ -172,7 +175,7 @@ mod tests {
             0x02, // varint byte 2 → completes `num_values` for size_info
             0x04, // varint byte 3 → single-byte varint for `byte_length` for size_info
         ];
-        let mut tile = Bytes::from(tile_bytes.clone());
+        let mut tile = TrackedBytes::new(tile_bytes);
         let result = StreamMetadata::decode(&mut tile);
         let metadata = result.unwrap();
 
