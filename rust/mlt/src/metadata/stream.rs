@@ -43,23 +43,22 @@ impl StreamMetadata {
             .map_err(|_| MltError::DecodeError("Invalid physical stream type".into()))?;
 
         let logical_stream_type = match physical_stream_type {
-            PhysicalStreamType::Data => LogicalStreamType::Dictionary(Some(
-                DictionaryType::try_from(stream_type & 0xF)
-                    .map_err(|_| MltError::DecodeError("Invalid dictionary type".into()))?,
-            )),
-            PhysicalStreamType::Offset => LogicalStreamType::Offset(
-                OffsetType::try_from(stream_type & 0xF)
-                    .map_err(|_| MltError::DecodeError("Invalid offset type".into()))?,
-            ),
-            PhysicalStreamType::Length => LogicalStreamType::Length(
-                LengthType::try_from(stream_type & 0xF)
-                    .map_err(|_| MltError::DecodeError("Invalid length type".into()))?,
-            ),
-            _ => {
-                return Err(MltError::DecodeError(
-                    "Unexpected physical stream type for logical stream type".into(),
-                ));
+            PhysicalStreamType::Data => {
+                let dict_type = DictionaryType::try_from(stream_type & 0xF)
+                    .map_err(|_| MltError::DecodeError("Invalid dictionary type".into()))?;
+                Some(LogicalStreamType::Dictionary(Some(dict_type)))
             }
+            PhysicalStreamType::Offset => {
+                let offset_type = OffsetType::try_from(stream_type & 0xF)
+                    .map_err(|_| MltError::DecodeError("Invalid offset type".into()))?;
+                Some(LogicalStreamType::Offset(offset_type))
+            }
+            PhysicalStreamType::Length => {
+                let length_type = LengthType::try_from(stream_type & 0xF)
+                    .map_err(|_| MltError::DecodeError("Invalid length type".into()))?;
+                Some(LogicalStreamType::Length(length_type))
+            }
+            PhysicalStreamType::Present => None,
         };
 
         // let encoding_header = *tile
@@ -106,7 +105,7 @@ impl StreamMetadata {
             return Ok(metadata);
         } else if (metadata.logical.technique1 == Some(RLE)
             || metadata.logical.technique2 == Some(RLE))
-            && metadata.physical.technique.is_some()
+            && metadata.physical.technique != PhysicalLevelTechnique::None
         {
             metadata.partial_decode(&RLE, tile)?;
             return Ok(metadata);
@@ -156,5 +155,38 @@ impl Encoding for StreamMetadata {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+
+    #[test]
+    fn test_decode_stream_metadata() {
+        let tile_bytes = vec![
+            0x00, // stream_type
+            0x60, // encoding_header
+            0xF4, // varint byte 1 → part of `num_values` for size_info
+            0x02, // varint byte 2 → completes `num_values` for size_info
+            0x04, // varint byte 3 → single-byte varint for `byte_length` for size_info
+        ];
+        let mut tile = Bytes::from(tile_bytes.clone());
+        let result = StreamMetadata::decode(&mut tile);
+        let metadata = result.unwrap();
+
+        assert_eq!(
+            metadata.logical.technique1,
+            Some(LogicalLevelTechnique::Rle)
+        );
+        assert_eq!(
+            metadata.logical.technique2,
+            Some(LogicalLevelTechnique::None)
+        );
+        assert_eq!(metadata.physical.r#type, PhysicalStreamType::Present);
+        assert_eq!(metadata.physical.technique, PhysicalLevelTechnique::None);
+        assert_eq!(metadata.num_values, 372);
+        assert_eq!(metadata.byte_length, 4);
     }
 }
