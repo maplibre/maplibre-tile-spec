@@ -63,7 +63,7 @@ pub fn get_data_type_from_column(column_metadata: &Column) -> MltResult<ScalarTy
 
 #[test]
 fn test_decode_byte_rle() -> MltResult<()> {
-    let mut tile = TrackedBytes::new(vec![0x03, 0x01]);
+    let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
     let result = decode_byte_rle(&mut tile, 5)?;
     assert_eq!(result, vec![1, 1, 1, 1, 1]);
     Ok(())
@@ -71,7 +71,7 @@ fn test_decode_byte_rle() -> MltResult<()> {
 
 #[test]
 fn test_decode_boolean_rle() -> MltResult<()> {
-    let mut tile = TrackedBytes::new(vec![0x03, 0x01]);
+    let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
     let result = decode_boolean_rle(&mut tile, 5)?;
     assert_eq!(result, vec![1]);
     Ok(())

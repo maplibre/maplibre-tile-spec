@@ -168,14 +168,15 @@ mod tests {
 
     #[test]
     fn test_decode_stream_metadata() {
-        let tile_bytes = vec![
+        let mut tile: TrackedBytes = [
             0x00, // stream_type
             0x60, // encoding_header
             0xF4, // varint byte 1 → part of `num_values` for size_info
             0x02, // varint byte 2 → completes `num_values` for size_info
             0x04, // varint byte 3 → single-byte varint for `byte_length` for size_info
-        ];
-        let mut tile = TrackedBytes::new(tile_bytes);
+        ]
+        .as_slice()
+        .into();
         let result = StreamMetadata::decode(&mut tile);
         let metadata = result.unwrap();
 

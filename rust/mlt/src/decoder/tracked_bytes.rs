@@ -44,8 +44,7 @@ mod tests {
 
     #[test]
     fn test_tracked_bytes_offset_and_reads() {
-        let data = vec![0x10, 0x20, 0x30, 0x40];
-        let mut tile = TrackedBytes::new(data);
+        let mut tile: TrackedBytes = [0x10, 0x20, 0x30, 0x40].as_slice().into();
 
         // Initial offset should be 0
         assert_eq!(tile.offset(), 0);
