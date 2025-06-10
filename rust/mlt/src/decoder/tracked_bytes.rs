@@ -8,11 +8,6 @@ use bytes::{Buf, Bytes};
 pub struct TrackedBytes(usize, Bytes);
 
 impl TrackedBytes {
-    pub fn new<T: Into<Bytes>>(data: T) -> Self {
-        let bytes = data.into();
-        Self(bytes.len(), bytes)
-    }
-
     pub fn original_size(&self) -> usize {
         self.0
     }
@@ -33,6 +28,13 @@ impl Deref for TrackedBytes {
 impl DerefMut for TrackedBytes {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.1
+    }
+}
+
+impl<T: Into<Bytes>> From<T> for TrackedBytes {
+    fn from(data: T) -> Self {
+        let bytes = data.into();
+        Self(bytes.len(), bytes)
     }
 }
 

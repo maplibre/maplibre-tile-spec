@@ -29,9 +29,11 @@ pub struct Decoder {
 }
 
 impl Decoder {
-    pub fn new(tile: Vec<u8>, config: Option<Config>) -> Self {
-        let tile = TrackedBytes::new(tile);
-        Self { tile, config }
+    pub fn new<T: Into<TrackedBytes>>(tile: T, config: Option<Config>) -> Self {
+        Self {
+            tile: tile.into(),
+            config,
+        }
     }
 
     #[expect(unused_variables)]
