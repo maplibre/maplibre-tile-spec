@@ -103,9 +103,6 @@ impl Decoder {
                             BitVec::<u8, Lsb0>::with_capacity(*num_features as usize);
                         nullability_buffer.extend(values.iter().copied());
                     }
-
-                    // Dummy
-                    nullability_buffer.resize(1, false);
                 }
             }
         }
