@@ -18,4 +18,6 @@ pub enum MltError {
     MetadataDecodeError(String),
     #[error("Failed to decode rle: {0}")]
     RleDecodeError(#[from] serde_columnar::ColumnarError),
+    #[error("Unsupported technique in decode_int_stream: {0:?}")]
+    UnsupportedIntStreamTechnique(String),
 }
