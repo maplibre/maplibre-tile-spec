@@ -55,7 +55,7 @@ jobs:
 
   coverage:
     name: Code Coverage
-    if: github.event_name != 'release'
+    if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
