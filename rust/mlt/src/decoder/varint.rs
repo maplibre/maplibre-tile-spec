@@ -1,7 +1,7 @@
-use bytes::Bytes;
+use crate::decoder::tracked_bytes::TrackedBytes;
 use bytes_varint::*;
 
-pub fn decode(input: &mut Bytes, num_values: usize) -> Vec<u32> {
+pub fn decode(input: &mut TrackedBytes, num_values: usize) -> Vec<u32> {
     let mut values = Vec::with_capacity(num_values);
 
     for _ in 0..num_values {

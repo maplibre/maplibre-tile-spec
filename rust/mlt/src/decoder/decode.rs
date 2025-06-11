@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use bitvec::prelude::*;
-use bytes::{Buf, Bytes};
+use bytes::Buf;
 use geo_types::Geometry;
 use zigzag::ZigZag;
 
 use crate::data::MapLibreTile;
 use crate::decoder::helpers::{decode_boolean_rle, get_data_type_from_column};
+use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
 use crate::encoder::geometry::GeometryScaling;
 use crate::metadata::proto_tileset::{Column, TileSetMetadata};
@@ -23,26 +24,16 @@ pub struct Config {
 }
 
 pub struct Decoder {
-    pub tile: Bytes,
+    pub tile: TrackedBytes,
     pub config: Option<Config>,
-    pub original_tile_size: usize,
 }
 
 impl Decoder {
-    pub fn new(tile: Vec<u8>, config: Option<Config>) -> Self {
-        let tile = Bytes::from(tile);
+    pub fn new<T: Into<TrackedBytes>>(tile: T, config: Option<Config>) -> Self {
         Self {
-            original_tile_size: tile.len(),
-            tile,
+            tile: tile.into(),
             config,
         }
-    }
-
-    // Returns the offset of the tile data for debugging purposes
-    // NOTE: This is a temporary workaround to track the offset,
-    // and should be removed once `Bytes` supports offset tracking internally.
-    pub fn offset(&self) -> usize {
-        self.original_tile_size - self.tile.len()
     }
 
     #[expect(unused_variables)]
