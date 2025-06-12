@@ -10,7 +10,7 @@ use crate::decoder::helpers::{decode_boolean_rle, get_data_type_from_column};
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
 use crate::encoder::geometry::GeometryScaling;
-use crate::metadata::proto_tileset::{Column, TileSetMetadata};
+use crate::metadata::proto_tileset::{Column, ScalarType, TileSetMetadata};
 use crate::metadata::stream::StreamMetadata;
 use crate::{MltError, MltResult};
 
@@ -63,16 +63,16 @@ impl Decoder {
                     ))
                 })?;
 
-            let property_column_names: Option<&String> = self.config.as_ref().and_then(|cfg| {
-                cfg.feature_table_decoding
-                    .as_ref()
-                    .and_then(|ftd| ftd.get(&feature_table_metadata.name))
-            });
+            // let property_column_names: Option<&String> = self.config.as_ref().and_then(|cfg| {
+            //     cfg.feature_table_decoding
+            //         .as_ref()
+            //         .and_then(|ftd| ftd.get(&feature_table_metadata.name))
+            // });
 
-            if property_column_names.is_none() {
-                self.tile.advance(*feature_table_body_size as usize);
-                continue;
-            }
+            // if property_column_names.is_none() {
+            //     self.tile.advance(*feature_table_body_size as usize);
+            //     continue;
+            // }
 
             let extent = infos
                 .get(2)
@@ -102,6 +102,14 @@ impl Decoder {
                         nullability_buffer =
                             BitVec::<u8, Lsb0>::with_capacity(*num_features as usize);
                         nullability_buffer.extend(values.iter().copied());
+                    }
+
+                    let id_data_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
+                    let id_data_type = get_data_type_from_column(col_metadata)?;
+
+                    if id_data_type == ScalarType::Uint32 {
+                        print!("Decoding ID column with Uint32 type\n");
+                        // TODO (Weixing): Implement decode_int_stream here
                     }
                 }
             }
