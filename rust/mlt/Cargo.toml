@@ -13,14 +13,14 @@ geo-types = "0.7.15"
 geozero = { version = "0.14", features = ["with-mvt"] }
 indexmap = "2.7.1"
 num_enum = "0.7.3"
-prost = "0.13.5"
-prost-types = "0.13.5"
+prost = "0.14.0"
+prost-types = "0.14.0"
 thiserror = "2.0.11"
 zigzag = "0.1.0"
 serde_columnar = "0.3.11"
 
 [build-dependencies]
-prost-build = "0.13.5"
+prost-build = "0.14.0"
 
 [lints.rust]
 dead_code = "allow"
