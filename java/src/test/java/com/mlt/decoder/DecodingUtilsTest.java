@@ -80,8 +80,8 @@ public class DecodingUtilsTest {
     var values = new int[] {5, 10, 15, 20, 25, 30, 35, 40};
     var encoded = EncodingUtils.encodeFastPfor128(values, false, false);
     var pos = new IntWrapper(0);
-    var decoded = VectorizedDecodingUtils.decodeFastPfor(
-        encoded, values.length, encoded.length, pos);
+    var decoded =
+        VectorizedDecodingUtils.decodeFastPfor(encoded, values.length, encoded.length, pos);
 
     assertArrayEquals(values, decoded.array());
   }
