@@ -2,15 +2,12 @@
 
 #include <mlt/polyfill.hpp>
 
-#include <cstdint>
 #include <string_view>
 #include <type_traits>
 
 namespace mlt {
 
 using DataView = std::string_view;
-
-using count_t = std::uint32_t;
 
 template <typename T, std::size_t N>
 constexpr std::size_t countof(T (&)[N]) {

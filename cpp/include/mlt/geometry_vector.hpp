@@ -3,6 +3,7 @@
 #include <mlt/geometry.hpp>
 #include <mlt/util/morton_curve.hpp>
 
+#include <algorithm>
 #include <cassert>
 
 namespace mlt::geometry {
@@ -146,7 +147,7 @@ struct FlatGpuVector : public GpuVector {
                   std::vector<std::uint32_t>&& indexBuffer_,
                   std::vector<std::int32_t>&& vertexBuffer_,
                   std::optional<TopologyVector>&& topologyVector_ = {}) noexcept
-        : GpuVector(geometryTypes_.size(),
+        : GpuVector(static_cast<std::uint32_t>(geometryTypes_.size()),
                     /*singleType=*/false,
                     std::move(triangleCounts_),
                     std::move(indexBuffer_),
@@ -241,7 +242,7 @@ struct FlatGeometryVector : public CpuVector {
                        std::vector<std::int32_t>&& vertexBuffer_,
                        VertexBufferType vertexBufferType_,
                        std::optional<MortonSettings> mortonSettings_) noexcept
-        : CpuVector(geometryTypes_.size(),
+        : CpuVector(static_cast<std::uint32_t>(geometryTypes_.size()),
                     /*singleType=*/false,
                     std::move(topologyVector_),
                     std::move(vertexOffsets_),

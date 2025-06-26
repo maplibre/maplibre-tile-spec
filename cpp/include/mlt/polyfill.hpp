@@ -1,7 +1,8 @@
 #pragma once
 
 #include <algorithm>
-#include <ranges>
+#include <bit>
+#include <ranges> // IWYU pragma: keep - Needed by MSVC
 #include <utility>
 
 namespace std {

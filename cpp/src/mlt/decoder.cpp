@@ -71,7 +71,7 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
         if (tileExtent == 0) {
             throw std::runtime_error("invalid tile extent");
         }
-        if (featureTableId < 0 || tileMetadata.featureTables.size() <= featureTableId) {
+        if (tileMetadata.featureTables.size() <= featureTableId) {
             throw std::runtime_error("invalid table id");
         }
         const auto& tableMetadata = tileMetadata.featureTables[featureTableId];
@@ -138,8 +138,9 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
         throw std::runtime_error("Invalid geometry count");
     }
 
-    return util::generateVector<Feature>(featureCount,
-                                         [&](const auto i) { return Feature{ids[i], std::move(geometries[i]), i}; });
+    return util::generateVector<Feature>(featureCount, [&](const auto i) {
+        return Feature{ids[i], std::move(geometries[i]), static_cast<std::uint32_t>(i)};
+    });
 }
 
 } // namespace mlt

@@ -37,7 +37,7 @@ public:
         }
 
         PackedBitset presentStream;
-        count_t presentValueCount = 0;
+        std::uint32_t presentValueCount = 0;
 
         if ((numStreams > 1) != column.nullable) {
             throw std::runtime_error("Invalid stream count");
@@ -170,7 +170,7 @@ public:
             }
             case ScalarType::STRING: {
                 const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
-                auto strings = stringDecoder.decode(tileData, numStreams - 1, stringCount);
+                auto strings = stringDecoder.decode(tileData, numStreams - 1, static_cast<std::uint32_t>(stringCount));
 
                 PropertyVec result{std::move(strings)};
                 checkBits(presentStream, result);

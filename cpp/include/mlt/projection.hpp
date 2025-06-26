@@ -31,9 +31,9 @@ public:
     Coordinate project(const Coordinate& coord) const noexcept { return {projectX(coord.x), projectY(coord.y)}; }
 
 private:
-    float projectX(float x) const noexcept { return (x + x0) * s1 - 180.0f; }
+    float projectX(float x) const noexcept { return ((x + x0) * s1) - 180.0f; }
     float projectY(float y) const noexcept {
-        return 2.0f * radToDeg(std::atan(std::exp(degToRad(180.0f - (y + y0) * s1)))) - 90.0f;
+        return (2.0f * radToDeg(std::atan(std::exp(degToRad(180.0f - ((y + y0) * s1)))))) - 90.0f;
     }
 
     static float degToRad(float deg) noexcept { return deg * std::numbers::pi / 180.0; }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <algorithm>
 #include <vector>
 
 namespace mlt::util {
@@ -23,5 +25,10 @@ template <class... Ts>
 struct overloaded : Ts... {
     using Ts::operator()...;
 };
+
+// explicit deduction guide (not needed as of C++20)
+// (but seems to be needed by MSVC)
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
 } // namespace mlt::util

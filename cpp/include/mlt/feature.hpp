@@ -25,7 +25,7 @@ public:
     /// @param id Feature identifier
     /// @param geometry Feature geometry, required
     /// @param index Index of the property in the layer
-    Feature(id_t id, std::unique_ptr<Geometry>&& geometry, std::size_t index);
+    Feature(id_t id, std::unique_ptr<Geometry>&&, std::uint32_t index);
 
     ~Feature() noexcept;
 

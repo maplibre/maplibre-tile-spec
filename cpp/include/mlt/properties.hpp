@@ -31,7 +31,7 @@ private:
 
 /// A single feature property.
 /// String properties reference the source property vector and must not outlive it.
-using Property = std::variant<nullptr_t,
+using Property = std::variant<std::nullptr_t,
                               bool,
                               std::optional<bool>,
                               std::uint32_t,
@@ -85,7 +85,7 @@ public:
     bool isBoolean() const noexcept { return type == ScalarType::BOOLEAN; }
     const PropertyVec& getProperties() const noexcept { return properties; }
 
-    std::uint32_t getPropertyCount() const { return propertyCount(properties, isBoolean()); }
+    std::size_t getPropertyCount() const { return propertyCount(properties, isBoolean()); }
 
     std::optional<Property> getProperty(std::uint32_t logicalIndex) const;
 

@@ -43,7 +43,7 @@ struct BufferStream : public util::noncopyable {
         return *getReadPosition<T>();
     }
 
-    void consume(count_t count) {
+    void consume(std::uint32_t count) {
         check(count);
         offset += count;
     }
@@ -56,7 +56,7 @@ private:
     }
 
     const DataView data;
-    count_t offset;
+    std::uint32_t offset;
 };
 
 } // namespace mlt

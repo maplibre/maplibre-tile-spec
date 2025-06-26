@@ -27,7 +27,7 @@ std::uint32_t IntegerDecoder::decodeFastPfor(BufferStream& buffer,
     const auto* inputValues = reinterpret_cast<const std::uint32_t*>(buffer.getReadPosition());
     auto resultCount = numValues;
     impl->codec.decodeArray(inputValues, byteLength / sizeof(std::uint32_t), result, resultCount);
-    return resultCount;
+    return static_cast<std::uint32_t>(resultCount);
 }
 
 } // namespace mlt::decoder

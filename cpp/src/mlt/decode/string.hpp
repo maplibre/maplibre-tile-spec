@@ -26,7 +26,7 @@ public:
      * -> fsst dictionary -> symbolTable, symbolLength, dictionary, length, present, data
      * */
 
-    StringDictViews decode(BufferStream& tileData, count_t numStreams, count_t numValues) {
+    StringDictViews decode(BufferStream& tileData, std::uint32_t numStreams, std::uint32_t numValues) {
         using namespace metadata::stream;
         using namespace util::decoding;
 
@@ -37,7 +37,7 @@ public:
         std::vector<std::uint32_t> lengthStream;
         std::vector<std::string_view> views;
         views.reserve(numValues);
-        for (count_t i = 0; i < numStreams; ++i) {
+        for (std::uint32_t i = 0; i < numStreams; ++i) {
             auto streamMetadata = StreamMetadata::decode(tileData);
             switch (streamMetadata->getPhysicalStreamType()) {
                 default:
@@ -94,8 +94,8 @@ private:
     static void decodePlain(const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
                             std::vector<std::string_view>& out,
-                            count_t numValues) {
-        for (count_t i = 0; i < numValues; ++i) {
+                            std::uint32_t numValues) {
+        for (std::uint32_t i = 0; i < numValues; ++i) {
             const auto length = lengthStream[i];
             const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + length);
             out.push_back(view(bytes, length));
@@ -106,19 +106,19 @@ private:
                                  const std::vector<std::uint8_t>& utf8bytes,
                                  const std::vector<std::uint32_t>& offsets,
                                  std::vector<std::string_view>& out,
-                                 count_t numValues) {
+                                 std::uint32_t numValues) {
         const auto* const utf8Ptr = reinterpret_cast<const char*>(utf8bytes.data());
 
         std::vector<std::string_view> dictionary;
         dictionary.reserve(lengthStream.size());
 
-        count_t dictionaryOffset = 0;
+        std::uint32_t dictionaryOffset = 0;
         for (const auto length : lengthStream) {
             dictionary.push_back(view(utf8Ptr + dictionaryOffset, length));
             dictionaryOffset += length;
         }
 
-        for (count_t i = 0; i < numValues; ++i) {
+        for (std::uint32_t i = 0; i < numValues; ++i) {
             out.push_back(dictionary[offsets[i]]);
         }
     }

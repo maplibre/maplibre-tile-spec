@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 project(mlt-cpp LANGUAGES CXX)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+include(AddCXXCompilerFlag)
+
 # Use the same deployment target as the parent project, if set.
 if (NOT MLT_OSX_DEPLOYMENT_TARGET)
     set(MLT_OSX_DEPLOYMENT_TARGET 16)
@@ -21,6 +24,52 @@ set_target_properties(
     INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
     INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
 )
+
+target_compile_options(mlt-cpp
+    PRIVATE
+        -Werror
+        -Wno-trigraphs
+        -Wno-missing-field-initializers
+        -Wno-return-type
+        -Wno-non-virtual-dtor
+        -Wno-overloaded-virtual
+        -Wno-exit-time-destructors
+        -Wno-missing-braces
+        -Wparentheses
+        -Wswitch
+        -Wno-unused-function
+        -Wno-unused-label
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wunused-value
+        -Wno-empty-body
+        -Wno-uninitialized
+        -Wno-unknown-pragmas
+        -Wno-shadow
+        -Wno-four-char-constants
+        -Wno-conversion
+        -Wno-constant-conversion
+        -Wno-bool-conversion
+        -Wno-enum-conversion
+        -Wno-float-conversion
+        -Wno-non-literal-null-conversion
+        -Wno-objc-literal-conversion
+        -Wno-newline-eof
+        -Wno-c++11-extensions
+        -Wno-implicit-fallthrough
+        -fstrict-aliasing
+        -Wdeprecated-declarations
+        -Winvalid-offsetof
+        -Wno-sign-conversion
+        -Wno-infinite-recursion
+        -Wno-move
+        -Wno-comma
+        -Wno-block-capture-autoreleasing
+        -Wno-range-loop-analysis
+        -Wno-semicolon-before-method-body
+)
+
+add_cxx_compiler_flag(-Wshorten-64-to-32)
 
 target_include_directories(mlt-cpp
     PUBLIC ${PROJECT_SOURCE_DIR}/include

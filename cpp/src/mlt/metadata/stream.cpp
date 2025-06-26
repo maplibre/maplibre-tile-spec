@@ -1,5 +1,6 @@
 #include <mlt/metadata/stream.hpp>
 
+#include <string>
 #include <utility>
 
 namespace mlt::metadata::stream {

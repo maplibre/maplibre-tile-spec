@@ -5,6 +5,7 @@
 #include <mlt/util/morton_curve.hpp>
 
 #include <cassert>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -225,7 +226,7 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
             break;
         }
         case PhysicalLevelTechnique::VARINT:
-            util::decoding::decodeVarints<TDecode>(tileData, outSize, out);
+            util::decoding::decodeVarints<TDecode>(tileData, static_cast<std::uint32_t>(outSize), out);
             break;
         default:
             throw std::runtime_error("Specified physical level technique not yet supported " +
@@ -234,8 +235,8 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
 }
 
 template <typename T>
-void IntegerDecoder::decodeRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns) {
-    count_t outPos = 0;
+void IntegerDecoder::decodeRLE(const std::vector<T>& values, std::vector<T>& out, const std::uint32_t numRuns) {
+    std::uint32_t outPos = 0;
     for (std::uint32_t i = 0; i < numRuns; ++i) {
         const auto run = values[i];
         const auto value = values[i + numRuns];
@@ -247,8 +248,8 @@ void IntegerDecoder::decodeRLE(const std::vector<T>& values, std::vector<T>& out
 }
 
 template <typename T>
-void IntegerDecoder::decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns) {
-    count_t outPos = 0;
+void IntegerDecoder::decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const std::uint32_t numRuns) {
+    std::uint32_t outPos = 0;
     T previousValue = 0;
     for (std::uint32_t i = 0; i < numRuns; ++i) {
         const auto run = values[i];
@@ -273,7 +274,7 @@ void IntegerDecoder::decodeZigZagDelta(const T* values,
                                        const std::size_t outCount) noexcept {
     using namespace util::decoding;
     assert(count == outCount);
-    count_t pos = 0;
+    std::uint32_t pos = 0;
     using ST = std::make_signed_t<underlying_type_t<T>>;
     ST previousValue = 0;
     for (const auto zigZagDelta : std::span{values, count}) {

@@ -98,10 +98,10 @@ private:
     void decodeStream(BufferStream& tileData, TTarget* out, std::size_t outSize, const StreamMetadata&);
 
     template <typename T>
-    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns);
+    static void decodeRLE(const std::vector<T>& values, std::vector<T>& out, const std::uint32_t numRuns);
 
     template <typename T>
-    static void decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const count_t numRuns);
+    static void decodeDeltaRLE(const std::vector<T>& values, std::vector<T>& out, const std::uint32_t numRuns);
 
     /// Decode zigzag-delta values
     /// @param values Input values

@@ -77,7 +77,7 @@ auto decodeVarints(BufferStream& buffer) {
 template <typename TDecode, typename TTarget = TDecode>
     requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
              sizeof(TDecode) <= sizeof(TTarget))
-void decodeVarints(BufferStream& buffer, const count_t numValues, TTarget* out) {
+void decodeVarints(BufferStream& buffer, const std::uint32_t numValues, TTarget* out) {
     std::generate_n(out, numValues, [&buffer]() { return static_cast<TTarget>(decodeVarint<TDecode>(buffer)); });
 }
 

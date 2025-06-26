@@ -97,7 +97,7 @@ private:
 /// @param numBytes The number of bytes to write, and the size of `out`
 /// @param byteSize The number of bytes to consume from the source buffer
 /// @throws std::runtime_error The provided buffer does not contain enough data
-inline void decodeByte(BufferStream& buffer, std::uint8_t* out, count_t numBytes, count_t byteSize) {
+inline void decodeByte(BufferStream& buffer, std::uint8_t* out, std::uint32_t numBytes, std::uint32_t byteSize) {
     detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
     buffer.consume(byteSize);
 }
@@ -108,7 +108,7 @@ inline void decodeByte(BufferStream& buffer, std::uint8_t* out, count_t numBytes
 /// @param numBytes The number of bits to write, and the size of `out` multiplied by 8
 /// @throws std::runtime_error The provided buffer does not contain enough data
 /// @note Bit counts not divisible by 8 will be padded with zeros
-inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, count_t numBits) {
+inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, std::uint32_t numBits) {
     const auto numBytes = (numBits + 7) / 8;
     detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
 }
@@ -131,10 +131,10 @@ void decodeInt(
     const std::size_t inCount,
     TTarget* const out,
     const std::size_t outCount,
-    const count_t numRuns,
+    const std::uint32_t numRuns,
     std::function<TTarget(T)> convert = [](T x) { return static_cast<TTarget>(x); }) {
-    count_t inOffset = 0;
-    count_t outOffset = 0;
+    std::uint32_t inOffset = 0;
+    std::uint32_t outOffset = 0;
     for (auto i = 0; i < numRuns; ++i) {
         if (inCount < inOffset + 2) {
             throw std::runtime_error("Unexpected end of buffer");

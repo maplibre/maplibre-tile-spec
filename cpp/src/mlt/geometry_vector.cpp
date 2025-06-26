@@ -103,7 +103,7 @@ void GeometryVector::applyTriangles(Geometry& geom,
     if (numTriangles) {
         CHECK_BUFFER(indexBufferOffset + (3 * numTriangles) - 1, indexBuffer);
         assert(std::all_of(&indexBuffer[indexBufferOffset],
-                           &indexBuffer[indexBufferOffset + 3 * numTriangles],
+                           &indexBuffer[indexBufferOffset + (3 * numTriangles)],
                            [=](auto i) { return i < totalVertices; }));
 #ifndef NDEBUG
         const auto limits = std::ranges::minmax_element(&indexBuffer[indexBufferOffset],

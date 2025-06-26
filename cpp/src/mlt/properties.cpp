@@ -3,7 +3,9 @@
 #include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/stl.hpp>
 
+#include <cassert>
 #include <limits>
+#include <stdexcept>
 #include <variant>
 
 namespace mlt {
@@ -44,10 +46,6 @@ std::optional<Property> ExtractPropertyVisitor::operator()(const StringDictViews
     const auto& strings = views.getStrings();
     assert(i < strings.size());
     return (i < strings.size()) ? std::optional<Property>{strings[i]} : std::nullopt;
-}
-template <>
-std::optional<Property> ExtractPropertyVisitor::operator()(const PackedBitset& vec) const {
-    return testBit(vec, i);
 }
 
 auto getPropertyValue(const PropertyVec& layerProperties, std::size_t sourceIndex, bool isBoolean) {
