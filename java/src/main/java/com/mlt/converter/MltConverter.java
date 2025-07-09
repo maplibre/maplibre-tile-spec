@@ -225,7 +225,7 @@ public class MltConverter {
       MltTilesetMetadata.TileSetMetadata tilesetMetadata)
       throws IOException {
     var physicalLevelTechnique =
-        config.useAdvancedEncodingSchemes()
+        config.getUseAdvancedEncodingSchemes()
             ? PhysicalLevelTechnique.FAST_PFOR
             : PhysicalLevelTechnique.VARINT;
 
@@ -244,17 +244,20 @@ public class MltConverter {
           IntStream.range(0, featureTables.size())
               .filter(i -> featureTables.get(i).getName().equals(featureTableName))
               .findFirst()
-              .getAsInt();
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "Feature table with name '" + featureTableName + "' not found."));
       var featureTableMetadata = featureTables.get(featureTableId);
 
       var featureTableOptimizations =
-          config.optimizations() == null ? null : config.optimizations().get(featureTableName);
+          config.getOptimizations() == null
+              ? null
+              : config.getOptimizations().get(featureTableName);
 
       var createPolygonOutline =
-          config instanceof RenderingOptimizedConversionConfig
-              && ((RenderingOptimizedConversionConfig) config)
-                  .getOutlineFeatureTableNames()
-                  .contains(featureTableName);
+          config.getOutlineFeatureTableNames().contains(featureTableName)
+              || config.getOutlineFeatureTableNames().contains("*");
       var result =
           sortFeaturesAndEncodeGeometryColumn(
               config,
@@ -273,7 +276,7 @@ public class MltConverter {
           encodePropertyColumns(
               config, featureTableMetadata, sortedFeatures, featureTableOptimizations);
 
-      if (config.includeIds()) {
+      if (config.getIncludeIds()) {
         var idMetadata =
             featureTableMetadata.getColumnsList().stream()
                 .filter(f -> f.getName().equals(ID_COLUMN_NAME))
@@ -285,7 +288,7 @@ public class MltConverter {
                 idMetadata,
                 sortedFeatures,
                 physicalLevelTechnique,
-                config.useAdvancedEncodingSchemes());
+                config.getUseAdvancedEncodingSchemes());
       }
 
       featureTableBodyBuffer =
@@ -329,7 +332,7 @@ public class MltConverter {
     return PropertyEncoder.encodePropertyColumns(
         propertyColumns,
         sortedFeatures,
-        config.useAdvancedEncodingSchemes(),
+        config.getUseAdvancedEncodingSchemes(),
         featureTableOptimizations != null
             ? featureTableOptimizations.columnMappings()
             : Optional.empty());
@@ -354,7 +357,7 @@ public class MltConverter {
      * */
 
     var isColumnSortable =
-        config.includeIds()
+        config.getIncludeIds()
             && featureTableOptimizations != null
             && featureTableOptimizations.allowSorting();
     if (isColumnSortable && !featureTableOptimizations.allowIdRegeneration()) {
@@ -372,7 +375,7 @@ public class MltConverter {
     /* Morton Vertex Dictionary encoding is currently not supported in pre-tessellation */
     var useMortonEncoding = false;
     var encodedGeometryColumn =
-        config instanceof RenderingOptimizedConversionConfig
+        config.getPreTessellatePolygons()
             ? GeometryEncoder.encodePretessellatedGeometryColumn(
                 geometries,
                 physicalLevelTechnique,
@@ -380,7 +383,7 @@ public class MltConverter {
                 useMortonEncoding,
                 encodePolygonOutlines)
             : GeometryEncoder.encodeGeometryColumn(
-                geometries, physicalLevelTechnique, sortSettings, config.useMortonEncoding());
+                geometries, physicalLevelTechnique, sortSettings, config.getUseMortonEncoding());
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
@@ -389,7 +392,7 @@ public class MltConverter {
               .collect(Collectors.toList());
     }
 
-    if (config.includeIds()
+    if (config.getIncludeIds()
         && featureTableOptimizations != null
         && featureTableOptimizations.allowIdRegeneration()) {
       sortedFeatures = generateSequenceIds(sortedFeatures);

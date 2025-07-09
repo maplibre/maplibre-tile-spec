@@ -1,4 +1,4 @@
-package com.mlt.tools;
+package com.mlt.cli;
 
 import com.mlt.decoder.MltDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
@@ -10,6 +10,7 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.NotImplementedException;
 
 public class Decode {
 
@@ -71,16 +72,7 @@ public class Decode {
 
       Timer timer = new Timer();
       if (willUseVectorized) {
-        var featureTables = MltDecoder.decodeMlTileVectorized(mltTileBuffer, tileMetadata);
-        // Note: the vectorized result is a FeatureTable array
-        // which provides an iterator to access the features.
-        // Therefore, we must iterate over the FeatureTable array
-        // to trigger actual decoding of the features.
-        CliUtil.decodeFeatureTables(featureTables);
-        if (willTime) timer.stop("decoding");
-        if (willPrintMLT) {
-          CliUtil.printMLTVectorized(featureTables);
-        }
+        throw new NotImplementedException("Vectorized decoding is not available");
       } else {
         var decodedTile = MltDecoder.decodeMlTile(mltTileBuffer, tileMetadata);
         if (willTime) timer.stop("decoding");
@@ -89,7 +81,8 @@ public class Decode {
         }
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      System.err.println("Decoding failed: ");
+      e.printStackTrace(System.err);
       System.exit(1);
     }
   }

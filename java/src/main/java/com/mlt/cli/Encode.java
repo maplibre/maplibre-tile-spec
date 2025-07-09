@@ -1,4 +1,4 @@
-package com.mlt.tools;
+package com.mlt.cli;
 
 import com.mlt.converter.ConversionConfig;
 import com.mlt.converter.FeatureTableOptimizations;
@@ -20,6 +20,7 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.NotImplementedException;
 
 public class Encode {
 
@@ -53,13 +54,13 @@ public class Encode {
       for (var j = 0; j < mvtFeatures.size(); j++) {
         var mvtFeature = mvtFeatures.get(j);
         var mltFeature =
-            mltFeatures.stream().filter(f -> f.id() == mvtFeature.id()).findFirst().get();
-        if (mvtFeature.id() != mltFeature.id()) {
+            mltFeatures.stream().filter(f -> f.id() == mvtFeature.id()).findFirst().orElse(null);
+        if (mltFeature == null || mvtFeature.id() != mltFeature.id()) {
           throw new RuntimeException(
               "Feature IDs in MLT and MVT layers do not match: "
                   + mvtFeature.id()
                   + " != "
-                  + mltFeature.id());
+                  + ((mltFeature != null) ? mltFeature.id() : "(none)"));
         }
         var mltGeometry = mltFeature.geometry();
         var mvtGeometry = mvtFeature.geometry();
@@ -100,8 +101,12 @@ public class Encode {
   private static final String FILE_NAME_ARG = "mvt";
   private static final String OUTPUT_DIR_ARG = "dir";
   private static final String OUTPUT_FILE_ARG = "mlt";
+  private static final String EXCLUDE_IDS_OPTION = "noids";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "metadata";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
+  private static final String NO_MORTON_OPTION = "nomorton";
+  private static final String PRE_TESSELLATE_OPTION = "tessellate";
+  private static final String OUTLINE_FEATURE_TABLES_OPTION = "outlines";
   private static final String DECODE_OPTION = "decode";
   private static final String PRINT_MLT_OPTION = "printmlt";
   private static final String PRINT_MVT_OPTION = "printmvt";
@@ -131,6 +136,12 @@ public class Encode {
             .required(false)
             .build());
     options.addOption(
+        Option.builder(EXCLUDE_IDS_OPTION)
+            .hasArg(false)
+            .desc("Don't include feature IDs ([OPTIONAL, default: false])")
+            .required(false)
+            .build());
+    options.addOption(
         Option.builder(INCLUDE_TILESET_METADATA_OPTION)
             .hasArg(false)
             .desc("Include tileset metadata in the output ([OPTIONAL], default: false)")
@@ -139,7 +150,27 @@ public class Encode {
     options.addOption(
         Option.builder(ADVANCED_ENCODING_OPTION)
             .hasArg(false)
-            .desc("Enable advanced encodings (fsst & fastpfor) ([OPTIONAL], default: false")
+            .desc("Enable advanced encodings (fsst & fastpfor) ([OPTIONAL], default: false)")
+            .required(false)
+            .build());
+    options.addOption(
+        Option.builder(NO_MORTON_OPTION)
+            .hasArg(false)
+            .desc("Disable Morton encoding ([OPTIONAL], default: false)")
+            .required(false)
+            .build());
+    options.addOption(
+        Option.builder(PRE_TESSELLATE_OPTION)
+            .hasArg(false)
+            .desc("Include tessellation in the tile data ([OPTIONAL], default: false)")
+            .required(false)
+            .build());
+    options.addOption(
+        Option.builder(OUTLINE_FEATURE_TABLES_OPTION)
+            .hasArgs()
+            .desc(
+                "The feature tables for which outlines are included ([OPTIONAL], comma-separated, * for all, default: none)")
+            .valueSeparator(',')
             .required(false)
             .build());
     options.addOption(
@@ -189,8 +220,12 @@ public class Encode {
             "Cannot specify both '-" + OUTPUT_FILE_ARG + "' and '-" + OUTPUT_DIR_ARG + "' options");
       }
       var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
+      var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
       var willIncludeTilesetMetadata = cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION);
       var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
+      var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
+      var preTessellatePolygons = cmd.hasOption(PRE_TESSELLATE_OPTION);
+      var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
       var willDecode = cmd.hasOption(DECODE_OPTION);
       var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
       var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
@@ -208,15 +243,20 @@ public class Encode {
       var tileMetadata =
           MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
 
-      var allowIdRegeneration = true;
-      var allowSorting = false;
-      var optimization =
-          new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
-      // No FeatureTableOptimizations
       var optimizations = new HashMap<String, FeatureTableOptimizations>();
-      var includeIds = true;
+      // TODO: Load layer -> optimizations map
+      // each layer:
+      //  new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
+
       var conversionConfig =
-          new ConversionConfig(includeIds, useAdvancedEncodingSchemes, optimizations);
+          new ConversionConfig(
+              includeIds,
+              useAdvancedEncodingSchemes,
+              optimizations,
+              preTessellatePolygons,
+              useMortonEncoding,
+              (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
+
       Timer timer = new Timer();
       var mlTile = MltConverter.convertMvt(decodedMvTile, conversionConfig, tileMetadata);
       if (willTime) timer.stop("encoding");
@@ -229,18 +269,21 @@ public class Encode {
         } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
           outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
         }
-        var outputDirPath = outputPath.toAbsolutePath().getParent();
-        if (!Files.exists(outputDirPath)) {
-          System.out.println("Creating directory: " + outputDirPath);
-          Files.createDirectories(outputDirPath);
-        }
-        System.out.println("Writing converted tile to " + outputPath);
-        Files.write(outputPath, mlTile);
 
-        if (willIncludeTilesetMetadata) {
-          Path outputMetadataPath = Paths.get(outputPath.toString() + ".meta.pbf");
-          System.out.println("Writing metadata to " + outputMetadataPath);
-          tileMetadata.writeTo(Files.newOutputStream(outputMetadataPath));
+        if (outputPath != null) {
+          var outputDirPath = outputPath.toAbsolutePath().getParent();
+          if (!Files.exists(outputDirPath)) {
+            System.out.println("Creating directory: " + outputDirPath);
+            Files.createDirectories(outputDirPath);
+          }
+          System.out.println("Writing converted tile to " + outputPath);
+          Files.write(outputPath, mlTile);
+
+          if (willIncludeTilesetMetadata) {
+            Path outputMetadataPath = Paths.get(outputPath.toString() + ".meta.pbf");
+            System.out.println("Writing metadata to " + outputMetadataPath);
+            tileMetadata.writeTo(Files.newOutputStream(outputMetadataPath));
+          }
         }
       }
       if (willPrintMVT) {
@@ -251,20 +294,7 @@ public class Encode {
         timer.restart();
         // convert MLT wire format to an MapLibreTile object
         if (willUseVectorized) {
-          var featureTables = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-          // Note: the vectorized result is a FeatureTable array
-          // which provides an iterator to access the features.
-          // Therefore, we must iterate over the FeatureTable array
-          // to trigger actual decoding of the features.
-          CliUtil.decodeFeatureTables(featureTables);
-          if (willTime) timer.stop("decoding");
-          if (willPrintMLT) {
-            CliUtil.printMLTVectorized(featureTables);
-          }
-          // TODO: Implement vectorized compare
-          // if (willCompare) {
-          //     compareVectorized(featureTables, decodedMvTile);
-          // }
+          throw new NotImplementedException("Vectorized encoding is not available");
         } else {
           var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
           if (willTime) timer.stop("decoding");
@@ -277,7 +307,8 @@ public class Encode {
         }
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      System.err.println("Failed:");
+      e.printStackTrace(System.err);
       System.exit(1);
     }
   }

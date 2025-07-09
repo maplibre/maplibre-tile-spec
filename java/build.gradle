@@ -68,7 +68,7 @@ spotless {
      }
 }
 
-task compileWrapper(type: Exec) {
+tasks.register('compileWrapper', Exec) {
     doFirst {
         if (System.properties['os.name'].toLowerCase().contains('windows')) {
             executable "./resources/compile-windows.bat"
@@ -79,8 +79,10 @@ task compileWrapper(type: Exec) {
 }
 
 gradle.projectsEvaluated {
-    tasks.withType(JavaCompile) {
-        options.compilerArgs << "-Xlint:unchecked"
+    tasks.withType(JavaCompile).tap {
+        configureEach {
+            options.compilerArgs << "-Xlint:unchecked"
+        }
     }
 }
 
@@ -97,36 +99,26 @@ gradle.projectsEvaluated {
 }
 
 encode.manifest.attributes 'Implementation-Title': 'encode an mlt from an mvt',
-        'Main-Class': 'com.mlt.tools.Encode'
+        'Main-Class': 'com.mlt.cli.Encode'
 decode.manifest.attributes 'Implementation-Title': 'decode an mlt',
-        'Main-Class': 'com.mlt.tools.Decode'
+        'Main-Class': 'com.mlt.cli.Decode'
 meta.manifest.attributes 'Implementation-Title': 'generate a mltmetadata.pbf file from an mvt',
-        'Main-Class': 'com.mlt.tools.Meta'
+        'Main-Class': 'com.mlt.cli.Meta'
 
-task cli {
+tasks.register('cli') {
     // Uncomment the following line to clear out the jars before rebuilding
-    delete "${buildDir}/libs"
+    delete "${layout.buildDirectory}/libs"
     dependsOn encode
     dependsOn decode
     dependsOn meta
 }
 
-tasks.withType(JavaCompile) {
-    options.compilerArgs += [
-            '--add-modules', 'jdk.incubator.vector'
-    ]
+tasks.withType(JavaCompile).configureEach {
 }
 
-tasks.withType(JavaExec) {
-    jvmArgs += "--add-modules=jdk.incubator.vector"
+tasks.withType(JavaExec).configureEach {
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
-    jvmArgs += "--add-modules=jdk.incubator.vector"
-}
-
-jmh {
-    jvmArgs.add('--add-modules')
-    jvmArgs.add('jdk.incubator.vector')
 }

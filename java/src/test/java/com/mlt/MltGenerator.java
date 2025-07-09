@@ -5,7 +5,6 @@ import static com.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 import com.mlt.converter.ConversionConfig;
 import com.mlt.converter.FeatureTableOptimizations;
 import com.mlt.converter.MltConverter;
-import com.mlt.converter.RenderingOptimizedConversionConfig;
 import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
@@ -194,15 +193,13 @@ public class MltGenerator {
       MltTilesetMetadata.TileSetMetadata tileMetadata)
       throws IOException {
     var config =
-        USE_POLYGON_TESSELLATION
-            ? new RenderingOptimizedConversionConfig(
-                true,
-                USE_ADVANCED_ENCODINGS,
-                optimizations,
-                preTessellatePolygons,
-                OUTLINE_POLYGON_FEATURE_TABLE_NAMES)
-            : new ConversionConfig(
-                true, USE_ADVANCED_ENCODINGS, optimizations, USE_MORTON_ENCODING);
+        new ConversionConfig(
+            /* includeIds= */ true,
+            USE_ADVANCED_ENCODINGS,
+            optimizations,
+            USE_POLYGON_TESSELLATION,
+            USE_MORTON_ENCODING,
+            OUTLINE_POLYGON_FEATURE_TABLE_NAMES);
     return MltConverter.convertMvt(mvTile, config, tileMetadata);
   }
 
