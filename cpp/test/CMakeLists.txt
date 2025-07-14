@@ -1,14 +1,19 @@
 cmake_minimum_required(VERSION 3.12)
 project(mlt-cpp-test)
 
-add_executable(mlt-cpp-test
+set(TEST_SOURCES
     test_decode.cpp
-    test_fastpfor.cpp
     test_fsst.cpp
     test_packed_bitset.cpp
     test_util.cpp
     test_varint.cpp
 )
+
+if (MLT_WITH_FASTPFOR)
+    list(APPEND TEST_SOURCES test_fastpfor.cpp)
+endif()
+
+add_executable(mlt-cpp-test ${TEST_SOURCES})
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 
 # Tests have access to private headers

@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
+option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
 option(MLT_WITH_PROTOZERO "Include Protozero decoding of tileset metadata" ON)
 
 set_target_properties(
@@ -130,20 +131,23 @@ target_sources(mlt-cpp PRIVATE
 # SIMD Everywhere (needed on ARM)
 target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/../vendor/simde")
 
-# FastPFor
-set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
-set(SUPPORT_NEON ON CACHE BOOL "" FORCE)
+if(MLT_WITH_FASTPFOR)
+    # FastPFor
+    set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
+    set(SUPPORT_NEON ON CACHE BOOL "" FORCE)
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
-else()
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL)
-    target_compile_options(FastPFOR PUBLIC "-Wno-cast-align")
-endif()
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
+        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
+    else()
+        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL)
+        target_compile_options(FastPFOR PUBLIC "-Wno-cast-align")
+    endif()
 
-target_link_libraries(mlt-cpp FastPFOR)
-target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/fastpfor/headers")
-list(APPEND MLT_EXPORT_TARGETS FastPFOR)
+    target_link_libraries(mlt-cpp FastPFOR)
+    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/fastpfor/headers")
+    target_compile_definitions(mlt-cpp PUBLIC MLT_ENABLE_FASTPFOR=1)
+    list(APPEND MLT_EXPORT_TARGETS FastPFOR)
+endif(MLT_WITH_FASTPFOR)
 
 # FSST
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
