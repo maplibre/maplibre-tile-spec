@@ -160,10 +160,10 @@ public:
                              LogicalLevelTechnique logicalLevelTechnique1_,
                              LogicalLevelTechnique logicalLevelTechnique2_,
                              PhysicalLevelTechnique physicalLevelTechnique_,
-                             int numValues_,
-                             int byteLength_,
-                             int runs_,
-                             int numRleValues_) noexcept
+                             unsigned numValues_,
+                             unsigned byteLength_,
+                             unsigned runs_,
+                             unsigned numRleValues_) noexcept
         : StreamMetadata(physicalStreamType_,
                          std::move(logicalStreamType_),
                          logicalLevelTechnique1_,
@@ -174,7 +174,7 @@ public:
           runs(runs_),
           numRleValues(numRleValues_) {}
 
-    RleEncodedStreamMetadata(StreamMetadata&& streamMetadata, int runs_, int numRleValues_) noexcept
+    RleEncodedStreamMetadata(StreamMetadata&& streamMetadata, unsigned runs_, unsigned numRleValues_) noexcept
         : StreamMetadata(std::move(streamMetadata)),
           runs(runs_),
           numRleValues(numRleValues_) {}
@@ -192,12 +192,12 @@ public:
         return decodePartial(decodeInternal(buffer), buffer);
     }
 
-    int getRuns() const noexcept { return runs; }
-    int getNumRleValues() const noexcept { return numRleValues; }
+    unsigned getRuns() const noexcept { return runs; }
+    unsigned getNumRleValues() const noexcept { return numRleValues; }
 
 private:
-    int runs;
-    int numRleValues;
+    unsigned runs;
+    unsigned numRleValues;
 };
 
 class MortonEncodedStreamMetadata : public StreamMetadata {
@@ -207,10 +207,10 @@ public:
                                 LogicalLevelTechnique logicalLevelTechnique1_,
                                 LogicalLevelTechnique logicalLevelTechnique2_,
                                 PhysicalLevelTechnique physicalLevelTechnique_,
-                                int numValues_,
-                                int byteLength_,
-                                int numBits_,
-                                int coordinateShift_) noexcept
+                                unsigned numValues_,
+                                unsigned byteLength_,
+                                unsigned numBits_,
+                                unsigned coordinateShift_) noexcept
         : StreamMetadata(physicalStreamType_,
                          std::move(logicalStreamType_),
                          logicalLevelTechnique1_,
@@ -237,12 +237,12 @@ public:
         return decodePartial(decodeInternal(buffer), buffer);
     }
 
-    int getNumBits() const noexcept { return numBits; }
-    int getCoordinateShift() const noexcept { return coordinateShift; }
+    unsigned getNumBits() const noexcept { return numBits; }
+    unsigned getCoordinateShift() const noexcept { return coordinateShift; }
 
 private:
-    int numBits;
-    int coordinateShift;
+    unsigned numBits;
+    unsigned coordinateShift;
 };
 
 class PdeEncodedMetadata {};

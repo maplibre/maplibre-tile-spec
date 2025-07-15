@@ -26,51 +26,54 @@ set_target_properties(
     INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
 )
 
-target_compile_options(mlt-cpp
-    PRIVATE
-        -Werror
-        -Wno-trigraphs
-        -Wno-missing-field-initializers
-        -Wno-return-type
-        -Wno-non-virtual-dtor
-        -Wno-overloaded-virtual
-        -Wno-exit-time-destructors
-        -Wno-missing-braces
-        -Wparentheses
-        -Wswitch
-        -Wno-unused-function
-        -Wno-unused-label
-        -Wno-unused-parameter
-        -Wno-unused-variable
-        -Wunused-value
-        -Wno-empty-body
-        -Wno-uninitialized
-        -Wno-unknown-pragmas
-        -Wno-shadow
-        -Wno-four-char-constants
-        -Wno-conversion
-        -Wno-constant-conversion
-        -Wno-bool-conversion
-        -Wno-enum-conversion
-        -Wno-float-conversion
-        -Wno-non-literal-null-conversion
-        -Wno-objc-literal-conversion
-        -Wno-newline-eof
-        -Wno-c++11-extensions
-        -Wno-implicit-fallthrough
-        -fstrict-aliasing
-        -Wdeprecated-declarations
-        -Winvalid-offsetof
-        -Wno-sign-conversion
-        -Wno-infinite-recursion
-        -Wno-move
-        -Wno-comma
-        -Wno-block-capture-autoreleasing
-        -Wno-range-loop-analysis
-        -Wno-semicolon-before-method-body
-)
+add_cxx_compiler_flag(-Wall)
+add_cxx_compiler_flag(-Werror)
+add_cxx_compiler_flag(-Wextra)
 
+add_cxx_compiler_flag(-Wdeprecated-declarations)
+add_cxx_compiler_flag(-Winvalid-offsetof)
+add_cxx_compiler_flag(-Wno-block-capture-autoreleasing)
+add_cxx_compiler_flag(-Wno-bool-conversion)
+add_cxx_compiler_flag(-Wno-c++11-extensions)
+add_cxx_compiler_flag(-Wno-comma)
+add_cxx_compiler_flag(-Wno-constant-conversion)
+add_cxx_compiler_flag(-Wno-conversion)
+add_cxx_compiler_flag(-Wno-empty-body)
+add_cxx_compiler_flag(-Wno-enum-conversion)
+add_cxx_compiler_flag(-Wno-exit-time-destructors)
+add_cxx_compiler_flag(-Wno-float-conversion)
+add_cxx_compiler_flag(-Wno-four-char-constants)
+add_cxx_compiler_flag(-Wno-implicit-fallthrough)
+add_cxx_compiler_flag(-Wno-infinite-recursion)
+add_cxx_compiler_flag(-Wno-missing-braces)
+add_cxx_compiler_flag(-Wno-missing-field-initializers)
+add_cxx_compiler_flag(-Wno-move)
+add_cxx_compiler_flag(-Wno-newline-eof)
+add_cxx_compiler_flag(-Wno-non-literal-null-conversion)
+add_cxx_compiler_flag(-Wno-non-virtual-dtor)
+add_cxx_compiler_flag(-Wno-objc-literal-conversion)
+add_cxx_compiler_flag(-Wno-overloaded-virtual)
+add_cxx_compiler_flag(-Wno-range-loop-analysis)
+add_cxx_compiler_flag(-Wno-return-type)
+add_cxx_compiler_flag(-Wno-semicolon-before-method-body)
+add_cxx_compiler_flag(-Wno-shadow)
+add_cxx_compiler_flag(-Wno-sign-conversion)
+add_cxx_compiler_flag(-Wno-trigraphs)
+add_cxx_compiler_flag(-Wno-uninitialized)
+add_cxx_compiler_flag(-Wno-unknown-pragmas)
+add_cxx_compiler_flag(-Wno-unused-function)
+add_cxx_compiler_flag(-Wno-unused-label)
+add_cxx_compiler_flag(-Wno-unused-parameter)
+add_cxx_compiler_flag(-Wno-unused-variable)
+add_cxx_compiler_flag(-Wparentheses)
 add_cxx_compiler_flag(-Wshorten-64-to-32)
+add_cxx_compiler_flag(-Wswitch)
+add_cxx_compiler_flag(-Wunused-value)
+add_cxx_compiler_flag(-fstrict-aliasing)
+add_cxx_compiler_flag(-wd4061) # MSVC: enum member not handled in switch
+add_cxx_compiler_flag(-wd4514) # MSVC: unreferenced inline function has been removed
+add_cxx_compiler_flag(-wd4710) # MSVC: function not inlined
+add_cxx_compiler_flag(-wd4820) # MSVC: padding added after data member
 
 target_include_directories(mlt-cpp
     PUBLIC ${PROJECT_SOURCE_DIR}/include
@@ -133,8 +136,10 @@ target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/../vendor/simd
 
 if(MLT_WITH_FASTPFOR)
     # FastPFor
-    set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
-    set(SUPPORT_NEON ON CACHE BOOL "" FORCE)
+    set(WITH_TEST  OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
+
+    # SUPPORT_NEON results in trying to link simde (`-lsimde`) but it's a header-only library
+    set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
 
     if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
         add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)

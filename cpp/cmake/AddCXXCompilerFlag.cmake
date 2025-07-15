@@ -72,4 +72,3 @@ function(check_cxx_warning_flag FLAG)
   check_cxx_compiler_flag("${FLAG}" ${MANGLED_FLAG})
   set(CMAKE_REQUIRED_FLAGS "${OLD_CMAKE_REQUIRED_FLAGS}")
 endfunction()
-

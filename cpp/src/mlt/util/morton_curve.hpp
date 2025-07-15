@@ -36,7 +36,7 @@ private:
         const auto shiftedX = static_cast<std::uint32_t>(vertex.x + coordinateShift);
         const auto shiftedY = static_cast<std::uint32_t>(vertex.y + coordinateShift);
         std::uint32_t mortonCode = 0;
-        for (int i = 0; i < numBits; ++i) {
+        for (std::uint32_t i = 0; i < numBits; ++i) {
             const auto mask = 1u << i;
             mortonCode |= ((shiftedX & mask) << i) | ((shiftedY & mask) << (i + 1));
         }

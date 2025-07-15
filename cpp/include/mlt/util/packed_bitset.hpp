@@ -21,7 +21,9 @@ static inline bool testBit(const PackedBitset& bitset, std::size_t i) noexcept {
 static inline std::size_t countSetBits(const PackedBitset& bitset) {
     // NOLINTNEXTLINE(boost-use-ranges)
     return std::accumulate(
-        bitset.begin(), bitset.end(), 0, [](const auto total, const auto byte) { return total + std::popcount(byte); });
+        bitset.begin(), bitset.end(), static_cast<std::size_t>(0), [](const auto total, const auto byte) {
+            return total + static_cast<unsigned>(std::popcount(byte));
+        });
 }
 
 /// Return the index of the next set bit within the bitstream

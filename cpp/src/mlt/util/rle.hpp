@@ -135,7 +135,7 @@ void decodeInt(
     std::function<TTarget(T)> convert = [](T x) { return static_cast<TTarget>(x); }) {
     std::uint32_t inOffset = 0;
     std::uint32_t outOffset = 0;
-    for (auto i = 0; i < numRuns; ++i) {
+    for (std::uint32_t i = 0; i < numRuns; ++i) {
         if (inCount < inOffset + 2) {
             throw std::runtime_error("Unexpected end of buffer");
         }

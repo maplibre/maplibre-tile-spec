@@ -49,9 +49,9 @@ int main(int argc, char** argv) {
     std::uint32_t y = 0;
     std::uint32_t z = 0;
     if (argc == 5) {
-        z = std::stoul(argv[2]);
-        x = std::stoul(argv[3]);
-        y = std::stoul(argv[4]);
+        z = static_cast<std::uint32_t>(std::stoul(argv[2]));
+        x = static_cast<std::uint32_t>(std::stoul(argv[3]));
+        y = static_cast<std::uint32_t>(std::stoul(argv[4]));
     }
 
     // using mlt::metadata::tileset::TileSetMetadata;

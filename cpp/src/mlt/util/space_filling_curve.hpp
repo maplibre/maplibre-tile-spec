@@ -10,13 +10,14 @@ namespace mlt::util {
 class SpaceFillingCurve {
 public:
     SpaceFillingCurve(std::int32_t minVertexValue, std::int32_t maxVertexValue)
-        : minBound(minVertexValue),
-          maxBound(maxVertexValue),
-          coordinateShift((minVertexValue < 0) ? std::abs(minVertexValue) : 0),
+        : coordinateShift((minVertexValue < 0) ? std::abs(minVertexValue) : 0),
           tileExtent(maxVertexValue + coordinateShift),
-          numBits(static_cast<std::uint32_t>(std::ceil(std::log2(tileExtent)))) {
+          numBits(static_cast<std::uint32_t>(std::ceil(std::log2(tileExtent)))),
+          minBound(minVertexValue),
+          maxBound(maxVertexValue) {
         // TODO: fix tile buffer problem
     }
+    virtual ~SpaceFillingCurve() = default;
 
     virtual std::uint32_t encode(const Coordinate& vertex) const = 0;
 
@@ -29,7 +30,8 @@ public:
 protected:
     void validate(const Coordinate& vertex) const {
         // TODO: also check for int overflow as we are limiting the sfc ids to max int size
-        if (vertex.x < minBound || vertex.y < minBound || vertex.x > maxBound || vertex.y > maxBound) {
+        if (vertex.x < static_cast<float>(minBound) || vertex.y < static_cast<float>(minBound) ||
+            vertex.x > static_cast<float>(maxBound) || vertex.y > static_cast<float>(maxBound)) {
             throw std::runtime_error("The specified tile buffer size is currently not supported");
         }
     }

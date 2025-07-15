@@ -9,8 +9,8 @@
 namespace mlt::geometry {
 
 struct MortonSettings {
-    int numBits;
-    int coordinateShift;
+    unsigned numBits;
+    unsigned coordinateShift;
 };
 
 enum class VertexBufferType : std::uint32_t {
@@ -63,8 +63,8 @@ protected:
                    std::optional<TopologyVector>&& topologyVector_,
                    std::optional<MortonSettings> mortonSettings_ = {}) noexcept
         : numGeometries(numGeometries_),
+          scale(1.0f),
           singleType(singleType_),
-          scale(),
           indexBuffer(std::move(indexBuffer_)),
           vertexBuffer(std::move(vertexBuffer_)),
           vertexBufferType(vertexBufferType_),

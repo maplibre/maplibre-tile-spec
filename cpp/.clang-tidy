@@ -114,10 +114,10 @@ Checks: [
     -misc-include-cleaner,
     -readability-redundant-inline-specifier,
     -readability-avoid-nested-conditional-operator,
-    -cppcoreguidelines-pro-type-static-cast-downcast  # no RTTI
+    -cppcoreguidelines-pro-type-static-cast-downcast, # no RTTI
 ]
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*'
 CheckOptions:	
-  - key:   performance-unnecessary-value-param.AllowedTypes	
+  - key:   performance-unnecessary-value-param.AllowedTypes
     value: 'exception_ptr'

@@ -3,6 +3,7 @@
 #include <mlt/common.hpp>
 #include <mlt/util/noncopyable.hpp>
 
+#include <cstdint>
 #include <stdexcept>
 
 namespace mlt {
@@ -34,7 +35,7 @@ struct BufferStream : public util::noncopyable {
         check(sizeof(T));
         const T* p = getReadPosition<T>();
         consume(sizeof(T));
-        return *p;
+        return static_cast<DataView::value_type>(*p);
     }
 
     template <typename T = std::uint8_t>

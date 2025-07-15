@@ -181,10 +181,6 @@ public:
                             break;
                         }
                         default:
-                        case DictionaryType::NONE:
-                        case DictionaryType::SINGLE:
-                        case DictionaryType::SHARED:
-                        case DictionaryType::FSST:
                             throw std::runtime_error("Dictionary type '" + std::to_string(std::to_underlying(type)) +
                                                      "' not implemented: " + column.name);
                     }

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #if MLT_WITH_JSON
 
 #include <mlt/geojson.hpp>
@@ -47,7 +48,7 @@ private:
                 const auto s = v.get<std::string>();
                 char* end = nullptr;
                 const auto d = std::strtof(s.c_str(), &end);
-                if (end - s.c_str() == s.size()) {
+                if (end - s.c_str() == static_cast<std::ptrdiff_t>(s.size())) {
                     return d;
                 }
                 return {}; // not a number
