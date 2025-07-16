@@ -45,7 +45,7 @@ impl Decoder {
             let version = self.tile.get_u8();
             let infos = varint::decode(&mut self.tile, 5);
 
-            println!("infos: {:?}", infos);
+            println!("infos: {infos:?}");
 
             let feature_table_id = infos.first().ok_or_else(|| {
                 MltError::DecodeError("Failed to read feature table id".to_string())
@@ -58,8 +58,7 @@ impl Decoder {
                 .get(*feature_table_id as usize)
                 .ok_or_else(|| {
                     MltError::DecodeError(format!(
-                        "Failed to read feature table metadata for id {}",
-                        feature_table_id
+                        "Failed to read feature table metadata for id {feature_table_id}"
                     ))
                 })?;
 
@@ -150,7 +149,7 @@ mod tests {
         .expect("Failed to read metadata");
 
         // Write metadata to a txt file
-        let metadata_str = format!("{:#?}", metadata);
+        let metadata_str = format!("{metadata:#?}");
         fs::write("../target/metadata_output.txt", metadata_str)
             .expect("Failed to write metadata to file");
 
