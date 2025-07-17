@@ -24,17 +24,49 @@ public:
         : intDecoder(intDecoder_),
           stringDecoder(stringDecoder_) {}
 
-    PresentProperties decodePropertyColumn(BufferStream& tileData,
-                                           const metadata::tileset::Column& column,
-                                           std::uint32_t numStreams) {
+    std::optional<PresentProperties> decodePropertyColumn(BufferStream& tileData,
+                                                          const metadata::tileset::Column& column,
+                                                          std::uint32_t numStreams) {
+        using namespace metadata::tileset;
+        if (std::holds_alternative<ScalarColumn>(column.type)) {
+            // TODO
+            // if(propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)){
+            //    skipColumn(numStreams, data, offset);
+            //    return std::nullopt;
+            //}
+
+            return decodeScalarPropertyColumn(tileData, column, numStreams);
+        }
+
+        // TODO
+        // return StringDecoder::decodeSharedDictionary(data, offset, columnMetadata, numFeatures, propertyColumnNames);
+        skipColumn(tileData, numStreams);
+        return std::nullopt;
+    }
+
+protected:
+    void skipColumn(BufferStream& tileData, std::uint32_t numStreams) {
+        using namespace metadata::stream;
+        using namespace util::decoding;
+
+        for (std::uint32_t i = 0; i < numStreams; ++i) {
+            auto streamMetadata = StreamMetadata::decode(tileData);
+            if (!streamMetadata) {
+                throw std::runtime_error("Failed to decode stream metadata");
+            }
+
+            // Skip the stream data
+            tileData.consume(streamMetadata->getByteLength());
+        }
+    }
+
+    PresentProperties decodeScalarPropertyColumn(BufferStream& tileData,
+                                                 const metadata::tileset::Column& column,
+                                                 std::uint32_t numStreams) {
         using namespace metadata;
         using namespace metadata::stream;
         using namespace metadata::tileset;
         using namespace util::decoding;
-
-        if (!std::holds_alternative<ScalarColumn>(column.type)) {
-            throw std::runtime_error("Missing property type");
-        }
 
         PackedBitset presentStream;
         std::uint32_t presentValueCount = 0;

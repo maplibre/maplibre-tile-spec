@@ -59,7 +59,6 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
 
     while (tileData.available()) {
         std::vector<Feature::id_t> ids;
-        // std::vector<std::unique_ptr<Geometry>> geometries;
         std::unique_ptr<geometry::GeometryVector> geometryVector;
         PropertyVecMap properties;
 
@@ -117,7 +116,9 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMeta
                 geometryVector = impl->geometryDecoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
             } else {
                 auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
-                properties.emplace(columnMetadata.name, std::move(property));
+                if (property) {
+                    properties.emplace(columnMetadata.name, std::move(*property));
+                }
             }
         }
 
