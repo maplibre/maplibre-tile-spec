@@ -24,7 +24,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !vendor/fsst/paper/*
 
       - name: Configure with CMake
         run: cmake -B build -S .
