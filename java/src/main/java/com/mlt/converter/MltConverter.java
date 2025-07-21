@@ -8,6 +8,8 @@ import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.data.Feature;
 import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -208,6 +210,26 @@ public class MltConverter {
     }
 
     return tilesetBuilder.build();
+  }
+
+  public static byte[] createEmbeddedMetadata(
+      Iterable<MapboxVectorTile> mvTiles,
+      Optional<List<ColumnMapping>> columnMappings,
+      boolean isIdPresent) {
+
+    // Use the protobuf format to avoid repeating the logic there
+    var pbMeta = createTilesetMetadata(mvTiles, columnMappings, isIdPresent);
+
+    try (var byteStream = new ByteArrayOutputStream()) {
+      try (var stream = new DataOutputStream(byteStream)) {
+        // TODO
+      }
+      byteStream.flush();
+      return byteStream.toByteArray();
+    } catch (IOException ex) {
+      // TODO: log
+      return null;
+    }
   }
 
   /*

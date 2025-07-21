@@ -8,6 +8,10 @@ import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.data.MapLibreTile;
 import com.mlt.decoder.MltDecoder;
+import com.mlt.metadata.tileset.MltTilesetMetadata;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -103,6 +107,8 @@ public class Encode {
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "metadata";
+  private static final String INCLUDE_EMBEDDED_METADATA = "embedmetadata";
+  private static final String INCLUDE_EMBEDDED_PBF_METADATA = "embedpbfmetadata";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
@@ -126,89 +132,103 @@ public class Encode {
         Option.builder(OUTPUT_DIR_ARG)
             .hasArg(true)
             .desc(
-                "Output directory to write an MLT file to ([OPTIONAL], default: no file is written)")
+                "Output directory to write an MLT file to "
+                    + "([OPTIONAL], default: no file is written)")
             .required(false)
             .build());
     options.addOption(
         Option.builder(OUTPUT_FILE_ARG)
             .hasArg(true)
-            .desc("Output file to write an MLT file to ([OPTIONAL], default: no file is written)")
+            .desc(
+                "Output file to write an MLT file to "
+                    + "([OPTIONAL], default: no file is written)")
             .required(false)
             .build());
     options.addOption(
         Option.builder(EXCLUDE_IDS_OPTION)
             .hasArg(false)
-            .desc("Don't include feature IDs ([OPTIONAL, default: false])")
+            .desc("Don't include feature IDs")
             .required(false)
             .build());
     options.addOption(
         Option.builder(INCLUDE_TILESET_METADATA_OPTION)
             .hasArg(false)
-            .desc("Include tileset metadata in the output ([OPTIONAL], default: false)")
+            .desc("Write tileset metadata (PBF) alongside the output (adding '.meta.pbf')")
+            .required(false)
+            .build());
+    options.addOption(
+        Option.builder(INCLUDE_EMBEDDED_METADATA)
+            .hasArg(true)
+            .desc("Write output with embedded metadata ([OPTIONAL])")
+            .required(false)
+            .build());
+    options.addOption(
+        Option.builder(INCLUDE_EMBEDDED_PBF_METADATA)
+            .hasArg(true)
+            .desc("Write output with embedded PBF metadata ([OPTIONAL])")
             .required(false)
             .build());
     options.addOption(
         Option.builder(ADVANCED_ENCODING_OPTION)
             .hasArg(false)
-            .desc("Enable advanced encodings (fsst & fastpfor) ([OPTIONAL], default: false)")
+            .desc("Enable advanced encodings (FSST & FastPFOR)")
             .required(false)
             .build());
     options.addOption(
         Option.builder(NO_MORTON_OPTION)
             .hasArg(false)
-            .desc("Disable Morton encoding ([OPTIONAL], default: false)")
+            .desc("Disable Morton encoding")
             .required(false)
             .build());
     options.addOption(
         Option.builder(PRE_TESSELLATE_OPTION)
             .hasArg(false)
-            .desc("Include tessellation in the tile data ([OPTIONAL], default: false)")
+            .desc("Include tessellation data in the tile")
             .required(false)
             .build());
     options.addOption(
         Option.builder(OUTLINE_FEATURE_TABLES_OPTION)
             .hasArgs()
             .desc(
-                "The feature tables for which outlines are included ([OPTIONAL], comma-separated, * for all, default: none)")
+                "The feature tables for which outlines are included "
+                    + "([OPTIONAL], comma-separated, * for all, default: none)")
             .valueSeparator(',')
             .required(false)
             .build());
     options.addOption(
         Option.builder(DECODE_OPTION)
             .hasArg(false)
-            .desc("Test decoding the tile after encoding it ([OPTIONAL], default: false)")
+            .desc("Test decoding the tile after encoding it")
             .required(false)
             .build());
     options.addOption(
         Option.builder(PRINT_MLT_OPTION)
             .hasArg(false)
-            .desc("Print the MLT tile after encoding it ([OPTIONAL], default: false)")
+            .desc("Print the MLT tile after encoding it")
             .required(false)
             .build());
     options.addOption(
         Option.builder(PRINT_MVT_OPTION)
             .hasArg(false)
-            .desc("Print the round tripped MVT tile ([OPTIONAL], default: false)")
+            .desc("Print the round-tripped MVT tile")
             .required(false)
             .build());
     options.addOption(
         Option.builder(COMPARE_OPTION)
             .hasArg(false)
-            .desc(
-                "Assert that data in the the decoded tile is the same as the data in the input tile ([OPTIONAL], default: false)")
+            .desc("Assert that data in the the decoded tile is the same as the input tile")
             .required(false)
             .build());
     options.addOption(
         Option.builder(VECTORIZED_OPTION)
             .hasArg(false)
-            .desc(
-                "Use the vectorized decoding path ([OPTIONAL], default: will use non-vectorized path)")
+            .desc("Use the vectorized decoding path")
             .required(false)
             .build());
     options.addOption(
         Option.builder(TIMER_OPTION)
             .hasArg(false)
-            .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
+            .desc("Print the time it takes, in ms, to decode a tile")
             .required(false)
             .build());
     CommandLineParser parser = new DefaultParser();
@@ -219,7 +239,11 @@ public class Encode {
         throw new ParseException(
             "Cannot specify both '-" + OUTPUT_FILE_ARG + "' and '-" + OUTPUT_DIR_ARG + "' options");
       }
-      var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
+      var willOutput =
+          cmd.hasOption(OUTPUT_FILE_ARG)
+              || cmd.hasOption(OUTPUT_DIR_ARG)
+              || cmd.hasOption(INCLUDE_EMBEDDED_METADATA)
+              || cmd.hasOption(INCLUDE_EMBEDDED_PBF_METADATA);
       var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
       var willIncludeTilesetMetadata = cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION);
       var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
@@ -285,6 +309,22 @@ public class Encode {
             tileMetadata.writeTo(Files.newOutputStream(outputMetadataPath));
           }
         }
+
+        if (cmd.hasOption(INCLUDE_EMBEDDED_PBF_METADATA)) {
+          var tileOutputPath = Paths.get(cmd.getOptionValue(INCLUDE_EMBEDDED_PBF_METADATA));
+          writeTileWithEmbeddedMetadata(tileOutputPath, mlTile, tileMetadata);
+        }
+        if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
+          var tileOutputPath = Paths.get(cmd.getOptionValue(INCLUDE_EMBEDDED_METADATA));
+          var metadata =
+              MltConverter.createEmbeddedMetadata(
+                  List.of(decodedMvTile), columnMappings, isIdPresent);
+          if (metadata != null) {
+            writeTileWithEmbeddedMetadata(tileOutputPath, mlTile, metadata);
+          } else {
+            System.out.println("Failed to generate embedded metadata");
+          }
+        }
       }
       if (willPrintMVT) {
         printMVT(decodedMvTile);
@@ -310,6 +350,39 @@ public class Encode {
       System.err.println("Failed:");
       e.printStackTrace(System.err);
       System.exit(1);
+    }
+  }
+
+  /// Write the binary metadata before the tile data
+  private static void writeTileWithEmbeddedMetadata(
+      Path tileOutputPath, byte[] mlTile, byte[] tileMetadata) {
+    try (var stream = Files.newOutputStream(tileOutputPath)) {
+      stream.write(tileMetadata);
+      stream.write(mlTile);
+    } catch (IOException ex) {
+      System.err.println("Failed to write tile with embedded metadata:");
+      ex.printStackTrace(System.err);
+    }
+  }
+
+  /// Write the serialized PBF metadata, preceded by a length header before the tile data
+  private static void writeTileWithEmbeddedMetadata(
+      Path tileOutputPath, byte[] mlTile, MltTilesetMetadata.TileSetMetadata tileMetadata) {
+    try (var stream = Files.newOutputStream(tileOutputPath)) {
+      byte[] binaryMetadata;
+      try (var metadataStream = new ByteArrayOutputStream()) {
+        tileMetadata.writeTo(metadataStream);
+        metadataStream.flush();
+        binaryMetadata = metadataStream.toByteArray();
+      }
+      try (var binStream = new DataOutputStream(stream)) {
+        binStream.writeShort(binaryMetadata.length);
+      }
+      stream.write(binaryMetadata);
+      stream.write(mlTile);
+    } catch (IOException ex) {
+      System.err.println("Failed to write tile with embedded PBF metadata:");
+      ex.printStackTrace(System.err);
     }
   }
 }
