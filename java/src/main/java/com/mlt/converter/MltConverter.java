@@ -11,9 +11,11 @@ import com.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class MltConverter {
@@ -34,6 +36,7 @@ public class MltConverter {
    * To bring the flattened MVT properties into a nested structure it has to have the following structure:
    * propertyPrefix|Delimiter|propertySuffix -> Example: name, name:us, name:en
    * */
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
       Iterable<MapboxVectorTile> mvTiles,
       Optional<List<ColumnMapping>> columnMappings,
@@ -212,6 +215,7 @@ public class MltConverter {
     return tilesetBuilder.build();
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static byte[] createEmbeddedMetadata(
       Iterable<MapboxVectorTile> mvTiles,
       Optional<List<ColumnMapping>> columnMappings,
@@ -243,8 +247,9 @@ public class MltConverter {
    */
   public static byte[] convertMvt(
       MapboxVectorTile mvt,
+      MltTilesetMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
-      MltTilesetMetadata.TileSetMetadata tilesetMetadata)
+      @Nullable URI tessellateSource)
       throws IOException {
     var physicalLevelTechnique =
         config.getUseAdvancedEncodingSchemes()
@@ -287,7 +292,8 @@ public class MltConverter {
               mvtFeatures,
               mvtFeatures,
               physicalLevelTechnique,
-              createPolygonOutline);
+              createPolygonOutline,
+              tessellateSource);
       var sortedFeatures = result.getLeft();
       var encodedGeometryColumn = result.getRight();
       var encodedGeometryFieldMetadata =
@@ -367,7 +373,8 @@ public class MltConverter {
           List<Feature> sortedFeatures,
           List<Feature> mvtFeatures,
           PhysicalLevelTechnique physicalLevelTechnique,
-          boolean encodePolygonOutlines) {
+          boolean encodePolygonOutlines,
+          @Nullable URI tessellateSource) {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:
      * - if id column is present and ids should not be reassigned -> sort id column
@@ -403,7 +410,8 @@ public class MltConverter {
                 physicalLevelTechnique,
                 sortSettings,
                 useMortonEncoding,
-                encodePolygonOutlines)
+                encodePolygonOutlines,
+                tessellateSource)
             : GeometryEncoder.encodeGeometryColumn(
                 geometries, physicalLevelTechnique, sortSettings, config.getUseMortonEncoding());
 

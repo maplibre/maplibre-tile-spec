@@ -75,6 +75,7 @@ public class MvtUtils {
     return decodeMvt(mvtTile, Optional.empty());
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static MapboxVectorTile decodeMvt(
       byte[] mvtTile, Optional<List<ColumnMapping>> columnMappings) throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
@@ -144,6 +145,7 @@ public class MvtUtils {
     return new MapboxVectorTile(layers);
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static Map<String, Object> transformNestedPropertyNames(
       Map<?, ?> properties, Optional<List<ColumnMapping>> columnMappings) {
     var transformedProperties = new LinkedHashMap<String, Object>();

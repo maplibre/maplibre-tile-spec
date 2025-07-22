@@ -30,6 +30,9 @@ dependencies {
     implementation 'io.github.earcut4j:earcut4j:2.2.2'
     implementation 'com.google.code.gson:gson:2.8.8'
 
+    implementation 'org.imintel:mbtiles4j:1.0.6'
+    implementation 'org.xerial:sqlite-jdbc:3.34.0'
+
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.3'
