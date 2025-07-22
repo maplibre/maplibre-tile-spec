@@ -30,6 +30,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.EndianUtils;
 import org.apache.commons.io.IOUtils;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
@@ -287,15 +288,18 @@ public class Encode {
       byte[] binaryMetadata;
       try (var metadataStream = new ByteArrayOutputStream()) {
         tileMetadata.writeTo(metadataStream);
-        metadataStream.flush();
+        metadataStream.close();
         binaryMetadata = metadataStream.toByteArray();
       }
+      if (binaryMetadata.length >= 1 << 16) {
+        throw new NumberFormatException("Invalid metadata size");
+      }
       try (var binStream = new DataOutputStream(stream)) {
-        binStream.writeShort(binaryMetadata.length);
+        binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
       }
       stream.write(binaryMetadata);
       stream.write(mlTile);
-      stream.flush();
+      stream.close();
       tileData = stream.toByteArray();
     } catch (IOException ex) {
       System.err.printf(
