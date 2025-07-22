@@ -32,6 +32,7 @@ dependencies {
 
     implementation 'org.imintel:mbtiles4j:1.0.6'
     implementation 'org.xerial:sqlite-jdbc:3.34.0'
+    implementation 'org.apache.commons:commons-compress:1.27.1'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'

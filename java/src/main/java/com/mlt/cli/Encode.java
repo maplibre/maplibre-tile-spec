@@ -13,6 +13,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -20,9 +22,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 import javax.annotation.Nullable;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -30,13 +37,17 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.compress.compressors.deflate.DeflateCompressorOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.EndianUtils;
-import org.apache.commons.io.IOUtils;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
 import org.imintel.mbtiles4j.MBTilesWriter;
 import org.imintel.mbtiles4j.Tile;
+import org.jetbrains.annotations.NotNull;
 
 public class Encode {
   public static void main(String[] args) {
@@ -55,6 +66,7 @@ public class Encode {
       var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
       var preTessellatePolygons =
           (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
+      var compress = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
       var verbose = cmd.hasOption(VERBOSE_OPTION);
 
       // No ColumnMapping as support is still buggy:
@@ -83,7 +95,13 @@ public class Encode {
         var inputMBTilesPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
         var outputPath = getOutputPath(cmd, inputMBTilesPath);
         encodeMBTiles(
-            inputMBTilesPath, outputPath, columnMappings, conversionConfig, tessellateURI, verbose);
+            inputMBTilesPath,
+            outputPath,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            compress,
+            verbose);
       }
     } catch (Exception e) {
       System.err.println("Failed:");
@@ -198,6 +216,7 @@ public class Encode {
       Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      String compress,
       boolean verbose) {
     MBTilesReader mbTilesReader = null;
     try {
@@ -229,6 +248,7 @@ public class Encode {
                 columnMappings,
                 conversionConfig,
                 tessellateSource,
+                compress,
                 verbose);
           }
 
@@ -269,12 +289,15 @@ public class Encode {
       Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      String compress,
       boolean verbose)
       throws IOException, MBTilesWriteException {
     var x = tile.getColumn();
     var y = tile.getRow();
     var z = tile.getZoom();
-    var decodedMvTile = MvtUtils.decodeMvt(IOUtils.toByteArray(tile.getData()));
+
+    var srcTileData = getTileData(tile);
+    var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
 
     var isIdPresent = true;
     var tileMetadata =
@@ -284,26 +307,36 @@ public class Encode {
         MltConverter.convertMvt(decodedMvTile, tileMetadata, conversionConfig, tessellateSource);
 
     byte[] tileData = null;
-    try (var stream = new ByteArrayOutputStream()) {
-      byte[] binaryMetadata;
-      try (var metadataStream = new ByteArrayOutputStream()) {
-        tileMetadata.writeTo(metadataStream);
-        metadataStream.close();
-        binaryMetadata = metadataStream.toByteArray();
+    try (var outputStream = new ByteArrayOutputStream()) {
+      try (var compressStream = compressStream(outputStream, compress)) {
+        byte[] binaryMetadata;
+        try (var metadataStream = new ByteArrayOutputStream()) {
+          tileMetadata.writeTo(metadataStream);
+          metadataStream.close();
+          binaryMetadata = metadataStream.toByteArray();
+        }
+        if (binaryMetadata.length >= 1 << 16) {
+          throw new NumberFormatException("Invalid metadata size");
+        }
+
+        // Can't use auto close, DataOutputStream closes the target stream
+        var binStream = new DataOutputStream(compressStream);
+        try {
+          binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
+          binStream.flush();
+
+          compressStream.write(binaryMetadata);
+          compressStream.write(mlTile);
+        } finally {
+          binStream.close();
+        }
       }
-      if (binaryMetadata.length >= 1 << 16) {
-        throw new NumberFormatException("Invalid metadata size");
-      }
-      try (var binStream = new DataOutputStream(stream)) {
-        binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
-      }
-      stream.write(binaryMetadata);
-      stream.write(mlTile);
-      stream.close();
-      tileData = stream.toByteArray();
+      outputStream.close();
+      tileData = outputStream.toByteArray();
     } catch (IOException ex) {
       System.err.printf(
-          "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d)\n", z, x, y);
+          "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s\n",
+          z, x, y, ex.getMessage());
     }
 
     if (tileData != null) {
@@ -311,8 +344,63 @@ public class Encode {
     }
 
     if (verbose) {
-      System.err.printf("Encoded %d:%d,%d%n", z, x, y);
+      System.err.printf("Added %d:%d,%d%n", z, x, y);
     }
+  }
+
+  private static OutputStream compressStream(OutputStream src, @NotNull String compress) {
+    if (Objects.equals(compress, "gzip")) {
+      try {
+        var parameters = new GzipParameters();
+        parameters.setCompressionLevel(9);
+        return new GzipCompressorOutputStream(src, parameters);
+      } catch (IOException ignore) {
+      }
+    }
+    if (Objects.equals(compress, "deflate")) {
+      return new DeflateCompressorOutputStream(src);
+    }
+    return src;
+  }
+
+  private static byte[] getTileData(Tile tile) throws IOException {
+    var srcTileStream = tile.getData();
+
+    // If the tile data is compressed, decompress it
+    try {
+      InputStream decompressInputStream = null;
+      if (srcTileStream.available() > 1) {
+        byte byte0 = (byte) srcTileStream.read();
+        if (byte0 == 0x78) {
+          // raw deflate
+          decompressInputStream =
+              new InflaterInputStream(srcTileStream, new Inflater(/* nowrap= */ true));
+        } else if (byte0 == 0x1f && srcTileStream.available() > 1) {
+          byte byte1 = (byte) srcTileStream.read();
+          srcTileStream.reset();
+          if (byte1 == (byte) 0x8b) {
+            // TODO: why doesn't InflaterInputStream / GZIPInputStream work here?
+            // decompressInputStream = new GZIPInputStream(srcTileStream);
+            decompressInputStream = new GzipCompressorInputStream(srcTileStream);
+          }
+        } else {
+          srcTileStream.reset();
+        }
+      }
+
+      if (decompressInputStream != null) {
+        try (var outputStream = new ByteArrayOutputStream()) {
+          decompressInputStream.transferTo(outputStream);
+          outputStream.close();
+          return outputStream.toByteArray();
+        }
+      }
+    } catch (IndexOutOfBoundsException | IOException ex) {
+      System.err.printf("Failed to decompress tile: %s", ex.getMessage());
+    }
+
+    srcTileStream.reset();
+    return srcTileStream.readAllBytes();
   }
 
   public static void printMVT(MapboxVectorTile mvTile) {
@@ -441,6 +529,10 @@ public class Encode {
   private static final String COMPARE_OPTION = "compare";
   private static final String VECTORIZED_OPTION = "vectorized";
   private static final String TIMER_OPTION = "timer";
+  private static final String COMPRESS_OPTION = "compress";
+  private static final String COMPRESS_OPTION_DEFLATE = "deflate";
+  private static final String COMPRESS_OPTION_GZIP = "gzip";
+  private static final String COMPRESS_OPTION_NONE = "none";
   private static final String VERBOSE_OPTION = "verbose";
   private static final String HELP_OPTION = "help";
 
@@ -621,6 +713,14 @@ public class Encode {
               .build());
       options.addOption(
           Option.builder()
+              .longOpt(COMPRESS_OPTION)
+              .hasArg(true)
+              .argName("algorithm")
+              .desc("Compress tile data with one of 'deflate', 'gzip'")
+              .required(false)
+              .build());
+      options.addOption(
+          Option.builder()
               .option("v")
               .longOpt(VERBOSE_OPTION)
               .hasArg(false)
@@ -651,6 +751,10 @@ public class Encode {
       } else if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
         System.err.println(
             "Cannot specify both '-" + OUTPUT_FILE_ARG + "' and '-" + OUTPUT_DIR_ARG + "' options");
+      } else if (!new HashSet<>(
+              Arrays.asList(COMPRESS_OPTION_GZIP, COMPRESS_OPTION_DEFLATE, COMPRESS_OPTION_NONE))
+          .contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE))) {
+        System.err.println("Invalid compression type");
       } else {
         return cmd;
       }
