@@ -10,6 +10,8 @@ import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +61,7 @@ public class MltDecoderTest {
   @MethodSource("omtTileIdProvider")
   @Disabled
   public void decodeMlTile_UnsortedOMT(Triple<Integer, Integer, Integer> tileId)
-      throws IOException {
+      throws IOException, URISyntaxException {
     // TODO: fix -> 2_2_2
     if (tileId.getLeft() == 2) {
       return;
@@ -69,7 +71,8 @@ public class MltDecoderTest {
     testTileSequential(id, TestSettings.OMT_MVT_PATH);
   }
 
-  private void testTileSequential(String tileId, String tileDirectory) throws IOException {
+  private void testTileSequential(String tileId, String tileDirectory)
+      throws IOException, URISyntaxException {
     testTile(
         tileId,
         tileDirectory,
@@ -89,7 +92,7 @@ public class MltDecoderTest {
       TestUtils.Optimization optimization,
       List<String> reassignableLayers,
       boolean advancedEncodings)
-      throws IOException {
+      throws IOException, URISyntaxException {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
@@ -112,10 +115,13 @@ public class MltDecoderTest {
       }
     }
 
-    var mlTile =
-        MltConverter.convertMvt(
-            mvTile, new ConversionConfig(true, advancedEncodings, optimizations), tileMetadata);
+    var config = new ConversionConfig(true, advancedEncodings, optimizations);
 
+    var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
+    decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
+
+    mlTile =
+        MltConverter.convertMvt(mvTile, tileMetadata, config, new URI("http://localhost:3000"));
     decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
   }
 }

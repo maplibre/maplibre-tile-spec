@@ -210,10 +210,10 @@ public class MltDecoderTest2 {
     var includeIds = true;
     var mlTile =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(includeIds, false, optimizations), tileMetadata);
+            mvTile, tileMetadata, new ConversionConfig(includeIds, false, optimizations), null);
     var mlTileAdvanced =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(includeIds, true, optimizations), tileMetadata);
+            mvTile, tileMetadata, new ConversionConfig(includeIds, true, optimizations), null);
     int numErrors = -1;
     int numErrorsAdvanced = -1;
     if (decoder == DecoderType.SEQUENTIAL || decoder == DecoderType.BOTH) {
