@@ -1,5 +1,8 @@
 package com.mlt.cli;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import com.mlt.converter.ConversionConfig;
 import com.mlt.converter.FeatureTableOptimizations;
 import com.mlt.converter.MltConverter;
@@ -17,6 +20,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,11 +45,13 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorInputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorOutputStream;
+import org.apache.commons.compress.compressors.deflate.DeflateParameters;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.EndianUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
@@ -70,7 +76,7 @@ public class Encode {
       var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
       var preTessellatePolygons =
           (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
-      var compress = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
+      var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
       var verbose = cmd.hasOption(VERBOSE_OPTION);
 
       // No ColumnMapping as support is still buggy:
@@ -104,7 +110,7 @@ public class Encode {
             columnMappings,
             conversionConfig,
             tessellateURI,
-            compress,
+            compressionType,
             verbose);
       } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
         var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
@@ -119,7 +125,7 @@ public class Encode {
             columnMappings,
             conversionConfig,
             tessellateURI,
-            compress,
+            compressionType,
             verbose);
       }
     } catch (Exception e) {
@@ -235,7 +241,7 @@ public class Encode {
       Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
-      String compress,
+      String compressionType,
       boolean verbose) {
     MBTilesReader mbTilesReader = null;
     try {
@@ -267,7 +273,7 @@ public class Encode {
                 columnMappings,
                 conversionConfig,
                 tessellateSource,
-                compress,
+                compressionType,
                 verbose);
           }
 
@@ -275,14 +281,13 @@ public class Encode {
           // so we have to set the format metadata the hard way.
           var dbFile = mbTilesWriter.close();
           var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
-          var mimeType = "application/vnd.maplibre-tile-pbf";
           try (var connection = DriverManager.getConnection(connectionString)) {
             if (verbose) {
-              System.err.printf("Setting tile MIME type to '%s'\n", mimeType);
+              System.err.printf("Setting tile MIME type to '%s'%n", embeddedPBFMetadataMIMEType);
             }
             var sql = "UPDATE metadata SET value = ? WHERE name = ?";
             try (var statement = connection.prepareStatement(sql)) {
-              statement.setString(1, mimeType);
+              statement.setString(1, embeddedPBFMetadataMIMEType);
               statement.setString(2, "format");
               statement.execute();
             }
@@ -321,7 +326,7 @@ public class Encode {
       Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
-      String compress,
+      String compressionType,
       boolean verbose)
       throws ClassNotFoundException {
     // Start with a copy of the source file so we don't have to rebuild the complex schema
@@ -347,39 +352,112 @@ public class Encode {
     Class.forName("org.sqlite.JDBC");
     var srcConnectionString = "jdbc:sqlite:" + inputPath.toAbsolutePath();
     var dstConnectionString = "jdbc:sqlite:" + outputPath.toAbsolutePath();
-    var updateSql = "UPDATE tiles SET data = ? WHERE id = ?";
+    var updateSql = "UPDATE tiles SET data = ?, compressed = ? WHERE id = ?";
     try (var srcConnection = DriverManager.getConnection(srcConnectionString);
-        var iterateStatement = srcConnection.createStatement();
-        var tileResults = iterateStatement.executeQuery("SELECT * FROM tiles");
-        var dstConnection = DriverManager.getConnection(dstConnectionString);
-        var updateStatement = dstConnection.prepareStatement(updateSql)) {
-      while (tileResults.next()) {
-        var uniqueID = tileResults.getLong("id");
-        var x = tileResults.getInt("x");
-        var y = tileResults.getInt("y");
-        var z = tileResults.getInt("z");
-        var srcTileData = getTileData(tileResults.getBinaryStream("data"));
-        byte[] tileData =
-            convertTile(
-                x,
-                y,
-                z,
-                srcTileData,
-                conversionConfig,
-                columnMappings,
-                tessellateSource,
-                compress,
-                verbose);
+        var dstConnection = DriverManager.getConnection(dstConnectionString)) {
+      // Convert Tiles
+      try (var iterateStatement = srcConnection.createStatement();
+          var tileResults = iterateStatement.executeQuery("SELECT * FROM tiles");
+          var updateStatement = dstConnection.prepareStatement(updateSql)) {
+        while (tileResults.next()) {
+          var uniqueID = tileResults.getLong("id");
+          var x = tileResults.getInt("x");
+          var y = tileResults.getInt("y");
+          var z = tileResults.getInt("z");
 
-        if (tileData != null) {
-          updateStatement.setBytes(1, tileData);
-          updateStatement.setLong(2, uniqueID);
+          byte[] srcTileData;
+          try {
+            srcTileData = decompress(tileResults.getBinaryStream("data"));
+          } catch (IOException | IllegalStateException ignore) {
+            System.err.printf("WARNING: Failed to decompress tile '%d', skipping%n", uniqueID);
+            continue;
+          }
+
+          var tileData =
+              convertTile(
+                  x,
+                  y,
+                  z,
+                  srcTileData,
+                  conversionConfig,
+                  columnMappings,
+                  tessellateSource,
+                  compressionType,
+                  verbose);
+
+          if (tileData != null) {
+            updateStatement.setBytes(1, tileData);
+            updateStatement.setBoolean(2, !StringUtils.isEmpty(compressionType));
+            updateStatement.setLong(3, uniqueID);
+            updateStatement.execute();
+
+            if (verbose) {
+              System.err.printf("Updated %d:%d,%d%n", z, x, y);
+            }
+          }
+        }
+      }
+
+      // Update metadata
+      var metadataKind = 2; // `mbgl::Resource::Kind::Source`
+      var metadataQuerySQL = "SELECT id,data FROM resources WHERE kind = " + metadataKind;
+      var metadataUpdateSQL = "UPDATE resources SET data = ?, compressed = ? WHERE id = ?";
+      try (var queryStatement = dstConnection.createStatement();
+          var metadataResults = queryStatement.executeQuery(metadataQuerySQL);
+          var updateStatement = dstConnection.prepareStatement(metadataUpdateSQL)) {
+        while (metadataResults.next()) {
+          var uniqueID = metadataResults.getLong("id");
+          byte[] data;
+          try {
+            data = decompress(metadataResults.getBinaryStream("data"));
+          } catch (IOException | IllegalStateException ignore) {
+            System.err.printf(
+                "WARNING: Failed to decompress Source resource '%d', skipping%n", uniqueID);
+            continue;
+          }
+
+          // Parse JSON
+          var jsonString = new String(data, StandardCharsets.UTF_8);
+          JsonObject json;
+          try {
+            json = new Gson().fromJson(jsonString, JsonObject.class);
+          } catch (JsonSyntaxException ex) {
+            System.err.printf("WARNING: Source resource '%d' is not JSON, skipping%n", uniqueID);
+            continue;
+          }
+
+          // Update the format field
+          json.addProperty("format", embeddedPBFMetadataMIMEType);
+
+          // Re-serialize
+          jsonString = json.toString();
+
+          // Re-compress
+          try (var outputStream = new ByteArrayOutputStream()) {
+            try (var compressStream = compressStream(outputStream, compressionType)) {
+              compressStream.write(jsonString.getBytes(StandardCharsets.UTF_8));
+            }
+            outputStream.close();
+            data = outputStream.toByteArray();
+          }
+
+          // Update the database
+          updateStatement.setBytes(1, data);
+          updateStatement.setBoolean(2, !StringUtils.isEmpty(compressionType));
+          updateStatement.setLong(3, uniqueID);
           updateStatement.execute();
 
           if (verbose) {
-            System.err.printf("Updated %d:%d,%d%n", z, x, y);
+            System.err.printf("Updated source JSON format to '%s'%n", embeddedPBFMetadataMIMEType);
           }
         }
+      }
+
+      if (verbose) {
+        System.err.println("Optimizing database");
+      }
+      try (var statement = dstConnection.prepareStatement("VACUUM")) {
+        statement.execute();
       }
     } catch (SQLException | IOException ex) {
       System.err.println("ERROR: Offline Database conversion failed: " + ex.getMessage());
@@ -396,7 +474,7 @@ public class Encode {
       Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
-      String compress,
+      String compressionType,
       boolean verbose)
       throws IOException, MBTilesWriteException {
     var x = tile.getColumn();
@@ -413,7 +491,7 @@ public class Encode {
             conversionConfig,
             columnMappings,
             tessellateSource,
-            compress,
+            compressionType,
             verbose);
 
     if (tileData != null) {
@@ -435,7 +513,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       Optional<List<ColumnMapping>> columnMappings,
       URI tessellateSource,
-      String compress,
+      String compressionType,
       boolean verbose) {
     try {
       var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
@@ -449,7 +527,7 @@ public class Encode {
 
       byte[] tileData = null;
       try (var outputStream = new ByteArrayOutputStream()) {
-        try (var compressStream = compressStream(outputStream, compress)) {
+        try (var compressStream = compressStream(outputStream, compressionType)) {
           byte[] binaryMetadata;
           try (var metadataStream = new ByteArrayOutputStream()) {
             tileMetadata.writeTo(metadataStream);
@@ -473,7 +551,7 @@ public class Encode {
       }
     } catch (IOException ex) {
       System.err.printf(
-          "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s\n",
+          "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s%n",
           z, x, y, ex.getMessage());
       if (verbose) {
         ex.printStackTrace(System.err);
@@ -482,8 +560,8 @@ public class Encode {
     return null;
   }
 
-  private static OutputStream compressStream(OutputStream src, @NotNull String compress) {
-    if (Objects.equals(compress, "gzip")) {
+  private static OutputStream compressStream(OutputStream src, @NotNull String compressionType) {
+    if (Objects.equals(compressionType, "gzip")) {
       try {
         var parameters = new GzipParameters();
         parameters.setCompressionLevel(9);
@@ -491,32 +569,34 @@ public class Encode {
       } catch (IOException ignore) {
       }
     }
-    if (Objects.equals(compress, "deflate")) {
+    if (Objects.equals(compressionType, "deflate")) {
+      var parameters = new DeflateParameters();
+      parameters.setCompressionLevel(9);
+      parameters.setWithZlibHeader(false);
       return new DeflateCompressorOutputStream(src);
     }
     return src;
   }
 
   private static byte[] getTileData(Tile tile) throws IOException {
-    return getTileData(tile.getData());
+    return decompress(tile.getData());
   }
 
-  private static byte[] getTileData(InputStream srcTileStream) throws IOException {
-    // If the tile data is compressed, decompress it
+  private static byte[] decompress(InputStream srcStream) throws IOException {
     try {
       InputStream decompressInputStream = null;
-      if (srcTileStream.available() > 3) {
-        var header = srcTileStream.readNBytes(4);
-        srcTileStream.reset();
+      if (srcStream.available() > 3) {
+        var header = srcStream.readNBytes(4);
+        srcStream.reset();
 
         if (DeflateCompressorInputStream.matches(header, header.length)) {
           // deflate with zlib header
           var inflater = new Inflater(/* nowrap= */ false);
-          decompressInputStream = new InflaterInputStream(srcTileStream, inflater);
+          decompressInputStream = new InflaterInputStream(srcStream, inflater);
         } else if (header[0] == 0x1f && header[1] == (byte) 0x8b) {
           // TODO: why doesn't GZIPInputStream work here?
-          // decompressInputStream = new GZIPInputStream(srcTileStream);
-          decompressInputStream = new GzipCompressorInputStream(srcTileStream);
+          // decompressInputStream = new GZIPInputStream(srcStream);
+          decompressInputStream = new GzipCompressorInputStream(srcStream);
         }
       }
 
@@ -528,10 +608,10 @@ public class Encode {
         }
       }
     } catch (IndexOutOfBoundsException | IOException ex) {
-      System.err.printf("Failed to decompress tile: %s", ex.getMessage());
+      System.err.printf("Failed to decompress data: %s%n", ex.getMessage());
     }
 
-    return srcTileStream.readAllBytes();
+    return srcStream.readAllBytes();
   }
 
   public static void printMVT(MapboxVectorTile mvTile) {
@@ -963,4 +1043,6 @@ public class Encode {
     }
     return null;
   }
+
+  private static final String embeddedPBFMetadataMIMEType = "application/vnd.maplibre-tile-pbf";
 }
