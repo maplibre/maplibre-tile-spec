@@ -20,6 +20,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import javax.annotation.Nullable;
@@ -37,11 +39,13 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.compress.compressors.deflate.DeflateCompressorInputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.EndianUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
@@ -90,12 +94,27 @@ public class Encode {
       if (cmd.hasOption(INPUT_TILE_ARG)) {
         // Converting one tile
         encodeTile(tileFileName, cmd, columnMappings, conversionConfig, tessellateURI, verbose);
-      } else {
+      } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
         // Converting all the tiles in an MBTiles file
-        var inputMBTilesPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
-        var outputPath = getOutputPath(cmd, inputMBTilesPath);
+        var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
+        var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
         encodeMBTiles(
-            inputMBTilesPath,
+            inputPath,
+            outputPath,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            compress,
+            verbose);
+      } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
+        var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
+        var ext = FilenameUtils.getExtension(inputPath);
+        if (!ext.isEmpty()) {
+          ext = "." + ext;
+        }
+        var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
+        encodeOfflineDB(
+            Path.of(inputPath),
             outputPath,
             columnMappings,
             conversionConfig,
@@ -134,7 +153,7 @@ public class Encode {
     var willTime = cmd.hasOption(TIMER_OPTION);
     var inputTilePath = Paths.get(tileFileName);
     var inputTileName = inputTilePath.getFileName().toString();
-    var outputPath = getOutputPath(cmd, inputTileName);
+    var outputPath = getOutputPath(cmd, inputTileName, "mlt");
     var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
 
     Timer timer = willTime ? new Timer() : null;
@@ -255,14 +274,24 @@ public class Encode {
           // mbtiles4j doesn't support types other than png and jpg,
           // so we have to set the format metadata the hard way.
           var dbFile = mbTilesWriter.close();
-          try (var connection =
-              DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath())) {
-            // The sqlite3 JDBC driver only supports batch execution without prepared statements?!
-            try (var statement = connection.createStatement()) {
-              statement.addBatch(
-                  "UPDATE metadata SET value = 'application/vnd.maplibre-tile-pbf' WHERE name = 'format'");
-              statement.addBatch("VACUUM");
-              statement.executeBatch();
+          var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
+          var mimeType = "application/vnd.maplibre-tile-pbf";
+          try (var connection = DriverManager.getConnection(connectionString)) {
+            if (verbose) {
+              System.err.printf("Setting tile MIME type to '%s'\n", mimeType);
+            }
+            var sql = "UPDATE metadata SET value = ? WHERE name = ?";
+            try (var statement = connection.prepareStatement(sql)) {
+              statement.setString(1, mimeType);
+              statement.setString(2, "format");
+              statement.execute();
+            }
+
+            if (verbose) {
+              System.err.println("Optimizing database");
+            }
+            try (var statement = connection.prepareStatement("VACUUM")) {
+              statement.execute();
             }
           }
         } finally {
@@ -273,11 +302,89 @@ public class Encode {
         mbTilesWriter.close();
       }
     } catch (MBTilesReadException | IOException | MBTilesWriteException | SQLException ex) {
-      System.err.println("ERROR: MBTiles conversion failed");
-      ex.printStackTrace(System.err);
+      System.err.println("ERROR: MBTiles conversion failed: " + ex.getMessage());
+      if (verbose) {
+        ex.printStackTrace(System.err);
+      }
     } finally {
       if (mbTilesReader != null) {
         mbTilesReader.close();
+      }
+    }
+  }
+
+  /// Encode the MVT tiles in an offline database file
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  private static void encodeOfflineDB(
+      Path inputPath,
+      Path outputPath,
+      Optional<List<ColumnMapping>> columnMappings,
+      ConversionConfig conversionConfig,
+      @Nullable URI tessellateSource,
+      String compress,
+      boolean verbose)
+      throws ClassNotFoundException {
+    // Start with a copy of the source file so we don't have to rebuild the complex schema
+    if (verbose) {
+      System.err.println("Creating target file");
+    }
+    try {
+      if (outputPath == null) {
+        var tempFile = File.createTempFile("encode-", "-db");
+        outputPath = tempFile.toPath();
+        tempFile.deleteOnExit();
+      }
+      Files.copy(
+          inputPath,
+          outputPath,
+          StandardCopyOption.REPLACE_EXISTING,
+          StandardCopyOption.COPY_ATTRIBUTES);
+    } catch (IOException ex) {
+      System.err.println("ERROR: Failed to create target file: " + ex.getMessage());
+      return;
+    }
+
+    Class.forName("org.sqlite.JDBC");
+    var srcConnectionString = "jdbc:sqlite:" + inputPath.toAbsolutePath();
+    var dstConnectionString = "jdbc:sqlite:" + outputPath.toAbsolutePath();
+    var updateSql = "UPDATE tiles SET data = ? WHERE id = ?";
+    try (var srcConnection = DriverManager.getConnection(srcConnectionString);
+        var iterateStatement = srcConnection.createStatement();
+        var tileResults = iterateStatement.executeQuery("SELECT * FROM tiles");
+        var dstConnection = DriverManager.getConnection(dstConnectionString);
+        var updateStatement = dstConnection.prepareStatement(updateSql)) {
+      while (tileResults.next()) {
+        var uniqueID = tileResults.getLong("id");
+        var x = tileResults.getInt("x");
+        var y = tileResults.getInt("y");
+        var z = tileResults.getInt("z");
+        var srcTileData = getTileData(tileResults.getBinaryStream("data"));
+        byte[] tileData =
+            convertTile(
+                x,
+                y,
+                z,
+                srcTileData,
+                conversionConfig,
+                columnMappings,
+                tessellateSource,
+                compress,
+                verbose);
+
+        if (tileData != null) {
+          updateStatement.setBytes(1, tileData);
+          updateStatement.setLong(2, uniqueID);
+          updateStatement.execute();
+
+          if (verbose) {
+            System.err.printf("Updated %d:%d,%d%n", z, x, y);
+          }
+        }
+      }
+    } catch (SQLException | IOException ex) {
+      System.err.println("ERROR: Offline Database conversion failed: " + ex.getMessage());
+      if (verbose) {
+        ex.printStackTrace(System.err);
       }
     }
   }
@@ -297,47 +404,17 @@ public class Encode {
     var z = tile.getZoom();
 
     var srcTileData = getTileData(tile);
-    var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
-
-    var isIdPresent = true;
-    var tileMetadata =
-        MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
-
-    var mlTile =
-        MltConverter.convertMvt(decodedMvTile, tileMetadata, conversionConfig, tessellateSource);
-
-    byte[] tileData = null;
-    try (var outputStream = new ByteArrayOutputStream()) {
-      try (var compressStream = compressStream(outputStream, compress)) {
-        byte[] binaryMetadata;
-        try (var metadataStream = new ByteArrayOutputStream()) {
-          tileMetadata.writeTo(metadataStream);
-          metadataStream.close();
-          binaryMetadata = metadataStream.toByteArray();
-        }
-        if (binaryMetadata.length >= 1 << 16) {
-          throw new NumberFormatException("Invalid metadata size");
-        }
-
-        // Can't use auto close, DataOutputStream closes the target stream
-        var binStream = new DataOutputStream(compressStream);
-        try {
-          binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
-          binStream.flush();
-
-          compressStream.write(binaryMetadata);
-          compressStream.write(mlTile);
-        } finally {
-          binStream.close();
-        }
-      }
-      outputStream.close();
-      tileData = outputStream.toByteArray();
-    } catch (IOException ex) {
-      System.err.printf(
-          "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s\n",
-          z, x, y, ex.getMessage());
-    }
+    var tileData =
+        convertTile(
+            x,
+            y,
+            z,
+            srcTileData,
+            conversionConfig,
+            columnMappings,
+            tessellateSource,
+            compress,
+            verbose);
 
     if (tileData != null) {
       mbTilesWriter.addTile(tileData, z, x, y);
@@ -346,6 +423,63 @@ public class Encode {
     if (verbose) {
       System.err.printf("Added %d:%d,%d%n", z, x, y);
     }
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @Nullable
+  private static byte[] convertTile(
+      int x,
+      int y,
+      int z,
+      byte[] srcTileData,
+      ConversionConfig conversionConfig,
+      Optional<List<ColumnMapping>> columnMappings,
+      URI tessellateSource,
+      String compress,
+      boolean verbose) {
+    try {
+      var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
+
+      var isIdPresent = true;
+      var tileMetadata =
+          MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
+
+      var mlTile =
+          MltConverter.convertMvt(decodedMvTile, tileMetadata, conversionConfig, tessellateSource);
+
+      byte[] tileData = null;
+      try (var outputStream = new ByteArrayOutputStream()) {
+        try (var compressStream = compressStream(outputStream, compress)) {
+          byte[] binaryMetadata;
+          try (var metadataStream = new ByteArrayOutputStream()) {
+            tileMetadata.writeTo(metadataStream);
+            metadataStream.close();
+            binaryMetadata = metadataStream.toByteArray();
+          }
+          if (binaryMetadata.length >= 1 << 16) {
+            throw new NumberFormatException("Invalid metadata size");
+          }
+
+          try (var binStream = new DataOutputStream(compressStream)) {
+            binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
+            binStream.flush();
+
+            compressStream.write(binaryMetadata);
+            compressStream.write(mlTile);
+          }
+        }
+        outputStream.close();
+        return outputStream.toByteArray();
+      }
+    } catch (IOException ex) {
+      System.err.printf(
+          "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s\n",
+          z, x, y, ex.getMessage());
+      if (verbose) {
+        ex.printStackTrace(System.err);
+      }
+    }
+    return null;
   }
 
   private static OutputStream compressStream(OutputStream src, @NotNull String compress) {
@@ -364,27 +498,25 @@ public class Encode {
   }
 
   private static byte[] getTileData(Tile tile) throws IOException {
-    var srcTileStream = tile.getData();
+    return getTileData(tile.getData());
+  }
 
+  private static byte[] getTileData(InputStream srcTileStream) throws IOException {
     // If the tile data is compressed, decompress it
     try {
       InputStream decompressInputStream = null;
-      if (srcTileStream.available() > 1) {
-        byte byte0 = (byte) srcTileStream.read();
-        if (byte0 == 0x78) {
-          // raw deflate
-          decompressInputStream =
-              new InflaterInputStream(srcTileStream, new Inflater(/* nowrap= */ true));
-        } else if (byte0 == 0x1f && srcTileStream.available() > 1) {
-          byte byte1 = (byte) srcTileStream.read();
-          srcTileStream.reset();
-          if (byte1 == (byte) 0x8b) {
-            // TODO: why doesn't InflaterInputStream / GZIPInputStream work here?
-            // decompressInputStream = new GZIPInputStream(srcTileStream);
-            decompressInputStream = new GzipCompressorInputStream(srcTileStream);
-          }
-        } else {
-          srcTileStream.reset();
+      if (srcTileStream.available() > 3) {
+        var header = srcTileStream.readNBytes(4);
+        srcTileStream.reset();
+
+        if (DeflateCompressorInputStream.matches(header, header.length)) {
+          // deflate with zlib header
+          var inflater = new Inflater(/* nowrap= */ false);
+          decompressInputStream = new InflaterInputStream(srcTileStream, inflater);
+        } else if (header[0] == 0x1f && header[1] == (byte) 0x8b) {
+          // TODO: why doesn't GZIPInputStream work here?
+          // decompressInputStream = new GZIPInputStream(srcTileStream);
+          decompressInputStream = new GzipCompressorInputStream(srcTileStream);
         }
       }
 
@@ -399,7 +531,6 @@ public class Encode {
       System.err.printf("Failed to decompress tile: %s", ex.getMessage());
     }
 
-    srcTileStream.reset();
     return srcTileStream.readAllBytes();
   }
 
@@ -512,6 +643,7 @@ public class Encode {
 
   private static final String INPUT_TILE_ARG = "mvt";
   private static final String INPUT_MBTILES_ARG = "mbtiles";
+  private static final String INPUT_OFFLINEDB_ARG = "offlinedb";
   private static final String OUTPUT_DIR_ARG = "dir";
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
@@ -536,12 +668,18 @@ public class Encode {
   private static final String VERBOSE_OPTION = "verbose";
   private static final String HELP_OPTION = "help";
 
-  private static Path getOutputPath(CommandLine cmd, String inputFileName) {
+  /// Resolve an output filename.
+  /// If an output filename is specified directly, use it.
+  /// If only an output directory is given, add the input filename and the specified extension.
+  /// If neither a directory or file name is given, returns null.  This is used for testing.
+  /// If a path is returned and the directory doesn't already exist, it is created.
+  private static @Nullable Path getOutputPath(
+      CommandLine cmd, String inputFileName, String targetExt) {
     Path outputPath = null;
     if (cmd.hasOption(OUTPUT_DIR_ARG)) {
       var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
-      var ext = cmd.hasOption(INPUT_MBTILES_ARG) ? ".mlt.mbtiles" : ".mlt";
-      outputPath = Paths.get(outputDir, inputFileName.split("\\.")[0] + ext);
+      var baseName = FilenameUtils.getBaseName(inputFileName);
+      outputPath = Paths.get(outputDir, baseName + "." + targetExt);
     } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
       outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
     }
@@ -576,7 +714,15 @@ public class Encode {
               .longOpt(INPUT_MBTILES_ARG)
               .hasArg(true)
               .argName("file")
-              .desc("Path to the input MBTiles file")
+              .desc("Path of the input MBTiles file.")
+              .required(false)
+              .build());
+      options.addOption(
+          Option.builder()
+              .longOpt(INPUT_OFFLINEDB_ARG)
+              .hasArg(true)
+              .argName("file")
+              .desc("Path of the input offline database file.")
               .required(false)
               .build());
       options.addOption(
@@ -585,8 +731,7 @@ public class Encode {
               .hasArg(true)
               .argName("dir")
               .desc(
-                  "Output directory to write an MLT file to "
-                      + "([OPTIONAL], default: no file is written)")
+                  "Directory where the output is written, using the input file basename (OPTIONAL).")
               .required(false)
               .build());
       options.addOption(
@@ -595,22 +740,25 @@ public class Encode {
               .hasArg(true)
               .argName("file")
               .desc(
-                  "Output file to write an MLT tile or MBTiles to"
-                      + "([OPTIONAL], default: no file is written)")
+                  "Filename where the output will be written. Overrides --" + OUTPUT_DIR_ARG + ".")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(EXCLUDE_IDS_OPTION)
               .hasArg(false)
-              .desc("Don't include feature IDs")
+              .desc("Don't include feature IDs.")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(INCLUDE_TILESET_METADATA_OPTION)
               .hasArg(false)
-              .desc("Write tileset metadata (PBF) alongside the output (adding '.meta.pbf')")
+              .desc(
+                  "Write tileset metadata (PBF) alongside the output tile (adding '.meta.pbf'). "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
               .required(false)
               .build());
       options.addOption(
@@ -618,7 +766,11 @@ public class Encode {
               .longOpt(INCLUDE_EMBEDDED_METADATA)
               .hasArg(true)
               .argName("file")
-              .desc("Write output with embedded metadata ([OPTIONAL])")
+              .desc(
+                  "Write output tile with embedded metadata. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
               .required(false)
               .build());
       options.addOption(
@@ -626,35 +778,39 @@ public class Encode {
               .longOpt(INCLUDE_EMBEDDED_PBF_METADATA)
               .hasArg(true)
               .argName("file")
-              .desc("Write output with embedded PBF metadata ([OPTIONAL])")
+              .desc(
+                  "Write output with embedded PBF metadata"
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(ADVANCED_ENCODING_OPTION)
               .hasArg(false)
-              .desc("Enable advanced encodings (FSST & FastPFOR)")
+              .desc("Enable advanced encodings (FSST & FastPFOR).")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(NO_MORTON_OPTION)
               .hasArg(false)
-              .desc("Disable Morton encoding")
+              .desc("Disable Morton encoding.")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(PRE_TESSELLATE_OPTION)
               .hasArg(false)
-              .desc("Include tessellation data in the tile")
+              .desc("Include tessellation data in converted tiles.")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(TESSELLATE_URL_OPTION)
               .hasArg(true)
-              .desc("Use a tessellation server (implies --" + PRE_TESSELLATE_OPTION + ")")
+              .desc("Use a tessellation server (implies --" + PRE_TESSELLATE_OPTION + ").")
               .required(false)
               .build());
       options.addOption(
@@ -663,7 +819,7 @@ public class Encode {
               .hasArgs()
               .desc(
                   "The feature tables for which outlines are included "
-                      + "([OPTIONAL], comma-separated, * for all, default: none)")
+                      + "([OPTIONAL], comma-separated, * for all, default: none).")
               .valueSeparator(',')
               .argName("tables")
               .required(false)
@@ -673,42 +829,59 @@ public class Encode {
           Option.builder()
               .longOpt(DECODE_OPTION)
               .hasArg(false)
-              .desc("Test decoding the tile after encoding it")
+              .desc(
+                  "Test decoding the tile after encoding it. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(PRINT_MLT_OPTION)
               .hasArg(false)
-              .desc("Print the MLT tile after encoding it")
+              .desc(
+                  "Print the MLT tile after encoding it. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(PRINT_MVT_OPTION)
               .hasArg(false)
-              .desc("Print the round-tripped MVT tile")
+              .desc(
+                  "Print the round-tripped MVT tile. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(COMPARE_OPTION)
               .hasArg(false)
-              .desc("Assert that data in the the decoded tile is the same as the input tile")
+              .desc(
+                  "Assert that data in the the decoded tile is the same as the input tile. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
               .required(false)
               .build());
       options.addOption(
           Option.builder()
               .longOpt(VECTORIZED_OPTION)
               .hasArg(false)
-              .desc("Use the vectorized decoding path")
+              .desc("Use the vectorized decoding path.")
               .required(false)
+              .deprecated()
               .build());
       options.addOption(
           Option.builder()
               .longOpt(TIMER_OPTION)
               .hasArg(false)
-              .desc("Print the time it takes, in ms, to decode a tile")
+              .desc("Print the time it takes, in ms, to decode a tile.")
               .required(false)
               .build());
       options.addOption(
@@ -716,7 +889,9 @@ public class Encode {
               .longOpt(COMPRESS_OPTION)
               .hasArg(true)
               .argName("algorithm")
-              .desc("Compress tile data with one of 'deflate', 'gzip'")
+              .desc(
+                  "Compress tile data with one of 'deflate', 'gzip'. "
+                      + "Only applies to MBTiles and offline databases.")
               .required(false)
               .build());
       options.addOption(
@@ -724,7 +899,7 @@ public class Encode {
               .option("v")
               .longOpt(VERBOSE_OPTION)
               .hasArg(false)
-              .desc("Enable verbose output")
+              .desc("Enable verbose output.")
               .required(false)
               .build());
       options.addOption(
@@ -732,7 +907,7 @@ public class Encode {
               .option("h")
               .longOpt(HELP_OPTION)
               .hasArg(false)
-              .desc("Show this output")
+              .desc("Show this output.")
               .required(false)
               .build());
 
@@ -744,17 +919,40 @@ public class Encode {
       }
 
       if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
-        new HelpFormatter().printHelp(Encode.class.getName(), options);
-      } else if (cmd.hasOption(INPUT_TILE_ARG) == cmd.hasOption(INPUT_MBTILES_ARG)) {
+        var width = 100;
+        var autoUsage = true;
+        var header =
+            "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";
+        var footer = "";
+        var formatter = new HelpFormatter();
+        formatter.setOptionComparator(null);
+        formatter.printHelp(width, Encode.class.getName(), header, options, footer, autoUsage);
+      } else if (Stream.of(
+                  cmd.hasOption(INPUT_TILE_ARG),
+                  cmd.hasOption(INPUT_MBTILES_ARG),
+                  cmd.hasOption(INPUT_OFFLINEDB_ARG))
+              .filter(x -> x)
+              .count()
+          != 1) {
         System.err.println(
-            "Specify one of '--" + INPUT_TILE_ARG + "' and '--" + INPUT_MBTILES_ARG + "'");
+            "Specify one of '--"
+                + INPUT_TILE_ARG
+                + "', '--"
+                + INPUT_MBTILES_ARG
+                + "', and '--"
+                + INPUT_OFFLINEDB_ARG
+                + "'.");
       } else if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
         System.err.println(
-            "Cannot specify both '-" + OUTPUT_FILE_ARG + "' and '-" + OUTPUT_DIR_ARG + "' options");
+            "Cannot specify both '-"
+                + OUTPUT_FILE_ARG
+                + "' and '-"
+                + OUTPUT_DIR_ARG
+                + "' options.");
       } else if (!new HashSet<>(
               Arrays.asList(COMPRESS_OPTION_GZIP, COMPRESS_OPTION_DEFLATE, COMPRESS_OPTION_NONE))
           .contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE))) {
-        System.err.println("Invalid compression type");
+        System.err.println("Invalid compression type.");
       } else {
         return cmd;
       }
