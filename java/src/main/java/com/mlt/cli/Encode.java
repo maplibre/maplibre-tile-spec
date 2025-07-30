@@ -52,6 +52,7 @@ import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.EndianUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
@@ -373,6 +374,7 @@ public class Encode {
             continue;
           }
 
+          var didCompress = new MutableBoolean(false);
           var tileData =
               convertTile(
                   x,
@@ -383,11 +385,12 @@ public class Encode {
                   columnMappings,
                   tessellateSource,
                   compressionType,
+                  didCompress,
                   verbose);
 
           if (tileData != null) {
             updateStatement.setBytes(1, tileData);
-            updateStatement.setBoolean(2, !StringUtils.isEmpty(compressionType));
+            updateStatement.setBoolean(2, didCompress.booleanValue());
             updateStatement.setLong(3, uniqueID);
             updateStatement.execute();
 
@@ -482,6 +485,7 @@ public class Encode {
     var z = tile.getZoom();
 
     var srcTileData = getTileData(tile);
+    var didCompress = new MutableBoolean(false);
     var tileData =
         convertTile(
             x,
@@ -492,6 +496,7 @@ public class Encode {
             columnMappings,
             tessellateSource,
             compressionType,
+            didCompress,
             verbose);
 
     if (tileData != null) {
@@ -514,6 +519,7 @@ public class Encode {
       Optional<List<ColumnMapping>> columnMappings,
       URI tessellateSource,
       String compressionType,
+      MutableBoolean didCompress,
       boolean verbose) {
     try {
       var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
@@ -525,30 +531,52 @@ public class Encode {
       var mlTile =
           MltConverter.convertMvt(decodedMvTile, tileMetadata, conversionConfig, tessellateSource);
 
-      byte[] tileData = null;
+      byte[] tileData;
       try (var outputStream = new ByteArrayOutputStream()) {
-        try (var compressStream = compressStream(outputStream, compressionType)) {
-          byte[] binaryMetadata;
-          try (var metadataStream = new ByteArrayOutputStream()) {
-            tileMetadata.writeTo(metadataStream);
-            metadataStream.close();
-            binaryMetadata = metadataStream.toByteArray();
-          }
-          if (binaryMetadata.length >= 1 << 16) {
-            throw new NumberFormatException("Invalid metadata size");
-          }
+        byte[] binaryMetadata;
+        try (var metadataStream = new ByteArrayOutputStream()) {
+          tileMetadata.writeTo(metadataStream);
+          metadataStream.close();
+          binaryMetadata = metadataStream.toByteArray();
+        }
+        if (binaryMetadata.length >= 1 << 16) {
+          throw new NumberFormatException("Invalid metadata size");
+        }
 
-          try (var binStream = new DataOutputStream(compressStream)) {
-            binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
-            binStream.flush();
+        try (var binStream = new DataOutputStream(outputStream)) {
+          binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
+          binStream.flush();
 
-            compressStream.write(binaryMetadata);
-            compressStream.write(mlTile);
+          outputStream.write(binaryMetadata);
+          outputStream.write(mlTile);
+        }
+
+        outputStream.close();
+        tileData = outputStream.toByteArray();
+      }
+
+      if (compressionType != null) {
+        try (var outputStream = new ByteArrayOutputStream()) {
+          try (var compressStream = compressStream(outputStream, compressionType)) {
+            compressStream.write(tileData);
+          }
+          outputStream.close();
+
+          // If the compressed version is enough of an improvement to
+          // justify the cost of decompressing it, use that instead.
+          // Just guesses for now, these should be established with testing.
+          final double ratioThreshold = 0.98;
+          final int fixedThreshold = 20;
+          if (outputStream.size() < tileData.length - fixedThreshold
+              && outputStream.size() < tileData.length * ratioThreshold) {
+            didCompress.setTrue();
+            tileData = outputStream.toByteArray();
+          } else {
+            didCompress.setFalse();
           }
         }
-        outputStream.close();
-        return outputStream.toByteArray();
       }
+      return tileData;
     } catch (IOException ex) {
       System.err.printf(
           "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s%n",
