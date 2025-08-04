@@ -1,8 +1,13 @@
 [package]
 name = "mlt"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.83.0"
+description = "MapLibre Tile format"
+repository = "https://github.com/nyurik/maplibre-tile-spec"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+keywords = ["maplibre", "tile", "mlt", "mvt"]
+categories = ["science::geo"]
+rust-version = "1.85.0"
 
 [dependencies]
 bitvec = "1.0.1"
@@ -13,8 +18,8 @@ geo-types = "0.7.15"
 geozero = { version = "0.14", features = ["with-mvt"] }
 indexmap = "2.7.1"
 num_enum = "0.7.3"
-prost = "0.13.5"
-prost-types = "0.13.5"
+prost = "0.14.1"
+prost-types = "0.14.1"
 thiserror = "2.0.11"
 zigzag = "0.1.0"
 serde_columnar = "0.3.11"
@@ -23,7 +28,7 @@ morton-encoding = "2.0.1"
 cxx = { version = "1.0.136", optional = true }
 
 [build-dependencies]
-prost-build = "0.13.5"
+prost-build = "0.14.1"
 
-[lints.rust]
-dead_code = "allow"
+[lints]
+workspace = true

@@ -1,5 +1,5 @@
-use geozero::mvt::{Message, Tile};
 use geozero::ToGeo;
+use geozero::mvt::{Message, Tile};
 
 use crate::data::{Feature, Layer, Value};
 

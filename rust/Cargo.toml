@@ -1,4 +1,17 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["mlt", "wasm-test"]
 default-members = ["mlt"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+#cargo = { level = "warn", priority = -1 }
+#pedantic = { level = "warn", priority = -1 }
+#missing_errors_doc = "allow"
+#module_name_repetitions = "allow"
+#multiple_crate_versions = "allow"
+#unsafe_derive_deserialize = "allow"
+#unwrap_used = "warn"
