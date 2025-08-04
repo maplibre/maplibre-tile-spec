@@ -2,8 +2,14 @@
 title: FeatureTableSchema
 ---
 classDiagram
-    %% ---------------- FeatureTableSchema ----------------
-    class FeatureTableSchema {
+    %% ---------------- TileMetadata ----------------
+    class TileMetadata {
+      +varint featureTableCount
+      +FeatureTable[] featureTables
+    }
+
+    %% ---------------- FeatureTable ----------------
+    class FeatureTable {
       +varint columnCount
       +Column[] columns
     }
