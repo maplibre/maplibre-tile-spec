@@ -21,42 +21,48 @@
       "type": "integer"
     },
     "bounds": {
-      "type": "object",
-      "properties": {
-        "left": {
-          "type": "number"
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "left": {
+            "type": "number"
+          },
+          "top": {
+            "type": "number"
+          },
+          "right": {
+            "type": "number"
+          },
+          "bottom": {
+            "type": "number"
+          }
         },
-        "top": {
-          "type": "number"
-        },
-        "right": {
-          "type": "number"
-        },
-        "bottom": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "left",
-        "top",
-        "right",
-        "bottom"
-      ]
+        "required": [
+          "left",
+          "top",
+          "right",
+          "bottom"
+        ]
+      }
     },
     "center": {
-      "type": "object",
-      "properties": {
-        "latitude": {
-          "type": "number"
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          }
         },
-        "longitude": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "latitude",
-        "longitude"
-      ]
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      }
     }
   },
   "required": [
