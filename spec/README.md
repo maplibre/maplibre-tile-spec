@@ -217,6 +217,7 @@ The information about the geometry of the features is separated in different str
 by the [geoarrow](https://github.com/geoarrow/geoarrow) specification.
 Using separate streams for describing the geometry of a feature enables a better optimization of the compression
 and faster processing. In addition, pre-tessellated polygon meshes can be stored directly in the file to avoid the time-consuming triangulation step.
+
 A geometry column can consist of the following streams:
 
 | Stream name   |     Data type     |                encoding                | mandatory |
@@ -248,12 +249,14 @@ an additional `NumTriangles` and `IndexBuffer` must be provided.
 The properties of a feature are divided into `feature-scoped` and `vertex-scoped` properties.
 The values of feature-scoped properties are related to a specific Feature, which means there is one value in
 a property column per feature.
+
 The values of a vertex-scoped properties are related to each vertex, which means there is one value in a property column
 per vertex in the VertexBuffer. This allows to model what is known as M-coordinates in GIS applications.
 Vertex-scoped properties have to be grouped together and are placed before the feature-scoped properties in the FeatureTable.
 The scope of a property column is specified in the tileset metadata document based on
 the `ColumnScope` enum.
-A property column can have on of the above listed [data types](#1.2.2 Type system).
+
+A property column can have one of the above listed [data types](#122-Type-system).
 
 ### 1.3 Example Layouts
 
