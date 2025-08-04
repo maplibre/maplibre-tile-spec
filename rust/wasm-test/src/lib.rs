@@ -41,7 +41,7 @@ pub async fn fetch_tile(repo: String) -> Result<JsValue, JsValue> {
     opts.set_method("GET");
     opts.set_mode(RequestMode::Cors);
 
-    let url = format!("https://api.github.com/repos/{}/branches/master", repo);
+    let url = format!("https://api.github.com/repos/{repo}/branches/master");
 
     let request = Request::new_with_str_and_init(&url, &opts)?;
 

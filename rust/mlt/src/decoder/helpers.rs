@@ -2,7 +2,7 @@ use bytes::Buf;
 
 use crate::decoder::tracked_bytes::TrackedBytes;
 #[allow(unused_imports)]
-use crate::metadata::proto_tileset::{column, scalar_column, Column, ScalarColumn, ScalarType};
+use crate::metadata::proto_tileset::{Column, ScalarColumn, ScalarType, column, scalar_column};
 use crate::{MltError, MltResult};
 
 /// Decodes boolean RLE from the buffer.

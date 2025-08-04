@@ -3,16 +3,16 @@ use std::collections::HashMap;
 use geo_types::Geometry;
 use indexmap::IndexMap;
 
+use crate::MltResult;
 use crate::converter::mvt::MapVectorTile;
 use crate::data::{Feature, Value};
 use crate::metadata::proto_tileset::complex_column::Type::PhysicalType;
 use crate::metadata::proto_tileset::{
-    column, field, scalar_column, scalar_field, Column, ColumnScope, ComplexColumn, ComplexType,
-    FeatureTableSchema, Field, ScalarColumn, ScalarField, ScalarType, TileSetMetadata,
+    Column, ColumnScope, ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn,
+    ScalarField, ScalarType, TileSetMetadata, column, field, scalar_column, scalar_field,
 };
 use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 use crate::mvt::ColumnMapping;
-use crate::MltResult;
 
 struct SortSettings {
     is_sortable: bool,
