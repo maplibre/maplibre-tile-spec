@@ -106,7 +106,8 @@ classDiagram
     }
 
     %% ---------------- Associations ----------------
-    FeatureTableSchema --> Column : columns
+    TileMetadata --> FeatureTable : featureTables
+    FeatureTable --> Column : columns
     Column --> ScalarColumn : scalarType
     Column --> ComplexColumn : complexType
     ComplexColumn --> Field : children
