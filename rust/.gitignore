@@ -1,2 +1,12 @@
-Cargo.lock
+**/*.rs.bk
+*.pdb
+.idea/
+.vscode/
+debug/
 target/
+temp/
+tmp/
+venv/
+
+# This is a library, no lock
+Cargo.lock

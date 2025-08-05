@@ -15,7 +15,7 @@ pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
 
     let mut buf = buffer.as_slice();
     TileSetMetadata::decode(&mut buf)
-        .map_err(|e| MltError::MetadataDecodeError(format!("Invalid metadata structure: {}", e)))
+        .map_err(|e| MltError::MetadataDecodeError(format!("Invalid metadata structure: {e}")))
 }
 
 #[test]
