@@ -8,9 +8,23 @@
 
 namespace mlt::util::decoding {
 
+/// Returns the size of the varint encoding for a given value.
+/// Equivalent to `max(1,ceil(log128(value)))`
+template <typename T = std::uint32_t>
+std::size_t getVarintSize(T value) {
+    return std::max<std::size_t>(1, ((8 * sizeof(value)) - std::countl_zero(value) + 6) / 7);
+}
+
 template <typename T>
     requires(std::is_integral_v<T>)
 T decodeVarint(BufferStream&);
+
+// allow decoding directly to enum types
+template <typename T>
+    requires(std::is_enum_v<T>)
+T decodeVarint(BufferStream& buffer) {
+    return static_cast<T>(decodeVarint<std::make_unsigned_t<std::underlying_type_t<T>>>(buffer));
+}
 
 template <>
 inline std::uint32_t decodeVarint(BufferStream& buffer) {

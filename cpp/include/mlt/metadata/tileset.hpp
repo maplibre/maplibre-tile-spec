@@ -6,6 +6,10 @@
 #include <variant>
 #include <vector>
 
+namespace mlt {
+struct BufferStream;
+}
+
 namespace mlt::metadata::tileset {
 
 // Based on maplibre-tile-spec:spec/schema/mlt_tileset_metadata.proto commit
@@ -14,7 +18,7 @@ namespace schema {
 
 enum class TileSetMetadata : std::uint32_t {
     implicit_int32_version = 1,
-    repeated_FeatureTableSchema_featureTables = 2,
+    repeated_FeatureTable_featureTables = 2,
     optional_string_name = 3,
     optional_string_description = 4,
     optional_string_attribution = 5,
@@ -24,9 +28,24 @@ enum class TileSetMetadata : std::uint32_t {
     repeated_double_center = 9, // order longitude, latitude in WGS84
 };
 
-enum class FeatureTableSchema : std::uint32_t {
+enum class FeatureTable : std::uint32_t {
     implicit_string_name = 1,
     repeated_Column_columns = 2,
+};
+
+enum class ColumnOptions : std::uint32_t {
+    nullable = (1 << 0),
+    complexType = (1 << 1),
+    logicalType = (1 << 2),
+    hasChildren = (1 << 3),
+    vertexScope = (1 << 4),
+};
+
+enum class FieldOptions : std::uint32_t {
+    nullable = (1 << 0),
+    complexType = (1 << 1),
+    logicalType = (1 << 2),
+    hasChildren = (1 << 3),
 };
 
 // Column are top-level types in the schema
@@ -200,25 +219,38 @@ struct Column {
     std::variant<ScalarColumn, ComplexColumn> type;
 };
 
-struct FeatureTableSchema {
+struct FeatureTable {
     std::string name;
     std::vector<Column> columns;
 };
 
+struct TileMetadata {
+    std::vector<FeatureTable> featureTables;
+};
+
+struct TileSetBound {
+    double left = 0;
+    double bottom = 0;
+    double right = 0;
+    double top = 0;
+};
+struct TileSetCenter {
+    double longitude = 0;
+    double latitude = 0;
+};
+
 struct TileSetMetadata {
     std::int32_t version = 0;
-    std::vector<FeatureTableSchema> featureTables;
     std::string name;
     std::string description;
     std::string attribution;
     std::optional<std::int32_t> minZoom;
     std::optional<std::int32_t> maxZoom;
-    std::optional<double> boundLeft;
-    std::optional<double> boundBottom;
-    std::optional<double> boundRight;
-    std::optional<double> boundTop;
-    std::optional<double> centerLon;
-    std::optional<double> centerLat;
+    std::vector<TileSetBound> bounds;
+    std::vector<TileSetCenter> center;
 };
+
+TileMetadata decodeTileMetadata(BufferStream&);
+TileMetadata decodeTileMetadata(const BufferStream&);
 
 } // namespace mlt::metadata::tileset

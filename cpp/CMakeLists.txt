@@ -15,7 +15,6 @@ add_library(mlt-cpp STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
-option(MLT_WITH_PROTOZERO "Include Protozero decoding of tileset metadata" ON)
 
 set_target_properties(
     mlt-cpp
@@ -93,11 +92,11 @@ list(APPEND MLT_INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/tile.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/stream.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset.hpp
-    ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset_protozero.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/buffer_stream.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/packed_bitset.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/noncopyable.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/varint.hpp
 )
 
 list(APPEND MLT_SRC_FILES
@@ -111,13 +110,13 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/geometry_vector.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/layer.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/space_filling_curve.hpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/vectorized.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
 )
@@ -163,25 +162,6 @@ endif()
 
 target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/fsst")
 
-# Protozero
-if(MLT_WITH_PROTOZERO)
-    message(STATUS "[MLT] Including Protozero")
-    set(DOXYGEN_FOUND OFF CACHE BOOL "Disable doxygen in protozero" FORCE)
-    set(BUILD_TESTING OFF CACHE BOOL "Disable tests in protozero" FORCE)
-
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/protozero" "${CMAKE_CURRENT_BINARY_DIR}/protozero" EXCLUDE_FROM_ALL SYSTEM)
-    else()
-        set(WERROR OFF CACHE BOOL "Disable warnings in protozero" FORCE)
-        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/protozero" "${CMAKE_CURRENT_BINARY_DIR}/protozero" EXCLUDE_FROM_ALL)
-    endif()
-
-    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/protozero/include")
-    target_compile_definitions(mlt-cpp PUBLIC PROTOZERO_USE_VIEW=std::string_view MLT_WITH_PROTOZERO=1)
-else()
-    message(STATUS "[MLT] No Protozero")
-endif(MLT_WITH_PROTOZERO)
-
 # json
 if(MLT_WITH_JSON)
     message(STATUS "[MLT] Including GeoJSON support")
@@ -199,9 +179,7 @@ else()
     message(STATUS "[MLT] No GeoJSON support")
 endif(MLT_WITH_JSON)
 
-if(MLT_WITH_PROTOZERO)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
-endif()
+add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
+add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
 
 export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)

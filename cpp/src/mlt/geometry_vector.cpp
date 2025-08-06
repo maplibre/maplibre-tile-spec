@@ -105,7 +105,9 @@ void GeometryVector::applyTriangles(Geometry& geom,
         assert(std::all_of(&indexBuffer[indexBufferOffset],
                            &indexBuffer[indexBufferOffset + (3 * numTriangles)],
                            [=](auto i) { return i < totalVertices; }));
-#ifndef NDEBUG
+#if !defined(NDEBUG) && false
+        // Expect the tessellated indexes to reference the entire range of vertices.
+        // The Java implementation of Earcut makes this fail, so it's disabled for now.
         const auto limits = std::ranges::minmax_element(&indexBuffer[indexBufferOffset],
                                                         &indexBuffer[indexBufferOffset + (3 * numTriangles)]);
         assert(*limits.min == 0 && *limits.max == totalVertices - 1);

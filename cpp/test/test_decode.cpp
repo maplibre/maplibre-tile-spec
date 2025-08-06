@@ -3,9 +3,8 @@
 #include <cstdlib>
 #include <mlt/decoder.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/util/buffer_stream.hpp>
 #include <mlt/projection.hpp>
-
-#include <mlt/metadata/tileset_protozero.hpp>
 
 #include <iostream>
 #include <filesystem>
@@ -71,9 +70,12 @@ std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::str
         return {std::nullopt, "Failed to read metadata"};
     }
 
-    auto metadata = mlt::metadata::tileset::read({metadataBuffer.data(), metadataBuffer.size()});
-    if (!metadata) {
-        return {std::nullopt, "Failed to parse metadata"};
+    using namespace mlt::metadata::tileset;
+    std::optional<TileMetadata> metadata;
+    try {
+        metadata = decodeTileMetadata({{metadataBuffer.data(), metadataBuffer.size()}});
+    } catch (const std::exception& e) {
+        return {std::nullopt, "Failed to parse metadata: "s + e.what()};
     }
 
     auto buffer = loadFile(path);

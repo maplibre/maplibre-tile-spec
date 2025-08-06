@@ -19,7 +19,14 @@ struct BufferStream : public util::noncopyable {
     auto getSize() const noexcept { return data.size(); }
     auto getOffset() const noexcept { return offset; }
     auto getRemaining() const noexcept { return data.size() - offset; }
+    auto getDataView() const noexcept { return data; }
     bool available(std::size_t size = 1) const noexcept { return size <= getRemaining(); }
+
+    void reset() { offset = 0; }
+    void reset(DataView data_) {
+        data = data_;
+        offset = 0;
+    }
 
     template <typename T = std::uint8_t>
     const T* getData() const noexcept {
@@ -36,6 +43,12 @@ struct BufferStream : public util::noncopyable {
         const T* p = getReadPosition<T>();
         consume(sizeof(T));
         return static_cast<DataView::value_type>(*p);
+    }
+
+    void read(void* buffer, std::uint32_t size) {
+        check(size);
+        std::memcpy(buffer, getReadPosition(), size);
+        consume(size);
     }
 
     template <typename T = std::uint8_t>
@@ -56,7 +69,7 @@ private:
         }
     }
 
-    const DataView data;
+    DataView data;
     std::uint32_t offset;
 };
 

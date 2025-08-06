@@ -15,7 +15,7 @@ namespace mlt {
 
 class Decoder : public util::noncopyable {
 public:
-    using TileSetMetadata = metadata::tileset::TileSetMetadata;
+    using TileMetadata = metadata::tileset::TileMetadata;
     using Geometry = geometry::Geometry;
     using GeometryFactory = geometry::GeometryFactory;
 
@@ -24,7 +24,8 @@ public:
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;
 
-    MapLibreTile decode(DataView, const TileSetMetadata&);
+    MapLibreTile decode(DataView, const TileMetadata&);
+    MapLibreTile decode(BufferStream&, const TileMetadata&);
 
 private:
     struct Impl;

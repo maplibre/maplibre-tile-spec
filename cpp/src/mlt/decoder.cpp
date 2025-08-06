@@ -46,13 +46,16 @@ Decoder::Decoder(bool legacy_, std::unique_ptr<GeometryFactory>&& geometryFactor
 
 Decoder::~Decoder() noexcept = default;
 
-MapLibreTile Decoder::decode(DataView tileData_, const TileSetMetadata& tileMetadata) {
+MapLibreTile Decoder::decode(DataView tileData_, const TileMetadata& tileMetadata) {
+    auto tileData = BufferStream{tileData_};
+    return decode(tileData, tileMetadata);
+}
+
+MapLibreTile Decoder::decode(BufferStream& tileData, const TileMetadata& tileMetadata) {
     using namespace metadata;
     using namespace metadata::stream;
     using namespace metadata::tileset;
     using namespace util::decoding;
-
-    auto tileData = BufferStream{tileData_};
 
     std::vector<Layer> layers;
     // layers.reserve(...);
