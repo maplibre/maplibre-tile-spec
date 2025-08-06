@@ -40,9 +40,8 @@ struct Decoder::Impl {
     std::unique_ptr<GeometryFactory> geometryFactory;
 };
 
-Decoder::Decoder(bool legacy_, std::unique_ptr<GeometryFactory>&& geometryFactory)
-    : impl{std::make_unique<Impl>(std::move(geometryFactory))},
-      legacy(legacy_) {}
+Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory)
+    : impl{std::make_unique<Impl>(std::move(geometryFactory))} {}
 
 Decoder::~Decoder() noexcept = default;
 
@@ -67,7 +66,7 @@ MapLibreTile Decoder::decode(BufferStream& tileData, const TileMetadata& tileMet
 
         const auto version = tileData.read();
         const auto featureTableId = decodeVarint<std::uint32_t>(tileData);
-        const auto featureTableBodySize = legacy ? -1 : decodeVarint<std::uint32_t>(tileData);
+        const auto featureTableBodySize = decodeVarint<std::uint32_t>(tileData);
         const auto [tileExtent, maxTileExtent, numFeatures] = decodeVarints<std::uint32_t, 3>(tileData);
 
         if (tileExtent == 0) {

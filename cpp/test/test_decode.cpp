@@ -11,6 +11,7 @@
 #include <fstream>
 #include <regex>
 #include <string>
+#include "mlt/util/varint.hpp"
 
 using namespace std::string_literals;
 using namespace std::string_view_literals;
@@ -64,27 +65,34 @@ auto dump(const nlohmann::json& json) {
 }
 #endif
 
-std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::string& path, bool legacy = true) {
-    auto metadataBuffer = loadFile(path + ".meta.pbf");
-    if (metadataBuffer.empty()) {
-        return {std::nullopt, "Failed to read metadata"};
+std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::string& path) {
+    auto tileData = loadFile(path);
+    if (tileData.empty()) {
+        return {std::nullopt, "Failed to read tile data"};
     }
 
+    using namespace mlt;
     using namespace mlt::metadata::tileset;
+    using namespace mlt::util::decoding;
+
+    BufferStream buffer{{(tileData.data()), tileData.size()}};
+    const auto metadataSize = decodeVarint<std::uint32_t>(buffer);
+    const auto headerSize = getVarintSize(metadataSize);
+    if (metadataSize + headerSize >= tileData.size()) {
+        return {std::nullopt, "Invalid tile"};
+    }
+
     std::optional<TileMetadata> metadata;
     try {
-        metadata = decodeTileMetadata({{metadataBuffer.data(), metadataBuffer.size()}});
+        buffer.reset({tileData.data() + headerSize, metadataSize});
+        metadata = decodeTileMetadata(buffer);
     } catch (const std::exception& e) {
         return {std::nullopt, "Failed to parse metadata: "s + e.what()};
     }
 
-    auto buffer = loadFile(path);
-    if (buffer.empty()) {
-        return {std::nullopt, "Failed to read tile data"};
-    }
-
-    mlt::Decoder decoder(legacy);
-    auto tile = decoder.decode({buffer.data(), buffer.size()}, *metadata);
+    const auto prefixSize = headerSize + metadataSize;
+    buffer.reset({tileData.data() + prefixSize, tileData.size() - prefixSize});
+    auto tile = mlt::Decoder().decode(buffer, *metadata);
 
 #if MLT_WITH_JSON
     // Load the GeoJSON file, if present
@@ -133,6 +141,7 @@ TEST(Decode, SimplePointBoolean) {
 
 TEST(Decode, SimpleLineBoolean) {
     const auto tile = loadTile(basePath + "/simple/line-boolean.mlt");
+    // TODO: check properties, geometry, etc.
     ASSERT_TRUE(tile.first);
 }
 
@@ -158,7 +167,7 @@ TEST(Decode, SimpleMultiPolygonBoolean) {
 
 TEST(Decode, Bing) {
     const auto tile = loadTile(basePath + "/bing/4-13-6.mlt");
-    ASSERT_TRUE(tile.first);
+    ASSERT_TRUE(tile.first) << tile.second;
 }
 
 TEST(Decode, OMT) {

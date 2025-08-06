@@ -19,7 +19,7 @@ public:
     using Geometry = geometry::Geometry;
     using GeometryFactory = geometry::GeometryFactory;
 
-    Decoder(bool legacy = false, std::unique_ptr<GeometryFactory>&& = std::make_unique<GeometryFactory>());
+    Decoder(std::unique_ptr<GeometryFactory>&& = std::make_unique<GeometryFactory>());
     ~Decoder() noexcept;
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;
@@ -30,7 +30,6 @@ public:
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
-    bool legacy;
 
     std::vector<Feature> makeFeatures(const std::vector<Feature::id_t>&, std::vector<std::unique_ptr<Geometry>>&&);
 };
