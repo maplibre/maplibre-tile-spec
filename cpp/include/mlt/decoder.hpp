@@ -34,6 +34,9 @@ public:
     /// Decode the metadata portion of a tile, leaving the buffer position at the start of the tile data.
     metadata::tileset::TileMetadata decodeTileMetadata(BufferStream&);
 
+protected:
+    std::vector<Layer> decodeLayers(BufferStream&, const TileMetadata&);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

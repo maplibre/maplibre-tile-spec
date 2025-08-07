@@ -28,6 +28,14 @@ using namespace util::decoding;
 namespace {
 constexpr std::string_view ID_COLUMN_NAME = "id";
 constexpr std::string_view GEOMETRY_COLUMN_NAME = "geometry";
+
+BufferStream subStream(const BufferStream& buffer, std::size_t offset, std::size_t length) {
+    const auto data = buffer.getRemainingView();
+    if (offset + length > data.size()) {
+        throw std::runtime_error("Invalid substream range");
+    }
+    return {{data.data() + offset, length}};
+}
 } // namespace
 
 struct Decoder::Impl {
@@ -52,6 +60,10 @@ MapLibreTile Decoder::decode(DataView tileData_, const TileMetadata& tileMetadat
 }
 
 MapLibreTile Decoder::decode(BufferStream& tileData, const TileMetadata& tileMetadata) {
+    return {decodeLayers(tileData, tileMetadata)};
+}
+
+std::vector<Layer> Decoder::decodeLayers(BufferStream& tileData, const TileMetadata& tileMetadata) {
     using namespace metadata;
     using namespace metadata::stream;
     using namespace metadata::tileset;
@@ -132,23 +144,49 @@ MapLibreTile Decoder::decode(BufferStream& tileData, const TileMetadata& tileMet
                             makeFeatures(ids, geometryVector->getGeometries(*impl->geometryFactory)),
                             std::move(properties));
     }
-    return {std::move(layers)};
+    return layers;
 }
 
 MapLibreTile Decoder::decodeTile(DataView tileData) {
     BufferStream buffer{tileData};
-    const auto metadata = decodeTileMetadata(buffer);
-    return decode(buffer, metadata);
+    std::vector<Layer> tileLayers;
+    while (buffer.available()) {
+        // Read the metadata size
+        const auto metadataSize = decodeVarint<std::uint32_t>(buffer);
+        if (metadataSize >= buffer.getRemaining()) {
+            throw std::runtime_error("Invalid tile size");
+        }
+
+        const auto tileDataSize = decodeVarint<std::uint32_t>(buffer);
+        if (metadataSize + tileDataSize > buffer.getRemaining()) {
+            throw std::runtime_error("Invalid tile size");
+        }
+
+        // Create a temporary buffer for just the metadata, as it reads to the end of the buffer.
+        auto metadataBuffer = subStream(buffer, 0, metadataSize);
+        auto metadata = mlt::metadata::tileset::decodeTileMetadata(metadataBuffer);
+        buffer.consume(metadataSize);
+
+        // Create another temporary buffer for just the tile data
+        auto tileBuffer = subStream(buffer, 0, tileDataSize);
+        auto layers = decodeLayers(tileBuffer, metadata);
+        buffer.consume(tileDataSize);
+
+        tileLayers.insert(
+            tileLayers.end(), std::make_move_iterator(layers.begin()), std::make_move_iterator(layers.end()));
+    }
+    return {std::move(tileLayers)};
 }
 
 metadata::tileset::TileMetadata Decoder::decodeTileMetadata(BufferStream& buffer) {
+    // Read the metadata size
     const auto metadataSize = decodeVarint<std::uint32_t>(buffer);
     const auto headerSize = getVarintSize(metadataSize);
     if (metadataSize >= buffer.getRemaining()) {
         throw std::runtime_error("Invalid tile size");
     }
 
-    // Create a temporary buffer for just the metadata, as it relies on the buffer to detect the end.
+    // Create a temporary buffer for just the metadata, as it reads to the end of the buffer.
     const auto data = buffer.getRemainingView();
     BufferStream metadataBuffer{{static_cast<const char*>(data.data()), metadataSize}};
     auto metadata = mlt::metadata::tileset::decodeTileMetadata(metadataBuffer);

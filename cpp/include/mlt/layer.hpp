@@ -26,7 +26,7 @@ public:
     ~Layer();
 
     Layer(Layer&&) noexcept = default;
-    Layer& operator=(Layer&&) = delete;
+    Layer& operator=(Layer&&) = default;
 
     const std::string& getName() const noexcept { return name; }
     int getVersion() const noexcept { return version; }
