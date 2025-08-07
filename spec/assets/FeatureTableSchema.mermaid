@@ -1,76 +1,84 @@
 ---
 title: FeatureTableSchema
+config:
+  class:
+    hideEmptyMembersBox: true
 ---
 classDiagram
+    %% ---------------- Tile ----------------
+    class Tile {
+	  +VarInt metadataSize
+	  TileMetadata metadata
+      u8[] tileData
+    }
+
     %% ---------------- TileMetadata ----------------
     class TileMetadata {
-      +varint featureTableCount
       +FeatureTable[] featureTables
     }
 
     %% ---------------- FeatureTable ----------------
     class FeatureTable {
-      +string name
-      +varint columnCount
+      +String name
+      +VarInt columnCount
       +Column[] columns
     }
 
     %% ---------------- Column ----------------
     class Column {
-      +string name
-      +u8 options
-      +ScalarColumn scalarType
+      +ColumnOptions options %% VarInt
+      +String name
+      +ScalarColumn scalarType %% oneof i.e., scalarType XOR complexType
       +ComplexColumn complexType
     }
-    %% Note: options flags for Column: nullable=1, complex=2, vertexScope=4
 
     %% ---------------- ScalarColumn ----------------
     class ScalarColumn {
-      +ScalarColumnOptions options
-      +ScalarType physicalType
+      +ScalarColumnOptions options %% VarInt
+      
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalScalarType logicalType
     }
-    %% Note: options flag for ScalarColumnOptions: logical = 1
 
     %% ---------------- ComplexColumn ----------------
     class ComplexColumn {
-      +ComplexColumnOptions options
-      +ComplexType physicalType
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalComplexType logicalType
-      +varint childrenCount
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
       +Field[] children
     }
-    %% Note: options flag for ComplexColumnOptions: logical = 1
 
     %% ---------------- Field ----------------
     class Field {
-      +FieldOptions options
-      +string name  %% optional, used when named
-      +ScalarField scalarField
+      +FieldOptions options %% VarInt
+      +String name
+      +ScalarField scalarField %% oneof i.e., scalarField XOR complexField
       +ComplexField complexField
     }
-    %% Note: options flags for FieldOptions: named = 1, nullable = 2, complex = 4
 
     %% ---------------- ScalarField ----------------
     class ScalarField {
-      +ScalarFieldOptions options
-      +ScalarType physicalType
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalScalarType logicalType
     }
-    %% Note: options flag for ScalarFieldOptions: logical = 1
 
     %% ---------------- ComplexField ----------------
     class ComplexField {
-      +ComplexFieldOptions options
-      +ComplexType physicalType
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalComplexType logicalType
-      +varint childCount
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
       +Field[] children
     }
-    %% Note: options flag for ComplexFieldOptions: logical = 1
 
+    %% ---------------- String ------------------
+    class String {
+      +VarInt length
+      u8 bytes[length] %% encoding is always UTF-8
+    }
+        
     %% ---------------- Enumerations ----------------
     class ScalarType {
+      <<enumeration>>
       BOOLEAN = 0
       INT_8 = 1
       UINT_8 = 2
@@ -86,12 +94,14 @@ classDiagram
     }
 
     class LogicalScalarType {
+      <<enumeration>>
       TIMESTAMP = 0
       DATE = 1
       JSON = 2
     }
 
     class ComplexType {
+      <<enumeration>>
       VEC_2 = 0
       VEC_3 = 1
       GEOMETRY = 2
@@ -102,11 +112,27 @@ classDiagram
     }
 
     class LogicalComplexType {
+      <<enumeration>>
       BINARY = 0
       RANGE_MAP = 1
     }
 
+    class FieldOptions {
+      <<enumeration>>
+      NULLABLE = 1, %% Property is nullable
+      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType
+      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type
+      CHILD_TYPES = 8, %% 1: Child types are present
+    }
+
+    class ColumnOptions {
+      <<enumeration>>
+      VERTEX_SCOPE = 16, %% Property is vertex-scope if set, else feature-scope
+    }
+
     %% ---------------- Associations ----------------
+    FieldOptions <|-- ColumnOptions
+	Tile --> TileMetadata : metadata
     TileMetadata --> FeatureTable : featureTables
     FeatureTable --> Column : columns
     Column --> ScalarColumn : scalarType
