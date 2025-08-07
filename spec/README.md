@@ -78,11 +78,14 @@ Each `FeatureTable` is preceded by a `FeatureTableMetadata` describing it.
 
 A tile consists of any number of:
 
-- The size of the `FeatureTableMetadata`, varint-encoded
+- The size of the `FeatureTableMetadata` to follow, varint-encoded
+- The size of the `FeatureTable` to follow, varint-encoded
 - One `FeatureTableMetadata`
 - One `FeatureTable`
 
-The `FeatureTableMetadata` is described in detail in [a separate document](METADATA.md).
+The `FeatureTableMetadata` is described in detail in [a separate document](assets/FeatureTableSchema.mermaid).
+
+Each `FeatureTableMetadata`/`FeatureTable` pair may contain one or more layers.  This allows the tile to be built by simple concatenation of separate results.
 
 Within a `FeatureTable`, additional metadata describes the structure of each part:
 
