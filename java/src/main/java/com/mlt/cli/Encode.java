@@ -186,7 +186,12 @@ public class Encode {
                   List.of(decodedMvTile), columnMappings, isIdPresent);
           var metadata = MltConverter.createEmbeddedMetadata(pbMeta);
           if (metadata != null) {
-            writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
+            try {
+              writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
+            } catch (IOException ex) {
+              System.err.println("ERROR: Failed to write tile with embedded metadata");
+              ex.printStackTrace(System.err);
+            }
           } else {
             System.err.println("ERROR: Failed to generate embedded metadata");
           }
@@ -547,14 +552,7 @@ public class Encode {
 
       byte[] tileData;
       try (var outputStream = new ByteArrayOutputStream()) {
-        try (var binStream = new DataOutputStream(outputStream)) {
-          EncodingUtils.putVarInt(binStream, binaryMetadata.length);
-          binStream.flush();
-
-          outputStream.write(binaryMetadata);
-          outputStream.write(mlTile);
-        }
-
+        writeTileWithEmbeddedMetadata(outputStream, mlTile, binaryMetadata);
         outputStream.close();
         tileData = outputStream.toByteArray();
       }
@@ -722,18 +720,21 @@ public class Encode {
 
   /// Write the binary metadata before the tile data
   private static void writeTileWithEmbeddedMetadata(
-      Path tileOutputPath, byte[] mlTile, byte[] tileMetadata) {
+      Path tileOutputPath, byte[] mlTile, byte[] tileMetadata) throws IOException {
     try (var fileStream = Files.newOutputStream(tileOutputPath)) {
-      try (var dataStream = new DataOutputStream(fileStream)) {
-        EncodingUtils.putVarInt(dataStream, tileMetadata.length);
-        dataStream.flush();
+      writeTileWithEmbeddedMetadata(fileStream, mlTile, tileMetadata);
+    }
+  }
 
-        fileStream.write(tileMetadata);
-        fileStream.write(mlTile);
-      }
-    } catch (IOException ex) {
-      System.err.println("ERROR: Failed to write tile with embedded metadata");
-      ex.printStackTrace(System.err);
+  private static void writeTileWithEmbeddedMetadata(
+      OutputStream stream, byte[] mlTile, byte[] tileMetadata) throws IOException {
+    try (var dataStream = new DataOutputStream(stream)) {
+      EncodingUtils.putVarInt(dataStream, tileMetadata.length);
+      EncodingUtils.putVarInt(dataStream, mlTile.length);
+      dataStream.flush();
+
+      stream.write(tileMetadata);
+      stream.write(mlTile);
     }
   }
 
