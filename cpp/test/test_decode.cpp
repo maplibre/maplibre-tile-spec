@@ -66,33 +66,12 @@ auto dump(const nlohmann::json& json) {
 #endif
 
 std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::string& path) {
-    auto tileData = loadFile(path);
+    const auto tileData = loadFile(path);
     if (tileData.empty()) {
         return {std::nullopt, "Failed to read tile data"};
     }
 
-    using namespace mlt;
-    using namespace mlt::metadata::tileset;
-    using namespace mlt::util::decoding;
-
-    BufferStream buffer{{(tileData.data()), tileData.size()}};
-    const auto metadataSize = decodeVarint<std::uint32_t>(buffer);
-    const auto headerSize = getVarintSize(metadataSize);
-    if (metadataSize + headerSize >= tileData.size()) {
-        return {std::nullopt, "Invalid tile"};
-    }
-
-    std::optional<TileMetadata> metadata;
-    try {
-        buffer.reset({tileData.data() + headerSize, metadataSize});
-        metadata = decodeTileMetadata(buffer);
-    } catch (const std::exception& e) {
-        return {std::nullopt, "Failed to parse metadata: "s + e.what()};
-    }
-
-    const auto prefixSize = headerSize + metadataSize;
-    buffer.reset({tileData.data() + prefixSize, tileData.size() - prefixSize});
-    auto tile = mlt::Decoder().decode(buffer, *metadata);
+    auto tile = mlt::Decoder().decodeTile({(tileData.data()), tileData.size()});
 
 #if MLT_WITH_JSON
     // Load the GeoJSON file, if present

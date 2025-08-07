@@ -11,6 +11,7 @@
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/properties.hpp>
+#include <mlt/tile.hpp>
 #include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/rle.hpp>
 #include <mlt/util/stl.hpp>
@@ -132,6 +133,30 @@ MapLibreTile Decoder::decode(BufferStream& tileData, const TileMetadata& tileMet
                             std::move(properties));
     }
     return {std::move(layers)};
+}
+
+MapLibreTile Decoder::decodeTile(DataView tileData) {
+    BufferStream buffer{tileData};
+    const auto metadata = decodeTileMetadata(buffer);
+    return decode(buffer, metadata);
+}
+
+metadata::tileset::TileMetadata Decoder::decodeTileMetadata(BufferStream& buffer) {
+    const auto metadataSize = decodeVarint<std::uint32_t>(buffer);
+    const auto headerSize = getVarintSize(metadataSize);
+    if (metadataSize >= buffer.getRemaining()) {
+        throw std::runtime_error("Invalid tile size");
+    }
+
+    // Create a temporary buffer for just the metadata, as it relies on the buffer to detect the end.
+    const auto data = buffer.getRemainingView();
+    BufferStream metadataBuffer{{static_cast<const char*>(data.data()), metadataSize}};
+    auto metadata = mlt::metadata::tileset::decodeTileMetadata(metadataBuffer);
+
+    // Update the original buffer position to the beginning of the tile data
+    buffer.consume(metadataSize);
+
+    return metadata;
 }
 
 std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids,

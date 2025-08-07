@@ -19,12 +19,12 @@ struct BufferStream : public util::noncopyable {
     auto getSize() const noexcept { return data.size(); }
     auto getOffset() const noexcept { return offset; }
     auto getRemaining() const noexcept { return data.size() - offset; }
-    auto getDataView() const noexcept { return data; }
+    DataView getRemainingView() const { return {getReadPosition<DataView::value_type>(), getRemaining()}; }
     bool available(std::size_t size = 1) const noexcept { return size <= getRemaining(); }
 
     void reset() { offset = 0; }
     void reset(DataView data_) {
-        data = data_;
+        data = std::move(data_);
         offset = 0;
     }
 
@@ -45,7 +45,7 @@ struct BufferStream : public util::noncopyable {
         return static_cast<DataView::value_type>(*p);
     }
 
-    void read(void* buffer, std::uint32_t size) {
+    void read(void* buffer, std::size_t size) {
         check(size);
         std::memcpy(buffer, getReadPosition(), size);
         consume(size);
@@ -57,7 +57,7 @@ struct BufferStream : public util::noncopyable {
         return *getReadPosition<T>();
     }
 
-    void consume(std::uint32_t count) {
+    void consume(std::size_t count) {
         check(count);
         offset += count;
     }
@@ -70,7 +70,7 @@ private:
     }
 
     DataView data;
-    std::uint32_t offset;
+    std::size_t offset;
 };
 
 } // namespace mlt

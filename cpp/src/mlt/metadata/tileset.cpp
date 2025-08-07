@@ -61,7 +61,7 @@ std::variant<ScalarColumn, ComplexColumn> decodeColumn(BufferStream& stream, std
 } // namespace
 
 TileMetadata decodeTileMetadata(const BufferStream& stream) {
-    BufferStream copy{stream.getDataView()};
+    BufferStream copy{stream.getRemainingView()};
     return decodeTileMetadata(copy);
 }
 

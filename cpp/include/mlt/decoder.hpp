@@ -24,8 +24,15 @@ public:
     Decoder(Decoder&&) = delete;
     Decoder& operator=(Decoder&&) = delete;
 
+    /// Decode a tile given its raw data and already-decoded metadata.
     MapLibreTile decode(DataView, const TileMetadata&);
     MapLibreTile decode(BufferStream&, const TileMetadata&);
+
+    /// Decode a tile consisting of metadata and tile data.
+    MapLibreTile decodeTile(DataView);
+
+    /// Decode the metadata portion of a tile, leaving the buffer position at the start of the tile data.
+    metadata::tileset::TileMetadata decodeTileMetadata(BufferStream&);
 
 private:
     struct Impl;
