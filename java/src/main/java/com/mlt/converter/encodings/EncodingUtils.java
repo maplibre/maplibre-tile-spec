@@ -2,9 +2,11 @@ package com.mlt.converter.encodings;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -83,20 +85,39 @@ public class EncodingUtils {
   private static int putVarInt(long v, byte[] sink, int offset) {
     do {
       // Encode next 7 bits + terminator bit
-      long bits = v & 0x7F;
+      final long bits = v & 0x7F;
       v >>>= 7;
-      byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
+      final byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
       sink[offset++] = b;
     } while (v != 0);
     return offset;
   }
 
+  @SuppressWarnings("UnusedReturnValue")
+  public static DataOutputStream putVarInt(DataOutputStream stream, long v) throws IOException {
+    do {
+      // Encode next 7 bits + terminator bit
+      final long bits = v & 0x7F;
+      v >>>= 7;
+      stream.writeByte((byte) (bits + ((v != 0) ? 0x80 : 0)));
+    } while (v != 0);
+    return stream;
+  }
+
+  @SuppressWarnings("UnusedReturnValue")
+  public static DataOutputStream putString(DataOutputStream stream, String s) throws IOException {
+    var bytes = s.getBytes(StandardCharsets.UTF_8);
+    putVarInt(stream, bytes.length);
+    stream.write(bytes);
+    return stream;
+  }
+
   public static long[] encodeZigZag(long[] values) {
-    return Arrays.stream(values).map(value -> EncodingUtils.encodeZigZag(value)).toArray();
+    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
   }
 
   public static int[] encodeZigZag(int[] values) {
-    return Arrays.stream(values).map(value -> EncodingUtils.encodeZigZag(value)).toArray();
+    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
   }
 
   public static long encodeZigZag(long value) {
@@ -109,7 +130,7 @@ public class EncodingUtils {
 
   public static long[] encodeDeltas(long[] values) {
     var deltaValues = new long[values.length];
-    var previousValue = 0l;
+    var previousValue = 0L;
     for (var i = 0; i < values.length; i++) {
       var value = values[i];
       deltaValues[i] = value - previousValue;
@@ -175,7 +196,7 @@ public class EncodingUtils {
   public static Pair<List<Integer>, List<Long>> encodeRle(long[] values) {
     var valueBuffer = new ArrayList<Long>();
     var runsBuffer = new ArrayList<Integer>();
-    var previousValue = 0l;
+    var previousValue = 0L;
     var runs = 0;
     for (var i = 0; i < values.length; i++) {
       var value = values[i];

@@ -6,6 +6,7 @@ import com.google.gson.JsonSyntaxException;
 import com.mlt.converter.ConversionConfig;
 import com.mlt.converter.FeatureTableOptimizations;
 import com.mlt.converter.MltConverter;
+import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
@@ -49,7 +50,6 @@ import org.apache.commons.compress.compressors.deflate.DeflateParameters;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
-import org.apache.commons.io.EndianUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
@@ -137,11 +137,11 @@ public class Encode {
   }
 
   ///  Convert a single tile from an individual file
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static void encodeTile(
       String tileFileName,
       CommandLine cmd,
-      Optional<List<ColumnMapping>> columnMappings,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       boolean verbose)
@@ -149,8 +149,7 @@ public class Encode {
     var willOutput =
         cmd.hasOption(OUTPUT_FILE_ARG)
             || cmd.hasOption(OUTPUT_DIR_ARG)
-            || cmd.hasOption(INCLUDE_EMBEDDED_METADATA)
-            || cmd.hasOption(INCLUDE_EMBEDDED_PBF_METADATA);
+            || cmd.hasOption(INCLUDE_EMBEDDED_METADATA);
     var willIncludeTilesetMetadata = cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION);
     var willDecode = cmd.hasOption(DECODE_OPTION);
     var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
@@ -180,30 +179,19 @@ public class Encode {
         if (verbose) {
           System.err.println("Writing converted tile to " + outputPath);
         }
-        Files.write(outputPath, mlTile);
 
-        if (willIncludeTilesetMetadata) {
-          Path outputMetadataPath = Paths.get(outputPath.toString() + ".meta.pbf");
-          if (verbose) {
-            System.err.println("Writing metadata to " + outputMetadataPath);
+        if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
+          var pbMeta =
+              MltConverter.createTilesetMetadata(
+                  List.of(decodedMvTile), columnMappings, isIdPresent);
+          var metadata = MltConverter.createEmbeddedMetadata(pbMeta);
+          if (metadata != null) {
+            writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
+          } else {
+            System.err.println("ERROR: Failed to generate embedded metadata");
           }
-          tileMetadata.writeTo(Files.newOutputStream(outputMetadataPath));
-        }
-      }
-
-      if (cmd.hasOption(INCLUDE_EMBEDDED_PBF_METADATA)) {
-        var tileOutputPath = Paths.get(cmd.getOptionValue(INCLUDE_EMBEDDED_PBF_METADATA));
-        writeTileWithEmbeddedMetadata(tileOutputPath, mlTile, tileMetadata);
-      }
-      if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
-        var tileOutputPath = Paths.get(cmd.getOptionValue(INCLUDE_EMBEDDED_METADATA));
-        var metadata =
-            MltConverter.createEmbeddedMetadata(
-                List.of(decodedMvTile), columnMappings, isIdPresent);
-        if (metadata != null) {
-          writeTileWithEmbeddedMetadata(tileOutputPath, mlTile, metadata);
         } else {
-          System.err.println("ERROR: Failed to generate embedded metadata");
+          Files.write(outputPath, mlTile);
         }
       }
     }
@@ -235,11 +223,11 @@ public class Encode {
   }
 
   /// Encode the entire contents of an MBTile file of MVT tiles
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static void encodeMBTiles(
       String inputMBTilesPath,
       Path outputPath,
-      Optional<List<ColumnMapping>> columnMappings,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -265,6 +253,15 @@ public class Encode {
         var metadata = mbTilesReader.getMetadata();
         mbTilesWriter.addMetadataEntry(metadata);
 
+        var pbMeta = MltTilesetMetadata.TileSetMetadata.newBuilder();
+        pbMeta.setName(metadata.getTilesetName());
+        pbMeta.setAttribution(metadata.getAttribution());
+        pbMeta.setDescription(metadata.getTilesetDescription());
+        var bounds = metadata.getTilesetBounds();
+        pbMeta.addAllBounds(
+            List.of(bounds.getLeft(), bounds.getTop(), bounds.getRight(), bounds.getBottom()));
+        var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta.build());
+
         var tiles = mbTilesReader.getTiles();
         try {
           while (tiles.hasNext()) {
@@ -284,12 +281,24 @@ public class Encode {
           var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
           try (var connection = DriverManager.getConnection(connectionString)) {
             if (verbose) {
-              System.err.printf("Setting tile MIME type to '%s'%n", embeddedPBFMetadataMIMEType);
+              System.err.printf("Setting tile MIME type to '%s'%n", MetadataMIMEType);
             }
             var sql = "UPDATE metadata SET value = ? WHERE name = ?";
             try (var statement = connection.prepareStatement(sql)) {
-              statement.setString(1, embeddedPBFMetadataMIMEType);
+              statement.setString(1, MetadataMIMEType);
               statement.setString(2, "format");
+              statement.execute();
+            }
+
+            // Put the global metadata in a custom metadata key.
+            // Could also be in a custom key within the standard `json` entry...
+            if (verbose) {
+              System.err.println("Adding tileset metadata JSON");
+            }
+            sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)";
+            try (var statement = connection.prepareStatement(sql)) {
+              statement.setString(1, "mln-json");
+              statement.setString(2, metadataJSON);
               statement.execute();
             }
 
@@ -320,11 +329,11 @@ public class Encode {
   }
 
   /// Encode the MVT tiles in an offline database file
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static void encodeOfflineDB(
       Path inputPath,
       Path outputPath,
-      Optional<List<ColumnMapping>> columnMappings,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -430,7 +439,7 @@ public class Encode {
           }
 
           // Update the format field
-          json.addProperty("format", embeddedPBFMetadataMIMEType);
+          json.addProperty("format", MetadataMIMEType);
 
           // Re-serialize
           jsonString = json.toString();
@@ -451,7 +460,7 @@ public class Encode {
           updateStatement.execute();
 
           if (verbose) {
-            System.err.printf("Updated source JSON format to '%s'%n", embeddedPBFMetadataMIMEType);
+            System.err.printf("Updated source JSON format to '%s'%n", MetadataMIMEType);
           }
         }
       }
@@ -470,11 +479,11 @@ public class Encode {
     }
   }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static void convertTile(
       Tile tile,
       MBTilesWriter mbTilesWriter,
-      Optional<List<ColumnMapping>> columnMappings,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -508,7 +517,6 @@ public class Encode {
     }
   }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   @Nullable
   private static byte[] convertTile(
       int x,
@@ -516,7 +524,8 @@ public class Encode {
       int z,
       byte[] srcTileData,
       ConversionConfig conversionConfig,
-      Optional<List<ColumnMapping>> columnMappings,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings,
       URI tessellateSource,
       String compressionType,
       MutableBoolean didCompress,
@@ -525,26 +534,21 @@ public class Encode {
       var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
 
       var isIdPresent = true;
-      var tileMetadata =
+      var pbfMetadata =
           MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
 
+      var binaryMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
+      if (binaryMetadata == null) {
+        throw new RuntimeException("Failed to generate tile metadata");
+      }
+
       var mlTile =
-          MltConverter.convertMvt(decodedMvTile, tileMetadata, conversionConfig, tessellateSource);
+          MltConverter.convertMvt(decodedMvTile, pbfMetadata, conversionConfig, tessellateSource);
 
       byte[] tileData;
       try (var outputStream = new ByteArrayOutputStream()) {
-        byte[] binaryMetadata;
-        try (var metadataStream = new ByteArrayOutputStream()) {
-          tileMetadata.writeTo(metadataStream);
-          metadataStream.close();
-          binaryMetadata = metadataStream.toByteArray();
-        }
-        if (binaryMetadata.length >= 1 << 16) {
-          throw new NumberFormatException("Invalid metadata size");
-        }
-
         try (var binStream = new DataOutputStream(outputStream)) {
-          binStream.writeShort(EndianUtils.swapShort((short) binaryMetadata.length));
+          EncodingUtils.putVarInt(binStream, binaryMetadata.length);
           binStream.flush();
 
           outputStream.write(binaryMetadata);
@@ -719,32 +723,16 @@ public class Encode {
   /// Write the binary metadata before the tile data
   private static void writeTileWithEmbeddedMetadata(
       Path tileOutputPath, byte[] mlTile, byte[] tileMetadata) {
-    try (var stream = Files.newOutputStream(tileOutputPath)) {
-      stream.write(tileMetadata);
-      stream.write(mlTile);
+    try (var fileStream = Files.newOutputStream(tileOutputPath)) {
+      try (var dataStream = new DataOutputStream(fileStream)) {
+        EncodingUtils.putVarInt(dataStream, tileMetadata.length);
+        dataStream.flush();
+
+        fileStream.write(tileMetadata);
+        fileStream.write(mlTile);
+      }
     } catch (IOException ex) {
       System.err.println("ERROR: Failed to write tile with embedded metadata");
-      ex.printStackTrace(System.err);
-    }
-  }
-
-  /// Write the serialized PBF metadata, preceded by a length header before the tile data
-  private static void writeTileWithEmbeddedMetadata(
-      Path tileOutputPath, byte[] mlTile, MltTilesetMetadata.TileSetMetadata tileMetadata) {
-    try (var stream = Files.newOutputStream(tileOutputPath)) {
-      byte[] binaryMetadata;
-      try (var metadataStream = new ByteArrayOutputStream()) {
-        tileMetadata.writeTo(metadataStream);
-        metadataStream.flush();
-        binaryMetadata = metadataStream.toByteArray();
-      }
-      try (var binStream = new DataOutputStream(stream)) {
-        binStream.writeShort(binaryMetadata.length);
-      }
-      stream.write(binaryMetadata);
-      stream.write(mlTile);
-    } catch (IOException ex) {
-      System.err.println("ERROR: Failed to write tile with embedded PBF metadata");
       ex.printStackTrace(System.err);
     }
   }
@@ -757,7 +745,6 @@ public class Encode {
   private static final String EXCLUDE_IDS_OPTION = "noids";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "metadata";
   private static final String INCLUDE_EMBEDDED_METADATA = "embedmetadata";
-  private static final String INCLUDE_EMBEDDED_PBF_METADATA = "embedpbfmetadata";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
@@ -872,22 +859,10 @@ public class Encode {
       options.addOption(
           Option.builder()
               .longOpt(INCLUDE_EMBEDDED_METADATA)
-              .hasArg(true)
+              .hasArg(false)
               .argName("file")
               .desc(
                   "Write output tile with embedded metadata. "
-                      + "Only applies with --"
-                      + INPUT_TILE_ARG
-                      + ".")
-              .required(false)
-              .build());
-      options.addOption(
-          Option.builder()
-              .longOpt(INCLUDE_EMBEDDED_PBF_METADATA)
-              .hasArg(true)
-              .argName("file")
-              .desc(
-                  "Write output with embedded PBF metadata"
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
@@ -1072,5 +1047,5 @@ public class Encode {
     return null;
   }
 
-  private static final String embeddedPBFMetadataMIMEType = "application/vnd.maplibre-tile-pbf";
+  private static final String MetadataMIMEType = "application/vnd.maplibre-vector-tile";
 }
