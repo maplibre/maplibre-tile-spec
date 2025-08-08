@@ -1,5 +1,6 @@
 package com.mlt.converter;
 
+import com.google.gson.Gson;
 import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.converter.encodings.GeometryEncoder;
 import com.mlt.converter.encodings.PropertyEncoder;
@@ -8,10 +9,14 @@ import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.data.Feature;
 import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class MltConverter {
@@ -34,7 +39,8 @@ public class MltConverter {
    * */
   public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
       Iterable<MapboxVectorTile> mvTiles,
-      Optional<List<ColumnMapping>> columnMappings,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings,
       boolean isIdPresent) {
     var tilesetBuilder = MltTilesetMetadata.TileSetMetadata.newBuilder();
     tilesetBuilder.setVersion(VERSION);
@@ -210,6 +216,157 @@ public class MltConverter {
     return tilesetBuilder.build();
   }
 
+  public static String createTilesetMetadataJSON(MltTilesetMetadata.TileSetMetadata pbMetadata) {
+    var root = new TreeMap<String, Object>();
+    final int version = 1;
+    root.put("version", version);
+    if (pbMetadata.hasName()) {
+      root.put("name", pbMetadata.getName());
+    }
+    if (pbMetadata.hasDescription()) {
+      root.put("description", pbMetadata.getDescription());
+    }
+    if (pbMetadata.hasAttribution()) {
+      root.put("attribution", pbMetadata.getAttribution());
+    }
+    if (pbMetadata.hasMinZoom()) {
+      root.put("minZoom", pbMetadata.getMinZoom());
+    }
+    if (pbMetadata.hasMaxZoom()) {
+      root.put("maxZoom", pbMetadata.getMaxZoom());
+    }
+
+    var bounds = new ArrayList<Map<String, Object>>();
+    for (int i = 0; i < (pbMetadata.getBoundsCount() % 4); ++i) {
+      var bound = new TreeMap<String, Object>();
+      bound.put("left", pbMetadata.getBounds(4 * i));
+      bound.put("top", pbMetadata.getBounds((4 * i) + 1));
+      bound.put("right", pbMetadata.getBounds((4 * i) + 2));
+      bound.put("bottom", pbMetadata.getBounds((4 * i) + 3));
+      bounds.add(bound);
+    }
+    if (!bounds.isEmpty()) {
+      root.put("bounds", bounds);
+    }
+
+    var centers = new ArrayList<Map<String, Object>>();
+    for (int i = 0; i < (pbMetadata.getCenterCount() % 2); ++i) {
+      var center = new TreeMap<String, Object>();
+      center.put("longitude", 2 * i);
+      center.put("latitude", (2 * i) + 1);
+      centers.add(center);
+    }
+    if (!centers.isEmpty()) {
+      root.put("center", centers);
+    }
+
+    return new Gson().toJson(root);
+  }
+
+  private static long bit(int n, boolean b) {
+    return (b ? 1L : 0L) << n;
+  }
+
+  /// Write the header block for a field or column.
+  /// Takes the values individually because, despite having mostly
+  /// the same information, the field and column are separate types.
+  private static void writeColumnOrFieldType(
+      DataOutputStream stream,
+      String name,
+      boolean isNullable,
+      boolean vertexScope,
+      @Nullable MltTilesetMetadata.ScalarType physicalScalarType,
+      @Nullable MltTilesetMetadata.LogicalScalarType logicalScalarType,
+      @Nullable MltTilesetMetadata.ComplexType physicalComplexType,
+      @Nullable MltTilesetMetadata.LogicalComplexType logicalComplexType,
+      @Nullable List<MltTilesetMetadata.Field> children)
+      throws IOException {
+    final boolean isComplex = physicalComplexType != null || logicalComplexType != null;
+    final boolean isLogical = logicalScalarType != null || logicalComplexType != null;
+    final boolean hasChildren = (children != null && !children.isEmpty());
+
+    final var options =
+        bit(0, isNullable)
+            | bit(1, isComplex)
+            | bit(2, isLogical)
+            | bit(3, hasChildren)
+            | bit(4, vertexScope);
+    EncodingUtils.putVarInt(stream, options);
+
+    EncodingUtils.putString(stream, name);
+
+    if (physicalScalarType != null) {
+      EncodingUtils.putVarInt(stream, physicalScalarType.getNumber());
+    } else if (physicalComplexType != null) {
+      EncodingUtils.putVarInt(stream, physicalComplexType.getNumber());
+    } else if (logicalScalarType != null) {
+      EncodingUtils.putVarInt(stream, logicalScalarType.getNumber());
+    } else if (logicalComplexType != null) {
+      EncodingUtils.putVarInt(stream, logicalComplexType.getNumber());
+    } else {
+      throw new IllegalArgumentException("invalid type specification");
+    }
+
+    if (hasChildren) {
+      EncodingUtils.putVarInt(stream, children.size());
+      for (var child : children) {
+        final boolean complex = child.hasComplexField();
+        final boolean logical =
+            (complex && child.getComplexField().hasLogicalType())
+                || (!complex && child.getScalarField().hasLogicalType());
+
+        writeColumnOrFieldType(
+            stream,
+            child.getName(),
+            child.getNullable(),
+            /* vertexScope= */ false,
+            (!complex && !logical) ? child.getScalarField().getPhysicalType() : null,
+            (!complex && logical) ? child.getScalarField().getLogicalType() : null,
+            (complex && !logical) ? child.getComplexField().getPhysicalType() : null,
+            (complex && logical) ? child.getComplexField().getLogicalType() : null,
+            complex ? child.getComplexField().getChildrenList() : null);
+      }
+    }
+  }
+
+  /// Produce the binary tile header containing the tile metadata
+  /// <p>Note: Uses the protobuf format as input to avoid repeating the logic there, could be
+  // refactored to eliminate it</p>
+  public static byte[] createEmbeddedMetadata(MltTilesetMetadata.TileSetMetadata pbMetadata) {
+    try (var byteStream = new ByteArrayOutputStream()) {
+      try (var dataStream = new DataOutputStream(byteStream)) {
+        for (var table : pbMetadata.getFeatureTablesList()) {
+          EncodingUtils.putString(dataStream, table.getName());
+          EncodingUtils.putVarInt(dataStream, table.getColumnsCount());
+          for (var column : table.getColumnsList()) {
+            writeColumnOrFieldType(
+                dataStream,
+                column.getName(),
+                column.getNullable(),
+                (column.getColumnScope() == MltTilesetMetadata.ColumnScope.VERTEX),
+                column.hasScalarType() && column.getScalarType().hasPhysicalType()
+                    ? column.getScalarType().getPhysicalType()
+                    : null,
+                column.hasScalarType() && column.getScalarType().hasLogicalType()
+                    ? column.getScalarType().getLogicalType()
+                    : null,
+                column.hasComplexType() && column.getComplexType().hasPhysicalType()
+                    ? column.getComplexType().getPhysicalType()
+                    : null,
+                column.hasComplexType() && column.getComplexType().hasLogicalType()
+                    ? column.getComplexType().getLogicalType()
+                    : null,
+                column.hasComplexType() ? column.getComplexType().getChildrenList() : null);
+          }
+        }
+      }
+      return byteStream.toByteArray();
+    } catch (IOException ex) {
+      // TODO: log?
+      return null;
+    }
+  }
+
   /*
    * Converts a MVT file to an MLT file.
    *
@@ -221,11 +378,12 @@ public class MltConverter {
    */
   public static byte[] convertMvt(
       MapboxVectorTile mvt,
+      MltTilesetMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
-      MltTilesetMetadata.TileSetMetadata tilesetMetadata)
+      @Nullable URI tessellateSource)
       throws IOException {
     var physicalLevelTechnique =
-        config.useAdvancedEncodingSchemes()
+        config.getUseAdvancedEncodingSchemes()
             ? PhysicalLevelTechnique.FAST_PFOR
             : PhysicalLevelTechnique.VARINT;
 
@@ -244,17 +402,20 @@ public class MltConverter {
           IntStream.range(0, featureTables.size())
               .filter(i -> featureTables.get(i).getName().equals(featureTableName))
               .findFirst()
-              .getAsInt();
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "Feature table with name '" + featureTableName + "' not found."));
       var featureTableMetadata = featureTables.get(featureTableId);
 
       var featureTableOptimizations =
-          config.optimizations() == null ? null : config.optimizations().get(featureTableName);
+          config.getOptimizations() == null
+              ? null
+              : config.getOptimizations().get(featureTableName);
 
       var createPolygonOutline =
-          config instanceof RenderingOptimizedConversionConfig
-              && ((RenderingOptimizedConversionConfig) config)
-                  .getOutlineFeatureTableNames()
-                  .contains(featureTableName);
+          config.getOutlineFeatureTableNames().contains(featureTableName)
+              || config.getOutlineFeatureTableNames().contains("*");
       var result =
           sortFeaturesAndEncodeGeometryColumn(
               config,
@@ -262,7 +423,8 @@ public class MltConverter {
               mvtFeatures,
               mvtFeatures,
               physicalLevelTechnique,
-              createPolygonOutline);
+              createPolygonOutline,
+              tessellateSource);
       var sortedFeatures = result.getLeft();
       var encodedGeometryColumn = result.getRight();
       var encodedGeometryFieldMetadata =
@@ -273,7 +435,7 @@ public class MltConverter {
           encodePropertyColumns(
               config, featureTableMetadata, sortedFeatures, featureTableOptimizations);
 
-      if (config.includeIds()) {
+      if (config.getIncludeIds()) {
         var idMetadata =
             featureTableMetadata.getColumnsList().stream()
                 .filter(f -> f.getName().equals(ID_COLUMN_NAME))
@@ -285,7 +447,7 @@ public class MltConverter {
                 idMetadata,
                 sortedFeatures,
                 physicalLevelTechnique,
-                config.useAdvancedEncodingSchemes());
+                config.getUseAdvancedEncodingSchemes());
       }
 
       featureTableBodyBuffer =
@@ -329,7 +491,7 @@ public class MltConverter {
     return PropertyEncoder.encodePropertyColumns(
         propertyColumns,
         sortedFeatures,
-        config.useAdvancedEncodingSchemes(),
+        config.getUseAdvancedEncodingSchemes(),
         featureTableOptimizations != null
             ? featureTableOptimizations.columnMappings()
             : Optional.empty());
@@ -342,7 +504,8 @@ public class MltConverter {
           List<Feature> sortedFeatures,
           List<Feature> mvtFeatures,
           PhysicalLevelTechnique physicalLevelTechnique,
-          boolean encodePolygonOutlines) {
+          boolean encodePolygonOutlines,
+          @Nullable URI tessellateSource) {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:
      * - if id column is present and ids should not be reassigned -> sort id column
@@ -354,7 +517,7 @@ public class MltConverter {
      * */
 
     var isColumnSortable =
-        config.includeIds()
+        config.getIncludeIds()
             && featureTableOptimizations != null
             && featureTableOptimizations.allowSorting();
     if (isColumnSortable && !featureTableOptimizations.allowIdRegeneration()) {
@@ -372,15 +535,16 @@ public class MltConverter {
     /* Morton Vertex Dictionary encoding is currently not supported in pre-tessellation */
     var useMortonEncoding = false;
     var encodedGeometryColumn =
-        config instanceof RenderingOptimizedConversionConfig
+        config.getPreTessellatePolygons()
             ? GeometryEncoder.encodePretessellatedGeometryColumn(
                 geometries,
                 physicalLevelTechnique,
                 sortSettings,
                 useMortonEncoding,
-                encodePolygonOutlines)
+                encodePolygonOutlines,
+                tessellateSource)
             : GeometryEncoder.encodeGeometryColumn(
-                geometries, physicalLevelTechnique, sortSettings, config.useMortonEncoding());
+                geometries, physicalLevelTechnique, sortSettings, config.getUseMortonEncoding());
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
@@ -389,7 +553,7 @@ public class MltConverter {
               .collect(Collectors.toList());
     }
 
-    if (config.includeIds()
+    if (config.getIncludeIds()
         && featureTableOptimizations != null
         && featureTableOptimizations.allowIdRegeneration()) {
       sortedFeatures = generateSequenceIds(sortedFeatures);

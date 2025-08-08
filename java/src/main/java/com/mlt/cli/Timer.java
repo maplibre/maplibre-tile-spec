@@ -1,4 +1,4 @@
-package com.mlt.tools;
+package com.mlt.cli;
 
 public class Timer {
   private long startTime;

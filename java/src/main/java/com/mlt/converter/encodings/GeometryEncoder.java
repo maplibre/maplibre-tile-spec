@@ -7,10 +7,12 @@ import com.mlt.converter.CollectionUtils;
 import com.mlt.converter.geometry.*;
 import com.mlt.converter.tessellation.TessellationUtils;
 import com.mlt.metadata.stream.*;
+import java.net.URI;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -35,7 +37,8 @@ public class GeometryEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       SortSettings sortSettings,
       boolean useMortonEncoding,
-      boolean encodePolygonOutlines) {
+      boolean encodePolygonOutlines,
+      @Nullable URI tessellateSource) {
     var geometryTypes = new ArrayList<Integer>();
     var numGeometries = new ArrayList<Integer>();
     var numParts = new ArrayList<Integer>();
@@ -79,7 +82,8 @@ public class GeometryEncoder {
             var vertices = flatPolygon(polygon, numParts, numRings);
             vertexBuffer.addAll(vertices);
 
-            var tessellatedPolygon = TessellationUtils.tessellatePolygon(polygon, 0);
+            var tessellatedPolygon =
+                TessellationUtils.tessellatePolygon(polygon, 0, tessellateSource);
             numTriangles.add(tessellatedPolygon.numTriangles());
             indexBuffer.addAll(tessellatedPolygon.indexBuffer());
 
@@ -120,7 +124,8 @@ public class GeometryEncoder {
             }
 
             // TODO: use also a vertex dictionary encoding for MultiPolygon geometries
-            var tessellatedPolygon = TessellationUtils.tessellateMultiPolygon(multiPolygon);
+            var tessellatedPolygon =
+                TessellationUtils.tessellateMultiPolygon(multiPolygon, tessellateSource);
             numTriangles.add(tessellatedPolygon.numTriangles());
             indexBuffer.addAll(tessellatedPolygon.indexBuffer());
 
@@ -734,7 +739,7 @@ public class GeometryEncoder {
 
   private static void addLineString(
       boolean containsPolygon, int numVertices, List<Integer> numParts, List<Integer> numRings) {
-    /** Depending on the max geometry type in the column add to the numRings or numParts stream */
+    /* Depending on the max geometry type in the column add to the numRings or numParts stream */
     if (containsPolygon) {
       numRings.add(numVertices);
     } else {
