@@ -25,12 +25,12 @@ pub struct Morton {
 
 #[derive(Debug, Clone)]
 pub struct StreamMetadata {
-    logical: Logical,
-    physical: Physical,
+    pub logical: Logical,
+    pub physical: Physical,
     pub num_values: u32,
     pub byte_length: u32,
-    morton: Option<Morton>,
-    rle: Option<Rle>,
+    pub morton: Option<Morton>,
+    pub rle: Option<Rle>,
 }
 
 impl StreamMetadata {
@@ -79,7 +79,7 @@ impl StreamMetadata {
         // offset.increment();
 
         // let size_info = varint::decode(tile, 2, offset);
-        let size_info = varint::decode(tile, 2);
+        let size_info = varint::decode(tile, 2)?;
         // new_offset = ???
         let num_values = size_info
             .first()
@@ -131,7 +131,7 @@ impl Encoding for StreamMetadata {
         tile: &mut TrackedBytes,
     ) -> MltResult<()> {
         // let binding = varint::decode(tile, 2, offset);
-        let binding = varint::decode(tile, 2);
+        let binding = varint::decode(tile, 2)?;
         let [val1, val2] = binding.as_slice() else {
             return Err(MltError::DecodeError(
                 "Expected 2 values for partial decode".into(),
