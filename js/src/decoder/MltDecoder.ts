@@ -19,11 +19,17 @@ export class MltDecoder {
             let geometries = [];
             const properties = {};
 
+            let version = tile[offset.get()];
             offset.increment();
+
             const infos = DecodingUtils.decodeVarint(tile, offset, 4);
-            const version = tile[offset.get()];
-            const extent = infos[1];
+
+            // this is actually column[0].numStreams (2), but the correct value above (1) doesn't match the MVT files
+            version = tile[offset.get()];
+
             const featureTableId = infos[0];
+            const extent = infos[1];
+            const maxExtent = infos[2]; // ?
             const numFeatures = infos[3];
             const metadata = tileMetadata.featureTables[featureTableId];
             if (!metadata) {
@@ -85,6 +91,6 @@ export class MltDecoder {
             features[j] = new Feature(ids[j], extent, geometries[j], p)
         }
 
-        return new Layer(metadata.name, version, features);
+        return new Layer(metadata.name, version, extent, features);
     }
 }
