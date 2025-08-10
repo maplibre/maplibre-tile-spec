@@ -1,5 +1,5 @@
 use crate::decoder::tracked_bytes::TrackedBytes;
-use crate::MltError;
+use crate::{MltError, MltResult};
 use bytes_varint::*;
 
 pub trait VarintDecodable: Sized {
@@ -7,18 +7,14 @@ pub trait VarintDecodable: Sized {
 }
 
 impl VarintDecodable for u32 {
-    fn try_get_varint(input: &mut TrackedBytes) -> Result<Self, MltError> {
-        input
-            .try_get_u32_varint()
-            .map_err(|e| MltError::DecodeError(e.to_string()))
+    fn try_get_varint(input: &mut TrackedBytes) -> MltResult<Self> {
+        Ok(input.try_get_u32_varint()?)
     }
 }
 
 impl VarintDecodable for u64 {
     fn try_get_varint(input: &mut TrackedBytes) -> Result<Self, MltError> {
-        input
-            .try_get_u64_varint()
-            .map_err(|e| MltError::DecodeError(e.to_string()))
+        Ok(input.try_get_u64_varint()?)
     }
 }
 

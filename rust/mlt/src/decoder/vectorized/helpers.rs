@@ -6,10 +6,15 @@ use zigzag::ZigZag;
 /// TODO: The encoded process is (delta + ZigZag) for each component
 pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<Vec<T>, MltError> {
     let len = data.len();
-    if len % 2 != 0 || len < 2 {
-        return Err(MltError::DecodeError(format!(
-            "Input must be even-length and >= 2. Invalid length: {len}"
-        )));
+    if len < 2 {
+        return Err(MltError::MinLength {
+            ctx: "vec2 delta stream",
+            min: 2,
+            got: len,
+        });
+    }
+    if len % 2 != 0 {
+        return Err(MltError::invalid_value_multiple(2, len));
     }
 
     let mut result = Vec::with_capacity(len);
