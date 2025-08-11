@@ -69,7 +69,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - run: just test-java
       - run: just test-java-cli
 
