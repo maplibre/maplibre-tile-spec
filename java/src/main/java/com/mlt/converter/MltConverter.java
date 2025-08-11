@@ -7,11 +7,13 @@ import com.mlt.converter.encodings.PropertyEncoder;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.data.Feature;
+import com.mlt.decoder.DecodingUtils;
 import com.mlt.metadata.stream.PhysicalLevelTechnique;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -107,7 +109,7 @@ public class MltConverter {
                     columnMappings.get().stream()
                         .filter(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
                         .findFirst()
-                        .get();
+                        .orElseThrow();
                 complexPropertyColumnSchemes
                     .get(columnMapping.mvtPropertyPrefix())
                     .addChildren(childField);
@@ -124,7 +126,7 @@ public class MltConverter {
                                 mvtPropertyName.contains(
                                     m.mvtPropertyPrefix() + Settings.MLT_CHILD_FIELD_SEPARATOR))
                         .findFirst()
-                        .get();
+                        .orElseThrow();
                 var columnName = columnMapping.mvtPropertyPrefix();
 
                 var fieldNames = mvtPropertyName.split(Settings.MLT_CHILD_FIELD_SEPARATOR);
@@ -237,7 +239,7 @@ public class MltConverter {
     }
 
     var bounds = new ArrayList<Map<String, Object>>();
-    for (int i = 0; i < (pbMetadata.getBoundsCount() % 4); ++i) {
+    for (int i = 0; i < (pbMetadata.getBoundsCount() / 4); ++i) {
       var bound = new TreeMap<String, Object>();
       bound.put("left", pbMetadata.getBounds(4 * i));
       bound.put("top", pbMetadata.getBounds((4 * i) + 1));
@@ -250,7 +252,7 @@ public class MltConverter {
     }
 
     var centers = new ArrayList<Map<String, Object>>();
-    for (int i = 0; i < (pbMetadata.getCenterCount() % 2); ++i) {
+    for (int i = 0; i < (pbMetadata.getCenterCount() / 2); ++i) {
       var center = new TreeMap<String, Object>();
       center.put("longitude", 2 * i);
       center.put("latitude", (2 * i) + 1);
@@ -261,10 +263,6 @@ public class MltConverter {
     }
 
     return new Gson().toJson(root);
-  }
-
-  private static long bit(int n, boolean b) {
-    return (b ? 1L : 0L) << n;
   }
 
   /// Write the header block for a field or column.
@@ -286,11 +284,11 @@ public class MltConverter {
     final boolean hasChildren = (children != null && !children.isEmpty());
 
     final var options =
-        bit(0, isNullable)
-            | bit(1, isComplex)
-            | bit(2, isLogical)
-            | bit(3, hasChildren)
-            | bit(4, vertexScope);
+        (isNullable ? ColumnOptions.NULLABLE : 0)
+            | (isComplex ? ColumnOptions.COMPLEX_TYPE : 0)
+            | (isLogical ? ColumnOptions.LOGICAL_TYPE : 0)
+            | (hasChildren ? ColumnOptions.HAS_CHILDREN : 0)
+            | (vertexScope ? ColumnOptions.VERTEX_SCOPE : 0);
     EncodingUtils.putVarInt(stream, options);
 
     EncodingUtils.putString(stream, name);
@@ -331,8 +329,9 @@ public class MltConverter {
 
   /// Produce the binary tile header containing the tile metadata
   /// <p>Note: Uses the protobuf format as input to avoid repeating the logic there, could be
-  // refactored to eliminate it</p>
-  public static byte[] createEmbeddedMetadata(MltTilesetMetadata.TileSetMetadata pbMetadata) {
+  /// refactored to eliminate it</p>
+  public static byte[] createEmbeddedMetadata(MltTilesetMetadata.TileSetMetadata pbMetadata)
+      throws IOException {
     try (var byteStream = new ByteArrayOutputStream()) {
       try (var dataStream = new DataOutputStream(byteStream)) {
         for (var table : pbMetadata.getFeatureTablesList()) {
@@ -361,8 +360,102 @@ public class MltConverter {
         }
       }
       return byteStream.toByteArray();
-    } catch (IOException ex) {
-      // TODO: log?
+    }
+  }
+
+  static class FieldOptions {
+    public static final int NULLABLE = 1;
+    public static final int COMPLEX_TYPE = (1 << 1);
+    public static final int LOGICAL_TYPE = (1 << 2);
+    public static final int HAS_CHILDREN = (1 << 3);
+  }
+
+  static class ColumnOptions extends FieldOptions {
+    public static final int VERTEX_SCOPE = (1 << 4);
+  }
+
+  private static void decodeField(InputStream stream, MltTilesetMetadata.Field.Builder field)
+      throws IOException {
+    field.setName(DecodingUtils.decodeString(stream));
+
+    final var options = DecodingUtils.decodeVarint(stream);
+    final boolean logical = ((options & FieldOptions.LOGICAL_TYPE) != 0);
+    field.setNullable((options & FieldOptions.NULLABLE) != 0);
+
+    final var type = DecodingUtils.decodeVarint(stream);
+    if ((options & FieldOptions.LOGICAL_TYPE) != 0) {
+      final var complexField = field.getComplexFieldBuilder();
+      if (logical) {
+        complexField.setLogicalTypeValue(type);
+      } else {
+        complexField.setPhysicalTypeValue(type);
+      }
+      if ((options & FieldOptions.HAS_CHILDREN) != 0) {
+        final var childCount = DecodingUtils.decodeVarint(stream);
+        for (int i = 0; i < childCount; ++i) {
+          decodeField(stream, complexField.addChildrenBuilder());
+        }
+      }
+    } else {
+      final var scalarType = field.getScalarFieldBuilder();
+      if (logical) {
+        scalarType.setLogicalTypeValue(type);
+      } else {
+        scalarType.setPhysicalTypeValue(type);
+      }
+    }
+  }
+
+  private static void decodeColumn(
+      InputStream stream, int options, MltTilesetMetadata.Column.Builder column)
+      throws IOException {
+    final boolean logical = ((options & ColumnOptions.LOGICAL_TYPE) != 0);
+    final var type = DecodingUtils.decodeVarint(stream);
+    if ((options & ColumnOptions.COMPLEX_TYPE) != 0) {
+      final var complexType = column.getComplexTypeBuilder();
+      if (logical) {
+        complexType.setLogicalTypeValue(type);
+      } else {
+        complexType.setPhysicalTypeValue(type);
+      }
+      if ((options & ColumnOptions.HAS_CHILDREN) != 0) {
+        final var childCount = DecodingUtils.decodeVarint(stream);
+        for (int i = 0; i < childCount; ++i) {
+          decodeField(stream, complexType.addChildrenBuilder());
+        }
+      }
+    } else {
+      final var scalarType = column.getScalarTypeBuilder();
+      if (logical) {
+        scalarType.setLogicalTypeValue(type);
+      } else {
+        scalarType.setPhysicalTypeValue(type);
+      }
+    }
+  }
+
+  public static MltTilesetMetadata.TileSetMetadata parseEmbeddedMetadata(InputStream stream) {
+    try {
+      final var result = MltTilesetMetadata.TileSetMetadata.newBuilder();
+      while (stream.available() > 0) {
+        final var table = result.addFeatureTablesBuilder();
+        table.setName(DecodingUtils.decodeString(stream));
+        final var columnCount = DecodingUtils.decodeVarint(stream);
+        for (int i = 0; i < columnCount; ++i) {
+          final var columnOptions = DecodingUtils.decodeVarint(stream);
+          final boolean vertexScope = (columnOptions & ColumnOptions.VERTEX_SCOPE) != 0;
+          final var column = table.addColumnsBuilder();
+          column.setName(DecodingUtils.decodeString(stream));
+          column.setNullable((columnOptions & ColumnOptions.NULLABLE) != 0);
+          column.setColumnScope(
+              vertexScope
+                  ? MltTilesetMetadata.ColumnScope.VERTEX
+                  : MltTilesetMetadata.ColumnScope.FEATURE);
+          decodeColumn(stream, columnOptions, column);
+        }
+      }
+      return result.build();
+    } catch (IOException ignore) {
       return null;
     }
   }
@@ -440,7 +533,7 @@ public class MltConverter {
             featureTableMetadata.getColumnsList().stream()
                 .filter(f -> f.getName().equals(ID_COLUMN_NAME))
                 .findFirst()
-                .get();
+                .orElseThrow();
 
         featureTableBodyBuffer =
             PropertyEncoder.encodeScalarPropertyColumn(
@@ -549,7 +642,7 @@ public class MltConverter {
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
           ids.stream()
-              .map(id -> mvtFeatures.stream().filter(fe -> fe.id() == id).findFirst().get())
+              .map(id -> mvtFeatures.stream().filter(fe -> fe.id() == id).findFirst().orElseThrow())
               .collect(Collectors.toList());
     }
 
@@ -621,7 +714,9 @@ public class MltConverter {
   }
 
   private static MltTilesetMetadata.Field createScalarFieldScheme(
-      String fieldName, boolean nullable, MltTilesetMetadata.ScalarType type) {
+      String fieldName,
+      @SuppressWarnings("SameParameterValue") boolean nullable,
+      MltTilesetMetadata.ScalarType type) {
     var scalarField = MltTilesetMetadata.ScalarField.newBuilder().setPhysicalType(type);
     return MltTilesetMetadata.Field.newBuilder()
         .setName(fieldName)
@@ -631,7 +726,9 @@ public class MltConverter {
   }
 
   private static MltTilesetMetadata.Column createComplexColumnScheme(
-      String columnName, boolean nullable, MltTilesetMetadata.ComplexType type) {
+      @SuppressWarnings("SameParameterValue") String columnName,
+      @SuppressWarnings("SameParameterValue") boolean nullable,
+      @SuppressWarnings("SameParameterValue") MltTilesetMetadata.ComplexType type) {
     var complexColumn = MltTilesetMetadata.ComplexColumn.newBuilder().setPhysicalType(type).build();
     return MltTilesetMetadata.Column.newBuilder()
         .setName(columnName)

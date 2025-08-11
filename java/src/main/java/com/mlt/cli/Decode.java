@@ -1,7 +1,6 @@
 package com.mlt.cli;
 
 import com.mlt.decoder.MltDecoder;
-import com.mlt.metadata.tileset.MltTilesetMetadata;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.apache.commons.cli.CommandLine;
@@ -22,26 +21,30 @@ public class Decode {
   public static void main(String[] args) {
     Options options = new Options();
     options.addOption(
-        Option.builder(FILE_NAME_ARG)
+        Option.builder()
+            .longOpt(FILE_NAME_ARG)
             .hasArg(true)
             .desc("Path to the input MLT file to read ([REQUIRED])")
             .required(true)
             .build());
     options.addOption(
-        Option.builder(VECTORIZED_OPTION)
+        Option.builder()
+            .longOpt(VECTORIZED_OPTION)
             .hasArg(false)
             .desc(
                 "Use the vectorized decoding path ([OPTIONAL], default: will use non-vectorized path)")
             .required(false)
             .build());
     options.addOption(
-        Option.builder(PRINT_MLT_OPTION)
+        Option.builder()
+            .longOpt(PRINT_MLT_OPTION)
             .hasArg(false)
             .desc("Print the MLT tile after encoding it ([OPTIONAL], default: false)")
             .required(false)
             .build());
     options.addOption(
-        Option.builder(TIMER_OPTION)
+        Option.builder()
+            .longOpt(TIMER_OPTION)
             .hasArg(false)
             .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
             .required(false)
@@ -60,21 +63,13 @@ public class Decode {
       if (!Files.exists(inputTilePath)) {
         throw new IllegalArgumentException("Input mlt tile path does not exist: " + inputTilePath);
       }
-      var inputTileName = inputTilePath.getFileName().toString();
-      // var inputMetaPath = Paths.get(inputTilePath.getParent().toString(),"mltmetadata.pbf");
-      var inputMetaPath = Paths.get(inputTilePath + ".meta.pbf");
-      if (!Files.exists(inputMetaPath)) {
-        throw new IllegalArgumentException("Input metadata path does not exist: " + inputMetaPath);
-      }
-      var inputMetaBuffer = Files.readAllBytes(inputMetaPath);
-      var tileMetadata = MltTilesetMetadata.TileSetMetadata.parseFrom(inputMetaBuffer);
       var mltTileBuffer = Files.readAllBytes(inputTilePath);
 
       Timer timer = new Timer();
       if (willUseVectorized) {
         throw new NotImplementedException("Vectorized decoding is not available");
       } else {
-        var decodedTile = MltDecoder.decodeMlTile(mltTileBuffer, tileMetadata);
+        var decodedTile = MltDecoder.decodeMlTile(mltTileBuffer);
         if (willTime) timer.stop("decoding");
         if (willPrintMLT) {
           CliUtil.printMLT(decodedTile);

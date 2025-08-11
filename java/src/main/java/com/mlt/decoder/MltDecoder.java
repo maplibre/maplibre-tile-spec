@@ -1,10 +1,13 @@
 package com.mlt.decoder;
 
+import com.google.common.io.CountingInputStream;
+import com.mlt.converter.MltConverter;
 import com.mlt.data.Feature;
 import com.mlt.data.Layer;
 import com.mlt.data.MapLibreTile;
 import com.mlt.metadata.stream.StreamMetadataDecoder;
 import com.mlt.metadata.tileset.MltTilesetMetadata;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -17,12 +20,56 @@ public class MltDecoder {
 
   private MltDecoder() {}
 
+  /** Decode an MLT tile with embedded metadata * */
+  public static MapLibreTile decodeMlTile(byte[] tileData) throws IOException {
+    final var result = new MapLibreTile(new ArrayList<>());
+    try (final var rawStream = new ByteArrayInputStream(tileData);
+        final var stream = new CountingInputStream(rawStream)) {
+      // Each layer group...
+      while (stream.available() > 0) {
+        // Decode the size header
+        final var metadataSize = DecodingUtils.decodeVarint(stream);
+        final var tileDataSize = DecodingUtils.decodeVarint(stream);
+        if (metadataSize + tileDataSize > stream.available()) {
+          throw new RuntimeException("Invalid tile size");
+        }
+
+        // Parse the metadata
+        final var headerSize = (int) stream.getCount();
+        MltTilesetMetadata.TileSetMetadata metadata = null;
+        try (final var metadataStream =
+            new ByteArrayInputStream(tileData, headerSize, metadataSize)) {
+          metadata = MltConverter.parseEmbeddedMetadata(metadataStream);
+        }
+
+        // Decode the tile data
+        final var tile = decodeMlTile(tileData, headerSize + metadataSize, tileDataSize, metadata);
+
+        // Aggregate the resulting layers
+        result.layers().addAll(tile.layers());
+
+        var ignored = stream.skip(metadataSize + tileDataSize);
+      }
+    }
+    return result;
+  }
+
   /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
   public static MapLibreTile decodeMlTile(
       byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata) throws IOException {
-    var offset = new IntWrapper(0);
+    return decodeMlTile(tile, 0, tile.length, tileMetadata);
+  }
+
+  /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
+  public static MapLibreTile decodeMlTile(
+      byte[] tile,
+      int tileByteOffset,
+      int tileByteLength,
+      MltTilesetMetadata.TileSetMetadata tileMetadata)
+      throws IOException {
+    var offset = new IntWrapper(tileByteOffset);
     var mltLayers = new ArrayList<Layer>();
-    while (offset.get() < tile.length) {
+    while (offset.get() < tileByteLength) {
       List<Long> ids = null;
       Geometry[] geometries = null;
       var properties = new HashMap<String, List<Object>>();

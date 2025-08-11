@@ -85,6 +85,8 @@ gradle.projectsEvaluated {
     tasks.withType(JavaCompile).tap {
         configureEach {
             options.compilerArgs << "-Xlint:unchecked"
+            options.compilerArgs << "-Xlint:deprecation"
+            options.compilerArgs << "-Xlint:all"
         }
     }
 }

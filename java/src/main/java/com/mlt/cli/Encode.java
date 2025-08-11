@@ -150,7 +150,6 @@ public class Encode {
         cmd.hasOption(OUTPUT_FILE_ARG)
             || cmd.hasOption(OUTPUT_DIR_ARG)
             || cmd.hasOption(INCLUDE_EMBEDDED_METADATA);
-    var willIncludeTilesetMetadata = cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION);
     var willDecode = cmd.hasOption(DECODE_OPTION);
     var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
     var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
@@ -165,11 +164,13 @@ public class Encode {
     Timer timer = willTime ? new Timer() : null;
 
     var isIdPresent = true;
-    var tileMetadata =
+    var pbMetadata =
         MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
+    var metadata = MltConverter.createEmbeddedMetadata(pbMetadata);
+    var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMetadata);
 
     var mlTile =
-        MltConverter.convertMvt(decodedMvTile, tileMetadata, conversionConfig, tessellateSource);
+        MltConverter.convertMvt(decodedMvTile, pbMetadata, conversionConfig, tessellateSource);
     if (willTime) {
       timer.stop("encoding");
     }
@@ -181,10 +182,6 @@ public class Encode {
         }
 
         if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
-          var pbMeta =
-              MltConverter.createTilesetMetadata(
-                  List.of(decodedMvTile), columnMappings, isIdPresent);
-          var metadata = MltConverter.createEmbeddedMetadata(pbMeta);
           if (metadata != null) {
             try {
               writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
@@ -197,6 +194,17 @@ public class Encode {
           }
         } else {
           Files.write(outputPath, mlTile);
+        }
+
+        // Write the raw metadata, if requested
+        if (metadata != null && cmd.hasOption(INCLUDE_METADATA_OPTION)) {
+          var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".meta");
+          Files.write(metadataPath, metadata);
+        }
+
+        if (metadataJSON != null && cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION)) {
+          var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".json");
+          Files.writeString(metadataPath, metadataJSON);
         }
       }
     }
@@ -214,7 +222,7 @@ public class Encode {
         System.err.println("WARNING: Vectorized encoding is not available");
       }
 
-      var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+      var decodedTile = MltDecoder.decodeMlTile(mlTile, pbMetadata);
       if (willTime) {
         timer.stop("decoding");
       }
@@ -454,7 +462,6 @@ public class Encode {
             try (var compressStream = compressStream(outputStream, compressionType)) {
               compressStream.write(jsonString.getBytes(StandardCharsets.UTF_8));
             }
-            outputStream.close();
             data = outputStream.toByteArray();
           }
 
@@ -553,7 +560,6 @@ public class Encode {
       byte[] tileData;
       try (var outputStream = new ByteArrayOutputStream()) {
         writeTileWithEmbeddedMetadata(outputStream, mlTile, binaryMetadata);
-        outputStream.close();
         tileData = outputStream.toByteArray();
       }
 
@@ -562,7 +568,6 @@ public class Encode {
           try (var compressStream = compressStream(outputStream, compressionType)) {
             compressStream.write(tileData);
           }
-          outputStream.close();
 
           // If the compressed version is enough of an improvement to
           // justify the cost of decompressing it, use that instead.
@@ -633,7 +638,6 @@ public class Encode {
       if (decompressInputStream != null) {
         try (var outputStream = new ByteArrayOutputStream()) {
           decompressInputStream.transferTo(outputStream);
-          outputStream.close();
           return outputStream.toByteArray();
         }
       }
@@ -744,7 +748,8 @@ public class Encode {
   private static final String OUTPUT_DIR_ARG = "dir";
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
-  private static final String INCLUDE_TILESET_METADATA_OPTION = "metadata";
+  private static final String INCLUDE_METADATA_OPTION = "metadata";
+  private static final String INCLUDE_TILESET_METADATA_OPTION = "tilesetmetadata";
   private static final String INCLUDE_EMBEDDED_METADATA = "embedmetadata";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
   private static final String NO_MORTON_OPTION = "nomorton";
@@ -848,10 +853,21 @@ public class Encode {
               .build());
       options.addOption(
           Option.builder()
+              .longOpt(INCLUDE_METADATA_OPTION)
+              .hasArg(false)
+              .desc(
+                  "Write tile metadata alongside the output tile (adding '.meta'). "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
+              .required(false)
+              .build());
+      options.addOption(
+          Option.builder()
               .longOpt(INCLUDE_TILESET_METADATA_OPTION)
               .hasArg(false)
               .desc(
-                  "Write tileset metadata (PBF) alongside the output tile (adding '.meta.pbf'). "
+                  "Write tileset metadata JSON alongside the output tile (adding '.json'). "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
