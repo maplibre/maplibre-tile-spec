@@ -56,7 +56,7 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
     return false;
 }
 
-const auto basePath = "../test/expected"s;
+const auto basePath = "../test/expected/embed"s;
 
 #if MLT_WITH_JSON
 auto dump(const nlohmann::json& json) {
