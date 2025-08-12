@@ -1,17 +1,16 @@
 #include <gtest/gtest.h>
 
-#include <cstdlib>
 #include <mlt/decoder.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/projection.hpp>
 
-#include <iostream>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <regex>
 #include <string>
-#include "mlt/util/varint.hpp"
 
 using namespace std::string_literals;
 using namespace std::string_view_literals;

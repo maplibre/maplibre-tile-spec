@@ -4,6 +4,7 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 
 namespace mlt {
