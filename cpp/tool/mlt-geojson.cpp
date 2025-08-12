@@ -1,9 +1,6 @@
 #include <mlt/decoder.hpp>
 #include <mlt/metadata/tileset.hpp>
 
-#include <protozero/pbf_message.hpp>
-#include <mlt/metadata/tileset_protozero.hpp>
-
 #include <cstring>
 #include <iostream>
 #include <fstream>
@@ -54,13 +51,6 @@ int main(int argc, char** argv) {
         y = static_cast<std::uint32_t>(std::stoul(argv[4]));
     }
 
-    // using mlt::metadata::tileset::TileSetMetadata;
-    const auto metadata = mlt::metadata::tileset::read({metadataBuffer.data(), metadataBuffer.size()});
-    if (!metadata) {
-        std::cout << "Failed to parse " + baseName + ".meta.pbf\n";
-        return 1;
-    }
-
     auto buffer = loadFile(baseName);
     if (buffer.empty()) {
         std::cout << "Failed to load " + baseName + "\n";
@@ -68,7 +58,7 @@ int main(int argc, char** argv) {
     }
 
     mlt::Decoder decoder;
-    const auto tileData = decoder.decode({buffer.data(), buffer.size()}, *metadata);
+    const auto tileData = decoder.decodeTile({buffer.data(), buffer.size()});
     const auto tileJSON = mlt::geojson::toGeoJSON(tileData, {.x = x, .y = y, .z = z});
     std::cout << tileJSON.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
 
