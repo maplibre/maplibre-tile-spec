@@ -22,15 +22,13 @@ export class MltDecoder {
             let version = tile[offset.get()];
             offset.increment();
 
-            const infos = DecodingUtils.decodeVarint(tile, offset, 4);
-
-            // this is actually column[0].numStreams (2), but the correct value above (1) doesn't match the MVT files
-            version = tile[offset.get()];
+            const infos = DecodingUtils.decodeVarint(tile, offset, 5);
 
             const featureTableId = infos[0];
-            const extent = infos[1];
-            const maxExtent = infos[2]; // ?
-            const numFeatures = infos[3];
+            const featureTableBodySize = infos[1];
+            const extent = infos[2];
+            const maxExtent = infos[3];
+            const numFeatures = infos[4];
             const metadata = tileMetadata.featureTables[featureTableId];
             if (!metadata) {
                 console.log(`could not find metadata for feature table id: ${featureTableId}`);
