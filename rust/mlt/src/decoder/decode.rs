@@ -6,11 +6,11 @@ use geo_types::Geometry;
 use zigzag::ZigZag;
 
 use crate::data::MapLibreTile;
+use crate::decoder;
 use crate::decoder::helpers::{decode_boolean_rle, get_data_type_from_column};
 use crate::decoder::tracked_bytes::TrackedBytes;
-use crate::decoder::varint;
 use crate::encoder::geometry::GeometryScaling;
-use crate::metadata::proto_tileset::{Column, TileSetMetadata};
+use crate::metadata::proto_tileset::{Column, ScalarType, TileSetMetadata};
 use crate::metadata::stream::StreamMetadata;
 use crate::{MltError, MltResult};
 
@@ -43,24 +43,16 @@ impl Decoder {
             let geometries: Vec<Geometry> = vec![];
 
             let version = self.tile.get_u8();
-            let infos = varint::decode(&mut self.tile, 5);
+            let infos = decoder::varint::decode(&mut self.tile, 5)?;
 
             println!("infos: {infos:?}");
 
-            let feature_table_id = infos.first().ok_or_else(|| {
-                MltError::DecodeError("Failed to read feature table id".to_string())
-            })?;
-            let feature_table_body_size = infos.get(1).ok_or_else(|| {
-                MltError::DecodeError("Failed to read feature table body size".to_string())
-            })?;
+            let feature_table_id: u32 = *infos.first().ok_or(MltError::MissingInfo(0))?;
+            let feature_table_body_size: u32 = *infos.get(1).ok_or(MltError::MissingInfo(1))?;
             let feature_table_metadata = tile_metadata
                 .feature_tables
-                .get(*feature_table_id as usize)
-                .ok_or_else(|| {
-                    MltError::DecodeError(format!(
-                        "Failed to read feature table metadata for id {feature_table_id}"
-                    ))
-                })?;
+                .get(feature_table_id as usize)
+                .ok_or(MltError::FeatureTableNotFound(feature_table_id))?;
 
             let property_column_names: Option<&String> = self.config.as_ref().and_then(|cfg| {
                 cfg.feature_table_decoding
@@ -69,28 +61,22 @@ impl Decoder {
             });
 
             if property_column_names.is_none() {
-                self.tile.advance(*feature_table_body_size as usize);
+                self.tile.advance(feature_table_body_size as usize);
                 continue;
             }
 
-            let extent = infos
-                .get(2)
-                .ok_or_else(|| MltError::DecodeError("Failed to read tile extent".to_string()))?;
-
-            let max_tile_extent: i32 = ZigZag::decode(*infos.get(3).ok_or_else(|| {
-                MltError::DecodeError("Failed to read max tile extent".to_string())
-            })?);
-
-            let num_features = infos.get(4).ok_or_else(|| {
-                MltError::DecodeError("Failed to read number of features".to_string())
-            })?;
+            let extent = *infos.get(2).ok_or(MltError::MissingInfo(2))?;
+            let max_tile_extent: i32 =
+                ZigZag::decode(*infos.get(3).ok_or(MltError::MissingInfo(3))?);
+            let num_features = infos.get(4).ok_or(MltError::MissingInfo(4))?;
 
             for col_metadata in feature_table_metadata.columns.iter() {
-                let num_streams_vec = varint::decode(&mut self.tile, 1);
-                let num_streams = num_streams_vec.first().ok_or_else(|| {
-                    MltError::DecodeError("Failed to retrieve num_streams".to_string())
+                let num_streams_vec = decoder::varint::decode::<u32>(&mut self.tile, 1)?;
+                let num_streams = num_streams_vec.first().ok_or(MltError::MissingField {
+                    field: "num_streams",
                 })?;
                 if col_metadata.name == ID_COLUMN_NAME {
+                    #[allow(unused_variables)]
                     let mut nullability_buffer = BitVec::<u8, Lsb0>::EMPTY;
                     if *num_streams == 2 {
                         let present_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
@@ -98,6 +84,7 @@ impl Decoder {
                             &mut self.tile,
                             present_stream_metadata.num_values as usize,
                         )?;
+
                         nullability_buffer =
                             BitVec::<u8, Lsb0>::with_capacity(*num_features as usize);
                         nullability_buffer.extend(values.iter().copied());
@@ -105,6 +92,29 @@ impl Decoder {
 
                     // Dummy
                     nullability_buffer.resize(1, false);
+
+                    let id_data_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
+                    let id_data_type = get_data_type_from_column(col_metadata)?;
+
+                    // Decode ID column based on its data type
+                    if id_data_type == ScalarType::Uint32 {
+                        println!("Decoding ID column with Uint32 type");
+                        let ids = decoder::integer::decode_int_stream(
+                            &mut self.tile,
+                            &id_data_stream_metadata,
+                            false,
+                        );
+                        println!("Decoded IDs: {ids:?}");
+                    }
+                    // TODO: Handle 64-bit integers and other types
+                    else {
+                        let ids = decoder::integer::decode_long_stream(
+                            &mut self.tile,
+                            &id_data_stream_metadata,
+                            false,
+                        );
+                        println!("Decoded IDs: {ids:?}");
+                    }
                 }
             }
         }

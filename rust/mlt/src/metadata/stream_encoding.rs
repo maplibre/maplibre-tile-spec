@@ -1,6 +1,6 @@
 use num_enum::TryFromPrimitive;
 
-#[derive(Debug, Clone, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LengthType {
     VarBinary,
@@ -12,7 +12,7 @@ pub enum LengthType {
     Dictionary,
 }
 
-#[derive(Debug, Clone, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, TryFromPrimitive)]
 #[repr(u8)]
 pub enum DictionaryType {
     Single,
@@ -22,7 +22,7 @@ pub enum DictionaryType {
     Fsst,
 }
 
-#[derive(Debug, Clone, TryFromPrimitive)]
+#[derive(Debug, Copy, Clone, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OffsetType {
     Vertex,
@@ -31,14 +31,14 @@ pub enum OffsetType {
     Key,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum LogicalStreamType {
     Dictionary(Option<DictionaryType>),
     Offset(OffsetType),
     Length(LengthType),
 }
 
-#[derive(Debug, Clone, TryFromPrimitive, PartialEq)]
+#[derive(Debug, Copy, Clone, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum LogicalLevelTechnique {
     None,
@@ -51,7 +51,7 @@ pub enum LogicalLevelTechnique {
     Pde,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Logical {
     pub r#type: Option<LogicalStreamType>,
     pub technique1: Option<LogicalLevelTechnique>,
@@ -72,7 +72,7 @@ impl Logical {
     }
 }
 
-#[derive(Debug, Clone, TryFromPrimitive, PartialEq)]
+#[derive(Debug, Copy, Clone, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum PhysicalStreamType {
     Present,
@@ -81,7 +81,7 @@ pub enum PhysicalStreamType {
     Length,
 }
 
-#[derive(Debug, Clone, TryFromPrimitive, PartialEq)]
+#[derive(Debug, Copy, Clone, TryFromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum PhysicalLevelTechnique {
     None,
@@ -90,7 +90,7 @@ pub enum PhysicalLevelTechnique {
     Alp,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Physical {
     pub r#type: PhysicalStreamType,
     pub technique: PhysicalLevelTechnique,

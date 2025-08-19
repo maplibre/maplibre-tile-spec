@@ -294,7 +294,7 @@ pub fn convert_mvt(
             &config,
             feature_table_optimizations,
             &layer.features,
-            physical_level_technique.clone(), // not great, change this later
+            physical_level_technique,
         );
     }
 
