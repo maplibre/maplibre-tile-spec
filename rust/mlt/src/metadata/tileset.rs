@@ -5,7 +5,7 @@ use std::path::Path;
 use prost::Message;
 
 use crate::metadata::proto_tileset::TileSetMetadata;
-use crate::{MltError, MltResult};
+use crate::MltResult;
 
 // Future: Impl for TileSetMetadata
 pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
@@ -14,8 +14,8 @@ pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
     file.read_to_end(&mut buffer)?;
 
     let mut buf = buffer.as_slice();
-    TileSetMetadata::decode(&mut buf)
-        .map_err(|e| MltError::MetadataDecodeError(format!("Invalid metadata structure: {e}")))
+    let meta = TileSetMetadata::decode(&mut buf)?;
+    Ok(meta)
 }
 
 #[test]

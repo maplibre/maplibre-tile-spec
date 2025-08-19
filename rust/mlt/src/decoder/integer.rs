@@ -46,13 +46,10 @@ fn decode_physical(
     tile: &mut TrackedBytes,
     metadata: &StreamMetadata,
 ) -> Result<Vec<u32>, MltError> {
-    match metadata.physical.technique {
+    match &metadata.physical.technique {
         PhysicalLevelTechnique::FastPfor => decode_fast_pfor(tile, metadata),
         PhysicalLevelTechnique::Varint => varint::decode::<u32>(tile, metadata.num_values as usize),
-        _ => Err(MltError::UnsupportedIntStreamTechnique(format!(
-            "{:?}",
-            metadata.physical.technique
-        ))),
+        other => Err(MltError::unsupported_physical(*other)),
     }
 }
 
@@ -65,18 +62,20 @@ fn decode_logical(
     match metadata.logical.technique1 {
         Some(LogicalLevelTechnique::Delta) => {
             if metadata.logical.technique2 == Some(LogicalLevelTechnique::Rle) {
-                let rle_metadata = metadata.rle.as_ref().ok_or_else(|| {
-                    MltError::DecodeError("RLE metadata is required for Delta + RLE".to_string())
-                })?;
+                let rle_metadata = metadata
+                    .rle
+                    .as_ref()
+                    .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?;
                 let values = decode_rle(&values, rle_metadata)?;
                 return Ok(decode_zigzag_delta(&values));
             }
             Ok(decode_zigzag_delta(&values))
         }
         Some(LogicalLevelTechnique::Rle) => {
-            let rle_metadata = metadata.rle.as_ref().ok_or_else(|| {
-                MltError::DecodeError("RLE metadata is required for Delta + RLE".to_string())
-            })?;
+            let rle_metadata = metadata
+                .rle
+                .as_ref()
+                .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?;
             let values = decode_rle(&values, rle_metadata)?;
             if is_signed {
                 Ok(decode_zigzag(&values))
@@ -91,18 +90,21 @@ fn decode_logical(
             Ok(convert_u32_to_i32(&values)?)
         }
         Some(LogicalLevelTechnique::Morton) => {
-            let morton_metadata = metadata.morton.as_ref().ok_or_else(|| {
-                MltError::DecodeError("Morton metadata is required for Morton encoding".to_string())
-            })?;
+            let morton_metadata = metadata
+                .morton
+                .as_ref()
+                .ok_or(MltError::MissingLogicalMetadata { which: "morton" })?;
             decode_morton_u64_to_i32_vec2s_flat(&values, morton_metadata.coordinate_shift)
         }
         Some(LogicalLevelTechnique::ComponentwiseDelta) => {
             decode_componentwise_delta_vec2s(&values)
         }
-        _ => Err(MltError::UnsupportedIntStreamTechnique(format!(
-            "{:?}",
-            metadata.logical.technique1
-        ))),
+        Some(LogicalLevelTechnique::Pde) => {
+            Err(MltError::unsupported_logical(LogicalLevelTechnique::Pde))
+        }
+        None => Err(MltError::MissingField {
+            field: "logical.technique1",
+        }),
     }
 }
 
@@ -111,14 +113,32 @@ fn decode_fast_pfor(
     metadata: &StreamMetadata,
 ) -> Result<Vec<u32>, MltError> {
     let codec = FastPFor128Codec::new();
-    let mut decoded = vec![0; metadata.num_values as usize];
+    let expected_len = metadata.num_values as usize;
+    let mut decoded = vec![0; expected_len];
     // Regardless of u32 or u64 fastpfor, the encoded data is always u32
     let encoded_u32s: Vec<u32> = bytes_to_encoded_u32s(tile, metadata.byte_length as usize)?;
-    let _ = codec.decode32(&encoded_u32s, &mut decoded);
+    let decoded_slice = codec.decode32(&encoded_u32s, &mut decoded)?;
+    let actual_len = decoded_slice.len();
+    if actual_len != expected_len {
+        return Err(MltError::FastPforDecode {
+            expected: expected_len,
+            got: actual_len,
+        });
+    }
     Ok(decoded)
 }
 
 fn bytes_to_encoded_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Vec<u32>, MltError> {
+    if num_bytes % 4 != 0 {
+        return Err(MltError::invalid_byte_multiple(4, num_bytes));
+    }
+    if tile.remaining() < num_bytes {
+        return Err(MltError::BufferUnderflow {
+            needed: num_bytes,
+            remaining: tile.remaining(),
+        });
+    }
+
     let num_bytes = num_bytes / 4;
     let encoded_u32s = (0..num_bytes)
         .map(|_| {
@@ -140,9 +160,9 @@ fn decode_rle<T: PrimInt + Debug>(data: &[T], rle_meta: &Rle) -> Result<Vec<T>, 
     let (run_lens, values) = data.split_at(runs);
     let mut result = Vec::with_capacity(total);
     for (&run, &val) in run_lens.iter().zip(values.iter()) {
-        let run_len = run.to_usize().ok_or_else(|| {
-            MltError::DecodeError(format!("Failed to convert run length to usize: {run:?}"))
-        })?;
+        let run_len = run
+            .to_usize()
+            .ok_or_else(|| MltError::RleRunLenInvalid(run.to_i128().unwrap_or_default()))?;
         result.extend(std::iter::repeat_n(val, run_len));
     }
     Ok(result)
@@ -172,20 +192,25 @@ fn decode_morton_u64_to_i32_vec2<T: Into<u64>>(
     let [xu, yu]: [u32; 2] = morton_decode(encoded);
 
     // Convert u32 to i32, checking for overflow
-    let shift = i32::try_from(coordinate_shift).map_err(|_| {
-        MltError::DecodeError(format!("Shift value {coordinate_shift} too large for i32"))
+    let shift =
+        i32::try_from(coordinate_shift).map_err(|_| MltError::ShiftTooLarge(coordinate_shift))?;
+    let x_i32 = i32::try_from(xu).map_err(|_| MltError::CoordinateOverflow {
+        coordinate: xu,
+        shift: coordinate_shift,
     })?;
-    let x_i32 = i32::try_from(xu)
-        .map_err(|_| MltError::DecodeError(format!("coordinate {xu} too large for i32")))?;
-    let y_i32 = i32::try_from(yu)
-        .map_err(|_| MltError::DecodeError(format!("coordinate {yu} too large for i32")))?;
+    let y_i32 = i32::try_from(yu).map_err(|_| MltError::CoordinateOverflow {
+        coordinate: yu,
+        shift: coordinate_shift,
+    })?;
 
-    let x = x_i32
-        .checked_sub(shift)
-        .ok_or_else(|| MltError::DecodeError(format!("subtract overflow: {x_i32} - {shift}")))?;
-    let y = y_i32
-        .checked_sub(shift)
-        .ok_or_else(|| MltError::DecodeError(format!("subtract overflow: {y_i32} - {shift}")))?;
+    let x = x_i32.checked_sub(shift).ok_or(MltError::SubtractOverflow {
+        left_val: x_i32,
+        right_val: shift,
+    })?;
+    let y = y_i32.checked_sub(shift).ok_or(MltError::SubtractOverflow {
+        left_val: y_i32,
+        right_val: shift,
+    })?;
 
     Ok([x, y])
 }
@@ -207,7 +232,11 @@ fn convert_u32_to_i32(values: &[u32]) -> Result<Vec<i32>, MltError> {
     values
         .iter()
         .map(|&v| {
-            i32::try_from(v).map_err(|e| MltError::DecodeError(format!("Conversion failed: {e}")))
+            i32::try_from(v).map_err(|_| MltError::ConversionOverflow {
+                from: "u32",
+                to: "i32",
+                value: v as u64,
+            })
         })
         .collect()
 }

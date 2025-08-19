@@ -47,20 +47,12 @@ impl Decoder {
 
             println!("infos: {infos:?}");
 
-            let feature_table_id = infos.first().ok_or_else(|| {
-                MltError::DecodeError("Failed to read feature table id".to_string())
-            })?;
-            let feature_table_body_size = infos.get(1).ok_or_else(|| {
-                MltError::DecodeError("Failed to read feature table body size".to_string())
-            })?;
+            let feature_table_id: u32 = *infos.first().ok_or(MltError::MissingInfo(0))?;
+            let feature_table_body_size: u32 = *infos.get(1).ok_or(MltError::MissingInfo(1))?;
             let feature_table_metadata = tile_metadata
                 .feature_tables
-                .get(*feature_table_id as usize)
-                .ok_or_else(|| {
-                    MltError::DecodeError(format!(
-                        "Failed to read feature table metadata for id {feature_table_id}"
-                    ))
-                })?;
+                .get(feature_table_id as usize)
+                .ok_or(MltError::FeatureTableNotFound(feature_table_id))?;
 
             let property_column_names: Option<&String> = self.config.as_ref().and_then(|cfg| {
                 cfg.feature_table_decoding
@@ -69,26 +61,19 @@ impl Decoder {
             });
 
             if property_column_names.is_none() {
-                self.tile.advance(*feature_table_body_size as usize);
+                self.tile.advance(feature_table_body_size as usize);
                 continue;
             }
 
-            let extent = infos
-                .get(2)
-                .ok_or_else(|| MltError::DecodeError("Failed to read tile extent".to_string()))?;
-
-            let max_tile_extent: i32 = ZigZag::decode(*infos.get(3).ok_or_else(|| {
-                MltError::DecodeError("Failed to read max tile extent".to_string())
-            })?);
-
-            let num_features = infos.get(4).ok_or_else(|| {
-                MltError::DecodeError("Failed to read number of features".to_string())
-            })?;
+            let extent = *infos.get(2).ok_or(MltError::MissingInfo(2))?;
+            let max_tile_extent: i32 =
+                ZigZag::decode(*infos.get(3).ok_or(MltError::MissingInfo(3))?);
+            let num_features = infos.get(4).ok_or(MltError::MissingInfo(4))?;
 
             for col_metadata in feature_table_metadata.columns.iter() {
                 let num_streams_vec = decoder::varint::decode::<u32>(&mut self.tile, 1)?;
-                let num_streams = num_streams_vec.first().ok_or_else(|| {
-                    MltError::DecodeError("Failed to retrieve num_streams".to_string())
+                let num_streams = num_streams_vec.first().ok_or(MltError::MissingField {
+                    field: "num_streams",
                 })?;
                 if col_metadata.name == ID_COLUMN_NAME {
                     #[allow(unused_variables)]

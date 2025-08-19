@@ -20,6 +20,7 @@ zigzag = "0.1.0"
 serde_columnar = "0.3.11"
 num-traits = "0.2.19"
 morton-encoding = "2.0.1"
+cxx = { version = "1.0.136", optional = true }
 
 [build-dependencies]
 prost-build = "0.13.5"
