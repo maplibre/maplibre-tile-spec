@@ -1,9 +1,6 @@
 [submodule "cpp/vendor/googletest"]
 	path = vendor/googletest
 	url = https://github.com/google/googletest.git
-[submodule "cpp/vendor/protozero"]
-	path = vendor/protozero
-	url = https://github.com/mapbox/protozero.git
 [submodule "cpp/vendor/simde"]
 	path = vendor/simde
 	url = https://github.com/simd-everywhere/simde.git
