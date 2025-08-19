@@ -86,13 +86,10 @@ pub enum MltError {
     // Numeric/arithmetics and coordinate errors
     #[error("coordinate {coordinate} too large for i32 (shift={shift})")]
     CoordinateOverflow { coordinate: u32, shift: u32 },
-
     #[error("subtract overflow: {left_val} - {right_val}")]
     SubtractOverflow { left_val: i32, right_val: i32 },
-
     #[error("coordinate shift too large for i32: shift={0}")]
     ShiftTooLarge(u32),
-
     #[error("conversion overflow: {from} -> {to}, value={value}")]
     ConversionOverflow {
         from: &'static str,
@@ -103,9 +100,12 @@ pub enum MltError {
     // Domain-specific lookups (IDs, header vectors)
     #[error("missing infos[{0}]")]
     MissingInfo(usize),
-
     #[error("feature table not found: id={0}")]
     FeatureTableNotFound(u32),
+
+    // Other errors
+    #[error("not implemented: {0}")]
+    NotImplemented(&'static str),
 }
 
 /// Varint failures
