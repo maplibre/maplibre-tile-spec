@@ -1,7 +1,6 @@
 use bytes::Buf;
 
 use crate::decoder::tracked_bytes::TrackedBytes;
-use crate::error::MetadataErrorKind;
 #[allow(unused_imports)]
 use crate::metadata::proto_tileset::{column, scalar_column, Column, ScalarColumn, ScalarType};
 use crate::{MltError, MltResult};
@@ -51,26 +50,14 @@ pub fn get_data_type_from_column(column_metadata: &Column) -> MltResult<ScalarTy
     match column_metadata.r#type.as_ref() {
         Some(column::Type::ScalarType(scalar_column)) => match scalar_column.r#type {
             Some(scalar_column::Type::PhysicalType(scalar_type)) => {
-                ScalarType::try_from(scalar_type).map_err(|_| MltError::MetadataDecode {
-                    field: "ScalarType",
-                    kind: MetadataErrorKind::OutOfRange,
-                })
+                ScalarType::try_from(scalar_type)
+                    .map_err(|_| MltError::MetaDecodeInvalidType("ScalarType"))
             }
-            Some(_) => Err(MltError::MetadataDecode {
-                field: "column.scalar.type",
-                kind: MetadataErrorKind::TypeMismatch,
-            }),
-            None => Err(MltError::MissingField {
-                field: "column.scalar.type",
-            }),
+            Some(_) => Err(MltError::MetaDecodeUnsupporteddType("column.scalar.type")),
+            None => Err(MltError::MissingField("column.scalar.type")),
         },
-        Some(_) => Err(MltError::MetadataDecode {
-            field: "column.type",
-            kind: MetadataErrorKind::TypeMismatch,
-        }),
-        None => Err(MltError::MissingField {
-            field: "column.type",
-        }),
+        Some(_) => Err(MltError::MetaDecodeUnsupporteddType("column.type")),
+        None => Err(MltError::MissingField("column.type")),
     }
 }
 

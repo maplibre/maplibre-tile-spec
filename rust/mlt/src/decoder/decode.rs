@@ -72,9 +72,9 @@ impl Decoder {
 
             for col_metadata in feature_table_metadata.columns.iter() {
                 let num_streams_vec = decoder::varint::decode::<u32>(&mut self.tile, 1)?;
-                let num_streams = num_streams_vec.first().ok_or(MltError::MissingField {
-                    field: "num_streams",
-                })?;
+                let num_streams = num_streams_vec
+                    .first()
+                    .ok_or(MltError::MissingField("num_streams"))?;
                 if col_metadata.name == ID_COLUMN_NAME {
                     #[allow(unused_variables)]
                     let mut nullability_buffer = BitVec::<u8, Lsb0>::EMPTY;
