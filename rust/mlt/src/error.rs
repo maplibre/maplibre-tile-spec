@@ -8,74 +8,67 @@ pub type MltResult<T> = Result<T, MltError>;
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum MltError {
-    //----------------------------------------------------
     // External errors (foreign errors)
-    //----------------------------------------------------
     #[error(transparent)]
     Io(#[from] std::io::Error),
-
     #[error(transparent)]
     ProtobufDecode(#[from] prost::DecodeError),
-
     #[error(transparent)]
     RleDecode(#[from] serde_columnar::ColumnarError),
 
-    //----------------------------------------------------
     // Wire/codec decoding (bytes → primitives)
-    //----------------------------------------------------
     #[error("varint decode error: {0:?}")]
     Varint(#[from] VarintError),
-
-    #[error("protobuf decode error at offset={offset} kind={kind:?}")]
-    Protobuf { offset: usize, kind: ProtobufError },
-
     #[error("buffer underflow: needed {needed} bytes, but only {remaining} remain")]
     BufferUnderflow { needed: usize, remaining: usize },
-
     #[error("FastPFor decode failed: expected={expected} got={got}")]
     FastPforDecode { expected: usize, got: usize },
-
     #[error("FastPFor FFI error: {0}")]
     FastPforFfi(String),
-
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
 
-    //----------------------------------------------------
     // Schema & metadata validation
-    //----------------------------------------------------
-    #[error("missing required field `{field}`")]
-    MissingField { field: &'static str },
-
-    #[error("invalid discriminant for {kind}: code={code}")]
-    InvalidDiscriminant { kind: &'static str, code: u8 },
-
-    #[error("metadata decode error: field={field} kind={kind:?}")]
-    MetadataDecode {
-        field: &'static str,
-        kind: MetadataErrorKind,
-    },
-
+    #[error("missing required field `{0}`")]
+    MissingField(&'static str),
+    #[error("Invalid PhysicalStreamType: code={0}")]
+    InvalidPhysicalStreamType(u8),
+    #[error("invalid DictionaryType: code={0}")]
+    InvalidDictionaryType(u8),
+    #[error("invalid OffsetType: code={0}")]
+    InvalidOffsetType(u8),
+    #[error("invalid LengthType: code={0}")]
+    InvalidLengthType(u8),
+    #[error("invalid LogicalLevelTechnique: code={0}")]
+    InvalidLogicalLevelTechnique(u8),
+    #[error("invalid PhysicalLevelTechnique: code={0}")]
+    InvalidPhysicalLevelTechnique(u8),
+    #[error("metadata decode error: invalid type={0}")]
+    MetaDecodeInvalidType(&'static str),
+    #[error("metadata decode error: unsupported type={0}")]
+    MetaDecodeUnsupporteddType(&'static str),
     #[error("missing required logical metadata: {which}")]
     MissingLogicalMetadata { which: &'static str },
 
-    //----------------------------------------------------
     // Structural constraints (lengths, counts, shapes)
-    //----------------------------------------------------
-    #[error("{what} must be a multiple of {multiple_of}, got {got}")]
-    InvalidMultiple {
-        what: &'static str,
+    #[error("{ctx} byte length expected multiple of {multiple_of}, got {got}")]
+    InvalidByteMultiple {
+        ctx: &'static str,
         multiple_of: usize,
         got: usize,
     },
-
+    #[error("{ctx} value expected multiple of {multiple_of}, got {got}")]
+    InvalidValueMultiple {
+        ctx: &'static str,
+        multiple_of: usize,
+        got: usize,
+    },
     #[error("{ctx} expected exactly {expected} values, got {got}")]
     ExpectedValues {
         ctx: &'static str,
         expected: usize,
         got: usize,
     },
-
     #[error("{ctx} requires at least {min} elements, got {got}")]
     MinLength {
         ctx: &'static str,
@@ -83,21 +76,15 @@ pub enum MltError {
         got: usize,
     },
 
-    //----------------------------------------------------
     // Technique selection / control flow
-    //----------------------------------------------------
-    #[error("unsupported technique at {level:?}: {technique:?}")]
-    UnsupportedTechnique {
-        level: ErrorLevel,
-        technique: TechniqueDiscriminant,
-    },
-
+    #[error("unsupported physical technique: {0:?}")]
+    UnsupportedPhysicalTechnique(PhysicalLevelTechnique),
+    #[error("unsupported logical technique: {0:?}")]
+    UnsupportedLogicalTechnique(LogicalLevelTechnique),
     #[error("partial decode not supported for {0:?}")]
     PartialDecodeWrongTechnique(LogicalLevelTechnique),
 
-    //----------------------------------------------------
     // Numeric/arithmetics and coordinate errors
-    //----------------------------------------------------
     #[error("coordinate {coordinate} too large for i32 (shift={shift})")]
     CoordinateOverflow { coordinate: u32, shift: u32 },
 
@@ -114,9 +101,7 @@ pub enum MltError {
         value: u64,
     },
 
-    //----------------------------------------------------
     // Domain-specific lookups (IDs, header vectors)
-    //----------------------------------------------------
     #[error("missing infos[{0}]")]
     MissingInfo(usize),
 
@@ -124,101 +109,16 @@ pub enum MltError {
     FeatureTableNotFound(u32),
 }
 
-//----------------- Support types -----------------
-#[derive(Debug)]
-pub enum ErrorLevel {
-    Physical,
-    Logical,
-}
-
-#[derive(Debug)]
-pub enum TechniqueDiscriminant {
-    Physical(PhysicalLevelTechnique),
-    Logical(LogicalLevelTechnique),
-}
-
-//----------------- Varint failures -----------------
-/// Note: `NonCanonical` means the varint was not minimally encoded
-/// (it used more bytes than necessary for the value).
+// Varint failures
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum VarintError {
     #[error("unexpected end of input while reading varint")]
     UnexpectedEof,
-    #[error("varint too long")]
-    TooLong,
     #[error("varint overflowed target integer type")]
     Overflow,
-    #[error("varint not in canonical form")]
-    NonCanonical,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProtobufError {
-    Truncated,
-    Malformed,
-    InvalidTag,
-    UnexpectedWireType,
-    Utf8,
-    Other,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MetadataErrorKind {
-    Missing,
-    Malformed,
-    TypeMismatch,
-    OutOfRange,
-    Other,
-}
-
-//------------------------ Helpers ------------------------
-impl MltError {
-    #[cold]
-    #[inline(never)]
-    pub fn protobuf(offset: usize, kind: ProtobufError) -> Self {
-        Self::Protobuf { offset, kind }
-    }
-
-    #[cold]
-    #[inline(never)]
-    pub fn unsupported_physical(tech: PhysicalLevelTechnique) -> Self {
-        Self::UnsupportedTechnique {
-            level: ErrorLevel::Physical,
-            technique: TechniqueDiscriminant::Physical(tech),
-        }
-    }
-
-    #[cold]
-    #[inline(never)]
-    pub fn unsupported_logical(tech: LogicalLevelTechnique) -> Self {
-        Self::UnsupportedTechnique {
-            level: ErrorLevel::Logical,
-            technique: TechniqueDiscriminant::Logical(tech),
-        }
-    }
-
-    #[cold]
-    #[inline(never)]
-    pub fn invalid_byte_multiple(multiple_of: usize, got: usize) -> Self {
-        Self::InvalidMultiple {
-            what: "byte length",
-            multiple_of,
-            got,
-        }
-    }
-
-    #[cold]
-    #[inline(never)]
-    pub fn invalid_value_multiple(multiple_of: usize, got: usize) -> Self {
-        Self::InvalidMultiple {
-            what: "value count",
-            multiple_of,
-            got,
-        }
-    }
-}
-
-//------------------------ Mappers for foreign errors ------------------------
+// Mappers for foreign errors
 impl From<BvVarIntError> for MltError {
     fn from(e: BvVarIntError) -> Self {
         match e {
@@ -227,7 +127,6 @@ impl From<BvVarIntError> for MltError {
         }
     }
 }
-
 impl From<cxx::Exception> for MltError {
     fn from(e: cxx::Exception) -> Self {
         MltError::FastPforFfi(e.what().to_string())

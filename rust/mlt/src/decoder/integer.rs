@@ -49,7 +49,7 @@ fn decode_physical(
     match &metadata.physical.technique {
         PhysicalLevelTechnique::FastPfor => decode_fast_pfor(tile, metadata),
         PhysicalLevelTechnique::Varint => varint::decode::<u32>(tile, metadata.num_values as usize),
-        other => Err(MltError::unsupported_physical(*other)),
+        other => Err(MltError::UnsupportedPhysicalTechnique(*other)),
     }
 }
 
@@ -99,12 +99,10 @@ fn decode_logical(
         Some(LogicalLevelTechnique::ComponentwiseDelta) => {
             decode_componentwise_delta_vec2s(&values)
         }
-        Some(LogicalLevelTechnique::Pde) => {
-            Err(MltError::unsupported_logical(LogicalLevelTechnique::Pde))
-        }
-        None => Err(MltError::MissingField {
-            field: "logical.technique1",
-        }),
+        Some(LogicalLevelTechnique::Pde) => Err(MltError::UnsupportedLogicalTechnique(
+            LogicalLevelTechnique::Pde,
+        )),
+        None => Err(MltError::MissingField("logical.technique1")),
     }
 }
 
@@ -130,7 +128,11 @@ fn decode_fast_pfor(
 
 fn bytes_to_encoded_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Vec<u32>, MltError> {
     if num_bytes % 4 != 0 {
-        return Err(MltError::invalid_byte_multiple(4, num_bytes));
+        return Err(MltError::InvalidByteMultiple {
+            ctx: "bytes-to-be-encoded-u32 stream",
+            multiple_of: 4,
+            got: num_bytes,
+        });
     }
     if tile.remaining() < num_bytes {
         return Err(MltError::BufferUnderflow {

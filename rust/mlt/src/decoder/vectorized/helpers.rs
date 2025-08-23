@@ -14,7 +14,11 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<V
         });
     }
     if len % 2 != 0 {
-        return Err(MltError::invalid_value_multiple(2, len));
+        return Err(MltError::InvalidValueMultiple {
+            ctx: "vec2 delta stream length",
+            multiple_of: 2,
+            got: len,
+        });
     }
 
     let mut result = Vec::with_capacity(len);
