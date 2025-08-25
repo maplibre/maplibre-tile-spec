@@ -1,7 +1,7 @@
+use crate::MltError;
 use crate::metadata::stream::StreamMetadata;
 use crate::metadata::stream_encoding::LogicalLevelTechnique;
 use crate::vector::types::VectorType;
-use crate::MltError;
 
 use zigzag::ZigZag;
 
