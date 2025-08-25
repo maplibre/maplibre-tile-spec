@@ -35,7 +35,7 @@ classDiagram
     %% ---------------- ScalarColumn ----------------
     class ScalarColumn {
       +ScalarColumnOptions options %% VarInt
-      
+
       +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalScalarType logicalType
     }
@@ -75,7 +75,7 @@ classDiagram
       +VarInt length
       u8 bytes[length] %% encoding is always UTF-8
     }
-        
+
     %% ---------------- Enumerations ----------------
     class ScalarType {
       <<enumeration>>
