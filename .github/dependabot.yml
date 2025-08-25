@@ -8,49 +8,65 @@
 
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
+
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: weekly
+    groups:
+      all-actions-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      all-actions-security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
   - package-ecosystem: gradle  # should this be "maven" or "gradle"?
     directory: "/java"
     schedule:
       interval: daily
       time: "02:00"
     groups:
-      all-actions-version-updates:
+      all-gradle-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
-      all-actions-security-updates:
+      all-gradle-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
+
   - package-ecosystem: "npm"
     directory: "/js"
     schedule:
-      interval: "daily"
+      interval: daily
     versioning-strategy: increase
     groups:
-      all-actions-version-updates:
+      all-npm-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
-      all-actions-security-updates:
+      all-npm-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
+
+  # Update Rust dependencies
   - package-ecosystem: cargo
     directory: "/rust"
     schedule:
       interval: daily
       time: "02:00"
+    open-pull-requests-limit: 10
     groups:
-      all-actions-version-updates:
+      all-cargo-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
-      all-actions-security-updates:
+      all-cargo-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
