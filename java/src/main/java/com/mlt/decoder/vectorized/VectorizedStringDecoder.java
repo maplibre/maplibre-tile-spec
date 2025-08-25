@@ -25,6 +25,7 @@ public class VectorizedStringDecoder {
 
   // TODO: create baseclass
   /** Not optimized for random access only for sequential iteration */
+  @SuppressWarnings("rawtypes")
   public static Vector decode(
       String name, byte[] data, IntWrapper offset, int numStreams, BitVector bitVector)
       throws IOException {
@@ -91,6 +92,7 @@ public class VectorizedStringDecoder {
     return decodePlain(name, bitVector, offsetStream, dictionaryStream);
   }
 
+  @SuppressWarnings("rawtypes")
   public static Vector decodeToRandomAccessFormat(
       String name,
       byte[] data,
@@ -158,7 +160,7 @@ public class VectorizedStringDecoder {
           dictionaryStream,
           symbolLengthStream,
           symbolTableStream);
-    } else if (dictionaryStream != null) {
+    } else if (dictionaryStream != null && dictionaryLengthStream != null) {
       return bitVector != null
           ? StringDictionaryVector.createNullableVector(
               name, bitVector, offsetStream, dictionaryLengthStream, dictionaryStream)
@@ -174,6 +176,7 @@ public class VectorizedStringDecoder {
 
   // TODO: create baseclass for shared dictionary
   /** Not optimized for random access only for sequential iteration */
+  @SuppressWarnings("rawtypes")
   public static Vector decodeSharedDictionary(
       byte[] data, IntWrapper offset, MltTilesetMetadata.Column column) {
     IntBuffer dictionaryLengthBuffer = null;
@@ -267,6 +270,7 @@ public class VectorizedStringDecoder {
             column.getName(), dictionaryLengthBuffer, dictionaryBuffer, fieldVectors);
   }
 
+  @SuppressWarnings("rawtypes")
   public static Vector decodeSharedDictionaryToRandomAccessFormat(
       byte[] data, IntWrapper offset, MltTilesetMetadata.Column column, int numFeatures) {
     IntBuffer dictionaryOffsetBuffer = null;
@@ -294,7 +298,7 @@ public class VectorizedStringDecoder {
                     VectorizedIntegerDecoder.decodeLengthStreamToOffsetBuffer(
                         data, offset, streamMetadata);
               } catch (Exception e) {
-                e.printStackTrace();
+                e.printStackTrace(System.err);
               }
 
             } else {
@@ -374,6 +378,10 @@ public class VectorizedStringDecoder {
               new BitVector(presentStream, presentStreamMetadata.numValues()),
               offsetStream);
       fieldVectors[i++] = dataVector;
+    }
+
+    if (dictionaryOffsetBuffer == null) {
+      return null;
     }
 
     return symbolTableBuffer != null

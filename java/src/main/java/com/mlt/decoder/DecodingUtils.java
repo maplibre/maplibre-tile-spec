@@ -2,9 +2,11 @@ package com.mlt.decoder;
 
 import com.mlt.converter.geometry.ZOrderCurve;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -131,6 +133,29 @@ public class DecodingUtils {
     value |= (b & 0x7f) << 21;
     dst[dstOffset] = value;
     return offset;
+  }
+
+  public static int decodeVarint(InputStream stream) throws IOException {
+    var b = (byte) stream.read();
+    var value = b & 0x7f;
+    if ((b & 0x80) != 0) {
+      b = (byte) stream.read();
+      value |= (b & 0x7f) << 7;
+      if ((b & 0x80) != 0) {
+        b = (byte) stream.read();
+        value |= (b & 0x7f) << 14;
+        if ((b & 0x80) != 0) {
+          b = (byte) stream.read();
+          value |= (b & 0x7f) << 21;
+        }
+      }
+    }
+    return value;
+  }
+
+  public static String decodeString(InputStream stream) throws IOException {
+    var length = decodeVarint(stream);
+    return new String(stream.readNBytes(length), StandardCharsets.UTF_8);
   }
 
   public static int decodeZigZag(int encoded) {
@@ -291,12 +316,12 @@ public class DecodingUtils {
 
   public static long[] decodeUnsignedRLE(long[] data, int numRuns, int numTotalValues) {
     var values = new long[numTotalValues];
-    var offset = 0;
+    var offset = 0L;
     for (var i = 0; i < numRuns; i++) {
       var runLength = data[i];
       var value = data[i + numRuns];
       for (var j = offset; j < offset + runLength; j++) {
-        values[j] = value;
+        values[(int) j] = value;
       }
 
       offset += runLength;

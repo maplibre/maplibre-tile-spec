@@ -3,21 +3,27 @@ package com.mlt.converter.tessellation;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mlt.converter.geometry.Vertex;
+import earcut4j.Earcut;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.*;
 
 public class TessellationUtils {
   private TessellationUtils() {}
 
-  public static TessellatedPolygon tessellatePolygon(Polygon polygon, int indexOffset) {
+  public static TessellatedPolygon tessellatePolygon(
+      Polygon polygon, int indexOffset, @Nullable URI tessellateSource) {
     var flattenedCoordinates = flatCoordinatesWithoutClosingPoint(polygon);
     // var flattenedCoordinates = flatPolygonWithClosingPoint(polygon);
 
@@ -33,19 +39,25 @@ public class TessellationUtils {
     var holeIndicesArray =
         !holeIndices.isEmpty() ? holeIndices.stream().mapToInt(i -> i).toArray() : null;
 
-    // var indices = Earcut.earcut(flattenedCoordinates, holeIndicesArray, 2);
-    var indices = tessellatePolygonRemote(flattenedCoordinates, holeIndicesArray);
+    Stream<Integer> indices;
+    if (tessellateSource != null) {
+      indices =
+          Arrays.stream(
+                  tessellatePolygonRemote(flattenedCoordinates, holeIndicesArray, tessellateSource))
+              .boxed();
+    } else {
+      indices = Earcut.earcut(flattenedCoordinates, holeIndicesArray, 2).stream();
+    }
 
-    var indexList = Arrays.stream(indices).map(index -> index + indexOffset).boxed().toList();
+    var indexList = indices.map(index -> index + indexOffset).toList();
     var numTriangles = indexList.size() / 3;
     return new TessellatedPolygon(indexList, numTriangles, numVertices);
   }
 
   private static int[] tessellatePolygonRemote(
-      double[] flattenedCoordinates, int[] holeIndicesArray) {
+      double[] flattenedCoordinates, int[] holeIndicesArray, @NotNull URI tessellateSource) {
     try {
-      URL url = new URL("http://localhost:3000/tessellate");
-      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+      HttpURLConnection conn = (HttpURLConnection) tessellateSource.toURL().openConnection();
       conn.setRequestMethod("POST");
       conn.setRequestProperty("Content-Type", "application/json");
       conn.setRequestProperty("Accept", "application/json");
@@ -56,12 +68,13 @@ public class TessellationUtils {
       requestBody.add("holes", new Gson().toJsonTree(holeIndicesArray));
 
       try (OutputStream os = conn.getOutputStream()) {
-        byte[] input = requestBody.toString().getBytes("utf-8");
+        byte[] input = requestBody.toString().getBytes(StandardCharsets.UTF_8);
         os.write(input, 0, input.length);
       }
 
       try (BufferedReader br =
-          new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"))) {
+          new BufferedReader(
+              new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
         StringBuilder response = new StringBuilder();
         String responseLine;
         while ((responseLine = br.readLine()) != null) {
@@ -77,7 +90,8 @@ public class TessellationUtils {
     }
   }
 
-  public static TessellatedPolygon tessellateMultiPolygon(MultiPolygon multiPolygon) {
+  public static TessellatedPolygon tessellateMultiPolygon(
+      MultiPolygon multiPolygon, @Nullable URI tessellateSource) {
     List<Integer> indexBuffer = new ArrayList<>();
     var numTriangles = 0;
 
@@ -89,7 +103,7 @@ public class TessellationUtils {
      *  */
     for (int i = 0; i < multiPolygon.getNumGeometries(); i++) {
       var polygon = (Polygon) multiPolygon.getGeometryN(i);
-      var tessellatedPolygon = tessellatePolygon(polygon, numVertices);
+      var tessellatedPolygon = tessellatePolygon(polygon, numVertices, tessellateSource);
       indexBuffer.addAll(tessellatedPolygon.indexBuffer());
 
       numTriangles += tessellatedPolygon.numTriangles();

@@ -18,6 +18,7 @@ public class VectorTileFeature {
 
   public static final String[] types = {"Unknown", "Point", "LineString", "Polygon"};
 
+  @SuppressWarnings("this-escape")
   public VectorTileFeature(Pbf pbf, int end, int extent, List<String> keys, List<Object> values) {
     this.properties = new HashMap<>();
     this.extent = extent;

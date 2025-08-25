@@ -1,7 +1,6 @@
 package com.mlt.decoder.vectorized;
 
 import com.mlt.decoder.DecodingUtils;
-import com.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 import com.mlt.metadata.stream.LogicalLevelTechnique;
 import com.mlt.metadata.stream.RleEncodedStreamMetadata;
 import com.mlt.metadata.stream.StreamMetadata;
@@ -9,8 +8,6 @@ import com.mlt.vector.BitVector;
 import com.mlt.vector.VectorType;
 import java.nio.*;
 import java.util.BitSet;
-import jdk.incubator.vector.IntVector;
-import jdk.incubator.vector.VectorSpecies;
 import me.lemire.integercompression.*;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -101,30 +98,6 @@ public class VectorizedDecodingUtils {
     return IntBuffer.wrap(decodedValues);
   }
 
-  public static IntBuffer decodeFastPforVectorized(
-      byte[] buffer, int numValues, int byteLength, IntWrapper offset) {
-    if (icVectorized == null) {
-      icVectorized = new Composition(new VectorFastPFOR(), new VariableByte());
-    }
-
-    /* Create a vectorized conversion from the ByteBuffer to the IntBuffer */
-    // TODO: get rid of that conversion
-    IntBuffer intBuf =
-        ByteBuffer.wrap(buffer, offset.get(), byteLength).order(ByteOrder.BIG_ENDIAN).asIntBuffer();
-    var bufferSize = (int) Math.ceil(byteLength / 4d);
-    int[] intValues = new int[bufferSize];
-    for (var i = 0; i < intValues.length; i++) {
-      intValues[i] = intBuf.get(i);
-    }
-
-    int[] decodedValues = new int[numValues];
-    icVectorized.uncompress(
-        intValues, new IntWrapper(0), intValues.length, decodedValues, new IntWrapper(0));
-
-    offset.add(byteLength);
-    return IntBuffer.wrap(decodedValues);
-  }
-
   /**
    * Varint decoding
    * ----------------------------------------------------------------------------------------
@@ -199,92 +172,6 @@ public class VectorizedDecodingUtils {
    * Rle decoding
    * --------------------------------------------------------------------------------------
    */
-  private static final VectorSpecies<Integer> SPECIES = IntVector.SPECIES_PREFERRED;
-
-  public static int[] decodeUnsignedRleVectorized(int[] values, int[] runs, int numTotalValues) {
-    // Overflow of the number of integers based on the last broadcast
-    var overflow = runs[runs.length - 1] % SPECIES.length();
-    var overflowDst = new int[numTotalValues + overflow];
-    int pos = 0;
-    for (int run = 0; run < numTotalValues; run++) {
-      int count = runs[run];
-      IntVector runVector = IntVector.broadcast(SPECIES, values[run]);
-      int i = 0;
-      for (; i <= count; i += SPECIES.length()) {
-        runVector.intoArray(overflowDst, pos + i);
-      }
-      pos += count;
-    }
-
-    // TODO: get rid of that copy by using a view of the data with IntBuffer
-    var dst = new int[numTotalValues];
-    System.arraycopy(overflowDst, 0, dst, 0, numTotalValues);
-    return dst;
-  }
-
-  public static int[] decodeUnsignedRleVectorized(int[] data, int numRuns, int numTotalValues) {
-    // TODO: move creation of SPECIES out of the method
-    var SPECIES = IntVector.SPECIES_PREFERRED;
-    // TODO: quick and dirty -> refactor
-    var overflow = SPECIES.length();
-    var overflowDst = new int[numTotalValues + overflow];
-    int pos = 0;
-    var valueOffset = numRuns;
-    for (int i = 0; i < numRuns; i++) {
-      int runCnt = data[i];
-      IntVector runVector = IntVector.broadcast(SPECIES, data[valueOffset++]);
-      int j = 0;
-      for (; j <= runCnt; j += SPECIES.length()) {
-        runVector.intoArray(overflowDst, pos + j);
-      }
-      pos += runCnt;
-    }
-
-    var dst = new int[numTotalValues];
-    System.arraycopy(overflowDst, 0, dst, 0, numTotalValues);
-    return dst;
-  }
-
-  /*public static IntBuffer decodeUnsignedRleVectorized2(int[] values, int[] runs, int numTotalValues) {
-    // Overflow of the number of integers based on the last broadcast
-    var overflow = runs[runs.length - 1] % SPECIES.length();
-    var dst = IntBuffer.allocate(numTotalValues + overflow);
-    int pos = 0;
-    for (int run = 0; run < numTotalValues; run++) {
-      int count = runs[run];
-      IntVector runVector = IntVector.broadcast(SPECIES, values[run]);
-      int i = 0;
-      for (; i <= count; i += SPECIES.length()) {
-        var segment = MemorySegment.ofBuffer(dst);
-        runVector.intoMemorySegment(segment, pos + i, ByteOrder.nativeOrder());
-      }
-      pos += count;
-    }
-
-    return dst.limit(numTotalValues);
-  }*/
-
-  /*public static void decodeZigZagRleVectorized(int[] dst, int[] runlen, int[] values, int runcnt) {
-    int pos = 0;
-    for (int run = 0; run < runcnt; run++) {
-      // decodedVector = IntVector.fromArray(SPECIES, data, i);
-      // signVector = decodedVector.lanewise(VectorOperators.AND, 1).lanewise(VectorOperators.NEG);
-      // decodedVector = decodedVector.lanewise(VectorOperators.ASHR,
-      // 1).lanewise(VectorOperators.XOR, signVector)
-
-      int count = runlen[run];
-      IntVector runVector = IntVector.broadcast(SPECIES, values[run]);
-      int i = 0;
-      for (; i <= count; i += SPECIES.length()) {
-        runVector.intoArray(dst, pos + i);
-      }
-
-      pos += count;
-    }
-
-    // TODO: reset the overflowed elements
-  }*/
-
   public static IntBuffer decodeRle(int[] data, StreamMetadata streamMetadata, boolean isSigned) {
     var rleMetadata = (RleEncodedStreamMetadata) streamMetadata;
     return isSigned

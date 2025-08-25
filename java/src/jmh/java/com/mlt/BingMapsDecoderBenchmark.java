@@ -1,8 +1,7 @@
 package com.mlt;
 
+import com.mlt.converter.MltConverter;
 import com.mlt.converter.mvt.MvtUtils;
-import com.mlt.decoder.MltDecoder;
-import com.mlt.metadata.tileset.MltTilesetMetadata;
 import com.mlt.vector.FeatureTable;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.model.JtsMvt;
 import java.io.ByteArrayInputStream;
@@ -33,8 +32,7 @@ public class BingMapsDecoderBenchmark {
   private static final Map<Integer, ByteArrayInputStream> encodedMvtTiles2 = new HashMap<>();
   private static final Map<Integer, byte[]> compressedMVTiles = new HashMap<>();
   private static final Map<Integer, byte[]> encodedMltTiles = new HashMap<>();
-  private static final Map<Integer, MltTilesetMetadata.TileSetMetadata> tileMetadata =
-      new HashMap<>();
+  private static final Map<Integer, byte[]> tileMetadata = new HashMap<>();
   private static final String SEPARATOR = "-";
 
   @Setup
@@ -66,32 +64,32 @@ public class BingMapsDecoderBenchmark {
         SEPARATOR);
   }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ4() {
-    var mlTile = encodedMltTiles.get(4);
-    var mltMetadata = tileMetadata.get(4);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
+  private FeatureTable[] decodeVectorized(int n) throws IOException {
+    var mlTile = encodedMltTiles.get(n);
+    var mltMetadata =
+        MltConverter.parseEmbeddedMetadata(new ByteArrayInputStream(tileMetadata.get(n)));
+    // Vectorized decoding currently disabled
+    return new FeatureTable[0]; // MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
   }
 
   @Benchmark
-  public FeatureTable[] decodeMltZ5() {
-    var mlTile = encodedMltTiles.get(5);
-    var mltMetadata = tileMetadata.get(5);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
+  public FeatureTable[] decodeMltZ4() throws IOException {
+    return decodeVectorized(4);
   }
 
   @Benchmark
-  public FeatureTable[] decodeMltZ6() {
-    var mlTile = encodedMltTiles.get(6);
-    var mltMetadata = tileMetadata.get(6);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
+  public FeatureTable[] decodeMltZ5() throws IOException {
+    return decodeVectorized(5);
   }
 
   @Benchmark
-  public FeatureTable[] decodeMltZ7() {
-    var mlTile = encodedMltTiles.get(7);
-    var mltMetadata = tileMetadata.get(7);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
+  public FeatureTable[] decodeMltZ6() throws IOException {
+    return decodeVectorized(6);
+  }
+
+  @Benchmark
+  public FeatureTable[] decodeMltZ7() throws IOException {
+    return decodeVectorized(7);
   }
 
   @Benchmark

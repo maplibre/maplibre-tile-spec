@@ -86,6 +86,8 @@ public class StringFsstDictionaryVector extends VariableSizeVector<String> {
           symbolTable.length);
       var data = new byte[dataBuffer.limit() - dataBuffer.position()];
       System.arraycopy(dataBuffer.array(), dataBuffer.position(), data, 0, data.length);
+
+      @SuppressWarnings("deprecation")
       byte[] dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
 
       var decodedDictionary = new ArrayList<String>();

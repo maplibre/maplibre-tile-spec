@@ -130,21 +130,6 @@ public class VectorizedDecodingUtilsTest {
   }
 
   @Test
-  void decodeUnsignedRLEVectorized() {
-    var values = new int[] {1, 1, 2, 2, 4, 5, 8, 8, 9};
-    var rleComponentBuffer = EncodingUtils.encodeRle(values);
-    var rleList = new ArrayList<>(rleComponentBuffer.getLeft());
-    rleList.addAll(rleComponentBuffer.getRight());
-    var rleBuffer = rleList.stream().mapToInt(i -> i).toArray();
-
-    var decodedValues =
-        VectorizedDecodingUtils.decodeUnsignedRleVectorized(
-            rleBuffer, rleComponentBuffer.getLeft().size(), values.length);
-
-    assertArrayEquals(values, decodedValues);
-  }
-
-  @Test
   void decodeNullableUnsignedRLE_Int() {
     var values = new int[] {1, 1, 2, 2};
     var expectedValues = new int[] {1, 1, 0, 2, 0, 2, 0};
@@ -173,11 +158,10 @@ public class VectorizedDecodingUtilsTest {
     var bitVector = new BitVector(byteBuffer, 7);
     var rleComponentBuffer = EncodingUtils.encodeRle(values);
     var rleList =
-        new ArrayList<>(
-            rleComponentBuffer.getLeft().stream()
-                .mapToLong(i -> i)
-                .boxed()
-                .collect(Collectors.toList()));
+        rleComponentBuffer.getLeft().stream()
+            .mapToLong(i -> i)
+            .boxed()
+            .collect(Collectors.toCollection(ArrayList::new));
     rleList.addAll(rleComponentBuffer.getRight());
     var rleBuffer = rleList.stream().mapToLong(i -> i).toArray();
 

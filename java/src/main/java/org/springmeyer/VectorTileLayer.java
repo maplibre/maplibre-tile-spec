@@ -11,11 +11,12 @@ public class VectorTileLayer {
   public int length = 0;
 
   // Private
-  private Pbf pbf;
-  private List<String> keys = new ArrayList<>();
-  private List<Object> values = new ArrayList<>();
-  private List<Integer> features = new ArrayList<>();
+  private final Pbf pbf;
+  private final List<String> keys = new ArrayList<>();
+  private final List<Object> values = new ArrayList<>();
+  private final List<Integer> features = new ArrayList<>();
 
+  @SuppressWarnings("this-escape")
   public VectorTileLayer(Pbf pbf, int end) throws IllegalArgumentException {
     this.pbf = pbf;
     pbf.readFields(VectorTileLayer::readLayer, this, end);
