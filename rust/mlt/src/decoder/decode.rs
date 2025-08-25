@@ -158,6 +158,6 @@ mod tests {
         fs::write("../target/metadata_output.txt", metadata_str)
             .expect("Failed to write metadata to file");
 
-        let tile = mlt.decode(&metadata).expect("Failed to decode tile");
+        let _tile = mlt.decode(&metadata).expect("Failed to decode tile");
     }
 }
