@@ -48,12 +48,11 @@ impl SortSettings {
 
 pub struct GeometryEncoder;
 
-#[expect(dead_code, unused_variables)]
 impl GeometryEncoder {
     pub fn encode_geometry_column(
         geometries: Vec<Geometry>,
-        physical_level_technique: PhysicalLevelTechnique,
-        sort_settings: Option<SortSettings>,
+        _physical_level_technique: PhysicalLevelTechnique,
+        _sort_settings: Option<SortSettings>,
     ) -> Vec<u8> {
         let mut geometry_types: Vec<u8> = vec![];
         let mut num_geometries: Vec<i32> = vec![];
@@ -120,14 +119,14 @@ impl GeometryEncoder {
             }
         }
 
-        let min_vertex_value = vertex_buffer
+        let _min_vertex_value = vertex_buffer
             .iter()
             .map(|v| v.x.min(v.y))
-            .fold(f64::INFINITY, |acc, x| acc.min(x));
-        let max_vertex_value = vertex_buffer
+            .fold(f64::INFINITY, f64::min);
+        let _max_vertex_value = vertex_buffer
             .iter()
             .map(|v| v.x.max(v.y))
-            .fold(f64::NEG_INFINITY, |acc, x| acc.max(x));
+            .fold(f64::NEG_INFINITY, f64::max);
 
         Vec::new() // Dummy
     }

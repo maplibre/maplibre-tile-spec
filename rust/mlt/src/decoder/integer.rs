@@ -17,8 +17,8 @@ use num_traits::PrimInt;
 use std::fmt::Debug;
 use zigzag::ZigZag;
 
-/// decode_long_stream is a placeholder for future implementation
-/// For some reasons, the Java code has a method that decodes long streams,
+/// a placeholder for future implementation
+/// For some reason, the Java code has a method that decodes long streams,
 /// but it has different logic than the integer stream decoding.
 /// It is not clear what the purpose of this method is, so it is left unimplemented
 pub fn decode_long_stream(
@@ -29,8 +29,8 @@ pub fn decode_long_stream(
     todo!()
 }
 
-/// decode_int_stream can handle multiple decoding techniques,
-/// some of which do represent signed integers (like varint with ZigZag)
+/// `decode_int_stream` can handle multiple decoding techniques,
+/// some of which do represent signed integers (like varint with [`ZigZag`])
 /// so returning Vec<i32>
 pub fn decode_int_stream(
     tile: &mut TrackedBytes,
@@ -38,7 +38,7 @@ pub fn decode_int_stream(
     is_signed: bool,
 ) -> Result<Vec<i32>, MltError> {
     let values = decode_physical(tile, metadata)?;
-    decode_logical(values, metadata, is_signed)
+    decode_logical(&values, metadata, is_signed)
 }
 
 /// Byte-level decoding based on the physical technique and stream type
@@ -55,7 +55,7 @@ fn decode_physical(
 
 /// Logical-level decoding based on the logical technique
 fn decode_logical(
-    values: Vec<u32>,
+    values: &[u32],
     metadata: &StreamMetadata,
     is_signed: bool,
 ) -> Result<Vec<i32>, MltError> {
@@ -66,17 +66,17 @@ fn decode_logical(
                     .rle
                     .as_ref()
                     .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?;
-                let values = decode_rle(&values, rle_metadata)?;
+                let values = decode_rle(values, rle_metadata)?;
                 return Ok(decode_zigzag_delta(&values));
             }
-            Ok(decode_zigzag_delta(&values))
+            Ok(decode_zigzag_delta(values))
         }
         Some(LogicalLevelTechnique::Rle) => {
             let rle_metadata = metadata
                 .rle
                 .as_ref()
                 .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?;
-            let values = decode_rle(&values, rle_metadata)?;
+            let values = decode_rle(values, rle_metadata)?;
             if is_signed {
                 Ok(decode_zigzag(&values))
             } else {
@@ -85,20 +85,18 @@ fn decode_logical(
         }
         Some(LogicalLevelTechnique::None) => {
             if is_signed {
-                return Ok(decode_zigzag(&values));
+                return Ok(decode_zigzag(values));
             }
-            Ok(convert_u32_to_i32(&values)?)
+            Ok(convert_u32_to_i32(values)?)
         }
         Some(LogicalLevelTechnique::Morton) => {
             let morton_metadata = metadata
                 .morton
                 .as_ref()
                 .ok_or(MltError::MissingLogicalMetadata { which: "morton" })?;
-            decode_morton_u64_to_i32_vec2s_flat(&values, morton_metadata.coordinate_shift)
+            decode_morton_u64_to_i32_vec2s_flat(values, morton_metadata.coordinate_shift)
         }
-        Some(LogicalLevelTechnique::ComponentwiseDelta) => {
-            decode_componentwise_delta_vec2s(&values)
-        }
+        Some(LogicalLevelTechnique::ComponentwiseDelta) => decode_componentwise_delta_vec2s(values),
         Some(LogicalLevelTechnique::Pde) => Err(MltError::UnsupportedLogicalTechnique(
             LogicalLevelTechnique::Pde,
         )),
@@ -237,7 +235,7 @@ fn convert_u32_to_i32(values: &[u32]) -> Result<Vec<i32>, MltError> {
             i32::try_from(v).map_err(|_| MltError::ConversionOverflow {
                 from: "u32",
                 to: "i32",
-                value: v as u64,
+                value: u64::from(v),
             })
         })
         .collect()
@@ -283,7 +281,7 @@ fn generate_physical_decode_cases() -> Vec<PhysicalDecodeCase> {
         // Varint-encoded value 300 -> [0b10101100, 0b00000010]
         PhysicalDecodeCase {
             name: "varint_single_value",
-            encoded_bytes: vec![0b10101100, 0b00000010],
+            encoded_bytes: vec![0b1010_1100, 0b0000_0010],
             metadata: StreamMetadata {
                 physical: Physical::new(
                     PhysicalStreamType::Present,
@@ -506,8 +504,7 @@ mod tests {
     #[test]
     fn test_decode_logical_all_cases() {
         for case in generate_logical_decode_cases() {
-            let result =
-                decode_logical(case.values.clone(), &case.metadata, case.is_signed).unwrap();
+            let result = decode_logical(&case.values, &case.metadata, case.is_signed).unwrap();
             assert_eq!(
                 result, case.expected,
                 "Test '{}' failed: expected {:?}, got {:?}",
@@ -557,7 +554,7 @@ mod tests {
             .as_slice()
             .into();
         let result = bytes_to_encoded_u32s(&mut tile, 8).unwrap();
-        assert_eq!(result, [0x12345678, 0x90abcdef]);
+        assert_eq!(result, [0x1234_5678, 0x90ab_cdef]);
     }
 
     #[test]

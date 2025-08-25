@@ -68,7 +68,7 @@ impl Decoder {
                 ZigZag::decode(*infos.get(3).ok_or(MltError::MissingInfo(3))?);
             let num_features = infos.get(4).ok_or(MltError::MissingInfo(4))?;
 
-            for col_metadata in feature_table_metadata.columns.iter() {
+            for col_metadata in &feature_table_metadata.columns {
                 let num_streams_vec = decoder::varint::decode::<u32>(&mut self.tile, 1)?;
                 let num_streams = num_streams_vec
                     .first()
@@ -80,7 +80,7 @@ impl Decoder {
                         let values = decode_boolean_rle(
                             &mut self.tile,
                             present_stream_metadata.num_values as usize,
-                        )?;
+                        );
 
                         nullability_buffer =
                             BitVec::<u8, Lsb0>::with_capacity(*num_features as usize);

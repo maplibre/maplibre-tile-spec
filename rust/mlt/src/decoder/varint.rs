@@ -1,6 +1,6 @@
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::{MltError, MltResult};
-use bytes_varint::*;
+use bytes_varint::VarIntSupport;
 
 pub trait VarintDecodable: Sized {
     fn try_get_varint(input: &mut TrackedBytes) -> Result<Self, MltError>;
@@ -34,6 +34,7 @@ pub fn decode<T: VarintDecodable>(
 mod tests {
     use super::*;
     use bytes::Bytes;
+    use bytes_varint::VarIntSupportMut;
 
     #[test]
     fn test_decode_varint_single_u32() {

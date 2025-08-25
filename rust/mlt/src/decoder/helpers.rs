@@ -7,14 +7,14 @@ use crate::{MltError, MltResult};
 /// Decodes boolean RLE from the buffer.
 /// - `num_booleans` is the total number of booleans (bits).
 /// - `byte_size` is inferred as `ceil(num_booleans / 8)`.
-pub fn decode_boolean_rle(tile: &mut TrackedBytes, num_booleans: usize) -> MltResult<Vec<u8>> {
+pub fn decode_boolean_rle(tile: &mut TrackedBytes, num_booleans: usize) -> Vec<u8> {
     let num_bytes = num_booleans.div_ceil(8);
     decode_byte_rle(tile, num_bytes)
 }
 
 /// Decodes byte RLE from the buffer.
 /// - `num_bytes` is how many decoded bytes we expect.
-pub fn decode_byte_rle(tile: &mut TrackedBytes, num_bytes: usize) -> MltResult<Vec<u8>> {
+pub fn decode_byte_rle(tile: &mut TrackedBytes, num_bytes: usize) -> Vec<u8> {
     let mut result = Vec::with_capacity(num_bytes);
     let mut value_offset = 0;
 
@@ -41,7 +41,7 @@ pub fn decode_byte_rle(tile: &mut TrackedBytes, num_bytes: usize) -> MltResult<V
         }
     }
 
-    Ok(result)
+    result
 }
 
 /// Get the physical scalarType from a Column metadata.
@@ -66,19 +66,17 @@ mod tests {
     use crate::metadata::proto_tileset::ScalarColumn;
 
     #[test]
-    fn test_decode_byte_rle() -> MltResult<()> {
+    fn test_decode_byte_rle() {
         let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
-        let result = decode_byte_rle(&mut tile, 5)?;
+        let result = decode_byte_rle(&mut tile, 5);
         assert_eq!(result, vec![1, 1, 1, 1, 1]);
-        Ok(())
     }
 
     #[test]
-    fn test_decode_boolean_rle() -> MltResult<()> {
+    fn test_decode_boolean_rle() {
         let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
-        let result = decode_boolean_rle(&mut tile, 5)?;
+        let result = decode_boolean_rle(&mut tile, 5);
         assert_eq!(result, vec![1]);
-        Ok(())
     }
 
     #[test]
