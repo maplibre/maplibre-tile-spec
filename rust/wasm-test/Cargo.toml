@@ -1,7 +1,13 @@
 [package]
 name = "wasm-test"
 version = "0.1.0"
-edition = "2024"
+description = "WASM test project"
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]

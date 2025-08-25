@@ -2,19 +2,18 @@
 name = "mlt"
 version = "0.1.0"
 description = "MapLibre Tile format"
-repository = "https://github.com/nyurik/maplibre-tile-spec"
-edition = "2024"
-license = "MIT OR Apache-2.0"
-keywords = ["maplibre", "tile", "mlt", "mvt"]
-categories = ["science::geo"]
-rust-version = "1.85.0"
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 bitvec = "1.0.1"
 bytes = "1.10.1"
 bytes-varint = "1.1.0"
-cxx = "1.0.136"
-fastpfor = { version = "0.6.2", features = ["rust"] }
+fastpfor = { version = "0.6.3", features = ["cpp", "rust"] }
 geo-types = "0.7.15"
 geozero = { version = "0.14", features = ["with-mvt"] }
 indexmap = "2.7.1"

@@ -112,13 +112,13 @@ impl StreamMetadata {
         };
 
         if metadata.logical.technique1 == Some(MORTON) {
-            metadata.partial_decode(&MORTON, tile)?;
+            metadata.partial_decode(MORTON, tile)?;
             return Ok(metadata);
         } else if (metadata.logical.technique1 == Some(RLE)
             || metadata.logical.technique2 == Some(RLE))
             && metadata.physical.technique != PhysicalLevelTechnique::None
         {
-            metadata.partial_decode(&RLE, tile)?;
+            metadata.partial_decode(RLE, tile)?;
             return Ok(metadata);
         }
 
@@ -129,7 +129,7 @@ impl StreamMetadata {
 trait Encoding {
     fn partial_decode(
         &mut self,
-        r#type: &LogicalLevelTechnique,
+        r#type: LogicalLevelTechnique,
         tile: &mut TrackedBytes,
     ) -> MltResult<()>;
 }
@@ -137,7 +137,7 @@ trait Encoding {
 impl Encoding for StreamMetadata {
     fn partial_decode(
         &mut self,
-        r#type: &LogicalLevelTechnique,
+        r#type: LogicalLevelTechnique,
         tile: &mut TrackedBytes,
     ) -> MltResult<()> {
         // let binding = varint::decode(tile, 2, offset);
@@ -149,24 +149,22 @@ impl Encoding for StreamMetadata {
                 got: vals.len(),
             });
         }
-        let val1 = vals[0];
-        let val2 = vals[1];
 
         match r#type {
             LogicalLevelTechnique::Morton => {
                 self.morton = Some(Morton {
-                    num_bits: val1,
-                    coordinate_shift: val2,
+                    num_bits: vals[0],
+                    coordinate_shift: vals[1],
                 });
             }
             LogicalLevelTechnique::Rle => {
                 self.rle = Some(Rle {
-                    runs: val1,
-                    num_rle_values: val2,
+                    runs: vals[0],
+                    num_rle_values: vals[1],
                 });
             }
             other => {
-                return Err(MltError::PartialDecodeWrongTechnique(*other));
+                return Err(MltError::PartialDecodeWrongTechnique(other));
             }
         }
 

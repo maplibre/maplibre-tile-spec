@@ -52,7 +52,7 @@ mod tests {
 
         let expected: HashSet<String> = ["boundary", "water_name", "landcover", "place", "water"]
             .iter()
-            .map(|s| s.to_string())
+            .map(|s| (*s).to_string())
             .collect();
 
         let actual: HashSet<String> = metadata
