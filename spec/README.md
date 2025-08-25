@@ -259,7 +259,7 @@ Vertex-scoped properties have to be grouped together and are placed before the f
 The scope of a property column is specified in the tileset metadata document based on
 the `ColumnScope` enum.
 
-A property column can have one of the above listed [data types](#122-Type-system).
+A property column can have one of the above listed [data types](#122-type-system).
 
 ### 1.3 Example Layouts
 
