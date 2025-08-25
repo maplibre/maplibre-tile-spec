@@ -1,3 +1,4 @@
+use crate::MltError;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
 use crate::decoder::vectorized::helpers::decode_componentwise_delta_vec2s;
@@ -7,7 +8,6 @@ use crate::metadata::stream_encoding::{
     Logical, LogicalLevelTechnique, LogicalStreamType, Physical, PhysicalLevelTechnique,
     PhysicalStreamType,
 };
-use crate::MltError;
 use fastpfor::cpp::Codec32 as _;
 use fastpfor::cpp::FastPFor128Codec;
 

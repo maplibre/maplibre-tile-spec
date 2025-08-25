@@ -1,5 +1,5 @@
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request, RequestInit, RequestMode, Response};
 
@@ -29,7 +29,7 @@ pub fn get_value_from_buffer_index() -> u8 {
     unsafe { WASM_MEMORY_BUFFER[1] }
 }
 
-#[allow(static_mut_refs)]
+#[expect(static_mut_refs)]
 #[wasm_bindgen(js_name = getWasmMemoryBufferPointer)]
 pub fn get_wasm_memory_buffer_pointer() -> *const u8 {
     unsafe { WASM_MEMORY_BUFFER.as_ptr() }
