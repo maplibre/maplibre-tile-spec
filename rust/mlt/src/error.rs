@@ -127,6 +127,7 @@ impl From<BvVarIntError> for MltError {
         }
     }
 }
+
 impl From<cxx::Exception> for MltError {
     fn from(e: cxx::Exception) -> Self {
         MltError::FastPforFfi(e.what().to_string())

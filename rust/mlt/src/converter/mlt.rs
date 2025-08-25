@@ -3,16 +3,16 @@ use std::collections::HashMap;
 use geo_types::Geometry;
 use indexmap::IndexMap;
 
+use crate::MltResult;
 use crate::converter::mvt::MapVectorTile;
 use crate::data::{Feature, Value};
 use crate::metadata::proto_tileset::complex_column::Type::PhysicalType;
 use crate::metadata::proto_tileset::{
-    column, field, scalar_column, scalar_field, Column, ColumnScope, ComplexColumn, ComplexType,
-    FeatureTableSchema, Field, ScalarColumn, ScalarField, ScalarType, TileSetMetadata,
+    Column, ColumnScope, ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn,
+    ScalarField, ScalarType, TileSetMetadata, column, field, scalar_column, scalar_field,
 };
 use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 use crate::mvt::ColumnMapping;
-use crate::MltResult;
 
 struct SortSettings {
     is_sortable: bool,
@@ -270,7 +270,6 @@ fn get_scalar_type(value: &Value) -> MltResult<ScalarType> {
     }
 }
 
-#[expect(unused_variables)]
 pub fn convert_mvt(
     mvt: MapVectorTile,
     config: ConversionConfig,
@@ -282,13 +281,13 @@ pub fn convert_mvt(
         PhysicalLevelTechnique::Varint
     };
 
-    let maplibre_tile_buffer: Vec<u8> = Vec::new();
+    // let maplibre_tile_buffer: Vec<u8> = Vec::new();
     let feature_table_id = 0;
     for layer in mvt.layers {
         let feature_table_name = layer.name;
         // let mvt_features = layer.features;
 
-        let feature_table_metadata = tileset_metadata.feature_tables.get(feature_table_id);
+        let _feature_table_metadata = tileset_metadata.feature_tables.get(feature_table_id);
         let feature_table_optimizations = config.optimizations.get(&feature_table_name);
         sort_features_and_encode_geometry_column(
             &config,
@@ -301,12 +300,11 @@ pub fn convert_mvt(
     Ok(vec![])
 }
 
-#[expect(unused_variables)]
 fn sort_features_and_encode_geometry_column(
     config: &ConversionConfig,
     feature_table_optimizations: Option<&FeatureTableOptimizations>,
     mvt_features: &[Feature],
-    physical_level_technique: PhysicalLevelTechnique,
+    _physical_level_technique: PhysicalLevelTechnique,
 ) {
     let is_column_sortable = config.include_ids
         && feature_table_optimizations
@@ -324,10 +322,10 @@ fn sort_features_and_encode_geometry_column(
     }
 
     let ids: Vec<i64> = sorted_features.iter().map(|f| f.id).collect();
-    let sort_settings = SortSettings::new(is_column_sortable, feature_table_optimizations, ids);
+    let _sort_settings = SortSettings::new(is_column_sortable, feature_table_optimizations, ids);
 
     // Unnecessary cloning: fix later
-    let geometries: Vec<Geometry> = sorted_features.iter().map(|f| f.geometry.clone()).collect();
+    let _geometries: Vec<Geometry> = sorted_features.iter().map(|f| f.geometry.clone()).collect();
 }
 
 #[cfg(test)]

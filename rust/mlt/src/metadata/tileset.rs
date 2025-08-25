@@ -4,8 +4,8 @@ use std::path::Path;
 
 use prost::Message;
 
-use crate::metadata::proto_tileset::TileSetMetadata;
 use crate::MltResult;
+use crate::metadata::proto_tileset::TileSetMetadata;
 
 // Future: Impl for TileSetMetadata
 pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
@@ -18,32 +18,32 @@ pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
     Ok(meta)
 }
 
-#[test]
-fn test_read_metadata_invalid_file() {
-    let invalid_path = Path::new("non_existent_file.pbf");
-    let result = read_metadata(invalid_path);
-    assert!(
-        result.is_err(),
-        "Expected read() to return an error for an invalid file"
-    );
-}
-
-#[test]
-fn test_read_mlt_file() {
-    let mlt_path = Path::new("../../test/expected/omt/2_2_2.mlt");
-    let result = read_metadata(mlt_path);
-    assert!(
-        result.is_err(),
-        "Expected read() to return a valid TileSetMetadata"
-    );
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
     use std::path::Path;
 
     use super::*;
+
+    #[test]
+    fn test_read_metadata_invalid_file() {
+        let invalid_path = Path::new("non_existent_file.pbf");
+        let result = read_metadata(invalid_path);
+        assert!(
+            result.is_err(),
+            "Expected read() to return an error for an invalid file"
+        );
+    }
+
+    #[test]
+    fn test_read_mlt_file() {
+        let mlt_path = Path::new("../../test/expected/omt/2_2_2.mlt");
+        let result = read_metadata(mlt_path);
+        assert!(
+            result.is_err(),
+            "Expected read() to return a valid TileSetMetadata"
+        );
+    }
 
     #[test]
     fn test_read_metadata() {

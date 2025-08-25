@@ -1,8 +1,7 @@
 use bytes::Buf;
 
 use crate::decoder::tracked_bytes::TrackedBytes;
-#[allow(unused_imports)]
-use crate::metadata::proto_tileset::{column, scalar_column, Column, ScalarColumn, ScalarType};
+use crate::metadata::proto_tileset::{Column, ScalarType, column, scalar_column};
 use crate::{MltError, MltResult};
 
 /// Decodes boolean RLE from the buffer.
@@ -61,32 +60,39 @@ pub fn get_data_type_from_column(column_metadata: &Column) -> MltResult<ScalarTy
     }
 }
 
-#[test]
-fn test_decode_byte_rle() -> MltResult<()> {
-    let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
-    let result = decode_byte_rle(&mut tile, 5)?;
-    assert_eq!(result, vec![1, 1, 1, 1, 1]);
-    Ok(())
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metadata::proto_tileset::ScalarColumn;
 
-#[test]
-fn test_decode_boolean_rle() -> MltResult<()> {
-    let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
-    let result = decode_boolean_rle(&mut tile, 5)?;
-    assert_eq!(result, vec![1]);
-    Ok(())
-}
+    #[test]
+    fn test_decode_byte_rle() -> MltResult<()> {
+        let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
+        let result = decode_byte_rle(&mut tile, 5)?;
+        assert_eq!(result, vec![1, 1, 1, 1, 1]);
+        Ok(())
+    }
 
-#[test]
-fn test_get_data_type_from_column() {
-    let column_metadata = Column {
-        name: "id".to_string(),
-        nullable: false,
-        column_scope: 0,
-        r#type: Some(column::Type::ScalarType(ScalarColumn {
-            r#type: Some(scalar_column::Type::PhysicalType(ScalarType::Uint32 as i32)),
-        })),
-    };
-    let data_type = get_data_type_from_column(&column_metadata).expect("should parse ScalarType");
-    assert_eq!(data_type, ScalarType::Uint32);
+    #[test]
+    fn test_decode_boolean_rle() -> MltResult<()> {
+        let mut tile: TrackedBytes = [0x03, 0x01].as_slice().into();
+        let result = decode_boolean_rle(&mut tile, 5)?;
+        assert_eq!(result, vec![1]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_data_type_from_column() {
+        let column_metadata = Column {
+            name: "id".to_string(),
+            nullable: false,
+            column_scope: 0,
+            r#type: Some(column::Type::ScalarType(ScalarColumn {
+                r#type: Some(scalar_column::Type::PhysicalType(ScalarType::Uint32 as i32)),
+            })),
+        };
+        let data_type =
+            get_data_type_from_column(&column_metadata).expect("should parse ScalarType");
+        assert_eq!(data_type, ScalarType::Uint32);
+    }
 }

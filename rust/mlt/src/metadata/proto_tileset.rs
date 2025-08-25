@@ -52,14 +52,14 @@ pub mod column {
         ComplexType(super::ComplexColumn),
     }
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ScalarColumn {
     #[prost(oneof = "scalar_column::Type", tags = "4, 5")]
     pub r#type: ::core::option::Option<scalar_column::Type>,
 }
 /// Nested message and enum types in `ScalarColumn`.
 pub mod scalar_column {
-    #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Type {
         #[prost(enumeration = "super::ScalarType", tag = "4")]
         PhysicalType(i32),
@@ -80,7 +80,7 @@ pub struct ComplexColumn {
 }
 /// Nested message and enum types in `ComplexColumn`.
 pub mod complex_column {
-    #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Type {
         #[prost(enumeration = "super::ComplexType", tag = "4")]
         PhysicalType(i32),
@@ -110,14 +110,14 @@ pub mod field {
         ComplexField(super::ComplexField),
     }
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ScalarField {
     #[prost(oneof = "scalar_field::Type", tags = "1, 2")]
     pub r#type: ::core::option::Option<scalar_field::Type>,
 }
 /// Nested message and enum types in `ScalarField`.
 pub mod scalar_field {
-    #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Type {
         #[prost(enumeration = "super::ScalarType", tag = "1")]
         PhysicalType(i32),
@@ -134,7 +134,7 @@ pub struct ComplexField {
 }
 /// Nested message and enum types in `ComplexField`.
 pub mod complex_field {
-    #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Type {
         #[prost(enumeration = "super::ComplexType", tag = "1")]
         PhysicalType(i32),

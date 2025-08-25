@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use bitvec::prelude::*;
 use bytes::Buf;
-use geo_types::Geometry;
 use zigzag::ZigZag;
 
 use crate::data::MapLibreTile;
@@ -36,13 +35,12 @@ impl Decoder {
         }
     }
 
-    #[expect(unused_variables)]
     pub fn decode(&mut self, tile_metadata: &TileSetMetadata) -> MltResult<MapLibreTile> {
         while self.tile.has_remaining() {
-            let ids: Vec<i64> = vec![];
-            let geometries: Vec<Geometry> = vec![];
+            // let ids: Vec<i64> = vec![];
+            // let geometries: Vec<Geometry> = vec![];
 
-            let version = self.tile.get_u8();
+            let _version = self.tile.get_u8();
             let infos = decoder::varint::decode(&mut self.tile, 5)?;
 
             println!("infos: {infos:?}");
@@ -65,8 +63,8 @@ impl Decoder {
                 continue;
             }
 
-            let extent = *infos.get(2).ok_or(MltError::MissingInfo(2))?;
-            let max_tile_extent: i32 =
+            let _extent = *infos.get(2).ok_or(MltError::MissingInfo(2))?;
+            let _max_tile_extent: i32 =
                 ZigZag::decode(*infos.get(3).ok_or(MltError::MissingInfo(3))?);
             let num_features = infos.get(4).ok_or(MltError::MissingInfo(4))?;
 
@@ -76,7 +74,6 @@ impl Decoder {
                     .first()
                     .ok_or(MltError::MissingField("num_streams"))?;
                 if col_metadata.name == ID_COLUMN_NAME {
-                    #[allow(unused_variables)]
                     let mut nullability_buffer = BitVec::<u8, Lsb0>::EMPTY;
                     if *num_streams == 2 {
                         let present_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
@@ -125,16 +122,15 @@ impl Decoder {
         Ok(MapLibreTile { layers: vec![] })
     }
 
-    #[expect(unused_variables)]
     fn decode_id_column(
         &mut self,
         column_metadata: &Column,
-        column_name: &str,
-        nullability_buffer: BitVec<u8>,
-        id_within_max_safe_integer: bool,
+        _column_name: &str,
+        _nullability_buffer: BitVec<u8>,
+        _id_within_max_safe_integer: bool,
     ) -> MltResult<()> {
-        let id_data_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
-        let id_data_type = get_data_type_from_column(column_metadata)?;
+        let _id_data_stream_metadata = StreamMetadata::decode(&mut self.tile)?;
+        let _id_data_type = get_data_type_from_column(column_metadata)?;
         Ok(())
     }
 }
@@ -148,7 +144,6 @@ mod tests {
     use crate::metadata::tileset::read_metadata;
 
     #[test]
-    #[expect(unused_variables)]
     fn test_decode() {
         let raw = fs::read("../../ts/test/data/omt/unoptimized/mlt/plain/0_0_0.mlt")
             .expect("Failed to read file");
@@ -163,6 +158,6 @@ mod tests {
         fs::write("../target/metadata_output.txt", metadata_str)
             .expect("Failed to write metadata to file");
 
-        let tile = mlt.decode(&metadata).expect("Failed to decode tile");
+        let _tile = mlt.decode(&metadata).expect("Failed to decode tile");
     }
 }
