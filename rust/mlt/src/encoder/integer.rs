@@ -1,5 +1,5 @@
 pub fn encoded_u32s_to_bytes(encoded: &[u32]) -> Vec<u8> {
-    let mut encoded_bytes: Vec<u8> = Vec::with_capacity(std::mem::size_of_val(encoded));
+    let mut encoded_bytes: Vec<u8> = Vec::with_capacity(size_of_val(encoded));
     for val in encoded.iter() {
         encoded_bytes.extend(&val.to_be_bytes());
     }
