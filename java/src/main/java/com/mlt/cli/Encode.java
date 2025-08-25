@@ -182,28 +182,40 @@ public class Encode {
         }
 
         if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
-          if (metadata != null) {
-            try {
-              writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
-            } catch (IOException ex) {
-              System.err.println("ERROR: Failed to write tile with embedded metadata");
-              ex.printStackTrace(System.err);
-            }
-          } else {
-            System.err.println("ERROR: Failed to generate embedded metadata");
+          try {
+            writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
+          } catch (IOException ex) {
+            System.err.println("ERROR: Failed to write tile with embedded metadata");
+            ex.printStackTrace(System.err);
           }
         } else {
           Files.write(outputPath, mlTile);
         }
 
         // Write the raw metadata, if requested
-        if (metadata != null && cmd.hasOption(INCLUDE_METADATA_OPTION)) {
+        if (cmd.hasOption(INCLUDE_METADATA_OPTION)) {
           var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".meta");
+          if (verbose) {
+            System.err.println("Writing metadata to " + metadataPath);
+          }
           Files.write(metadataPath, metadata);
+        }
+
+        if (cmd.hasOption(INCLUDE_PBF_METADATA_OPTION)) {
+          var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".meta.pbf");
+          if (verbose) {
+            System.err.println("Writing PBF metadata to " + metadataPath);
+          }
+          try (var stream = Files.newOutputStream(metadataPath)) {
+            pbMetadata.writeTo(stream);
+          }
         }
 
         if (metadataJSON != null && cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION)) {
           var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".json");
+          if (verbose) {
+            System.err.println("Writing tileset metadata to " + metadataPath);
+          }
           Files.writeString(metadataPath, metadataJSON);
         }
       }
@@ -550,10 +562,6 @@ public class Encode {
           MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
 
       var binaryMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
-      if (binaryMetadata == null) {
-        throw new RuntimeException("Failed to generate tile metadata");
-      }
-
       var mlTile =
           MltConverter.convertMvt(decodedMvTile, pbfMetadata, conversionConfig, tessellateSource);
 
@@ -749,6 +757,7 @@ public class Encode {
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
   private static final String INCLUDE_METADATA_OPTION = "metadata";
+  private static final String INCLUDE_PBF_METADATA_OPTION = "pbfmetadata";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "tilesetmetadata";
   private static final String INCLUDE_EMBEDDED_METADATA = "embedmetadata";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
@@ -862,6 +871,18 @@ public class Encode {
                       + ".")
               .required(false)
               .build());
+      options.addOption(
+              Option.builder()
+                      .longOpt(INCLUDE_PBF_METADATA_OPTION)
+                      .hasArg(false)
+                      .desc(
+                              "Write tile legacy PBF metadata (adding '.meta.pbf'). "
+                                      + "Only applies with --"
+                                      + INPUT_TILE_ARG
+                                      + ".")
+                      .required(false)
+                      .build());
+
       options.addOption(
           Option.builder()
               .longOpt(INCLUDE_TILESET_METADATA_OPTION)
