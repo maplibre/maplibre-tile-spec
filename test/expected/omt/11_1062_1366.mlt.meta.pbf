@@ -1,0 +1,109 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	¯
+waterway
+id" 
+geometry* 
+class" 	
+name" 	
+name_de" 	
+name_en" 	
+name:de" 	
+name:en" 	
+name:es" 	
+name:fr" 	
+name:hu" 	
+name:it" 	
+name:ja" 	
+name:nl" 	
+name:pl" 	
+name:ru" 	
+name:sk" 	
+name:uk" 	2
+landuse
+id" 
+geometry* 
+class" 	¹
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele_ft" 
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" ù
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:ar" 	
+name:bg" 	
+name:el" 	
+name:he" 	
+name:hu" 	
+name:ja" 	
+name:ka" 	
+name:kk" 	
+name:ko" 	
+name:la" 	
+
+name:latin" 	
+name:lt" 	
+name:lv" 	
+name:ru" 	
+name:sr" 	
+name:th" 	
+name:uk" 	
+name:zh" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" 
+name:de" 	
+name:fr" 	
+name:mk" 	
+name:nl" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" p
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref_length" …
+park
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	·
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+ramp" 
+bicycle" 	
+foot" 	
+oneway" 
+subclass" 	
+horse" 	

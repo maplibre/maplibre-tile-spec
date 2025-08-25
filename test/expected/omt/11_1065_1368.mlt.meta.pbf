@@ -1,0 +1,90 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	ê
+aerodrome_label
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	c
+waterway
+id" 
+geometry* 
+class" 	
+name" 	
+name_de" 	
+name_en" 	2
+landuse
+id" 
+geometry* 
+class" 	π
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele_ft" 
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" ‡
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:ar" 	
+name:br" 	
+name:de" 	
+name:hu" 	
+name:ja" 	
+name:la" 	
+
+name:latin" 	
+name:mk" 	
+name:ru" 	
+name:sr" 	
+name:uk" 	
+name:zh" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" 
+name:en" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" Ö
+park
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	∑
+transportation
+id" 
+geometry* 
+class" 	
+ramp" 
+bicycle" 	
+foot" 	
+horse" 	
+oneway" 
+subclass" 	
+layer" 
+brunnel" 	
