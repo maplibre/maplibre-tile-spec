@@ -274,7 +274,7 @@ fn generate_physical_decode_cases() -> Vec<PhysicalDecodeCase> {
                     LogicalLevelTechnique::None,
                 ),
                 num_values: input.len() as u32,
-                byte_length: std::mem::size_of_val(encoded) as u32,
+                byte_length: size_of_val(encoded) as u32,
                 morton: None,
                 rle: None,
             },
@@ -523,7 +523,7 @@ mod tests {
         let input = vec![5, 10, 15, 20, 25, 30, 35];
         let mut tmp = vec![0; input.len()];
         let encoded = codec.encode32(&input, &mut tmp).unwrap();
-        let byte_length = std::mem::size_of_val(encoded) as u32;
+        let byte_length = size_of_val(encoded) as u32;
         let num_values = input.len() as u32;
 
         // Prepare the tile as a TrackedBytes instance
