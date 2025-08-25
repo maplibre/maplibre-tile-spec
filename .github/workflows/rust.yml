@@ -7,15 +7,12 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-defaults:
-  run:
-    shell: bash
-    working-directory: ./rust/mlt
-
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: ./rust/mlt }
     steps:
       - uses: actions/checkout@v5
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -29,6 +26,8 @@ jobs:
   test-msrv:
     name: Test MSRV
     runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: ./rust/mlt }
     steps:
       - uses: actions/checkout@v5
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -50,6 +49,8 @@ jobs:
     name: Code Coverage
     if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: ./rust/mlt }
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
