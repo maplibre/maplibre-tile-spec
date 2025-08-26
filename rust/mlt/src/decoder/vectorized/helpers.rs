@@ -2,8 +2,8 @@ use crate::MltError;
 
 use zigzag::ZigZag;
 
-/// Decode (ZigZag + delta) for Vec2s
-/// TODO: The encoded process is (delta + ZigZag) for each component
+/// Decode ([`ZigZag`] + delta) for Vec2s
+// TODO: The encoded process is (delta + ZigZag) for each component
 pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<Vec<T>, MltError> {
     let len = data.len();
     if len < 2 {

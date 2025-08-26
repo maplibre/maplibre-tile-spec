@@ -1,11 +1,10 @@
-use bytes_varint::VarIntError as BvVarIntError;
-use thiserror::Error;
-
 use crate::metadata::stream_encoding::{LogicalLevelTechnique, PhysicalLevelTechnique};
+use bytes_varint::VarIntError as BvVarIntError;
+use fastpfor::cpp::Exception;
 
 pub type MltResult<T> = Result<T, MltError>;
 
-#[derive(Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum MltError {
     // External errors (foreign errors)
@@ -109,7 +108,7 @@ pub enum MltError {
     FeatureTableNotFound(u32),
 }
 
-// Varint failures
+/// Varint failures
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum VarintError {
     #[error("unexpected end of input while reading varint")]
@@ -118,7 +117,7 @@ pub enum VarintError {
     Overflow,
 }
 
-// Mappers for foreign errors
+/// Mappers for foreign errors
 impl From<BvVarIntError> for MltError {
     fn from(e: BvVarIntError) -> Self {
         match e {
@@ -128,8 +127,8 @@ impl From<BvVarIntError> for MltError {
     }
 }
 
-impl From<cxx::Exception> for MltError {
-    fn from(e: cxx::Exception) -> Self {
+impl From<Exception> for MltError {
+    fn from(e: Exception) -> Self {
         MltError::FastPforFfi(e.what().to_string())
     }
 }
