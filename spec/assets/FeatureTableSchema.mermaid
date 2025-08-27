@@ -8,8 +8,8 @@ classDiagram
     %% ---------------- Tile ----------------
     class Tile {
 	  +VarInt metadataSize
-	  TileMetadata metadata
-      u8[] tileData
+	  +TileMetadata metadata
+      +u8[] tileData
     }
 
     %% ---------------- TileMetadata ----------------
@@ -35,7 +35,6 @@ classDiagram
     %% ---------------- ScalarColumn ----------------
     class ScalarColumn {
       +ScalarColumnOptions options %% VarInt
-
       +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalScalarType logicalType
     }
@@ -73,7 +72,7 @@ classDiagram
     %% ---------------- String ------------------
     class String {
       +VarInt length
-      u8 bytes[length] %% encoding is always UTF-8
+      +u8 bytes[length] %% encoding is always UTF-8
     }
 
     %% ---------------- Enumerations ----------------
