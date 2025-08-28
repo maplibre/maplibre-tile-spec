@@ -872,16 +872,16 @@ public class Encode {
               .required(false)
               .build());
       options.addOption(
-              Option.builder()
-                      .longOpt(INCLUDE_PBF_METADATA_OPTION)
-                      .hasArg(false)
-                      .desc(
-                              "Write tile legacy PBF metadata (adding '.meta.pbf'). "
-                                      + "Only applies with --"
-                                      + INPUT_TILE_ARG
-                                      + ".")
-                      .required(false)
-                      .build());
+          Option.builder()
+              .longOpt(INCLUDE_PBF_METADATA_OPTION)
+              .hasArg(false)
+              .desc(
+                  "Write tile legacy PBF metadata (adding '.meta.pbf'). "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
+              .required(false)
+              .build());
 
       options.addOption(
           Option.builder()
