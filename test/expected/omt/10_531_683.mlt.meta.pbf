@@ -1,0 +1,133 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	É
+aerodrome_label
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+iata" 	
+icao" 	
+ele" 
+ele_ft" À
+waterway
+id" 
+geometry* 
+class" 	
+name" 	
+name:de" 	
+name:en" 	
+name:es" 	
+name:fr" 	
+name:hu" 	
+name:it" 	
+name:ja" 	
+name:nl" 	
+name:pl" 	
+name:ru" 	
+name:sk" 	
+name:uk" 	
+name_de" 	
+name_en" 	
+name:ar" 	2
+landuse
+id" 
+geometry* 
+class" 	¹
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele_ft" 
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" ½
+place
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" 
+capital" 
+name:ar" 	
+name:be" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:fr" 	
+name:ja" 	
+name:la" 	
+name:lt" 	
+name:mk" 	
+name:ru" 	
+name:sr" 	
+name:uk" 	
+name:zh" 	
+name:bg" 	
+name:he" 	
+name:hu" 	
+name:ka" 	
+name:kk" 	
+name:ko" 	
+name:lv" 	
+name:th" 	
+name:nl" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" p
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref_length" …
+park
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	?
+aeroway
+id" 
+geometry* 
+class" 	
+ref" 	·
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+ramp" 
+bicycle" 	
+foot" 	
+oneway" 
+subclass" 	
+horse" 	

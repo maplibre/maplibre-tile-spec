@@ -1,0 +1,143 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	À
+waterway
+id" 
+geometry* 
+class" 	
+name" 	
+name_de" 	
+name_en" 	
+name:de" 	
+name:en" 	
+name:es" 	
+name:fr" 	
+name:hu" 	
+name:it" 	
+name:ja" 	
+name:nl" 	
+name:pl" 	
+name:ru" 	
+name:sk" 	
+name:uk" 	
+name:ar" 	2
+landuse
+id" 
+geometry* 
+class" 	¹
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele_ft" 
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" »
+place
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" 
+name:ar" 	
+name:be" 	
+name:bg" 	
+name:bs" 	
+name:ca" 	
+name:cs" 	
+name:cy" 	
+name:da" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:et" 	
+name:eu" 	
+name:fi" 	
+name:fr" 	
+name:fy" 	
+name:ga" 	
+name:he" 	
+name:hi" 	
+name:hr" 	
+name:hu" 	
+name:id" 	
+name:is" 	
+name:it" 	
+name:ja" 	
+name:ka" 	
+name:kn" 	
+name:ko" 	
+name:ku" 	
+name:la" 	
+name:lb" 	
+name:lt" 	
+name:lv" 	
+name:mk" 	
+name:nl" 	
+name:no" 	
+name:oc" 	
+name:pl" 	
+name:pt" 	
+name:ro" 	
+name:ru" 	
+name:sk" 	
+name:sl" 	
+name:sq" 	
+name:sr" 	
+name:sv" 	
+name:th" 	
+name:tr" 	
+name:uk" 	
+name:zh" 	
+name:kk" 	
+capital" 
+name:br" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" p
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref_length" …
+park
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	§
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+layer" 
+ramp" 
+bicycle" 	
+foot" 	
+subclass" 	
+horse" 	

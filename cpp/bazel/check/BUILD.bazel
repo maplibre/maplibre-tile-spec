@@ -1,0 +1,39 @@
+
+cc_binary(
+    name = "sse42",
+    srcs = ["sse42.c"],
+    copts = select({
+        "@platforms//os:windows": [
+            "/EHsc", "/arch:SSE2",
+        ],
+        "//conditions:default": [
+            "-march=native", "-msse4.2",
+        ],
+    }),
+)
+
+cc_binary(
+    name = "avx",
+    srcs = ["avx.c"],
+    copts = select({
+        "@platforms//os:windows": [
+            "/EHsc", "/arch:AVX",
+        ],
+        "//conditions:default": [
+            "-march=native", "-mavx",
+        ],
+    }),
+)
+
+cc_binary(
+    name = "avx2",
+    srcs = ["avx2.c"],
+    copts = select({
+        "@platforms//os:windows": [
+            "/EHsc", "/arch:AVX2",
+        ],
+        "//conditions:default": [
+            "-march=native", "-mavx2",
+        ],
+    }),
+)
