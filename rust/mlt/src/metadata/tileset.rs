@@ -4,8 +4,8 @@ use std::path::Path;
 
 use prost::Message;
 
+use crate::MltResult;
 use crate::metadata::proto_tileset::TileSetMetadata;
-use crate::{MltError, MltResult};
 
 // Future: Impl for TileSetMetadata
 pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
@@ -14,28 +14,8 @@ pub fn read_metadata(path: &Path) -> MltResult<TileSetMetadata> {
     file.read_to_end(&mut buffer)?;
 
     let mut buf = buffer.as_slice();
-    TileSetMetadata::decode(&mut buf)
-        .map_err(|e| MltError::MetadataDecodeError(format!("Invalid metadata structure: {}", e)))
-}
-
-#[test]
-fn test_read_metadata_invalid_file() {
-    let invalid_path = Path::new("non_existent_file.pbf");
-    let result = read_metadata(invalid_path);
-    assert!(
-        result.is_err(),
-        "Expected read() to return an error for an invalid file"
-    );
-}
-
-#[test]
-fn test_read_mlt_file() {
-    let mlt_path = Path::new("../../test/expected/omt/2_2_2.mlt");
-    let result = read_metadata(mlt_path);
-    assert!(
-        result.is_err(),
-        "Expected read() to return a valid TileSetMetadata"
-    );
+    let meta = TileSetMetadata::decode(&mut buf)?;
+    Ok(meta)
 }
 
 #[cfg(test)]
@@ -46,13 +26,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_read_metadata_invalid_file() {
+        let invalid_path = Path::new("non_existent_file.pbf");
+        let result = read_metadata(invalid_path);
+        assert!(
+            result.is_err(),
+            "Expected read() to return an error for an invalid file"
+        );
+    }
+
+    #[test]
+    fn test_read_mlt_file() {
+        let mlt_path = Path::new("../../test/expected/omt/2_2_2.mlt");
+        let result = read_metadata(mlt_path);
+        assert!(
+            result.is_err(),
+            "Expected read() to return a valid TileSetMetadata"
+        );
+    }
+
+    #[test]
     fn test_read_metadata() {
         let metadata_path = Path::new("../../test/expected/omt/2_2_2.mlt.meta.pbf");
         let metadata = read_metadata(metadata_path).unwrap();
 
         let expected: HashSet<String> = ["boundary", "water_name", "landcover", "place", "water"]
             .iter()
-            .map(|s| s.to_string())
+            .map(|s| (*s).to_string())
             .collect();
 
         let actual: HashSet<String> = metadata

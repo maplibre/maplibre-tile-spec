@@ -7,12 +7,11 @@ use crate::converter::mvt::MapVectorTile;
 use crate::data::{Feature, Value};
 use crate::metadata::proto_tileset::complex_column::Type::PhysicalType;
 use crate::metadata::proto_tileset::{
-    column, field, scalar_column, scalar_field, Column, ColumnScope, ComplexColumn, ComplexType,
-    FeatureTableSchema, Field, ScalarColumn, ScalarField, ScalarType, TileSetMetadata,
+    Column, ColumnScope, ComplexColumn, ComplexType, FeatureTableSchema, Field, ScalarColumn,
+    ScalarField, ScalarType, TileSetMetadata, column, field, scalar_column, scalar_field,
 };
 use crate::metadata::stream_encoding::PhysicalLevelTechnique;
 use crate::mvt::ColumnMapping;
-use crate::MltResult;
 
 struct SortSettings {
     is_sortable: bool,
@@ -26,9 +25,7 @@ impl SortSettings {
         ids: Vec<i64>,
     ) -> Self {
         let is_sortable = is_column_sortable
-            && feature_table_optimizations
-                .map(|opt| opt.allow_id_regeneration)
-                .unwrap_or(false);
+            && feature_table_optimizations.is_some_and(|opt| opt.allow_id_regeneration);
 
         Self {
             is_sortable,
@@ -55,11 +52,12 @@ const VERSION: i32 = 1;
 const ID_COLUMN_NAME: &str = "id";
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
+#[must_use]
 pub fn create_tileset_metadata(
     mut mvt: MapVectorTile,
     is_id_present: bool,
     column_mappings: Option<&[ColumnMapping]>,
-) -> MltResult<TileSetMetadata> {
+) -> TileSetMetadata {
     let mut tileset = TileSetMetadata {
         version: VERSION,
         name: None,
@@ -81,7 +79,7 @@ pub fn create_tileset_metadata(
                 nullable: false,
                 column_scope: ColumnScope::Feature.into(),
                 r#type: {
-                    if layer.features.iter().all(|f| f.id <= i32::MAX as i64) {
+                    if layer.features.iter().all(|f| f.id <= i64::from(i32::MAX)) {
                         Some(column::Type::ScalarType(ScalarColumn {
                             r#type: Some(scalar_column::Type::PhysicalType(
                                 ScalarType::Uint32 as i32,
@@ -119,7 +117,7 @@ pub fn create_tileset_metadata(
                 if feature_table_scheme.contains_key(property_key) {
                     continue;
                 }
-                let scalar_type = get_scalar_type(property_value)?;
+                let scalar_type = get_scalar_type(property_value);
 
                 // Column Mappings: the Java code does not have a unit test for this block of code.
                 // Hard to determine the expected behavior.
@@ -218,7 +216,7 @@ pub fn create_tileset_metadata(
                                     .expect("No matching column mapping found")
                                     .children
                                     .push(children);
-                            };
+                            }
                         } else {
                             // Case where there is no explicit property available which serves as the name
                             // for the top-level field. For example there is no name property only name:*
@@ -256,78 +254,72 @@ pub fn create_tileset_metadata(
         tileset.feature_tables.push(feature_table_schema_builder);
     }
 
-    Ok(tileset)
+    tileset
 }
 
-fn get_scalar_type(value: &Value) -> MltResult<ScalarType> {
+fn get_scalar_type(value: &Value) -> ScalarType {
     match value {
-        Value::String(_) => Ok(ScalarType::String),
-        Value::Float(_) => Ok(ScalarType::Float),
-        Value::Double(_) => Ok(ScalarType::Double),
-        Value::Int(_) => Ok(ScalarType::Int32),
-        Value::Uint(_) => Ok(ScalarType::Uint32),
-        Value::Bool(_) => Ok(ScalarType::Boolean),
+        Value::String(_) => ScalarType::String,
+        Value::Float(_) => ScalarType::Float,
+        Value::Double(_) => ScalarType::Double,
+        Value::Int(_) => ScalarType::Int32,
+        Value::Uint(_) => ScalarType::Uint32,
+        Value::Bool(_) => ScalarType::Boolean,
     }
 }
 
-#[expect(unused_variables)]
 pub fn convert_mvt(
     mvt: MapVectorTile,
-    config: ConversionConfig,
-    tileset_metadata: TileSetMetadata,
-) -> MltResult<Vec<u8>> {
+    config: &ConversionConfig,
+    tileset_metadata: &TileSetMetadata,
+) -> Vec<u8> {
     let physical_level_technique = if config.use_advanced_encoding_schemes {
         PhysicalLevelTechnique::FastPfor
     } else {
         PhysicalLevelTechnique::Varint
     };
 
-    let maplibre_tile_buffer: Vec<u8> = Vec::new();
+    // let maplibre_tile_buffer: Vec<u8> = Vec::new();
     let feature_table_id = 0;
     for layer in mvt.layers {
         let feature_table_name = layer.name;
         // let mvt_features = layer.features;
 
-        let feature_table_metadata = tileset_metadata.feature_tables.get(feature_table_id);
+        let _feature_table_metadata = tileset_metadata.feature_tables.get(feature_table_id);
         let feature_table_optimizations = config.optimizations.get(&feature_table_name);
         sort_features_and_encode_geometry_column(
-            &config,
+            config,
             feature_table_optimizations,
             &layer.features,
-            physical_level_technique.clone(), // not great, change this later
+            physical_level_technique,
         );
     }
 
-    Ok(vec![])
+    vec![]
 }
 
-#[expect(unused_variables)]
 fn sort_features_and_encode_geometry_column(
     config: &ConversionConfig,
     feature_table_optimizations: Option<&FeatureTableOptimizations>,
     mvt_features: &[Feature],
-    physical_level_technique: PhysicalLevelTechnique,
+    _physical_level_technique: PhysicalLevelTechnique,
 ) {
-    let is_column_sortable = config.include_ids
-        && feature_table_optimizations
-            .map(|opt| opt.allow_sorting)
-            .unwrap_or(false);
+    let is_column_sortable =
+        config.include_ids && feature_table_optimizations.is_some_and(|opt| opt.allow_sorting);
 
     let mut sorted_features = mvt_features.to_vec();
 
     if is_column_sortable
-        && feature_table_optimizations
-            .map(|opt| !opt.allow_id_regeneration)
-            .unwrap_or(false)
+        && feature_table_optimizations.is_some_and(|opt| !opt.allow_id_regeneration)
     {
         sorted_features.sort_by_key(|f| f.id);
     }
 
     let ids: Vec<i64> = sorted_features.iter().map(|f| f.id).collect();
-    let sort_settings = SortSettings::new(is_column_sortable, feature_table_optimizations, ids);
+    let _sort_settings = SortSettings::new(is_column_sortable, feature_table_optimizations, ids);
 
     // Unnecessary cloning: fix later
-    let geometries: Vec<Geometry> = sorted_features.iter().map(|f| f.geometry.clone()).collect();
+    let _geometries: Vec<Geometry> = sorted_features.iter().map(|f| f.geometry.clone()).collect();
 }
 
 #[cfg(test)]
@@ -340,6 +332,6 @@ mod tests {
         let data = &include_bytes!("../../../../test/fixtures/bing/4-12-6.mvt")[..];
         let tile = decode_mvt(data);
         let metadata = create_tileset_metadata(tile.clone(), true, None);
-        assert_eq!(metadata.unwrap().feature_tables.len(), tile.layers.len());
+        assert_eq!(metadata.feature_tables.len(), tile.layers.len());
     }
 }
