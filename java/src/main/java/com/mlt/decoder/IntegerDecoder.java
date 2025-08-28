@@ -66,7 +66,7 @@ public class IntegerDecoder {
   private static int decodeMorton(int code, int numBits) {
     int coordinate = 0;
     for (int i = 0; i < numBits; i++) {
-      coordinate |= (code & (1L << (2 * i))) >> i;
+      coordinate |= (code & (1 << (2 * i))) >> i;
     }
     return coordinate;
   }

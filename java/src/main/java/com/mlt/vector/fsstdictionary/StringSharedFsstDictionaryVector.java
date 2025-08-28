@@ -97,6 +97,7 @@ public class StringSharedFsstDictionaryVector extends VariableSizeVector<Map<Str
     System.arraycopy(dataBuffer.array(), dataBuffer.position(), data, 0, data.length);
 
     // TODO: refactor
+    @SuppressWarnings("deprecation")
     byte[] dictionaryBuffer = FsstEncoder.decode(symbolTable, symbolLengthBuffer.array(), data);
 
     var decodedDictionary = new ArrayList<String>();

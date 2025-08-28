@@ -33,7 +33,7 @@ public class TessellationUtilsTest {
     var polygon2 = geometryFactory.createPolygon(shell2);
     var multiPolygon = geometryFactory.createMultiPolygon(new Polygon[] {polygon1, polygon2});
 
-    var tessellatedPolygon = TessellationUtils.tessellateMultiPolygon(multiPolygon);
+    var tessellatedPolygon = TessellationUtils.tessellateMultiPolygon(multiPolygon, null);
 
     var expectedIndexBuffer =
         Stream.of(3, 0, 1, 1, 2, 3, 7, 4, 5, 5, 6, 7)
@@ -84,7 +84,7 @@ public class TessellationUtilsTest {
     var polygon2 = geometryFactory.createPolygon(shell2);
     var multiPolygon = geometryFactory.createMultiPolygon(new Polygon[] {polygon1, polygon2});
 
-    var tessellatedPolygon = TessellationUtils.tessellateMultiPolygon(multiPolygon);
+    var tessellatedPolygon = TessellationUtils.tessellateMultiPolygon(multiPolygon, null);
 
     assertEquals(10, tessellatedPolygon.numTriangles());
   }

@@ -5,7 +5,6 @@ import static com.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 import com.mlt.converter.ConversionConfig;
 import com.mlt.converter.FeatureTableOptimizations;
 import com.mlt.converter.MltConverter;
-import com.mlt.converter.RenderingOptimizedConversionConfig;
 import com.mlt.converter.encodings.EncodingUtils;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
@@ -64,7 +63,7 @@ public class MltGenerator {
   @Disabled
   public void generateMltTileset() throws IOException, SQLException, ClassNotFoundException {
     var mbTilesFilename = "jdbc:sqlite:" + MBTILES_FILE;
-    var repo = new MbtilesRepsitory(mbTilesFilename, MIN_ZOOM, MAX_ZOOM);
+    var repo = new MbtilesRepository(mbTilesFilename, MIN_ZOOM, MAX_ZOOM);
 
     var tileMetadata =
         writeTileSetMetadata(
@@ -141,7 +140,7 @@ public class MltGenerator {
   @Disabled
   public void generateSpecificMlTilesFromMbtiles()
       throws IOException, SQLException, ClassNotFoundException {
-    var repo = new MbtilesRepsitory("jdbc:sqlite:" + MVT_SPECIFIC_TILES_SOURCE_MBTILES, 0, 14);
+    var repo = new MbtilesRepository("jdbc:sqlite:" + MVT_SPECIFIC_TILES_SOURCE_MBTILES, 0, 14);
     var mvTiles = repo.getLargestTilesPerZoom();
 
     var decodedMvTiles = mvTiles.stream().map(Triple::getMiddle).collect(Collectors.toList());
@@ -194,16 +193,14 @@ public class MltGenerator {
       MltTilesetMetadata.TileSetMetadata tileMetadata)
       throws IOException {
     var config =
-        USE_POLYGON_TESSELLATION
-            ? new RenderingOptimizedConversionConfig(
-                true,
-                USE_ADVANCED_ENCODINGS,
-                optimizations,
-                preTessellatePolygons,
-                OUTLINE_POLYGON_FEATURE_TABLE_NAMES)
-            : new ConversionConfig(
-                true, USE_ADVANCED_ENCODINGS, optimizations, USE_MORTON_ENCODING);
-    return MltConverter.convertMvt(mvTile, config, tileMetadata);
+        new ConversionConfig(
+            /* includeIds= */ true,
+            USE_ADVANCED_ENCODINGS,
+            optimizations,
+            USE_POLYGON_TESSELLATION,
+            USE_MORTON_ENCODING,
+            OUTLINE_POLYGON_FEATURE_TABLE_NAMES);
+    return MltConverter.convertMvt(mvTile, tileMetadata, config, null);
   }
 
   private static MltTilesetMetadata.TileSetMetadata writeTileSetMetadata(
@@ -298,14 +295,14 @@ public class MltGenerator {
   }
 }
 
-class MbtilesRepsitory implements Iterable<MapboxVectorTile>, Closeable {
+class MbtilesRepository implements Iterable<MapboxVectorTile>, Closeable {
   private static final String TILE_TABLE_NAME = "tiles";
   private final Connection connection;
   private final Statement statement;
   protected final int minZoom;
   protected final int maxZoom;
 
-  MbtilesRepsitory(String url, int minZoom, int maxZoom)
+  MbtilesRepository(String url, int minZoom, int maxZoom)
       throws ClassNotFoundException, SQLException {
     Class.forName("org.sqlite.JDBC");
     this.connection = DriverManager.getConnection(url);

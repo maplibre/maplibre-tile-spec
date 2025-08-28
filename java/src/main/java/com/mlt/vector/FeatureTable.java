@@ -7,21 +7,33 @@ import com.mlt.vector.geometry.GeometryVector;
 import com.mlt.vector.sequence.IntSequenceVector;
 import java.util.HashMap;
 import java.util.Iterator;
+import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
 
 /** In-Memory representation of MLT storage format for efficient processing */
 public class FeatureTable implements Iterable<Feature> {
   private final String name;
+
+  @SuppressWarnings("rawtypes")
   private final Vector idColumn;
+
   private final GeometryVector geometryColumn;
+
+  @SuppressWarnings("rawtypes")
   private final Vector[] propertyColumns;
 
-  public FeatureTable(String name, GeometryVector geometryVector, Vector[] properties) {
+  public FeatureTable(
+      String name,
+      GeometryVector geometryVector,
+      @SuppressWarnings("rawtypes") Vector[] properties) {
     this(name, null, geometryVector, properties);
   }
 
   public FeatureTable(
-      String name, Vector idColumn, GeometryVector geometryVector, Vector[] properties) {
+      String name,
+      @SuppressWarnings("rawtypes") Vector idColumn,
+      GeometryVector geometryVector,
+      @SuppressWarnings("rawtypes") Vector[] properties) {
     this.name = name;
     this.idColumn = idColumn;
     this.geometryColumn = geometryVector;
@@ -29,6 +41,7 @@ public class FeatureTable implements Iterable<Feature> {
   }
 
   @Override
+  @NotNull
   public Iterator<Feature> iterator() {
     return new Iterator<>() {
       private int index = 0;
@@ -49,8 +62,7 @@ public class FeatureTable implements Iterable<Feature> {
         var geometry = geometryIterator.next();
 
         var properties = new HashMap<String, Object>();
-        for (var i = 0; i < propertyColumns.length; i++) {
-          var propertyColumnVector = propertyColumns[i];
+        for (var propertyColumnVector : propertyColumns) {
           var columnName = propertyColumnVector.getName();
           var propertyValue = propertyColumnVector.getValue(index);
           if (propertyValue.isPresent()) {
@@ -75,6 +87,7 @@ public class FeatureTable implements Iterable<Feature> {
     return name;
   }
 
+  @SuppressWarnings("rawtypes")
   public Vector getIdColumn() {
     return idColumn;
   }
@@ -83,6 +96,7 @@ public class FeatureTable implements Iterable<Feature> {
     return geometryColumn;
   }
 
+  @SuppressWarnings("rawtypes")
   public Vector[] getPropertyColumns() {
     return propertyColumns;
   }
