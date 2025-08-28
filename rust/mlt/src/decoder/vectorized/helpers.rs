@@ -58,6 +58,10 @@ pub fn get_vector_type_int_stream(metadata: &StreamMetadata) -> VectorType {
     }
 }
 
+pub fn decode_zigzag_const_rle<T: ZigZag>(data: &[T::UInt]) -> Option<T> {
+    data.get(1).map(|&v| T::decode(v))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,5 +156,16 @@ mod tests {
             let vt = get_vector_type_int_stream(&meta);
             assert_eq!(vt, expected, "case failed: {desc}");
         }
+    }
+
+    #[test]
+    fn test_decode_zigzag_const_rle() {
+        let encoded: Vec<u32> = vec![0, 10];
+        let decoded = decode_zigzag_const_rle::<i32>(&encoded).unwrap();
+        assert_eq!(decoded, 5);
+
+        let encoded_empty: Vec<u32> = vec![];
+        let decoded_empty = decode_zigzag_const_rle::<i32>(&encoded_empty);
+        assert!(decoded_empty.is_none());
     }
 }
