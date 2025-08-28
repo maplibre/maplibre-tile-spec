@@ -130,7 +130,7 @@ Each scalar type has a specific encoding scheme which can be applied to the data
 
 **Complex Types**
 
-Complex types are composed of scalar types.
+Complex types are composed of scalar types.  Complex types are currently experimental.
 
 | DataType         | Logical Types           | Description                                        | Layout        |
 |------------------|-------------------------|----------------------------------------------------|---------------|
@@ -143,6 +143,7 @@ Complex types are composed of scalar types.
 
 Add additional semantics on top of the physical types.
 This had the advantage that encodings can be reused and implementation of encoders and decoders can be simplified.
+Logical types are currently experimental.
 
 | Logical Type | Physical Type                  | Description                                |
 |--------------|--------------------------------|--------------------------------------------|
@@ -187,6 +188,8 @@ in terms of the compression ratio and decoding speed on test datasets such as th
 | Float    | Plain, RLE, Dictionary, [ALP](https://dl.acm.org/doi/pdf/10.1145/3626717) | | |
 | String   | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry | Plain, Dictionary, Morton-Dictionary | | |
+
+ALP, FSST, and FastPFOR encodings are currently experimental.
 
 Since SIMD-FastPFOR generally produces smaller data streams and is faster to decode, it should be preferred over Varint encoding.
 Varint encoding is mainly added to the encoding pool for compatibility reasons and it's simpler implementation compared to SIMD-FastPFOR.
@@ -256,8 +259,7 @@ a property column per feature.
 The values of a vertex-scoped properties are related to each vertex, which means there is one value in a property column
 per vertex in the VertexBuffer. This allows to model what is known as M-coordinates in GIS applications.
 Vertex-scoped properties have to be grouped together and are placed before the feature-scoped properties in the FeatureTable.
-The scope of a property column is specified in the tileset metadata document based on
-the `ColumnScope` enum.
+The scope of a property column is specified in the tileset metadata document based on the `ColumnScope` enum.
 
 A property column can have one of the above listed [data types](#122-type-system).
 

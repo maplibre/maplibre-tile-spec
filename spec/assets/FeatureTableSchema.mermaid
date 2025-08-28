@@ -5,8 +5,21 @@ config:
     hideEmptyMembersBox: true
 ---
 classDiagram
+    note for LogicalScalarType "[EXPERIMENTAL]"
+    note for ComplexColumn "[EXPERIMENTAL]"
+    note for ComplexField "[EXPERIMENTAL]"
+    note for ComplexType "[EXPERIMENTAL]"
+    note for LogicalComplexType "[EXPERIMENTAL]"
+    note for Field "[EXPERIMENTAL]"
+    note for ScalarField "[EXPERIMENTAL]"
+
     %% ---------------- Tile ----------------
     class Tile {
+      +LayerGroup[] groups
+    }
+
+    %% ---------------- LayerGroup ----------------
+    class LayerGroup {
 	  +VarInt metadataSize
 	  +TileMetadata metadata
       +u8[] tileData
@@ -39,7 +52,7 @@ classDiagram
       +LogicalScalarType logicalType
     }
 
-    %% ---------------- ComplexColumn ----------------
+    %% ---------------- ComplexColumn [EXPERIMENTAL] ----------------
     class ComplexColumn {
       +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalComplexType logicalType
@@ -61,7 +74,7 @@ classDiagram
       +LogicalScalarType logicalType
     }
 
-    %% ---------------- ComplexField ----------------
+    %% ---------------- ComplexField [EXPERIMENTAL] ----------------
     class ComplexField {
       +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalComplexType logicalType
@@ -119,9 +132,9 @@ classDiagram
     class FieldOptions {
       <<enumeration>>
       NULLABLE = 1, %% Property is nullable
-      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType
-      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type
-      CHILD_TYPES = 8, %% 1: Child types are present
+      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType [EXPERIMENTAL]
+      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type [EXPERIMENTAL]
+      CHILD_TYPES = 8, %% 1: Child types are present [EXPERIMENTAL]
     }
 
     class ColumnOptions {
@@ -131,7 +144,8 @@ classDiagram
 
     %% ---------------- Associations ----------------
     FieldOptions <|-- ColumnOptions
-	Tile --> TileMetadata : metadata
+    Tile --> LayerGroup : groups
+	LayerGroup --> TileMetadata : metadata
     TileMetadata --> FeatureTable : featureTables
     FeatureTable --> Column : columns
     Column --> ScalarColumn : scalarType
