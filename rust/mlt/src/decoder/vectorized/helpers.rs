@@ -1,13 +1,14 @@
-use crate::MltError;
 use crate::metadata::stream::StreamMetadata;
 use crate::metadata::stream_encoding::LogicalLevelTechnique;
 use crate::vector::types::VectorType;
+use crate::{MltError, MltResult};
 
+use num_traits::{PrimInt, Unsigned};
 use zigzag::ZigZag;
 
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component
-pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<Vec<T>, MltError> {
+pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> MltResult<Vec<T>> {
     let len = data.len();
     if len < 2 {
         return Err(MltError::MinLength {
@@ -58,8 +59,22 @@ pub fn get_vector_type_int_stream(metadata: &StreamMetadata) -> VectorType {
     }
 }
 
-pub fn decode_zigzag_const_rle<T: ZigZag>(data: &[T::UInt]) -> Option<T> {
-    data.get(1).map(|&v| T::decode(v))
+pub fn decode_zigzag_const_rle<T: ZigZag>(data: &[T::UInt]) -> MltResult<T> {
+    let encoded = data.get(1).ok_or(MltError::MinLength {
+        ctx: "zigzag const RLE stream",
+        min: 2,
+        got: data.len(),
+    })?;
+    Ok(T::decode(*encoded))
+}
+
+pub fn decode_unsigned_const_rle<T: PrimInt + Unsigned>(data: &[T]) -> MltResult<T> {
+    let value = data.get(1).ok_or(MltError::MinLength {
+        ctx: "unsigned const RLE stream",
+        min: 2,
+        got: data.len(),
+    })?;
+    Ok(*value)
 }
 
 #[cfg(test)]
@@ -160,29 +175,43 @@ mod tests {
 
     #[test]
     fn test_decode_zigzag_const_rle() {
-        // Basic positive number
         let encoded: Vec<u32> = vec![0, 10];
         let decoded = decode_zigzag_const_rle::<i32>(&encoded).unwrap();
         assert_eq!(decoded, 5);
 
-        // Negative number
         let encoded_neg: Vec<u32> = vec![0, 11];
         let decoded_neg = decode_zigzag_const_rle::<i32>(&encoded_neg).unwrap();
         assert_eq!(decoded_neg, -6);
 
-        // Extra elements (should ignore)
         let encoded_extra: Vec<u32> = vec![0, 10, 20, 30];
         let decoded_extra = decode_zigzag_const_rle::<i32>(&encoded_extra).unwrap();
         assert_eq!(decoded_extra, 5);
 
-        // Single element (should return None)
         let encoded_single: Vec<u32> = vec![0];
         let decoded_single = decode_zigzag_const_rle::<i32>(&encoded_single);
-        assert!(decoded_single.is_none());
+        assert!(decoded_single.is_err());
 
-        // Empty vector
         let encoded_empty: Vec<u32> = vec![];
         let decoded_empty = decode_zigzag_const_rle::<i32>(&encoded_empty);
-        assert!(decoded_empty.is_none());
+        assert!(decoded_empty.is_err());
+    }
+
+    #[test]
+    fn test_decode_unsigned_const_rle() {
+        let encoded: Vec<u32> = vec![0, 10];
+        let decoded = decode_unsigned_const_rle::<u32>(&encoded).unwrap();
+        assert_eq!(decoded, 10);
+
+        let encoded_extra: Vec<u32> = vec![0, 10, 20, 30];
+        let decoded_extra = decode_unsigned_const_rle::<u32>(&encoded_extra).unwrap();
+        assert_eq!(decoded_extra, 10);
+
+        let encoded_single: Vec<u32> = vec![0];
+        let decoded_single = decode_unsigned_const_rle::<u32>(&encoded_single);
+        assert!(decoded_single.is_err());
+
+        let encoded_empty: Vec<u32> = vec![];
+        let decoded_empty = decode_unsigned_const_rle::<u32>(&encoded_empty);
+        assert!(decoded_empty.is_err());
     }
 }
