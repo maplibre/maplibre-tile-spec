@@ -17,10 +17,30 @@ pub struct Rle {
     pub num_rle_values: u32,
 }
 
+impl Rle {
+    pub fn decode_partial(tile: &mut TrackedBytes) -> MltResult<Self> {
+        let rle_info = varint::decode(tile, 2)?;
+        Ok(Rle {
+            runs: rle_info[0],
+            num_rle_values: rle_info[1],
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Morton {
     pub num_bits: u32,
     pub coordinate_shift: u32,
+}
+
+impl Morton {
+    pub fn decode_partial(tile: &mut TrackedBytes) -> MltResult<Self> {
+        let morton_info = varint::decode(tile, 2)?;
+        Ok(Morton {
+            num_bits: morton_info[0],
+            coordinate_shift: morton_info[1],
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -35,10 +55,6 @@ pub struct StreamMetadata {
 
 impl StreamMetadata {
     pub fn decode(tile: &mut TrackedBytes) -> MltResult<Self> {
-        // let stream_type = tile
-        //     .get(offset.position() as usize)
-        //     .ok_or(MltError::DecodeError("Failed to read...".into()))?;
-
         let stream_type = tile.get_u8();
         let physical_code = stream_type >> 4;
         let subtype_code = stream_type & 0x0F;
@@ -65,10 +81,6 @@ impl StreamMetadata {
             PhysicalStreamType::Present => None,
         };
 
-        // let encoding_header = *tile
-        //     .get(offset.position() as usize)
-        //     .ok_or_else(|| MltError::DecodeError("Failed to read encoding header".to_string()))?
-        //     & 0xFF;
         let encoding_header = tile.get_u8();
 
         let llt1_code = encoding_header >> 5;
@@ -83,11 +95,8 @@ impl StreamMetadata {
         let physical_level_technique = PhysicalLevelTechnique::try_from(plt_code)
             .map_err(|_| MltError::InvalidPhysicalLevelTechnique(plt_code))?;
 
-        // offset.increment();
-
-        // let size_info = varint::decode(tile, 2, offset);
         let size_info = varint::decode(tile, 2)?;
-        // new_offset = ???
+
         if size_info.len() != 2 {
             return Err(MltError::ExpectedValues {
                 ctx: "StreamMetadata::decode.size_info",
@@ -120,6 +129,18 @@ impl StreamMetadata {
         {
             metadata.partial_decode(RLE, tile)?;
             return Ok(metadata);
+        }
+
+        // Decode any remaining metadata
+        if metadata.logical.technique1 == Some(MORTON) {
+            let morton = Morton::decode_partial(tile)?;
+            metadata.morton = Some(morton);
+        } else if (metadata.logical.technique1 == Some(RLE)
+            || metadata.logical.technique2 == Some(RLE))
+            && metadata.physical.technique != PhysicalLevelTechnique::None
+        {
+            let rle = Rle::decode_partial(tile)?;
+            metadata.rle = Some(rle);
         }
 
         Ok(metadata)
@@ -177,7 +198,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_decode_stream_metadata() {
+    fn test_decode_plain_stream_metadata() {
         let mut tile: TrackedBytes = [
             0x00, // stream_type
             0x60, // encoding_header
@@ -202,5 +223,78 @@ mod tests {
         assert_eq!(metadata.physical.technique, PhysicalLevelTechnique::None);
         assert_eq!(metadata.num_values, 372);
         assert_eq!(metadata.byte_length, 4);
+    }
+
+    #[test]
+    fn test_decode_morton_stream_metadata() {
+        let mut tile: TrackedBytes = [
+            0x00, // stream_type: PhysicalStreamType::Present
+            0x80, // encoding_header: technique1 = Morton, technique2 = None, physical_level = None
+            0xF4, 0x02, // num_values = 372 (varint)
+            0x04, // byte_length = 4 (varint)
+            0x01, // Morton num_bits = 1
+            0x10, // Morton coordinate_shift = 16
+        ]
+        .as_slice()
+        .into();
+
+        let metadata = StreamMetadata::decode(&mut tile).unwrap();
+
+        assert_eq!(metadata.physical.r#type, PhysicalStreamType::Present);
+        assert_eq!(metadata.physical.technique, PhysicalLevelTechnique::None);
+        assert_eq!(
+            metadata.logical.technique1,
+            Some(LogicalLevelTechnique::Morton)
+        );
+        assert_eq!(
+            metadata.logical.technique2,
+            Some(LogicalLevelTechnique::None)
+        );
+        assert_eq!(metadata.num_values, 372);
+        assert_eq!(metadata.byte_length, 4);
+
+        let morton = metadata
+            .morton
+            .expect("Morton metadata should be populated");
+        assert_eq!(morton.num_bits, 1);
+        assert_eq!(morton.coordinate_shift, 16);
+        assert!(metadata.rle.is_none());
+    }
+
+    #[test]
+    fn test_decode_rle_stream_metadata() {
+        let mut tile: TrackedBytes = [
+            0x00, // stream_type: PhysicalStreamType::Present
+            0x61, // encoding_header: technique1 = RLE, technique2 = None, physical_level = FastPfor
+            0xF4, 0x02, // num_values = 372 (varint)
+            0x04, // byte_length = 4 (varint)
+            0x01, // RLE runs = 1
+            0xF4, 0x02, // RLE num_rle_values = 372 (varint)
+        ]
+        .as_slice()
+        .into();
+
+        let metadata = StreamMetadata::decode(&mut tile).unwrap();
+
+        assert_eq!(metadata.physical.r#type, PhysicalStreamType::Present);
+        assert_eq!(
+            metadata.physical.technique,
+            PhysicalLevelTechnique::FastPfor // Must have any technique apart from None
+        );
+        assert_eq!(
+            metadata.logical.technique1,
+            Some(LogicalLevelTechnique::Rle)
+        );
+        assert_eq!(
+            metadata.logical.technique2,
+            Some(LogicalLevelTechnique::None)
+        );
+        assert_eq!(metadata.num_values, 372);
+        assert_eq!(metadata.byte_length, 4);
+
+        let rle = metadata.rle.expect("RLE metadata should be populated");
+        assert_eq!(rle.runs, 1);
+        assert_eq!(rle.num_rle_values, 372);
+        assert!(metadata.morton.is_none());
     }
 }
