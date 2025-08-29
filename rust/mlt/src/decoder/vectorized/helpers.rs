@@ -160,10 +160,27 @@ mod tests {
 
     #[test]
     fn test_decode_zigzag_const_rle() {
+        // Basic positive number
         let encoded: Vec<u32> = vec![0, 10];
         let decoded = decode_zigzag_const_rle::<i32>(&encoded).unwrap();
         assert_eq!(decoded, 5);
 
+        // Negative number
+        let encoded_neg: Vec<u32> = vec![0, 11];
+        let decoded_neg = decode_zigzag_const_rle::<i32>(&encoded_neg).unwrap();
+        assert_eq!(decoded_neg, -6);
+
+        // Extra elements (should ignore)
+        let encoded_extra: Vec<u32> = vec![0, 10, 20, 30];
+        let decoded_extra = decode_zigzag_const_rle::<i32>(&encoded_extra).unwrap();
+        assert_eq!(decoded_extra, 5);
+
+        // Single element (should return None)
+        let encoded_single: Vec<u32> = vec![0];
+        let decoded_single = decode_zigzag_const_rle::<i32>(&encoded_single);
+        assert!(decoded_single.is_none());
+
+        // Empty vector
         let encoded_empty: Vec<u32> = vec![];
         let decoded_empty = decode_zigzag_const_rle::<i32>(&encoded_empty);
         assert!(decoded_empty.is_none());
