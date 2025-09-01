@@ -1,7 +1,7 @@
 package org.maplibre.mlt.converter.encodings;
 
-import static com.mlt.converter.encodings.IntegerEncoder.encodeFastPfor;
-import static com.mlt.converter.encodings.IntegerEncoder.encodeVarint;
+import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeFastPfor;
+import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.geometry.*;

@@ -14,7 +14,7 @@ import org.openjdk.jmh.annotations.*;
 public class TileProcessingBenchmarks {
 
   @Benchmark
-  public com.mlt.vector.FeatureTable[] filterVectorized() {
+  public org.maplibre.mlt.vector.FeatureTable[] filterVectorized() {
     /* Filter
      * ["all", ["==", "$type", "LineString"], ["in", "class", "pier"]],
      * -> class = pier

@@ -1,6 +1,6 @@
 package org.maplibre.mlt.converter.encodings;
 
-import static com.mlt.converter.encodings.LinearRegression.*;
+import static org.maplibre.mlt.converter.encodings.LinearRegression.*;
 
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.geometry.HilbertCurve;

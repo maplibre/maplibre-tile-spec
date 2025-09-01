@@ -1,6 +1,6 @@
 package org.maplibre.mlt.vector.fsstdictionary;
 
-import static com.mlt.vector.fsstdictionary.StringFsstDictionaryVector.offsetToLengthBuffer;
+import static org.maplibre.mlt.vector.fsstdictionary.StringFsstDictionaryVector.offsetToLengthBuffer;
 
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.vector.VariableSizeVector;

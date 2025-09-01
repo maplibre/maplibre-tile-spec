@@ -116,7 +116,7 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(0);
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(0);
     }
 
     private static final ColumnScope[] VALUES = values();
@@ -268,7 +268,7 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(1);
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(1);
     }
 
     private static final ScalarType[] VALUES = values();
@@ -463,7 +463,7 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(2);
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(2);
     }
 
     private static final ComplexType[] VALUES = values();
@@ -616,7 +616,7 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(3);
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(3);
     }
 
     private static final LogicalScalarType[] VALUES = values();
@@ -747,7 +747,7 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.EnumDescriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(4);
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.getDescriptor().getEnumTypes().get(4);
     }
 
     private static final LogicalComplexType[] VALUES = values();
@@ -785,22 +785,22 @@ public final class MltTilesetMetadata {
     int getVersion();
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
+    java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
         getFeatureTablesList();
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(int index);
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(int index);
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
     int getFeatureTablesCount();
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
     java.util.List<
-            ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+            ? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
         getFeatureTablesOrBuilderList();
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
         getFeatureTablesOrBuilder(int index);
 
     /**
@@ -1003,18 +1003,18 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_TileSetMetadata_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_TileSetMetadata_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
     }
 
     private int bitField0_;
@@ -1034,12 +1034,12 @@ public final class MltTilesetMetadata {
     public static final int FEATURETABLES_FIELD_NUMBER = 2;
 
     @SuppressWarnings("serial")
-    private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
+    private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
         featureTables_;
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
     @java.lang.Override
-    public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
+    public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
         getFeatureTablesList() {
       return featureTables_;
     }
@@ -1047,7 +1047,7 @@ public final class MltTilesetMetadata {
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
     @java.lang.Override
     public java.util.List<
-            ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+            ? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
         getFeatureTablesOrBuilderList() {
       return featureTables_;
     }
@@ -1060,14 +1060,14 @@ public final class MltTilesetMetadata {
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(
         int index) {
       return featureTables_.get(index);
     }
 
     /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
         getFeatureTablesOrBuilder(int index) {
       return featureTables_.get(index);
     }
@@ -1489,11 +1489,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) obj;
 
       if (getVersion() != other.getVersion()) return false;
       if (!getFeatureTablesList().equals(other.getFeatureTablesList())) return false;
@@ -1569,71 +1569,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(byte[] data)
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -1651,7 +1651,7 @@ public final class MltTilesetMetadata {
     }
 
     public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata prototype) {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -1672,23 +1672,23 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.TileSetMetadata)
-        com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadataOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadataOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_TileSetMetadata_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_TileSetMetadata_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -1719,19 +1719,19 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_TileSetMetadata_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata
           getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.getDefaultInstance();
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -1739,9 +1739,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata(this);
         buildPartialRepeatedFields(result);
         if (bitField0_ != 0) {
           buildPartial0(result);
@@ -1751,7 +1751,7 @@ public final class MltTilesetMetadata {
       }
 
       private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
         if (featureTablesBuilder_ == null) {
           if (((bitField0_ & 0x00000002) != 0)) {
             featureTables_ = java.util.Collections.unmodifiableList(featureTables_);
@@ -1774,7 +1774,7 @@ public final class MltTilesetMetadata {
       }
 
       private void buildPartial0(
-          com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata result) {
         int from_bitField0_ = bitField0_;
         if (((from_bitField0_ & 0x00000001) != 0)) {
           result.version_ = version_;
@@ -1840,17 +1840,17 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata) other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata other) {
+      public Builder mergeFrom(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata other) {
         if (other
-            == com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.getDefaultInstance())
+            == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata.getDefaultInstance())
           return this;
         if (other.getVersion() != 0) {
           setVersion(other.getVersion());
@@ -1957,9 +1957,9 @@ public final class MltTilesetMetadata {
                 } // case 8
               case 18:
                 {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema m =
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema m =
                       input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.parser(),
+                          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.parser(),
                           extensionRegistry);
                   if (featureTablesBuilder_ == null) {
                     ensureFeatureTablesIsMutable();
@@ -2092,26 +2092,26 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
+      private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
           featureTables_ = java.util.Collections.emptyList();
 
       private void ensureFeatureTablesIsMutable() {
         if (!((bitField0_ & 0x00000002) != 0)) {
           featureTables_ =
               new java.util.ArrayList<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>(featureTables_);
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>(featureTables_);
           bitField0_ |= 0x00000002;
         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
           featureTablesBuilder_;
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
           getFeatureTablesList() {
         if (featureTablesBuilder_ == null) {
           return java.util.Collections.unmodifiableList(featureTables_);
@@ -2130,7 +2130,7 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema getFeatureTables(
           int index) {
         if (featureTablesBuilder_ == null) {
           return featureTables_.get(index);
@@ -2141,7 +2141,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public Builder setFeatureTables(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
         if (featureTablesBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -2158,7 +2158,7 @@ public final class MltTilesetMetadata {
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public Builder setFeatureTables(
           int index,
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
           featureTables_.set(index, builderForValue.build());
@@ -2171,7 +2171,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public Builder addFeatureTables(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
         if (featureTablesBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -2187,7 +2187,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public Builder addFeatureTables(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema value) {
         if (featureTablesBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -2203,7 +2203,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public Builder addFeatureTables(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
           featureTables_.add(builderForValue.build());
@@ -2217,7 +2217,7 @@ public final class MltTilesetMetadata {
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public Builder addFeatureTables(
           int index,
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder builderForValue) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
           featureTables_.add(index, builderForValue.build());
@@ -2231,7 +2231,7 @@ public final class MltTilesetMetadata {
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public Builder addAllFeatureTables(
           java.lang.Iterable<
-                  ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
+                  ? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema>
               values) {
         if (featureTablesBuilder_ == null) {
           ensureFeatureTablesIsMutable();
@@ -2268,13 +2268,13 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
           getFeatureTablesBuilder(int index) {
         return getFeatureTablesFieldBuilder().getBuilder(index);
       }
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder
           getFeatureTablesOrBuilder(int index) {
         if (featureTablesBuilder_ == null) {
           return featureTables_.get(index);
@@ -2285,7 +2285,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
       public java.util.List<
-              ? extends com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+              ? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
           getFeatureTablesOrBuilderList() {
         if (featureTablesBuilder_ != null) {
           return featureTablesBuilder_.getMessageOrBuilderList();
@@ -2295,41 +2295,41 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
           addFeatureTablesBuilder() {
         return getFeatureTablesFieldBuilder()
             .addBuilder(
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
                     .getDefaultInstance());
       }
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder
           addFeatureTablesBuilder(int index) {
         return getFeatureTablesFieldBuilder()
             .addBuilder(
                 index,
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
                     .getDefaultInstance());
       }
 
       /** <code>repeated .mlt.FeatureTableSchema featureTables = 2;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder>
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder>
           getFeatureTablesBuilderList() {
         return getFeatureTablesFieldBuilder().getBuilderList();
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>
           getFeatureTablesFieldBuilder() {
         if (featureTablesBuilder_ == null) {
           featureTablesBuilder_ =
               new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>(
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder>(
                   featureTables_,
                   ((bitField0_ & 0x00000002) != 0),
                   getParentForChildren(),
@@ -2991,14 +2991,14 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.TileSetMetadata)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata
         DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata getDefaultInstance() {
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -3035,7 +3035,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata getDefaultInstanceForType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.TileSetMetadata getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
   }
@@ -3060,20 +3060,20 @@ public final class MltTilesetMetadata {
     com.google.protobuf.ByteString getNameBytes();
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList();
+    java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList();
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index);
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index);
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
     int getColumnsCount();
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
-    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+    java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
         getColumnsOrBuilderList();
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(int index);
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(int index);
   }
 
   /** Protobuf type {@code mlt.FeatureTableSchema} */
@@ -3100,18 +3100,18 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_FeatureTableSchema_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_FeatureTableSchema_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
     }
 
     public static final int NAME_FIELD_NUMBER = 1;
@@ -3158,17 +3158,17 @@ public final class MltTilesetMetadata {
     public static final int COLUMNS_FIELD_NUMBER = 2;
 
     @SuppressWarnings("serial")
-    private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> columns_;
+    private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column> columns_;
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
     @java.lang.Override
-    public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList() {
+    public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList() {
       return columns_;
     }
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
     @java.lang.Override
-    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+    public java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
         getColumnsOrBuilderList() {
       return columns_;
     }
@@ -3181,13 +3181,13 @@ public final class MltTilesetMetadata {
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index) {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index) {
       return columns_.get(index);
     }
 
     /** <code>repeated .mlt.Column columns = 2;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(
         int index) {
       return columns_.get(index);
     }
@@ -3237,11 +3237,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) obj;
 
       if (!getName().equals(other.getName())) return false;
       if (!getColumnsList().equals(other.getColumnsList())) return false;
@@ -3267,71 +3267,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         byte[] data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -3349,7 +3349,7 @@ public final class MltTilesetMetadata {
     }
 
     public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema prototype) {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -3370,23 +3370,23 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.FeatureTableSchema)
-        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchemaOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_FeatureTableSchema_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_FeatureTableSchema_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -3410,19 +3410,19 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_FeatureTableSchema_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
           getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance();
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -3430,9 +3430,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema(this);
         buildPartialRepeatedFields(result);
         if (bitField0_ != 0) {
           buildPartial0(result);
@@ -3442,7 +3442,7 @@ public final class MltTilesetMetadata {
       }
 
       private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
         if (columnsBuilder_ == null) {
           if (((bitField0_ & 0x00000002) != 0)) {
             columns_ = java.util.Collections.unmodifiableList(columns_);
@@ -3455,7 +3455,7 @@ public final class MltTilesetMetadata {
       }
 
       private void buildPartial0(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema result) {
         int from_bitField0_ = bitField0_;
         if (((from_bitField0_ & 0x00000001) != 0)) {
           result.name_ = name_;
@@ -3499,8 +3499,8 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema) other);
         } else {
           super.mergeFrom(other);
           return this;
@@ -3508,9 +3508,9 @@ public final class MltTilesetMetadata {
       }
 
       public Builder mergeFrom(
-          com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema other) {
         if (other
-            == com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance())
+            == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema.getDefaultInstance())
           return this;
         if (!other.getName().isEmpty()) {
           name_ = other.name_;
@@ -3578,9 +3578,9 @@ public final class MltTilesetMetadata {
                 } // case 10
               case 18:
                 {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Column m =
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column m =
                       input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.Column.parser(),
+                          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.parser(),
                           extensionRegistry);
                   if (columnsBuilder_ == null) {
                     ensureColumnsIsMutable();
@@ -3690,25 +3690,25 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> columns_ =
+      private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column> columns_ =
           java.util.Collections.emptyList();
 
       private void ensureColumnsIsMutable() {
         if (!((bitField0_ & 0x00000002) != 0)) {
           columns_ =
-              new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Column>(columns_);
+              new java.util.ArrayList<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column>(columns_);
           bitField0_ |= 0x00000002;
         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
           columnsBuilder_;
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList() {
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column> getColumnsList() {
         if (columnsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(columns_);
         } else {
@@ -3726,7 +3726,7 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index) {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column getColumns(int index) {
         if (columnsBuilder_ == null) {
           return columns_.get(index);
         } else {
@@ -3736,7 +3736,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
       public Builder setColumns(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
         if (columnsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3752,7 +3752,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
       public Builder setColumns(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
         if (columnsBuilder_ == null) {
           ensureColumnsIsMutable();
           columns_.set(index, builderForValue.build());
@@ -3764,7 +3764,7 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public Builder addColumns(com.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
+      public Builder addColumns(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
         if (columnsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3780,7 +3780,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
       public Builder addColumns(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column value) {
         if (columnsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -3796,7 +3796,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
       public Builder addColumns(
-          com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
         if (columnsBuilder_ == null) {
           ensureColumnsIsMutable();
           columns_.add(builderForValue.build());
@@ -3809,7 +3809,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
       public Builder addColumns(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder builderForValue) {
         if (columnsBuilder_ == null) {
           ensureColumnsIsMutable();
           columns_.add(index, builderForValue.build());
@@ -3822,7 +3822,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
       public Builder addAllColumns(
-          java.lang.Iterable<? extends com.mlt.metadata.tileset.MltTilesetMetadata.Column> values) {
+          java.lang.Iterable<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column> values) {
         if (columnsBuilder_ == null) {
           ensureColumnsIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(values, columns_);
@@ -3858,13 +3858,13 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder getColumnsBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder getColumnsBuilder(
           int index) {
         return getColumnsFieldBuilder().getBuilder(index);
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder getColumnsOrBuilder(
           int index) {
         if (columnsBuilder_ == null) {
           return columns_.get(index);
@@ -3874,7 +3874,7 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+      public java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
           getColumnsOrBuilderList() {
         if (columnsBuilder_ != null) {
           return columnsBuilder_.getMessageOrBuilderList();
@@ -3884,36 +3884,36 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder addColumnsBuilder() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder addColumnsBuilder() {
         return getColumnsFieldBuilder()
-            .addBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
+            .addBuilder(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder addColumnsBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder addColumnsBuilder(
           int index) {
         return getColumnsFieldBuilder()
             .addBuilder(
-                index, com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
+                index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance());
       }
 
       /** <code>repeated .mlt.Column columns = 2;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder>
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder>
           getColumnsBuilderList() {
         return getColumnsFieldBuilder().getBuilderList();
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>
           getColumnsFieldBuilder() {
         if (columnsBuilder_ == null) {
           columnsBuilder_ =
               new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Column,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>(
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder>(
                   columns_, ((bitField0_ & 0x00000002) != 0), getParentForChildren(), isClean());
           columns_ = null;
         }
@@ -3936,14 +3936,14 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.FeatureTableSchema)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
         DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
         getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
@@ -3981,7 +3981,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FeatureTableSchema
         getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
@@ -4031,7 +4031,7 @@ public final class MltTilesetMetadata {
      *
      * @return The columnScope.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope();
 
     /**
      * <code>.mlt.ScalarColumn scalarType = 4;</code>
@@ -4045,10 +4045,10 @@ public final class MltTilesetMetadata {
      *
      * @return The scalarType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType();
 
     /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder getScalarTypeOrBuilder();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder getScalarTypeOrBuilder();
 
     /**
      * <code>.mlt.ComplexColumn complexType = 5;</code>
@@ -4062,12 +4062,12 @@ public final class MltTilesetMetadata {
      *
      * @return The complexType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType();
 
     /** <code>.mlt.ComplexColumn complexType = 5;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder getComplexTypeOrBuilder();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder getComplexTypeOrBuilder();
 
-    com.mlt.metadata.tileset.MltTilesetMetadata.Column.TypeCase getTypeCase();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.TypeCase getTypeCase();
   }
 
   /**
@@ -4102,17 +4102,17 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_Column_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
     }
 
     private int typeCase_ = 0;
@@ -4244,11 +4244,11 @@ public final class MltTilesetMetadata {
      * @return The columnScope.
      */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope() {
-      com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result =
-          com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope() {
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result =
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
       return result == null
-          ? com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED
+          ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED
           : result;
     }
 
@@ -4270,21 +4270,21 @@ public final class MltTilesetMetadata {
      * @return The scalarType.
      */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
     }
 
     /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder
         getScalarTypeOrBuilder() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
     }
 
     public static final int COMPLEXTYPE_FIELD_NUMBER = 5;
@@ -4305,21 +4305,21 @@ public final class MltTilesetMetadata {
      * @return The complexType.
      */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType() {
       if (typeCase_ == 5) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
     }
 
     /** <code>.mlt.ComplexColumn complexType = 5;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder
         getComplexTypeOrBuilder() {
       if (typeCase_ == 5) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
     }
 
     private byte memoizedIsInitialized = -1;
@@ -4343,14 +4343,14 @@ public final class MltTilesetMetadata {
         output.writeBool(2, nullable_);
       }
       if (columnScope_
-          != com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
+          != org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
         output.writeEnum(3, columnScope_);
       }
       if (typeCase_ == 4) {
-        output.writeMessage(4, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_);
+        output.writeMessage(4, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_);
       }
       if (typeCase_ == 5) {
-        output.writeMessage(5, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_);
+        output.writeMessage(5, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_);
       }
       getUnknownFields().writeTo(output);
     }
@@ -4368,18 +4368,18 @@ public final class MltTilesetMetadata {
         size += com.google.protobuf.CodedOutputStream.computeBoolSize(2, nullable_);
       }
       if (columnScope_
-          != com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
+          != org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.FEATURE.getNumber()) {
         size += com.google.protobuf.CodedOutputStream.computeEnumSize(3, columnScope_);
       }
       if (typeCase_ == 4) {
         size +=
             com.google.protobuf.CodedOutputStream.computeMessageSize(
-                4, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_);
+                4, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_);
       }
       if (typeCase_ == 5) {
         size +=
             com.google.protobuf.CodedOutputStream.computeMessageSize(
-                5, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_);
+                5, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -4391,11 +4391,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Column)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.Column other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.Column) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column) obj;
 
       if (!getName().equals(other.getName())) return false;
       if (getNullable() != other.getNullable()) return false;
@@ -4445,71 +4445,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(byte[] data)
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -4526,7 +4526,7 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE.toBuilder();
     }
 
-    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Column prototype) {
+    public static Builder newBuilder(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -4555,22 +4555,22 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.Column)
-        com.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_Column_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.Column.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.Column.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -4597,17 +4597,17 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Column_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Column getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column getDefaultInstanceForType() {
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Column build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.Column result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -4615,9 +4615,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Column buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.Column result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.Column(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column(this);
         if (bitField0_ != 0) {
           buildPartial0(result);
         }
@@ -4626,7 +4626,7 @@ public final class MltTilesetMetadata {
         return result;
       }
 
-      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.Column result) {
+      private void buildPartial0(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column result) {
         int from_bitField0_ = bitField0_;
         if (((from_bitField0_ & 0x00000001) != 0)) {
           result.name_ = name_;
@@ -4639,7 +4639,7 @@ public final class MltTilesetMetadata {
         }
       }
 
-      private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.Column result) {
+      private void buildPartialOneofs(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
         if (typeCase_ == 4 && scalarTypeBuilder_ != null) {
@@ -4687,16 +4687,16 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Column) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.Column) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column) other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.Column other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance())
+      public Builder mergeFrom(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column other) {
+        if (other == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column.getDefaultInstance())
           return this;
         if (!other.getName().isEmpty()) {
           name_ = other.name_;
@@ -4982,11 +4982,11 @@ public final class MltTilesetMetadata {
        * @return The columnScope.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope getColumnScope() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.forNumber(columnScope_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope.UNRECOGNIZED
             : result;
       }
 
@@ -4996,7 +4996,7 @@ public final class MltTilesetMetadata {
        * @param value The columnScope to set.
        * @return This builder for chaining.
        */
-      public Builder setColumnScope(com.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope value) {
+      public Builder setColumnScope(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ColumnScope value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -5019,9 +5019,9 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>
           scalarTypeBuilder_;
 
       /**
@@ -5040,22 +5040,22 @@ public final class MltTilesetMetadata {
        * @return The scalarType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getScalarType() {
         if (scalarTypeBuilder_ == null) {
           if (typeCase_ == 4) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
         } else {
           if (typeCase_ == 4) {
             return scalarTypeBuilder_.getMessage();
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
-      public Builder setScalarType(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn value) {
+      public Builder setScalarType(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn value) {
         if (scalarTypeBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -5071,7 +5071,7 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
       public Builder setScalarType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder builderForValue) {
         if (scalarTypeBuilder_ == null) {
           type_ = builderForValue.build();
           onChanged();
@@ -5084,15 +5084,15 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
       public Builder mergeScalarType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn value) {
         if (scalarTypeBuilder_ == null) {
           if (typeCase_ == 4
               && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn
+                  != org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn
                       .getDefaultInstance()) {
             type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_)
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.newBuilder(
+                        (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_)
                     .mergeFrom(value)
                     .buildPartial();
           } else {
@@ -5129,41 +5129,41 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder
           getScalarTypeBuilder() {
         return getScalarTypeFieldBuilder().getBuilder();
       }
 
       /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder
           getScalarTypeOrBuilder() {
         if ((typeCase_ == 4) && (scalarTypeBuilder_ != null)) {
           return scalarTypeBuilder_.getMessageOrBuilder();
         } else {
           if (typeCase_ == 4) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ScalarColumn scalarType = 4;</code> */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>
           getScalarTypeFieldBuilder() {
         if (scalarTypeBuilder_ == null) {
           if (!(typeCase_ == 4)) {
-            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
+            type_ = org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
           }
           scalarTypeBuilder_ =
               new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>(
-                  (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder>(
+                  (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) type_,
                   getParentForChildren(),
                   isClean());
           type_ = null;
@@ -5174,9 +5174,9 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>
           complexTypeBuilder_;
 
       /**
@@ -5195,23 +5195,23 @@ public final class MltTilesetMetadata {
        * @return The complexType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getComplexType() {
         if (complexTypeBuilder_ == null) {
           if (typeCase_ == 5) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
         } else {
           if (typeCase_ == 5) {
             return complexTypeBuilder_.getMessage();
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ComplexColumn complexType = 5;</code> */
       public Builder setComplexType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
         if (complexTypeBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -5227,7 +5227,7 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ComplexColumn complexType = 5;</code> */
       public Builder setComplexType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder builderForValue) {
         if (complexTypeBuilder_ == null) {
           type_ = builderForValue.build();
           onChanged();
@@ -5240,15 +5240,15 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ComplexColumn complexType = 5;</code> */
       public Builder mergeComplexType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn value) {
         if (complexTypeBuilder_ == null) {
           if (typeCase_ == 5
               && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn
+                  != org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn
                       .getDefaultInstance()) {
             type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_)
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.newBuilder(
+                        (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_)
                     .mergeFrom(value)
                     .buildPartial();
           } else {
@@ -5285,41 +5285,41 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>.mlt.ComplexColumn complexType = 5;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder
           getComplexTypeBuilder() {
         return getComplexTypeFieldBuilder().getBuilder();
       }
 
       /** <code>.mlt.ComplexColumn complexType = 5;</code> */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder
           getComplexTypeOrBuilder() {
         if ((typeCase_ == 5) && (complexTypeBuilder_ != null)) {
           return complexTypeBuilder_.getMessageOrBuilder();
         } else {
           if (typeCase_ == 5) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ComplexColumn complexType = 5;</code> */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>
           getComplexTypeFieldBuilder() {
         if (complexTypeBuilder_ == null) {
           if (!(typeCase_ == 5)) {
-            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
+            type_ = org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
           }
           complexTypeBuilder_ =
               new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>(
-                  (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder>(
+                  (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) type_,
                   getParentForChildren(),
                   isClean());
           type_ = null;
@@ -5345,13 +5345,13 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.Column)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.Column DEFAULT_INSTANCE;
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.Column();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Column getDefaultInstance() {
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -5388,7 +5388,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.Column getDefaultInstanceForType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Column getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
   }
@@ -5417,7 +5417,7 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalScalarType logicalType = 5;</code>
@@ -5438,9 +5438,9 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType();
 
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.TypeCase getTypeCase();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.TypeCase getTypeCase();
   }
 
   /** Protobuf type {@code mlt.ScalarColumn} */
@@ -5464,18 +5464,18 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_ScalarColumn_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_ScalarColumn_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
     }
 
     private int typeCase_ = 0;
@@ -5556,16 +5556,16 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
       if (typeCase_ == 4) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 5;
@@ -5596,16 +5596,16 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
       if (typeCase_ == 5) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
     }
 
     private byte memoizedIsInitialized = -1;
@@ -5655,11 +5655,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) obj;
 
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
@@ -5700,71 +5700,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(byte[] data)
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -5782,7 +5782,7 @@ public final class MltTilesetMetadata {
     }
 
     public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn prototype) {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -5803,23 +5803,23 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.ScalarColumn)
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumnOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ScalarColumn_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ScalarColumn_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -5837,18 +5837,18 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ScalarColumn_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getDefaultInstanceForType() {
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -5856,9 +5856,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn(this);
         if (bitField0_ != 0) {
           buildPartial0(result);
         }
@@ -5867,12 +5867,12 @@ public final class MltTilesetMetadata {
         return result;
       }
 
-      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result) {
+      private void buildPartial0(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result) {
         int from_bitField0_ = bitField0_;
       }
 
       private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -5914,16 +5914,16 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance())
+      public Builder mergeFrom(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other) {
+        if (other == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn.getDefaultInstance())
           return this;
         switch (other.getTypeCase()) {
           case PHYSICALTYPE:
@@ -6056,16 +6056,16 @@ public final class MltTilesetMetadata {
        * @return The physicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
         if (typeCase_ == 4) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
       }
 
       /**
@@ -6074,7 +6074,7 @@ public final class MltTilesetMetadata {
        * @param value The physicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setPhysicalType(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType value) {
+      public Builder setPhysicalType(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -6140,16 +6140,16 @@ public final class MltTilesetMetadata {
        * @return The logicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
         if (typeCase_ == 5) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
       }
 
       /**
@@ -6159,7 +6159,7 @@ public final class MltTilesetMetadata {
        * @return This builder for chaining.
        */
       public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -6199,13 +6199,13 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ScalarColumn)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn DEFAULT_INSTANCE;
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getDefaultInstance() {
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -6242,7 +6242,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getDefaultInstanceForType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
   }
@@ -6271,7 +6271,7 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalComplexType logicalType = 5;</code>
@@ -6292,7 +6292,7 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType();
 
     /**
      *
@@ -6304,7 +6304,7 @@ public final class MltTilesetMetadata {
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList();
+    java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList();
 
     /**
      *
@@ -6316,7 +6316,7 @@ public final class MltTilesetMetadata {
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index);
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index);
 
     /**
      *
@@ -6340,7 +6340,7 @@ public final class MltTilesetMetadata {
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
-    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
         getChildrenOrBuilderList();
 
     /**
@@ -6353,9 +6353,9 @@ public final class MltTilesetMetadata {
      *
      * <code>repeated .mlt.Field children = 6;</code>
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(int index);
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(int index);
 
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.TypeCase getTypeCase();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.TypeCase getTypeCase();
   }
 
   /**
@@ -6390,18 +6390,18 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_ComplexColumn_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_ComplexColumn_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
     }
 
     private int typeCase_ = 0;
@@ -6482,16 +6482,16 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
       if (typeCase_ == 4) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 5;
@@ -6522,22 +6522,22 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
       if (typeCase_ == 5) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
     }
 
     public static final int CHILDREN_FIELD_NUMBER = 6;
 
     @SuppressWarnings("serial")
-    private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_;
+    private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> children_;
 
     /**
      *
@@ -6550,7 +6550,7 @@ public final class MltTilesetMetadata {
      * <code>repeated .mlt.Field children = 6;</code>
      */
     @java.lang.Override
-    public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
+    public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
       return children_;
     }
 
@@ -6565,7 +6565,7 @@ public final class MltTilesetMetadata {
      * <code>repeated .mlt.Field children = 6;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    public java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
         getChildrenOrBuilderList() {
       return children_;
     }
@@ -6596,7 +6596,7 @@ public final class MltTilesetMetadata {
      * <code>repeated .mlt.Field children = 6;</code>
      */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
       return children_.get(index);
     }
 
@@ -6611,7 +6611,7 @@ public final class MltTilesetMetadata {
      * <code>repeated .mlt.Field children = 6;</code>
      */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
         int index) {
       return children_.get(index);
     }
@@ -6669,11 +6669,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) obj;
 
       if (!getChildrenList().equals(other.getChildrenList())) return false;
       if (!getTypeCase().equals(other.getTypeCase())) return false;
@@ -6719,71 +6719,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(byte[] data)
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -6801,7 +6801,7 @@ public final class MltTilesetMetadata {
     }
 
     public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn prototype) {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -6831,23 +6831,23 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.ComplexColumn)
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumnOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ComplexColumn_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ComplexColumn_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -6872,18 +6872,18 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ComplexColumn_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getDefaultInstanceForType() {
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -6891,9 +6891,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn(this);
         buildPartialRepeatedFields(result);
         if (bitField0_ != 0) {
           buildPartial0(result);
@@ -6904,7 +6904,7 @@ public final class MltTilesetMetadata {
       }
 
       private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
         if (childrenBuilder_ == null) {
           if (((bitField0_ & 0x00000004) != 0)) {
             children_ = java.util.Collections.unmodifiableList(children_);
@@ -6916,12 +6916,12 @@ public final class MltTilesetMetadata {
         }
       }
 
-      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
+      private void buildPartial0(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
         int from_bitField0_ = bitField0_;
       }
 
       private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -6963,16 +6963,16 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn) other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance())
+      public Builder mergeFrom(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn other) {
+        if (other == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn.getDefaultInstance())
           return this;
         if (childrenBuilder_ == null) {
           if (!other.children_.isEmpty()) {
@@ -7059,9 +7059,9 @@ public final class MltTilesetMetadata {
                 } // case 40
               case 50:
                 {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field m =
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field m =
                       input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
+                          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
                           extensionRegistry);
                   if (childrenBuilder_ == null) {
                     ensureChildrenIsMutable();
@@ -7146,16 +7146,16 @@ public final class MltTilesetMetadata {
        * @return The physicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
         if (typeCase_ == 4) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
       }
 
       /**
@@ -7165,7 +7165,7 @@ public final class MltTilesetMetadata {
        * @return This builder for chaining.
        */
       public Builder setPhysicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -7231,16 +7231,16 @@ public final class MltTilesetMetadata {
        * @return The logicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
         if (typeCase_ == 5) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
       }
 
       /**
@@ -7250,7 +7250,7 @@ public final class MltTilesetMetadata {
        * @return This builder for chaining.
        */
       public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -7274,21 +7274,21 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_ =
+      private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> children_ =
           java.util.Collections.emptyList();
 
       private void ensureChildrenIsMutable() {
         if (!((bitField0_ & 0x00000004) != 0)) {
           children_ =
-              new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
+              new java.util.ArrayList<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
           bitField0_ |= 0x00000004;
         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
           childrenBuilder_;
 
       /**
@@ -7301,7 +7301,7 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
         if (childrenBuilder_ == null) {
           return java.util.Collections.unmodifiableList(children_);
         } else {
@@ -7337,7 +7337,7 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
         if (childrenBuilder_ == null) {
           return children_.get(index);
         } else {
@@ -7356,7 +7356,7 @@ public final class MltTilesetMetadata {
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public Builder setChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -7381,7 +7381,7 @@ public final class MltTilesetMetadata {
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public Builder setChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           children_.set(index, builderForValue.build());
@@ -7402,7 +7402,7 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public Builder addChildren(com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
+      public Builder addChildren(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -7427,7 +7427,7 @@ public final class MltTilesetMetadata {
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public Builder addChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -7452,7 +7452,7 @@ public final class MltTilesetMetadata {
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public Builder addChildren(
-          com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           children_.add(builderForValue.build());
@@ -7474,7 +7474,7 @@ public final class MltTilesetMetadata {
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public Builder addChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           children_.add(index, builderForValue.build());
@@ -7496,7 +7496,7 @@ public final class MltTilesetMetadata {
        * <code>repeated .mlt.Field children = 6;</code>
        */
       public Builder addAllChildren(
-          java.lang.Iterable<? extends com.mlt.metadata.tileset.MltTilesetMetadata.Field> values) {
+          java.lang.Iterable<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> values) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(values, children_);
@@ -7559,7 +7559,7 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder getChildrenBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder getChildrenBuilder(
           int index) {
         return getChildrenFieldBuilder().getBuilder(index);
       }
@@ -7574,7 +7574,7 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
           int index) {
         if (childrenBuilder_ == null) {
           return children_.get(index);
@@ -7593,7 +7593,7 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+      public java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
           getChildrenOrBuilderList() {
         if (childrenBuilder_ != null) {
           return childrenBuilder_.getMessageOrBuilderList();
@@ -7612,9 +7612,9 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder() {
         return getChildrenFieldBuilder()
-            .addBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+            .addBuilder(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
 
       /**
@@ -7627,11 +7627,11 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder(
           int index) {
         return getChildrenFieldBuilder()
             .addBuilder(
-                index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+                index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
 
       /**
@@ -7644,22 +7644,22 @@ public final class MltTilesetMetadata {
        *
        * <code>repeated .mlt.Field children = 6;</code>
        */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder>
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder>
           getChildrenBuilderList() {
         return getChildrenFieldBuilder().getBuilderList();
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
           getChildrenFieldBuilder() {
         if (childrenBuilder_ == null) {
           childrenBuilder_ =
               new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
                   children_, ((bitField0_ & 0x00000004) != 0), getParentForChildren(), isClean());
           children_ = null;
         }
@@ -7682,13 +7682,13 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ComplexColumn)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn DEFAULT_INSTANCE;
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getDefaultInstance() {
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -7725,7 +7725,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getDefaultInstanceForType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexColumn getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
   }
@@ -7803,10 +7803,10 @@ public final class MltTilesetMetadata {
      *
      * @return The scalarField.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField();
 
     /** <code>.mlt.ScalarField scalarField = 3;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder getScalarFieldOrBuilder();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder getScalarFieldOrBuilder();
 
     /**
      * <code>.mlt.ComplexField complexField = 4;</code>
@@ -7820,12 +7820,12 @@ public final class MltTilesetMetadata {
      *
      * @return The complexField.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField();
 
     /** <code>.mlt.ComplexField complexField = 4;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder getComplexFieldOrBuilder();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder getComplexFieldOrBuilder();
 
-    com.mlt.metadata.tileset.MltTilesetMetadata.Field.TypeCase getTypeCase();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.TypeCase getTypeCase();
   }
 
   /**
@@ -7859,17 +7859,17 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_Field_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
     }
 
     private int bitField0_;
@@ -8036,21 +8036,21 @@ public final class MltTilesetMetadata {
      * @return The scalarField.
      */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField() {
       if (typeCase_ == 3) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
     }
 
     /** <code>.mlt.ScalarField scalarField = 3;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder
         getScalarFieldOrBuilder() {
       if (typeCase_ == 3) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
     }
 
     public static final int COMPLEXFIELD_FIELD_NUMBER = 4;
@@ -8071,21 +8071,21 @@ public final class MltTilesetMetadata {
      * @return The complexField.
      */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
     }
 
     /** <code>.mlt.ComplexField complexField = 4;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder
         getComplexFieldOrBuilder() {
       if (typeCase_ == 4) {
-        return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
+        return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
     }
 
     private byte memoizedIsInitialized = -1;
@@ -8109,10 +8109,10 @@ public final class MltTilesetMetadata {
         output.writeBool(2, nullable_);
       }
       if (typeCase_ == 3) {
-        output.writeMessage(3, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_);
+        output.writeMessage(3, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_);
       }
       if (typeCase_ == 4) {
-        output.writeMessage(4, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_);
+        output.writeMessage(4, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_);
       }
       getUnknownFields().writeTo(output);
     }
@@ -8132,12 +8132,12 @@ public final class MltTilesetMetadata {
       if (typeCase_ == 3) {
         size +=
             com.google.protobuf.CodedOutputStream.computeMessageSize(
-                3, (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_);
+                3, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_);
       }
       if (typeCase_ == 4) {
         size +=
             com.google.protobuf.CodedOutputStream.computeMessageSize(
-                4, (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_);
+                4, (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
@@ -8149,11 +8149,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Field)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.Field other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.Field) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field) obj;
 
       if (hasName() != other.hasName()) return false;
       if (hasName()) {
@@ -8210,71 +8210,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(byte[] data)
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -8291,7 +8291,7 @@ public final class MltTilesetMetadata {
       return DEFAULT_INSTANCE.toBuilder();
     }
 
-    public static Builder newBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Field prototype) {
+    public static Builder newBuilder(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -8320,22 +8320,22 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.Field)
-        com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_Field_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.Field.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.Field.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -8361,17 +8361,17 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_Field_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getDefaultInstanceForType() {
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.Field result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -8379,9 +8379,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.Field result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.Field(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field(this);
         if (bitField0_ != 0) {
           buildPartial0(result);
         }
@@ -8390,7 +8390,7 @@ public final class MltTilesetMetadata {
         return result;
       }
 
-      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.Field result) {
+      private void buildPartial0(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field result) {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -8404,7 +8404,7 @@ public final class MltTilesetMetadata {
         result.bitField0_ |= to_bitField0_;
       }
 
-      private void buildPartialOneofs(com.mlt.metadata.tileset.MltTilesetMetadata.Field result) {
+      private void buildPartialOneofs(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
         if (typeCase_ == 3 && scalarFieldBuilder_ != null) {
@@ -8452,16 +8452,16 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.Field) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.Field) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field) other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.Field other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance())
+      public Builder mergeFrom(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field other) {
+        if (other == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance())
           return this;
         if (other.hasName()) {
           name_ = other.name_;
@@ -8751,9 +8751,9 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>
           scalarFieldBuilder_;
 
       /**
@@ -8772,22 +8772,22 @@ public final class MltTilesetMetadata {
        * @return The scalarField.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getScalarField() {
         if (scalarFieldBuilder_ == null) {
           if (typeCase_ == 3) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
         } else {
           if (typeCase_ == 3) {
             return scalarFieldBuilder_.getMessage();
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ScalarField scalarField = 3;</code> */
-      public Builder setScalarField(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField value) {
+      public Builder setScalarField(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField value) {
         if (scalarFieldBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -8803,7 +8803,7 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ScalarField scalarField = 3;</code> */
       public Builder setScalarField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder builderForValue) {
         if (scalarFieldBuilder_ == null) {
           type_ = builderForValue.build();
           onChanged();
@@ -8816,14 +8816,14 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ScalarField scalarField = 3;</code> */
       public Builder mergeScalarField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField value) {
         if (scalarFieldBuilder_ == null) {
           if (typeCase_ == 3
               && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance()) {
+                  != org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance()) {
             type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_)
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.newBuilder(
+                        (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_)
                     .mergeFrom(value)
                     .buildPartial();
           } else {
@@ -8860,41 +8860,41 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>.mlt.ScalarField scalarField = 3;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder
           getScalarFieldBuilder() {
         return getScalarFieldFieldBuilder().getBuilder();
       }
 
       /** <code>.mlt.ScalarField scalarField = 3;</code> */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder
           getScalarFieldOrBuilder() {
         if ((typeCase_ == 3) && (scalarFieldBuilder_ != null)) {
           return scalarFieldBuilder_.getMessageOrBuilder();
         } else {
           if (typeCase_ == 3) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ScalarField scalarField = 3;</code> */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>
           getScalarFieldFieldBuilder() {
         if (scalarFieldBuilder_ == null) {
           if (!(typeCase_ == 3)) {
-            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
+            type_ = org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
           }
           scalarFieldBuilder_ =
               new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>(
-                  (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder>(
+                  (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) type_,
                   getParentForChildren(),
                   isClean());
           type_ = null;
@@ -8905,9 +8905,9 @@ public final class MltTilesetMetadata {
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>
           complexFieldBuilder_;
 
       /**
@@ -8926,23 +8926,23 @@ public final class MltTilesetMetadata {
        * @return The complexField.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getComplexField() {
         if (complexFieldBuilder_ == null) {
           if (typeCase_ == 4) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
         } else {
           if (typeCase_ == 4) {
             return complexFieldBuilder_.getMessage();
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ComplexField complexField = 4;</code> */
       public Builder setComplexField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
         if (complexFieldBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -8958,7 +8958,7 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ComplexField complexField = 4;</code> */
       public Builder setComplexField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder builderForValue) {
         if (complexFieldBuilder_ == null) {
           type_ = builderForValue.build();
           onChanged();
@@ -8971,15 +8971,15 @@ public final class MltTilesetMetadata {
 
       /** <code>.mlt.ComplexField complexField = 4;</code> */
       public Builder mergeComplexField(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField value) {
         if (complexFieldBuilder_ == null) {
           if (typeCase_ == 4
               && type_
-                  != com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField
+                  != org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField
                       .getDefaultInstance()) {
             type_ =
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.newBuilder(
-                        (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_)
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.newBuilder(
+                        (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_)
                     .mergeFrom(value)
                     .buildPartial();
           } else {
@@ -9016,41 +9016,41 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>.mlt.ComplexField complexField = 4;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder
           getComplexFieldBuilder() {
         return getComplexFieldFieldBuilder().getBuilder();
       }
 
       /** <code>.mlt.ComplexField complexField = 4;</code> */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder
           getComplexFieldOrBuilder() {
         if ((typeCase_ == 4) && (complexFieldBuilder_ != null)) {
           return complexFieldBuilder_.getMessageOrBuilder();
         } else {
           if (typeCase_ == 4) {
-            return (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
+            return (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_;
           }
-          return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
+          return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
         }
       }
 
       /** <code>.mlt.ComplexField complexField = 4;</code> */
       private com.google.protobuf.SingleFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>
           getComplexFieldFieldBuilder() {
         if (complexFieldBuilder_ == null) {
           if (!(typeCase_ == 4)) {
-            type_ = com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
+            type_ = org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
           }
           complexFieldBuilder_ =
               new com.google.protobuf.SingleFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>(
-                  (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder>(
+                  (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) type_,
                   getParentForChildren(),
                   isClean());
           type_ = null;
@@ -9076,13 +9076,13 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.Field)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.Field DEFAULT_INSTANCE;
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.Field();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.Field getDefaultInstance() {
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -9119,7 +9119,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.Field getDefaultInstanceForType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
   }
@@ -9148,7 +9148,7 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalScalarType logicalType = 2;</code>
@@ -9169,9 +9169,9 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType();
 
-    com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.TypeCase getTypeCase();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.TypeCase getTypeCase();
   }
 
   /** Protobuf type {@code mlt.ScalarField} */
@@ -9195,17 +9195,17 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarField_descriptor;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.internal_static_mlt_ScalarField_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_ScalarField_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
     }
 
     private int typeCase_ = 0;
@@ -9286,16 +9286,16 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
       if (typeCase_ == 1) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 2;
@@ -9326,16 +9326,16 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
       if (typeCase_ == 2) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
     }
 
     private byte memoizedIsInitialized = -1;
@@ -9385,11 +9385,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) obj;
 
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
@@ -9430,71 +9430,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(byte[] data)
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -9512,7 +9512,7 @@ public final class MltTilesetMetadata {
     }
 
     public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField prototype) {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -9533,23 +9533,23 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.ScalarField)
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarFieldOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ScalarField_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ScalarField_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -9567,18 +9567,18 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ScalarField_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getDefaultInstanceForType() {
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -9586,9 +9586,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField(this);
         if (bitField0_ != 0) {
           buildPartial0(result);
         }
@@ -9597,12 +9597,12 @@ public final class MltTilesetMetadata {
         return result;
       }
 
-      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result) {
+      private void buildPartial0(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result) {
         int from_bitField0_ = bitField0_;
       }
 
       private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -9644,16 +9644,16 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField) other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance())
+      public Builder mergeFrom(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField other) {
+        if (other == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField.getDefaultInstance())
           return this;
         switch (other.getTypeCase()) {
           case PHYSICALTYPE:
@@ -9786,16 +9786,16 @@ public final class MltTilesetMetadata {
        * @return The physicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType getPhysicalType() {
         if (typeCase_ == 1) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType.BOOLEAN;
       }
 
       /**
@@ -9804,7 +9804,7 @@ public final class MltTilesetMetadata {
        * @param value The physicalType to set.
        * @return This builder for chaining.
        */
-      public Builder setPhysicalType(com.mlt.metadata.tileset.MltTilesetMetadata.ScalarType value) {
+      public Builder setPhysicalType(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -9870,16 +9870,16 @@ public final class MltTilesetMetadata {
        * @return The logicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType getLogicalType() {
         if (typeCase_ == 2) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType.TIMESTAMP;
       }
 
       /**
@@ -9889,7 +9889,7 @@ public final class MltTilesetMetadata {
        * @return This builder for chaining.
        */
       public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalScalarType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -9929,13 +9929,13 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ScalarField)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField DEFAULT_INSTANCE;
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getDefaultInstance() {
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -9972,7 +9972,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getDefaultInstanceForType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarField getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
   }
@@ -10001,7 +10001,7 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType();
 
     /**
      * <code>.mlt.LogicalComplexType logicalType = 2;</code>
@@ -10022,25 +10022,25 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType();
 
     /** <code>repeated .mlt.Field children = 3;</code> */
-    java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList();
+    java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList();
 
     /** <code>repeated .mlt.Field children = 3;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index);
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index);
 
     /** <code>repeated .mlt.Field children = 3;</code> */
     int getChildrenCount();
 
     /** <code>repeated .mlt.Field children = 3;</code> */
-    java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
         getChildrenOrBuilderList();
 
     /** <code>repeated .mlt.Field children = 3;</code> */
-    com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(int index);
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(int index);
 
-    com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.TypeCase getTypeCase();
+    org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.TypeCase getTypeCase();
   }
 
   /** Protobuf type {@code mlt.ComplexField} */
@@ -10066,18 +10066,18 @@ public final class MltTilesetMetadata {
     }
 
     public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_ComplexField_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.mlt.metadata.tileset.MltTilesetMetadata
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
           .internal_static_mlt_ComplexField_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class,
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
     }
 
     private int typeCase_ = 0;
@@ -10158,16 +10158,16 @@ public final class MltTilesetMetadata {
      *
      * @return The physicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
       if (typeCase_ == 1) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
     }
 
     public static final int LOGICALTYPE_FIELD_NUMBER = 2;
@@ -10198,32 +10198,32 @@ public final class MltTilesetMetadata {
      *
      * @return The logicalType.
      */
-    public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
       if (typeCase_ == 2) {
-        com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-            com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
+            org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
                 (java.lang.Integer) type_);
         return result == null
-            ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
+            ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
             : result;
       }
-      return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
+      return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
     }
 
     public static final int CHILDREN_FIELD_NUMBER = 3;
 
     @SuppressWarnings("serial")
-    private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_;
+    private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> children_;
 
     /** <code>repeated .mlt.Field children = 3;</code> */
     @java.lang.Override
-    public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
+    public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
       return children_;
     }
 
     /** <code>repeated .mlt.Field children = 3;</code> */
     @java.lang.Override
-    public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+    public java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
         getChildrenOrBuilderList() {
       return children_;
     }
@@ -10236,13 +10236,13 @@ public final class MltTilesetMetadata {
 
     /** <code>repeated .mlt.Field children = 3;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
       return children_.get(index);
     }
 
     /** <code>repeated .mlt.Field children = 3;</code> */
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
         int index) {
       return children_.get(index);
     }
@@ -10300,11 +10300,11 @@ public final class MltTilesetMetadata {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField)) {
+      if (!(obj instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField)) {
         return super.equals(obj);
       }
-      com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField other =
-          (com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) obj;
+      org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField other =
+          (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) obj;
 
       if (!getChildrenList().equals(other.getChildrenList())) return false;
       if (!getTypeCase().equals(other.getTypeCase())) return false;
@@ -10350,71 +10350,71 @@ public final class MltTilesetMetadata {
       return hash;
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         java.nio.ByteBuffer data) throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         java.nio.ByteBuffer data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(byte[] data)
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         byte[] data, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseDelimitedFrom(
         java.io.InputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseDelimitedFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseDelimitedFrom(
         java.io.InputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseDelimitedWithIOException(
           PARSER, input, extensionRegistry);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         com.google.protobuf.CodedInputStream input) throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3.parseWithIOException(PARSER, input);
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -10432,7 +10432,7 @@ public final class MltTilesetMetadata {
     }
 
     public static Builder newBuilder(
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField prototype) {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
 
@@ -10453,23 +10453,23 @@ public final class MltTilesetMetadata {
         extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
         implements
         // @@protoc_insertion_point(builder_implements:mlt.ComplexField)
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexFieldOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor getDescriptor() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ComplexField_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ComplexField_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class,
-                com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.class,
+                org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.Builder.class);
       }
 
-      // Construct using com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.newBuilder()
+      // Construct using org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.newBuilder()
       private Builder() {}
 
       private Builder(com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
@@ -10494,18 +10494,18 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata
             .internal_static_mlt_ComplexField_descriptor;
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getDefaultInstanceForType() {
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getDefaultInstanceForType() {
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance();
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField build() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result = buildPartial();
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField build() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -10513,9 +10513,9 @@ public final class MltTilesetMetadata {
       }
 
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField buildPartial() {
-        com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result =
-            new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField(this);
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField buildPartial() {
+        org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result =
+            new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField(this);
         buildPartialRepeatedFields(result);
         if (bitField0_ != 0) {
           buildPartial0(result);
@@ -10526,7 +10526,7 @@ public final class MltTilesetMetadata {
       }
 
       private void buildPartialRepeatedFields(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
         if (childrenBuilder_ == null) {
           if (((bitField0_ & 0x00000004) != 0)) {
             children_ = java.util.Collections.unmodifiableList(children_);
@@ -10538,12 +10538,12 @@ public final class MltTilesetMetadata {
         }
       }
 
-      private void buildPartial0(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
+      private void buildPartial0(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
         int from_bitField0_ = bitField0_;
       }
 
       private void buildPartialOneofs(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField result) {
         result.typeCase_ = typeCase_;
         result.type_ = this.type_;
       }
@@ -10585,16 +10585,16 @@ public final class MltTilesetMetadata {
 
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) {
-          return mergeFrom((com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) other);
+        if (other instanceof org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) {
+          return mergeFrom((org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField) other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField other) {
-        if (other == com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance())
+      public Builder mergeFrom(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField other) {
+        if (other == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField.getDefaultInstance())
           return this;
         if (childrenBuilder_ == null) {
           if (!other.children_.isEmpty()) {
@@ -10681,9 +10681,9 @@ public final class MltTilesetMetadata {
                 } // case 16
               case 26:
                 {
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field m =
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field m =
                       input.readMessage(
-                          com.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
+                          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.parser(),
                           extensionRegistry);
                   if (childrenBuilder_ == null) {
                     ensureChildrenIsMutable();
@@ -10768,16 +10768,16 @@ public final class MltTilesetMetadata {
        * @return The physicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType getPhysicalType() {
         if (typeCase_ == 1) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType.VEC_2;
       }
 
       /**
@@ -10787,7 +10787,7 @@ public final class MltTilesetMetadata {
        * @return This builder for chaining.
        */
       public Builder setPhysicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -10853,16 +10853,16 @@ public final class MltTilesetMetadata {
        * @return The logicalType.
        */
       @java.lang.Override
-      public com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType getLogicalType() {
         if (typeCase_ == 2) {
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
-              com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType result =
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.forNumber(
                   (java.lang.Integer) type_);
           return result == null
-              ? com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
+              ? org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.UNRECOGNIZED
               : result;
         }
-        return com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
+        return org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType.BINARY;
       }
 
       /**
@@ -10872,7 +10872,7 @@ public final class MltTilesetMetadata {
        * @return This builder for chaining.
        */
       public Builder setLogicalType(
-          com.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.LogicalComplexType value) {
         if (value == null) {
           throw new NullPointerException();
         }
@@ -10896,25 +10896,25 @@ public final class MltTilesetMetadata {
         return this;
       }
 
-      private java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> children_ =
+      private java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> children_ =
           java.util.Collections.emptyList();
 
       private void ensureChildrenIsMutable() {
         if (!((bitField0_ & 0x00000004) != 0)) {
           children_ =
-              new java.util.ArrayList<com.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
+              new java.util.ArrayList<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field>(children_);
           bitField0_ |= 0x00000004;
         }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
           childrenBuilder_;
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> getChildrenList() {
         if (childrenBuilder_ == null) {
           return java.util.Collections.unmodifiableList(children_);
         } else {
@@ -10932,7 +10932,7 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field getChildren(int index) {
         if (childrenBuilder_ == null) {
           return children_.get(index);
         } else {
@@ -10942,7 +10942,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Field children = 3;</code> */
       public Builder setChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -10958,7 +10958,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Field children = 3;</code> */
       public Builder setChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           children_.set(index, builderForValue.build());
@@ -10970,7 +10970,7 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public Builder addChildren(com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
+      public Builder addChildren(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -10986,7 +10986,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Field children = 3;</code> */
       public Builder addChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field value) {
         if (childrenBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -11002,7 +11002,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Field children = 3;</code> */
       public Builder addChildren(
-          com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
+          org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           children_.add(builderForValue.build());
@@ -11015,7 +11015,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Field children = 3;</code> */
       public Builder addChildren(
-          int index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
+          int index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder builderForValue) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           children_.add(index, builderForValue.build());
@@ -11028,7 +11028,7 @@ public final class MltTilesetMetadata {
 
       /** <code>repeated .mlt.Field children = 3;</code> */
       public Builder addAllChildren(
-          java.lang.Iterable<? extends com.mlt.metadata.tileset.MltTilesetMetadata.Field> values) {
+          java.lang.Iterable<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field> values) {
         if (childrenBuilder_ == null) {
           ensureChildrenIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(values, children_);
@@ -11064,13 +11064,13 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder getChildrenBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder getChildrenBuilder(
           int index) {
         return getChildrenFieldBuilder().getBuilder(index);
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder getChildrenOrBuilder(
           int index) {
         if (childrenBuilder_ == null) {
           return children_.get(index);
@@ -11080,7 +11080,7 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public java.util.List<? extends com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+      public java.util.List<? extends org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
           getChildrenOrBuilderList() {
         if (childrenBuilder_ != null) {
           return childrenBuilder_.getMessageOrBuilderList();
@@ -11090,36 +11090,36 @@ public final class MltTilesetMetadata {
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder() {
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder() {
         return getChildrenFieldBuilder()
-            .addBuilder(com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+            .addBuilder(org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder(
+      public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder addChildrenBuilder(
           int index) {
         return getChildrenFieldBuilder()
             .addBuilder(
-                index, com.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
+                index, org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.getDefaultInstance());
       }
 
       /** <code>repeated .mlt.Field children = 3;</code> */
-      public java.util.List<com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder>
+      public java.util.List<org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder>
           getChildrenBuilderList() {
         return getChildrenFieldBuilder().getBuilderList();
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-              com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-              com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
+              org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>
           getChildrenFieldBuilder() {
         if (childrenBuilder_ == null) {
           childrenBuilder_ =
               new com.google.protobuf.RepeatedFieldBuilderV3<
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
-                  com.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.Field.Builder,
+                  org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.FieldOrBuilder>(
                   children_, ((bitField0_ & 0x00000004) != 0), getParentForChildren(), isClean());
           children_ = null;
         }
@@ -11142,13 +11142,13 @@ public final class MltTilesetMetadata {
     }
 
     // @@protoc_insertion_point(class_scope:mlt.ComplexField)
-    private static final com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField DEFAULT_INSTANCE;
+    private static final org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField DEFAULT_INSTANCE;
 
     static {
-      DEFAULT_INSTANCE = new com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField();
+      DEFAULT_INSTANCE = new org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField();
     }
 
-    public static com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getDefaultInstance() {
+    public static org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -11185,7 +11185,7 @@ public final class MltTilesetMetadata {
     }
 
     @java.lang.Override
-    public com.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getDefaultInstanceForType() {
+    public org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ComplexField getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
   }
@@ -11271,7 +11271,7 @@ public final class MltTilesetMetadata {
           + "\nGEOMETRY_Z\020\003\022\010\n\004LIST\020\004\022\007\n\003MAP\020\005\022\n\n\006STRU"
           + "CT\020\006*6\n\021LogicalScalarType\022\r\n\tTIMESTAMP\020\000"
           + "\022\010\n\004DATE\020\001\022\010\n\004JSON\020\002*/\n\022LogicalComplexTy"
-          + "pe\022\n\n\006BINARY\020\000\022\r\n\tRANGE_MAP\020\001B\032\n\030com.mlt"
+          + "pe\022\n\n\006BINARY\020\000\022\r\n\tRANGE_MAP\020\001B\032\n\030org.maplibre.mlt"
           + ".metadata.tilesetb\006proto3"
     };
     descriptor =

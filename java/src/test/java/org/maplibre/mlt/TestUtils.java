@@ -101,7 +101,7 @@ public class TestUtils {
       var mvtLayer = mvtLayers.get(i);
       var mltFeatures = mltLayer.features();
       var mvtFeatures = mvtLayer.features();
-      for (com.mlt.data.Feature mvtFeature : mvtFeatures) {
+      for (org.maplibre.mlt.data.Feature mvtFeature : mvtFeatures) {
         var mltFeature =
             mltFeatures.stream().filter(f -> f.id() == mvtFeature.id()).findFirst().get();
         assertEquals(mvtFeature.id(), mltFeature.id());

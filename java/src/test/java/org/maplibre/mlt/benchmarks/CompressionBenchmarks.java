@@ -1,6 +1,6 @@
 package org.maplibre.mlt.benchmarks;
 
-import static com.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
+import static org.maplibre.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.TestUtils;

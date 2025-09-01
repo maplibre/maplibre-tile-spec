@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Quick and dirty benchmarks for the decoding of OpenMapTiles schema based tiles into the MVT and
  * MLT in-memory representations. Can be used for simple profiling. For more proper benchmarks based
- * on JMH see {@link com.mlt.OmtDecoderBenchmark}
+ * on JMH see {@link org.maplibre.mlt.OmtDecoderBenchmark}
  */
 public class MltDecoderBenchmark {
 

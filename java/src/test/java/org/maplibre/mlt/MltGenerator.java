@@ -1,6 +1,6 @@
 package org.maplibre.mlt;
 
-import static com.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
+import static org.maplibre.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
