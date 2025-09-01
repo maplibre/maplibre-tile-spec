@@ -1,0 +1,14 @@
+package org.maplibre.mlt.vector.sequence;
+
+import org.maplibre.mlt.vector.Vector;
+import java.nio.Buffer;
+
+public abstract class SequenceVector<T extends Buffer, K> extends Vector<T, K> {
+  protected final K delta;
+
+  public SequenceVector(String name, T baseValueBuffer, K delta, int size) {
+    super(name, baseValueBuffer, size);
+    this.delta = delta;
+    this.size = size;
+  }
+}
