@@ -1,12 +1,5 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.encodings.StringEncoder;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -17,6 +10,13 @@ import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
+import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.encodings.StringEncoder;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class StringDecoderTest {
 

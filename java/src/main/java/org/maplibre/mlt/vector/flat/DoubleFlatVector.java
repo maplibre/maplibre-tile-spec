@@ -1,8 +1,8 @@
 package org.maplibre.mlt.vector.flat;
 
+import java.nio.DoubleBuffer;
 import org.maplibre.mlt.vector.BitVector;
 import org.maplibre.mlt.vector.Vector;
-import java.nio.DoubleBuffer;
 
 public class DoubleFlatVector extends Vector<DoubleBuffer, Double> {
   public DoubleFlatVector(String name, DoubleBuffer dataBuffer, int size) {

@@ -1,8 +1,8 @@
 package org.maplibre.mlt.converter.encodings;
 
-import org.maplibre.mlt.metadata.stream.*;
 import java.util.List;
 import org.apache.commons.lang3.ArrayUtils;
+import org.maplibre.mlt.metadata.stream.*;
 
 public class FloatEncoder {
 

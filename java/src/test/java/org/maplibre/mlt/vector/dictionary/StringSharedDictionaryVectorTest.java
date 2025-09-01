@@ -2,14 +2,14 @@ package org.maplibre.mlt.vector.dictionary;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.maplibre.mlt.converter.encodings.StringEncoder;
-import org.maplibre.mlt.decoder.vectorized.VectorizedStringDecoder;
-import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.IOException;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.converter.encodings.StringEncoder;
+import org.maplibre.mlt.decoder.vectorized.VectorizedStringDecoder;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class StringSharedDictionaryVectorTest {
 

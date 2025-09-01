@@ -1,7 +1,7 @@
 package org.maplibre.mlt.vector.constant;
 
-import org.maplibre.mlt.vector.BitVector;
 import java.nio.IntBuffer;
+import org.maplibre.mlt.vector.BitVector;
 
 public class IntConstVector extends ConstVector<IntBuffer, Integer> {
 

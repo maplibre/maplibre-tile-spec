@@ -3,10 +3,6 @@ package org.maplibre.mlt.converter.encodings;
 import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeFastPfor;
 import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 
-import org.maplibre.mlt.converter.CollectionUtils;
-import org.maplibre.mlt.converter.geometry.*;
-import org.maplibre.mlt.converter.tessellation.TessellationUtils;
-import org.maplibre.mlt.metadata.stream.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -20,6 +16,10 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.geometry.*;
+import org.maplibre.mlt.converter.tessellation.TessellationUtils;
+import org.maplibre.mlt.metadata.stream.*;
 
 public class GeometryEncoder {
 

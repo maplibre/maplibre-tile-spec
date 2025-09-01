@@ -2,7 +2,6 @@ package org.maplibre.mlt.converter.tessellation;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import org.maplibre.mlt.converter.geometry.Vertex;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -13,6 +12,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.locationtech.jts.geom.*;
+import org.maplibre.mlt.converter.geometry.Vertex;
 
 public class TessellationUtils {
   private TessellationUtils() {}

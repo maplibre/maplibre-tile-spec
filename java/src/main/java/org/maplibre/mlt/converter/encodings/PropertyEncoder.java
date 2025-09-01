@@ -1,6 +1,9 @@
 package org.maplibre.mlt.converter.encodings;
 
 import com.google.common.primitives.Bytes;
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
@@ -10,9 +13,6 @@ import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
 import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
-import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
 
 public class PropertyEncoder {
   private static String ID_COLUMN_NAME = "id";

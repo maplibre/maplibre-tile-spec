@@ -1,13 +1,13 @@
 package org.maplibre.mlt.vector;
 
+import java.util.HashMap;
+import java.util.Iterator;
+import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.vector.constant.IntConstVector;
 import org.maplibre.mlt.vector.flat.IntFlatVector;
 import org.maplibre.mlt.vector.geometry.GeometryVector;
 import org.maplibre.mlt.vector.sequence.IntSequenceVector;
-import java.util.HashMap;
-import java.util.Iterator;
-import org.locationtech.jts.geom.Geometry;
 
 /** In-Memory representation of MLT storage format for efficient processing */
 public class FeatureTable implements Iterable<Feature> {

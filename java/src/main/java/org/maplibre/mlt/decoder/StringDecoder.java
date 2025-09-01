@@ -1,16 +1,16 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import me.lemire.integercompression.IntWrapper;
+import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import me.lemire.integercompression.IntWrapper;
-import org.apache.commons.lang3.tuple.Triple;
 
 public class StringDecoder {
 

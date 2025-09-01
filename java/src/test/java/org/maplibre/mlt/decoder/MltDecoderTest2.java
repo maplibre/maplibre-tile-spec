@@ -4,13 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.TestUtils;
-import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.FeatureTableOptimizations;
-import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
@@ -22,6 +15,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.TestUtils;
+import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
 
 enum DecoderType {
   BOTH,

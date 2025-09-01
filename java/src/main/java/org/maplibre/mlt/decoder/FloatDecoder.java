@@ -1,9 +1,9 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import java.util.ArrayList;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 
 public class FloatDecoder {
   private FloatDecoder() {}

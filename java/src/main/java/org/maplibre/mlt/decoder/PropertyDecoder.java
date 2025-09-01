@@ -1,11 +1,11 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.metadata.stream.StreamMetadata;
-import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.IOException;
 import java.util.*;
 import me.lemire.integercompression.IntWrapper;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
+import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class PropertyDecoder {
 

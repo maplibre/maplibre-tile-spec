@@ -1,12 +1,12 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
-import org.maplibre.mlt.metadata.stream.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
+import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
+import org.maplibre.mlt.metadata.stream.*;
 
 public class IntegerDecoder {
 

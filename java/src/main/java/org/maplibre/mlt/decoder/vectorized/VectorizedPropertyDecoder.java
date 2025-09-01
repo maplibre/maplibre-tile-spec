@@ -1,5 +1,9 @@
 package org.maplibre.mlt.decoder.vectorized;
 
+import java.io.IOException;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
@@ -13,10 +17,6 @@ import org.maplibre.mlt.vector.flat.DoubleFlatVector;
 import org.maplibre.mlt.vector.flat.FloatFlatVector;
 import org.maplibre.mlt.vector.flat.IntFlatVector;
 import org.maplibre.mlt.vector.flat.LongFlatVector;
-import java.io.IOException;
-import java.nio.IntBuffer;
-import java.nio.LongBuffer;
-import me.lemire.integercompression.IntWrapper;
 
 public class VectorizedPropertyDecoder {
   private VectorizedPropertyDecoder() {}

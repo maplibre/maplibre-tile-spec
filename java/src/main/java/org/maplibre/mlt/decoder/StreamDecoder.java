@@ -1,7 +1,7 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.metadata.stream.*;
 import me.lemire.integercompression.IntWrapper;
+import org.maplibre.mlt.metadata.stream.*;
 
 public class StreamDecoder {
 

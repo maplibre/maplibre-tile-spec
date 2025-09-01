@@ -1,5 +1,11 @@
 package org.maplibre.mlt.decoder.vectorized;
 
+import java.nio.*;
+import java.util.BitSet;
+import jdk.incubator.vector.IntVector;
+import jdk.incubator.vector.VectorSpecies;
+import me.lemire.integercompression.*;
+import org.apache.commons.lang3.tuple.Pair;
 import org.maplibre.mlt.decoder.DecodingUtils;
 import org.maplibre.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
@@ -7,12 +13,6 @@ import org.maplibre.mlt.metadata.stream.RleEncodedStreamMetadata;
 import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.vector.BitVector;
 import org.maplibre.mlt.vector.VectorType;
-import java.nio.*;
-import java.util.BitSet;
-import jdk.incubator.vector.IntVector;
-import jdk.incubator.vector.VectorSpecies;
-import me.lemire.integercompression.*;
-import org.apache.commons.lang3.tuple.Pair;
 
 /* the redundant implementations in this class are mainly to avoid branching and therefore speed up the decoding */
 public class VectorizedDecodingUtils {

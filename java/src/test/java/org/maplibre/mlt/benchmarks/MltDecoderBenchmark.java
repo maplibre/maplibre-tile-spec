@@ -1,13 +1,5 @@
 package org.maplibre.mlt.benchmarks;
 
-import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.FeatureTableOptimizations;
-import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.decoder.MltDecoder;
 
 /**
  * Quick and dirty benchmarks for the decoding of OpenMapTiles schema based tiles into the MVT and

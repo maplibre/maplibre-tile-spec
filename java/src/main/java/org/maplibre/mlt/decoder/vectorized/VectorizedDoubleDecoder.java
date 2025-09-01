@@ -1,11 +1,11 @@
 package org.maplibre.mlt.decoder.vectorized;
 
-import org.maplibre.mlt.metadata.stream.StreamMetadata;
-import org.maplibre.mlt.vector.BitVector;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
 import me.lemire.integercompression.IntWrapper;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
+import org.maplibre.mlt.vector.BitVector;
 
 public class VectorizedDoubleDecoder {
   private VectorizedDoubleDecoder() {}

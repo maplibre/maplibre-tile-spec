@@ -1,8 +1,8 @@
 package org.maplibre.mlt.vector.flat;
 
+import java.nio.ByteBuffer;
 import org.maplibre.mlt.vector.BitVector;
 import org.maplibre.mlt.vector.Vector;
-import java.nio.ByteBuffer;
 
 public class BooleanFlatVector extends Vector<ByteBuffer, Boolean> {
   private final BitVector dataVector;

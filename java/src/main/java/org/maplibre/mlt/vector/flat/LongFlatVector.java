@@ -1,8 +1,8 @@
 package org.maplibre.mlt.vector.flat;
 
+import java.nio.LongBuffer;
 import org.maplibre.mlt.vector.BitVector;
 import org.maplibre.mlt.vector.Vector;
-import java.nio.LongBuffer;
 
 public class LongFlatVector extends Vector<LongBuffer, Long> {
   public LongFlatVector(String name, LongBuffer dataBuffer, int size) {

@@ -1,11 +1,11 @@
 package org.maplibre.mlt.vector.geometry;
 
-import org.maplibre.mlt.converter.geometry.GeometryType;
-import org.maplibre.mlt.decoder.GeometryDecoder;
 import java.nio.IntBuffer;
 import java.util.Iterator;
 import java.util.Optional;
 import org.locationtech.jts.geom.Geometry;
+import org.maplibre.mlt.converter.geometry.GeometryType;
+import org.maplibre.mlt.decoder.GeometryDecoder;
 
 public class GeometryVector implements Iterable<Geometry> {
 

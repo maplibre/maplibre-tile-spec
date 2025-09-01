@@ -1,9 +1,9 @@
 package org.maplibre.mlt.converter.encodings;
 
-import org.maplibre.mlt.metadata.stream.*;
 import java.io.IOException;
 import java.util.*;
 import org.apache.commons.lang3.ArrayUtils;
+import org.maplibre.mlt.metadata.stream.*;
 
 public class BooleanEncoder {
 

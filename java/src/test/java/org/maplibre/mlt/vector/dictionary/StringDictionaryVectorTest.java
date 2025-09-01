@@ -4,15 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Lists;
-import org.maplibre.mlt.converter.encodings.StringEncoder;
-import org.maplibre.mlt.decoder.vectorized.VectorizedStringDecoder;
-import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
-import org.maplibre.mlt.vector.BitVector;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.converter.encodings.StringEncoder;
+import org.maplibre.mlt.decoder.vectorized.VectorizedStringDecoder;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.vector.BitVector;
 
 public class StringDictionaryVectorTest {
 

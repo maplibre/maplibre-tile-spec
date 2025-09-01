@@ -1,8 +1,5 @@
 package org.maplibre.mlt.converter.encodings;
 
-import org.maplibre.mlt.converter.CollectionUtils;
-import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
-import org.maplibre.mlt.metadata.stream.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -10,6 +7,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
+import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
+import org.maplibre.mlt.metadata.stream.*;
 
 public class StringEncoder {
 

@@ -2,13 +2,13 @@ package org.maplibre.mlt.vector.fsstdictionary;
 
 import static org.maplibre.mlt.vector.fsstdictionary.StringFsstDictionaryVector.offsetToLengthBuffer;
 
-import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
-import org.maplibre.mlt.vector.VariableSizeVector;
-import org.maplibre.mlt.vector.dictionary.DictionaryDataVector;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
+import org.maplibre.mlt.vector.VariableSizeVector;
+import org.maplibre.mlt.vector.dictionary.DictionaryDataVector;
 
 public class StringSharedFsstDictionaryVector extends VariableSizeVector<Map<String, String>> {
   // TODO: extend from StringFsstDictionaryVector

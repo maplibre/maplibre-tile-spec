@@ -1,13 +1,13 @@
 package org.maplibre.mlt.decoder.vectorized;
 
-import org.maplibre.mlt.decoder.DecodingUtils;
-import org.maplibre.mlt.metadata.stream.*;
-import org.maplibre.mlt.vector.BitVector;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import me.lemire.integercompression.IntWrapper;
 import me.lemire.integercompression.differential.Delta;
 import org.apache.commons.lang3.tuple.Pair;
+import org.maplibre.mlt.decoder.DecodingUtils;
+import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.vector.BitVector;
 
 public class VectorizedIntegerDecoder {
 

@@ -2,14 +2,6 @@ package org.maplibre.mlt.benchmarks;
 
 import static org.maplibre.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 
-import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.TestUtils;
-import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.FeatureTableOptimizations;
-import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,6 +15,14 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.TestUtils;
+import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.decoder.MltDecoder;
 
 /*
  * Add the tiles which should be benchmarked to the respective directories.

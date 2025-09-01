@@ -1,7 +1,5 @@
 package org.maplibre.mlt;
 
-import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -14,6 +12,8 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import org.openjdk.jmh.annotations.*;
 
 /*

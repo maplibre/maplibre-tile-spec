@@ -1,15 +1,15 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.converter.geometry.GeometryType;
-import org.maplibre.mlt.converter.geometry.ZOrderCurve;
-import org.maplibre.mlt.metadata.stream.*;
-import org.maplibre.mlt.vector.geometry.GeometryVector;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.NotImplementedException;
 import org.locationtech.jts.geom.*;
+import org.maplibre.mlt.converter.geometry.GeometryType;
+import org.maplibre.mlt.converter.geometry.ZOrderCurve;
+import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.vector.geometry.GeometryVector;
 
 public class GeometryDecoder {
 

@@ -2,7 +2,6 @@ package org.maplibre.mlt.converter.encodings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.maplibre.mlt.decoder.DecodingUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -11,6 +10,7 @@ import java.util.BitSet;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtilsTest {
 

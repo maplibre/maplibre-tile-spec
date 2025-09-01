@@ -1,6 +1,5 @@
 package org.maplibre.mlt.vector.dictionary;
 
-import org.maplibre.mlt.vector.VariableSizeVector;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
@@ -9,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import me.lemire.integercompression.differential.Delta;
 import org.apache.commons.lang3.ArrayUtils;
+import org.maplibre.mlt.vector.VariableSizeVector;
 
 public class StringSharedDictionaryVector extends VariableSizeVector<Map<String, String>> {
   /** Specifies where a specific string starts in the data buffer for a given index */

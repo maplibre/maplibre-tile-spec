@@ -1,7 +1,5 @@
 package org.maplibre.mlt.tools;
 
-import org.maplibre.mlt.decoder.MltDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.apache.commons.cli.CommandLine;
@@ -10,6 +8,8 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.maplibre.mlt.decoder.MltDecoder;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class Decode {
 

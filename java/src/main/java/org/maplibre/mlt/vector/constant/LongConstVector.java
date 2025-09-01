@@ -1,7 +1,7 @@
 package org.maplibre.mlt.vector.constant;
 
-import org.maplibre.mlt.vector.BitVector;
 import java.nio.LongBuffer;
+import org.maplibre.mlt.vector.BitVector;
 
 public class LongConstVector extends ConstVector<LongBuffer, Long> {
   public LongConstVector(String name, Long value, int size) {

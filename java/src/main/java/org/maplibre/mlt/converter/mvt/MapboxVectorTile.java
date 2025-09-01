@@ -1,8 +1,8 @@
 package org.maplibre.mlt.converter.mvt;
 
-import org.maplibre.mlt.data.Layer;
 import java.util.List;
 import org.apache.commons.lang3.tuple.Triple;
+import org.maplibre.mlt.data.Layer;
 
 public class MapboxVectorTile {
   private List<Layer> layers;

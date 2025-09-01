@@ -1,9 +1,9 @@
 package org.maplibre.mlt.metadata.stream;
 
 import com.google.common.primitives.Bytes;
+import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
-import me.lemire.integercompression.IntWrapper;
 
 public class StreamMetadata {
   private PhysicalStreamType physicalStreamType;

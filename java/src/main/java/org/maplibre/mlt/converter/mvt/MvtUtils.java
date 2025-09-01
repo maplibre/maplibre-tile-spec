@@ -1,8 +1,5 @@
 package org.maplibre.mlt.converter.mvt;
 
-import org.maplibre.mlt.converter.Settings;
-import org.maplibre.mlt.data.Feature;
-import org.maplibre.mlt.data.Layer;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.MvtReader;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.TagKeyValueMapConverter;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.model.JtsMvt;
@@ -15,6 +12,9 @@ import no.ecc.vectortile.VectorTileDecoder;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
+import org.maplibre.mlt.converter.Settings;
+import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.Layer;
 import org.springmeyer.Pbf;
 import org.springmeyer.VectorTile;
 import org.springmeyer.VectorTileLayer;

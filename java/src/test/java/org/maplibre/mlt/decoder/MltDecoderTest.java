@@ -2,15 +2,6 @@ package org.maplibre.mlt.decoder;
 
 import static org.maplibre.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 
-import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.TestUtils;
-import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.FeatureTableOptimizations;
-import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
@@ -22,6 +13,15 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.TestUtils;
+import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 @FunctionalInterface
 interface TriConsumer<A, B, C> {

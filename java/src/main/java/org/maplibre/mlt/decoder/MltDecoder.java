@@ -1,5 +1,10 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
+import me.lemire.integercompression.IntWrapper;
+import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -21,11 +26,6 @@ import org.maplibre.mlt.vector.flat.LongFlatVector;
 import org.maplibre.mlt.vector.geometry.GeometryVector;
 import org.maplibre.mlt.vector.sequence.IntSequenceVector;
 import org.maplibre.mlt.vector.sequence.LongSequenceVector;
-import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
-import me.lemire.integercompression.IntWrapper;
-import org.locationtech.jts.geom.Geometry;
 
 public class MltDecoder {
   private static final String ID_COLUMN_NAME = "id";

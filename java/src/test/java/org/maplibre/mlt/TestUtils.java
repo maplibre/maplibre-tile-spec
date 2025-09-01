@@ -2,13 +2,13 @@ package org.maplibre.mlt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.vector.FeatureTable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 public class TestUtils {
   public enum Optimization {

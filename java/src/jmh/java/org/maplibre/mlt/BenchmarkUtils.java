@@ -1,13 +1,5 @@
 package org.maplibre.mlt;
 
-import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.FeatureTableOptimizations;
-import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,6 +9,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
+import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class BenchmarkUtils {
 

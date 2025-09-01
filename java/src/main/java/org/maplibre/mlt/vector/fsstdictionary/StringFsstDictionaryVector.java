@@ -1,14 +1,14 @@
 package org.maplibre.mlt.vector.fsstdictionary;
 
-import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
-import org.maplibre.mlt.vector.BitVector;
-import org.maplibre.mlt.vector.VariableSizeVector;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
+import org.maplibre.mlt.vector.BitVector;
+import org.maplibre.mlt.vector.VariableSizeVector;
 
 public class StringFsstDictionaryVector extends VariableSizeVector<String> {
   // TODO: extend from StringVector

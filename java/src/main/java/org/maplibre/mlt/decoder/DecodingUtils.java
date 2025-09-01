@@ -1,6 +1,5 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.converter.geometry.ZOrderCurve;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -12,6 +11,7 @@ import me.lemire.integercompression.*;
 import org.apache.orc.impl.BufferChunk;
 import org.apache.orc.impl.InStream;
 import org.apache.orc.impl.RunLengthByteReader;
+import org.maplibre.mlt.converter.geometry.ZOrderCurve;
 
 public class DecodingUtils {
   private DecodingUtils() {}

@@ -2,10 +2,6 @@ package org.maplibre.mlt.decoder.vectorized;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.encodings.GeometryEncoder;
-import org.maplibre.mlt.converter.geometry.Vertex;
-import org.maplibre.mlt.vector.BitVector;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -15,6 +11,10 @@ import java.util.stream.IntStream;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.converter.encodings.GeometryEncoder;
+import org.maplibre.mlt.converter.geometry.Vertex;
+import org.maplibre.mlt.vector.BitVector;
 
 public class VectorizedDecodingUtilsTest {
 

@@ -1,12 +1,12 @@
 package org.maplibre.mlt.decoder;
 
-import org.maplibre.mlt.converter.encodings.*;
-import org.maplibre.mlt.metadata.stream.*;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
+import org.maplibre.mlt.converter.encodings.*;
+import org.maplibre.mlt.metadata.stream.*;
 
 public class IntegerDecoderTest {
 

@@ -1,6 +1,5 @@
 package org.maplibre.mlt.converter.encodings;
 
-import org.maplibre.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -20,6 +19,7 @@ import org.apache.orc.impl.OutStream;
 import org.apache.orc.impl.RunLengthByteWriter;
 import org.apache.orc.impl.RunLengthIntegerWriter;
 import org.apache.orc.impl.writer.StreamOptions;
+import org.maplibre.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 
 public class EncodingUtils {
 

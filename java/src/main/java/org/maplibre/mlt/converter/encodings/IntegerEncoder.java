@@ -1,12 +1,12 @@
 package org.maplibre.mlt.converter.encodings;
 
 import com.google.common.collect.Lists;
-import org.maplibre.mlt.metadata.stream.*;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.ArrayUtils;
+import org.maplibre.mlt.metadata.stream.*;
 
 /*
  * TODO: Add sampling strategy for encoding selection

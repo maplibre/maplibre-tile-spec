@@ -1,13 +1,13 @@
 package org.maplibre.mlt.vector.dictionary;
 
-import org.maplibre.mlt.vector.BitVector;
-import org.maplibre.mlt.vector.VariableSizeVector;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import me.lemire.integercompression.differential.Delta;
 import org.apache.commons.lang3.ArrayUtils;
+import org.maplibre.mlt.vector.BitVector;
+import org.maplibre.mlt.vector.VariableSizeVector;
 
 public class StringDictionaryVector extends VariableSizeVector<String> implements Iterable<String> {
   /** Specifies where a specific string starts in the data buffer for a given index */

@@ -1,8 +1,8 @@
 package org.maplibre.mlt.converter;
 
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import java.util.List;
 import java.util.Optional;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
 
 /**
  * @param allowSorting Specifies if the FeatureTable can be sorted or the specified order has to be

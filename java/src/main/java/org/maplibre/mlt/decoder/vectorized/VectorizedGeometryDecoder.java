@@ -1,15 +1,15 @@
 package org.maplibre.mlt.decoder.vectorized;
 
+import java.nio.IntBuffer;
+import java.util.Optional;
+import me.lemire.integercompression.IntWrapper;
+import org.apache.commons.lang3.NotImplementedException;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.MortonEncodedStreamMetadata;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.vector.VectorType;
 import org.maplibre.mlt.vector.geometry.GeometryVector;
 import org.maplibre.mlt.vector.geometry.TopologyVector;
-import java.nio.IntBuffer;
-import java.util.Optional;
-import me.lemire.integercompression.IntWrapper;
-import org.apache.commons.lang3.NotImplementedException;
 
 public class VectorizedGeometryDecoder {
   public record GeometryColumn(

@@ -2,10 +2,6 @@ package org.maplibre.mlt.converter.encodings;
 
 import static org.maplibre.mlt.converter.encodings.LinearRegression.*;
 
-import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.converter.geometry.HilbertCurve;
-import org.maplibre.mlt.converter.geometry.Vertex;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -15,6 +11,10 @@ import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.converter.geometry.HilbertCurve;
+import org.maplibre.mlt.converter.geometry.Vertex;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
 
 public class LinearRegressionTest {
 

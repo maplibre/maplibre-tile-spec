@@ -2,17 +2,6 @@ package org.maplibre.mlt;
 
 import static org.maplibre.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 
-import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.FeatureTableOptimizations;
-import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.RenderingOptimizedConversionConfig;
-import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.data.Feature;
-import org.maplibre.mlt.data.Layer;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +21,17 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
+import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.RenderingOptimizedConversionConfig;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class MltGenerator {
   private static final int MIN_ZOOM = 0;

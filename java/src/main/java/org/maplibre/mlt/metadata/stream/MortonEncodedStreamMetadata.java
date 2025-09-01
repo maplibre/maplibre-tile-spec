@@ -1,9 +1,9 @@
 package org.maplibre.mlt.metadata.stream;
 
-import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.decoder.DecodingUtils;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.ArrayUtils;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class MortonEncodedStreamMetadata extends StreamMetadata {
   private int numBits;

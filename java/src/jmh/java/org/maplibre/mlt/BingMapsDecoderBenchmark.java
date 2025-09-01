@@ -1,9 +1,5 @@
 package org.maplibre.mlt;
 
-import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
-import org.maplibre.mlt.vector.FeatureTable;
 import io.github.sebasbaumh.mapbox.vectortile.adapt.jts.model.JtsMvt;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -12,6 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import no.ecc.vectortile.VectorTileDecoder;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.decoder.MltDecoder;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.vector.FeatureTable;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;
 

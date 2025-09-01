@@ -1,5 +1,9 @@
 package org.maplibre.mlt.decoder.vectorized;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
@@ -14,10 +18,6 @@ import org.maplibre.mlt.vector.dictionary.StringSharedDictionaryVector;
 import org.maplibre.mlt.vector.flat.StringFlatVector;
 import org.maplibre.mlt.vector.fsstdictionary.StringFsstDictionaryVector;
 import org.maplibre.mlt.vector.fsstdictionary.StringSharedFsstDictionaryVector;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-import me.lemire.integercompression.IntWrapper;
 
 public class VectorizedStringDecoder {
 

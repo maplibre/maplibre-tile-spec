@@ -1,12 +1,12 @@
 package org.maplibre.mlt.vector.flat;
 
-import org.maplibre.mlt.vector.BitVector;
-import org.maplibre.mlt.vector.VariableSizeVector;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import me.lemire.integercompression.differential.Delta;
+import org.maplibre.mlt.vector.BitVector;
+import org.maplibre.mlt.vector.VariableSizeVector;
 
 // string as ByteBuffer -> new String(buffer, StandardCharsets.US_ASCII);
 // Or String as CharBuffer -> buffer.subequence(2, 10).toString() -> lazy evaluation for filtering
