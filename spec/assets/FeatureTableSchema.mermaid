@@ -1,0 +1,156 @@
+---
+title: FeatureTableSchema
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    note for LogicalScalarType "[EXPERIMENTAL]"
+    note for ComplexColumn "[EXPERIMENTAL]"
+    note for ComplexField "[EXPERIMENTAL]"
+    note for ComplexType "[EXPERIMENTAL]"
+    note for LogicalComplexType "[EXPERIMENTAL]"
+    note for Field "[EXPERIMENTAL]"
+    note for ScalarField "[EXPERIMENTAL]"
+
+    %% ---------------- Tile ----------------
+    class Tile {
+      +LayerGroup[] groups
+    }
+
+    %% ---------------- LayerGroup ----------------
+    class LayerGroup {
+	  +VarInt metadataSize
+	  +TileMetadata metadata
+      +u8[] tileData
+    }
+
+    %% ---------------- TileMetadata ----------------
+    class TileMetadata {
+      +FeatureTable[] featureTables
+    }
+
+    %% ---------------- FeatureTable ----------------
+    class FeatureTable {
+      +String name
+      +VarInt columnCount
+      +Column[] columns
+    }
+
+    %% ---------------- Column ----------------
+    class Column {
+      +ColumnOptions options %% VarInt
+      +String name
+      +ScalarColumn scalarType %% oneof i.e., scalarType XOR complexType
+      +ComplexColumn complexType
+    }
+
+    %% ---------------- ScalarColumn ----------------
+    class ScalarColumn {
+      +ScalarColumnOptions options %% VarInt
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalScalarType logicalType
+    }
+
+    %% ---------------- ComplexColumn [EXPERIMENTAL] ----------------
+    class ComplexColumn {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
+    %% ---------------- Field ----------------
+    class Field {
+      +FieldOptions options %% VarInt
+      +String name
+      +ScalarField scalarField %% oneof i.e., scalarField XOR complexField
+      +ComplexField complexField
+    }
+
+    %% ---------------- ScalarField ----------------
+    class ScalarField {
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalScalarType logicalType
+    }
+
+    %% ---------------- ComplexField [EXPERIMENTAL] ----------------
+    class ComplexField {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
+    %% ---------------- String ------------------
+    class String {
+      +VarInt length
+      +u8 bytes[length] %% encoding is always UTF-8
+    }
+
+    %% ---------------- Enumerations ----------------
+    class ScalarType {
+      <<enumeration>>
+      BOOLEAN = 0
+      INT_8 = 1
+      UINT_8 = 2
+      INT_32 = 3
+      UINT_32 = 4
+      INT_64 = 5
+      UINT_64 = 6
+      FLOAT = 7
+      DOUBLE = 8
+      STRING = 9
+      INT_128 = 10
+      UINT_128 = 11
+    }
+
+    class LogicalScalarType {
+      <<enumeration>>
+      TIMESTAMP = 0
+      DATE = 1
+      JSON = 2
+    }
+
+    class ComplexType {
+      <<enumeration>>
+      VEC_2 = 0
+      VEC_3 = 1
+      GEOMETRY = 2
+      GEOMETRY_Z = 3
+      LIST = 4
+      MAP = 5
+      STRUCT = 6
+    }
+
+    class LogicalComplexType {
+      <<enumeration>>
+      BINARY = 0
+      RANGE_MAP = 1
+    }
+
+    class FieldOptions {
+      <<enumeration>>
+      NULLABLE = 1, %% Property is nullable
+      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType [EXPERIMENTAL]
+      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type [EXPERIMENTAL]
+      CHILD_TYPES = 8, %% 1: Child types are present [EXPERIMENTAL]
+    }
+
+    class ColumnOptions {
+      <<enumeration>>
+      VERTEX_SCOPE = 16, %% Property is vertex-scope if set, else feature-scope
+    }
+
+    %% ---------------- Associations ----------------
+    FieldOptions <|-- ColumnOptions
+    Tile --> LayerGroup : groups
+	LayerGroup --> TileMetadata : metadata
+    TileMetadata --> FeatureTable : featureTables
+    FeatureTable --> Column : columns
+    Column --> ScalarColumn : scalarType
+    Column --> ComplexColumn : complexType
+    ComplexColumn --> Field : children
+    ComplexField --> Field : children
+    Field --> ComplexField : complexField
+    Field --> ScalarField : scalarField
