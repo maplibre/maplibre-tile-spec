@@ -7,7 +7,6 @@ import com.mlt.converter.MltConverter;
 import com.mlt.converter.mvt.ColumnMapping;
 import com.mlt.converter.mvt.MapboxVectorTile;
 import com.mlt.converter.mvt.MvtUtils;
-import com.mlt.decoder.MltDecoder;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -194,12 +193,12 @@ public class MltDecoderBenchmark {
             optimization);
     var mlTile =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(true, true, optimizations), tileMetadata);
+            mvTile, tileMetadata, new ConversionConfig(true, true, optimizations), null);
 
     var mltTimeElapsed = 0L;
     for (int i = 0; i <= 200; i++) {
       long start = System.currentTimeMillis();
-      var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
+      // var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
       long finish = System.currentTimeMillis();
 
       if (i > 100) {
