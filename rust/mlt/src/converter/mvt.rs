@@ -1,5 +1,5 @@
-use geozero::mvt::{Message, Tile};
 use geozero::ToGeo;
+use geozero::mvt::{Message, Tile};
 
 use crate::data::{Feature, Layer, Value};
 
@@ -15,6 +15,7 @@ pub struct MapVectorTile {
     pub layers: Vec<Layer>,
 }
 
+#[must_use]
 pub fn decode_mvt(mvt_tile: &[u8]) -> MapVectorTile {
     let mut tile = Tile::decode(mvt_tile).expect("Failed to decode MVT");
     let mut layers: Vec<Layer> = Vec::new();
@@ -29,7 +30,7 @@ pub fn decode_mvt(mvt_tile: &[u8]) -> MapVectorTile {
                     .keys
                     .iter()
                     .zip(layer.values.iter())
-                    .map(|(k, v)| (k.replace("_", ":"), Value::from(v.clone())))
+                    .map(|(k, v)| (k.replace('_', ":"), Value::from(v.clone())))
                     .collect(),
             };
             features.push(feature);

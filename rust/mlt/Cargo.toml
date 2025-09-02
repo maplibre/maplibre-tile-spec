@@ -1,29 +1,33 @@
 [package]
 name = "mlt"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.83.0"
+description = "MapLibre Tile format"
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 bitvec = "1.0.1"
 bytes = "1.10.1"
 bytes-varint = "1.1.0"
-fastpfor = { version = "0.6.2", features = ["rust"] }
+fastpfor = { version = "0.6.3", features = ["cpp", "rust"] }
 geo-types = "0.7.15"
 geozero = { version = "0.14", features = ["with-mvt"] }
 indexmap = "2.7.1"
+morton-encoding = "2.0.1"
+num-traits = "0.2.19"
 num_enum = "0.7.3"
-prost = "0.13.5"
-prost-types = "0.13.5"
+prost = "0.14.1"
+prost-types = "0.14.1"
+serde_columnar = "0.3.11"
 thiserror = "2.0.11"
 zigzag = "0.1.0"
-serde_columnar = "0.3.11"
-num-traits = "0.2.19"
-morton-encoding = "2.0.1"
-cxx = { version = "1.0.136", optional = true }
 
 [build-dependencies]
-prost-build = "0.13.5"
+prost-build = "0.14.1"
 
-[lints.rust]
-dead_code = "allow"
+[lints]
+workspace = true
