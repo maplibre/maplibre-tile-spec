@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.NotImplementedException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -159,7 +161,9 @@ public class MltDecoderTest2 {
   @MethodSource("omtProvider")
   @Disabled
   public void decodeOMTTiles2(String tileId) throws IOException {
-    if (tileId == "13_4265_5467" || tileId == "14_8298_10748" || tileId == "14_8299_10748") {
+    if (Objects.equals(tileId, "13_4265_5467")
+        || Objects.equals(tileId, "14_8298_10748")
+        || Objects.equals(tileId, "14_8299_10748")) {
       // TODO remove this special case for these 3 tiles once this bug is fixed:
       // https://github.com/maplibre/maplibre-tile-spec/issues/183
       var exception =
@@ -206,37 +210,25 @@ public class MltDecoderTest2 {
     var includeIds = true;
     var mlTile =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(includeIds, false, optimizations), tileMetadata);
+            mvTile, tileMetadata, new ConversionConfig(includeIds, false, optimizations), null);
     var mlTileAdvanced =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(includeIds, true, optimizations), tileMetadata);
+            mvTile, tileMetadata, new ConversionConfig(includeIds, true, optimizations), null);
     int numErrors = -1;
     int numErrorsAdvanced = -1;
     if (decoder == DecoderType.SEQUENTIAL || decoder == DecoderType.BOTH) {
       if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
         var decodedAdvanced = MltDecoder.decodeMlTile(mlTileAdvanced, tileMetadata);
-        if (numErrorsAdvanced == -1) numErrorsAdvanced = 0;
         numErrorsAdvanced +=
             TestUtils.compareTilesSequential(decodedAdvanced, mvTile, allowSorting);
       }
       if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
         var decoded = MltDecoder.decodeMlTile(mlTile, tileMetadata);
-        if (numErrors == -1) numErrors = 0;
         numErrors += TestUtils.compareTilesSequential(decoded, mvTile, allowSorting);
       }
     }
     if (decoder == DecoderType.VECTORIZED || decoder == DecoderType.BOTH) {
-      if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
-        var decodedAdvanced = MltDecoder.decodeMlTileVectorized(mlTileAdvanced, tileMetadata);
-        if (numErrorsAdvanced == -1) numErrorsAdvanced = 0;
-        numErrorsAdvanced +=
-            TestUtils.compareTilesVectorized(decodedAdvanced, mvTile, allowSorting);
-      }
-      if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
-        var decoded = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-        if (numErrors == -1) numErrors = 0;
-        numErrors += TestUtils.compareTilesVectorized(decoded, mvTile, allowSorting);
-      }
+      throw new NotImplementedException("Vectorized decoding is not available");
     }
     return new DecodingResult(numErrors, numErrorsAdvanced);
   }

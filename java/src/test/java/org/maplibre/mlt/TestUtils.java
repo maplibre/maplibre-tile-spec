@@ -59,6 +59,8 @@ public class TestUtils {
             /* Handle shared dictionary case -> currently only String is supported
              * as nested property in the converter, so only handle this case */
             var mvtProperties = mvtFeature.properties();
+
+            @SuppressWarnings("unchecked")
             var nestedStringValues = (Map<String, String>) mltPropertyValue;
             var mvtStringProperties =
                 mvtProperties.entrySet().stream()

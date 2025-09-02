@@ -3,6 +3,8 @@ package org.maplibre.mlt.decoder;
 import static org.maplibre.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
@@ -35,20 +37,6 @@ public class MltDecoderTest {
         Triple.of(4, 8, 5), Triple.of(5, 16, 11), Triple.of(6, 32, 22), Triple.of(7, 65, 42));
   }
 
-  @DisplayName("Decode unsorted Bing Maps based vector tiles")
-  @ParameterizedTest
-  @MethodSource("bingMapsTileIdProvider")
-  @Disabled
-  public void decodeMlTileVectorized_UnsortedBingMaps(Triple<Integer, Integer, Integer> tileId)
-      throws IOException {
-    // TODO: fix -> 5-15-10, 5-17-10, 5-17-11, 7-65-42, 9-259-176
-    var id = String.format("%s-%s-%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
-    System.out.println(
-        "id: " + id + " -----------------------------------------------------------");
-    testTileVectorized(
-        id, TestSettings.BING_MVT_PATH, TestUtils.Optimization.NONE, List.of(), true);
-  }
-
   private static Stream<Triple<Integer, Integer, Integer>> omtTileIdProvider() {
     return Stream.of(
         Triple.of(0, 0, 0),
@@ -68,57 +56,6 @@ public class MltDecoderTest {
         Triple.of(14, 8298, 10748));
   }
 
-  /* Decode tiles in an in-memory format optimized for random access */
-
-  @DisplayName("Decode sorted OpenMapTiles schema based vector tiles without advanced encodings")
-  @ParameterizedTest
-  @MethodSource("omtTileIdProvider")
-  @Disabled
-  public void decodeMlTileVectorized_UnSortedOMTWithoutAdvancedEncodings(
-      Triple<Integer, Integer, Integer> tileId) throws IOException {
-    // TODO: fix 10_531_683
-    var id = String.format("%s_%s_%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
-    testTileVectorized(id, TestSettings.OMT_MVT_PATH, TestUtils.Optimization.NONE, List.of(), true);
-  }
-
-  @DisplayName("Decode unsorted OpenMapTiles schema based vector tiles")
-  @ParameterizedTest
-  @MethodSource("omtTileIdProvider")
-  @Disabled
-  public void decodeMlTileVectorized_UnsortedOMT(Triple<Integer, Integer, Integer> tileId)
-      throws IOException {
-    var id = String.format("%s_%s_%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
-    testTileVectorized(id, TestSettings.OMT_MVT_PATH, TestUtils.Optimization.NONE, List.of(), true);
-  }
-
-  @DisplayName("Decode sorted OpenMapTiles schema based vector tiles")
-  @ParameterizedTest
-  @MethodSource("omtTileIdProvider")
-  @Disabled
-  public void decodeMlTileVectorized_SortedOMT(Triple<Integer, Integer, Integer> tileId)
-      throws IOException {
-    // TODO: fix 10_531_683
-    var id = String.format("%s_%s_%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
-    testTileVectorized(
-        id, TestSettings.OMT_MVT_PATH, TestUtils.Optimization.SORTED, List.of(), true);
-  }
-
-  @DisplayName("Decode OpenMapTiles schema based vector tiles with reassigned ids")
-  @ParameterizedTest
-  @MethodSource("omtTileIdProvider")
-  @Disabled
-  public void decodeMlTileVectorized_ReassignedIdOMT(Triple<Integer, Integer, Integer> tileId)
-      throws IOException {
-    // TODO: fix 10_531_683
-    var id = String.format("%s_%s_%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
-    testTileVectorized(
-        id,
-        TestSettings.OMT_MVT_PATH,
-        TestUtils.Optimization.IDS_REASSIGNED,
-        ID_REASSIGNABLE_MVT_LAYERS,
-        true);
-  }
-
   /* Decode tiles in an in-memory format optimized for sequential access */
 
   @DisplayName("Decode scalar unsorted OpenMapTiles schema based vector tiles")
@@ -126,7 +63,7 @@ public class MltDecoderTest {
   @MethodSource("omtTileIdProvider")
   @Disabled
   public void decodeMlTile_UnsortedOMT(Triple<Integer, Integer, Integer> tileId)
-      throws IOException {
+      throws IOException, URISyntaxException {
     // TODO: fix -> 2_2_2
     if (tileId.getLeft() == 2) {
       return;
@@ -136,26 +73,8 @@ public class MltDecoderTest {
     testTileSequential(id, TestSettings.OMT_MVT_PATH);
   }
 
-  private void testTileVectorized(
-      String tileId,
-      String tileDirectory,
-      TestUtils.Optimization optimization,
-      List<String> reassignableLayers,
-      boolean advancedEncodings)
-      throws IOException {
-    testTile(
-        tileId,
-        tileDirectory,
-        (mlTile, tileMetadata, mvTile) -> {
-          var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-          TestUtils.compareTilesVectorized(decodedTile, mvTile, optimization, reassignableLayers);
-        },
-        optimization,
-        reassignableLayers,
-        advancedEncodings);
-  }
-
-  private void testTileSequential(String tileId, String tileDirectory) throws IOException {
+  private void testTileSequential(String tileId, String tileDirectory)
+      throws IOException, URISyntaxException {
     testTile(
         tileId,
         tileDirectory,
@@ -175,7 +94,7 @@ public class MltDecoderTest {
       TestUtils.Optimization optimization,
       List<String> reassignableLayers,
       boolean advancedEncodings)
-      throws IOException {
+      throws IOException, URISyntaxException {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
@@ -198,10 +117,13 @@ public class MltDecoderTest {
       }
     }
 
-    var mlTile =
-        MltConverter.convertMvt(
-            mvTile, new ConversionConfig(true, advancedEncodings, optimizations), tileMetadata);
+    var config = new ConversionConfig(true, advancedEncodings, optimizations);
 
+    var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
+    decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
+
+    mlTile =
+        MltConverter.convertMvt(mvTile, tileMetadata, config, new URI("http://localhost:3000"));
     decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
   }
 }

@@ -1,4 +1,4 @@
-package org.maplibre.mlt.tools;
+package org.maplibre.mlt.cli;
 
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.vector.FeatureTable;

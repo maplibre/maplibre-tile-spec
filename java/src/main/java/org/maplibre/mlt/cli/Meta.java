@@ -1,4 +1,4 @@
-package org.maplibre.mlt.tools;
+package org.maplibre.mlt.cli;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,24 +26,28 @@ public class Meta {
   public static void main(String[] args) {
     Options options = new Options();
     options.addOption(
-        Option.builder(FILE_NAME_ARG)
+        Option.builder()
+            .longOpt(FILE_NAME_ARG)
             .hasArg(true)
             .desc("Path to the input MVT file to read ([REQUIRED])")
             .required(true)
             .build());
     options.addOption(
-        Option.builder(OUTPUT_DIR_ARG)
+        Option.builder()
+            .longOpt(OUTPUT_DIR_ARG)
             .hasArg(true)
-            .desc("Output directory to write a mltmetadata.pbf file to ([REQUIRED])")
+            .desc("Output directory to write a metadata file to")
             .required(false)
             .build());
     options.addOption(
-        Option.builder(OUTPUT_FILE_ARG)
+        Option.builder()
+            .longOpt(OUTPUT_FILE_ARG)
             .hasArg(true)
             .desc("Output file to write an MLT file to ([OPTIONAL], default: no file is written)")
             .required(false)
             .build());
-    options.addOption(Option.builder(OPTION_HELP_ARG).hasArg(false).required(false).build());
+    options.addOption(
+        Option.builder().longOpt(OPTION_HELP_ARG).hasArg(false).required(false).build());
     CommandLineParser parser = new DefaultParser();
     HelpFormatter formatter = new HelpFormatter();
     formatter.setOptionComparator(null);
@@ -72,8 +76,9 @@ public class Meta {
       // https://github.com/maplibre/maplibre-tile-spec/issues/59
       var columnMappings = Optional.<List<ColumnMapping>>empty();
       var isIdPresent = true;
-      var tileMetadata =
+      var pbfMetadata =
           MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
+      var tileMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
       Path outputPath = null;
       if (cmd.hasOption(OUTPUT_DIR_ARG)) {
         var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
@@ -90,7 +95,7 @@ public class Meta {
       System.out.println("Writing converted tile to " + outputPath);
       if (Files.exists(outputPath)) {
         long existingFileSize = Files.size(outputPath);
-        long newFileSize = tileMetadata.getSerializedSize();
+        long newFileSize = tileMetadata.length;
         if (existingFileSize != newFileSize) {
           System.out.println("Metadata size has changed. Overwriting metadata: " + outputPath);
         } else {
@@ -98,7 +103,7 @@ public class Meta {
           return;
         }
       }
-      tileMetadata.writeTo(Files.newOutputStream(outputPath));
+      Files.write(outputPath, tileMetadata);
     } catch (Exception e) {
       formatter.printHelp("meta", "\n", options, "Error:\n  " + e.getMessage(), true);
       System.exit(1);

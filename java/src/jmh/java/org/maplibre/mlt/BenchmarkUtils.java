@@ -28,7 +28,7 @@ public class BenchmarkUtils {
       Map<Integer, ByteArrayInputStream> encodedMvtTiles2,
       Map<Integer, byte[]> compressedMvtTiles,
       Map<Integer, byte[]> encodedMltTiles,
-      Map<Integer, MltTilesetMetadata.TileSetMetadata> tileMetadata,
+      Map<Integer, byte[]> tileMetadata,
       String path,
       String separator)
       throws IOException {
@@ -42,7 +42,7 @@ public class BenchmarkUtils {
     var metadata =
         MltConverter.createTilesetMetadata(
             List.of(encodedMvtTile.getRight()), columnMappings, true);
-    tileMetadata.put(z, metadata);
+    tileMetadata.put(z, MltConverter.createEmbeddedMetadata(metadata));
 
     var allowIdRegeneration = true;
     var allowSorting = true;
@@ -51,9 +51,8 @@ public class BenchmarkUtils {
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
-    var encodedMltTile =
-        MltConverter.convertMvt(
-            encodedMvtTile.getRight(), new ConversionConfig(true, true, optimizations), metadata);
+    var config = new ConversionConfig(true, true, optimizations);
+    var encodedMltTile = MltConverter.convertMvt(encodedMvtTile.getRight(), metadata, config, null);
     encodedMltTiles.put(z, encodedMltTile);
   }
 

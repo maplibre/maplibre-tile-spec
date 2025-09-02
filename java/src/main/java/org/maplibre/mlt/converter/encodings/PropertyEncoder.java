@@ -21,7 +21,8 @@ public class PropertyEncoder {
       List<MltTilesetMetadata.Column> propertyColumns,
       List<Feature> features,
       boolean useAdvancedEncodings,
-      Optional<List<ColumnMapping>> columnMappings)
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings)
       throws IOException {
     /*
      * TODOs: - detect if column is nullable to get rid of the present stream - test boolean rle

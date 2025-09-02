@@ -145,17 +145,12 @@ public class CompressionBenchmarks {
 
     var mlTile =
         MltConverter.convertMvt(
-            mvTile, new ConversionConfig(true, true, optimizations), tileMetadata);
+            mvTile, tileMetadata, new ConversionConfig(true, true, optimizations), null);
 
     if (reassignableLayers.isEmpty()) {
       /* Only test when the ids are not reassigned since it is verified based on the other tests */
-      var decodedMlt = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
-      System.out.println("Comparing tiles: " + tilePath);
-      TestUtils.compareTilesVectorized(
-          decodedMlt,
-          mvTile,
-          allowSorting ? TestUtils.Optimization.SORTED : TestUtils.Optimization.NONE,
-          null);
+      var decodedMlt = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+      System.out.println("Vectorized Decoding not implemented");
     }
 
     var mvtSize = Files.readAllBytes(mvtFilePath).length;

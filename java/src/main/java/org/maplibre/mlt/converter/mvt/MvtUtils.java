@@ -76,7 +76,10 @@ public class MvtUtils {
   }
 
   public static MapboxVectorTile decodeMvt(
-      byte[] mvtTile, Optional<List<ColumnMapping>> columnMappings) throws IOException {
+      byte[] mvtTile,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings)
+      throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 
@@ -145,7 +148,9 @@ public class MvtUtils {
   }
 
   private static Map<String, Object> transformNestedPropertyNames(
-      Map<?, ?> properties, Optional<List<ColumnMapping>> columnMappings) {
+      Map<?, ?> properties,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+          Optional<List<ColumnMapping>> columnMappings) {
     var transformedProperties = new LinkedHashMap<String, Object>();
     properties.forEach(
         (k, v) -> {

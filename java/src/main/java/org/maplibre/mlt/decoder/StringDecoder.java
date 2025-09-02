@@ -86,14 +86,15 @@ public class StringDecoder {
     }
 
     List<String> dictionary = null;
-    if (symbolTableStream != null) {
+    if (symbolTableStream != null && dictionaryLengthStream != null) {
+      @SuppressWarnings("deprecation")
       var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
               symbolLengthStream.stream().mapToInt(i -> i).toArray(),
               dictionaryStream);
       dictionary = decodeDictionary(dictionaryLengthStream, utf8Values);
-    } else {
+    } else if (dictionaryLengthStream != null) {
       dictionary = decodeDictionary(dictionaryLengthStream, dictionaryStream);
     }
 
@@ -217,7 +218,8 @@ public class StringDecoder {
       }
     }
 
-    if (symbolTableStream != null) {
+    if (symbolTableStream != null && dictionaryLengthStream != null) {
+      @SuppressWarnings("deprecation")
       var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
@@ -228,7 +230,7 @@ public class StringDecoder {
           presentStream,
           decodeDictionary(
               presentStream, dictionaryLengthStream, utf8Values, offsetStream, numValues));
-    } else if (dictionaryStream != null) {
+    } else if (dictionaryStream != null && dictionaryLengthStream != null) {
       return Triple.of(
           numValues,
           presentStream,
@@ -325,6 +327,8 @@ public class StringDecoder {
             data,
             compressedCorpusOffset.get(),
             compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
+
+    @SuppressWarnings("deprecation")
     var values =
         FsstEncoder.decode(
             symbols, symbolLength.stream().mapToInt(i -> i).toArray(), compressedCorpus);

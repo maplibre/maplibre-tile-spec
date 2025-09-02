@@ -1,4 +1,4 @@
-package org.maplibre.mlt.tools;
+package org.maplibre.mlt.cli;
 
 public class Timer {
   private long startTime;
