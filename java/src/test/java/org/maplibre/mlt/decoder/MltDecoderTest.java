@@ -1,7 +1,5 @@
 package org.maplibre.mlt.decoder;
 
-import static org.maplibre.mlt.TestSettings.ID_REASSIGNABLE_MVT_LAYERS;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;

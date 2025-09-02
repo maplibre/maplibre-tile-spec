@@ -11,22 +11,8 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
-import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
-import org.maplibre.mlt.decoder.vectorized.VectorizedIntegerDecoder;
-import org.maplibre.mlt.metadata.stream.RleEncodedStreamMetadata;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
-import org.maplibre.mlt.vector.BitVector;
-import org.maplibre.mlt.vector.FeatureTable;
-import org.maplibre.mlt.vector.Vector;
-import org.maplibre.mlt.vector.VectorType;
-import org.maplibre.mlt.vector.constant.IntConstVector;
-import org.maplibre.mlt.vector.constant.LongConstVector;
-import org.maplibre.mlt.vector.flat.IntFlatVector;
-import org.maplibre.mlt.vector.flat.LongFlatVector;
-import org.maplibre.mlt.vector.geometry.GeometryVector;
-import org.maplibre.mlt.vector.sequence.IntSequenceVector;
-import org.maplibre.mlt.vector.sequence.LongSequenceVector;
 
 public class MltDecoder {
   private static final String ID_COLUMN_NAME = "id";

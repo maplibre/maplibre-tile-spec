@@ -10,8 +10,6 @@ import java.util.concurrent.TimeUnit;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import org.maplibre.mlt.vector.FeatureTable;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;

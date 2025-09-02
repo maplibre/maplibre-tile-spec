@@ -15,7 +15,6 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
 
 /**
  * Quick and dirty benchmarks for the decoding of OpenMapTiles schema based tiles into the MVT and

@@ -16,7 +16,6 @@ import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class BenchmarkUtils {
 

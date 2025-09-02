@@ -21,7 +21,6 @@ import org.apache.orc.impl.OutStream;
 import org.apache.orc.impl.RunLengthByteWriter;
 import org.apache.orc.impl.RunLengthIntegerWriter;
 import org.apache.orc.impl.writer.StreamOptions;
-import org.maplibre.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 
 public class EncodingUtils {
 

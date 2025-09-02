@@ -16,7 +16,6 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.TestUtils;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;

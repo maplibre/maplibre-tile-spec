@@ -9,7 +9,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.maplibre.mlt.decoder.MltDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class Decode {
 
