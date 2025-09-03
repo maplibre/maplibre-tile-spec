@@ -19,24 +19,24 @@ cmake -GNinja -Bbuild -S. && cmake --build build --target mlt-cpp-test mlt-cpp-j
 
 To decode a tile:
 
-- Deserialize the protobuf-encoded tileset metadata
+- Deserialize the tileset metadata
 - Create a `Decoder`
 - Call `decode` with the metadata and a view on the raw tile data
+
+To use the standard packing of metadata and data within a tile, use `decodeTile`.
 
 ```cpp
 #include <mlt/decoder.hpp>
 #include <mlt/metadata/tileset.hpp>
 
-// If using protozero to decode protobuf-encoded tileset metadata
-#include <mlt/metadata/tileset_protozero.hpp>
-
 ...
 
-auto metadataBuffer = ...
 auto metadata = mlt::metadata::tileset::read({metadataBuffer.data(), metadataBuffer.size()});
 
 mlt::Decoder decoder;
-const auto tileData = decoder.decode({buffer.data(), buffer.size()}, metadata);
+const auto tile = decoder.decode({mltBuffer.data(), mltBuffer.size()}, metadata);
+
+const auto tile2 = decoder.decodeTile({tileData.data(), tileData.size()});
 ```
 
 ## Tools
