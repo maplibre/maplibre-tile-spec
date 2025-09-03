@@ -1,11 +1,12 @@
 package com.mlt.converter.encodings;
 
-import com.mlt.decoder.vectorized.fastpfor.VectorFastPFOR;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -84,20 +85,39 @@ public class EncodingUtils {
   private static int putVarInt(long v, byte[] sink, int offset) {
     do {
       // Encode next 7 bits + terminator bit
-      long bits = v & 0x7F;
+      final long bits = v & 0x7F;
       v >>>= 7;
-      byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
+      final byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
       sink[offset++] = b;
     } while (v != 0);
     return offset;
   }
 
+  @SuppressWarnings("UnusedReturnValue")
+  public static DataOutputStream putVarInt(DataOutputStream stream, long v) throws IOException {
+    do {
+      // Encode next 7 bits + terminator bit
+      final long bits = v & 0x7F;
+      v >>>= 7;
+      stream.writeByte((byte) (bits + ((v != 0) ? 0x80 : 0)));
+    } while (v != 0);
+    return stream;
+  }
+
+  @SuppressWarnings("UnusedReturnValue")
+  public static DataOutputStream putString(DataOutputStream stream, String s) throws IOException {
+    var bytes = s.getBytes(StandardCharsets.UTF_8);
+    putVarInt(stream, bytes.length);
+    stream.write(bytes);
+    return stream;
+  }
+
   public static long[] encodeZigZag(long[] values) {
-    return Arrays.stream(values).map(value -> EncodingUtils.encodeZigZag(value)).toArray();
+    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
   }
 
   public static int[] encodeZigZag(int[] values) {
-    return Arrays.stream(values).map(value -> EncodingUtils.encodeZigZag(value)).toArray();
+    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
   }
 
   public static long encodeZigZag(long value) {
@@ -110,7 +130,7 @@ public class EncodingUtils {
 
   public static long[] encodeDeltas(long[] values) {
     var deltaValues = new long[values.length];
-    var previousValue = 0l;
+    var previousValue = 0L;
     for (var i = 0; i < values.length; i++) {
       var value = values[i];
       deltaValues[i] = value - previousValue;
@@ -176,7 +196,7 @@ public class EncodingUtils {
   public static Pair<List<Integer>, List<Long>> encodeRle(long[] values) {
     var valueBuffer = new ArrayList<Long>();
     var runsBuffer = new ArrayList<Integer>();
-    var previousValue = 0l;
+    var previousValue = 0L;
     var runs = 0;
     for (var i = 0; i < values.length; i++) {
       var value = values[i];
@@ -210,46 +230,6 @@ public class EncodingUtils {
     }
 
     IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
-    IntWrapper inputoffset = new IntWrapper(0);
-    IntWrapper outputoffset = new IntWrapper(0);
-    int[] compressed = new int[encodedValues.length + 1024];
-    ic.compress(encodedValues, inputoffset, encodedValues.length, compressed, outputoffset);
-    var totalSize = outputoffset.intValue() * 4;
-
-    var compressedBuffer = new byte[totalSize];
-    var valueCounter = 0;
-    for (var i = 0; i < totalSize; i += 4) {
-      var value = compressed[valueCounter++];
-      var val1 = (byte) (value >>> 24);
-      var val2 = (byte) (value >>> 16);
-      var val3 = (byte) (value >>> 8);
-      var val4 = (byte) value;
-
-      compressedBuffer[i] = val1;
-      compressedBuffer[i + 1] = val2;
-      compressedBuffer[i + 2] = val3;
-      compressedBuffer[i + 3] = val4;
-    }
-
-    return compressedBuffer;
-  }
-
-  public static byte[] encodeFastPfor128Vectorized(
-      int[] values, boolean zigZagEncode, boolean deltaEncode) {
-    /*
-     * Note that this does not use differential coding: if you are working on sorted lists,
-     * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
-     * */
-    var encodedValues = values;
-    if (deltaEncode) {
-      encodedValues = encodeDeltas(values);
-    }
-
-    if (zigZagEncode) {
-      encodedValues = encodeZigZag(encodedValues);
-    }
-
-    IntegerCODEC ic = new Composition(new VectorFastPFOR(), new VariableByte());
     IntWrapper inputoffset = new IntWrapper(0);
     IntWrapper outputoffset = new IntWrapper(0);
     int[] compressed = new int[encodedValues.length + 1024];

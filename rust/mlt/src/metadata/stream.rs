@@ -38,42 +38,28 @@ impl StreamMetadata {
         // let stream_type = tile
         //     .get(offset.position() as usize)
         //     .ok_or(MltError::DecodeError("Failed to read...".into()))?;
-        let stream_type = tile.get_u8();
 
-        let physical_stream_type =
-            PhysicalStreamType::try_from(stream_type >> 4).map_err(|_| {
-                MltError::InvalidDiscriminant {
-                    kind: "PhysicalStreamType",
-                    code: stream_type >> 4,
-                }
-            })?;
+        let stream_type = tile.get_u8();
+        let physical_code = stream_type >> 4;
+        let subtype_code = stream_type & 0x0F;
+
+        let physical_stream_type = PhysicalStreamType::try_from(physical_code)
+            .map_err(|_| MltError::InvalidPhysicalStreamType(physical_code))?;
 
         let logical_stream_type = match physical_stream_type {
             PhysicalStreamType::Data => {
-                let dict_type = DictionaryType::try_from(stream_type & 0xF).map_err(|_| {
-                    MltError::InvalidDiscriminant {
-                        kind: "DictionaryType",
-                        code: stream_type & 0xF,
-                    }
-                })?;
+                let dict_type = DictionaryType::try_from(subtype_code)
+                    .map_err(|_| MltError::InvalidDictionaryType(subtype_code))?;
                 Some(LogicalStreamType::Dictionary(Some(dict_type)))
             }
             PhysicalStreamType::Offset => {
-                let offset_type = OffsetType::try_from(stream_type & 0xF).map_err(|_| {
-                    MltError::InvalidDiscriminant {
-                        kind: "OffsetType",
-                        code: stream_type & 0xF,
-                    }
-                })?;
+                let offset_type = OffsetType::try_from(subtype_code)
+                    .map_err(|_| MltError::InvalidOffsetType(subtype_code))?;
                 Some(LogicalStreamType::Offset(offset_type))
             }
             PhysicalStreamType::Length => {
-                let length_type = LengthType::try_from(stream_type & 0xF).map_err(|_| {
-                    MltError::InvalidDiscriminant {
-                        kind: "LengthType",
-                        code: stream_type & 0xF,
-                    }
-                })?;
+                let length_type = LengthType::try_from(subtype_code)
+                    .map_err(|_| MltError::InvalidLengthType(subtype_code))?;
                 Some(LogicalStreamType::Length(length_type))
             }
             PhysicalStreamType::Present => None,
@@ -85,23 +71,17 @@ impl StreamMetadata {
         //     & 0xFF;
         let encoding_header = tile.get_u8();
 
-        let logical_level_technique1 = LogicalLevelTechnique::try_from(encoding_header >> 5)
-            .map_err(|_| MltError::InvalidDiscriminant {
-                kind: "LogicalLevelTechnique1",
-                code: encoding_header >> 5,
-            })?;
-        let logical_level_technique2 =
-            LogicalLevelTechnique::try_from((encoding_header >> 2) & 0x7).map_err(|_| {
-                MltError::InvalidDiscriminant {
-                    kind: "LogicalLevelTechnique2",
-                    code: (encoding_header >> 2) & 0x7,
-                }
-            })?;
-        let physical_level_technique = PhysicalLevelTechnique::try_from(encoding_header & 0x3)
-            .map_err(|_| MltError::InvalidDiscriminant {
-                kind: "PhysicalLevelTechnique",
-                code: encoding_header & 0x3,
-            })?;
+        let llt1_code = encoding_header >> 5;
+        let logical_level_technique1 = LogicalLevelTechnique::try_from(llt1_code)
+            .map_err(|_| MltError::InvalidLogicalLevelTechnique(llt1_code))?;
+
+        let llt2_code = (encoding_header >> 2) & 0x07;
+        let logical_level_technique2 = LogicalLevelTechnique::try_from(llt2_code)
+            .map_err(|_| MltError::InvalidLogicalLevelTechnique(llt2_code))?;
+
+        let plt_code = encoding_header & 0x3;
+        let physical_level_technique = PhysicalLevelTechnique::try_from(plt_code)
+            .map_err(|_| MltError::InvalidPhysicalLevelTechnique(plt_code))?;
 
         // offset.increment();
 
@@ -132,13 +112,13 @@ impl StreamMetadata {
         };
 
         if metadata.logical.technique1 == Some(MORTON) {
-            metadata.partial_decode(&MORTON, tile)?;
+            metadata.partial_decode(MORTON, tile)?;
             return Ok(metadata);
         } else if (metadata.logical.technique1 == Some(RLE)
             || metadata.logical.technique2 == Some(RLE))
             && metadata.physical.technique != PhysicalLevelTechnique::None
         {
-            metadata.partial_decode(&RLE, tile)?;
+            metadata.partial_decode(RLE, tile)?;
             return Ok(metadata);
         }
 
@@ -149,7 +129,7 @@ impl StreamMetadata {
 trait Encoding {
     fn partial_decode(
         &mut self,
-        r#type: &LogicalLevelTechnique,
+        r#type: LogicalLevelTechnique,
         tile: &mut TrackedBytes,
     ) -> MltResult<()>;
 }
@@ -157,7 +137,7 @@ trait Encoding {
 impl Encoding for StreamMetadata {
     fn partial_decode(
         &mut self,
-        r#type: &LogicalLevelTechnique,
+        r#type: LogicalLevelTechnique,
         tile: &mut TrackedBytes,
     ) -> MltResult<()> {
         // let binding = varint::decode(tile, 2, offset);
@@ -169,24 +149,22 @@ impl Encoding for StreamMetadata {
                 got: vals.len(),
             });
         }
-        let val1 = vals[0];
-        let val2 = vals[1];
 
         match r#type {
             LogicalLevelTechnique::Morton => {
                 self.morton = Some(Morton {
-                    num_bits: val1,
-                    coordinate_shift: val2,
+                    num_bits: vals[0],
+                    coordinate_shift: vals[1],
                 });
             }
             LogicalLevelTechnique::Rle => {
                 self.rle = Some(Rle {
-                    runs: val1,
-                    num_rle_values: val2,
+                    runs: vals[0],
+                    num_rle_values: vals[1],
                 });
             }
             other => {
-                return Err(MltError::PartialDecodeWrongTechnique(*other));
+                return Err(MltError::PartialDecodeWrongTechnique(other));
             }
         }
 

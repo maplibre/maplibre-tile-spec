@@ -6,7 +6,7 @@ mod error;
 mod metadata;
 mod vector;
 
-pub use converter::mlt::{create_tileset_metadata, FeatureTableOptimizations};
+pub use converter::mlt::{FeatureTableOptimizations, create_tileset_metadata};
 pub use converter::mvt;
 pub use data::{Feature, Layer, Value};
 pub use encoder::geometry::GeometryType;

@@ -1,7 +1,6 @@
 package com.mlt;
 
 import com.mlt.converter.encodings.EncodingUtils;
-import com.mlt.decoder.vectorized.VectorizedDecodingUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;

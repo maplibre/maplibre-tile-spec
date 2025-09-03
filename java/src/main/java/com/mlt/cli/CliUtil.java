@@ -1,4 +1,4 @@
-package com.mlt.tools;
+package com.mlt.cli;
 
 import com.mlt.data.MapLibreTile;
 import com.mlt.vector.FeatureTable;
