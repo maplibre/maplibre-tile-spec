@@ -52,11 +52,13 @@ import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.decoder.MltDecoder;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class Encode {
   public static void main(String[] args) {
