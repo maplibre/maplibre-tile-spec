@@ -1,7 +1,7 @@
 use crate::MltError;
+use crate::decoder::helpers::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
-use crate::decoder::vectorized::helpers::decode_componentwise_delta_vec2s;
 use crate::encoder::integer::encoded_u32s_to_bytes;
 use crate::metadata::stream::{Morton, Rle, StreamMetadata};
 use crate::metadata::stream_encoding::{
