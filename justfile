@@ -134,3 +134,11 @@ test-run-int:
     echo "fake output by copying expected into output so that the rest of the script works"
     # TODO: REMOVE THIS, and replace it with a real integration test run
     cp -r test/expected/* test/output
+
+mkdocs:
+	docker build -t squidfunk/mkdocs-material mkdocs
+	cd mkdocs &&  docker run --rm -it -p 8000:8000 -v ${PWD}:/docs squidfunk/mkdocs-material
+
+mkdocs-build:
+    docker build -t squidfunk/mkdocs-material mkdocs
+    cd mkdocs && docker run --rm -v ${PWD}:/docs squidfunk/mkdocs-material build --strict
