@@ -25,4 +25,3 @@ jobs:
         with:
           branch: gh-pages
           folder: mkdocs/site
-          target-folder: maplibre-tile-spec
