@@ -13,6 +13,9 @@ jobs:
       - name: Checkout 🛎️
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just' }
+
       - name: Build MLT documentation
         run: just mkdocs-build
 
