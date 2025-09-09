@@ -67,9 +67,6 @@ extra:
       link: https://github.com/maplibre
 plugins:
   - search
-  - macros:
-      module_name: docs/main
-      on_undefined: strict
   - social:
       cards_layout_options:
         background_color: '#295DAA'
