@@ -1,0 +1,105 @@
+.panzoom-box {
+    position: relative;
+    overflow: hidden;
+    border-radius: 2px;
+    /*border-color: grey;
+    border-width: 1px;
+    border-style: solid;*/
+    margin-bottom: 5px;
+    background-color: var(--md-code-bg-color);
+    top: 0;
+}
+
+.mermaid {
+    top: 0;
+}
+
+.panzoom-icon {
+    width: 1.125em;
+    fill: var(--md-default-fg-color--lightest);
+    transition: 0.25s;
+}
+
+.panzoom-button {
+    width: 1.5em;
+    height: 1.5em;
+}
+
+button:hover .panzoom-icon {
+    fill: var(--md-accent-fg-color);
+}
+
+:hover > * > * > .panzoom-icon {
+    fill: var(--md-default-fg-color--light);
+}
+
+.panzoom-hidden {
+    display: none;
+}
+
+.panzoom-min {
+}
+
+.panzoom-nav {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+    z-index: 3;
+}
+
+.panzoom-nav-infobox-top {
+    position: absolute;
+    right: 10px;
+    /* top: 10px; */
+    top: 50px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+    z-index: 3;
+}
+
+.panzoom-info-box-bottom {
+    position: relative;
+    padding-top: 15px;
+    font-size: 1em;
+    text-align: center;
+    z-index: 3;
+    background-color: var(--md-default-bg-color);
+    color: var(--md-default-fg-color--light);
+}
+
+.panzoom-info-box-top {
+    position: relative;
+    padding-bottom: 15px;
+    font-size: 1em;
+    text-align: center;
+    z-index: 3;
+    background-color: var(--md-default-bg-color);
+    color: var(--md-default-fg-color--light);
+}
+
+.panzoom-fullscreen {
+    position: fixed;
+    max-width: 100vw;
+    max-height: 100vh;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 100;
+}
+
+
+.panzoom-fullscreen .panzoom-info-box {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
+.panzoom-fullscreen img {
+    max-width: 100%;
+    max-height: 100%;
+}
