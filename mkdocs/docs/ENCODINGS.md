@@ -1,9 +1,10 @@
-# MLT encoding definitions
+# Encoding Definitions
 
 ## Plain
 
 No compression technique is applied on the data.
 Depending on the data type, the data are stored in the following format:
+
 - Boolean: Least-significant bit ordering within bytes
 - Integer: Little-Endian byte order
 - Long: Little-Endian byte order
@@ -37,6 +38,7 @@ The data stream contains the indices for the dictionary encoded as `UInt32`.
 A dictionary-encoded nullable string column contains of the following streams and order: `Present`, `Length`, `Dictionary`, `Data`.
 
 All streams can be further compressed by recursively applying lightweight encodings:
+
 - Present Stream: Boolean-RLE
 - Length and Data Stream: see Integer encodings
 - Dictionary: see FSST Dictionary
@@ -53,7 +55,8 @@ A FSST Dictionary-encoded nullable string column contains of the following strea
 For implementation details see [the following paper](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf)
 
 Available implementations:
-- C++: https://github.com/cwida/fsst
+
+- C++: [https://github.com/cwida/fsst](https://github.com/cwida/fsst)
 - Java: Work in Progress
 - Js/WebAssembly decoder: Work in Progress (simple to implement)
 
@@ -101,7 +104,7 @@ delta values.
 
 #### RLE
 
-See https://en.wikipedia.org/wiki/Run-length_encoding for a basic explanation
+See [https://en.wikipedia.org/wiki/Run-length_encoding](https://en.wikipedia.org/wiki/Run-length_encoding) for a basic explanation
 All runs and values are stored in two separate buffers.
 If the values are unsigned integers ZigZag encoding is applied to the values buffer.
 Both buffers are then further compressed using a null suppression technique.
@@ -128,22 +131,24 @@ For implementation details see [Protobuf](https://protobuf.dev/programming-guide
 Bit-aligned null suppression technique that compresses an integer using a minimal number of bits
 by using a patched approach to store exceptions (outliers) in a separate section to keep the overall bit width small.
 
-see https://arxiv.org/pdf/1209.2137.pdf and https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code
+see [https://arxiv.org/pdf/1209.2137.pdf](https://arxiv.org/pdf/1209.2137.pdf) and [https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code](https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code)
 
 Available implementations:
-- C++: https://github.com/lemire/FastPFor
-- Java: https://github.com/lemire/JavaFastPFOR
-- C#: https://github.com/Genbox/CSharpFastPFOR
+
+- C++: [https://github.com/lemire/FastPFor](https://github.com/lemire/FastPFor)
+- Java: [https://github.com/lemire/JavaFastPFOR](https://github.com/lemire/JavaFastPFOR)
+- C#: [https://github.com/Genbox/CSharpFastPFOR](https://github.com/Genbox/CSharpFastPFOR)
 - Js/WebAssembly: Work in Progress (higher implementation complexity)
 
 ## Float encodings
 
 ### Adaptive Lossless floating-Point Compression (ALP)
 
-See https://dl.acm.org/doi/pdf/10.1145/3626717 for a detailed explanation.
+See [https://dl.acm.org/doi/pdf/10.1145/3626717](https://dl.acm.org/doi/pdf/10.1145/3626717) for a detailed explanation.
 ALP is a lossless floating-point compression technique that is used to compress the float values in MLT.
 
 Available implementations:
-- C++: https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp
+
+- C++: [https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp](https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp)
 - Java: Work in Progress
 - JS/WebAssembly: Work in Progress
