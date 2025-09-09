@@ -2,7 +2,7 @@ site_name: MapLibre Tile Specification
 site_url: https://www.maplibre.org/maplibre-tile-spec
 repo_url: https://github.com/maplibre/maplibre-tile-spec
 site_description: MapLibre Tile Specification
-edit_uri: edit/mkdocs/docs
+edit_uri: edit/main/mkdocs/docs
 extra_css:
   - assets/extra.css
 theme:
