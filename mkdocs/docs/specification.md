@@ -1,4 +1,6 @@
-# 0.9
+# MapLibre Tile Specification
+
+--8<-- "live-spec-note"
 
 ## 1. Storage Format
 
@@ -15,7 +17,8 @@ Each feature must have a `geometry` column, an optional `id` column, and optiona
 The geometries are not restricted to one geometry type, but this is recommended for reasons of efficiency.
 As in MVT, the geometry coordinates are encoded as integers in a vector tile grid coordinates.
 
-> **_Note:_** "column", "field", and "property" are used interchangeably in this document.
+> [!NOTE]
+> "column", "field", and "property" are used interchangeably in this document.
 
 ### 1.2 File Layout
 
@@ -45,13 +48,13 @@ MLT distinguishes between the following type of streams:
 
 This physical streams are further divided into logical streams that add additional semantics of how to interpret the data:
 
-![](./0.9/LogicalStreams.png)
+![](assets/spec/LogicalStreams.png)
 
 #### 1.2.1 Metadata
 
 ##### Tileset Metadata
 
-Global metadata for the tileset is stored separately, in [JSON format](0.9/mlt_tileset_metadata.json).
+Global metadata for the tileset is stored separately, in [JSON format](assets/spec/mlt_tileset_metadata.json).
 
 The tileset metadata defines information for the full tileset is the equivalent to the TileJSON spec, which is commonly used in combination with MVT.
 
@@ -269,9 +272,9 @@ Each scalar type has a specific encoding scheme which can be applied to the data
 | Float, Double                              |                                 |                                      | Fixed-Size    |
 | String                                     | JSON                            | UTF-8 encoded sequence of characters | Variable-Size |
 
-**Complex Types**
+<b>Complex Types <span class="experimental"/></b>
 
-Complex types are composed of scalar types.  Complex types are currently experimental.
+Complex types are composed of scalar types.
 
 | DataType         | Logical Types           | Description                                        | Layout        |
 |------------------|-------------------------|----------------------------------------------------|---------------|
@@ -280,11 +283,11 @@ Complex types are composed of scalar types.  Complex types are currently experim
 | Struct           |                         |                                                    |               |
 | Vec2<T>, Vec3<T> | Geometry, GeometryZ     |                                                    | Fixed-Size    |
 
-##### 1.2.2.2 Logical Types
+##### 1.2.2.2 Logical Types <span class="experimental"/>
+
 
 Add additional semantics on top of the physical types.
 This had the advantage that encodings can be reused and implementation of encoders and decoders can be simplified.
-Logical types are currently experimental.
 
 | Logical Type | Physical Type                  | Description                                |
 |--------------|--------------------------------|--------------------------------------------|
@@ -308,7 +311,7 @@ This can be applied, for example, on localized values of the name:* columns of a
 If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
 must be grouped sequentially in the file and prefixed with the dictionary.
 
-##### RangeMap
+##### RangeMap <span class="experimental"/>
 
 RangeMaps are an efficient way to encode linear referencing information, as used for example in [Overture Maps](https://docs.overturemaps.org/overview/feature-model/scoping-rules#geometric-scoping-linear-referencing).
 RangesSets store the range values and data values in two separate streams.
@@ -330,7 +333,8 @@ in terms of the compression ratio and decoding speed on test datasets such as th
 | String   | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry | Plain, Dictionary, Morton-Dictionary | | |
 
-ALP, FSST, and FastPFOR encodings are currently experimental.
+> [!NOTE]
+> `ALP`, `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
 
 Since SIMD-FastPFOR generally produces smaller data streams and is faster to decode, it should be preferred over Varint encoding.
 Varint encoding is mainly added to the encoding pool for compatibility reasons and it's simpler implementation compared to SIMD-FastPFOR.
@@ -417,30 +421,30 @@ The following colors are used to highlight different kind of data:
 
 #### 1.3.1 Place layer
 
-Given a place [layer](./0.9/place_feature.json) with the following structure modeled as Json schema:
-![](./0.9/place_feature.png)
+Given a place [layer](assets/spec/place_feature.json) with the following structure modeled as Json schema:
+![](assets/spec/place_feature.png)
 
 For the given schema the place layer can have the following layout in a MLT tile
 when a dictionary for the `geometry` and `name` column is used.
-![img_2.png](./0.9/img_2.png)
+![img_2.png](assets/spec/img_2.png)
 
 #### 1.3.2 LineString geometry with flat properties
 
 Encoding of a `FeatureTable` with an `id` field, a `LineString` geometry field and the flat feature scoped properties class and subclass:
-![img_4.png](./0.9/img_4.png)
+![img_4.png](assets/spec/img_4.png)
 
 #### 1.3.3 MultiPolygon with flat properties
 
 Encoding of a `FeatureTable` with a `id` field, `MultiPolygon` geometry field and flat feature scoped property fields.
 Because vertex dictionary encoding is used a `VertexOffsets` stream is present:
-![img_5.png](./0.9/img_5.png)
+![img_5.png](assets/spec/img_5.png)
 
 #### 1.3.4 Vertex-scoped and feature-scoped properties
 
 Example layout for encoding of vertex-scoped and feature scoped properties.
 All vertex-scoped properties have to be grouped together and placed before the feature-scoped properties
 in the file. Since the `id` colum in this example is not `nullable`, the present stream can be omitted.
-![img_7.png](./0.9/img_7.png)
+![img_7.png](assets/spec/img_7.png)
 
 ### Sorting
 
@@ -450,11 +454,12 @@ To test every layer for every possible sorting order of every column is too cost
 
 ### 1.4 Encodings
 
-The details of encodings are specified in [a separate document](../ENCODINGS.md).
+The details of encodings are specified in [a separate document](encodings.md).
 
 ## 2. In-Memory Format
 
-> **_Notes:_** The in-memory format will be explained in more detail; the following is only a rough overview:
+> [!NOTE]
+> The in-memory format will be explained in more detail; the following is only a rough overview:
 
 The record-oriented, in-memory model (array of structures approach) used by the libraries that process
 the Mapbox Vector Tiles leads to a considerable overhead, such as the creation of a large number of small objects (per-object memory allocation),
@@ -485,11 +490,12 @@ The MLT in-memory format supports the following vectors:
 - [Constant Vectors](https://duckdb.org/internals/vector.html#constant-vectors)
 - [Sequence Vectors](https://duckdb.org/internals/vector.html#sequence-vectors)
 - [Dictionary Vectors](https://duckdb.org/internals/vector.html#dictionary-vectors)
-- FSST Dictionary Vectors
-- Shared Dictionary Vectors
+- FSST Dictionary Vectors <span class="experimental"/>
+- Shared Dictionary Vectors <span class="experimental"/>
 - [Run-End Encoded (REE) Vectors](https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout)
 
-> **_Note:_** Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
+> [!NOTE]
+> Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
 > can be used to enable random access on delta encoded values as well
 
 In case a compressed vector can be used, this has the additional advantage that the conversion from the storage
