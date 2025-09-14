@@ -42,7 +42,7 @@ A dictionary-encoded nullable string column consists of the following streams in
 > [!NOTE]
 > TODO: Is "can" (=> MAY) here the right terminoligy?
 > This implies that streams might be encoded by one of the options below, but also other options.
-> 
+>
 > If yes, what is the alternative options?
 > If no, clarify this misunderstanding.
 
