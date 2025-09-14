@@ -333,7 +333,7 @@ in terms of the compression ratio and decoding speed on test datasets such as th
 | String   | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry | Plain, Dictionary, Morton-Dictionary | | |
 
-<span class="experimental"></span>
+ALP, FSST, and FastPFOR encodings are currently experimental.
 
 Since SIMD-FastPFOR generally produces smaller data streams and is faster to decode, it should be preferred over Varint encoding.
 Varint encoding is mainly added to the encoding pool for compatibility reasons and it's simpler implementation compared to SIMD-FastPFOR.
