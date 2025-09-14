@@ -40,6 +40,7 @@ markdown_extensions:
   - pymdownx.snippets:
       dedent_subsections: true
       check_paths: true
+      base_path: docs/snippets
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -53,6 +54,11 @@ markdown_extensions:
   - footnotes
   - attr_list
   - md_in_html
+nav:
+  - Home: index.md
+  - Encoding Algorithms: encodings.md
+  - Specification: specification.md
+
 extra:
   social:
     - icon: fontawesome/brands/mastodon

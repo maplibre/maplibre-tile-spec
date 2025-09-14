@@ -16,14 +16,12 @@ Depending on the data type, the data are stored in the following format:
 
 This encoding is used for compressing boolean columns.
 Least-significant bit numbering (bit-endianness) is used as bit order.
-Have a look at the [ORC specification](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding)
-for implementation details.
+See [ORC specification](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding).
 
 ## Byte-RLE
 
 This encoding is used for compressing byte streams such as the `GeometryType` stream of the Geometry column.
-Have a look at the [ORC specification](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding)
-for implementation details.
+See [ORC specification](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding).
 
 ## Dictionary Encoding
 
@@ -124,7 +122,7 @@ For encoding unsigned integers, ZigZag encoding is used for both of the followin
 #### Varint encoding
 
 Byte-aligned null suppression technique try to compress an integer using a minimal number of bytes.
-For implementation details see [Protobuf](https://protobuf.dev/programming-guides/encoding/#varints).
+See [Protobuf](https://protobuf.dev/programming-guides/encoding/#varints).
 
 #### SIMD-FastPFOR
 

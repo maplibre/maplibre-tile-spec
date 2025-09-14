@@ -1,5 +1,7 @@
 # Introduction
 
+--8<-- "live-spec-note"
+
 The MLT format is mainly inspired by the [MVT format](https://github.com/mapbox/vector-tile-spec), but has been redesigned from the ground up to improve the following areas:
 
 - **Improved compression ratio** - up to 6x on large tiles, based on a column oriented layout with (custom) lightweight encodings
