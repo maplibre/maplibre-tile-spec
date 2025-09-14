@@ -55,6 +55,11 @@ markdown_extensions:
   - footnotes
   - attr_list
   - md_in_html
+  - toc:
+      permalink: true
+      permalink_title: "Link to this section"
+      baselevel: 1
+      toc_depth: 6
 nav:
   - Home: index.md
   - Encoding Algorithms: encodings.md
@@ -78,6 +83,11 @@ plugins:
       cards_layout_options:
         background_color: '#295DAA'
   - panzoom
+  - add-number:
+      excludes: ['*']
+      includes:
+        - specification.md
+        - encodings.md
 validation:
   omitted_files: warn
   absolute_links: warn
