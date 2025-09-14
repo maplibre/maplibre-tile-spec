@@ -39,6 +39,13 @@ The data stream contains dictionary indices encoded as `UInt32`.
 A dictionary-encoded nullable string column consists of the following streams in order:
 `Present`, `Length`, `Dictionary`, `Data`
 
+> [!NOTE]
+> TODO: Is "can" (=> MAY) here the right terminoligy?
+> This implies that streams might be encoded by one of the options below, but also other options.
+> 
+> If yes, what is the alternative options?
+> If no, clarify this misunderstanding.
+
 All streams can be further compressed using lightweight encodings:
 
 - **Present Stream**: Boolean-RLE
