@@ -17,7 +17,8 @@ Each feature must have a `geometry` column, an optional `id` column, and optiona
 The geometries are not restricted to one geometry type, but this is recommended for reasons of efficiency.
 As in MVT, the geometry coordinates are encoded as integers in a vector tile grid coordinates.
 
-> **_Note:_** "column", "field", and "property" are used interchangeably in this document.
+> [!NOTE]
+> "column", "field", and "property" are used interchangeably in this document.
 
 ### 1.2 File Layout
 
@@ -456,7 +457,8 @@ The details of encodings are specified in [a separate document](encodings.md).
 
 ## 2. In-Memory Format
 
-> **_Notes:_** The in-memory format will be explained in more detail; the following is only a rough overview:
+> [!NOTE]
+> The in-memory format will be explained in more detail; the following is only a rough overview:
 
 The record-oriented, in-memory model (array of structures approach) used by the libraries that process
 the Mapbox Vector Tiles leads to a considerable overhead, such as the creation of a large number of small objects (per-object memory allocation),
@@ -491,7 +493,8 @@ The MLT in-memory format supports the following vectors:
 - Shared Dictionary Vectors <span class="experimental"/>
 - [Run-End Encoded (REE) Vectors](https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout)
 
-> **_Note:_** Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
+> [!NOTE]
+> Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
 > can be used to enable random access on delta encoded values as well
 
 In case a compressed vector can be used, this has the additional advantage that the conversion from the storage
