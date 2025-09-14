@@ -87,7 +87,6 @@ plugins:
       excludes: ['*']
       includes:
         - specification.md
-        - encodings.md
 validation:
   omitted_files: warn
   absolute_links: warn
