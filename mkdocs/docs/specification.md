@@ -78,6 +78,9 @@ This tileset metadata provides information for the full tileset and is the equiv
 By defining this information once per tileset, we avoid redundant metadata in each tile, saving significant space, especially for small tiles.
 
 ### Tile Metadata
+There is no global tile header.  Each `FeatureTable` has its own metadata.
+
+### FeatureTable Metadata
 
 Each `FeatureTable` is preceded by a `FeatureTableMetadata` section describing it.
 
