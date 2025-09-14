@@ -458,7 +458,7 @@ To test every layer for every possible sorting order of every column is too cost
 
 The details of encodings are specified in [a separate document](encodings.md).
 
- In-Memory Format
+# In-Memory Format
 
 > [!NOTE]
 > The in-memory format will be explained in more detail; the following is only a rough overview:
