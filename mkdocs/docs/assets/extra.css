@@ -35,6 +35,10 @@
   margin-left: 4px;
 }
 
+.experimental::before {
+  content: "experimental";
+}
+
 [data-md-color-scheme="slate"] .experimental {
   background-color: #ffc107;
   color: #000;

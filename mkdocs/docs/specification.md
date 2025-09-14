@@ -271,9 +271,7 @@ Each scalar type has a specific encoding scheme which can be applied to the data
 | Float, Double                              |                                 |                                      | Fixed-Size    |
 | String                                     | JSON                            | UTF-8 encoded sequence of characters | Variable-Size |
 
-**Complex Types**
-
---8<-- "experimental"
+<b>Complex Types <span class="experimental"/></b>
 
 Complex types are composed of scalar types.
 
@@ -284,9 +282,8 @@ Complex types are composed of scalar types.
 | Struct           |                         |                                                    |               |
 | Vec2<T>, Vec3<T> | Geometry, GeometryZ     |                                                    | Fixed-Size    |
 
-##### 1.2.2.2 Logical Types
+##### 1.2.2.2 Logical Types <span class="experimental"/>
 
---8<-- "experimental"
 
 Add additional semantics on top of the physical types.
 This had the advantage that encodings can be reused and implementation of encoders and decoders can be simplified.
@@ -313,9 +310,7 @@ This can be applied, for example, on localized values of the name:* columns of a
 If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
 must be grouped sequentially in the file and prefixed with the dictionary.
 
-##### RangeMap
-
---8<-- "experimental"
+##### RangeMap <span class="experimental"/>
 
 RangeMaps are an efficient way to encode linear referencing information, as used for example in [Overture Maps](https://docs.overturemaps.org/overview/feature-model/scoping-rules#geometric-scoping-linear-referencing).
 RangesSets store the range values and data values in two separate streams.
@@ -337,7 +332,7 @@ in terms of the compression ratio and decoding speed on test datasets such as th
 | String   | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry | Plain, Dictionary, Morton-Dictionary | | |
 
---8<-- "experimental"
+<span class="experimental"></span>
 
 Since SIMD-FastPFOR generally produces smaller data streams and is faster to decode, it should be preferred over Varint encoding.
 Varint encoding is mainly added to the encoding pool for compatibility reasons and it's simpler implementation compared to SIMD-FastPFOR.
@@ -492,8 +487,8 @@ The MLT in-memory format supports the following vectors:
 - [Constant Vectors](https://duckdb.org/internals/vector.html#constant-vectors)
 - [Sequence Vectors](https://duckdb.org/internals/vector.html#sequence-vectors)
 - [Dictionary Vectors](https://duckdb.org/internals/vector.html#dictionary-vectors)
-- FSST Dictionary Vectors --8<-- "experimental"
-- Shared Dictionary Vectors --8<-- "experimental"
+- FSST Dictionary Vectors <span class="experimental"/>
+- Shared Dictionary Vectors <span class="experimental"/>
 - [Run-End Encoded (REE) Vectors](https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout)
 
 > **_Note:_** Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
