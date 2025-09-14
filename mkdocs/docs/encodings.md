@@ -1,4 +1,8 @@
-# Encoding Definitions
+<h1>Encoding Definitions</h1>
+
+[TOC]
+
+---
 
 ## Plain
 

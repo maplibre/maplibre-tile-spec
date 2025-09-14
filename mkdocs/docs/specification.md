@@ -1,10 +1,12 @@
-# MapLibre Tile Specification
+<h1>MapLibre Tile Specification</h1>
 
 --8<-- "live-spec-note"
 
-## 1. Storage Format
+[TOC]
 
-### 1.1 Basics
+---
+
+# Basics
 
 MLT (MapLibre Tile) contains information about a specific geographic region - a tile. Each tile is a collection of `FeatureTables`, which are equivalent to Layers in the [MVT specification](https://github.com/mapbox/vector-tile-spec).
 
@@ -20,7 +22,7 @@ As in MVT, the geometry coordinates are encoded as integers in a vector tile gri
 > [!NOTE]
 > "column", "field", and "property" are used interchangeably in this document.
 
-### 1.2 File Layout
+# File Layout
 
 A FeatureTable in the MLT specification is based on a tabular, column-oriented layout.
 It uses different lightweight compression schemes to efficiently encode the values of the columns.
@@ -50,9 +52,9 @@ This physical streams are further divided into logical streams that add addition
 
 ![](assets/spec/LogicalStreams.png)
 
-#### 1.2.1 Metadata
+## Metadata
 
-##### Tileset Metadata
+### Tileset Metadata
 
 Global metadata for the tileset is stored separately, in [JSON format](assets/spec/mlt_tileset_metadata.json).
 
@@ -61,7 +63,7 @@ The tileset metadata defines information for the full tileset is the equivalent 
 By specifying the information once per tileset, the definition of redundant (shared) metadata per tile will be avoided,
 which can take some relevant space of the overall size on small tiles.
 
-##### Tile Metadata
+### Tile Metadata
 
 Each `FeatureTable` is preceded by a `FeatureTableMetadata` describing it.
 
@@ -247,14 +249,14 @@ classDiagram
 ```
 
 
-#### 1.2.2 Type system
+## Type system
 
 The types system of MLT is divided into physical and logical types.
 The physical types define the layout of the data in the storage format, while the logical types give additional semantics to the physical types.
 Based on this separation, the encoding and decoding of the data can be simplified.
 This reduces the complexity for implementing encoder and decoder as well allow the encodings to be reused.
 
-##### 1.2.2.1 Physical Types
+### Physical Types
 
 The physical types define the layout of the data in the storage format.
 Both scalar and complex types can be divided into fixed-size binaries and variable-size binaries.
@@ -272,7 +274,7 @@ Each scalar type has a specific encoding scheme which can be applied to the data
 | Float, Double                              |                                 |                                      | Fixed-Size    |
 | String                                     | JSON                            | UTF-8 encoded sequence of characters | Variable-Size |
 
-<b>Complex Types <span class="experimental"/></b>
+<b>Complex Types <span class="experimental"></span></b>
 
 Complex types are composed of scalar types.
 
@@ -283,7 +285,7 @@ Complex types are composed of scalar types.
 | Struct           |                         |                                                    |               |
 | Vec2<T>, Vec3<T> | Geometry, GeometryZ     |                                                    | Fixed-Size    |
 
-##### 1.2.2.2 Logical Types <span class="experimental"/>
+### Logical Types <span class="experimental"></span>
 
 
 Add additional semantics on top of the physical types.
@@ -299,7 +301,7 @@ This had the advantage that encodings can be reused and implementation of encode
 | Geometry     | vec2<Int32>                    |                                            |
 | GeometryZ    | vec3<Int32>                    |                                            |
 
-##### Nested Fields Encoding
+### Nested Fields Encoding
 
 For nested properties such as structs and lists, a [present/length](https://arxiv.org/pdf/2304.05028.pdf) pair encoding
 is selected over the widely used Dremel encoding, since it is simpler to implement and faster to decode into the in-memory format.
@@ -311,13 +313,13 @@ This can be applied, for example, on localized values of the name:* columns of a
 If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
 must be grouped sequentially in the file and prefixed with the dictionary.
 
-##### RangeMap <span class="experimental"/>
+### RangeMap <span class="experimental"></span>
 
 RangeMaps are an efficient way to encode linear referencing information, as used for example in [Overture Maps](https://docs.overturemaps.org/overview/feature-model/scoping-rules#geometric-scoping-linear-referencing).
 RangesSets store the range values and data values in two separate streams.
 The min and max values for the ranges are stored as interleaved double values in a separate range stream.
 
-#### 1.2.3 Encoding Schemes
+## Encoding Schemes
 
 MLT uses different lightweight compression schemes for the space efficient storage and fast decoding of the data types.
 To further reduce the size of a column the encodings can be recursively cascaded (hybrid encodings) up to a certain level.
@@ -350,14 +352,14 @@ the selection strategy described in the [BTRBlocks](https://www.cs.cit.tum.de/fi
   of the data with a total size of 1% of the full data and apply the encoding schemes selected in step 1. Apply the encoding scheme
   on the data which produces the smallest output
 
-#### 1.2.4 FeatureTable Layout
+## FeatureTable Layout
 
-##### ID Column
+### ID Column
 
 No `id` column is mandatory.  If an identifier column is included, it should be u64 or a narrower integer type for compatibility with MVT.
 Narrow the column to u32, if possible, to enable the use of FastPfor128 encoding.
 
-##### Geometry Column
+### Geometry Column
 
 The main idea is to use a structure of arrays (data-oriented design) layout for the geometries.
 The `x`, `y`, and optional `z` coordinates are stored interleaved in a `VertexBuffer` so that they can be efficiently processed
@@ -395,7 +397,7 @@ In addition, the geometry column can consist of an additional `VertexOffsets` st
 encoding is applied. If the geometries (mainly polygons) are stored in a tessellated/triangulated form for direct copying to a GPU Buffer,
 an additional `NumTriangles` and `IndexBuffer` must be provided.
 
-##### Property Columns
+### Property Columns
 
 The properties of a feature are divided into `feature-scoped` and `vertex-scoped` properties.
 The values of feature-scoped properties are related to a specific Feature, which means there is one value in
@@ -406,9 +408,9 @@ per vertex in the VertexBuffer. This allows to model what is known as M-coordina
 Vertex-scoped properties have to be grouped together and are placed before the feature-scoped properties in the FeatureTable.
 The scope of a property column is specified in the tileset metadata document based on the `ColumnScope` enum.
 
-A property column can have one of the above listed [data types](#122-type-system).
+A property column can have one of the above listed [data types](#type-system).
 
-### 1.3 Example Layouts
+# Example Layouts
 
 In the following, examples for the layout of a `FeatureTable` in storage are illustrated.
 The following colors are used to highlight different kind of data:
@@ -419,7 +421,7 @@ The following colors are used to highlight different kind of data:
   FeatureTable, Stream (SM) and Feature (FM) metadata
 - yellow boxes: streams which contains the actual data
 
-#### 1.3.1 Place layer
+## Place layer
 
 Given a place [layer](assets/spec/place_feature.json) with the following structure modeled as Json schema:
 ![](assets/spec/place_feature.png)
@@ -428,35 +430,35 @@ For the given schema the place layer can have the following layout in a MLT tile
 when a dictionary for the `geometry` and `name` column is used.
 ![img_2.png](assets/spec/img_2.png)
 
-#### 1.3.2 LineString geometry with flat properties
+## LineString geometry with flat properties
 
 Encoding of a `FeatureTable` with an `id` field, a `LineString` geometry field and the flat feature scoped properties class and subclass:
 ![img_4.png](assets/spec/img_4.png)
 
-#### 1.3.3 MultiPolygon with flat properties
+## MultiPolygon with flat properties
 
 Encoding of a `FeatureTable` with a `id` field, `MultiPolygon` geometry field and flat feature scoped property fields.
 Because vertex dictionary encoding is used a `VertexOffsets` stream is present:
 ![img_5.png](assets/spec/img_5.png)
 
-#### 1.3.4 Vertex-scoped and feature-scoped properties
+## Vertex-scoped and feature-scoped properties
 
 Example layout for encoding of vertex-scoped and feature scoped properties.
 All vertex-scoped properties have to be grouped together and placed before the feature-scoped properties
 in the file. Since the `id` colum in this example is not `nullable`, the present stream can be omitted.
 ![img_7.png](assets/spec/img_7.png)
 
-### Sorting
+# Sorting
 
 Choosing the right column for sorting the features can have significant impact on the size
 of the `FeatureTable`. To take full advantage of the columnar layout, sorting is crucial.
 To test every layer for every possible sorting order of every column is too costly.
 
-### 1.4 Encodings
+# Encodings
 
 The details of encodings are specified in [a separate document](encodings.md).
 
-## 2. In-Memory Format
+# In-Memory Format
 
 > [!NOTE]
 > The in-memory format will be explained in more detail; the following is only a rough overview:
@@ -490,8 +492,8 @@ The MLT in-memory format supports the following vectors:
 - [Constant Vectors](https://duckdb.org/internals/vector.html#constant-vectors)
 - [Sequence Vectors](https://duckdb.org/internals/vector.html#sequence-vectors)
 - [Dictionary Vectors](https://duckdb.org/internals/vector.html#dictionary-vectors)
-- FSST Dictionary Vectors <span class="experimental"/>
-- Shared Dictionary Vectors <span class="experimental"/>
+- FSST Dictionary Vectors <span class="experimental"></span>
+- Shared Dictionary Vectors <span class="experimental"></span>
 - [Run-End Encoded (REE) Vectors](https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout)
 
 > [!NOTE]
