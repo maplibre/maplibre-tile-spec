@@ -14,7 +14,7 @@
       
       
       
-        <link rel="next" href="ENCODINGS/">
+        <link rel="next" href="encodings/">
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
@@ -140,7 +140,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Introduction
+              Home
             
           </span>
         </div>
@@ -313,7 +313,7 @@
   
   
   <span class="md-ellipsis">
-    Introduction
+    Home
     
   </span>
   
@@ -331,12 +331,12 @@
   
   
     <li class="md-nav__item">
-      <a href="ENCODINGS/" class="md-nav__link">
+      <a href="encodings/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Encoding Definitions
+    Encoding Algorithms
     
   </span>
   
@@ -352,25 +352,9 @@
   
   
   
-    
-    
-    
-    
-      
+    <li class="md-nav__item">
+      <a href="specification/" class="md-nav__link">
         
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
-            
   
   
   <span class="md-ellipsis">
@@ -379,42 +363,7 @@
   </span>
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            Specification
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="specification/0.9/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    0.9
-    
-  </span>
-  
-
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -444,6 +393,9 @@
 
 
 <h1 id="introduction">Introduction</h1>
+<blockquote>
+<p><strong>Note:</strong> This is a live specification that evolves continuously. Features marked as <span class="experimental"></span> are under active development and may change in future versions. Stable features are those without experimental tags.</p>
+</blockquote>
 <p>The MLT format is mainly inspired by the <a href="https://github.com/mapbox/vector-tile-spec">MVT format</a>, but has been redesigned from the ground up to improve the following areas:</p>
 <ul>
 <li><strong>Improved compression ratio</strong> - up to 6x on large tiles, based on a column oriented layout with (custom) lightweight encodings</li>
