@@ -7,20 +7,13 @@
 
 namespace mlt::geometry {
 
-#if !defined(MLT_GEOMETRY_CHECKS)
-#define MLT_GEOMETRY_CHECKS 1
-#endif
 namespace {
 constexpr void checkBuffer(std::size_t index, std::size_t size, std::string_view name) {
     if (index >= size) {
         throw std::runtime_error(std::string(name) + " underflow");
     }
 }
-#if MLT_GEOMETRY_CHECKS
 #define CHECK_BUFFER(I, B) checkBuffer(I, B.size(), #B)
-#else
-#define CHECK_BUFFER(I, B) ((void)0)
-#endif
 
 inline Coordinate coord(std::int32_t x, std::int32_t y) {
     return {static_cast<float>(x), static_cast<float>(y)};
