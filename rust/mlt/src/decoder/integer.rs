@@ -2,7 +2,7 @@ use crate::MltError;
 use crate::decoder::helpers::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
-use crate::encoder::integer::encoded_u32s_to_bytes;
+use crate::encoder::integer::u32s_to_le_bytes;
 use crate::metadata::stream::{Morton, Rle, StreamMetadata};
 use crate::metadata::stream_encoding::{
     Logical, LogicalLevelTechnique, LogicalStreamType, Physical, PhysicalLevelTechnique,
@@ -42,14 +42,17 @@ pub fn decode_int_stream(
 }
 
 /// Byte-level decoding based on the physical technique and stream type
-fn decode_physical(
+pub fn decode_physical(
     tile: &mut TrackedBytes,
     metadata: &StreamMetadata,
 ) -> Result<Vec<u32>, MltError> {
     match &metadata.physical.technique {
         PhysicalLevelTechnique::FastPfor => decode_fast_pfor(tile, metadata),
         PhysicalLevelTechnique::Varint => varint::decode::<u32>(tile, metadata.num_values as usize),
-        other => Err(MltError::UnsupportedPhysicalTechnique(*other)),
+        PhysicalLevelTechnique::None => le_bytes_to_u32s(tile, metadata.byte_length as usize),
+        PhysicalLevelTechnique::Alp => Err(MltError::UnsupportedPhysicalTechnique(
+            PhysicalLevelTechnique::Alp,
+        )),
     }
 }
 
@@ -112,7 +115,7 @@ fn decode_fast_pfor(
     let expected_len = metadata.num_values as usize;
     let mut decoded = vec![0; expected_len];
     // Regardless of u32 or u64 fastpfor, the encoded data is always u32
-    let encoded_u32s: Vec<u32> = bytes_to_encoded_u32s(tile, metadata.byte_length as usize)?;
+    let encoded_u32s: Vec<u32> = le_bytes_to_u32s(tile, metadata.byte_length as usize)?;
     let decoded_slice = codec.decode32(&encoded_u32s, &mut decoded)?;
     let actual_len = decoded_slice.len();
     if actual_len != expected_len {
@@ -124,7 +127,8 @@ fn decode_fast_pfor(
     Ok(decoded)
 }
 
-fn bytes_to_encoded_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Vec<u32>, MltError> {
+/// Convert a byte stream (little-endian, LE) to a vector of u32 integers.
+fn le_bytes_to_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Vec<u32>, MltError> {
     if num_bytes % 4 != 0 {
         return Err(MltError::InvalidByteMultiple {
             ctx: "bytes-to-be-encoded-u32 stream",
@@ -146,7 +150,7 @@ fn bytes_to_encoded_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Ve
             let b2 = tile.get_u8();
             let b3 = tile.get_u8();
             let b4 = tile.get_u8();
-            u32::from_be_bytes([b1, b2, b3, b4])
+            u32::from_le_bytes([b1, b2, b3, b4])
         })
         .collect();
     Ok(encoded_u32s)
@@ -254,10 +258,10 @@ fn generate_physical_decode_cases() -> Vec<PhysicalDecodeCase> {
     let codec = FastPFor128Codec::new();
     let mut tmp = vec![0; input.len()];
     let encoded = codec.encode32(&input, &mut tmp).unwrap();
-    let encoded_bytes = encoded_u32s_to_bytes(encoded);
+    let encoded_bytes = u32s_to_le_bytes(encoded);
 
     vec![
-        // FastPFor-encoded example
+        // PhysicalLevelTechnique::FastPfor example
         PhysicalDecodeCase {
             name: "fastpfor_basic",
             encoded_bytes,
@@ -278,6 +282,7 @@ fn generate_physical_decode_cases() -> Vec<PhysicalDecodeCase> {
             },
             expected: input,
         },
+        // PhysicalLevelTechnique::Varint example
         // Varint-encoded value 300 -> [0b10101100, 0b00000010]
         PhysicalDecodeCase {
             name: "varint_single_value",
@@ -298,6 +303,29 @@ fn generate_physical_decode_cases() -> Vec<PhysicalDecodeCase> {
                 rle: None,
             },
             expected: vec![300],
+        },
+        // PyhsicalLevelTechnique::None example
+        // Little-endian bytes for [0x01,0x00,0x00,0x00, 0x00,0x01,0x00,0x00, 0x00,0x00,0x01,0x00] -> [1u32, 256u32, 65536u32]
+        PhysicalDecodeCase {
+            name: "le_bytes_multiple_values",
+            encoded_bytes: vec![
+                0x01, 0x00, 0x00, 0x00, // 1
+                0x00, 0x01, 0x00, 0x00, // 256
+                0x00, 0x00, 0x01, 0x00, // 65536
+            ],
+            metadata: StreamMetadata {
+                physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+                logical: Logical::new(
+                    Some(LogicalStreamType::Dictionary(None)),
+                    LogicalLevelTechnique::None,
+                    LogicalLevelTechnique::None,
+                ),
+                num_values: 3,
+                byte_length: 12,
+                morton: None,
+                rle: None,
+            },
+            expected: vec![1, 256, 65536],
         },
     ]
 }
@@ -524,7 +552,7 @@ mod tests {
         let num_values = input.len() as u32;
 
         // Prepare the tile as a TrackedBytes instance
-        let encoded_bytes: Vec<u8> = encoded_u32s_to_bytes(encoded);
+        let encoded_bytes: Vec<u8> = u32s_to_le_bytes(encoded);
         let mut tile: TrackedBytes = encoded_bytes.into();
 
         // Create a StreamMetadata instance
@@ -549,11 +577,11 @@ mod tests {
     }
 
     #[test]
-    fn test_bytes_to_encoded_u32s() {
-        let mut tile: TrackedBytes = [0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef]
+    fn test_le_bytes_to_u32s() {
+        let mut tile: TrackedBytes = [0x78, 0x56, 0x34, 0x12, 0xef, 0xcd, 0xab, 0x90]
             .as_slice()
             .into();
-        let result = bytes_to_encoded_u32s(&mut tile, 8).unwrap();
+        let result = le_bytes_to_u32s(&mut tile, 8).unwrap();
         assert_eq!(result, [0x1234_5678, 0x90ab_cdef]);
     }
 

@@ -1,23 +1,12 @@
-# MapLibre Tiles (MLT)
+<h1>MapLibre Tile Specification</h1>
 
-The MLT format is mainly inspired by the [MVT format](https://github.com/mapbox/vector-tile-spec), but has been redesigned from the ground up to improve the following areas:
+--8<-- "live-spec-note"
 
-- **Improved compression ratio** - up to 6x on large tiles, based on a column oriented layout with (custom) lightweight encodings
-- **Better decoding performance** - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
-- **Support for linear referencing and m-values** to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
-- **Support 3D coordinates**, i.e. elevation
-- **Support complex types**, including nested properties, lists and maps
-- **Improved processing performance**: Based on an in-memory format that can be processed efficiently on the CPU and GPU and loaded directly into GPU buffers partially (like polygons in WebGL) or completely (in case of WebGPU compute shader usage) without additional processing
+[TOC]
 
-In order to combine a good compression ratio with fast decoding and processing, the MLT format is split into an in-memory and a storage format.
-The storage format is used for the cost-efficient storage and low latency transfer of the vector data over the network.
-The in-memory format is inspired by the in-memory analytics formats such as Apache Arrow as well as the 3D graphics format [glTF](https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/README.md)
-and tailored for the map visualization use case to be efficiently processed and rendered at runtime.
-One important design goal of the MLT spec is the fast transcoding of the storage into the in-memory format.
+---
 
-## 1. Storage Format
-
-### 1.1 Basics
+# Basics
 
 MLT (MapLibre Tile) contains information about a specific geographic region - a tile. Each tile is a collection of `FeatureTables`, which are equivalent to Layers in the [MVT specification](https://github.com/mapbox/vector-tile-spec).
 
@@ -30,9 +19,10 @@ Each feature must have a `geometry` column, an optional `id` column, and optiona
 The geometries are not restricted to one geometry type, but this is recommended for reasons of efficiency.
 As in MVT, the geometry coordinates are encoded as integers in a vector tile grid coordinates.
 
-> **_Note:_** "column", "field", and "property" are used interchangeably in this document.
+> [!NOTE]
+> "column", "field", and "property" are used interchangeably in this document.
 
-### 1.2 File Layout
+# File Layout
 
 A FeatureTable in the MLT specification is based on a tabular, column-oriented layout.
 It uses different lightweight compression schemes to efficiently encode the values of the columns.
@@ -59,20 +49,21 @@ MLT distinguishes between the following type of streams:
   Stores the offsets into a data stream when dictionary encoding is used such as for strings or vertices.
 
 This physical streams are further divided into logical streams that add additional semantics of how to interpret the data:
-![](./assets/LogicalStreams.png)
 
-#### 1.2.1 Metadata
+![](assets/spec/LogicalStreams.png)
 
-##### Tileset Metadata
+## Metadata
 
-Global metadata for the tileset is stored separately, in [JSON format](schema/mlt_tileset_metadata.json).
+### Tileset Metadata
+
+Global metadata for the tileset is stored separately, in [JSON format](assets/spec/mlt_tileset_metadata.json).
 
 The tileset metadata defines information for the full tileset is the equivalent to the TileJSON spec, which is commonly used in combination with MVT.
 
 By specifying the information once per tileset, the definition of redundant (shared) metadata per tile will be avoided,
 which can take some relevant space of the overall size on small tiles.
 
-##### Tile Metadata
+### Tile Metadata
 
 Each `FeatureTable` is preceded by a `FeatureTableMetadata` describing it.
 
@@ -83,7 +74,7 @@ A tile consists of any number of:
 - One `FeatureTableMetadata`
 - One `FeatureTable`
 
-The `FeatureTableMetadata` is described in detail in [a separate document](assets/FeatureTableSchema.mermaid).
+The `FeatureTableMetadata` is described in detail below.
 
 Each `FeatureTableMetadata`/`FeatureTable` pair may contain one or more layers.  This allows the tile to be built by simple concatenation of separate results.
 
@@ -98,19 +89,174 @@ specific tile, no `id` is needed.
 The absence of an entire field in a tile can be identified by a zero value for the number of streams.
 All integers in the metadata sections are `Varint`-encoded if u32 is used or bit-packed in case of an u8 data type.
 
-![](./assets/FeatureTableSchema.mermaid)
+``` mermaid
+---
+title: FeatureTableSchema
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+    note for LogicalScalarType "[EXPERIMENTAL]"
+    note for ComplexColumn "[EXPERIMENTAL]"
+    note for ComplexField "[EXPERIMENTAL]"
+    note for ComplexType "[EXPERIMENTAL]"
+    note for LogicalComplexType "[EXPERIMENTAL]"
+    note for Field "[EXPERIMENTAL]"
+    note for ScalarField "[EXPERIMENTAL]"
 
-[FeatureTableSchema diagram](./assets/FeatureTableSchema.mermaid)
+    %% ---------------- Tile ----------------
+    class Tile {
+      +LayerGroup[] groups
+    }
+
+    %% ---------------- LayerGroup ----------------
+    class LayerGroup {
+	  +VarInt metadataSize
+	  +TileMetadata metadata
+      +u8[] tileData
+    }
+
+    %% ---------------- TileMetadata ----------------
+    class TileMetadata {
+      +FeatureTable[] featureTables
+    }
+
+    %% ---------------- FeatureTable ----------------
+    class FeatureTable {
+      +String name
+      +VarInt columnCount
+      +Column[] columns
+    }
+
+    %% ---------------- Column ----------------
+    class Column {
+      +ColumnOptions options %% VarInt
+      +String name
+      +ScalarColumn scalarType %% oneof i.e., scalarType XOR complexType
+      +ComplexColumn complexType
+    }
+
+    %% ---------------- ScalarColumn ----------------
+    class ScalarColumn {
+      +ScalarColumnOptions options %% VarInt
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalScalarType logicalType
+    }
+
+    %% ---------------- ComplexColumn [EXPERIMENTAL] ----------------
+    class ComplexColumn {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
+    %% ---------------- Field ----------------
+    class Field {
+      +FieldOptions options %% VarInt
+      +String name
+      +ScalarField scalarField %% oneof i.e., scalarField XOR complexField
+      +ComplexField complexField
+    }
+
+    %% ---------------- ScalarField ----------------
+    class ScalarField {
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalScalarType logicalType
+    }
+
+    %% ---------------- ComplexField [EXPERIMENTAL] ----------------
+    class ComplexField {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
+    %% ---------------- String ------------------
+    class String {
+      +VarInt length
+      +u8 bytes[length] %% encoding is always UTF-8
+    }
+
+    %% ---------------- Enumerations ----------------
+    class ScalarType {
+      <<enumeration>>
+      BOOLEAN = 0
+      INT_8 = 1
+      UINT_8 = 2
+      INT_32 = 3
+      UINT_32 = 4
+      INT_64 = 5
+      UINT_64 = 6
+      FLOAT = 7
+      DOUBLE = 8
+      STRING = 9
+      INT_128 = 10
+      UINT_128 = 11
+    }
+
+    class LogicalScalarType {
+      <<enumeration>>
+      TIMESTAMP = 0
+      DATE = 1
+      JSON = 2
+    }
+
+    class ComplexType {
+      <<enumeration>>
+      VEC_2 = 0
+      VEC_3 = 1
+      GEOMETRY = 2
+      GEOMETRY_Z = 3
+      LIST = 4
+      MAP = 5
+      STRUCT = 6
+    }
+
+    class LogicalComplexType {
+      <<enumeration>>
+      BINARY = 0
+      RANGE_MAP = 1
+    }
+
+    class FieldOptions {
+      <<enumeration>>
+      NULLABLE = 1, %% Property is nullable
+      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType [EXPERIMENTAL]
+      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type [EXPERIMENTAL]
+      CHILD_TYPES = 8, %% 1: Child types are present [EXPERIMENTAL]
+    }
+
+    class ColumnOptions {
+      <<enumeration>>
+      VERTEX_SCOPE = 16, %% Property is vertex-scope if set, else feature-scope
+    }
+
+    %% ---------------- Associations ----------------
+    FieldOptions <|-- ColumnOptions
+    Tile --> LayerGroup : groups
+	LayerGroup --> TileMetadata : metadata
+    TileMetadata --> FeatureTable : featureTables
+    FeatureTable --> Column : columns
+    Column --> ScalarColumn : scalarType
+    Column --> ComplexColumn : complexType
+    ComplexColumn --> Field : children
+    ComplexField --> Field : children
+    Field --> ComplexField : complexField
+    Field --> ScalarField : scalarField
+```
 
 
-#### 1.2.2 Type system
+## Type system
 
 The types system of MLT is divided into physical and logical types.
 The physical types define the layout of the data in the storage format, while the logical types give additional semantics to the physical types.
 Based on this separation, the encoding and decoding of the data can be simplified.
 This reduces the complexity for implementing encoder and decoder as well allow the encodings to be reused.
 
-##### 1.2.2.1 Physical Types
+### Physical Types
 
 The physical types define the layout of the data in the storage format.
 Both scalar and complex types can be divided into fixed-size binaries and variable-size binaries.
@@ -128,9 +274,9 @@ Each scalar type has a specific encoding scheme which can be applied to the data
 | Float, Double                              |                                 |                                      | Fixed-Size    |
 | String                                     | JSON                            | UTF-8 encoded sequence of characters | Variable-Size |
 
-**Complex Types**
+<b>Complex Types <span class="experimental"></span></b>
 
-Complex types are composed of scalar types.  Complex types are currently experimental.
+Complex types are composed of scalar types.
 
 | DataType         | Logical Types           | Description                                        | Layout        |
 |------------------|-------------------------|----------------------------------------------------|---------------|
@@ -139,11 +285,11 @@ Complex types are composed of scalar types.  Complex types are currently experim
 | Struct           |                         |                                                    |               |
 | Vec2<T>, Vec3<T> | Geometry, GeometryZ     |                                                    | Fixed-Size    |
 
-##### 1.2.2.2 Logical Types
+### Logical Types <span class="experimental"></span>
+
 
 Add additional semantics on top of the physical types.
 This had the advantage that encodings can be reused and implementation of encoders and decoders can be simplified.
-Logical types are currently experimental.
 
 | Logical Type | Physical Type                  | Description                                |
 |--------------|--------------------------------|--------------------------------------------|
@@ -155,7 +301,7 @@ Logical types are currently experimental.
 | Geometry     | vec2<Int32>                    |                                            |
 | GeometryZ    | vec3<Int32>                    |                                            |
 
-##### Nested Fields Encoding
+### Nested Fields Encoding
 
 For nested properties such as structs and lists, a [present/length](https://arxiv.org/pdf/2304.05028.pdf) pair encoding
 is selected over the widely used Dremel encoding, since it is simpler to implement and faster to decode into the in-memory format.
@@ -167,13 +313,13 @@ This can be applied, for example, on localized values of the name:* columns of a
 If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
 must be grouped sequentially in the file and prefixed with the dictionary.
 
-##### RangeMap
+### RangeMap <span class="experimental"></span>
 
 RangeMaps are an efficient way to encode linear referencing information, as used for example in [Overture Maps](https://docs.overturemaps.org/overview/feature-model/scoping-rules#geometric-scoping-linear-referencing).
 RangesSets store the range values and data values in two separate streams.
 The min and max values for the ranges are stored as interleaved double values in a separate range stream.
 
-#### 1.2.3 Encoding Schemes
+## Encoding Schemes
 
 MLT uses different lightweight compression schemes for the space efficient storage and fast decoding of the data types.
 To further reduce the size of a column the encodings can be recursively cascaded (hybrid encodings) up to a certain level.
@@ -189,7 +335,8 @@ in terms of the compression ratio and decoding speed on test datasets such as th
 | String   | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry | Plain, Dictionary, Morton-Dictionary | | |
 
-ALP, FSST, and FastPFOR encodings are currently experimental.
+> [!NOTE]
+> `ALP`, `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
 
 Since SIMD-FastPFOR generally produces smaller data streams and is faster to decode, it should be preferred over Varint encoding.
 Varint encoding is mainly added to the encoding pool for compatibility reasons and it's simpler implementation compared to SIMD-FastPFOR.
@@ -205,14 +352,14 @@ the selection strategy described in the [BTRBlocks](https://www.cs.cit.tum.de/fi
   of the data with a total size of 1% of the full data and apply the encoding schemes selected in step 1. Apply the encoding scheme
   on the data which produces the smallest output
 
-#### 1.2.4 FeatureTable Layout
+## FeatureTable Layout
 
-##### ID Column
+### ID Column
 
 No `id` column is mandatory.  If an identifier column is included, it should be u64 or a narrower integer type for compatibility with MVT.
 Narrow the column to u32, if possible, to enable the use of FastPfor128 encoding.
 
-##### Geometry Column
+### Geometry Column
 
 The main idea is to use a structure of arrays (data-oriented design) layout for the geometries.
 The `x`, `y`, and optional `z` coordinates are stored interleaved in a `VertexBuffer` so that they can be efficiently processed
@@ -250,7 +397,7 @@ In addition, the geometry column can consist of an additional `VertexOffsets` st
 encoding is applied. If the geometries (mainly polygons) are stored in a tessellated/triangulated form for direct copying to a GPU Buffer,
 an additional `NumTriangles` and `IndexBuffer` must be provided.
 
-##### Property Columns
+### Property Columns
 
 The properties of a feature are divided into `feature-scoped` and `vertex-scoped` properties.
 The values of feature-scoped properties are related to a specific Feature, which means there is one value in
@@ -261,9 +408,9 @@ per vertex in the VertexBuffer. This allows to model what is known as M-coordina
 Vertex-scoped properties have to be grouped together and are placed before the feature-scoped properties in the FeatureTable.
 The scope of a property column is specified in the tileset metadata document based on the `ColumnScope` enum.
 
-A property column can have one of the above listed [data types](#122-type-system).
+A property column can have one of the above listed [data types](#type-system).
 
-### 1.3 Example Layouts
+# Example Layouts
 
 In the following, examples for the layout of a `FeatureTable` in storage are illustrated.
 The following colors are used to highlight different kind of data:
@@ -274,46 +421,47 @@ The following colors are used to highlight different kind of data:
   FeatureTable, Stream (SM) and Feature (FM) metadata
 - yellow boxes: streams which contains the actual data
 
-#### 1.3.1 Place layer
+## Place layer
 
-Given a place layer with the following structure modeled as Json schema:
-![](examples/place_feature.png)
+Given a place [layer](assets/spec/place_feature.json) with the following structure modeled as Json schema:
+![](assets/spec/place_feature.png)
 
 For the given schema the place layer can have the following layout in a MLT tile
 when a dictionary for the `geometry` and `name` column is used.
-![img_2.png](./assets/img_2.png)
+![img_2.png](assets/spec/img_2.png)
 
-#### 1.3.2 LineString geometry with flat properties
+## LineString geometry with flat properties
 
 Encoding of a `FeatureTable` with an `id` field, a `LineString` geometry field and the flat feature scoped properties class and subclass:
-![img_4.png](./assets/img_4.png)
+![img_4.png](assets/spec/img_4.png)
 
-#### 1.3.3 MultiPolygon with flat properties
+## MultiPolygon with flat properties
 
 Encoding of a `FeatureTable` with a `id` field, `MultiPolygon` geometry field and flat feature scoped property fields.
 Because vertex dictionary encoding is used a `VertexOffsets` stream is present:
-![img_5.png](./assets/img_5.png)
+![img_5.png](assets/spec/img_5.png)
 
-#### 1.3.4 Vertex-scoped and feature-scoped properties
+## Vertex-scoped and feature-scoped properties
 
 Example layout for encoding of vertex-scoped and feature scoped properties.
 All vertex-scoped properties have to be grouped together and placed before the feature-scoped properties
 in the file. Since the `id` colum in this example is not `nullable`, the present stream can be omitted.
-![img_7.png](./assets/img_7.png)
+![img_7.png](assets/spec/img_7.png)
 
-### Sorting
+# Sorting
 
 Choosing the right column for sorting the features can have significant impact on the size
 of the `FeatureTable`. To take full advantage of the columnar layout, sorting is crucial.
 To test every layer for every possible sorting order of every column is too costly.
 
-### 1.4 Encodings
+# Encodings
 
-The details of encodings are specified in [a separate document](ENCODINGS.md).
+The details of encodings are specified in [a separate document](encodings.md).
 
-## 2. In-Memory Format
+# In-Memory Format
 
-> **_Notes:_** The in-memory format will be explained in more detail; the following is only a rough overview:
+> [!NOTE]
+> The in-memory format will be explained in more detail; the following is only a rough overview:
 
 The record-oriented, in-memory model (array of structures approach) used by the libraries that process
 the Mapbox Vector Tiles leads to a considerable overhead, such as the creation of a large number of small objects (per-object memory allocation),
@@ -344,11 +492,12 @@ The MLT in-memory format supports the following vectors:
 - [Constant Vectors](https://duckdb.org/internals/vector.html#constant-vectors)
 - [Sequence Vectors](https://duckdb.org/internals/vector.html#sequence-vectors)
 - [Dictionary Vectors](https://duckdb.org/internals/vector.html#dictionary-vectors)
-- FSST Dictionary Vectors
-- Shared Dictionary Vectors
+- FSST Dictionary Vectors <span class="experimental"></span>
+- Shared Dictionary Vectors <span class="experimental"></span>
 - [Run-End Encoded (REE) Vectors](https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout)
 
-> **_Note:_** Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
+> [!NOTE]
+> Further evaluation is needed to determine if the [latest research findings](https://arxiv.org/pdf/2306.15374.pdf)
 > can be used to enable random access on delta encoded values as well
 
 In case a compressed vector can be used, this has the additional advantage that the conversion from the storage

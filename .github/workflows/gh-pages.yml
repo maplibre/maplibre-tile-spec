@@ -1,0 +1,27 @@
+name: gh-pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  gh-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just' }
+
+      - name: Build MLT documentation
+        run: just mkdocs-build
+
+      - name: Deploy 🚀
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository_owner == 'maplibre'
+        uses: JamesIves/github-pages-deploy-action@6c2d9db40f9296374acc17b90404b6e8864128c8 # v4.7.3
+        with:
+          branch: gh-pages
+          folder: mkdocs/site
