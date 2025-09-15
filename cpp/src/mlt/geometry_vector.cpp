@@ -11,15 +11,14 @@ namespace mlt::geometry {
 #define MLT_GEOMETRY_CHECKS 1
 #endif
 namespace {
-#if MLT_GEOMETRY_CHECKS
-void checkBuffer(std::size_t index, std::size_t size, std::string_view name) {
+constexpr void checkBuffer(std::size_t index, std::size_t size, std::string_view name) {
     if (index >= size) {
         throw std::runtime_error(std::string(name) + " underflow");
     }
 }
+#if MLT_GEOMETRY_CHECKS
 #define CHECK_BUFFER(I, B) checkBuffer(I, B.size(), #B)
 #else
-void checkBuffer(std::size_t, std::size_t, std::string_view) {}
 #define CHECK_BUFFER(I, B) ((void)0)
 #endif
 

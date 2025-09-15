@@ -12,8 +12,7 @@ struct BufferStream;
 
 namespace mlt::metadata::tileset {
 
-// Based on maplibre-tile-spec:spec/schema/mlt_tileset_metadata.proto commit
-// 4b92e986b5c5c1f4c3772a5cf7033fe5822deb5c
+// See https://maplibre.org/maplibre-tile-spec/specification/
 namespace schema {
 
 enum class TileSetMetadata : std::uint32_t {
