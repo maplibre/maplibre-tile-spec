@@ -3,68 +3,92 @@
 id" 
 geometry* 
 class" 	
-subclass" 	c
+subclass" 	j
 waterway
 id" 
 geometry* 
-class" 	
-name" 	
-name_de" 	
-name_en" 	2
+class" 	5
+name*+ 2
+default	2
+
+de	2
+
+en	2
 landuse
 id" 
 geometry* 
-class" 	¹
+class" 	¶
 mountain_peak
 id" 
 geometry* 
 class" 	
-ele" 
-ele_ft" 
-name" 	
+ele" 
+ele:ft" 
+rank" Q
+name*G 2
+default	2
 
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" ù
+de	2
+
+en	2
+int	2
+latin	÷
 place
 id" 
 geometry* 
 class" 	
-name" 	
-name:ar" 	
-name:bg" 	
-name:el" 	
-name:he" 	
-name:hu" 	
-name:ja" 	
-name:ka" 	
-name:kk" 	
-name:ko" 	
-name:la" 	
+rank" ¶
+name*« 2
+default	2
 
-name:latin" 	
-name:lt" 	
-name:lv" 	
-name:ru" 	
-name:sr" 	
-name:th" 	
-name:uk" 	
-name:zh" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:en" 	
-name:fr" 	
-name:de" 	
-name:mk" 	F
+ar	2
+
+bg	2
+
+de	2
+
+el	2
+
+en	2
+
+he	2
+
+hu	2
+int	2
+
+ja	2
+
+ka	2
+
+kk	2
+
+ko	2
+
+la	2
+latin	2
+
+lt	2
+
+lv	2
+
+ru	2
+
+sr	2
+
+th	2
+
+uk	2
+
+zh	2
+
+fr	2
+
+mk	F
 water
 id" 
 geometry* 
 class" 	
-intermittent" p
+intermittent" p
 transportation_name
 id" 
 geometry* 
@@ -72,26 +96,28 @@ name:latin" 	
 network" 	
 ref" 	
 
-ref_length" …
+ref:length" ‚
 park
 id" 
 geometry* 
-class" 	
-name" 	
+class" 	Q
+name*G 2
+default	2
 
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	·
+de	2
+
+en	2
+int	2
+latin	·
 transportation
 id" 
 geometry* 
 brunnel" 	
 class" 	
-layer" 
+layer" 
 bicycle" 	
 foot" 	
-oneway" 
-ramp" 
+oneway" 
+ramp" 
 subclass" 	
 horse" 	

@@ -2,85 +2,144 @@
 boundary
 id" 
 geometry* 
-admin_level" 
-disputed" 
-maritime" 
-disputed_name" 	
+admin:level" 
+disputed" 
+maritime" 
+disputed:name" 	
 
-claimed_by" 	®	
+claimed:by" 	ä
 
 water_name
 id" 
 geometry* 
 class" 	
-intermittent" 
-name" 	
-name:ar" 	
-name:be" 	
-name:br" 	
-name:cs" 	
-name:de" 	
-name:en" 	
-name:eo" 	
-name:es" 	
-name:fr" 	
-name:hr" 	
-name:it" 	
+intermittent" –
+name*‹ 2
+default	2
 
-name:latin" 	
-name:pl" 	
-name:ru" 	
-name:sk" 	
-name:uk" 	
-name_de" 	
-name_en" 	
-name_int" 	
-name:da" 	
-name:fi" 	
-name:hu" 	
-name:ko" 	
-name:lt" 	
-name:pt" 	
-name:sl" 	
-name:sv" 	
-name:zh" 	
-name:el" 	
-name:is" 	
-name:ja" 	
-name:ku" 	
-name:la" 	
-name:mk" 	
-name:nl" 	
-name:tr" 	
-name:co" 	
-name:et" 	
-name:no" 	
-name:th" 	
-name:bg" 	
-name:bs" 	
-name:ca" 	
-name:he" 	
-name:hi" 	
-name:ka" 	
-name:lv" 	
-name:rm" 	
-name:ro" 	
-name:sq" 	
-name:sr" 	
-name:ta" 	
-name:am" 	
-name:az" 	
-name:eu" 	
-name:fy" 	
-name:ga" 	
-name:hy" 	
-name:id" 	
-name:kk" 	
-name:kn" 	
-name:lb" 	
-name:ml" 	
-name:oc" 	
-name:te" 	F
+ar	2
+
+be	2
+
+br	2
+
+cs	2
+
+de	2
+
+en	2
+
+eo	2
+
+es	2
+
+fr	2
+
+hr	2
+int	2
+
+it	2
+latin	2
+
+pl	2
+
+ru	2
+
+sk	2
+
+uk	2
+
+da	2
+
+fi	2
+
+hu	2
+
+ko	2
+
+lt	2
+
+pt	2
+
+sl	2
+
+sv	2
+
+zh	2
+
+el	2
+
+is	2
+
+ja	2
+
+ku	2
+
+la	2
+
+mk	2
+
+nl	2
+
+tr	2
+
+co	2
+
+et	2
+
+no	2
+
+th	2
+
+bg	2
+
+bs	2
+
+ca	2
+
+he	2
+
+hi	2
+
+ka	2
+
+lv	2
+
+rm	2
+
+ro	2
+
+sq	2
+
+sr	2
+
+ta	2
+
+am	2
+
+az	2
+
+eu	2
+
+fy	2
+
+ga	2
+
+hy	2
+
+id	2
+
+kk	2
+
+kn	2
+
+lb	2
+
+ml	2
+
+oc	2
+
+te	F
 	landcover
 id" 
 geometry* 
@@ -89,87 +148,148 @@ name:latin" 	
 waterway
 id" 
 geometry* 
-class" 	¢
-
+class" 	¿
 place
 id" 
 geometry* 
-capital" 
+capital" 
 class" 	
-name" 	
-name:am" 	
-name:ar" 	
-name:az" 	
-name:be" 	
-name:bg" 	
-name:br" 	
-name:bs" 	
-name:ca" 	
-name:co" 	
-name:cs" 	
-name:cy" 	
-name:da" 	
-name:de" 	
-name:el" 	
-name:en" 	
-name:eo" 	
-name:es" 	
-name:et" 	
-name:eu" 	
-name:fi" 	
-name:fr" 	
-name:fy" 	
-name:ga" 	
-name:gd" 	
-name:he" 	
-name:hi" 	
-name:hr" 	
-name:hu" 	
-name:hy" 	
-name:id" 	
-name:is" 	
-name:it" 	
-name:ja" 	
-name:ka" 	
-name:kk" 	
-name:kn" 	
-name:ko" 	
-name:ku" 	
-name:la" 	
+rank" 
+iso:a2" 	Ý
+name*Ò 2
+default	2
 
-name:latin" 	
-name:lb" 	
-name:lt" 	
-name:lv" 	
-name:mk" 	
-name:ml" 	
-name:mt" 	
-name:nl" 	
-name:no" 	
-name:oc" 	
-name:pl" 	
-name:pt" 	
-name:rm" 	
-name:ro" 	
-name:ru" 	
-name:sk" 	
-name:sl" 	
-name:sq" 	
-name:sr" 	
-name:sv" 	
-name:ta" 	
-name:te" 	
-name:th" 	
-name:tr" 	
-name:uk" 	
-name:zh" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-iso_a2" 	
-name:nonlatin" 	
-name:sr-Latn" 	0
+am	2
+
+ar	2
+
+az	2
+
+be	2
+
+bg	2
+
+br	2
+
+bs	2
+
+ca	2
+
+co	2
+
+cs	2
+
+cy	2
+
+da	2
+
+de	2
+
+el	2
+
+en	2
+
+eo	2
+
+es	2
+
+et	2
+
+eu	2
+
+fi	2
+
+fr	2
+
+fy	2
+
+ga	2
+
+gd	2
+
+he	2
+
+hi	2
+
+hr	2
+
+hu	2
+
+hy	2
+
+id	2
+int	2
+
+is	2
+
+it	2
+
+ja	2
+
+ka	2
+
+kk	2
+
+kn	2
+
+ko	2
+
+ku	2
+
+la	2
+latin	2
+
+lb	2
+
+lt	2
+
+lv	2
+
+mk	2
+
+ml	2
+
+mt	2
+
+nl	2
+
+no	2
+
+oc	2
+
+pl	2
+
+pt	2
+
+rm	2
+
+ro	2
+
+ru	2
+
+sk	2
+
+sl	2
+
+sq	2
+
+sr	2
+
+sv	2
+
+ta	2
+
+te	2
+
+th	2
+
+tr	2
+
+uk	2
+
+zh	2
+nonlatin	2
+sr-Latn	0
 water
 id" 
 geometry* 

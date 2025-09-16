@@ -11,102 +11,166 @@
 landuse
 id" 
 geometry* 
-class" 	π
+class" 	∂
 mountain_peak
 id" 
 geometry* 
 class" 	
-ele" 
-ele_ft" 
-name" 	
+ele" 
+ele:ft" 
+rank" Q
+name*G 2
+default	2
 
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" ı	
+de	2
+
+en	2
+int	2
+latin	ú
 place
 id" 
 geometry* 
 class" 	
-iso_a2" 	
-name" 	
-name:am" 	
-name:ar" 	
-name:az" 	
-name:be" 	
-name:bg" 	
-name:br" 	
-name:bs" 	
-name:ca" 	
-name:co" 	
-name:cs" 	
-name:cy" 	
-name:da" 	
-name:de" 	
-name:el" 	
-name:en" 	
-name:eo" 	
-name:es" 	
-name:et" 	
-name:eu" 	
-name:fi" 	
-name:fr" 	
-name:fy" 	
-name:ga" 	
-name:gd" 	
-name:he" 	
-name:hi" 	
-name:hr" 	
-name:hu" 	
-name:hy" 	
-name:id" 	
-name:is" 	
-name:it" 	
-name:ja" 	
-name:ka" 	
-name:kk" 	
-name:kn" 	
-name:ko" 	
-name:ku" 	
-name:la" 	
+iso:a2" 	
+rank" 
+capital" ∫
+name*Ø 2
+default	2
 
-name:latin" 	
-name:lb" 	
-name:lt" 	
-name:lv" 	
-name:mk" 	
-name:ml" 	
-name:mt" 	
-name:nl" 	
-name:no" 	
-name:oc" 	
-name:pl" 	
-name:pt" 	
-name:rm" 	
-name:ro" 	
-name:ru" 	
-name:sk" 	
-name:sl" 	
-name:sq" 	
-name:sr" 	
-name:sv" 	
-name:ta" 	
-name:te" 	
-name:th" 	
-name:tr" 	
-name:uk" 	
-name:zh" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-capital" F
+am	2
+
+ar	2
+
+az	2
+
+be	2
+
+bg	2
+
+br	2
+
+bs	2
+
+ca	2
+
+co	2
+
+cs	2
+
+cy	2
+
+da	2
+
+de	2
+
+el	2
+
+en	2
+
+eo	2
+
+es	2
+
+et	2
+
+eu	2
+
+fi	2
+
+fr	2
+
+fy	2
+
+ga	2
+
+gd	2
+
+he	2
+
+hi	2
+
+hr	2
+
+hu	2
+
+hy	2
+
+id	2
+int	2
+
+is	2
+
+it	2
+
+ja	2
+
+ka	2
+
+kk	2
+
+kn	2
+
+ko	2
+
+ku	2
+
+la	2
+latin	2
+
+lb	2
+
+lt	2
+
+lv	2
+
+mk	2
+
+ml	2
+
+mt	2
+
+nl	2
+
+no	2
+
+oc	2
+
+pl	2
+
+pt	2
+
+rm	2
+
+ro	2
+
+ru	2
+
+sk	2
+
+sl	2
+
+sq	2
+
+sr	2
+
+sv	2
+
+ta	2
+
+te	2
+
+th	2
+
+tr	2
+
+uk	2
+
+zh	F
 water
 id" 
 geometry* 
 class" 	
-intermittent" p
+intermittent" p
 transportation_name
 id" 
 geometry* 
@@ -114,18 +178,20 @@ name:latin" 	
 network" 	
 ref" 	
 
-ref_length" ì
+ref:length" ê
 park
 id" 
 geometry* 
-class" 	
-name" 	
+class" 	Q
+name*G 2
+default	2
 
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" \
+de	2
+
+en	2
+int	2
+latin	
+rank" \
 transportation
 id" 
 geometry* 

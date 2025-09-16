@@ -2,18 +2,18 @@
 boundary
 id" 
 geometry* 
-admin_level" 
-disputed" 
-disputed_name" 	
-maritime" 
+admin:level" 
+disputed" 
+disputed:name" 	
+maritime" 
 
-claimed_by" 	´	
+claimed:by" 	’	
 
 water_name
 id" 
 geometry* 
 class" 	
-intermittent" 
+intermittent" 
 name" 	
 name:ar" 	
 name:be" 	
@@ -25,7 +25,8 @@ water_name
 name:fi" 	
 name:fr" 	
 name:hr" 	
-name:hu" 	
+name:hu" 	
+name:int" 	
 name:it" 	
 
 name:latin" 	
@@ -37,9 +38,6 @@ name:latin" 	
 name:sl" 	
 name:uk" 	
 name:zh" 	
-name_de" 	
-name_en" 	
-name_int" 	
 name:br" 	
 name:da" 	
 name:he" 	
@@ -85,13 +83,13 @@ name:latin" 	
 id" 
 geometry* 
 class" 	
-subclass" 	¶
+subclass" 	”
 
 place
 id" 
 geometry* 
 class" 	
-iso_a2" 	
+iso:a2" 	
 name" 	
 name:am" 	
 name:ar" 	
@@ -121,7 +119,8 @@ name:latin" 	
 name:hr" 	
 name:hu" 	
 name:hy" 	
-name:id" 	
+name:id" 	
+name:int" 	
 name:is" 	
 name:it" 	
 name:ja" 	
@@ -158,16 +157,13 @@ name:latin" 	
 name:th" 	
 name:tr" 	
 name:uk" 	
-name:zh" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
+name:zh" 	
+rank" 
 name:co" 	
-capital" 
+capital" 
 name:sr-Latn" 	
 
-name:ja_rm" 	0
+name:ja:rm" 	0
 water
 id" 
 geometry* 
