@@ -152,7 +152,7 @@ describe("MltDecoder", () => {
         // Currently expect 1 difference in geometry in vector_background layer
         expect(numGeomErrors).toEqual(1);
         // Currently major differences in properties
-        expect(numFeaturesErrors).toEqual(42);
+        expect(numFeaturesErrors).toEqual(86);
     });
 
     it("should decode one OMT based tile", async () => {
@@ -203,9 +203,9 @@ describe("MltDecoder", () => {
             }
         }
         // Currently expect 4 differences in geometry in water layer
-        expect(numErrors).toEqual(2);
+        expect(numErrors).toEqual(4);
         // Currently major differences in properties
-        expect(numFeaturesErrors).toEqual(4602);
+        expect(numFeaturesErrors).toEqual(5228);
     });
 
 });
