@@ -86,7 +86,7 @@
     
     
   <meta name="panzoom-theme" content="material">
-<meta name="panzoom-data" content='{"selectors": [".d2", ".mermaid"], "initial_zoom_level": 1.0}'> </head>
+<meta name="panzoom-data" content='{"selectors": [".mermaid", ".d2"], "initial_zoom_level": 1.0}'> </head>
   
   
     
@@ -401,13 +401,14 @@
 <div class="toc">
 <ul>
 <li><a href="#1-basics">1. Basics</a></li>
-<li><a href="#2-file-layout">2. File Layout</a><ul>
+<li><a href="#2-tile-layout">2. Tile Layout</a><ul>
 <li><a href="#21-metadata">2.1 Metadata</a><ul>
 <li><a href="#211-tileset-metadata">2.1.1 Tileset Metadata</a></li>
 <li><a href="#212-tile-metadata">2.1.2 Tile Metadata</a></li>
+<li><a href="#213-featuretable-metadata">2.1.3 FeatureTable Metadata</a></li>
 </ul>
 </li>
-<li><a href="#22-type-system">2.2 Type system</a><ul>
+<li><a href="#22-type-system">2.2 Type System</a><ul>
 <li><a href="#221-physical-types">2.2.1 Physical Types</a></li>
 <li><a href="#222-logical-types">2.2.2 Logical Types</a></li>
 <li><a href="#223-nested-fields-encoding">2.2.3 Nested Fields Encoding</a></li>
@@ -424,10 +425,10 @@
 </ul>
 </li>
 <li><a href="#3-example-layouts">3. Example Layouts</a><ul>
-<li><a href="#31-place-layer">3.1 Place layer</a></li>
-<li><a href="#32-linestring-geometry-with-flat-properties">3.2 LineString geometry with flat properties</a></li>
-<li><a href="#33-multipolygon-with-flat-properties">3.3 MultiPolygon with flat properties</a></li>
-<li><a href="#34-vertex-scoped-and-feature-scoped-properties">3.4 Vertex-scoped and feature-scoped properties</a></li>
+<li><a href="#31-place-layer">3.1 Place Layer</a></li>
+<li><a href="#32-linestring-geometry-with-flat-properties">3.2 LineString Geometry with Flat Properties</a></li>
+<li><a href="#33-multipolygon-with-flat-properties">3.3 MultiPolygon with Flat Properties</a></li>
+<li><a href="#34-vertex-scoped-and-feature-scoped-properties">3.4 Vertex-Scoped and Feature-Scoped Properties</a></li>
 </ul>
 </li>
 <li><a href="#4-sorting">4. Sorting</a></li>
@@ -437,68 +438,89 @@
 </div>
 <hr />
 <h1 id="1-basics">1. Basics<a class="headerlink" href="#1-basics" title="Link to this section">&para;</a></h1>
-<p>MLT (MapLibre Tile) contains information about a specific geographic region - a tile. Each tile is a collection of <code>FeatureTables</code>, which are equivalent to Layers in the <a href="https://github.com/mapbox/vector-tile-spec">MVT specification</a>.</p>
-<p>Each <code>FeatureTable</code> contains thematically grouped vector data, known as Features. Features in one FeatureTable share a common set of attribute columns (properties) and usually share the same geometry type (but not required to).</p>
-<p>The visual appearance of a tile on a map is usually controlled by <a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style Specification</a>, which specifies how the features in the FeatureTables are rendered.</p>
-<p>Each feature must have a <code>geometry</code> column, an optional <code>id</code> column, and optional property columns. The geometry column type is based on the OGC's Simple Feature Access Model (SFA) without the support for GeometryCollection types.</p>
-<p>The geometries are not restricted to one geometry type, but this is recommended for reasons of efficiency.
-As in MVT, the geometry coordinates are encoded as integers in a vector tile grid coordinates.</p>
+<p>An MLT (MapLibre Tile) contains information about a specific geographic region, known as a tile.
+Each tile is a collection of <code>FeatureTables</code>, which are equivalent to <code>Layers</code> in the <a href="https://github.com/mapbox/vector-tile-spec">MVT specification</a>.</p>
+<p>A <code>FeatureTable</code> contains thematically grouped vector data, known as <code>Features</code>.
+Features within a single FeatureTable share a common set of attribute columns (properties) and typically share the same geometry type (though this is not strictly required).</p>
+<p>Each <code>FeatureTable</code> is preceded by a <code>FeatureTableMetadata</code> that describes <code>FeatureTable</code>'s structure.</p>
+<p>The visual appearance of a tile is usually defined by a <a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style</a>, which specifies how features are rendered.</p>
+<p>Each feature must have
+- a <code>geometry</code> column (type based on the OGC's Simple Feature Access Model (SFA), excluding support for <code>GeometryCollection</code> types)
+- an optional <code>id</code> column
+- optional property columns</p>
+<p>While geometries are not restricted to a single type, using one type per table is recommended for efficiency.
+As in MVT, geometry coordinates are encoded as integers within vector tile grid coordinates.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>"column", "field", and "property" are used interchangeably in this document.</p>
+<p>The terms <code>column</code>, <code>field</code>, and <code>property</code> are used interchangeably in this document.</p>
 </div>
-<h1 id="2-file-layout">2. File Layout<a class="headerlink" href="#2-file-layout" title="Link to this section">&para;</a></h1>
-<p>A FeatureTable in the MLT specification is based on a tabular, column-oriented layout.
-It uses different lightweight compression schemes to efficiently encode the values of the columns.
-A FeatureTable consists of a optional <code>id</code> column, a mandatory <code>geometry</code> column and optional property columns.
-Because there is no tile header, <code>FeatureTable</code>s can be concatenated on the fly.</p>
-<p>A logical column is separated into several physical <code>streams</code> (sub-columns) inspired by the ORC file format which are stored next to each other. A stream is a sequence of values of a known length in a continuous chunk of memory, all having the same type. A stream has some additional metadata such as the size of the stream and the encoding type.
-For example, a nullable string property column can have a <code>present stream</code>, which indicates the presence of a value,
-a <code>length</code> stream, which describes the number of characters of every string, and a <code>data stream</code>, with the actual
-UTF-8 encoded string values.</p>
-<p>MLT distinguishes between the following type of streams:</p>
+<h1 id="2-tile-layout">2. Tile Layout<a class="headerlink" href="#2-tile-layout" title="Link to this section">&para;</a></h1>
+<p>A <code>FeatureTable</code> in the MLT specification uses a tabular, column-oriented layout.
+It employs various lightweight compression schemes to encode column values efficiently.</p>
+<p>A FeatureTable consists of a mandatory <code>geometry</code> column, an optional <code>id</code> column, and optional property columns.
+The absence of a single header at the beginning of the tile allows <code>FeatureTable</code>s to be constructed independently, and even concatenated on the fly.</p>
+<p>A logical column is separated into several physical <code>streams</code> (sub-columns), inspired by the ORC file format.
+These streams are stored contiguously.
+A stream is a sequence of values of a known length in a continuous memory chunk, all sharing the same type.
+Streams include additional metadata, such as their size and encoding type.</p>
+<p>For example, a nullable string property column might have:
+- A <strong><code>present</code> stream</strong> (a bit flag indicating the presence of a value).
+- A <strong><code>length</code> stream</strong> (describing the number of characters for each string).
+- A <strong><code>data</code> stream</strong> (containing the actual UTF-8 encoded string values).</p>
+<p>MLT defines the following stream types:</p>
 <ul>
-<li><strong>present</strong>:
-  Is used for a efficient encoding of sparse columns since it indicates the presence of a value base on a bit flag.
-  This stream can be omitted if the column is not declared as nullable in the <code>FieldMetadata</code>.</li>
-<li><strong>data</strong>:
-  Stores the actual data of a column such as <code>boolean</code>, <code>int</code>, <code>float</code>, or <code>string</code> values of the feature properties.
-  Dictionary-encoded values, string values, or the coordinate values of a geometry column are stored in this type of stream.
-  In addition to the optional present stream, this is the only used stream type for fixed-sized data types such as <code>boolean</code>, <code>int</code>, and <code>float</code>.</li>
-<li><strong>length</strong>:
-  Specifies the number of elements for variable-sized data types such as strings or list.</li>
-<li><strong>offset</strong>:
-  Stores the offsets into a data stream when dictionary encoding is used such as for strings or vertices.</li>
+<li><strong>Present</strong>:
+  Enables efficient encoding of sparse columns by indicating value presence via a bit flag.
+  This stream can be omitted if the column is not nullable (as declared in the <code>FieldMetadata</code>).</li>
+<li><strong>Data</strong>:
+  Stores the actual column data (e.g., <code>boolean</code>, <code>int</code>, <code>float</code>, or <code>string</code> values for feature properties, dictionary-encoded values, or geometry coordinates).
+  For fixed-size data types (<code>boolean</code>, <code>int</code>, <code>float</code>), this is the only required stream besides the optional <code>present</code> stream.</li>
+<li><strong>Length</strong>:
+  Specifies the number of elements for variable-sized data types like strings or lists.</li>
+<li><strong>Offset</strong>:
+  Stores offsets into a data stream when using dictionary encoding (e.g., for strings or vertices).</li>
 </ul>
-<p>This physical streams are further divided into logical streams that add additional semantics of how to interpret the data:</p>
+<p>These physical streams are further categorized into logical streams that define how to interpret the data:</p>
 <p><img alt="" src="../assets/spec/LogicalStreams.png" /></p>
 <h2 id="21-metadata">2.1 Metadata<a class="headerlink" href="#21-metadata" title="Link to this section">&para;</a></h2>
-<h3 id="211-tileset-metadata">2.1.1 Tileset Metadata<a class="headerlink" href="#211-tileset-metadata" title="Link to this section">&para;</a></h3>
-<p>Global metadata for the tileset is stored separately, in <a href="../assets/spec/mlt_tileset_metadata.json">JSON format</a>.</p>
-<p>The tileset metadata defines information for the full tileset is the equivalent to the TileJSON spec, which is commonly used in combination with MVT.</p>
-<p>By specifying the information once per tileset, the definition of redundant (shared) metadata per tile will be avoided,
-which can take some relevant space of the overall size on small tiles.</p>
+<h3 id="211-tileset-metadata">2.1.1 Tileset Metadata <span class="experimental"></span><a class="headerlink" href="#211-tileset-metadata" title="Link to this section">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Tileset metadata was initially implemented as a size reduction experiment.
+This feature is not currently supported.</p>
+</div>
+<p>Global metadata for the entire tileset is stored separately in a <a href="../assets/spec/mlt_tileset_metadata.json">JSON file</a>.</p>
+<p>This tileset metadata provides information for the full tileset and is the equivalent of the TileJSON spec commonly used with MVT and other tile types.
+By defining this information once per tileset, we avoid redundant metadata in each tile, saving significant space, especially for small tiles.</p>
 <h3 id="212-tile-metadata">2.1.2 Tile Metadata<a class="headerlink" href="#212-tile-metadata" title="Link to this section">&para;</a></h3>
-<p>Each <code>FeatureTable</code> is preceded by a <code>FeatureTableMetadata</code> describing it.</p>
-<p>A tile consists of any number of:</p>
-<ul>
-<li>The size of the <code>FeatureTableMetadata</code> to follow, varint-encoded</li>
-<li>The size of the <code>FeatureTable</code> to follow, varint-encoded</li>
-<li>One <code>FeatureTableMetadata</code></li>
-<li>One <code>FeatureTable</code></li>
-</ul>
-<p>The <code>FeatureTableMetadata</code> is described in detail below.</p>
-<p>Each <code>FeatureTableMetadata</code>/<code>FeatureTable</code> pair may contain one or more layers.  This allows the tile to be built by simple concatenation of separate results.</p>
+<p>There is no global tile header.  Each <code>FeatureTable</code> has its own metadata.</p>
+<h3 id="213-featuretable-metadata">2.1.3 FeatureTable Metadata<a class="headerlink" href="#213-featuretable-metadata" title="Link to this section">&para;</a></h3>
+<p>Each <code>FeatureTable</code> is preceded by a <code>FeatureTableMetadata</code> section describing it.</p>
+<div class="admonition danger">
+<p class="admonition-title">Caution</p>
+<p>This is not clear, and possibly incorrect.
+Why any number?
+Should the size of the upcoming metadata and table be part of that structure?</p>
+</div>
+<p>A FeatureTable consists of any number of the following sequences:
+- The size of the upcoming <code>FeatureTableMetadata</code> (varint-encoded).
+- The size of the upcoming <code>FeatureTable</code> (varint-encoded).
+- One <code>FeatureTableMetadata</code> section.
+- One <code>FeatureTable</code> section.</p>
+<p>This structure allows a tile to be built by simply concatenating separate results.
+The <code>FeatureTableMetadata</code> is described in detail below.</p>
 <p>Within a <code>FeatureTable</code>, additional metadata describes the structure of each part:</p>
 <ul>
-<li><strong>FieldMetadata</strong>: contains information about the number of streams the field is divided and the vector type for efficient decoding into the in-memory format. Every Field (column) section is preceded by a <code>FieldMetadata</code> section.</li>
-<li><strong>StreamMetdata</strong>: contains information about the Stream such as the used encoding schemes
-  and the number of values. Every Stream section is preceded by a <code>StreamMetadata</code> section.</li>
+<li><strong>FieldMetadata</strong>:
+  Contains information about a field (column), including the number of streams it comprises and its vector type for efficient decoding into the in-memory format.
+  Every field section is preceded by a <code>FieldMetadata</code> section.</li>
+<li><strong>StreamMetadata</strong>:
+  Contains information about a stream, such as the encoding scheme used and the number of values.
+  Every stream section is preceded by a <code>StreamMetadata</code> section.</li>
 </ul>
-<p>Since for every <code>Field</code>, a <code>FieldMetadata</code> section has to be present, even for fields which are not included in one
-specific tile, no <code>id</code> is needed.
-The absence of an entire field in a tile can be identified by a zero value for the number of streams.
-All integers in the metadata sections are <code>Varint</code>-encoded if u32 is used or bit-packed in case of an u8 data type.</p>
+<p>Since every <code>Field</code> has a <code>FieldMetadata</code> section, even for fields absent in a specific tile, no <code>id</code> is needed.
+A field's absence is indicated by a zero value for its number of streams.
+All integers in metadata sections are <code>Varint</code>-encoded (for u32) or bit-packed (for u8).</p>
 <div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
     
     <nav class="panzoom-nav">
@@ -672,22 +694,21 @@ classDiagram
 Hold "Alt" / "Option" to enable pan &amp; zoom
 </div>
 </div>
-<h2 id="22-type-system">2.2 Type system<a class="headerlink" href="#22-type-system" title="Link to this section">&para;</a></h2>
-<p>The types system of MLT is divided into physical and logical types.
-The physical types define the layout of the data in the storage format, while the logical types give additional semantics to the physical types.
-Based on this separation, the encoding and decoding of the data can be simplified.
-This reduces the complexity for implementing encoder and decoder as well allow the encodings to be reused.</p>
+<h2 id="22-type-system">2.2 Type System<a class="headerlink" href="#22-type-system" title="Link to this section">&para;</a></h2>
+<p>The MLT type system distinguishes between physical and logical types.
+Physical types define the data layout in storage, while logical types add semantic meaning.
+This separation simplifies encoder and decoder implementation and allows encoding schemes to be reused.</p>
 <h3 id="221-physical-types">2.2.1 Physical Types<a class="headerlink" href="#221-physical-types" title="Link to this section">&para;</a></h3>
-<p>The physical types define the layout of the data in the storage format.
-Both scalar and complex types can be divided into fixed-size binaries and variable-size binaries.
-Variable-size binaries have an additional length stream which specifies the size of each element.
-All fixed-size binaries have the same bit (boolean) or byte width and therefore no additional length stream is used.</p>
+<p>Physical types define the data layout in storage.
+Both scalar and complex types can be categorized as fixed-size or variable-size binaries.
+Variable-size binaries require an additional length stream to specify the size of each element.
+Fixed-size binaries have a consistent bit (boolean) or byte width and thus require no length stream.</p>
 <p><strong>Scalar Types</strong></p>
-<p>Each scalar type has a specific encoding scheme which can be applied to the data stream.</p>
+<p>Each scalar type uses a specific encoding scheme for its data stream.</p>
 <table>
 <thead>
 <tr>
-<th>DataType</th>
+<th>Data Type</th>
 <th>Logical Types</th>
 <th>Description</th>
 <th>Layout</th>
@@ -701,7 +722,7 @@ All fixed-size binaries have the same bit (boolean) or byte width and therefore 
 <td>Fixed-Size</td>
 </tr>
 <tr>
-<td>Int8, UInt8, Int32, UInt32, Int64 , UInt64</td>
+<td>Int8, UInt8, Int32, UInt32, Int64, UInt64</td>
 <td>Date (int32), Timestamp (int64)</td>
 <td></td>
 <td>Fixed-Size</td>
@@ -720,12 +741,12 @@ All fixed-size binaries have the same bit (boolean) or byte width and therefore 
 </tr>
 </tbody>
 </table>
-<p><b>Complex Types <span class="experimental"></span></b></p>
+<p><strong>Complex Types <span class="experimental"></span></strong></p>
 <p>Complex types are composed of scalar types.</p>
 <table>
 <thead>
 <tr>
-<th>DataType</th>
+<th>Data Type</th>
 <th>Logical Types</th>
 <th>Description</th>
 <th>Layout</th>
@@ -741,7 +762,7 @@ All fixed-size binaries have the same bit (boolean) or byte width and therefore 
 <tr>
 <td>Map</td>
 <td>Map<vec2d, T></td>
-<td>additional key stream -&gt; length, key, data streams</td>
+<td>Additional key stream -&gt; length, key, data streams</td>
 <td>Variable-Size</td>
 </tr>
 <tr>
@@ -759,8 +780,12 @@ All fixed-size binaries have the same bit (boolean) or byte width and therefore 
 </tbody>
 </table>
 <h3 id="222-logical-types">2.2.2 Logical Types <span class="experimental"></span><a class="headerlink" href="#222-logical-types" title="Link to this section">&para;</a></h3>
-<p>Add additional semantics on top of the physical types.
-This had the advantage that encodings can be reused and implementation of encoders and decoders can be simplified.</p>
+<div class="admonition danger">
+<p class="admonition-title">Caution</p>
+<p>Original text had <code>encodings can be reused</code> text which is unclear.
+What is "encodings" in this context?</p>
+</div>
+<p>Logical types add semantics on top of physical types, enabling code reuse and simplifying encoder/decoder implementation.</p>
 <table>
 <thead>
 <tr>
@@ -773,17 +798,17 @@ This had the advantage that encodings can be reused and implementation of encode
 <tr>
 <td>Date</td>
 <td>Int32</td>
-<td>number of days since Unix epoch</td>
+<td>Number of days since Unix epoch</td>
 </tr>
 <tr>
 <td>Timestamp</td>
 <td>Int64</td>
-<td>number of milliseconds since Unix epoch</td>
+<td>Number of milliseconds since Unix epoch</td>
 </tr>
 <tr>
 <td>RangeMap</td>
 <td>Map<vec2\<Double>, T></td>
-<td>for storing linear referencing information</td>
+<td>For storing linear referencing information</td>
 </tr>
 <tr>
 <td>Binary</td>
@@ -808,30 +833,25 @@ This had the advantage that encodings can be reused and implementation of encode
 </tbody>
 </table>
 <h3 id="223-nested-fields-encoding">2.2.3 Nested Fields Encoding<a class="headerlink" href="#223-nested-fields-encoding" title="Link to this section">&para;</a></h3>
-<p>For nested properties such as structs and lists, a <a href="https://arxiv.org/pdf/2304.05028.pdf">present/length</a> pair encoding
-is selected over the widely used Dremel encoding, since it is simpler to implement and faster to decode into the in-memory format.
-Every nullable field, has an additional <code>present</code> stream.
-Every field that is a collection type, such as a list, has an additional <code>length</code> stream that specifies the length of the field.
-Like in ORC, the nested fields are flattened based on a pre-order traversal.
-In addition, nested fields can use a shared dictionary encoding, to share a common dictionary between the fields.
-This can be applied, for example, on localized values of the name:* columns of an OSM dataset that can be identical across fields.
-If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
-must be grouped sequentially in the file and prefixed with the dictionary.</p>
+<p>For nested properties (e.g., structs, lists), a <a href="https://arxiv.org/pdf/2304.05028.pdf">present/length</a> pair encoding is chosen over the Dremel encoding for its simpler implementation and faster decoding into the in-memory format.</p>
+<p>Every nullable field has an additional <code>present</code> stream.
+Every collection type field (e.g., a list) has an additional <code>length</code> stream specifying its length.
+As in ORC, nested fields are flattened based on a pre-order traversal.</p>
+<p>Nested fields can also use shared dictionary encoding to share a common dictionary (e.g., for localized <code>name:*</code> columns in an OSM dataset).
+Fields using a shared dictionary must be grouped sequentially in the file and prefixed by the dictionary.</p>
 <h3 id="224-rangemap">2.2.4 RangeMap <span class="experimental"></span><a class="headerlink" href="#224-rangemap" title="Link to this section">&para;</a></h3>
-<p>RangeMaps are an efficient way to encode linear referencing information, as used for example in <a href="https://docs.overturemaps.org/overview/feature-model/scoping-rules#geometric-scoping-linear-referencing">Overture Maps</a>.
-RangesSets store the range values and data values in two separate streams.
-The min and max values for the ranges are stored as interleaved double values in a separate range stream.</p>
+<p><code>RangeMaps</code> efficiently encode linear referencing information, as used in <a href="https://docs.overturemaps.org/overview/feature-model/scoping-rules#geometric-scoping-linear-referencing">Overture Maps</a>.
+<code>RangeSets</code> store range values and data values in two separate streams. The min and max values for the ranges are stored as interleaved double values in a separate range stream.</p>
 <h2 id="23-encoding-schemes">2.3 Encoding Schemes<a class="headerlink" href="#23-encoding-schemes" title="Link to this section">&para;</a></h2>
-<p>MLT uses different lightweight compression schemes for the space efficient storage and fast decoding of the data types.
-To further reduce the size of a column the encodings can be recursively cascaded (hybrid encodings) up to a certain level.
-For example the resulting integer columns of a dictionary encoding can be further compressed based on one of the Integer encoding schemes.
-The following encoding pool for specific data types was selected based on the analytics on the efficiency
-in terms of the compression ratio and decoding speed on test datasets such as the OpenMapTiles schema and Bing Maps based tilesets.</p>
+<p>MLT uses various lightweight compression schemes for space-efficient storage and fast decoding.
+Encodings can be recursively cascaded (hybrid encodings) to a certain degree.
+For example, integer columns resulting from dictionary encoding can be further compressed using integer encoding schemes.</p>
+<p>The following encoding pool was selected based on analysis of compression ratio and decoding speed on test datasets like OpenMapTiles and Bing Maps tilesets.</p>
 <table>
 <thead>
 <tr>
-<th>DataType</th>
-<th>Logical  Level Technique</th>
+<th>Data Type</th>
+<th>Logical Level Technique</th>
 <th>Physical Level Technique</th>
 <th>Description</th>
 </tr>
@@ -873,174 +893,167 @@ in terms of the compression ratio and decoding speed on test datasets such as th
 <p class="admonition-title">Note</p>
 <p><code>ALP</code>, <code>FSST</code>, and <code>FastPFOR</code> encodings are <span class="experimental"></span>.</p>
 </div>
-<p>Since SIMD-FastPFOR generally produces smaller data streams and is faster to decode, it should be preferred over Varint encoding.
-Varint encoding is mainly added to the encoding pool for compatibility reasons and it's simpler implementation compared to SIMD-FastPFOR.
-Varint encoding also can be more efficient when used in combination with heavyweight compression schemes like GZip.</p>
-<p>To find the best coding schemes for a specific data type from the coding pool, using a brute force approach by testing all available schemes
-with respect to the resulting column size would be too costly. The recommended approach improves the selection time by using
-the selection strategy described in the <a href="https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf">BTRBlocks</a> paper:</p>
+<p>SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed.
+Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.</p>
+<p>A brute-force search for the best encoding scheme is too costly.
+Instead, we recommend the selection strategy from the <a href="https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf">BTRBlocks</a> paper:</p>
 <ul>
-<li>First, calculation of data metrics to early exclude encodings. For example if the average run length is less than 2,
-  RLE encoding is not a candidate for the encodings pool</li>
-<li>Second, use a sampling-based algorithm for choosing the best compression scheme out of the pool by taking randomly parts
-  of the data with a total size of 1% of the full data and apply the encoding schemes selected in step 1. Apply the encoding scheme
-  on the data which produces the smallest output</li>
+<li>Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).</li>
+<li>Use a sampling-based algorithm: randomly select parts of the data totaling ~1% of the full dataset and apply the candidate encodings from step 1.
+  Choose the scheme that produces the smallest output.</li>
 </ul>
 <h2 id="24-featuretable-layout">2.4 FeatureTable Layout<a class="headerlink" href="#24-featuretable-layout" title="Link to this section">&para;</a></h2>
 <h3 id="241-id-column">2.4.1 ID Column<a class="headerlink" href="#241-id-column" title="Link to this section">&para;</a></h3>
-<p>No <code>id</code> column is mandatory.  If an identifier column is included, it should be u64 or a narrower integer type for compatibility with MVT.
-Narrow the column to u32, if possible, to enable the use of FastPfor128 encoding.</p>
+<p>An <code>id</code> column is not mandatory.
+If included, it should be a u64 or narrower integer type (u32 if possible) for MVT compatibility.
+A narrower type enables the use of efficient encodings like FastPfor128.</p>
 <h3 id="242-geometry-column">2.4.2 Geometry Column<a class="headerlink" href="#242-geometry-column" title="Link to this section">&para;</a></h3>
-<p>The main idea is to use a structure of arrays (data-oriented design) layout for the geometries.
-The <code>x</code>, <code>y</code>, and optional <code>z</code> coordinates are stored interleaved in a <code>VertexBuffer</code> so that they can be efficiently processed
-on the CPU or even directly copied to GPU buffers. If the <code>z</code> coordinate is not relevant for rendering, it can be stored separately as
-an m-coordinate (see vertex-scoped properties).</p>
-<p>The information about the geometry of the features is separated in different streams and is partly inspired
-by the <a href="https://github.com/geoarrow/geoarrow">geoarrow</a> specification.
-Using separate streams for describing the geometry of a feature enables a better optimization of the compression
-and faster processing. In addition, pre-tessellated polygon meshes can be stored directly in the file to avoid the time-consuming triangulation step.</p>
+<p>The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design).
+The <code>x</code>, <code>y</code>, and optional <code>z</code> coordinates are stored interleaved in a <code>VertexBuffer</code> for efficient CPU processing and direct copying to GPU buffers.
+If the <code>z</code> coordinate is not needed for rendering, it can be stored separately as an <code>M-value</code> (see vertex-scoped properties).</p>
+<p>The geometry information is separated into different streams, partly inspired by the <a href="https://github.com/geoarrow/geoarrow">geoarrow</a> specification.
+This separation enables better compression optimization and faster processing.
+Pre-tessellated polygon meshes can also be stored directly to avoid runtime triangulation.</p>
 <p>A geometry column can consist of the following streams:</p>
 <table>
 <thead>
 <tr>
-<th>Stream name</th>
-<th style="text-align: center;">Data type</th>
-<th style="text-align: center;">encoding</th>
-<th style="text-align: center;">mandatory</th>
+<th>Stream Name</th>
+<th style="text-align: center;">Data Type</th>
+<th>Encoding</th>
+<th style="text-align: center;">Mandatory</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>GeometryType</td>
 <td style="text-align: center;">Byte</td>
-<td style="text-align: center;">see availabe integer encodings</td>
-<td style="text-align: center;">&#10003;</td>
+<td>Integer</td>
+<td style="text-align: center;">✓</td>
 </tr>
 <tr>
 <td>NumGeometries</td>
 <td style="text-align: center;">UInt32</td>
-<td style="text-align: center;">see availabe integer encodings</td>
-<td style="text-align: center;">&#10007;</td>
+<td>Integer</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td>NumParts</td>
 <td style="text-align: center;">UInt32</td>
-<td style="text-align: center;">see availabe integer encodings</td>
-<td style="text-align: center;">&#10007;</td>
+<td>Integer</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td>NumRings</td>
 <td style="text-align: center;">UInt32</td>
-<td style="text-align: center;">see availabe integer encodings</td>
-<td style="text-align: center;">&#10007;</td>
+<td>Integer</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td>NumTriangles</td>
 <td style="text-align: center;">UInt32</td>
-<td style="text-align: center;">see availabe integer encodings</td>
-<td style="text-align: center;">&#10007;</td>
+<td>Integer</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td>IndexBuffer</td>
 <td style="text-align: center;">UInt32</td>
-<td style="text-align: center;">see availabe integer encodings</td>
-<td style="text-align: center;">&#10007;</td>
+<td>Integer</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td>VertexOffsets</td>
 <td style="text-align: center;">UInt32</td>
-<td style="text-align: center;">see availabe integer encodings</td>
-<td style="text-align: center;">&#10007;</td>
+<td>Integer</td>
+<td style="text-align: center;"></td>
 </tr>
 <tr>
 <td>VertexBuffer</td>
 <td style="text-align: center;">Int32 or Vertex[]</td>
-<td style="text-align: center;">Plain, Dictionary or Morton Dictionary</td>
-<td style="text-align: center;">&#10003;</td>
+<td>Plain, Dictionary, Morton</td>
+<td style="text-align: center;">✓</td>
 </tr>
 </tbody>
 </table>
-<p>Depending on the type of the geometry, the geometry column can have the following streams in addition to the <code>GeometryType</code> stream:</p>
-<ul>
-<li>Point: VertexBuffer</li>
-<li>LineString: NumParts, VertexBuffer</li>
-<li>Polygon: NumParts (Polygon), NumRings (LinearRing), VertexBuffer</li>
-<li>MultiPoint: NumGeometries, VertexBuffer</li>
-<li>MultiLineString: NumGeometries, NumParts (LineString), VertexBuffer</li>
-<li>MultiPolygon: NumGeometries, NumParts (Polygon), NumRings (LinearRing), VertexBuffer</li>
-</ul>
-<p>In addition, the geometry column can consist of an additional <code>VertexOffsets</code> stream when a Dictionary or Morton-Dictionary
-encoding is applied. If the geometries (mainly polygons) are stored in a tessellated/triangulated form for direct copying to a GPU Buffer,
-an additional <code>NumTriangles</code> and <code>IndexBuffer</code> must be provided.</p>
+<p>Depending on the geometry type, the following streams are used in addition to <code>GeometryType</code>:
+- <strong>Point</strong>: VertexBuffer
+- <strong>LineString</strong>: NumParts, VertexBuffer
+- <strong>Polygon</strong>: NumParts (Polygon), NumRings (LinearRing), VertexBuffer
+- <strong>MultiPoint</strong>: NumGeometries, VertexBuffer
+- <strong>MultiLineString</strong>: NumGeometries, NumParts (LineString), VertexBuffer
+- <strong>MultiPolygon</strong>: NumGeometries, NumParts (Polygon), NumRings (LinearRing), VertexBuffer</p>
+<p>An additional <code>VertexOffsets</code> stream is present when using Dictionary or Morton-Dictionary encoding.
+If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>NumTriangles</code> and <code>IndexBuffer</code> streams must be provided.</p>
 <h3 id="243-property-columns">2.4.3 Property Columns<a class="headerlink" href="#243-property-columns" title="Link to this section">&para;</a></h3>
-<p>The properties of a feature are divided into <code>feature-scoped</code> and <code>vertex-scoped</code> properties.
-The values of feature-scoped properties are related to a specific Feature, which means there is one value in
-a property column per feature.</p>
-<p>The values of a vertex-scoped properties are related to each vertex, which means there is one value in a property column
-per vertex in the VertexBuffer. This allows to model what is known as M-coordinates in GIS applications.
-Vertex-scoped properties have to be grouped together and are placed before the feature-scoped properties in the FeatureTable.
-The scope of a property column is specified in the tileset metadata document based on the <code>ColumnScope</code> enum.</p>
-<p>A property column can have one of the above listed <a href="#22-type-system">data types</a>.</p>
+<p>Feature properties are divided into <code>feature-scoped</code> and <code>vertex-scoped</code> properties.
+- <strong>Feature-scoped</strong>: One value per feature.
+- <strong>Vertex-scoped</strong>: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>TODO: Would it make sense to place vertex-scoped properties AFTER feature scoped ones?
+I suspect some implementations may act of feature-scoped properties first, and possibly even ignore vertex-scoped, at least for now (esp since vertex-scoped ones are still experimental)</p>
+</div>
+<p>Vertex-scoped properties must be grouped together and placed before feature-scoped properties in the FeatureTable.
+A property's scope is defined in the tileset metadata using the <code>ColumnScope</code> enum.</p>
+<p>A property column can use any data type from the <a href="#22-type-system">type system</a>.</p>
 <h1 id="3-example-layouts">3. Example Layouts<a class="headerlink" href="#3-example-layouts" title="Link to this section">&para;</a></h1>
-<p>In the following, examples for the layout of a <code>FeatureTable</code> in storage are illustrated.
-The following colors are used to highlight different kind of data:</p>
-<ul>
-<li>blue boxes: columns that have only logical character and are not persisted.
-  Based on the TileSet metadata the fields can be reconstructed from the streams.</li>
-<li>white boxes: metadata which describe the structure of the data. The metadata is divided into
-  FeatureTable, Stream (SM) and Feature (FM) metadata</li>
-<li>yellow boxes: streams which contains the actual data</li>
-</ul>
-<h2 id="31-place-layer">3.1 Place layer<a class="headerlink" href="#31-place-layer" title="Link to this section">&para;</a></h2>
-<p>Given a place <a href="../assets/spec/place_feature.json">layer</a> with the following structure modeled as Json schema:
+<p>The following examples illustrate the layout of a <code>FeatureTable</code> in storage. The color scheme is:
+- <strong>Blue boxes</strong>:
+  Logical constructs, not persisted.
+  Fields are reconstructed from streams based on TileSet metadata.
+- <strong>White boxes</strong>:
+  Metadata describing data structure (FeatureTable, Stream (SM), Feature (FM) metadata).
+- <strong>Yellow boxes</strong>:
+  Streams containing the actual data.</p>
+<h2 id="31-place-layer">3.1 Place Layer<a class="headerlink" href="#31-place-layer" title="Link to this section">&para;</a></h2>
+<p>Given a place <a href="../assets/spec/place_feature.json">layer</a> with the following JSON schema structure:
 <img alt="" src="../assets/spec/place_feature.png" /></p>
-<p>For the given schema the place layer can have the following layout in a MLT tile
-when a dictionary for the <code>geometry</code> and <code>name</code> column is used.
+<p>The resulting MLT tile layout for this layer, using a dictionary for the <code>geometry</code> and <code>name</code> columns, might look like this:
 <img alt="img_2.png" src="../assets/spec/img_2.png" /></p>
-<h2 id="32-linestring-geometry-with-flat-properties">3.2 LineString geometry with flat properties<a class="headerlink" href="#32-linestring-geometry-with-flat-properties" title="Link to this section">&para;</a></h2>
-<p>Encoding of a <code>FeatureTable</code> with an <code>id</code> field, a <code>LineString</code> geometry field and the flat feature scoped properties class and subclass:
+<h2 id="32-linestring-geometry-with-flat-properties">3.2 LineString Geometry with Flat Properties<a class="headerlink" href="#32-linestring-geometry-with-flat-properties" title="Link to this section">&para;</a></h2>
+<p>Encoding of a <code>FeatureTable</code> with an <code>id</code> field, a <code>LineString</code> geometry field, and the flat feature-scoped properties <code>class</code> and <code>subclass</code>:
 <img alt="img_4.png" src="../assets/spec/img_4.png" /></p>
-<h2 id="33-multipolygon-with-flat-properties">3.3 MultiPolygon with flat properties<a class="headerlink" href="#33-multipolygon-with-flat-properties" title="Link to this section">&para;</a></h2>
-<p>Encoding of a <code>FeatureTable</code> with a <code>id</code> field, <code>MultiPolygon</code> geometry field and flat feature scoped property fields.
-Because vertex dictionary encoding is used a <code>VertexOffsets</code> stream is present:
+<h2 id="33-multipolygon-with-flat-properties">3.3 MultiPolygon with Flat Properties<a class="headerlink" href="#33-multipolygon-with-flat-properties" title="Link to this section">&para;</a></h2>
+<p>Encoding of a <code>FeatureTable</code> with an <code>id</code> field, a <code>MultiPolygon</code> geometry field, and flat feature-scoped property fields.
+A <code>VertexOffsets</code> stream is present due to vertex dictionary encoding:
 <img alt="img_5.png" src="../assets/spec/img_5.png" /></p>
-<h2 id="34-vertex-scoped-and-feature-scoped-properties">3.4 Vertex-scoped and feature-scoped properties<a class="headerlink" href="#34-vertex-scoped-and-feature-scoped-properties" title="Link to this section">&para;</a></h2>
-<p>Example layout for encoding of vertex-scoped and feature scoped properties.
-All vertex-scoped properties have to be grouped together and placed before the feature-scoped properties
-in the file. Since the <code>id</code> colum in this example is not <code>nullable</code>, the present stream can be omitted.
+<h2 id="34-vertex-scoped-and-feature-scoped-properties">3.4 Vertex-Scoped and Feature-Scoped Properties<a class="headerlink" href="#34-vertex-scoped-and-feature-scoped-properties" title="Link to this section">&para;</a></h2>
+<p>Example layout encoding vertex-scoped and feature-scoped properties.
+All vertex-scoped properties are grouped together and placed before feature-scoped properties.
+The <code>id</code> column is not nullable, so its present stream is omitted.
 <img alt="img_7.png" src="../assets/spec/img_7.png" /></p>
 <h1 id="4-sorting">4. Sorting<a class="headerlink" href="#4-sorting" title="Link to this section">&para;</a></h1>
-<p>Choosing the right column for sorting the features can have significant impact on the size
-of the <code>FeatureTable</code>. To take full advantage of the columnar layout, sorting is crucial.
-To test every layer for every possible sorting order of every column is too costly.</p>
+<p>Choosing the right column to sort features by can significantly reduce the size of the <code>FeatureTable</code>.
+Sorting is crucial for leveraging the columnar layout fully.
+Exhaustively testing every possible sorting order for every column in every layer is computationally expensive.
+See recommended heuristic in the <a href="#23-encoding-schemes">encoding schemes</a>.</p>
 <h1 id="5-encodings">5. Encodings<a class="headerlink" href="#5-encodings" title="Link to this section">&para;</a></h1>
-<p>The details of encodings are specified in <a href="../encodings/">a separate document</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>TODO: inline encodings here</p>
+</div>
+<p>Encoding details are specified in <a href="../encodings/">a separate document</a>.</p>
 <h1 id="6-in-memory-format">6. In-Memory Format<a class="headerlink" href="#6-in-memory-format" title="Link to this section">&para;</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The in-memory format will be explained in more detail; the following is only a rough overview:</p>
+<p>The following is a high-level overview; the in-memory format will be explained in more detail later.</p>
 </div>
-<p>The record-oriented, in-memory model (array of structures approach) used by the libraries that process
-the Mapbox Vector Tiles leads to a considerable overhead, such as the creation of a large number of small objects (per-object memory allocation),
-that place an additional load on the garbage collector in the browser.</p>
-<p>By using a columnar memory layout (data-oriented design), for the MLT in-memory format, we can overcome these issues and
-additionally take advantage of an improved cache utilization for subsequent access and fast SIMD instructions for the processing of the data.
-The MLT in-memory format incorporates and extends the ideas from the analytical in-memory formats Apache Arrow, Velox, and the DuckDB execution
-format and is tailored for the visualization use case. To be future-proof it is important that the file can be parallel processed on the GPU for the
-usage within a GPU compute shader.</p>
-<p>The main design goals of the MLT in-memory format are:</p>
-<ul>
-<li>Define a platform-agnostic representation to avoid the expensive materialization costs in particular for strings</li>
-<li>Enable advanced CPU throughput by optimizing the memory layout for cache locality and SIMD instructions</li>
-<li>Allow random (mainly constant time) access to all data, so it can also be parallel processed on the GPU (compute shader)</li>
-<li>Provide compressed data structure which can be directly processed without decoding</li>
-<li>Provide the geometries of a tile in a representation that can be (directly) loaded into GPU buffers with little or no additional processing</li>
-</ul>
-<p>The data are stored in continuous memory buffers, referred to as vectors, with additional metadata and an optional nullability bitmap
-for representing null values. The storage format contains a <code>VectorType</code> field in the metadata that tells the decoder
-which vector type to use for a specific filed. In order to enable random access to variable-sized data types such as strings or lists,
-an auxiliary buffer containing offset values will be utilized.</p>
-<p>The MLT in-memory format supports the following vectors:</p>
+<p>The record-oriented, array-of-structures in-memory model used by libraries processing Mapbox Vector Tiles incurs considerable overhead.
+This includes creating many small objects (increasing memory allocation load) and placing additional strain on garbage collectors in browsers.</p>
+<p>MLT uses a columnar memory layout (data-oriented design) for its in-memory format to overcome these issues.
+This approach improves cache utilization for subsequent data access and enables the use of fast SIMD instructions.
+The MLT in-memory format incorporates ideas from analytical in-memory formats like Apache Arrow, Velox, and the DuckDB execution format, tailored for visualization use cases.
+It is also designed for future parallel processing on the GPU within compute shaders.</p>
+<p>The main design goals for the MLT in-memory format are:
+- Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
+- Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
+- Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).
+- Provide compressed data structures that can be processed directly without full decoding.
+- Provide tile geometries in a representation that can be loaded into GPU buffers with minimal additional processing.</p>
+<p>Data is stored in contiguous memory buffers called <strong>vectors</strong>, accompanied by metadata and an optional null bitmap.
+The storage format includes a <code>VectorType</code> field in the metadata to instruct the decoder which vector type to use for a specific field.
+An auxiliary offset buffer enables random access to variable-sized data types like strings or lists.</p>
+<p>The MLT in-memory format supports the following vector types:</p>
 <ul>
 <li><a href="https://duckdb.org/internals/vector.html#flat-vectors">Flat Vectors</a></li>
 <li><a href="https://duckdb.org/internals/vector.html#constant-vectors">Constant Vectors</a></li>
@@ -1052,13 +1065,10 @@ an auxiliary buffer containing offset values will be utilized.</p>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Further evaluation is needed to determine if the <a href="https://arxiv.org/pdf/2306.15374.pdf">latest research findings</a>
-can be used to enable random access on delta encoded values as well</p>
+<p>Further evaluation is needed to determine if <a href="https://arxiv.org/pdf/2306.15374.pdf">recent research</a> can enable random access on delta-encoded values.</p>
 </div>
-<p>In case a compressed vector can be used, this has the additional advantage that the conversion from the storage
-into in-memory format is basically a zero-copy operation.</p>
-<p>Following Apache Arrow's approach based on the <a href="https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html">Intel performance guide</a>,
-we recommend that decoders should allocate memory on aligned addresses with a multiple of 64-bytes (if possible).</p>
+<p>Using a compressed vector where possible makes the conversion from storage to in-memory format essentially a zero-copy operation.</p>
+<p>Following Apache Arrow's approach and the <a href="https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html">Intel performance guide</a>, decoders should allocate memory on addresses aligned to a 64-byte multiple (where possible).</p>
 
 
 

@@ -88,7 +88,7 @@
     
     
   <meta name="panzoom-theme" content="material">
-<meta name="panzoom-data" content='{"selectors": [".d2", ".mermaid"], "initial_zoom_level": 1.0}'> </head>
+<meta name="panzoom-data" content='{"selectors": [".mermaid", ".d2"], "initial_zoom_level": 1.0}'> </head>
   
   
     
@@ -107,7 +107,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#1-plain" class="md-skip">
+        <a href="#plain" class="md-skip">
           Skip to content
         </a>
       
@@ -329,19 +329,8 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Encoding Algorithms
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -354,245 +343,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-plain" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Plain
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-boolean-rle" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Boolean-RLE
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-byte-rle" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Byte-RLE
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-dictionary-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Dictionary Encoding
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4. Dictionary Encoding">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#41-string-dictionary-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.1 String Dictionary Encoding
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4.1 String Dictionary Encoding">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#411-fsst-dictionary-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.1.1 FSST Dictionary Encoding
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#412-shared-dictionary-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.1.2 Shared Dictionary Encoding
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#42-vertex-dictionary-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.2 Vertex Dictionary Encoding
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4.2 Vertex Dictionary Encoding">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#421-morton-vertex-dictionary-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.2.1 Morton Vertex Dictionary Encoding
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-integer-encodings" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Integer Encodings
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="5. Integer Encodings">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#51-logical-level-technique" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.1 Logical Level Technique
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="5.1 Logical Level Technique">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#511-delta" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.1.1 Delta
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#512-rle" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.1.2 RLE
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#513-combining-delta-and-rle-delta-rle" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.1.3 Combining delta and rle (Delta-RLE)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#52-physical-level-technique-null-suppression" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.2 Physical Level Technique (Null Suppression)
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="5.2 Physical Level Technique (Null Suppression)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#521-zigzag-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.2.1 ZigZag encoding
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#522-varint-encoding" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.2.2 Varint encoding
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#523-simd-fastpfor" class="md-nav__link">
-    <span class="md-ellipsis">
-      5.2.3 SIMD-FastPFOR
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-float-encodings" class="md-nav__link">
-    <span class="md-ellipsis">
-      6. Float encodings
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="6. Float encodings">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#61-adaptive-lossless-floating-point-compression-alp" class="md-nav__link">
-    <span class="md-ellipsis">
-      6.1 Adaptive Lossless floating-Point Compression (ALP)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -648,155 +398,153 @@
 
 <div class="toc">
 <ul>
-<li><a href="#1-plain">1. Plain</a></li>
-<li><a href="#2-boolean-rle">2. Boolean-RLE</a></li>
-<li><a href="#3-byte-rle">3. Byte-RLE</a></li>
-<li><a href="#4-dictionary-encoding">4. Dictionary Encoding</a><ul>
-<li><a href="#41-string-dictionary-encoding">4.1 String Dictionary Encoding</a><ul>
-<li><a href="#411-fsst-dictionary-encoding">4.1.1 FSST Dictionary Encoding</a></li>
-<li><a href="#412-shared-dictionary-encoding">4.1.2 Shared Dictionary Encoding</a></li>
+<li><a href="#plain">Plain</a></li>
+<li><a href="#boolean-rle">Boolean-RLE</a></li>
+<li><a href="#byte-rle">Byte-RLE</a></li>
+<li><a href="#dictionary-encoding">Dictionary Encoding</a><ul>
+<li><a href="#string-dictionary-encoding">String Dictionary Encoding</a><ul>
+<li><a href="#fsst-dictionary-encoding">FSST Dictionary Encoding</a></li>
+<li><a href="#shared-dictionary-encoding">Shared Dictionary Encoding</a></li>
 </ul>
 </li>
-<li><a href="#42-vertex-dictionary-encoding">4.2 Vertex Dictionary Encoding</a><ul>
-<li><a href="#421-morton-vertex-dictionary-encoding">4.2.1 Morton Vertex Dictionary Encoding</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a href="#5-integer-encodings">5. Integer Encodings</a><ul>
-<li><a href="#51-logical-level-technique">5.1 Logical Level Technique</a><ul>
-<li><a href="#511-delta">5.1.1 Delta</a></li>
-<li><a href="#512-rle">5.1.2 RLE</a></li>
-<li><a href="#513-combining-delta-and-rle-delta-rle">5.1.3 Combining delta and rle (Delta-RLE)</a></li>
-</ul>
-</li>
-<li><a href="#52-physical-level-technique-null-suppression">5.2 Physical Level Technique (Null Suppression)</a><ul>
-<li><a href="#521-zigzag-encoding">5.2.1 ZigZag encoding</a></li>
-<li><a href="#522-varint-encoding">5.2.2 Varint encoding</a></li>
-<li><a href="#523-simd-fastpfor">5.2.3 SIMD-FastPFOR</a></li>
+<li><a href="#vertex-dictionary-encoding">Vertex Dictionary Encoding</a><ul>
+<li><a href="#morton-vertex-dictionary-encoding">Morton Vertex Dictionary Encoding</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a href="#6-float-encodings">6. Float encodings</a><ul>
-<li><a href="#61-adaptive-lossless-floating-point-compression-alp">6.1 Adaptive Lossless floating-Point Compression (ALP)</a></li>
+<li><a href="#integer-encodings">Integer Encodings</a><ul>
+<li><a href="#logical-level-techniques">Logical-Level Techniques</a><ul>
+<li><a href="#delta-encoding">Delta Encoding</a></li>
+<li><a href="#run-length-encoding-rle">Run-Length Encoding (RLE)</a></li>
+<li><a href="#delta-rle">Delta-RLE</a></li>
+</ul>
+</li>
+<li><a href="#physical-level-techniques">Physical-Level Techniques</a><ul>
+<li><a href="#zigzag-encoding">ZigZag Encoding</a></li>
+<li><a href="#varint-encoding">Varint Encoding</a></li>
+<li><a href="#simd-fastpfor">SIMD-FastPFOR</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#float-encodings">Float Encodings</a><ul>
+<li><a href="#adaptive-lossless-floating-point-compression-alp">Adaptive Lossless Floating-Point Compression (ALP)</a></li>
 </ul>
 </li>
 </ul>
 </div>
 <hr />
-<h2 id="1-plain">1. Plain<a class="headerlink" href="#1-plain" title="Link to this section">&para;</a></h2>
-<p>No compression technique is applied on the data.
-Depending on the data type, the data are stored in the following format:</p>
+<h1 id="plain">Plain<a class="headerlink" href="#plain" title="Link to this section">&para;</a></h1>
+<p>No compression is applied to the data.
+Depending on the data type, values are stored in the following formats:</p>
 <ul>
-<li>Boolean: Least-significant bit ordering within bytes</li>
-<li>Integer: Little-Endian byte order</li>
-<li>Long: Little-Endian byte order</li>
-<li>Float: IEEE754 floating-point numbers in Little-Endian byte order</li>
-<li>Double: IEEE754 floating-point numbers in Little-Endian byte order</li>
-<li>String: length and data streams</li>
+<li><strong>Boolean</strong>: Least-significant bit ordering within bytes</li>
+<li><strong>Integer</strong>: Little-Endian byte order</li>
+<li><strong>Long</strong>: Little-Endian byte order</li>
+<li><strong>Float</strong>: IEEE754 floating-point numbers in Little-Endian byte order</li>
+<li><strong>Double</strong>: IEEE754 floating-point numbers in Little-Endian byte order</li>
+<li><strong>String</strong>: Length and data streams</li>
 </ul>
-<h2 id="2-boolean-rle">2. Boolean-RLE<a class="headerlink" href="#2-boolean-rle" title="Link to this section">&para;</a></h2>
-<p>This encoding is used for compressing boolean columns.
-Least-significant bit numbering (bit-endianness) is used as bit order.
-Have a look at the <a href="https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding">ORC specification</a>
-for implementation details.</p>
-<h2 id="3-byte-rle">3. Byte-RLE<a class="headerlink" href="#3-byte-rle" title="Link to this section">&para;</a></h2>
-<p>This encoding is used for compressing byte streams such as the <code>GeometryType</code> stream of the Geometry column.
-Have a look at the <a href="https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding">ORC specification</a>
-for implementation details.</p>
-<h2 id="4-dictionary-encoding">4. Dictionary Encoding<a class="headerlink" href="#4-dictionary-encoding" title="Link to this section">&para;</a></h2>
-<p>Dictionary encoding is used to compactly represent repeated values and can be applied to <code>String</code> and <code>Geometry</code> columns.
-In addition to the actual distinct values stored in the <code>dictionary</code> stream, a separate <code>data</code> stream for the indices
-into the dictionary is used.</p>
-<h3 id="41-string-dictionary-encoding">4.1 String Dictionary Encoding<a class="headerlink" href="#41-string-dictionary-encoding" title="Link to this section">&para;</a></h3>
+<h1 id="boolean-rle">Boolean-RLE<a class="headerlink" href="#boolean-rle" title="Link to this section">&para;</a></h1>
+<p>This encoding compresses boolean columns using least-significant bit numbering (bit-endianness).
+Refer to the <a href="https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding">ORC specification</a> for implementation details.</p>
+<h1 id="byte-rle">Byte-RLE<a class="headerlink" href="#byte-rle" title="Link to this section">&para;</a></h1>
+<p>This encoding compresses byte streams, such as the <code>GeometryType</code> stream in Geometry columns.
+Refer to the <a href="https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding">ORC specification</a> for implementation details.</p>
+<h1 id="dictionary-encoding">Dictionary Encoding<a class="headerlink" href="#dictionary-encoding" title="Link to this section">&para;</a></h1>
+<p>Dictionary encoding compactly represents repeated values and can be applied to <code>String</code> and <code>Geometry</code> columns.
+Distinct values are stored in a <code>dictionary</code> stream, while a separate <code>data</code> stream stores indices into the dictionary.
+We allow the following encodings of this concept:</p>
+<h2 id="string-dictionary-encoding">String Dictionary Encoding<a class="headerlink" href="#string-dictionary-encoding" title="Link to this section">&para;</a></h2>
 <p>The dictionary stream contains distinct UTF-8 encoded string values.
-The data stream contains the indices for the dictionary encoded as <code>UInt32</code>.
-A dictionary-encoded nullable string column contains of the following streams and order: <code>Present</code>, <code>Length</code>, <code>Dictionary</code>, <code>Data</code>.</p>
-<p>All streams can be further compressed by recursively applying lightweight encodings:</p>
+The data stream contains dictionary indices encoded as <code>UInt32</code>.
+A dictionary-encoded nullable string column consists of the following streams in order:
+<code>Present</code>, <code>Length</code>, <code>Dictionary</code>, <code>Data</code></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>TODO: Is "can" (=&gt; MAY) here the right terminoligy?
+This implies that streams might be encoded by one of the options below, but also other options.</p>
+<p>If yes, what is the alternative options?
+If no, clarify this misunderstanding.</p>
+</div>
+<p>All streams can be further compressed using lightweight encodings:</p>
 <ul>
-<li>Present Stream: Boolean-RLE</li>
-<li>Length and Data Stream: see Integer encodings</li>
-<li>Dictionary: see FSST Dictionary</li>
+<li><strong>Present Stream</strong>: Boolean-RLE</li>
+<li><strong>Length and Data Stream</strong>: See Integer encodings</li>
+<li><strong>Dictionary</strong>: See FSST Dictionary</li>
 </ul>
-<h4 id="411-fsst-dictionary-encoding">4.1.1 FSST Dictionary Encoding<a class="headerlink" href="#411-fsst-dictionary-encoding" title="Link to this section">&para;</a></h4>
-<p>Dictionary encoding needs fully repeating strings to reduce size.
-However, the attributes of geospatial data often contains strings which share a common prefix but are not completely equal
-such as the localized country names.
-FSST replaces frequently occurring substrings while maintaining support for efficient scans and random look-ups.
-It is used in MLT to further compress the UTF-8 encoded dictionary values.
-A FSST Dictionary-encoded nullable string column contains of the following streams and order:
+<h3 id="fsst-dictionary-encoding">FSST Dictionary Encoding<a class="headerlink" href="#fsst-dictionary-encoding" title="Link to this section">&para;</a></h3>
+<p>Dictionary encoding requires fully repeating strings to reduce size. However, geospatial attributes often contain strings with common prefixes that are not identical (e.g., localized country names).
+FSST replaces frequently occurring substrings while supporting efficient scans and random lookups. It further compresses UTF-8 encoded dictionary values in MLT.
+An FSST dictionary-encoded nullable string column consists of the following streams in order:
 <code>Present</code>, <code>SymbolLength</code>, <code>SymbolTable</code>, <code>String Length</code>, <code>Dictionary</code> (Compressed Corpus)
-For implementation details see <a href="https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf">the following paper</a></p>
-<p>Available implementations:</p>
+For implementation details, refer to <a href="https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf">this paper</a>.</p>
+<p><strong>Available implementations</strong>:</p>
 <ul>
-<li>C++: <a href="https://github.com/cwida/fsst">https://github.com/cwida/fsst</a></li>
-<li>Java: Work in Progress</li>
-<li>Js/WebAssembly decoder: Work in Progress (simple to implement)</li>
+<li><strong>C++</strong>: <a href="https://github.com/cwida/fsst">https://github.com/cwida/fsst</a></li>
+<li><strong>Java</strong>: Work in progress</li>
+<li><strong>JS/WebAssembly decoder</strong>: Work in progress (simple to implement)</li>
 </ul>
-<h4 id="412-shared-dictionary-encoding">4.1.2 Shared Dictionary Encoding<a class="headerlink" href="#412-shared-dictionary-encoding" title="Link to this section">&para;</a></h4>
-<p>A Shared dictionary encoding can be used, to share a common dictionary between the columns.
-In addition, nested fields can use a shared dictionary encoding, to share a common dictionary between the fields.
-This can be applied for example on localized values of the name:* columns of an OSM dataset that can be identical across fields.
-If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
-must be grouped one behind the other in the file and prefixed with the dictionary.</p>
-<p>Shared dictionary-encoded nullable string columns consists of the following streams and order:
+<h3 id="shared-dictionary-encoding">Shared Dictionary Encoding<a class="headerlink" href="#shared-dictionary-encoding" title="Link to this section">&para;</a></h3>
+<p>Shared dictionary encoding allows multiple columns to share a common dictionary.
+Nested fields can also use a shared dictionary (e.g., for localized values like <code>name:*</code> columns in an OSM dataset).
+If used for nested fields, all fields sharing the dictionary must be grouped together in the file and prefixed with the dictionary.</p>
+<p>A shared dictionary-encoded nullable string column consists of the following streams in order:
 <code>Length</code>, <code>Dictionary</code>, <code>Present1</code>, <code>Data1</code>, <code>Present2</code>, <code>Data2</code></p>
-<p>Shared FSST Dictionary-encoded nullable string columns consists of the following streams and order:
+<p>A shared FSST dictionary-encoded nullable string column consists of the following streams in order:
 <code>SymbolLength</code>, <code>SymbolTable</code>, <code>String Length</code>, <code>Dictionary</code> (Compressed Corpus), <code>Present1</code>, <code>Data1</code>, <code>Present2</code>, <code>Data2</code></p>
-<h3 id="42-vertex-dictionary-encoding">4.2 Vertex Dictionary Encoding<a class="headerlink" href="#42-vertex-dictionary-encoding" title="Link to this section">&para;</a></h3>
-<p>Uses an additional <code>VertexOffsets</code> stream for storing the indices to the coordinates of the vertices
-in the <code>VertexBuffer</code> stream. The vertices in the VertexBuffer are sorted on a Hilbert-Curve
-and delta-encoded in combination with a null suppression technique.</p>
-<h4 id="421-morton-vertex-dictionary-encoding">4.2.1 Morton Vertex Dictionary Encoding<a class="headerlink" href="#421-morton-vertex-dictionary-encoding" title="Link to this section">&para;</a></h4>
-<p>The coordinates of the <code>VertexBuffer</code> are transformed to a 1D integer using the Morton Code.
-Then the data are sorted according to the Morton code and further compressed by applying
-an Integer compression technique.</p>
-<h2 id="5-integer-encodings">5. Integer Encodings<a class="headerlink" href="#5-integer-encodings" title="Link to this section">&para;</a></h2>
-<p>In general most data in MLT are stored in the form of arrays of integers.
-Using efficient and fast algorithms for compressing arrays of integers is therefore crucial.</p>
-<h3 id="51-logical-level-technique">5.1 Logical Level Technique<a class="headerlink" href="#51-logical-level-technique" title="Link to this section">&para;</a></h3>
-<p>Integers are encoded based on the two lightweight compression techniques delta and rle as well
-as a combination of both schemes called delta-rle.</p>
-<h4 id="511-delta">5.1.1 Delta<a class="headerlink" href="#511-delta" title="Link to this section">&para;</a></h4>
-<p>Compute the differences between consecutive elements of a sequence e.g. x2 - x1, x3 - x2, ...
-Is always used in combination with a physical level technique to reduce the number of bits needed to store the
-delta values.</p>
-<h4 id="512-rle">5.1.2 RLE<a class="headerlink" href="#512-rle" title="Link to this section">&para;</a></h4>
-<p>See <a href="https://en.wikipedia.org/wiki/Run-length_encoding">https://en.wikipedia.org/wiki/Run-length_encoding</a> for a basic explanation
-All runs and values are stored in two separate buffers.
-If the values are unsigned integers ZigZag encoding is applied to the values buffer.
-Both buffers are then further compressed using a null suppression technique.</p>
-<h4 id="513-combining-delta-and-rle-delta-rle">5.1.3 Combining delta and rle (Delta-RLE)<a class="headerlink" href="#513-combining-delta-and-rle-delta-rle" title="Link to this section">&para;</a></h4>
-<p>Delta-compress the values and then apply RLE encoding.
-This technique is efficient for ascending sequences like <code>id</code>s.</p>
-<h3 id="52-physical-level-technique-null-suppression">5.2 Physical Level Technique (Null Suppression)<a class="headerlink" href="#52-physical-level-technique-null-suppression" title="Link to this section">&para;</a></h3>
-<h4 id="521-zigzag-encoding">5.2.1  ZigZag encoding<a class="headerlink" href="#521-zigzag-encoding" title="Link to this section">&para;</a></h4>
-<p>For encoding unsigned integers, ZigZag encoding is used for both of the following null suppression techniques.
-<a href="https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding">ZigZag</a> encoding uses the least significant bit for encoding the sign.</p>
-<h4 id="522-varint-encoding">5.2.2 Varint encoding<a class="headerlink" href="#522-varint-encoding" title="Link to this section">&para;</a></h4>
-<p>Byte-aligned null suppression technique try to compress an integer using a minimal number of bytes.
-For implementation details see <a href="https://protobuf.dev/programming-guides/encoding/#varints">Protobuf</a>.</p>
-<h4 id="523-simd-fastpfor">5.2.3 SIMD-FastPFOR<a class="headerlink" href="#523-simd-fastpfor" title="Link to this section">&para;</a></h4>
-<p>Bit-aligned null suppression technique that compresses an integer using a minimal number of bits
-by using a patched approach to store exceptions (outliers) in a separate section to keep the overall bit width small.</p>
-<p>see <a href="https://arxiv.org/pdf/1209.2137.pdf">https://arxiv.org/pdf/1209.2137.pdf</a> and <a href="https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code">https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code</a></p>
-<p>Available implementations:</p>
+<h2 id="vertex-dictionary-encoding">Vertex Dictionary Encoding<a class="headerlink" href="#vertex-dictionary-encoding" title="Link to this section">&para;</a></h2>
+<p>Uses an additional <code>VertexOffsets</code> stream to store indices for vertex coordinates in the <code>VertexBuffer</code> stream.
+Vertices in the VertexBuffer are sorted using a Hilbert curve and delta-encoded with null suppression.</p>
+<h3 id="morton-vertex-dictionary-encoding">Morton Vertex Dictionary Encoding<a class="headerlink" href="#morton-vertex-dictionary-encoding" title="Link to this section">&para;</a></h3>
+<p><code>VertexBuffer</code> coordinates are transformed into a 1D integer using Morton code.
+The data is sorted by Morton code and further compressed using integer compression techniques.</p>
+<h1 id="integer-encodings">Integer Encodings<a class="headerlink" href="#integer-encodings" title="Link to this section">&para;</a></h1>
+<p>Most data in MLT is stored as integer arrays, making efficient integer compression crucial.</p>
+<h2 id="logical-level-techniques">Logical-Level Techniques<a class="headerlink" href="#logical-level-techniques" title="Link to this section">&para;</a></h2>
+<p>Integers are encoded using delta encoding, run-length encoding (RLE), or a combination of both (delta-RLE).</p>
+<h3 id="delta-encoding">Delta Encoding<a class="headerlink" href="#delta-encoding" title="Link to this section">&para;</a></h3>
+<p>Computes differences between consecutive elements (e.g., x₂ - x₁, x₃ - x₂, ...).
+Used with <a href="#physical-level-techniques">physical-level techniques</a> to reduce the number of bits required for storing delta values.</p>
+<h3 id="run-length-encoding-rle">Run-Length Encoding (RLE)<a class="headerlink" href="#run-length-encoding-rle" title="Link to this section">&para;</a></h3>
+<p>Refer to <a href="https://en.wikipedia.org/wiki/Run-length_encoding">Wikipedia</a> for a basic explanation.
+Runs and values are stored in separate buffers.
+For unsigned integers, ZigZag encoding is applied to the values buffer.
+Both buffers are further compressed using null suppression.</p>
+<h3 id="delta-rle">Delta-RLE<a class="headerlink" href="#delta-rle" title="Link to this section">&para;</a></h3>
+<p>Applies delta encoding followed by RLE.
+Efficient for ascending sequences like <code>id</code> fields.</p>
+<h2 id="physical-level-techniques">Physical-Level Techniques<a class="headerlink" href="#physical-level-techniques" title="Link to this section">&para;</a></h2>
+<p>Null suppression techniques are used to compress integer arrays by reducing the number of bits required to store each integer.</p>
+<h3 id="zigzag-encoding">ZigZag Encoding<a class="headerlink" href="#zigzag-encoding" title="Link to this section">&para;</a></h3>
+<p>Used for encoding unsigned integers in null suppression techniques.
+<a href="https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding">ZigZag encoding</a> uses the least significant bit to represent the sign.</p>
+<h3 id="varint-encoding">Varint Encoding<a class="headerlink" href="#varint-encoding" title="Link to this section">&para;</a></h3>
+<p>A byte-aligned null suppression technique that compresses integers using a minimal number of bytes.
+For implementation details, refer to <a href="https://protobuf.dev/programming-guides/encoding/#varints">Protobuf</a>.</p>
+<h3 id="simd-fastpfor">SIMD-FastPFOR<a class="headerlink" href="#simd-fastpfor" title="Link to this section">&para;</a></h3>
+<p>A bit-aligned null suppression technique that compresses integers using a minimal number of bits.
+Uses a patched approach to store exceptions (outliers) separately, keeping the overall bit width small.</p>
+<p>Refer to:
+- <a href="https://arxiv.org/pdf/1209.2137.pdf">https://arxiv.org/pdf/1209.2137.pdf</a>
+- <a href="https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code">https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code</a></p>
+<p><strong>Available implementations</strong>:</p>
 <ul>
-<li>C++: <a href="https://github.com/lemire/FastPFor">https://github.com/lemire/FastPFor</a></li>
-<li>Java: <a href="https://github.com/lemire/JavaFastPFOR">https://github.com/lemire/JavaFastPFOR</a></li>
-<li>C#: <a href="https://github.com/Genbox/CSharpFastPFOR">https://github.com/Genbox/CSharpFastPFOR</a></li>
-<li>Js/WebAssembly: Work in Progress (higher implementation complexity)</li>
+<li><strong>C++</strong>: <a href="https://github.com/fast-pack/FastPFOR">https://github.com/fast-pack/FastPFOR</a></li>
+<li><strong>Java</strong>: <a href="https://github.com/fast-pack/JavaFastPFOR">https://github.com/fast-pack/JavaFastPFOR</a></li>
+<li><strong>C#</strong>: <a href="https://github.com/Genbox/CSharpFastPFOR">https://github.com/Genbox/CSharpFastPFOR</a></li>
+<li><strong>JS/WebAssembly</strong>: Work in progress (higher implementation complexity)</li>
 </ul>
-<h2 id="6-float-encodings">6. Float encodings<a class="headerlink" href="#6-float-encodings" title="Link to this section">&para;</a></h2>
-<h3 id="61-adaptive-lossless-floating-point-compression-alp">6.1 Adaptive Lossless floating-Point Compression (ALP)<a class="headerlink" href="#61-adaptive-lossless-floating-point-compression-alp" title="Link to this section">&para;</a></h3>
-<p>See <a href="https://dl.acm.org/doi/pdf/10.1145/3626717">https://dl.acm.org/doi/pdf/10.1145/3626717</a> for a detailed explanation.
-ALP is a lossless floating-point compression technique that is used to compress the float values in MLT.</p>
-<p>Available implementations:</p>
+<h1 id="float-encodings">Float Encodings<a class="headerlink" href="#float-encodings" title="Link to this section">&para;</a></h1>
+<h2 id="adaptive-lossless-floating-point-compression-alp">Adaptive Lossless Floating-Point Compression (ALP)<a class="headerlink" href="#adaptive-lossless-floating-point-compression-alp" title="Link to this section">&para;</a></h2>
+<p>A lossless floating-point compression technique used in MLT.
+For a detailed explanation, refer to <a href="https://dl.acm.org/doi/pdf/10.1145/3626717">this paper</a>.</p>
+<p><strong>Available implementations</strong>:</p>
 <ul>
-<li>C++: <a href="https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp">https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp</a></li>
-<li>Java: Work in Progress</li>
-<li>JS/WebAssembly: Work in Progress</li>
+<li><strong>C++</strong>: <a href="https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp">https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp</a></li>
+<li><strong>Java</strong>: Work in progress</li>
+<li><strong>JS/WebAssembly</strong>: Work in progress</li>
 </ul>
 
 
