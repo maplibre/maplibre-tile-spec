@@ -1,0 +1,125 @@
+F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	3
+waterway
+id" 
+geometry* 
+class" 	2
+landuse
+id" 
+geometry* 
+class" 	¹
+mountain_peak
+id" 
+geometry* 
+class" 	
+ele" 
+ele_ft" 
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" Ý
+place
+id" 
+geometry* 
+class" 	
+name" 	
+name:ar" 	
+name:ca" 	
+name:cs" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:fr" 	
+name:he" 	
+name:hr" 	
+name:hu" 	
+name:it" 	
+name:ja" 	
+name:ko" 	
+name:la" 	
+
+name:latin" 	
+name:lt" 	
+name:lv" 	
+name:mk" 	
+name:pl" 	
+name:ro" 	
+name:ru" 	
+name:sk" 	
+name:sl" 	
+name:sr" 	
+name:uk" 	
+name:zh" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" 
+name:be" 	
+name:bg" 	
+name:bs" 	
+name:cy" 	
+name:da" 	
+name:et" 	
+name:eu" 	
+name:fi" 	
+name:fy" 	
+name:ga" 	
+name:hi" 	
+name:id" 	
+name:is" 	
+name:ka" 	
+name:kn" 	
+name:ku" 	
+name:lb" 	
+name:nl" 	
+name:no" 	
+name:oc" 	
+name:pt" 	
+name:sq" 	
+name:sv" 	
+name:th" 	
+name:tr" 	
+name:br" 	
+capital" 
+name:kk" 	
+name:gd" 	
+name:hy" 	F
+water
+id" 
+geometry* 
+class" 	
+intermittent" p
+transportation_name
+id" 
+geometry* 
+class" 	
+network" 	
+ref" 	
+
+ref_length" “
+park
+id" 
+geometry* 
+class" 	
+name" 	
+
+name:latin" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" \
+transportation
+id" 
+geometry* 
+brunnel" 	
+class" 	
+subclass" 	

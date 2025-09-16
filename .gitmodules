@@ -1,0 +1,15 @@
+[submodule "cpp/vendor/googletest"]
+	path = vendor/googletest
+	url = https://github.com/google/googletest.git
+[submodule "cpp/vendor/simde"]
+	path = vendor/simde
+	url = https://github.com/simd-everywhere/simde.git
+[submodule "cpp/vendor/fastpfor"]
+	path = vendor/fastpfor
+	url = https://github.com/fast-pack/FastPFor.git
+[submodule "cpp/vendor/fsst"]
+	path = vendor/fsst
+	url = https://github.com/cwida/fsst.git
+[submodule "cpp/vendor/json"]
+	path = vendor/json
+	url = https://github.com/nlohmann/json.git

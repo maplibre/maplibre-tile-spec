@@ -1,0 +1,40 @@
+name: C++ CI
+
+on:
+  push:
+    paths:
+      - 'cpp/**'
+  pull_request:
+    paths:
+      - 'cpp/**'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-14, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        working-directory: cpp
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !vendor/fsst/paper/*
+
+      - name: Configure with CMake
+        run: cmake -B build -S .
+
+      - name: Build the project
+        run: cmake --build build --target mlt-cpp-test mlt-cpp-json
+
+      - name: Run C++ tests
+        run: build/test/mlt-cpp-test

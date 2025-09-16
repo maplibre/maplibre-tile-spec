@@ -1,0 +1,174 @@
+ˆ
+boundary
+id" 
+geometry* 
+admin_level" 
+disputed" 
+disputed_name" 	
+maritime" 
+
+claimed_by" 	´	
+
+water_name
+id" 
+geometry* 
+class" 	
+intermittent" 
+name" 	
+name:ar" 	
+name:be" 	
+name:cs" 	
+name:de" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:fi" 	
+name:fr" 	
+name:hr" 	
+name:hu" 	
+name:it" 	
+
+name:latin" 	
+name:lt" 	
+name:mk" 	
+name:pl" 	
+name:ru" 	
+name:sk" 	
+name:sl" 	
+name:uk" 	
+name:zh" 	
+name_de" 	
+name_en" 	
+name_int" 	
+name:br" 	
+name:da" 	
+name:he" 	
+name:id" 	
+name:ja" 	
+name:la" 	
+name:nl" 	
+name:pt" 	
+name:ro" 	
+name:th" 	
+name:el" 	
+name:is" 	
+name:ku" 	
+name:no" 	
+name:sv" 	
+name:tr" 	
+name:ko" 	
+name:et" 	
+name:hi" 	
+name:lb" 	
+name:ta" 	
+name:nonlatin" 	
+name:bg" 	
+name:bs" 	
+name:ca" 	
+name:ka" 	
+name:lv" 	
+name:rm" 	
+name:sq" 	
+name:sr" 	
+name:am" 	
+name:az" 	
+name:eu" 	
+name:fy" 	
+name:ga" 	
+name:hy" 	
+name:kk" 	
+name:kn" 	
+name:ml" 	
+name:oc" 	
+name:te" 	F
+	landcover
+id" 
+geometry* 
+class" 	
+subclass" 	¶
+
+place
+id" 
+geometry* 
+class" 	
+iso_a2" 	
+name" 	
+name:am" 	
+name:ar" 	
+name:az" 	
+name:be" 	
+name:bg" 	
+name:br" 	
+name:bs" 	
+name:ca" 	
+name:cs" 	
+name:cy" 	
+name:da" 	
+name:de" 	
+name:el" 	
+name:en" 	
+name:eo" 	
+name:es" 	
+name:et" 	
+name:eu" 	
+name:fi" 	
+name:fr" 	
+name:fy" 	
+name:ga" 	
+name:gd" 	
+name:he" 	
+name:hi" 	
+name:hr" 	
+name:hu" 	
+name:hy" 	
+name:id" 	
+name:is" 	
+name:it" 	
+name:ja" 	
+name:ka" 	
+name:kk" 	
+name:kn" 	
+name:ko" 	
+name:ku" 	
+name:la" 	
+
+name:latin" 	
+name:lb" 	
+name:lt" 	
+name:lv" 	
+name:mk" 	
+name:ml" 	
+name:mt" 	
+name:nl" 	
+name:no" 	
+name:nonlatin" 	
+name:oc" 	
+name:pl" 	
+name:pt" 	
+name:rm" 	
+name:ro" 	
+name:ru" 	
+name:sk" 	
+name:sl" 	
+name:sq" 	
+name:sr" 	
+name:sv" 	
+name:ta" 	
+name:te" 	
+name:th" 	
+name:tr" 	
+name:uk" 	
+name:zh" 	
+name_de" 	
+name_en" 	
+name_int" 	
+rank" 
+name:co" 	
+capital" 
+name:sr-Latn" 	
+
+name:ja_rm" 	0
+water
+id" 
+geometry* 
+class" 	
