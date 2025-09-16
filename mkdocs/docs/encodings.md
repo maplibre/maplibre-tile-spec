@@ -4,155 +4,153 @@
 
 ---
 
-## Plain
+# Plain
 
-No compression technique is applied on the data.
-Depending on the data type, the data are stored in the following format:
+No compression is applied to the data.
+Depending on the data type, values are stored in the following formats:
 
-- Boolean: Least-significant bit ordering within bytes
-- Integer: Little-Endian byte order
-- Long: Little-Endian byte order
-- Float: IEEE754 floating-point numbers in Little-Endian byte order
-- Double: IEEE754 floating-point numbers in Little-Endian byte order
-- String: length and data streams
+- **Boolean**: Least-significant bit ordering within bytes
+- **Integer**: Little-Endian byte order
+- **Long**: Little-Endian byte order
+- **Float**: IEEE754 floating-point numbers in Little-Endian byte order
+- **Double**: IEEE754 floating-point numbers in Little-Endian byte order
+- **String**: Length and data streams
 
-## Boolean-RLE
+# Boolean-RLE
 
-This encoding is used for compressing boolean columns.
-Least-significant bit numbering (bit-endianness) is used as bit order.
-Have a look at the [ORC specification](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding)
-for implementation details.
+This encoding compresses boolean columns using least-significant bit numbering (bit-endianness).
+Refer to the [ORC specification](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) for implementation details.
 
-## Byte-RLE
+# Byte-RLE
 
-This encoding is used for compressing byte streams such as the `GeometryType` stream of the Geometry column.
-Have a look at the [ORC specification](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding)
-for implementation details.
+This encoding compresses byte streams, such as the `GeometryType` stream in Geometry columns.
+Refer to the [ORC specification](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding) for implementation details.
 
-## Dictionary Encoding
+# Dictionary Encoding
 
-Dictionary encoding is used to compactly represent repeated values and can be applied to `String` and `Geometry` columns.
-In addition to the actual distinct values stored in the `dictionary` stream, a separate `data` stream for the indices
-into the dictionary is used.
+Dictionary encoding compactly represents repeated values and can be applied to `String` and `Geometry` columns.
+Distinct values are stored in a `dictionary` stream, while a separate `data` stream stores indices into the dictionary.
+We allow the following encodings of this concept:
 
-### String Dictionary Encoding
+## String Dictionary Encoding
 
 The dictionary stream contains distinct UTF-8 encoded string values.
-The data stream contains the indices for the dictionary encoded as `UInt32`.
-A dictionary-encoded nullable string column contains of the following streams and order: `Present`, `Length`, `Dictionary`, `Data`.
+The data stream contains dictionary indices encoded as `UInt32`.
+A dictionary-encoded nullable string column consists of the following streams in order:
+`Present`, `Length`, `Dictionary`, `Data`
 
-All streams can be further compressed by recursively applying lightweight encodings:
+> [!NOTE]
+> TODO: Is "can" (=> MAY) here the right terminoligy?
+> This implies that streams might be encoded by one of the options below, but also other options.
+>
+> If yes, what is the alternative options?
+> If no, clarify this misunderstanding.
 
-- Present Stream: Boolean-RLE
-- Length and Data Stream: see Integer encodings
-- Dictionary: see FSST Dictionary
+All streams can be further compressed using lightweight encodings:
 
-#### FSST Dictionary Encoding
+- **Present Stream**: Boolean-RLE
+- **Length and Data Stream**: See Integer encodings
+- **Dictionary**: See FSST Dictionary
 
-Dictionary encoding needs fully repeating strings to reduce size.
-However, the attributes of geospatial data often contains strings which share a common prefix but are not completely equal
-such as the localized country names.
-FSST replaces frequently occurring substrings while maintaining support for efficient scans and random look-ups.
-It is used in MLT to further compress the UTF-8 encoded dictionary values.
-A FSST Dictionary-encoded nullable string column contains of the following streams and order:
+### FSST Dictionary Encoding
+
+Dictionary encoding requires fully repeating strings to reduce size. However, geospatial attributes often contain strings with common prefixes that are not identical (e.g., localized country names).
+FSST replaces frequently occurring substrings while supporting efficient scans and random lookups. It further compresses UTF-8 encoded dictionary values in MLT.
+An FSST dictionary-encoded nullable string column consists of the following streams in order:
 `Present`, `SymbolLength`, `SymbolTable`, `String Length`, `Dictionary` (Compressed Corpus)
-For implementation details see [the following paper](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf)
+For implementation details, refer to [this paper](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf).
 
-Available implementations:
+**Available implementations**:
 
-- C++: [https://github.com/cwida/fsst](https://github.com/cwida/fsst)
-- Java: Work in Progress
-- Js/WebAssembly decoder: Work in Progress (simple to implement)
+- **C++**: <https://github.com/cwida/fsst>
+- **Java**: Work in progress
+- **JS/WebAssembly decoder**: Work in progress (simple to implement)
 
-#### Shared Dictionary Encoding
+### Shared Dictionary Encoding
 
-A Shared dictionary encoding can be used, to share a common dictionary between the columns.
-In addition, nested fields can use a shared dictionary encoding, to share a common dictionary between the fields.
-This can be applied for example on localized values of the name:* columns of an OSM dataset that can be identical across fields.
-If a shared dictionary encoding is used for nested fields, all fields that use the shared dictionary
-must be grouped one behind the other in the file and prefixed with the dictionary.
+Shared dictionary encoding allows multiple columns to share a common dictionary.
+Nested fields can also use a shared dictionary (e.g., for localized values like `name:*` columns in an OSM dataset).
+If used for nested fields, all fields sharing the dictionary must be grouped together in the file and prefixed with the dictionary.
 
-Shared dictionary-encoded nullable string columns consists of the following streams and order:
+A shared dictionary-encoded nullable string column consists of the following streams in order:
 `Length`, `Dictionary`, `Present1`, `Data1`, `Present2`, `Data2`
 
-Shared FSST Dictionary-encoded nullable string columns consists of the following streams and order:
+A shared FSST dictionary-encoded nullable string column consists of the following streams in order:
 `SymbolLength`, `SymbolTable`, `String Length`, `Dictionary` (Compressed Corpus), `Present1`, `Data1`, `Present2`, `Data2`
 
-### Vertex Dictionary Encoding
+## Vertex Dictionary Encoding
 
-Uses an additional `VertexOffsets` stream for storing the indices to the coordinates of the vertices
-in the `VertexBuffer` stream. The vertices in the VertexBuffer are sorted on a Hilbert-Curve
-and delta-encoded in combination with a null suppression technique.
+Uses an additional `VertexOffsets` stream to store indices for vertex coordinates in the `VertexBuffer` stream.
+Vertices in the VertexBuffer are sorted using a Hilbert curve and delta-encoded with null suppression.
 
-#### Morton Vertex Dictionary Encoding
+### Morton Vertex Dictionary Encoding
 
-The coordinates of the `VertexBuffer` are transformed to a 1D integer using the Morton Code.
-Then the data are sorted according to the Morton code and further compressed by applying
-an Integer compression technique.
+`VertexBuffer` coordinates are transformed into a 1D integer using Morton code.
+The data is sorted by Morton code and further compressed using integer compression techniques.
 
-## Integer Encodings
+# Integer Encodings
 
-In general most data in MLT are stored in the form of arrays of integers.
-Using efficient and fast algorithms for compressing arrays of integers is therefore crucial.
+Most data in MLT is stored as integer arrays, making efficient integer compression crucial.
 
-### Logical Level Technique
+## Logical-Level Techniques
 
-Integers are encoded based on the two lightweight compression techniques delta and rle as well
-as a combination of both schemes called delta-rle.
+Integers are encoded using delta encoding, run-length encoding (RLE), or a combination of both (delta-RLE).
 
-#### Delta
+### Delta Encoding
 
-Compute the differences between consecutive elements of a sequence e.g. x2 - x1, x3 - x2, ...
-Is always used in combination with a physical level technique to reduce the number of bits needed to store the
-delta values.
+Computes differences between consecutive elements (e.g., x₂ - x₁, x₃ - x₂, ...).
+Used with [physical-level techniques](#physical-level-techniques) to reduce the number of bits required for storing delta values.
 
-#### RLE
+### Run-Length Encoding (RLE)
 
-See [https://en.wikipedia.org/wiki/Run-length_encoding](https://en.wikipedia.org/wiki/Run-length_encoding) for a basic explanation
-All runs and values are stored in two separate buffers.
-If the values are unsigned integers ZigZag encoding is applied to the values buffer.
-Both buffers are then further compressed using a null suppression technique.
+Refer to [Wikipedia](https://en.wikipedia.org/wiki/Run-length_encoding) for a basic explanation.
+Runs and values are stored in separate buffers.
+For unsigned integers, ZigZag encoding is applied to the values buffer.
+Both buffers are further compressed using null suppression.
 
-#### Combining delta and rle (Delta-RLE)
+### Delta-RLE
 
-Delta-compress the values and then apply RLE encoding.
-This technique is efficient for ascending sequences like `id`s.
+Applies delta encoding followed by RLE.
+Efficient for ascending sequences like `id` fields.
 
-### Physical Level Technique (Null Suppression)
+## Physical-Level Techniques
+Null suppression techniques are used to compress integer arrays by reducing the number of bits required to store each integer.
 
-####  ZigZag encoding
+### ZigZag Encoding
 
-For encoding unsigned integers, ZigZag encoding is used for both of the following null suppression techniques.
-[ZigZag](https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding) encoding uses the least significant bit for encoding the sign.
+Used for encoding unsigned integers in null suppression techniques.
+[ZigZag encoding](https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding) uses the least significant bit to represent the sign.
 
-#### Varint encoding
+### Varint Encoding
 
-Byte-aligned null suppression technique try to compress an integer using a minimal number of bytes.
-For implementation details see [Protobuf](https://protobuf.dev/programming-guides/encoding/#varints).
+A byte-aligned null suppression technique that compresses integers using a minimal number of bytes.
+For implementation details, refer to [Protobuf](https://protobuf.dev/programming-guides/encoding/#varints).
 
-#### SIMD-FastPFOR
+### SIMD-FastPFOR
 
-Bit-aligned null suppression technique that compresses an integer using a minimal number of bits
-by using a patched approach to store exceptions (outliers) in a separate section to keep the overall bit width small.
+A bit-aligned null suppression technique that compresses integers using a minimal number of bits.
+Uses a patched approach to store exceptions (outliers) separately, keeping the overall bit width small.
 
-see [https://arxiv.org/pdf/1209.2137.pdf](https://arxiv.org/pdf/1209.2137.pdf) and [https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code](https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code)
+Refer to:
+- <https://arxiv.org/pdf/1209.2137.pdf>
+- <https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code>
 
-Available implementations:
+**Available implementations**:
 
-- C++: [https://github.com/lemire/FastPFor](https://github.com/lemire/FastPFor)
-- Java: [https://github.com/lemire/JavaFastPFOR](https://github.com/lemire/JavaFastPFOR)
-- C#: [https://github.com/Genbox/CSharpFastPFOR](https://github.com/Genbox/CSharpFastPFOR)
-- Js/WebAssembly: Work in Progress (higher implementation complexity)
+- **C++**: <https://github.com/fast-pack/FastPFOR>
+- **Java**: <https://github.com/fast-pack/JavaFastPFOR>
+- **C#**: <https://github.com/Genbox/CSharpFastPFOR>
+- **JS/WebAssembly**: Work in progress (higher implementation complexity)
 
-## Float encodings
+# Float Encodings
 
-### Adaptive Lossless floating-Point Compression (ALP)
+## Adaptive Lossless Floating-Point Compression (ALP)
 
-See [https://dl.acm.org/doi/pdf/10.1145/3626717](https://dl.acm.org/doi/pdf/10.1145/3626717) for a detailed explanation.
-ALP is a lossless floating-point compression technique that is used to compress the float values in MLT.
+A lossless floating-point compression technique used in MLT.
+For a detailed explanation, refer to [this paper](https://dl.acm.org/doi/pdf/10.1145/3626717).
 
-Available implementations:
+**Available implementations**:
 
-- C++: [https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp](https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp)
-- Java: Work in Progress
-- JS/WebAssembly: Work in Progress
+- **C++**: <https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp>
+- **Java**: Work in progress
+- **JS/WebAssembly**: Work in progress
