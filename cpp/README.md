@@ -11,8 +11,9 @@ CMake only build support.
 ## Build
 
 ```bash
-git submodule init && git submodule update
-cmake -GNinja -Bbuild -S. && cmake --build build --target mlt-cpp-test mlt-cpp-json
+git submodule update --init --recursive
+cmake -GNinja -Bbuild -S.
+cmake --build build --target mlt-cpp-test mlt-cpp-json
 ```
 
 ## Use
