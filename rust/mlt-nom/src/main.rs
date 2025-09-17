@@ -1,7 +1,9 @@
 use nom::Err::Error as NomError;
 use nom::bytes::complete::take;
+use nom::combinator::complete;
 use nom::error::{Error, ErrorKind};
-use nom::{IResult, Parser, combinator::complete, multi::many0};
+use nom::multi::many0;
+use nom::{IResult, Parser};
 use num_enum::TryFromPrimitive;
 
 mod parsers;
@@ -302,7 +304,7 @@ mod tests {
         assert_eq!(parse_varint(&[0x80, 0x01]), Ok((&[][..], 128)));
         assert_eq!(
             parse_varint(&[0xFF, 0xFF, 0xFF, 0xFF, 0x0F]),
-            Ok((&[][..], 0xFFFFFFFF))
+            Ok((&[][..], 0xFFFF_FFFF))
         );
     }
 
@@ -387,9 +389,9 @@ mod tests {
             data: &[0x01, 0x02, 0x03, 0x04, 0x05],
         });
 
-        println!("Test data: {:?}", data);
+        println!("Test data: {data:?}");
         let result = Layer::parse(&data);
-        println!("Parse result: {:?}", result);
+        println!("Parse result: {result:?}");
         assert_eq!(result, Ok((&[][..], expected)));
     }
 
@@ -477,7 +479,7 @@ mod tests {
                 assert_eq!(layer_v1.meta.columns[5].typ, ColumnType::BoolProperty);
                 assert_eq!(layer_v1.data, &[0x01, 0x02, 0x03, 0x04, 0x05]);
             }
-            _ => panic!("Expected LayerV1 layer"),
+            Layer::Unknown(_) => panic!("Expected LayerV1 layer"),
         }
 
         // Check second layer (tag=42, should be Unknown)
@@ -486,7 +488,7 @@ mod tests {
                 assert_eq!(unknown.tag, 42);
                 assert_eq!(unknown.value, &[0xAA, 0xBB]);
             }
-            _ => panic!("Expected Unknown layer"),
+            Layer::LayerV1(_) => panic!("Expected Unknown layer"),
         }
 
         // Check third layer (tag=100, should be Unknown)
@@ -495,7 +497,7 @@ mod tests {
                 assert_eq!(unknown.tag, 100);
                 assert_eq!(unknown.value, &[]);
             }
-            _ => panic!("Expected Unknown layer"),
+            Layer::LayerV1(_) => panic!("Expected Unknown layer"),
         }
     }
 }
