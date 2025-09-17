@@ -16,7 +16,7 @@ pub fn parse_varint(input: &[u8]) -> IResult<&[u8], u64> {
 pub fn parse_varint_usize(input: &[u8]) -> IResult<&[u8], usize> {
     let (input, value) = parse_varint(input)?;
     let value = usize::try_from(value);
-    let value = value.map_err(|_| NomError(Error::new(input, ErrorKind::TooLarge)))?;
+    let value = value.or(Err(NomError(Error::new(input, ErrorKind::TooLarge))))?;
     Ok((input, value))
 }
 
@@ -24,7 +24,7 @@ pub fn parse_varint_usize(input: &[u8]) -> IResult<&[u8], usize> {
 pub fn parse_varint_u32(input: &[u8]) -> IResult<&[u8], u32> {
     let (input, value) = parse_varint(input)?;
     let value = u32::try_from(value);
-    let value = value.map_err(|_| NomError(Error::new(input, ErrorKind::TooLarge)))?;
+    let value = value.or(Err(NomError(Error::new(input, ErrorKind::TooLarge))))?;
     Ok((input, value))
 }
 
@@ -33,7 +33,7 @@ pub fn parse_string(input: &[u8]) -> IResult<&[u8], &str> {
     let (input, length) = parse_varint_usize(input)?;
     let (input, value) = take(length)(input)?;
     let value = str::from_utf8(value);
-    let value = value.map_err(|_| NomError(Error::new(input, ErrorKind::Fail)))?;
+    let value = value.or(Err(NomError(Error::new(input, ErrorKind::Fail))))?;
     Ok((input, value))
 }
 
