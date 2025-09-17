@@ -1,5 +1,13 @@
 use crate::{MltError, MltResult};
 use crate::decoder::helpers::decode_componentwise_delta_vec2s;
+use std::fmt::Debug;
+
+use bytes::Buf;
+use fastpfor::cpp::{Codec32 as _, FastPFor128Codec};
+use morton_encoding::{morton_decode, morton_encode};
+use num_traits::PrimInt;
+use zigzag::ZigZag;
+
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
 use crate::encoder::integer::u32s_to_le_bytes;
@@ -8,14 +16,6 @@ use crate::metadata::stream_encoding::{
     Logical, LogicalLevelTechnique, LogicalStreamType, Physical, PhysicalLevelTechnique,
     PhysicalStreamType,
 };
-use fastpfor::cpp::Codec32 as _;
-use fastpfor::cpp::FastPFor128Codec;
-
-use bytes::Buf;
-use morton_encoding::{morton_decode, morton_encode};
-use num_traits::PrimInt;
-use std::fmt::Debug;
-use zigzag::ZigZag;
 
 /// a placeholder for future implementation
 /// For some reason, the Java code has a method that decodes long streams,
@@ -511,6 +511,7 @@ fn generate_logical_decode_cases() -> Vec<LogicalDecodeCase> {
     ]
 }
 
+/// Decode a physical level technique.
 fn decode_physical_level_technique(
     data: &mut TrackedBytes,
     metadata: &StreamMetadata,
@@ -538,12 +539,12 @@ fn decode_physical_level_technique(
     }
 }
 
+/// Decode a constant integer stream, handling both signed and unsigned values.
 pub fn decode_const_int_stream(
     data: &mut TrackedBytes,
     metadata: &StreamMetadata,
     is_signed: bool,
 ) -> MltResult<i32> {
-    // Return i32, not an enum!
     let values = decode_physical_level_technique(data, metadata)?;
 
     if values.len() == 1 {
@@ -569,6 +570,190 @@ pub fn decode_const_int_stream(
     Ok(result)
 }
 
+// Decode a length stream into an offset buffer.
+pub fn decode_length_stream_to_offset_buffer(
+    data: &mut TrackedBytes,
+    metadata: &StreamMetadata,
+) -> MltResult<Vec<i32>> {
+    #[expect(unused)]
+    let values = decode_physical_level_technique(data, metadata)?;
+    todo!("Implement length stream to offset buffer decoding");
+}
+
+// Decode a length stream into an offset buffer based on logical techniques.
+fn decode_length_to_offset_buffer(
+    values: &mut [u32],
+    stream_metadata: &StreamMetadata,
+) -> MltResult<Vec<i32>> {
+    if stream_metadata.logical.technique1 == Some(LogicalLevelTechnique::Delta)
+        && stream_metadata.logical.technique2 == Some(LogicalLevelTechnique::None)
+    {
+        let decoded = zigzag_delta_of_delta_decoding(values);
+        return Ok(decoded);
+    }
+
+    if stream_metadata.logical.technique1 == Some(LogicalLevelTechnique::Rle)
+        && stream_metadata.logical.technique2 == Some(LogicalLevelTechnique::None)
+    {
+        let runs = stream_metadata
+            .rle
+            .as_ref()
+            .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?
+            .runs as usize;
+        let num_total_values = stream_metadata
+            .rle
+            .as_ref()
+            .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?
+            .num_rle_values as usize;
+        let decoded = rle_delta_decoding(values, runs, num_total_values);
+        return Ok(decoded);
+    }
+
+    if stream_metadata.logical.technique1 == Some(LogicalLevelTechnique::None)
+        && stream_metadata.logical.technique2 == Some(LogicalLevelTechnique::None)
+    {
+        inverse_delta(values);
+        let mut offsets = Vec::with_capacity(values.len() + 1);
+        offsets.push(0);
+        offsets.extend(values.iter().map(|&x| x as i32));
+        return Ok(offsets);
+    }
+
+    if stream_metadata.logical.technique1 == Some(LogicalLevelTechnique::Delta)
+        && stream_metadata.logical.technique2 == Some(LogicalLevelTechnique::Rle)
+    {
+        let runs = stream_metadata
+            .rle
+            .as_ref()
+            .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?
+            .runs as usize;
+        let num_total_values = stream_metadata
+            .rle
+            .as_ref()
+            .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?
+            .num_rle_values as usize;
+        let mut decoded = zigzag_rle_delta_decoding(values, runs, num_total_values);
+        fast_inverse_delta(&mut decoded);
+        return Ok(decoded);
+    }
+    Err(MltError::UnsupportedLogicalTechniqueCombination {
+        technique1: stream_metadata.logical.technique1,
+        technique2: stream_metadata.logical.technique2,
+    })
+}
+
+// Delta-of-delta decoding with ZigZag decoding
+fn zigzag_delta_of_delta_decoding(data: &[u32]) -> Vec<i32> {
+    if data.is_empty() {
+        return vec![0];
+    }
+
+    let mut decoded_data = Vec::with_capacity(data.len() + 1);
+    decoded_data.push(0);
+    decoded_data.push(ZigZag::decode(data[0]));
+
+    let mut delta_sum = decoded_data[1];
+
+    for &zig_zag_value in &data[1..] {
+        let delta: i32 = ZigZag::decode(zig_zag_value);
+        delta_sum += delta;
+        decoded_data.push(decoded_data.last().unwrap() + delta_sum);
+    }
+
+    decoded_data
+}
+
+// RLE delta decoding
+fn rle_delta_decoding(data: &[u32], num_runs: usize, num_total_values: usize) -> Vec<i32> {
+    let mut decoded_values = vec![0; num_total_values + 1];
+    let mut offset = 1;
+    let mut previous_value = 0;
+
+    for i in 0..num_runs {
+        let run_length = data[i] as usize;
+        let value = data[i + num_runs] as i32;
+
+        for decoded_value in decoded_values.iter_mut().skip(offset).take(run_length) {
+            *decoded_value = value + previous_value;
+            previous_value = *decoded_value;
+        }
+
+        offset += run_length;
+    }
+
+    decoded_values
+}
+
+// Inverse delta decoding for unsigned integers
+fn inverse_delta(data: &mut [u32]) {
+    let mut prev_value = 0u32;
+    for value in data.iter_mut() {
+        *value = value.wrapping_add(prev_value);
+        prev_value = *value;
+    }
+}
+
+// RLE delta decoding with ZigZag decoding
+fn zigzag_rle_delta_decoding(data: &[u32], num_runs: usize, num_total_values: usize) -> Vec<i32> {
+    let mut decoded_values = vec![0i32; num_total_values + 1];
+    decoded_values[0] = 0;
+    let mut offset = 1;
+    let mut previous_value = decoded_values[0];
+
+    for i in 0..num_runs {
+        let run_length = data[i] as usize;
+        let value = data[i + num_runs];
+
+        let decoded_value = ((value >> 1) ^ (0u32.wrapping_sub(value & 1))) as i32;
+
+        for decoded_val in decoded_values.iter_mut().skip(offset).take(run_length) {
+            *decoded_val = decoded_value + previous_value;
+            previous_value = *decoded_val;
+        }
+
+        offset += run_length;
+    }
+
+    decoded_values
+}
+
+// Fast inverse delta decoding for signed integers
+fn fast_inverse_delta(data: &mut [i32]) {
+    if data.is_empty() {
+        return;
+    }
+
+    let sz0 = (data.len() / 4) * 4;
+    let mut i = 1;
+
+    if sz0 >= 4 {
+        let mut a = data[0];
+        while i < sz0.saturating_sub(4) {
+            a = {
+                data[i] = data[i].wrapping_add(a);
+                data[i]
+            };
+            a = {
+                data[i + 1] = data[i + 1].wrapping_add(a);
+                data[i + 1]
+            };
+            a = {
+                data[i + 2] = data[i + 2].wrapping_add(a);
+                data[i + 2]
+            };
+            a = {
+                data[i + 3] = data[i + 3].wrapping_add(a);
+                data[i + 3]
+            };
+            i += 4;
+        }
+    }
+
+    while i < data.len() {
+        data[i] = data[i].wrapping_add(data[i - 1]);
+        i += 1;
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -731,7 +916,6 @@ mod tests {
         assert_eq!(result, vec![3, 1]);
     }
 
-
     use bytes::Bytes;
 
     #[test]
@@ -875,5 +1059,262 @@ mod tests {
         let result = decode_const_int_stream(&mut tile, &metadata, true).unwrap();
 
         assert_eq!(result, -4);
+    }
+
+    #[test]
+    fn test_zigzag_delta_of_delta_decoding_simple_sequence() {
+        let data = vec![20u32, 10, 12];
+        let decoded = zigzag_delta_of_delta_decoding(&data);
+        let expected = vec![0, 10, 25, 46];
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_zigzag_delta_of_delta_decoding_mixed_values() {
+        // Test with mixed positive/negative delta-of-deltas
+        let data = vec![16u32, 11, 11, 12];
+        let decoded = zigzag_delta_of_delta_decoding(&data);
+
+        let expected = vec![0, 8, 10, 6, 8];
+        assert_eq!(decoded, expected);
+        assert_eq!(decoded.len(), 5);
+    }
+
+    #[test]
+    fn test_zigzag_delta_of_delta_decoding_single_value() {
+        // Test with just one value
+        let data = vec![10u32];
+        let decoded = zigzag_delta_of_delta_decoding(&data);
+
+        let expected = vec![0, 5];
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_zigzag_delta_of_delta_decoding_empty_data() {
+        let data = vec![];
+        let decoded = zigzag_delta_of_delta_decoding(&data);
+
+        assert_eq!(decoded, vec![0]);
+        assert_eq!(decoded.len(), 1);
+    }
+
+    #[test]
+    fn test_single_run() {
+        let data = [3, 5];
+        let result = rle_delta_decoding(&data, 1, 3);
+        assert_eq!(result, vec![0, 5, 10, 15]);
+    }
+
+    #[test]
+    fn test_zigzag_rle_delta_decoding_basic() {
+        let data = vec![2u32, 2, 10, 6];
+        let num_runs = 2;
+        let num_total_values = 4;
+
+        let result = zigzag_rle_delta_decoding(&data, num_runs, num_total_values);
+
+        let expected = vec![0, 5, 10, 13, 16];
+        assert_eq!(result, expected);
+        assert_eq!(result.len(), num_total_values + 1);
+    }
+
+    #[test]
+    fn test_zigzag_rle_delta_decoding_with_negative_values() {
+        let data = vec![3u32, 1, 7, 4];
+        let num_runs = 2;
+        let num_total_values = 4;
+
+        let result = zigzag_rle_delta_decoding(&data, num_runs, num_total_values);
+
+        let expected = vec![0, -4, -8, -12, -10];
+        assert_eq!(result, expected);
+        assert_eq!(result.len(), num_total_values + 1);
+    }
+
+    #[test]
+    fn test_fast_inverse_delta_vectorized_processing() {
+        let mut data = vec![10i32, 5, 3, 2, 1, 4, 6, 2];
+        fast_inverse_delta(&mut data);
+
+        let expected = vec![10i32, 15, 18, 20, 21, 25, 31, 33];
+        assert_eq!(data, expected);
+    }
+
+    #[test]
+    fn test_fast_inverse_delta_mixed_processing() {
+        let mut data = vec![1i32, 2, 3, 4, 5, 10];
+        fast_inverse_delta(&mut data);
+
+        let expected = vec![1i32, 3, 6, 10, 15, 25];
+        assert_eq!(data, expected);
+    }
+
+    fn create_delta_metadata() -> StreamMetadata {
+        StreamMetadata {
+            logical: Logical::new(
+                None,
+                LogicalLevelTechnique::Delta,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 0,
+            byte_length: 0,
+            morton: None,
+            rle: None,
+        }
+    }
+
+    #[test]
+    fn test_decode_length_to_offset_buffer_delta_technique() {
+        let mut values = vec![20u32, 10, 12];
+        let metadata = create_delta_metadata();
+
+        let result = decode_length_to_offset_buffer(&mut values, &metadata);
+
+        assert!(result.is_ok());
+        let decoded = result.unwrap();
+        let expected = vec![0, 10, 25, 46];
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_length_to_offset_buffer_delta_empty_values() {
+        let mut values = vec![];
+        let metadata = create_delta_metadata();
+
+        let result = decode_length_to_offset_buffer(&mut values, &metadata);
+
+        assert!(result.is_ok());
+        let decoded = result.unwrap();
+        assert_eq!(decoded, vec![0]);
+    }
+
+    fn create_rle_metadata(runs: u32, num_rle_values: u32) -> StreamMetadata {
+        StreamMetadata {
+            logical: Logical::new(
+                None,
+                LogicalLevelTechnique::Rle,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 0,
+            byte_length: 0,
+            morton: None,
+            rle: Some(Rle {
+                runs,
+                num_rle_values,
+            }),
+        }
+    }
+
+    #[test]
+    fn test_decode_length_to_offset_buffer_rle_technique() {
+        let mut values = vec![2u32, 2, 5, 3];
+        let metadata = create_rle_metadata(2, 4);
+
+        let result = decode_length_to_offset_buffer(&mut values, &metadata);
+
+        assert!(result.is_ok());
+        let decoded = result.unwrap();
+        let expected = vec![0, 5, 10, 13, 16];
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_length_to_offset_buffer_rle_missing_metadata() {
+        let mut values = vec![2u32, 2, 5, 3];
+        let mut metadata = create_rle_metadata(2, 4);
+        metadata.rle = None; // Remove RLE metadata
+
+        let result = decode_length_to_offset_buffer(&mut values, &metadata);
+
+        assert!(result.is_err());
+        match result {
+            Err(MltError::MissingLogicalMetadata { which }) => {
+                assert_eq!(which, "rle");
+            }
+            _ => panic!("Expected MissingLogicalMetadata error"),
+        }
+    }
+
+    fn create_delta_rle_metadata(runs: u32, num_rle_values: u32) -> StreamMetadata {
+        StreamMetadata {
+            logical: Logical::new(
+                None,
+                LogicalLevelTechnique::Delta,
+                LogicalLevelTechnique::Rle,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 0,
+            byte_length: 0,
+            morton: None,
+            rle: Some(Rle {
+                runs,
+                num_rle_values,
+            }),
+        }
+    }
+
+    #[test]
+    fn test_decode_length_to_offset_buffer_delta_rle_technique() {
+        let mut values = vec![2u32, 1, 10, 6];
+        let metadata = create_delta_rle_metadata(2, 3);
+
+        let result = decode_length_to_offset_buffer(&mut values, &metadata);
+
+        assert!(result.is_ok());
+        let decoded = result.unwrap();
+        assert!(!decoded.is_empty());
+        assert_eq!(decoded[0], 0);
+    }
+
+    #[test]
+    fn test_decode_length_to_offset_buffer_delta_rle_missing_metadata() {
+        let mut values = vec![2u32, 1, 10, 6];
+        let mut metadata = create_delta_rle_metadata(2, 3);
+        metadata.rle = None;
+
+        let result = decode_length_to_offset_buffer(&mut values, &metadata);
+
+        assert!(result.is_err());
+        match result {
+            Err(MltError::MissingLogicalMetadata { which }) => {
+                assert_eq!(which, "rle");
+            }
+            _ => panic!("Expected MissingLogicalMetadata error"),
+        }
+    }
+
+    #[test]
+    fn test_decode_length_to_offset_buffer_unsupported_combination() {
+        let mut values = vec![1u32, 2, 3];
+        // Create an unsupported combination: Delta + Delta
+        let metadata = StreamMetadata {
+            logical: Logical::new(
+                None,
+                LogicalLevelTechnique::Delta,
+                LogicalLevelTechnique::Delta, // Unsupported combination
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 0,
+            byte_length: 0,
+            morton: None,
+            rle: None,
+        };
+
+        let result = decode_length_to_offset_buffer(&mut values, &metadata);
+
+        assert!(result.is_err());
+        match result {
+            Err(MltError::UnsupportedLogicalTechniqueCombination {
+                technique1,
+                technique2,
+            }) => {
+                assert_eq!(technique1, Some(LogicalLevelTechnique::Delta));
+                assert_eq!(technique2, Some(LogicalLevelTechnique::Delta));
+            }
+            _ => panic!("Expected UnsupportedLogicalTechniqueCombination error"),
+        }
     }
 }
