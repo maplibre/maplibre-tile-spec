@@ -24,6 +24,14 @@ public class StringEncoder {
   public static Pair<Integer, byte[]> encodeSharedDictionary(
       List<List<String>> values,
       PhysicalLevelTechnique physicalLevelTechnique,
+      boolean useFsstEncoding)
+      throws IOException {
+    return encodeSharedDictionary(values, physicalLevelTechnique, useFsstEncoding, null, null);
+  }
+
+  public static Pair<Integer, byte[]> encodeSharedDictionary(
+      List<List<String>> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
       @Nullable String fieldName)
@@ -34,7 +42,7 @@ public class StringEncoder {
      * Shared Fsst dictionary layout ->  symbol table, symbol length, dictionary/compressed corpus, length, present1, data1, present2, data2
      * */
     // TODO: also compare size with plain and single encoded columns
-    var lengthStream = new ArrayList<Integer>();
+    // var lengthStream = new ArrayList<Integer>();
     // TODO: also sort dictionary for the usage in combination with Gzip?
     var dictionary = new ArrayList<String>();
     var dataStreams = new ArrayList<List<Integer>>(values.size());
@@ -53,7 +61,7 @@ public class StringEncoder {
           if (!dictionary.contains(value)) {
             dictionary.add(value);
             var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
-            lengthStream.add(utf8EncodedData.length);
+            // lengthStream.add(utf8EncodedData.length);
             var index = dictionary.size() - 1;
             dataStream.add(index);
           } else {
@@ -130,6 +138,12 @@ public class StringEncoder {
   }
 
   public static Pair<Integer, byte[]> encode(
+      List<String> values, PhysicalLevelTechnique physicalLevelTechnique, boolean useFsstEncoding)
+      throws IOException {
+    return encode(values, physicalLevelTechnique, useFsstEncoding, null, null);
+  }
+
+  public static Pair<Integer, byte[]> encode(
       List<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding,
@@ -169,13 +183,13 @@ public class StringEncoder {
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
       String fieldName) {
     var dataStream = new ArrayList<Integer>(values.size());
-    var lengthStream = new ArrayList<Integer>();
+    // var lengthStream = new ArrayList<Integer>();
     var dictionary = new ArrayList<String>();
     for (var value : values) {
       if (!dictionary.contains(value)) {
         dictionary.add(value);
         var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
-        lengthStream.add(utf8EncodedData.length);
+        // lengthStream.add(utf8EncodedData.length);
         var index = dictionary.size() - 1;
         dataStream.add(index);
       } else {

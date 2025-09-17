@@ -64,6 +64,16 @@ public class IntegerEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType) {
+    return encodeIntStream(
+        values, physicalLevelTechnique, isSigned, streamType, logicalStreamType, null, null);
+  }
+
+  public static byte[] encodeIntStream(
+      List<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
       @Nullable String streamName) {
@@ -95,6 +105,14 @@ public class IntegerEncoder {
     GeometryEncoder.recordStream(
         streamName, values, encodedMetadata, encodedValueStream.encodedValues, rawStreamData);
     return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
+  }
+
+  public static byte[] encodeLongStream(
+      List<Long> values,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType) {
+    return encodeLongStream(values, isSigned, streamType, logicalStreamType, null, null);
   }
 
   public static byte[] encodeLongStream(
@@ -250,9 +268,7 @@ public class IntegerEncoder {
 
     // TODO: refactor -> find proper solution
     var encodedValuesSizes =
-        encodedValues.stream()
-            .map(v -> v == null ? Integer.MAX_VALUE : v.length)
-            .collect(Collectors.toList());
+        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
     var index =
         isConstStream
             ? LogicalLevelIntegerTechnique.RLE.ordinal()
@@ -285,8 +301,8 @@ public class IntegerEncoder {
 
   // TODO: make generic to merge with encodeInt
   public static IntegerEncodingResult encodeLong(List<Long> values, boolean isSigned) {
-    var previousValue = 0l;
-    var previousDelta = 0l;
+    var previousValue = 0L;
+    var previousDelta = 0L;
     var runs = 1;
     var deltaRuns = 1;
     var deltaValues = new ArrayList<Long>();
@@ -364,9 +380,7 @@ public class IntegerEncoder {
 
     // TODO: refactor -> find proper solution
     var encodedValuesSizes =
-        encodedValues.stream()
-            .map(v -> v == null ? Integer.MAX_VALUE : v.length)
-            .collect(Collectors.toList());
+        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
     var index = encodedValuesSizes.indexOf(Collections.min(encodedValuesSizes));
     var encoding = LogicalLevelIntegerTechnique.values()[index];
 

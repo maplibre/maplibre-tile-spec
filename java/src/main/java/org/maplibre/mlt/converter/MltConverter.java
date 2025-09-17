@@ -474,6 +474,15 @@ public class MltConverter {
       MapboxVectorTile mvt,
       MltTilesetMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
+      @Nullable URI tessellateSource)
+      throws IOException {
+    return convertMvt(mvt, tilesetMetadata, config, tessellateSource, null);
+  }
+
+  public static byte[] convertMvt(
+      MapboxVectorTile mvt,
+      MltTilesetMetadata.TileSetMetadata tilesetMetadata,
+      ConversionConfig config,
       @Nullable URI tessellateSource,
       @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
