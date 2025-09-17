@@ -43,6 +43,7 @@ import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
+import org.apache.commons.lang3.tuple.Triple;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
@@ -97,6 +98,11 @@ public class Encode {
               preTessellatePolygons,
               useMortonEncoding,
               (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
+
+      if (verbose && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
+        System.err.println(
+            "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
+      }
 
       if (cmd.hasOption(INPUT_TILE_ARG)) {
         // Converting one tile
@@ -169,8 +175,13 @@ public class Encode {
     var metadata = MltConverter.createEmbeddedMetadata(pbMetadata);
     var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMetadata);
 
+    HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
+    if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
+      rawStreams = new HashMap<>();
+    }
     var mlTile =
-        MltConverter.convertMvt(decodedMvTile, pbMetadata, conversionConfig, tessellateSource);
+        MltConverter.convertMvt(
+            decodedMvTile, pbMetadata, conversionConfig, tessellateSource, rawStreams);
     if (willTime) {
       timer.stop("encoding");
     }
@@ -217,6 +228,43 @@ public class Encode {
             System.err.println("Writing tileset metadata to " + metadataPath);
           }
           Files.writeString(metadataPath, metadataJSON);
+        }
+
+        if (rawStreams != null) {
+          for (var entry : rawStreams.entrySet()) {
+            if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
+              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".meta.bin", true);
+              if (path != null) {
+                if (verbose) {
+                  System.err.println(
+                      "Writing raw stream '" + entry.getKey() + "' metadata to " + path);
+                }
+                Files.write(path, entry.getValue().getLeft());
+              }
+            }
+            if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
+              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".bin", true);
+              if (path != null) {
+                if (verbose) {
+                  System.err.println("Writing raw stream '" + entry.getKey() + "' data to " + path);
+                }
+                Files.write(path, entry.getValue().getMiddle());
+              }
+            }
+            if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
+              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".json", true);
+              if (path != null) {
+                var json = new Gson().toJson(entry.getValue().getRight());
+                if (json != null && !json.isEmpty()) {
+                  if (verbose) {
+                    System.err.println(
+                        "Writing raw stream '" + entry.getKey() + "' json to " + path);
+                  }
+                  Files.writeString(path, json);
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -563,7 +611,8 @@ public class Encode {
 
       var binaryMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
       var mlTile =
-          MltConverter.convertMvt(decodedMvTile, pbfMetadata, conversionConfig, tessellateSource);
+          MltConverter.convertMvt(
+              decodedMvTile, pbfMetadata, conversionConfig, tessellateSource, null);
 
       byte[] tileData;
       try (var outputStream = new ByteArrayOutputStream()) {
@@ -775,6 +824,7 @@ public class Encode {
   private static final String COMPRESS_OPTION_DEFLATE = "deflate";
   private static final String COMPRESS_OPTION_GZIP = "gzip";
   private static final String COMPRESS_OPTION_NONE = "none";
+  private static final String DUMP_STREAMS_OPTION = "rawstreams";
   private static final String VERBOSE_OPTION = "verbose";
   private static final String HELP_OPTION = "help";
 
@@ -785,6 +835,11 @@ public class Encode {
   /// If a path is returned and the directory doesn't already exist, it is created.
   private static @Nullable Path getOutputPath(
       CommandLine cmd, String inputFileName, String targetExt) {
+    return getOutputPath(cmd, inputFileName, targetExt, false);
+  }
+
+  private static @Nullable Path getOutputPath(
+      CommandLine cmd, String inputFileName, String targetExt, boolean forceExt) {
     Path outputPath = null;
     if (cmd.hasOption(OUTPUT_DIR_ARG)) {
       var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
@@ -794,6 +849,13 @@ public class Encode {
       outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
     }
     if (outputPath != null) {
+      if (forceExt) {
+        outputPath =
+            Path.of(
+                FilenameUtils.removeExtension(outputPath.toString())
+                    + FilenameUtils.EXTENSION_SEPARATOR_STR
+                    + targetExt);
+      }
       var outputDirPath = outputPath.toAbsolutePath().getParent();
       if (!Files.exists(outputDirPath)) {
         try {
@@ -997,6 +1059,17 @@ public class Encode {
               .desc("Use the vectorized decoding path.")
               .required(false)
               .deprecated()
+              .build());
+      options.addOption(
+          Option.builder()
+              .longOpt(DUMP_STREAMS_OPTION)
+              .hasArg(false)
+              .desc(
+                  "Dump the raw contents of the individual streams. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
+              .required(false)
               .build());
       options.addOption(
           Option.builder()

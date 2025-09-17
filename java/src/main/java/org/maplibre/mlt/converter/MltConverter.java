@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.encodings.GeometryEncoder;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
@@ -473,7 +474,8 @@ public class MltConverter {
       MapboxVectorTile mvt,
       MltTilesetMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
-      @Nullable URI tessellateSource)
+      @Nullable URI tessellateSource,
+      @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     var physicalLevelTechnique =
         config.getUseAdvancedEncodingSchemes()
@@ -517,7 +519,8 @@ public class MltConverter {
               mvtFeatures,
               physicalLevelTechnique,
               createPolygonOutline,
-              tessellateSource);
+              tessellateSource,
+              rawStreamData);
       var sortedFeatures = result.getLeft();
       var encodedGeometryColumn = result.getRight();
       var encodedGeometryFieldMetadata =
@@ -526,7 +529,11 @@ public class MltConverter {
 
       var encodedPropertyColumns =
           encodePropertyColumns(
-              config, featureTableMetadata, sortedFeatures, featureTableOptimizations);
+              config,
+              featureTableMetadata,
+              sortedFeatures,
+              featureTableOptimizations,
+              rawStreamData);
 
       if (config.getIncludeIds()) {
         var idMetadata =
@@ -540,7 +547,8 @@ public class MltConverter {
                 idMetadata,
                 sortedFeatures,
                 physicalLevelTechnique,
-                config.getUseAdvancedEncodingSchemes());
+                config.getUseAdvancedEncodingSchemes(),
+                rawStreamData);
       }
 
       featureTableBodyBuffer =
@@ -578,7 +586,8 @@ public class MltConverter {
       ConversionConfig config,
       MltTilesetMetadata.FeatureTableSchema featureTableMetadata,
       List<Feature> sortedFeatures,
-      FeatureTableOptimizations featureTableOptimizations)
+      FeatureTableOptimizations featureTableOptimizations,
+      @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     var propertyColumns = filterPropertyColumns(featureTableMetadata);
     return PropertyEncoder.encodePropertyColumns(
@@ -587,7 +596,8 @@ public class MltConverter {
         config.getUseAdvancedEncodingSchemes(),
         featureTableOptimizations != null
             ? featureTableOptimizations.columnMappings()
-            : Optional.empty());
+            : Optional.empty(),
+        rawStreamData);
   }
 
   private static Pair<List<Feature>, GeometryEncoder.EncodedGeometryColumn>
@@ -598,7 +608,8 @@ public class MltConverter {
           List<Feature> mvtFeatures,
           PhysicalLevelTechnique physicalLevelTechnique,
           boolean encodePolygonOutlines,
-          @Nullable URI tessellateSource) {
+          @Nullable URI tessellateSource,
+          @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData) {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:
      * - if id column is present and ids should not be reassigned -> sort id column
@@ -635,9 +646,14 @@ public class MltConverter {
                 sortSettings,
                 useMortonEncoding,
                 encodePolygonOutlines,
-                tessellateSource)
+                tessellateSource,
+                rawStreamData)
             : GeometryEncoder.encodeGeometryColumn(
-                geometries, physicalLevelTechnique, sortSettings, config.getUseMortonEncoding());
+                geometries,
+                physicalLevelTechnique,
+                sortSettings,
+                config.getUseMortonEncoding(),
+                rawStreamData);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =

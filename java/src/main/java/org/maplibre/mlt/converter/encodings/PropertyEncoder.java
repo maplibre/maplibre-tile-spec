@@ -4,6 +4,8 @@ import com.google.common.primitives.Bytes;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
@@ -15,14 +17,15 @@ import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class PropertyEncoder {
-  private static String ID_COLUMN_NAME = "id";
+  private static final String ID_COLUMN_NAME = "id";
 
   public static byte[] encodePropertyColumns(
       List<MltTilesetMetadata.Column> propertyColumns,
       List<Feature> features,
       boolean useAdvancedEncodings,
       @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings)
+          Optional<List<ColumnMapping>> columnMappings,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     /*
      * TODOs: - detect if column is nullable to get rid of the present stream - test boolean rle
@@ -47,7 +50,11 @@ public class PropertyEncoder {
 
         var encodedScalarPropertyColumn =
             encodeScalarPropertyColumn(
-                columnMetadata, features, physicalLevelTechnique, useAdvancedEncodings);
+                columnMetadata,
+                features,
+                physicalLevelTechnique,
+                useAdvancedEncodings,
+                rawStreamData);
         featureScopedPropertyColumns =
             CollectionUtils.concatByteArrays(
                 featureScopedPropertyColumns, encodedScalarPropertyColumn);
@@ -113,7 +120,11 @@ public class PropertyEncoder {
 
         var nestedColumns =
             StringEncoder.encodeSharedDictionary(
-                sharedDictionary, physicalLevelTechnique, useAdvancedEncodings);
+                sharedDictionary,
+                physicalLevelTechnique,
+                useAdvancedEncodings,
+                rawStreamData,
+                columnMetadata.getName());
         // TODO: fix -> ony quick and dirty fix
         var numStreams = nestedColumns.getLeft() == 0 ? 0 : 1;
         /* Set number of streams to zero if no columns are present in this tile */
@@ -138,46 +149,52 @@ public class PropertyEncoder {
       MltTilesetMetadata.Column columnMetadata,
       List<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean useAdvancedEncodings)
+      boolean useAdvancedEncodings,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     var scalarType = columnMetadata.getScalarType().getPhysicalType();
     switch (scalarType) {
       case BOOLEAN:
         {
-          var booleanColumn = encodeBooleanColumn(features, columnMetadata.getName());
+          var booleanColumn =
+              encodeBooleanColumn(features, columnMetadata.getName(), rawStreamData);
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, booleanColumn);
         }
       case UINT_32:
         {
           var intColumn =
-              encodeInt32Column(features, columnMetadata.getName(), physicalLevelTechnique, false);
+              encodeInt32Column(
+                  features, columnMetadata.getName(), physicalLevelTechnique, false, rawStreamData);
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, intColumn);
         }
       case INT_32:
         {
           var intColumn =
-              encodeInt32Column(features, columnMetadata.getName(), physicalLevelTechnique, true);
+              encodeInt32Column(
+                  features, columnMetadata.getName(), physicalLevelTechnique, true, rawStreamData);
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, intColumn);
         }
       case UINT_64:
         {
-          var intColumn = encodeInt64Column(features, columnMetadata.getName(), false);
+          var intColumn =
+              encodeInt64Column(features, columnMetadata.getName(), false, rawStreamData);
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, intColumn);
         }
       case INT_64:
         {
-          var intColumn = encodeInt64Column(features, columnMetadata.getName(), true);
+          var intColumn =
+              encodeInt64Column(features, columnMetadata.getName(), true, rawStreamData);
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, intColumn);
         }
       case FLOAT:
       case DOUBLE:
         {
-          var floatColumn = encodeFloatColumn(features, columnMetadata.getName());
+          var floatColumn = encodeFloatColumn(features, columnMetadata.getName(), rawStreamData);
           var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
           return CollectionUtils.concatByteArrays(encodedFieldMetadata, floatColumn);
         }
@@ -196,15 +213,25 @@ public class PropertyEncoder {
                   .map(f -> f.properties().get(columnMetadata.getName()) != null)
                   .collect(Collectors.toList());
           var presentStream =
-              BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
+              BooleanEncoder.encodeBooleanStream(
+                  present,
+                  PhysicalStreamType.PRESENT,
+                  rawStreamData,
+                  "prop_" + columnMetadata.getName() + "_present");
 
-          var values =
+          var stringValues =
               features.stream()
                   .map(f -> (String) f.properties().get(columnMetadata.getName()))
-                  .filter(v -> v != null)
+                  .filter(Objects::nonNull)
                   .collect(Collectors.toList());
           var stringColumn =
-              StringEncoder.encode(values, physicalLevelTechnique, useAdvancedEncodings);
+              StringEncoder.encode(
+                  stringValues,
+                  physicalLevelTechnique,
+                  useAdvancedEncodings,
+                  rawStreamData,
+                  "prop_" + columnMetadata.getName());
+
           /* Plus 1 for present stream */
           var encodedFieldMetadata =
               EncodingUtils.encodeVarints(new long[] {stringColumn.getLeft() + 1}, false, false);
@@ -217,7 +244,10 @@ public class PropertyEncoder {
     }
   }
 
-  private static byte[] encodeBooleanColumn(List<Feature> features, String fieldName)
+  private static byte[] encodeBooleanColumn(
+      List<Feature> features,
+      String fieldName,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     var presentStream = new BitSet(features.size());
     var dataStream = new BitSet();
@@ -256,6 +286,22 @@ public class PropertyEncoder {
                 dataStreamIndex,
                 encodedDataStream.length)
             .encode();
+
+    if (rawStreamData != null && fieldName != null) {
+      GeometryEncoder.recordStream(
+          "prop_" + fieldName + "_present",
+          bitValues(presentStream),
+          encodedPresentStreamMetadata,
+          encodedPresentStream,
+          rawStreamData);
+      GeometryEncoder.recordStream(
+          "prop_" + fieldName,
+          bitValues(dataStream),
+          encodedDataStreamMetadata,
+          encodedDataStream,
+          rawStreamData);
+    }
+
     return Bytes.concat(
         encodedPresentStreamMetadata,
         encodedPresentStream,
@@ -263,7 +309,10 @@ public class PropertyEncoder {
         encodedDataStream);
   }
 
-  private static byte[] encodeFloatColumn(List<Feature> features, String fieldName)
+  private static byte[] encodeFloatColumn(
+      List<Feature> features,
+      String fieldName,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     var values = new ArrayList<Float>();
     var present = new ArrayList<Boolean>(features.size());
@@ -286,8 +335,10 @@ public class PropertyEncoder {
     }
 
     var encodedPresentStream =
-        BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
-    var encodedDataStream = FloatEncoder.encodeFloatStream(values);
+        BooleanEncoder.encodeBooleanStream(
+            present, PhysicalStreamType.PRESENT, rawStreamData, "prop_" + fieldName + "_present");
+    var encodedDataStream =
+        FloatEncoder.encodeFloatStream(values, rawStreamData, "prop_" + fieldName);
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
@@ -295,7 +346,8 @@ public class PropertyEncoder {
       List<Feature> features,
       String fieldName,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean isSigned)
+      boolean isSigned,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     var values = new ArrayList<Integer>();
     var present = new ArrayList<Boolean>(features.size());
@@ -314,16 +366,27 @@ public class PropertyEncoder {
     }
 
     var encodedPresentStream =
-        BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
+        BooleanEncoder.encodeBooleanStream(
+            present, PhysicalStreamType.PRESENT, rawStreamData, "prop_" + fieldName + "_present");
     var encodedDataStream =
         IntegerEncoder.encodeIntStream(
-            values, physicalLevelTechnique, isSigned, PhysicalStreamType.DATA, null);
+            values,
+            physicalLevelTechnique,
+            isSigned,
+            PhysicalStreamType.DATA,
+            null,
+            rawStreamData,
+            "prop_" + fieldName);
 
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
   private static byte[] encodeInt64Column(
-      List<Feature> features, String fieldName, boolean isSigned) throws IOException {
+      List<Feature> features,
+      String fieldName,
+      boolean isSigned,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
+      throws IOException {
     var values = new ArrayList<Long>();
     var present = new ArrayList<Boolean>(features.size());
     for (var feature : features) {
@@ -338,9 +401,19 @@ public class PropertyEncoder {
     }
 
     var encodedPresentStream =
-        BooleanEncoder.encodeBooleanStream(present, PhysicalStreamType.PRESENT);
+        BooleanEncoder.encodeBooleanStream(
+            present, PhysicalStreamType.PRESENT, rawStreamData, "prop_" + fieldName + "_present");
     var encodedDataStream =
-        IntegerEncoder.encodeLongStream(values, isSigned, PhysicalStreamType.DATA, null);
+        IntegerEncoder.encodeLongStream(
+            values, isSigned, PhysicalStreamType.DATA, null, rawStreamData, "prop_" + fieldName);
     return Bytes.concat(encodedPresentStream, encodedDataStream);
+  }
+
+  private static ArrayList<Boolean> bitValues(BitSet bits) {
+    var values = new ArrayList<Boolean>(bits.length());
+    for (int i = 0; i < bits.length(); i++) {
+      values.add(bits.get(i));
+    }
+    return values;
   }
 }
