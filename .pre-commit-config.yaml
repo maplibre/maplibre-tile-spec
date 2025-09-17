@@ -61,4 +61,3 @@ repos:
     rev: 8.2.0
     hooks:
       - id: buildifier
-
