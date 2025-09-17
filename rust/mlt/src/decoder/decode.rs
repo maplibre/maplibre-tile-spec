@@ -5,13 +5,12 @@ use bytes::Buf;
 use zigzag::ZigZag;
 
 use crate::data::MapLibreTile;
-use crate::decoder;
 use crate::decoder::helpers::{decode_boolean_rle, get_data_type_from_column};
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::encoder::geometry::GeometryScaling;
 use crate::metadata::proto_tileset::{Column, ScalarType, TileSetMetadata};
 use crate::metadata::stream::StreamMetadata;
-use crate::{MltError, MltResult};
+use crate::{MltError, MltResult, decoder};
 
 const ID_COLUMN_NAME: &str = "id";
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
