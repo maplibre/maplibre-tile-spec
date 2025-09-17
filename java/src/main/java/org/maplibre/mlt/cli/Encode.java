@@ -255,8 +255,7 @@ public class Encode {
               var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".json", true);
               if (path != null) {
                 if (verbose) {
-                  System.err.println(
-                      "Writing raw stream '" + entry.getKey() + "' json to " + path);
+                  System.err.println("Writing raw stream '" + entry.getKey() + "' json to " + path);
                 }
                 Files.writeString(path, entry.getValue().getRight());
               }
