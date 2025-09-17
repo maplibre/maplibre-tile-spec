@@ -1,6 +1,7 @@
-use crate::metadata::stream_encoding::{LogicalLevelTechnique, PhysicalLevelTechnique};
 use bytes_varint::VarIntError as BvVarIntError;
 use fastpfor::cpp::Exception;
+
+use crate::metadata::stream_encoding::{LogicalLevelTechnique, PhysicalLevelTechnique};
 
 pub type MltResult<T> = Result<T, MltError>;
 

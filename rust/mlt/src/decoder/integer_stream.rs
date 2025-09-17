@@ -1,12 +1,12 @@
+use num_traits::{PrimInt, Unsigned};
+use zigzag::ZigZag;
+
 use crate::decoder::integer::decode_physical;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::metadata::stream::StreamMetadata;
 use crate::metadata::stream_encoding::LogicalLevelTechnique;
 use crate::vector::types::VectorType;
 use crate::{MltError, MltResult};
-
-use num_traits::{PrimInt, Unsigned};
-use zigzag::ZigZag;
 
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component

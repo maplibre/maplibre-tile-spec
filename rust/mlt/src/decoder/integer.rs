@@ -1,5 +1,3 @@
-use crate::decoder::helpers::decode_componentwise_delta_vec2s;
-use crate::{MltError, MltResult};
 use std::fmt::Debug;
 
 use bytes::Buf;
@@ -8,6 +6,7 @@ use morton_encoding::{morton_decode, morton_encode};
 use num_traits::PrimInt;
 use zigzag::ZigZag;
 
+use crate::decoder::helpers::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
 use crate::encoder::integer::u32s_to_le_bytes;
@@ -16,6 +15,7 @@ use crate::metadata::stream_encoding::{
     Logical, LogicalLevelTechnique, LogicalStreamType, Physical, PhysicalLevelTechnique,
     PhysicalStreamType,
 };
+use crate::{MltError, MltResult};
 
 /// a placeholder for future implementation
 /// For some reason, the Java code has a method that decodes long streams,
