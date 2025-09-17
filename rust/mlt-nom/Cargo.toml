@@ -1,0 +1,24 @@
+[package]
+name = "mlt-nom"
+description = "MapLibre Tile format parsing with nom"
+version = "0.1.0"
+rust-version = "1.87.0"
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+integer-encoding = "4.0.2"
+nom = "8.0.0"
+num_enum = "0.7.4"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
