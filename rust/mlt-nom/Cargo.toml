@@ -2,12 +2,12 @@
 name = "mlt-nom"
 description = "MapLibre Tile format parsing with nom"
 version = "0.1.0"
-rust-version = "1.87.0"
 repository.workspace = true
 edition.workspace = true
 license.workspace = true
 keywords.workspace = true
 categories.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 integer-encoding = "4.0.2"
