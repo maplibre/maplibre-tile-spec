@@ -54,3 +54,12 @@ repos:
         entry: sh -c "cd rust && cargo fmt --all"
         language: rust
         pass_filenames: false
+
+  - repo: https://github.com/keith/pre-commit-buildifier
+    rev: 8.2.0
+    hooks:
+      - id: buildifier
+
+ci:
+  # sometimes fails https://github.com/keith/pre-commit-buildifier/issues/13
+  skip: [ buildifier ]

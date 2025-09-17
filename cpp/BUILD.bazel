@@ -1,0 +1,35 @@
+cc_library(
+    name = "mlt_internal_headers",
+    hdrs = glob(["src/mlt/**/*.hpp"]),
+    strip_include_prefix = "src",
+    include_prefix = "",
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "mlt_cpp",
+    srcs = glob([
+        "src/mlt/**/*.cpp",
+    ]),
+    hdrs = glob([
+        "include/mlt/**/*.hpp",
+    ]),
+    strip_include_prefix = "include",
+    include_prefix = "",
+    copts = select({
+        "@platforms//os:windows": [
+            "/std:c++20",
+        ],
+        "//conditions:default": [
+            "-std=c++20",
+            "-Wall",
+            "-Wextra",
+        ],
+    }),
+    implementation_deps = [":mlt_internal_headers"],
+    visibility = ["//visibility:public"],
+    defines = [
+        "MLT_WITH_JSON=0",
+        "MLT_WITH_FASTPFOR=0",
+    ],
+)
