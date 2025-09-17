@@ -24,7 +24,9 @@ impl Layer<'_> {
         // so we can use a faster u8 and fail if it is bigger than 127.
         let (input, tag) = parsers::parse_u8(input)?;
         // 1 byte must be parsed for the tag, so if size is 0, it's invalid
-        let size = size.checked_sub(1).ok_or(NomError(Error::new(input, ErrorKind::Fail)))?;
+        let size = size
+            .checked_sub(1)
+            .ok_or(NomError(Error::new(input, ErrorKind::Fail)))?;
         let (input, value) = take(size)(input)?;
 
         let layer = match tag {
