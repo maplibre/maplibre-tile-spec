@@ -5,7 +5,9 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.metadata.stream.*;
 
 /*
@@ -63,6 +65,18 @@ public class IntegerEncoder {
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType) {
+    return encodeIntStream(
+        values, physicalLevelTechnique, isSigned, streamType, logicalStreamType, null, null);
+  }
+
+  public static byte[] encodeIntStream(
+      List<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @Nullable String streamName) {
     var encodedValueStream = IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned);
 
     // TODO: refactor -> also allow the use of none null suppression techniques
@@ -87,8 +101,10 @@ public class IntegerEncoder {
                 physicalLevelTechnique,
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
-
-    return ArrayUtils.addAll(streamMetadata.encode(), encodedValueStream.encodedValues);
+    var encodedMetadata = streamMetadata.encode();
+    GeometryEncoder.recordStream(
+        streamName, values, encodedMetadata, encodedValueStream.encodedValues, rawStreamData);
+    return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }
 
   public static byte[] encodeLongStream(
@@ -96,6 +112,16 @@ public class IntegerEncoder {
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType) {
+    return encodeLongStream(values, isSigned, streamType, logicalStreamType, null, null);
+  }
+
+  public static byte[] encodeLongStream(
+      List<Long> values,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @Nullable String streamName) {
     var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned);
 
     /* Currently FastPfor is only supported with 32 bit so for long we always have to fallback to Varint encoding */
@@ -120,8 +146,10 @@ public class IntegerEncoder {
                 PhysicalLevelTechnique.VARINT,
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
-
-    return ArrayUtils.addAll(streamMetadata.encode(), encodedValueStream.encodedValues);
+    var encodedMetadata = streamMetadata.encode();
+    GeometryEncoder.recordStream(
+        streamName, values, encodedMetadata, encodedValueStream.encodedValues, rawStreamData);
+    return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }
 
   // TODO: make dependent on specified LogicalLevelTechnique
@@ -240,9 +268,7 @@ public class IntegerEncoder {
 
     // TODO: refactor -> find proper solution
     var encodedValuesSizes =
-        encodedValues.stream()
-            .map(v -> v == null ? Integer.MAX_VALUE : v.length)
-            .collect(Collectors.toList());
+        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
     var index =
         isConstStream
             ? LogicalLevelIntegerTechnique.RLE.ordinal()
@@ -275,8 +301,8 @@ public class IntegerEncoder {
 
   // TODO: make generic to merge with encodeInt
   public static IntegerEncodingResult encodeLong(List<Long> values, boolean isSigned) {
-    var previousValue = 0l;
-    var previousDelta = 0l;
+    var previousValue = 0L;
+    var previousDelta = 0L;
     var runs = 1;
     var deltaRuns = 1;
     var deltaValues = new ArrayList<Long>();
@@ -354,9 +380,7 @@ public class IntegerEncoder {
 
     // TODO: refactor -> find proper solution
     var encodedValuesSizes =
-        encodedValues.stream()
-            .map(v -> v == null ? Integer.MAX_VALUE : v.length)
-            .collect(Collectors.toList());
+        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
     var index = encodedValuesSizes.indexOf(Collections.min(encodedValuesSizes));
     var encoding = LogicalLevelIntegerTechnique.values()[index];
 
