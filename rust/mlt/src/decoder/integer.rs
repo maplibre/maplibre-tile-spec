@@ -1,5 +1,5 @@
-use crate::{MltError, MltResult};
 use crate::decoder::helpers::decode_componentwise_delta_vec2s;
+use crate::{MltError, MltResult};
 use std::fmt::Debug;
 
 use bytes::Buf;
