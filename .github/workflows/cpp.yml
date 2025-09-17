@@ -38,3 +38,6 @@ jobs:
 
       - name: Run C++ tests
         run: build/test/mlt-cpp-test
+
+      - name: Build with Bazel
+        run: bazel build //cpp:mlt_cpp
