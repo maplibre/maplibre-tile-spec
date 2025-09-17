@@ -1,8 +1,10 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "mlt_internal_headers",
     hdrs = glob(["src/mlt/**/*.hpp"]),
-    strip_include_prefix = "src",
     include_prefix = "",
+    strip_include_prefix = "src",
     visibility = ["//visibility:private"],
 )
 
@@ -14,8 +16,6 @@ cc_library(
     hdrs = glob([
         "include/mlt/**/*.hpp",
     ]),
-    strip_include_prefix = "include",
-    include_prefix = "",
     copts = select({
         "@platforms//os:windows": [
             "/std:c++20",
@@ -26,10 +26,12 @@ cc_library(
             "-Wextra",
         ],
     }),
-    implementation_deps = [":mlt_internal_headers"],
-    visibility = ["//visibility:public"],
     defines = [
         "MLT_WITH_JSON=0",
         "MLT_WITH_FASTPFOR=0",
     ],
+    implementation_deps = [":mlt_internal_headers"],
+    include_prefix = "",
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
 )
