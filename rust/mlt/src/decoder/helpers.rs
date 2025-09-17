@@ -53,10 +53,10 @@ pub fn get_data_type_from_column(column_metadata: &Column) -> MltResult<ScalarTy
                 ScalarType::try_from(scalar_type)
                     .map_err(|_| MltError::MetaDecodeInvalidType("ScalarType"))
             }
-            Some(_) => Err(MltError::MetaDecodeUnsupporteddType("column.scalar.type")),
+            Some(_) => Err(MltError::MetaDecodeUnsupportedType("column.scalar.type")),
             None => Err(MltError::MissingField("column.scalar.type")),
         },
-        Some(_) => Err(MltError::MetaDecodeUnsupporteddType("column.type")),
+        Some(_) => Err(MltError::MetaDecodeUnsupportedType("column.type")),
         None => Err(MltError::MissingField("column.type")),
     }
 }
