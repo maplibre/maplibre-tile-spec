@@ -789,6 +789,7 @@ public class GeometryEncoder {
           maxVertexValue,
           false);
     } else {
+      // Raw streams not produced, inputs are morton-encoded as they're generated
       var encodedMortonVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
               mortonEncodedDictionaryOffsets,

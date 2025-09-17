@@ -254,14 +254,11 @@ public class Encode {
             if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
               var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".json", true);
               if (path != null) {
-                var json = new Gson().toJson(entry.getValue().getRight());
-                if (json != null && !json.isEmpty()) {
-                  if (verbose) {
-                    System.err.println(
-                        "Writing raw stream '" + entry.getKey() + "' json to " + path);
-                  }
-                  Files.writeString(path, json);
+                if (verbose) {
+                  System.err.println(
+                      "Writing raw stream '" + entry.getKey() + "' json to " + path);
                 }
+                Files.writeString(path, entry.getValue().getRight());
               }
             }
           }
