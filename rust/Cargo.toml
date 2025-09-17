@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "wasm-test"]
-default-members = ["mlt"]
+members = ["mlt", "mlt-nom", "wasm-test"]
+default-members = ["mlt", "mlt-nom"]
 
 [workspace.package]
 repository = "https://github.com/nyurik/maplibre-tile-spec"
@@ -9,7 +9,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 keywords = ["maplibre", "tile", "mlt", "mvt"]
 categories = ["science::geo"]
-rust-version = "1.85.0"
+rust-version = "1.87.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
