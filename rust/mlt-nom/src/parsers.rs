@@ -37,7 +37,7 @@ pub fn parse_string(input: &[u8]) -> IResult<&[u8], &str> {
     Ok((input, value))
 }
 
-/// Parse a u8 from the input
+/// Parse a single byte from the input
 pub fn parse_u8(input: &[u8]) -> IResult<&[u8], u8> {
     if input.is_empty() {
         Err(NomError(Error::new(input, ErrorKind::Eof)))

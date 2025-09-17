@@ -22,12 +22,10 @@ impl Layer<'_> {
 
         // tag is a varint, but we know fewer than 127 tags for now,
         // so we can use a faster u8 and fail if it is bigger than 127.
-        // 1 byte must be parsed for the tag, so if size is 0, it's invalid
-        if size == 0 {
-            return Err(NomError(Error::new(input, ErrorKind::Fail)));
-        }
         let (input, tag) = parsers::parse_u8(input)?;
-        let (input, value) = take(size - 1)(input)?;
+        // 1 byte must be parsed for the tag, so if size is 0, it's invalid
+        let size = size.checked_sub(1).ok_or(NomError(Error::new(input, ErrorKind::Fail)))?;
+        let (input, value) = take(size)(input)?;
 
         let layer = match tag {
             1 => {
@@ -169,7 +167,7 @@ impl ColumnType {
     fn parse(input: &[u8]) -> IResult<&[u8], Self> {
         let (input, value) = parsers::parse_u8(input)?;
         let value = Self::try_from(value);
-        let value = value.map_err(|_| NomError(Error::new(input, ErrorKind::Fail)))?;
+        let value = value.or(Err(NomError(Error::new(input, ErrorKind::Fail))))?;
         Ok((input, value))
     }
 }
@@ -245,8 +243,8 @@ fn create_test_data() -> Vec<u8> {
     // Column count: 6
     parsers::encode_varint(&mut layer, 6);
 
-    // Column 1: type=1 (Id) - no name for Id columns
-    parsers::encode_varint(&mut layer, 1); // column_type (Id)
+    // Column 1: type=1 (ID) - no name for ID columns
+    parsers::encode_varint(&mut layer, 1); // column_type (ID)
 
     // Column 2: type=2 (Geometry) - no name for Geometry columns
     parsers::encode_varint(&mut layer, 2); // column_type (Geometry)
@@ -321,7 +319,7 @@ mod tests {
         // Column count: 6
         encode_varint(&mut layer, 6);
 
-        // Column 1: type=1 (Id) - no name for Id columns
+        // Column 1: type=1 (ID) - no name for ID columns
         encode_varint(&mut layer, 1); // column_type (Id)
 
         // Column 2: type=2 (Geometry) - no name for Geometry columns
@@ -423,7 +421,7 @@ mod tests {
         // Column count: 2
         encode_varint(&mut data, 2);
 
-        // Column 1: type=1 (Id) - no name for Id columns
+        // Column 1: type=1 (ID) - no name for ID columns
         encode_varint(&mut data, 1); // column_type (Id)
 
         // Column 2: type=2 (Geometry) - no name for Geometry columns
