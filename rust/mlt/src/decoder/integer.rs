@@ -1,4 +1,4 @@
-use crate::MltError;
+use crate::{MltError, MltResult};
 use crate::decoder::helpers::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
@@ -511,6 +511,65 @@ fn generate_logical_decode_cases() -> Vec<LogicalDecodeCase> {
     ]
 }
 
+fn decode_physical_level_technique(
+    data: &mut TrackedBytes,
+    metadata: &StreamMetadata,
+) -> MltResult<Vec<u32>> {
+    match metadata.physical.technique {
+        PhysicalLevelTechnique::Varint => varint::decode::<u32>(data, metadata.num_values as usize),
+        PhysicalLevelTechnique::None => {
+            let byte_length = metadata.byte_length as usize;
+            let mut values = Vec::with_capacity(byte_length / 4);
+
+            // Read the raw bytes directly from the TrackedBytes
+            for _ in 0..(byte_length / 4) {
+                if data.remaining() < 4 {
+                    return Err(MltError::InsufficientData);
+                }
+                let value = data.get_u32_le(); // Read u32 in little-endian format
+                values.push(value);
+            }
+
+            Ok(values)
+        }
+        _ => Err(MltError::UnsupportedPhysicalTechnique(
+            metadata.physical.technique,
+        )),
+    }
+}
+
+pub fn decode_const_int_stream(
+    data: &mut TrackedBytes,
+    metadata: &StreamMetadata,
+    is_signed: bool,
+) -> MltResult<i32> {
+    // Return i32, not an enum!
+    let values = decode_physical_level_technique(data, metadata)?;
+
+    if values.len() == 1 {
+        let value = values.first().ok_or(MltError::InsufficientData)?;
+
+        let result = if is_signed {
+            ZigZag::decode(*value)
+        } else {
+            *value as i32
+        };
+
+        return Ok(result);
+    }
+
+    // Handle RLE case
+    let result = if is_signed {
+        let value = values.get(1).ok_or(MltError::InsufficientData)?;
+        ZigZag::decode(*value)
+    } else {
+        *values.get(1).ok_or(MltError::InsufficientData)? as i32
+    };
+
+    Ok(result)
+}
+
+
 #[cfg(test)]
 mod tests {
 
@@ -670,5 +729,151 @@ mod tests {
         let input: [u64; 1] = [39];
         let result = decode_morton_u64_to_i32_vec2s_flat(&input, 2).unwrap();
         assert_eq!(result, vec![3, 1]);
+    }
+
+
+    use bytes::Bytes;
+
+    #[test]
+    fn test_decode_physical_level_technique_varint() {
+        let bytes: Bytes = Bytes::from(vec![
+            0x01, // 1
+            0xAC, 0x02, // 300
+            0xD0, 0x86, 0x03, // 50000
+        ]);
+        let mut tile: TrackedBytes = bytes.into();
+        let metadata = StreamMetadata {
+            logical: Logical::new(
+                Some(LogicalStreamType::Dictionary(None)),
+                LogicalLevelTechnique::None,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::Varint),
+            num_values: 3,
+            byte_length: 0,
+            morton: None,
+            rle: None,
+        };
+
+        let decoded = decode_physical_level_technique(&mut tile, &metadata).unwrap();
+        assert_eq!(decoded, vec![1, 300, 50000]);
+    }
+
+    #[test]
+    fn test_decode_physical_level_technique_none() {
+        let bytes: Bytes = Bytes::from(vec![
+            // 1 in little-endian
+            0x01, 0x00, 0x00, 0x00, // 300 in little-endian
+            0x2C, 0x01, 0x00, 0x00, // 50000 in little-endian
+            0x50, 0xC3, 0x00, 0x00,
+        ]);
+
+        let mut tile: TrackedBytes = bytes.into();
+        let metadata = StreamMetadata {
+            logical: Logical::new(
+                Some(LogicalStreamType::Dictionary(None)),
+                LogicalLevelTechnique::None,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 3,
+            byte_length: 12, // 3 values * 4 bytes each
+            morton: None,
+            rle: None,
+        };
+
+        let decoded = decode_physical_level_technique(&mut tile, &metadata).unwrap();
+        assert_eq!(decoded, vec![1, 300, 50000]);
+    }
+
+    #[test]
+    fn test_decode_physical_level_technique_none_empty() {
+        let bytes: Bytes = Bytes::from(vec![]);
+        let mut tile: TrackedBytes = bytes.into();
+
+        let metadata = StreamMetadata {
+            logical: Logical::new(
+                Some(LogicalStreamType::Dictionary(None)),
+                LogicalLevelTechnique::None,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 0,
+            byte_length: 0,
+            morton: None,
+            rle: None,
+        };
+
+        let decoded = decode_physical_level_technique(&mut tile, &metadata).unwrap();
+        assert_eq!(decoded, Vec::<u32>::new());
+    }
+
+    #[test]
+    fn test_single_value_signed() {
+        let bytes: Bytes = Bytes::from(vec![0x05, 0x00, 0x00, 0x00]);
+
+        let mut tile: TrackedBytes = bytes.into();
+        let metadata = StreamMetadata {
+            logical: Logical::new(
+                Some(LogicalStreamType::Dictionary(None)),
+                LogicalLevelTechnique::None,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 1,
+            byte_length: 4,
+            morton: None,
+            rle: None,
+        };
+
+        let result = decode_const_int_stream(&mut tile, &metadata, true).unwrap();
+
+        assert_eq!(result, -3);
+    }
+
+    #[test]
+    fn test_single_value_unsigned() {
+        let bytes: Bytes = Bytes::from(vec![0x05, 0x00, 0x00, 0x00]);
+
+        let mut tile: TrackedBytes = bytes.into();
+        let metadata = StreamMetadata {
+            logical: Logical::new(
+                Some(LogicalStreamType::Dictionary(None)),
+                LogicalLevelTechnique::None,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 1,
+            byte_length: 4,
+            morton: None,
+            rle: None,
+        };
+
+        let result = decode_const_int_stream(&mut tile, &metadata, false).unwrap();
+
+        assert_eq!(result, 5);
+    }
+
+    #[test]
+    fn test_multiple_values_rle_case() {
+        let bytes: Bytes = Bytes::from(vec![0x03, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00]);
+
+        let mut tile: TrackedBytes = bytes.into();
+        let metadata = StreamMetadata {
+            logical: Logical::new(
+                Some(LogicalStreamType::Dictionary(None)),
+                LogicalLevelTechnique::None,
+                LogicalLevelTechnique::None,
+            ),
+            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
+            num_values: 2,
+            byte_length: 8,
+            morton: None,
+            rle: None,
+        };
+
+        let result = decode_const_int_stream(&mut tile, &metadata, true).unwrap();
+
+        assert_eq!(result, -4);
     }
 }
