@@ -72,13 +72,10 @@ public class MvtUtils {
   }
 
   public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
-    return decodeMvt(mvtTile, Optional.empty());
+    return decodeMvt(mvtTile, List.of());
   }
 
-  public static MapboxVectorTile decodeMvt(
-      byte[] mvtTile,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings)
+  public static MapboxVectorTile decodeMvt(byte[] mvtTile, List<ColumnMapping> columnMappings)
       throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
@@ -136,7 +133,7 @@ public class MvtUtils {
         var id = (long) properties.get(ID_KEY);
         properties.remove(ID_KEY);
         // TODO: quick and dirty -> implement generic
-        var transformedProperties = transformNestedPropertyNames(properties, Optional.empty());
+        var transformedProperties = transformNestedPropertyNames(properties, List.of());
         var feature = new Feature(id, mvtFeature, transformedProperties);
         features.add(feature);
       }
@@ -148,9 +145,7 @@ public class MvtUtils {
   }
 
   private static Map<String, Object> transformNestedPropertyNames(
-      Map<?, ?> properties,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings) {
+      Map<?, ?> properties, List<ColumnMapping> columnMappings) {
     var transformedProperties = new LinkedHashMap<String, Object>();
     properties.forEach(
         (k, v) -> {
@@ -163,13 +158,13 @@ public class MvtUtils {
             return;
           }
 
-          if (columnMappings.isPresent()) {
-            var columnMapping =
-                columnMappings.get().stream()
+          if (!columnMappings.isEmpty()) {
+            final var columnMapping =
+                columnMappings.stream()
                     .filter(m -> key.startsWith(m.mvtPropertyPrefix()))
                     .findFirst();
             if (columnMapping.isPresent()) {
-              var transformedKey =
+              final var transformedKey =
                   key.replaceAll(
                       columnMapping.get().mvtDelimiterSign(), Settings.MLT_CHILD_FIELD_SEPARATOR);
               transformedProperties.put(transformedKey, v);

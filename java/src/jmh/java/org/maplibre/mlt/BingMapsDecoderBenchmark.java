@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import no.ecc.vectortile.VectorTileDecoder;
-import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.vector.FeatureTable;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;
@@ -67,7 +67,7 @@ public class BingMapsDecoderBenchmark {
   private FeatureTable[] decodeVectorized(int n) throws IOException {
     var mlTile = encodedMltTiles.get(n);
     var mltMetadata =
-        MltConverter.parseEmbeddedMetadata(new ByteArrayInputStream(tileMetadata.get(n)));
+        MltDecoder.parseEmbeddedMetadata(new ByteArrayInputStream(tileMetadata.get(n)));
     // Vectorized decoding currently disabled
     return new FeatureTable[0]; // MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
   }

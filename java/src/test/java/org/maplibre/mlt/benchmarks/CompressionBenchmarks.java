@@ -9,7 +9,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -130,8 +129,8 @@ public class CompressionBenchmarks {
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Optional.of(List.of(columnMapping));
-    var tileMetadata = MltConverter.createTilesetMetadata(List.of(mvTile), columnMappings, true);
+    var columnMappings = List.of(columnMapping);
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var optimization = new FeatureTableOptimizations(allowSorting, false, columnMappings);
     var optimizations =
@@ -148,7 +147,7 @@ public class CompressionBenchmarks {
 
     if (reassignableLayers.isEmpty()) {
       /* Only test when the ids are not reassigned since it is verified based on the other tests */
-      var decodedMlt = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+      var decodedMlt = MltDecoder.decodeMlTile(mlTile);
       System.out.println("Vectorized Decoding not implemented");
     }
 

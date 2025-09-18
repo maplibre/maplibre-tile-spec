@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.NotImplementedException;
@@ -198,8 +197,8 @@ public class MltDecoderTest2 {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var columnMappings = Optional.<List<ColumnMapping>>empty();
-    var tileMetadata = MltConverter.createTilesetMetadata(List.of(mvTile), columnMappings, true);
+    final List<ColumnMapping> columnMappings = List.of();
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = false;
     var optimization =
@@ -218,12 +217,12 @@ public class MltDecoderTest2 {
     int numErrorsAdvanced = -1;
     if (decoder == DecoderType.SEQUENTIAL || decoder == DecoderType.BOTH) {
       if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
-        var decodedAdvanced = MltDecoder.decodeMlTile(mlTileAdvanced, tileMetadata);
+        var decodedAdvanced = MltDecoder.decodeMlTile(mlTileAdvanced);
         numErrorsAdvanced +=
             TestUtils.compareTilesSequential(decodedAdvanced, mvTile, allowSorting);
       }
       if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
-        var decoded = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+        var decoded = MltDecoder.decodeMlTile(mlTile);
         numErrors += TestUtils.compareTilesSequential(decoded, mvTile, allowSorting);
       }
     }

@@ -7,9 +7,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
-import org.maplibre.mlt.vector.FeatureTable;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;
 
@@ -68,102 +66,89 @@ public class OmtDecoderBenchmark {
         encodedMvtTiles2,
         compressedMVTiles,
         encodedMltTiles,
-        tileMetadata,
         TestSettings.OMT_MVT_PATH,
         SEPARATOR);
   }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ2() {
-    var mlTile = encodedMltTiles.get(2);
-    var mltMetadata = tileMetadata.get(2);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+  /*
+    @Benchmark
+    public FeatureTable[] decodeMltZ2() {
+      var mlTile = encodedMltTiles.get(2);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ3() {
-    var mlTile = encodedMltTiles.get(3);
-    var mltMetadata = tileMetadata.get(3);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ3() {
+      var mlTile = encodedMltTiles.get(3);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ4() {
-    var mlTile = encodedMltTiles.get(4);
-    var mltMetadata = tileMetadata.get(4);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ4() {
+      var mlTile = encodedMltTiles.get(4);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ5() {
-    var mlTile = encodedMltTiles.get(5);
-    var mltMetadata = tileMetadata.get(5);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ5() {
+      var mlTile = encodedMltTiles.get(5);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ6() {
-    var mlTile = encodedMltTiles.get(6);
-    var mltMetadata = tileMetadata.get(6);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ6() {
+      var mlTile = encodedMltTiles.get(6);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ7() {
-    var mlTile = encodedMltTiles.get(7);
-    var mltMetadata = tileMetadata.get(7);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ7() {
+      var mlTile = encodedMltTiles.get(7);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ8() {
-    var mlTile = encodedMltTiles.get(8);
-    var mltMetadata = tileMetadata.get(8);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ8() {
+      var mlTile = encodedMltTiles.get(8);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ9() {
-    var mlTile = encodedMltTiles.get(9);
-    var mltMetadata = tileMetadata.get(9);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ9() {
+      var mlTile = encodedMltTiles.get(9);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ10() {
-    var mlTile = encodedMltTiles.get(10);
-    var mltMetadata = tileMetadata.get(10);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ10() {
+      var mlTile = encodedMltTiles.get(10);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ11() {
-    var mlTile = encodedMltTiles.get(11);
-    var mltMetadata = tileMetadata.get(11);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ11() {
+      var mlTile = encodedMltTiles.get(11);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ12() {
-    var mlTile = encodedMltTiles.get(12);
-    var mltMetadata = tileMetadata.get(12);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ12() {
+      var mlTile = encodedMltTiles.get(12);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ13() {
-    var mlTile = encodedMltTiles.get(13);
-    var mltMetadata = tileMetadata.get(13);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
+    @Benchmark
+    public FeatureTable[] decodeMltZ13() {
+      var mlTile = encodedMltTiles.get(13);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
 
-  @Benchmark
-  public FeatureTable[] decodeMltZ14() {
-    var mlTile = encodedMltTiles.get(14);
-    var mltMetadata = tileMetadata.get(14);
-    return MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
-  }
-
+    @Benchmark
+    public FeatureTable[] decodeMltZ14() {
+      var mlTile = encodedMltTiles.get(14);
+      return MltDecoder.decodeMlTileVectorized(mlTile);
+    }
+  */
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ2() throws IOException {
     var mvTile = encodedMvtTiles.get(2);

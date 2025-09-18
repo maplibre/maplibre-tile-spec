@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,7 +22,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.Inflater;
@@ -54,7 +52,6 @@ import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
@@ -84,7 +81,7 @@ public class Encode {
 
       // No ColumnMapping as support is still buggy:
       // https://github.com/maplibre/maplibre-tile-spec/issues/59
-      var columnMappings = Optional.<List<ColumnMapping>>empty();
+      final List<ColumnMapping> columnMappings = List.of();
 
       var optimizations = new HashMap<String, FeatureTableOptimizations>();
       // TODO: Load layer -> optimizations map
@@ -147,8 +144,7 @@ public class Encode {
   private static void encodeTile(
       String tileFileName,
       CommandLine cmd,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings,
+      List<ColumnMapping> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       boolean verbose)
@@ -171,10 +167,8 @@ public class Encode {
     Timer timer = willTime ? new Timer() : null;
 
     var isIdPresent = true;
-    var pbMetadata =
-        MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
-    var metadata = MltConverter.createEmbeddedMetadata(pbMetadata);
-    var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMetadata);
+    var metadata = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+    var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
 
     HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
@@ -182,7 +176,7 @@ public class Encode {
     }
     var mlTile =
         MltConverter.convertMvt(
-            decodedMvTile, pbMetadata, conversionConfig, tessellateSource, rawStreams);
+            decodedMvTile, metadata, conversionConfig, tessellateSource, rawStreams);
     if (willTime) {
       timer.stop("encoding");
     }
@@ -195,7 +189,7 @@ public class Encode {
 
         if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
           try {
-            writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
+            Files.write(outputPath, mlTile);
           } catch (IOException ex) {
             System.err.println("ERROR: Failed to write tile with embedded metadata");
             ex.printStackTrace(System.err);
@@ -204,26 +198,7 @@ public class Encode {
           Files.write(outputPath, mlTile);
         }
 
-        // Write the raw metadata, if requested
-        if (cmd.hasOption(INCLUDE_METADATA_OPTION)) {
-          var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".meta");
-          if (verbose) {
-            System.err.println("Writing metadata to " + metadataPath);
-          }
-          Files.write(metadataPath, metadata);
-        }
-
-        if (cmd.hasOption(INCLUDE_PBF_METADATA_OPTION)) {
-          var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".meta.pbf");
-          if (verbose) {
-            System.err.println("Writing PBF metadata to " + metadataPath);
-          }
-          try (var stream = Files.newOutputStream(metadataPath)) {
-            pbMetadata.writeTo(stream);
-          }
-        }
-
-        if (metadataJSON != null && cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION)) {
+        if (cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION)) {
           var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".json");
           if (verbose) {
             System.err.println("Writing tileset metadata to " + metadataPath);
@@ -279,7 +254,7 @@ public class Encode {
         System.err.println("WARNING: Vectorized encoding is not available");
       }
 
-      var decodedTile = MltDecoder.decodeMlTile(mlTile, pbMetadata);
+      var decodedTile = MltDecoder.decodeMlTile(mlTile);
       if (willTime) {
         timer.stop("decoding");
       }
@@ -296,8 +271,7 @@ public class Encode {
   private static void encodeMBTiles(
       String inputMBTilesPath,
       Path outputPath,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings,
+      List<ColumnMapping> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -402,8 +376,7 @@ public class Encode {
   private static void encodeOfflineDB(
       Path inputPath,
       Path outputPath,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings,
+      List<ColumnMapping> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -551,20 +524,19 @@ public class Encode {
   private static void convertTile(
       Tile tile,
       MBTilesWriter mbTilesWriter,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings,
+      List<ColumnMapping> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
       boolean verbose)
       throws IOException, MBTilesWriteException {
-    var x = tile.getColumn();
-    var y = tile.getRow();
-    var z = tile.getZoom();
+    final var x = tile.getColumn();
+    final var y = tile.getRow();
+    final var z = tile.getZoom();
 
-    var srcTileData = getTileData(tile);
-    var didCompress = new MutableBoolean(false);
-    var tileData =
+    final var srcTileData = getTileData(tile);
+    final var didCompress = new MutableBoolean(false);
+    final var tileData =
         convertTile(
             x,
             y,
@@ -593,29 +565,19 @@ public class Encode {
       int z,
       byte[] srcTileData,
       ConversionConfig conversionConfig,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings,
+      List<ColumnMapping> columnMappings,
       URI tessellateSource,
       String compressionType,
       MutableBoolean didCompress,
       boolean verbose) {
     try {
-      var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
+      final var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
 
-      var isIdPresent = true;
-      var pbfMetadata =
-          MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
-
-      var binaryMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
-      var mlTile =
-          MltConverter.convertMvt(
-              decodedMvTile, pbfMetadata, conversionConfig, tessellateSource, null);
-
-      byte[] tileData;
-      try (var outputStream = new ByteArrayOutputStream()) {
-        writeTileWithEmbeddedMetadata(outputStream, mlTile, binaryMetadata);
-        tileData = outputStream.toByteArray();
-      }
+      final var isIdPresent = true;
+      final var metadata =
+          MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+      var tileData =
+          MltConverter.convertMvt(decodedMvTile, metadata, conversionConfig, tessellateSource);
 
       if (compressionType != null) {
         try (var outputStream = new ByteArrayOutputStream()) {
@@ -773,26 +735,6 @@ public class Encode {
                   + "'");
         }
       }
-    }
-  }
-
-  /// Write the binary metadata before the tile data
-  private static void writeTileWithEmbeddedMetadata(
-      Path tileOutputPath, byte[] mlTile, byte[] tileMetadata) throws IOException {
-    try (var fileStream = Files.newOutputStream(tileOutputPath)) {
-      writeTileWithEmbeddedMetadata(fileStream, mlTile, tileMetadata);
-    }
-  }
-
-  private static void writeTileWithEmbeddedMetadata(
-      OutputStream stream, byte[] mlTile, byte[] tileMetadata) throws IOException {
-    try (var dataStream = new DataOutputStream(stream)) {
-      EncodingUtils.putVarInt(dataStream, tileMetadata.length);
-      EncodingUtils.putVarInt(dataStream, mlTile.length);
-      dataStream.flush();
-
-      stream.write(tileMetadata);
-      stream.write(mlTile);
     }
   }
 

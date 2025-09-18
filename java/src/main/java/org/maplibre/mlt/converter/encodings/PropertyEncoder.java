@@ -23,8 +23,7 @@ public class PropertyEncoder {
       List<MltTilesetMetadata.Column> propertyColumns,
       List<Feature> features,
       boolean useAdvancedEncodings,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings,
+      List<ColumnMapping> columnMappings,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     /*
@@ -71,7 +70,7 @@ public class PropertyEncoder {
 
         /* We limit the nesting level to one in this implementation */
         var sharedDictionary = new ArrayList<List<String>>();
-        var columnMapping = columnMappings.get().get(i++);
+        var columnMapping = columnMappings.get(i++);
 
         /* Plan -> when there is a struct filed and the useSharedDictionaryFlag is enabled
          *  share the dictionary for all string columns which are located one after
