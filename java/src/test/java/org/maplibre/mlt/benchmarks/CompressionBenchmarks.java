@@ -131,7 +131,7 @@ public class CompressionBenchmarks {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = Optional.of(List.of(columnMapping));
-    var tileMetadata = MltConverter.createTilesetMetadata(List.of(mvTile), columnMappings, true);
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var optimization = new FeatureTableOptimizations(allowSorting, false, columnMappings);
     var optimizations =

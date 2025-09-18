@@ -170,8 +170,7 @@ public class Encode {
     Timer timer = willTime ? new Timer() : null;
 
     var isIdPresent = true;
-    var pbMetadata =
-        MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
+    var pbMetadata = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
     var metadata = MltConverter.createEmbeddedMetadata(pbMetadata);
     var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMetadata);
 
@@ -603,7 +602,7 @@ public class Encode {
 
       var isIdPresent = true;
       var pbfMetadata =
-          MltConverter.createTilesetMetadata(List.of(decodedMvTile), columnMappings, isIdPresent);
+          MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
 
       var binaryMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
       var mlTile =

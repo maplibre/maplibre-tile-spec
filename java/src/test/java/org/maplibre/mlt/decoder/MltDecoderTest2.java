@@ -199,7 +199,7 @@ public class MltDecoderTest2 {
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMappings = Optional.<List<ColumnMapping>>empty();
-    var tileMetadata = MltConverter.createTilesetMetadata(List.of(mvTile), columnMappings, true);
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = false;
     var optimization =

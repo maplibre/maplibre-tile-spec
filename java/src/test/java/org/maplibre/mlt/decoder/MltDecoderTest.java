@@ -98,7 +98,7 @@ public class MltDecoderTest {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = Optional.of(List.of(columnMapping));
-    var tileMetadata = MltConverter.createTilesetMetadata(List.of(mvTile), columnMappings, true);
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowSorting = optimization == TestUtils.Optimization.SORTED;
     var featureTableOptimization =

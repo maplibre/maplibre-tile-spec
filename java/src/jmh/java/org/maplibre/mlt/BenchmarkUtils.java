@@ -39,8 +39,7 @@ public class BenchmarkUtils {
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = Optional.of(List.of(columnMapping));
     var metadata =
-        MltConverter.createTilesetMetadata(
-            List.of(encodedMvtTile.getRight()), columnMappings, true);
+        MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, true);
     tileMetadata.put(z, MltConverter.createEmbeddedMetadata(metadata));
 
     var allowIdRegeneration = true;
