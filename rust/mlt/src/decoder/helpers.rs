@@ -63,8 +63,8 @@ pub fn get_data_type_from_column(column_metadata: &Column) -> MltResult<ScalarTy
 
 #[cfg(test)]
 mod tests {
-    use crate::decoder::integer_stream::decode_componentwise_delta_vec2s;
     use super::*;
+    use crate::decoder::integer_stream::decode_componentwise_delta_vec2s;
     use crate::metadata::proto_tileset::ScalarColumn;
 
     #[test]
