@@ -39,9 +39,8 @@ pub fn get_vector_type_int_stream(metadata: &StreamMetadata) -> VectorType {
         (Some(LogicalLevelTechnique::Rle), Some(1), _) => VectorType::Const,
         (Some(LogicalLevelTechnique::Rle), Some(_), _) => VectorType::Flat,
         // L1 == DELTA && L2 == RLE && runs in {1,2} → SEQUENCE
-        (Some(LogicalLevelTechnique::Delta), Some(r), _)
-            if metadata.logical.technique2 == Some(LogicalLevelTechnique::Rle)
-                && (r == 1 || r == 2) =>
+        (Some(LogicalLevelTechnique::Delta), Some(1) | Some(2), _)
+            if metadata.logical.technique2 == Some(LogicalLevelTechnique::Rle) =>
         {
             VectorType::Sequence
         }
