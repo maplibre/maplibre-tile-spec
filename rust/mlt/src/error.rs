@@ -57,12 +57,8 @@ pub enum MltError {
         multiple_of: usize,
         got: usize,
     },
-    #[error("{ctx} value expected multiple of {multiple_of}, got {got}")]
-    InvalidValueMultiple {
-        ctx: &'static str,
-        multiple_of: usize,
-        got: usize,
-    },
+    #[error("vec2 delta stream size expected to be non-empty and multiple of 2, got {0}")]
+    InvalidPairStreamSize(usize),
     #[error("{ctx} expected exactly {expected} values, got {got}")]
     ExpectedValues {
         ctx: &'static str,

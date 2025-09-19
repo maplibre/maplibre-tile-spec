@@ -5,9 +5,8 @@ use fastpfor::cpp::{Codec32 as _, FastPFor128Codec};
 use morton_encoding::{morton_decode, morton_encode};
 use num_traits::PrimInt;
 use zigzag::ZigZag;
-
+use crate::decoder::integer_stream::decode_componentwise_delta_vec2s;
 use crate::MltError;
-use crate::decoder::helpers::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
 use crate::encoder::integer::u32s_to_le_bytes;

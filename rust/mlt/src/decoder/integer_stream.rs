@@ -11,27 +11,15 @@ use crate::{MltError, MltResult};
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component
 pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> MltResult<Vec<T>> {
-    let len = data.len();
-    if len < 2 {
-        return Err(MltError::MinLength {
-            ctx: "vec2 delta stream",
-            min: 2,
-            got: len,
-        });
-    }
-    if len % 2 != 0 {
-        return Err(MltError::InvalidValueMultiple {
-            ctx: "vec2 delta stream length",
-            multiple_of: 2,
-            got: len,
-        });
+    if data.is_empty() || data.len() % 2 != 0 {
+        return Err(MltError::InvalidPairStreamSize(data.len()));
     }
 
-    let mut result = Vec::with_capacity(len);
+    let mut result = Vec::with_capacity(data.len());
     result.push(T::decode(data[0]));
     result.push(T::decode(data[1]));
 
-    for i in (2..len).step_by(2) {
+    for i in (2..data.len()).step_by(2) {
         result.push(T::decode(data[i]) + result[i - 2]);
         result.push(T::decode(data[i + 1]) + result[i - 1]);
     }

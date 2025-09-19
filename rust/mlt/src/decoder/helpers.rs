@@ -61,39 +61,9 @@ pub fn get_data_type_from_column(column_metadata: &Column) -> MltResult<ScalarTy
     }
 }
 
-/// Decode ([`ZigZag`] + delta) for Vec2s
-// TODO: The encoded process is (delta + ZigZag) for each component
-pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<Vec<T>, MltError> {
-    let len = data.len();
-    if len < 2 {
-        return Err(MltError::MinLength {
-            ctx: "vec2 delta stream",
-            min: 2,
-            got: len,
-        });
-    }
-    if len % 2 != 0 {
-        return Err(MltError::InvalidValueMultiple {
-            ctx: "vec2 delta stream length",
-            multiple_of: 2,
-            got: len,
-        });
-    }
-
-    let mut result = Vec::with_capacity(len);
-    result.push(T::decode(data[0]));
-    result.push(T::decode(data[1]));
-
-    for i in (2..len).step_by(2) {
-        result.push(T::decode(data[i]) + result[i - 2]);
-        result.push(T::decode(data[i + 1]) + result[i - 1]);
-    }
-
-    Ok(result)
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::decoder::integer_stream::decode_componentwise_delta_vec2s;
     use super::*;
     use crate::metadata::proto_tileset::ScalarColumn;
 
