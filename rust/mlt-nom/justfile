@@ -1,7 +1,7 @@
 #!/usr/bin/env just --justfile
 
 main_crate := file_name(justfile_directory())
-packages := '--workspace'  # All crates in the workspace
+packages := '-p mlt-nom'  # All crates in the workspace
 features := '--all-features'  # Enable all features
 targets := '--all-targets'  # For all targets (lib, bin, tests, examples, benches)
 
