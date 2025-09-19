@@ -11,7 +11,7 @@ use crate::{MltError, MltResult};
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component
 pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> MltResult<Vec<T>> {
-    if data.is_empty() || data.len() % 2 != 0 {
+    if data.is_empty() || !data.len().is_multiple_of(2) {
         return Err(MltError::InvalidPairStreamSize(data.len()));
     }
 

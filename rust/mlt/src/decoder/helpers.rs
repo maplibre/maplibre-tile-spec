@@ -1,5 +1,4 @@
 use bytes::Buf;
-use zigzag::ZigZag;
 
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::metadata::proto_tileset::{Column, ScalarType, column, scalar_column};

@@ -1,5 +1,11 @@
 use std::fmt::Debug;
 
+use bytes::Buf;
+use fastpfor::cpp::{Codec32 as _, FastPFor128Codec};
+use morton_encoding::{morton_decode, morton_encode};
+use num_traits::PrimInt;
+use zigzag::ZigZag;
+
 use crate::MltError;
 use crate::decoder::integer_stream::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
@@ -10,11 +16,6 @@ use crate::metadata::stream_encoding::{
     Logical, LogicalLevelTechnique, LogicalStreamType, Physical, PhysicalLevelTechnique,
     PhysicalStreamType,
 };
-use bytes::Buf;
-use fastpfor::cpp::{Codec32 as _, FastPFor128Codec};
-use morton_encoding::{morton_decode, morton_encode};
-use num_traits::PrimInt;
-use zigzag::ZigZag;
 
 /// a placeholder for future implementation
 /// For some reason, the Java code has a method that decodes long streams,
@@ -128,7 +129,7 @@ fn decode_fast_pfor(
 
 /// Convert a byte stream (little-endian, LE) to a vector of u32 integers.
 fn le_bytes_to_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Vec<u32>, MltError> {
-    if num_bytes % 4 != 0 {
+    if !num_bytes.is_multiple_of(4) {
         return Err(MltError::InvalidByteMultiple {
             ctx: "bytes-to-be-encoded-u32 stream",
             multiple_of: 4,
