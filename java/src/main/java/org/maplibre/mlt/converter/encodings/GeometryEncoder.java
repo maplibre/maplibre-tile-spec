@@ -42,7 +42,7 @@ public class GeometryEncoder {
       byte[] rawData,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData) {
     if (rawStreamData != null && streamName != null) {
-      rawStreamData.put(streamName, Triple.of(rawData, rawMetaData, new Gson().toJson(values)));
+      rawStreamData.put(streamName, Triple.of(rawMetaData, rawData, new Gson().toJson(values)));
     }
   }
 
