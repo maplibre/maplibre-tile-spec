@@ -2,4 +2,6 @@ benchmark/
 benchmarks/**/*.mvt
 benchmarks/**/*.pbf
 data/
+fixtures/**/*.bin
+fixtures/**/*.json
 output/
