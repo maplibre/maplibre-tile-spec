@@ -232,12 +232,12 @@ public class Encode {
 
         if (rawStreams != null) {
           for (var entry : rawStreams.entrySet()) {
-            final var streamPath = getOutputPath(cmd, inputTileName, "", true);
+            final var streamPath = getOutputPath(cmd, inputTileName, null, true);
             if (streamPath != null) {
               createDir(streamPath);
 
               if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
-                final var path = Path.of(streamPath.toString(), entry.getKey() + ".meta.bin");
+                final var path = streamPath.resolve(entry.getKey() + ".meta.bin");
                 if (verbose) {
                   System.err.println(
                       "Writing raw stream '" + entry.getKey() + "' metadata to " + path);
@@ -245,14 +245,14 @@ public class Encode {
                 Files.write(path, entry.getValue().getLeft());
               }
               if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
-                final var path = Path.of(streamPath.toString(), entry.getKey() + ".bin");
+                final var path = streamPath.resolve(entry.getKey() + ".bin");
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' data to " + path);
                 }
                 Files.write(path, entry.getValue().getMiddle());
               }
               if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
-                final var path = Path.of(streamPath.toString(), entry.getKey() + ".json");
+                final var path = streamPath.resolve(entry.getKey() + ".json");
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' json to " + path);
                 }
