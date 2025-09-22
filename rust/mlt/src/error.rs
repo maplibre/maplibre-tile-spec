@@ -27,6 +27,8 @@ pub enum MltError {
     FastPforFfi(String),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
+    #[error("insufficient data to decode")]
+    InsufficientData,
 
     // Schema & metadata validation
     #[error("missing required field `{0}`")]
@@ -46,7 +48,7 @@ pub enum MltError {
     #[error("metadata decode error: invalid type={0}")]
     MetaDecodeInvalidType(&'static str),
     #[error("metadata decode error: unsupported type={0}")]
-    MetaDecodeUnsupporteddType(&'static str),
+    MetaDecodeUnsupportedType(&'static str),
     #[error("missing required logical metadata: {which}")]
     MissingLogicalMetadata { which: &'static str },
 
@@ -79,6 +81,13 @@ pub enum MltError {
     UnsupportedLogicalTechnique(LogicalLevelTechnique),
     #[error("partial decode not supported for {0:?}")]
     PartialDecodeWrongTechnique(LogicalLevelTechnique),
+    #[error(
+        "unsupported logical technique combination: technique1={technique1:?}, technique2={technique2:?}"
+    )]
+    UnsupportedLogicalTechniqueCombination {
+        technique1: Option<LogicalLevelTechnique>,
+        technique2: Option<LogicalLevelTechnique>,
+    },
 
     // Numeric/arithmetics and coordinate errors
     #[error("coordinate {coordinate} too large for i32 (shift={shift})")]
