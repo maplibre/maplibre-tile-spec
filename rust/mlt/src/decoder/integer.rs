@@ -539,37 +539,6 @@ fn decode_physical_level_technique(
     }
 }
 
-/// Decode a constant integer stream, handling both signed and unsigned values.
-pub fn decode_const_int_stream(
-    data: &mut TrackedBytes,
-    metadata: &StreamMetadata,
-    is_signed: bool,
-) -> MltResult<i32> {
-    let values = decode_physical_level_technique(data, metadata)?;
-
-    if values.len() == 1 {
-        let value = values.first().ok_or(MltError::InsufficientData)?;
-
-        let result = if is_signed {
-            ZigZag::decode(*value)
-        } else {
-            *value as i32
-        };
-
-        return Ok(result);
-    }
-
-    // Handle RLE case
-    let result = if is_signed {
-        let value = values.get(1).ok_or(MltError::InsufficientData)?;
-        ZigZag::decode(*value)
-    } else {
-        *values.get(1).ok_or(MltError::InsufficientData)? as i32
-    };
-
-    Ok(result)
-}
-
 // Decode a length stream into an offset buffer.
 pub fn decode_length_stream_to_offset_buffer(
     data: &mut TrackedBytes,
@@ -663,7 +632,7 @@ fn zigzag_delta_of_delta_decoding(data: &[u32]) -> Vec<i32> {
     decoded_data
 }
 
-// RLE delta decoding
+/// RLE delta decoding
 fn rle_delta_decoding(data: &[u32], num_runs: usize, num_total_values: usize) -> Vec<i32> {
     let mut decoded_values = vec![0; num_total_values + 1];
     let mut offset = 1;
@@ -684,7 +653,7 @@ fn rle_delta_decoding(data: &[u32], num_runs: usize, num_total_values: usize) ->
     decoded_values
 }
 
-// Inverse delta decoding for unsigned integers
+/// Inverse delta decoding for unsigned integers
 fn inverse_delta(data: &mut [u32]) {
     let mut prev_value = 0u32;
     for value in data.iter_mut() {
@@ -693,7 +662,7 @@ fn inverse_delta(data: &mut [u32]) {
     }
 }
 
-// RLE delta decoding with ZigZag decoding
+/// RLE delta decoding with ZigZag decoding
 fn zigzag_rle_delta_decoding(data: &[u32], num_runs: usize, num_total_values: usize) -> Vec<i32> {
     let mut decoded_values = vec![0i32; num_total_values + 1];
     decoded_values[0] = 0;
@@ -717,7 +686,7 @@ fn zigzag_rle_delta_decoding(data: &[u32], num_runs: usize, num_total_values: us
     decoded_values
 }
 
-// Fast inverse delta decoding for signed integers
+/// Fast inverse delta decoding for signed integers
 fn fast_inverse_delta(data: &mut [i32]) {
     if data.is_empty() {
         return;
@@ -990,75 +959,6 @@ mod tests {
 
         let decoded = decode_physical_level_technique(&mut tile, &metadata).unwrap();
         assert_eq!(decoded, Vec::<u32>::new());
-    }
-
-    #[test]
-    fn test_single_value_signed() {
-        let bytes: Bytes = Bytes::from(vec![0x05, 0x00, 0x00, 0x00]);
-
-        let mut tile: TrackedBytes = bytes.into();
-        let metadata = StreamMetadata {
-            logical: Logical::new(
-                Some(LogicalStreamType::Dictionary(None)),
-                LogicalLevelTechnique::None,
-                LogicalLevelTechnique::None,
-            ),
-            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
-            num_values: 1,
-            byte_length: 4,
-            morton: None,
-            rle: None,
-        };
-
-        let result = decode_const_int_stream(&mut tile, &metadata, true).unwrap();
-
-        assert_eq!(result, -3);
-    }
-
-    #[test]
-    fn test_single_value_unsigned() {
-        let bytes: Bytes = Bytes::from(vec![0x05, 0x00, 0x00, 0x00]);
-
-        let mut tile: TrackedBytes = bytes.into();
-        let metadata = StreamMetadata {
-            logical: Logical::new(
-                Some(LogicalStreamType::Dictionary(None)),
-                LogicalLevelTechnique::None,
-                LogicalLevelTechnique::None,
-            ),
-            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
-            num_values: 1,
-            byte_length: 4,
-            morton: None,
-            rle: None,
-        };
-
-        let result = decode_const_int_stream(&mut tile, &metadata, false).unwrap();
-
-        assert_eq!(result, 5);
-    }
-
-    #[test]
-    fn test_multiple_values_rle_case() {
-        let bytes: Bytes = Bytes::from(vec![0x03, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00]);
-
-        let mut tile: TrackedBytes = bytes.into();
-        let metadata = StreamMetadata {
-            logical: Logical::new(
-                Some(LogicalStreamType::Dictionary(None)),
-                LogicalLevelTechnique::None,
-                LogicalLevelTechnique::None,
-            ),
-            physical: Physical::new(PhysicalStreamType::Present, PhysicalLevelTechnique::None),
-            num_values: 2,
-            byte_length: 8,
-            morton: None,
-            rle: None,
-        };
-
-        let result = decode_const_int_stream(&mut tile, &metadata, true).unwrap();
-
-        assert_eq!(result, -4);
     }
 
     #[test]
