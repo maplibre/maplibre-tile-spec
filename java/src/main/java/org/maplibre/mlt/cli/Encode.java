@@ -232,28 +232,27 @@ public class Encode {
 
         if (rawStreams != null) {
           for (var entry : rawStreams.entrySet()) {
-            if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
-              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".meta.bin", true);
-              if (path != null) {
+            final var streamPath = getOutputPath(cmd, inputTileName, "", true);
+            if (streamPath != null) {
+              createDir(streamPath);
+
+              if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
+                final var path = Path.of(streamPath.toString(), entry.getKey() + ".meta.bin");
                 if (verbose) {
                   System.err.println(
                       "Writing raw stream '" + entry.getKey() + "' metadata to " + path);
                 }
                 Files.write(path, entry.getValue().getLeft());
               }
-            }
-            if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
-              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".bin", true);
-              if (path != null) {
+              if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
+                final var path = Path.of(streamPath.toString(), entry.getKey() + ".bin");
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' data to " + path);
                 }
                 Files.write(path, entry.getValue().getMiddle());
               }
-            }
-            if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
-              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".json", true);
-              if (path != null) {
+              if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
+                final var path = Path.of(streamPath.toString(), entry.getKey() + ".json");
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' json to " + path);
                 }
@@ -836,34 +835,36 @@ public class Encode {
 
   private static @Nullable Path getOutputPath(
       CommandLine cmd, String inputFileName, String targetExt, boolean forceExt) {
+    final var ext =
+        (targetExt != null && !targetExt.isEmpty())
+            ? FilenameUtils.EXTENSION_SEPARATOR_STR + targetExt
+            : "";
     Path outputPath = null;
     if (cmd.hasOption(OUTPUT_DIR_ARG)) {
       var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
       var baseName = FilenameUtils.getBaseName(inputFileName);
-      outputPath = Paths.get(outputDir, baseName + "." + targetExt);
+      outputPath = Paths.get(outputDir, baseName + ext);
     } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
       outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
     }
     if (outputPath != null) {
       if (forceExt) {
-        outputPath =
-            Path.of(
-                FilenameUtils.removeExtension(outputPath.toString())
-                    + FilenameUtils.EXTENSION_SEPARATOR_STR
-                    + targetExt);
+        outputPath = Path.of(FilenameUtils.removeExtension(outputPath.toString()) + ext);
       }
-      var outputDirPath = outputPath.toAbsolutePath().getParent();
-      if (!Files.exists(outputDirPath)) {
-        try {
-          Files.createDirectories(outputDirPath);
-          System.err.println("Created directory: " + outputDirPath);
-        } catch (IOException ex) {
-          System.err.println("Failed to create directory: " + outputDirPath);
-          ex.printStackTrace(System.err);
-        }
-      }
+      createDir(outputPath.toAbsolutePath().getParent());
     }
     return outputPath;
+  }
+
+  private static void createDir(Path path) {
+    if (!Files.exists(path)) {
+      try {
+        Files.createDirectories(path);
+      } catch (IOException ex) {
+        System.err.println("Failed to create directory: " + path);
+        ex.printStackTrace(System.err);
+      }
+    }
   }
 
   private static CommandLine getCommandLine(String[] args) throws ParseException {
