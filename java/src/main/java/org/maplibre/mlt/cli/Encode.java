@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,16 +17,13 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import javax.annotation.Nullable;
@@ -56,7 +52,6 @@ import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
@@ -173,15 +168,15 @@ public class Encode {
     Timer timer = willTime ? new Timer() : null;
 
     var isIdPresent = true;
-    var pbMetadatas = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
-    var metadataJSON = "{}"; //MltConverter.createTilesetMetadataJSON(pbMetadata);
+    var pbMetadatas =
+        MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+    var metadataJSON = "{}"; // MltConverter.createTilesetMetadataJSON(pbMetadata);
 
     HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
       rawStreams = new HashMap<>();
     }
     var mlTile =
-        MltConverter.convertMvt(
         MltConverter.convertMvt(decodedMvTile, pbMetadatas, conversionConfig, tessellateSource);
     if (willTime) {
       timer.stop("encoding");

@@ -41,15 +41,15 @@ public class MltConverter {
    * propertyPrefix|Delimiter|propertySuffix -> Example: name, name:us, name:en
    * */
   public static Collection<MltTilesetMetadata.TileSetMetadata> createTilesetMetadata(
-          MapboxVectorTile tile,
-          @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+      MapboxVectorTile tile,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
           Optional<List<ColumnMapping>> ignoredColumnMappings,
-          boolean isIdPresent) {
+      boolean isIdPresent) {
     return createTilesetMetadata(tile, isIdPresent);
   }
+
   public static Collection<MltTilesetMetadata.TileSetMetadata> createTilesetMetadata(
-      MapboxVectorTile tile,
-      boolean isIdPresent) {
+      MapboxVectorTile tile, boolean isIdPresent) {
 
     final var featureTables = new ArrayList<MltTilesetMetadata.TileSetMetadata>();
     for (var layer : tile.layers()) {
@@ -65,30 +65,38 @@ public class MltConverter {
         // All columns are treated as optional.
         feature.properties().entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
+            .forEach(
+                entry -> {
                   final var type = getScalarType(entry);
-                  /*final var column = */columnSchema.computeIfAbsent(entry.getKey(), key ->
-                    createScalarColumnScheme(entry.getKey(), true, type)
-                  );
+                  /*final var column = */ columnSchema.computeIfAbsent(
+                      entry.getKey(), key -> createScalarColumnScheme(entry.getKey(), true, type));
                   // TODO: warn if multiple types map to the same column? fail?
                 });
 
-        if (isIdPresent && !isLongId && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
+        if (isIdPresent
+            && !isLongId
+            && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
           isLongId = true;
         }
       }
 
       // If the `id` column needs to be created, or needs to be a different type, (re-)create it.
       // If none of the `id` values we encountered need 64 bits use a 32-bit column, as it can
-      // currently be more efficiently encoded based on FastPFOR (64 bit variant not yet implemented)
+      // currently be more efficiently encoded based on FastPFOR (64 bit variant not yet
+      // implemented)
       // instead of Varint and decoded faster in JS.
       if ((isIdPresent && !columnSchema.containsKey(ID_COLUMN_NAME))
           || (isLongId
               && columnSchema.get(ID_COLUMN_NAME).getScalarType().getPhysicalType()
                   != MltTilesetMetadata.ScalarType.INT_64)) {
-        columnSchema.put(ID_COLUMN_NAME, createScalarColumnScheme(ID_COLUMN_NAME, false, isLongId
-                ? MltTilesetMetadata.ScalarType.UINT_64
-                : MltTilesetMetadata.ScalarType.UINT_32));
+        columnSchema.put(
+            ID_COLUMN_NAME,
+            createScalarColumnScheme(
+                ID_COLUMN_NAME,
+                false,
+                isLongId
+                    ? MltTilesetMetadata.ScalarType.UINT_64
+                    : MltTilesetMetadata.ScalarType.UINT_32));
       }
 
       var tilesetBuilder = MltTilesetMetadata.TileSetMetadata.newBuilder();
@@ -105,7 +113,8 @@ public class MltConverter {
       }
 
       // The `geometry` column is mandatory and has to be the first column (after `id`)
-      featureTableSchemaBuilder.addColumns(createComplexColumnScheme(
+      featureTableSchemaBuilder.addColumns(
+          createComplexColumnScheme(
               GEOMETRY_COLUMN_NAME, false, MltTilesetMetadata.ComplexType.GEOMETRY));
 
       columnSchema.forEach((k, v) -> featureTableSchemaBuilder.addColumns(v));
@@ -371,25 +380,26 @@ public class MltConverter {
    * @return Converted MapLibreTile
    * @throws IOException
    */
-public static byte[] convertMvt(
+  public static byte[] convertMvt(
       MapboxVectorTile mvt,
-      MltTilesetMetadata.TileSetMetadata tilesetMetadata,
+      Collection<MltTilesetMetadata.TileSetMetadata> tilesetMetadata,
       ConversionConfig config,
       @Nullable URI tessellateSource)
       throws IOException {
     return convertMvt(mvt, tilesetMetadata, config, tessellateSource, null);
   }
-   
+
   public static byte[] convertMvt(
       MapboxVectorTile mvt,
       Collection<MltTilesetMetadata.TileSetMetadata> tilesetMetadatas,
       ConversionConfig config,
       @Nullable URI tessellateSource,
-	  @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
+      @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
 
-    final var metaMap = tilesetMetadatas.stream().collect(
-      Collectors.toMap(MltTilesetMetadata.TileSetMetadata::getName, meta -> meta));
+    final var metaMap =
+        tilesetMetadatas.stream()
+            .collect(Collectors.toMap(MltTilesetMetadata.TileSetMetadata::getName, meta -> meta));
 
     var physicalLevelTechnique =
         config.getUseAdvancedEncodingSchemes()

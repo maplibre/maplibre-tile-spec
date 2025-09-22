@@ -295,7 +295,7 @@ public class StringDecoderTest {
     var tileMetadata =
         MltConverter.createTilesetMetadata(mvTile, Optional.of(List.of(columnMapping)), true);
     var fieldMetadata =
-        tileMetadata.getFeatureTables(0).getColumnsList().stream()
+        tileMetadata.stream().findFirst().get().getFeatureTables(0).getColumnsList().stream()
             .filter(f -> f.getName().equals("name"))
             .findFirst()
             .get();
@@ -357,7 +357,13 @@ public class StringDecoderTest {
     var tileMetadata =
         MltConverter.createTilesetMetadata(mvTile, Optional.of(List.of(columnMapping)), true);
     var fieldMetadata =
-        tileMetadata.getFeatureTables(3).getColumnsList().stream()
+        tileMetadata.stream()
+            .skip(3)
+            .findFirst()
+            .get()
+            .getFeatureTables(0)
+            .getColumnsList()
+            .stream()
             .filter(f -> f.getName().equals("name"))
             .findFirst()
             .get();

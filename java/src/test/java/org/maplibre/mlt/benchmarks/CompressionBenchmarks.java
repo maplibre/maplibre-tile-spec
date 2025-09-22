@@ -148,7 +148,7 @@ public class CompressionBenchmarks {
 
     if (reassignableLayers.isEmpty()) {
       /* Only test when the ids are not reassigned since it is verified based on the other tests */
-      var decodedMlt = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+      var decodedMlt = MltDecoder.decodeMlTile(mlTile);
       System.out.println("Vectorized Decoding not implemented");
     }
 

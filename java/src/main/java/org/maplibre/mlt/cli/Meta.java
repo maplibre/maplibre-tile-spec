@@ -1,13 +1,8 @@
 package org.maplibre.mlt.cli;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -17,9 +12,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.ArrayUtils;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import java.util.stream.StreamSupport;
 
 public class Meta {
 
@@ -78,12 +71,12 @@ public class Meta {
       var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
 
       var isIdPresent = true;
-      var pbfMetadata =
-          MltConverter.createTilesetMetadata(decodedMvTile, isIdPresent);
+      var pbfMetadata = MltConverter.createTilesetMetadata(decodedMvTile, isIdPresent);
 
       byte[] tileMetadatas = null;
       for (var metadata : pbfMetadata) {
-        tileMetadatas = ArrayUtils.addAll(tileMetadatas, MltConverter.createEmbeddedMetadata(metadata));
+        tileMetadatas =
+            ArrayUtils.addAll(tileMetadatas, MltConverter.createEmbeddedMetadata(metadata));
       }
 
       Path outputPath = null;

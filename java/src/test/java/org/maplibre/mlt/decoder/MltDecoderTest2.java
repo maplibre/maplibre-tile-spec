@@ -218,12 +218,12 @@ public class MltDecoderTest2 {
     int numErrorsAdvanced = -1;
     if (decoder == DecoderType.SEQUENTIAL || decoder == DecoderType.BOTH) {
       if (encoding == EncodingType.ADVANCED || encoding == EncodingType.BOTH) {
-        var decodedAdvanced = MltDecoder.decodeMlTile(mlTileAdvanced, tileMetadata);
+        var decodedAdvanced = MltDecoder.decodeMlTile(mlTileAdvanced);
         numErrorsAdvanced +=
             TestUtils.compareTilesSequential(decodedAdvanced, mvTile, allowSorting);
       }
       if (encoding == EncodingType.NONADVANCED || encoding == EncodingType.BOTH) {
-        var decoded = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+        var decoded = MltDecoder.decodeMlTile(mlTile);
         numErrors += TestUtils.compareTilesSequential(decoded, mvTile, allowSorting);
       }
     }
