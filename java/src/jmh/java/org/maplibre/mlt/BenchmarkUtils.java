@@ -1,5 +1,7 @@
 package org.maplibre.mlt;
 
+import com.google.common.collect.Iterables;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -8,6 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
@@ -16,6 +21,7 @@ import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class BenchmarkUtils {
 
@@ -38,9 +44,7 @@ public class BenchmarkUtils {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = Optional.of(List.of(columnMapping));
-    var metadata =
-        MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, true);
-    tileMetadata.put(z, MltConverter.createEmbeddedMetadata(metadata));
+    var metadatas = MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, true);
 
     var allowIdRegeneration = true;
     var allowSorting = true;
@@ -50,7 +54,7 @@ public class BenchmarkUtils {
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
     var config = new ConversionConfig(true, true, optimizations);
-    var encodedMltTile = MltConverter.convertMvt(encodedMvtTile.getRight(), metadata, config, null);
+    var encodedMltTile = MltConverter.convertMvt(encodedMvtTile.getRight(), metadatas, config, null);
     encodedMltTiles.put(z, encodedMltTile);
   }
 

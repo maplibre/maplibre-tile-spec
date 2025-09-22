@@ -18,13 +18,16 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import javax.annotation.Nullable;
@@ -170,9 +173,8 @@ public class Encode {
     Timer timer = willTime ? new Timer() : null;
 
     var isIdPresent = true;
-    var pbMetadata = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
-    var metadata = MltConverter.createEmbeddedMetadata(pbMetadata);
-    var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMetadata);
+    var pbMetadatas = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+    var metadataJSON = "{}"; //MltConverter.createTilesetMetadataJSON(pbMetadata);
 
     HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
@@ -180,7 +182,7 @@ public class Encode {
     }
     var mlTile =
         MltConverter.convertMvt(
-            decodedMvTile, pbMetadata, conversionConfig, tessellateSource, rawStreams);
+        MltConverter.convertMvt(decodedMvTile, pbMetadatas, conversionConfig, tessellateSource);
     if (willTime) {
       timer.stop("encoding");
     }
@@ -193,32 +195,13 @@ public class Encode {
 
         if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
           try {
-            writeTileWithEmbeddedMetadata(outputPath, mlTile, metadata);
+            Files.write(outputPath, mlTile);
           } catch (IOException ex) {
             System.err.println("ERROR: Failed to write tile with embedded metadata");
             ex.printStackTrace(System.err);
           }
         } else {
           Files.write(outputPath, mlTile);
-        }
-
-        // Write the raw metadata, if requested
-        if (cmd.hasOption(INCLUDE_METADATA_OPTION)) {
-          var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".meta");
-          if (verbose) {
-            System.err.println("Writing metadata to " + metadataPath);
-          }
-          Files.write(metadataPath, metadata);
-        }
-
-        if (cmd.hasOption(INCLUDE_PBF_METADATA_OPTION)) {
-          var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".meta.pbf");
-          if (verbose) {
-            System.err.println("Writing PBF metadata to " + metadataPath);
-          }
-          try (var stream = Files.newOutputStream(metadataPath)) {
-            pbMetadata.writeTo(stream);
-          }
         }
 
         if (metadataJSON != null && cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION)) {
@@ -277,7 +260,7 @@ public class Encode {
         System.err.println("WARNING: Vectorized encoding is not available");
       }
 
-      var decodedTile = MltDecoder.decodeMlTile(mlTile, pbMetadata);
+      var decodedTile = MltDecoder.decodeMlTile(mlTile);
       if (willTime) {
         timer.stop("decoding");
       }
@@ -604,21 +587,13 @@ public class Encode {
       var pbfMetadata =
           MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
 
-      var binaryMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
       var mlTile =
-          MltConverter.convertMvt(
-              decodedMvTile, pbfMetadata, conversionConfig, tessellateSource, null);
-
-      byte[] tileData;
-      try (var outputStream = new ByteArrayOutputStream()) {
-        writeTileWithEmbeddedMetadata(outputStream, mlTile, binaryMetadata);
-        tileData = outputStream.toByteArray();
-      }
+          MltConverter.convertMvt(decodedMvTile, pbfMetadata, conversionConfig, tessellateSource);
 
       if (compressionType != null) {
         try (var outputStream = new ByteArrayOutputStream()) {
           try (var compressStream = compressStream(outputStream, compressionType)) {
-            compressStream.write(tileData);
+            compressStream.write(mlTile);
           }
 
           // If the compressed version is enough of an improvement to
@@ -626,16 +601,16 @@ public class Encode {
           // Just guesses for now, these should be established with testing.
           final double ratioThreshold = 0.98;
           final int fixedThreshold = 20;
-          if (outputStream.size() < tileData.length - fixedThreshold
-              && outputStream.size() < tileData.length * ratioThreshold) {
+          if (outputStream.size() < mlTile.length - fixedThreshold
+              && outputStream.size() < mlTile.length * ratioThreshold) {
             didCompress.setTrue();
-            tileData = outputStream.toByteArray();
+            mlTile = outputStream.toByteArray();
           } else {
             didCompress.setFalse();
           }
         }
       }
-      return tileData;
+      return mlTile;
     } catch (IOException ex) {
       System.err.printf(
           "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s%n",
@@ -771,26 +746,6 @@ public class Encode {
                   + "'");
         }
       }
-    }
-  }
-
-  /// Write the binary metadata before the tile data
-  private static void writeTileWithEmbeddedMetadata(
-      Path tileOutputPath, byte[] mlTile, byte[] tileMetadata) throws IOException {
-    try (var fileStream = Files.newOutputStream(tileOutputPath)) {
-      writeTileWithEmbeddedMetadata(fileStream, mlTile, tileMetadata);
-    }
-  }
-
-  private static void writeTileWithEmbeddedMetadata(
-      OutputStream stream, byte[] mlTile, byte[] tileMetadata) throws IOException {
-    try (var dataStream = new DataOutputStream(stream)) {
-      EncodingUtils.putVarInt(dataStream, tileMetadata.length);
-      EncodingUtils.putVarInt(dataStream, mlTile.length);
-      dataStream.flush();
-
-      stream.write(tileMetadata);
-      stream.write(mlTile);
     }
   }
 

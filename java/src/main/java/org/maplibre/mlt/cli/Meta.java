@@ -1,8 +1,11 @@
 package org.maplibre.mlt.cli;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.apache.commons.cli.CommandLine;
@@ -12,9 +15,11 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.ArrayUtils;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import java.util.stream.StreamSupport;
 
 public class Meta {
 
@@ -72,13 +77,15 @@ public class Meta {
       var inputTileName = inputTilePath.getFileName().toString();
       var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
 
-      // No ColumnMapping as support is still buggy:
-      // https://github.com/maplibre/maplibre-tile-spec/issues/59
-      var columnMappings = Optional.<List<ColumnMapping>>empty();
       var isIdPresent = true;
       var pbfMetadata =
-          MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
-      var tileMetadata = MltConverter.createEmbeddedMetadata(pbfMetadata);
+          MltConverter.createTilesetMetadata(decodedMvTile, isIdPresent);
+
+      byte[] tileMetadatas = null;
+      for (var metadata : pbfMetadata) {
+        tileMetadatas = ArrayUtils.addAll(tileMetadatas, MltConverter.createEmbeddedMetadata(metadata));
+      }
+
       Path outputPath = null;
       if (cmd.hasOption(OUTPUT_DIR_ARG)) {
         var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG);
@@ -87,23 +94,26 @@ public class Meta {
       } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
         outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
       }
-      var outputDirPath = outputPath.toAbsolutePath().getParent();
-      if (!Files.exists(outputDirPath)) {
+      var outputDirPath = outputPath != null ? outputPath.toAbsolutePath() : null;
+      outputDirPath = outputDirPath != null ? outputDirPath.getParent() : null;
+      if (outputDirPath != null && !Files.exists(outputDirPath)) {
         System.out.println("Creating directory: " + outputDirPath);
         Files.createDirectories(outputDirPath);
       }
-      System.out.println("Writing converted tile to " + outputPath);
-      if (Files.exists(outputPath)) {
-        long existingFileSize = Files.size(outputPath);
-        long newFileSize = tileMetadata.length;
-        if (existingFileSize != newFileSize) {
-          System.out.println("Metadata size has changed. Overwriting metadata: " + outputPath);
-        } else {
-          System.out.println("Metadata size has not changed. Skipping metadata overwrite.");
-          return;
+      if (outputPath != null && tileMetadatas != null) {
+        System.out.println("Writing converted tile to " + outputPath);
+        if (Files.exists(outputPath)) {
+          long existingFileSize = Files.size(outputPath);
+          long newFileSize = tileMetadatas.length;
+          if (existingFileSize != newFileSize) {
+            System.out.println("Metadata size has changed. Overwriting metadata: " + outputPath);
+          } else {
+            System.out.println("Metadata size has not changed. Skipping metadata overwrite.");
+            return;
+          }
         }
+        Files.write(outputPath, tileMetadatas);
       }
-      Files.write(outputPath, tileMetadata);
     } catch (Exception e) {
       formatter.printHelp("meta", "\n", options, "Error:\n  " + e.getMessage(), true);
       System.exit(1);
