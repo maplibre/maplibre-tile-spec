@@ -1,8 +1,9 @@
+*.class
 *.log
 .idea/
 .vscode/
+bazel-*
+bin/
 coverage/
 dist/
-bin/
-*.class
-bazel-*
+tmp/
