@@ -1,7 +1,9 @@
 #!/usr/bin/env just --justfile
 
-main_crate := 'mlt'
-features_flag := '--all-features'
+main_crate := file_name(justfile_directory())
+packages := '--package mlt'  # All crates in the workspace
+features := '--features default'
+targets := '--all-targets'  # For all targets (lib, bin, tests, examples, benches)
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
@@ -9,7 +11,7 @@ features_flag := '--all-features'
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 # cargo-binstall needs a workaround due to caching
 # ci_mode might be manually set by user, so re-check the env var
-binstall_args := if env('CI', '') != '' {'--no-track'} else {''}
+binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
@@ -19,15 +21,15 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''}
 
 # Run integration tests and save its output as the new expected output
 bless *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --unreferenced=delete {{features_flag}} {{args}}
+    cargo insta test --accept --unreferenced=delete {{features}} {{args}}
 
 # Build the project
 build:
-    cargo build --workspace --all-targets {{features_flag}}
+    cargo build {{packages}} {{features}} {{targets}}
 
 # Quick compile without building a binary
 check:
-    cargo check --workspace --all-targets {{features_flag}}
+    cargo check {{packages}} {{features}} {{targets}}
 
 # Generate code coverage report to upload to codecov.io
 ci-coverage: env-info && \
@@ -48,15 +50,15 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    cargo clippy --workspace --all-targets {{features_flag}} {{args}}
+    cargo clippy {{packages}} {{features}} {{targets}} {{args}}
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov')
-    cargo llvm-cov --workspace --all-targets {{features_flag}} --include-build-script {{args}}
+    cargo llvm-cov {{packages}} {{features}} {{targets}} --include-build-script {{args}}
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --workspace {{features_flag}}
+    DOCS_RS=1 cargo doc --no-deps {{args}} {{packages}} {{features}}
 
 # Print environment info
 env-info:
@@ -103,12 +105,12 @@ release *args='':  (cargo-install 'release-plz')
 
 # Check semver compatibility with prior published version. Install it with `cargo install cargo-semver-checks`
 semver *args:  (cargo-install 'cargo-semver-checks')
-    cargo semver-checks {{features_flag}} {{args}}
+    cargo semver-checks {{features}} {{args}}
 
 # Run all tests
 test:
-    cargo test --workspace --all-targets {{features_flag}}
-    cargo test --workspace --doc {{features_flag}}
+    cargo test {{packages}} {{features}} {{targets}}
+    cargo test --doc {{packages}} {{features}}
 
 # Test documentation generation
 test-doc:  (docs '')
@@ -123,7 +125,7 @@ test-publish:
 
 # Find unused dependencies. Install it with `cargo install cargo-udeps`
 udeps:  (cargo-install 'cargo-udeps')
-    cargo +nightly udeps --workspace --all-targets {{features_flag}}
+    cargo +nightly udeps {{packages}} {{features}} {{targets}}
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:

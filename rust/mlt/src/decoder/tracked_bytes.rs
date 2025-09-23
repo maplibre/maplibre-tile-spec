@@ -5,6 +5,7 @@ use bytes::{Buf, Bytes};
 /// A wrapper around `Bytes` that tracks the read offset relative to the original size.
 /// This is useful for debugging and decoding purposes, where knowing how many bytes
 /// have been consumed is critical (e.g., during varint parsing or stream decoding).
+#[derive(Debug)]
 pub struct TrackedBytes(usize, Bytes);
 
 impl TrackedBytes {
