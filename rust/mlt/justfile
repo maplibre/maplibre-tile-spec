@@ -38,10 +38,10 @@ ci-coverage: env-info && \
     mkdir -p target/llvm-cov
 
 # Run all tests as expected by CI
-ci-test: env-info test-fmt clippy check test test-doc && assert-git-is-clean
+ci-test: env-info test-fmt clippy gen-snippets test test-doc && assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info check test
+ci-test-msrv: env-info check gen-snippets test
 
 # Clean all build artifacts
 clean:
@@ -87,6 +87,16 @@ fmt:
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args:  (cargo-install 'cargo-sort')
     cargo sort --workspace --grouped {{args}}
+
+# Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
+[working-directory: '../../java']
+gen-snippets:  (cargo-install 'fd' 'fd-find')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./gradlew cli
+    fd . ../test/fixtures -e pbf -x java -jar build/libs/encode.jar --mvt {} \
+        --mlt "$(tmp='{.}'; echo ${tmp/\/fixtures\///expected/}).mvt" \
+        --rawstreams --tessellate --outlines '\*' || echo "### Some snippets failed to generate ###"
 
 # Get any package's field from the metadata
 get-crate-field field package=main_crate:  (assert-cmd 'jq')
