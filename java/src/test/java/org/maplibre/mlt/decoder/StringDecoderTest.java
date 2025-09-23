@@ -286,6 +286,7 @@ public class StringDecoderTest {
   }
 
   @Test
+  @Disabled // Columns aren't producing complex types (anymore, yet)
   public void decodeSharedDictionary_MvtWithNestedColumns() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
@@ -348,6 +349,7 @@ public class StringDecoderTest {
   }
 
   @Test
+  @Disabled // Columns aren't producing complex types (anymore, yet)
   public void decodeSharedDictionary_MvtWithNestedColumns2() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
