@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -232,12 +233,13 @@ public class Encode {
 
         if (rawStreams != null) {
           for (var entry : rawStreams.entrySet()) {
-            final var streamPath = getOutputPath(cmd, inputTileName, null, true);
+            final var streamPath = getOutputPath(cmd, sanitizeFilename(inputTileName), null, true);
             if (streamPath != null) {
               createDir(streamPath);
 
+              final var keyFilename = sanitizeFilename(entry.getKey());
               if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
-                final var path = streamPath.resolve(entry.getKey() + ".meta.bin");
+                final var path = streamPath.resolve(keyFilename + ".meta.bin");
                 if (verbose) {
                   System.err.println(
                       "Writing raw stream '" + entry.getKey() + "' metadata to " + path);
@@ -245,14 +247,14 @@ public class Encode {
                 Files.write(path, entry.getValue().getLeft());
               }
               if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
-                final var path = streamPath.resolve(entry.getKey() + ".bin");
+                final var path = streamPath.resolve(keyFilename + ".bin");
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' data to " + path);
                 }
                 Files.write(path, entry.getValue().getMiddle());
               }
               if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
-                final var path = streamPath.resolve(entry.getKey() + ".json");
+                final var path = streamPath.resolve(keyFilename + ".json");
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' json to " + path);
                 }
@@ -865,6 +867,21 @@ public class Encode {
         ex.printStackTrace(System.err);
       }
     }
+  }
+
+  // https://learn.microsoft.com/en-gb/windows/win32/fileio/naming-a-file#naming-conventions
+  private static final Pattern forbiddenFilenamePattern =
+      Pattern.compile("CON|PRN|AUX|NUL|(COM|LPT)[1-9¹²³]", Pattern.CASE_INSENSITIVE);
+  private static final Pattern forbiddenCharacterPattern =
+      Pattern.compile("[<>:\"/\\\\|?*\\x00-\\x1F~.]");
+  private static final Pattern forbiddenTrailingPattern = Pattern.compile("[\\s.]$");
+
+  private static String sanitizeFilename(String name) {
+    name = forbiddenTrailingPattern.matcher(name).replaceAll("");
+    if (forbiddenFilenamePattern.matcher(name).matches()) {
+      name = "_" + name;
+    }
+    return forbiddenCharacterPattern.matcher(name).replaceAll("_");
   }
 
   private static CommandLine getCommandLine(String[] args) throws ParseException {
