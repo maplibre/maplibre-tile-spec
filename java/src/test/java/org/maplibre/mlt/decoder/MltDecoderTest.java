@@ -77,7 +77,7 @@ public class MltDecoderTest {
         tileId,
         tileDirectory,
         (mlTile, tileMetadata, mvTile) -> {
-          var decodedTile = MltDecoder.decodeMlTile(mlTile, tileMetadata);
+          var decodedTile = MltDecoder.decodeMlTile(mlTile);
           TestUtils.compareTilesSequential(decodedTile, mvTile);
         },
         TestUtils.Optimization.NONE,

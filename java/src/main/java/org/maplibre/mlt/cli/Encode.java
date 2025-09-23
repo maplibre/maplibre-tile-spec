@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -177,7 +178,8 @@ public class Encode {
       rawStreams = new HashMap<>();
     }
     var mlTile =
-        MltConverter.convertMvt(decodedMvTile, pbMetadatas, conversionConfig, tessellateSource);
+        MltConverter.convertMvt(
+            decodedMvTile, pbMetadatas, conversionConfig, tessellateSource, rawStreams);
     if (willTime) {
       timer.stop("encoding");
     }
@@ -210,7 +212,12 @@ public class Encode {
         if (rawStreams != null) {
           for (var entry : rawStreams.entrySet()) {
             if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
-              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".meta.bin", true);
+              var path =
+                  getOutputPath(
+                      cmd,
+                      sanitizeFilename(inputTileName),
+                      sanitizeFilename(entry.getKey()) + ".meta.bin",
+                      true);
               if (path != null) {
                 if (verbose) {
                   System.err.println(
@@ -220,7 +227,9 @@ public class Encode {
               }
             }
             if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
-              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".bin", true);
+              var path =
+                  getOutputPath(
+                      cmd, inputTileName, sanitizeFilename(entry.getKey()) + ".bin", true);
               if (path != null) {
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' data to " + path);
@@ -229,7 +238,9 @@ public class Encode {
               }
             }
             if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
-              var path = getOutputPath(cmd, inputTileName, entry.getKey() + ".json", true);
+              var path =
+                  getOutputPath(
+                      cmd, inputTileName, sanitizeFilename(entry.getKey()) + ".json", true);
               if (path != null) {
                 if (verbose) {
                   System.err.println("Writing raw stream '" + entry.getKey() + "' json to " + path);
@@ -813,6 +824,19 @@ public class Encode {
       }
     }
     return outputPath;
+  }
+
+  // https://learn.microsoft.com/en-gb/windows/win32/fileio/naming-a-file#naming-conventions
+  private static final Pattern forbiddenFilenamePattern =
+      Pattern.compile("CON|PRN|AUX|NUL|(COM|LPT)[1-9¹²³]");
+  private static final Pattern forbiddenCharacterPattern =
+      Pattern.compile("[<>:\"/\\\\|?*\\x00-\\x1F~]");
+
+  private static String sanitizeFilename(String name) {
+    if (forbiddenFilenamePattern.matcher(name).matches()) {
+      name = "_" + name;
+    }
+    return forbiddenCharacterPattern.matcher(name).replaceAll("_");
   }
 
   private static CommandLine getCommandLine(String[] args) throws ParseException {

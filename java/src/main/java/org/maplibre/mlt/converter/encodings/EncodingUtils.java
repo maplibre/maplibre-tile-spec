@@ -71,6 +71,14 @@ public class EncodingUtils {
     return Arrays.copyOfRange(varintBuffer, 0, i);
   }
 
+  public static byte[] encodeVarint(long value, boolean zigZagEncode) {
+    if (zigZagEncode) {
+      value = encodeZigZag(value);
+    }
+    var varintBuffer = new byte[8];
+    return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
+  }
+
   // Source:
   // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
   /**

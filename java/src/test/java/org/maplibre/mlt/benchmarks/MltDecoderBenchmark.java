@@ -1,6 +1,5 @@
 package org.maplibre.mlt.benchmarks;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -13,7 +12,6 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 
 /**
@@ -145,12 +143,12 @@ public class MltDecoderBenchmark {
 
     var mvt = Files.readAllBytes(mvtFilePath);
     var mvtTimeElapsed = 0L;
-    var is = new ByteArrayInputStream(mvt);
+    // var is = new ByteArrayInputStream(mvt);
     for (int i = 0; i <= 200; i++) {
       long start = System.currentTimeMillis();
       var mvTile = MvtUtils.decodeMvtFast(mvt);
       long finish = System.currentTimeMillis();
-      is.reset();
+      // is.reset();
 
       if (i > 100) {
         mvtTimeElapsed += (finish - start);
@@ -158,7 +156,7 @@ public class MltDecoderBenchmark {
     }
     System.out.println("MVT decoding time: " + (mvtTimeElapsed / 100.0));
 
-    MapboxVectorTile mvTile = MvtUtils.decodeMvt(mvtFilePath);
+    var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = Optional.of(List.of(columnMapping));

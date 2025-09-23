@@ -27,7 +27,6 @@ public class BenchmarkUtils {
       Map<Integer, ByteArrayInputStream> encodedMvtTiles2,
       Map<Integer, byte[]> compressedMvtTiles,
       Map<Integer, byte[]> encodedMltTiles,
-      Map<Integer, byte[]> tileMetadata,
       String path,
       String separator)
       throws IOException {

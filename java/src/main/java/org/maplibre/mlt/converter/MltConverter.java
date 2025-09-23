@@ -8,7 +8,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -83,8 +82,7 @@ public class MltConverter {
       // If the `id` column needs to be created, or needs to be a different type, (re-)create it.
       // If none of the `id` values we encountered need 64 bits use a 32-bit column, as it can
       // currently be more efficiently encoded based on FastPFOR (64 bit variant not yet
-      // implemented)
-      // instead of Varint and decoded faster in JS.
+      // implemented) instead of Varint and decoded faster in JS.
       if ((isIdPresent && !columnSchema.containsKey(ID_COLUMN_NAME))
           || (isLongId
               && columnSchema.get(ID_COLUMN_NAME).getScalarType().getPhysicalType()
@@ -397,9 +395,17 @@ public class MltConverter {
       @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
 
+    // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
+    // We assume that the names are unique.
     final var metaMap =
         tilesetMetadatas.stream()
-            .collect(Collectors.toMap(MltTilesetMetadata.TileSetMetadata::getName, meta -> meta));
+            .collect(
+                Collectors.toMap(
+                    meta -> meta.getFeatureTables(0).getName(),
+                    meta -> meta,
+                    (existing, replacement) -> {
+                      throw new RuntimeException("duplicate key");
+                    }));
 
     var physicalLevelTechnique =
         config.getUseAdvancedEncodingSchemes()
@@ -413,34 +419,25 @@ public class MltConverter {
         throw new RuntimeException("Missing Metadata");
       }
 
+      var tag = 1;
+      if (mvtLayer.tileExtent() != 4096) {
+        tag = 2;
+      }
+
       var featureTableBodyBuffer = new byte[0];
-      var featureTableName = mvtLayer.name();
-      var mvtFeatures = mvtLayer.features();
+      final var featureTableName = mvtLayer.name();
+      final var mvtFeatures = mvtLayer.features();
+      final var featureTableMetadata = tilesetMetadata.getFeatureTables(0);
 
-      /* Layout FeatureTableMetadata header (all u32 types are varint encoded):
-       *  version: u8 | featureTableId: u32 | layerExtent: u32 | maxLayerExtent: u32 | numFeatures: u32
-       *  */
-
-      var featureTables = tilesetMetadata.getFeatureTablesList();
-      var featureTableId =
-          IntStream.range(0, featureTables.size())
-              .filter(i -> featureTables.get(i).getName().equals(featureTableName))
-              .findFirst()
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          "Feature table with name '" + featureTableName + "' not found."));
-      var featureTableMetadata = featureTables.get(featureTableId);
-
-      var featureTableOptimizations =
+      final var featureTableOptimizations =
           config.getOptimizations() == null
               ? null
               : config.getOptimizations().get(featureTableName);
 
-      var createPolygonOutline =
+      final var createPolygonOutline =
           config.getOutlineFeatureTableNames().contains(featureTableName)
               || config.getOutlineFeatureTableNames().contains("*");
-      var result =
+      final var result =
           sortFeaturesAndEncodeGeometryColumn(
               config,
               featureTableOptimizations,
@@ -450,11 +447,10 @@ public class MltConverter {
               createPolygonOutline,
               tessellateSource,
               rawStreamData);
-      var sortedFeatures = result.getLeft();
-      var encodedGeometryColumn = result.getRight();
-      var encodedGeometryFieldMetadata =
-          EncodingUtils.encodeVarints(
-              new long[] {encodedGeometryColumn.numStreams()}, false, false);
+      final var sortedFeatures = result.getLeft();
+      final var encodedGeometryColumn = result.getRight();
+      final var encodedGeometryFieldMetadata =
+          EncodingUtils.encodeVarint(encodedGeometryColumn.numStreams(), false);
 
       var encodedPropertyColumns =
           encodePropertyColumns(
@@ -465,7 +461,7 @@ public class MltConverter {
               rawStreamData);
 
       if (config.getIncludeIds()) {
-        var idMetadata =
+        final var idMetadata =
             featureTableMetadata.getColumnsList().stream()
                 .filter(f -> f.getName().equals(ID_COLUMN_NAME))
                 .findFirst()
@@ -487,23 +483,19 @@ public class MltConverter {
               encodedGeometryColumn.encodedValues(),
               encodedPropertyColumns);
 
-      var featureTableBodySize = featureTableBodyBuffer.length;
-      var encodedFeatureTableInfo =
-          EncodingUtils.encodeVarints(
-              new long[] {
-                featureTableId,
-                featureTableBodySize,
-                mvtLayer.tileExtent(),
-                EncodingUtils.encodeZigZag(encodedGeometryColumn.maxVertexValue()),
-                sortedFeatures.size()
-              },
-              false,
-              false);
+      final var encodedFeatureTableInfo =
+          (tag == 1) ? new byte[0] : EncodingUtils.encodeVarint(mvtLayer.tileExtent(), false);
+
+      final var metadataBuffer = createEmbeddedMetadata(tilesetMetadata);
+      final var tagLength =
+          metadataBuffer.length + encodedFeatureTableInfo.length + featureTableBodyBuffer.length;
 
       mapLibreTileBuffer =
           CollectionUtils.concatByteArrays(
               mapLibreTileBuffer,
-              new byte[] {VERSION},
+              EncodingUtils.encodeVarint(tag, false),
+              EncodingUtils.encodeVarint(tagLength, false),
+              metadataBuffer,
               encodedFeatureTableInfo,
               featureTableBodyBuffer);
     }
