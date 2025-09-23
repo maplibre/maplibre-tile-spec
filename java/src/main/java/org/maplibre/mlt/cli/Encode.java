@@ -871,11 +871,14 @@ public class Encode {
 
   // https://learn.microsoft.com/en-gb/windows/win32/fileio/naming-a-file#naming-conventions
   private static final Pattern forbiddenFilenamePattern =
-      Pattern.compile("CON|PRN|AUX|NUL|(COM|LPT)[1-9¹²³]");
+      Pattern.compile("CON|PRN|AUX|NUL|(COM|LPT)[1-9¹²³]", Pattern.CASE_INSENSITIVE);
   private static final Pattern forbiddenCharacterPattern =
       Pattern.compile("[<>:\"/\\\\|?*\\x00-\\x1F~.]");
+  private static final Pattern forbiddenTrailingPattern =
+          Pattern.compile("[\\s.]$");
 
   private static String sanitizeFilename(String name) {
+    name = forbiddenTrailingPattern.matcher(name).replaceAll("");
     if (forbiddenFilenamePattern.matcher(name).matches()) {
       name = "_" + name;
     }
