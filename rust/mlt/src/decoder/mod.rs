@@ -81,6 +81,8 @@ mod tests {
             eprintln!("{name} => data {data:?}");
             assert!(!data.is_empty());
 
+            // TODO(Weixing): implement the rest of the decoding
+
             // if meta.logical.technique1 == Morton
             let result = decode_int_stream(&mut data.into(), &meta, false).expect(name);
 
