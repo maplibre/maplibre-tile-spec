@@ -52,8 +52,8 @@ public class MltGenerator {
   // TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.IDS_REASSIGNED;
   // TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.SORTED;
   TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.NONE;
-  protected static final Optional<List<ColumnMapping>> COLUMN_MAPPINGS =
-      Optional.of(List.of(new ColumnMapping("name", "_", true)));
+  protected static final List<ColumnMapping> COLUMN_MAPPINGS =
+      List.of(new ColumnMapping("name", "_", true));
   boolean USE_ADVANCED_ENCODINGS = false;
   boolean USE_POLYGON_TESSELLATION = false;
   boolean USE_MORTON_ENCODING = false;
@@ -63,28 +63,29 @@ public class MltGenerator {
   @Disabled
   public void generateMltTileset() throws IOException, SQLException, ClassNotFoundException {
     var mbTilesFilename = "jdbc:sqlite:" + MBTILES_FILE;
-    var repo = new MbtilesRepository(mbTilesFilename, MIN_ZOOM, MAX_ZOOM);
+    try (var repo = new MbtilesRepository(mbTilesFilename, MIN_ZOOM, MAX_ZOOM)) {
+      final var optimizations = getOptimizations();
 
-    var tileMetadata =
-        writeTileSetMetadata(
-            MltConverter.createTilesetMetadata(repo, COLUMN_MAPPINGS, true), MLT_OUTPUT_DIR);
+      for (var mvTile : repo) {
+        final var tileId = mvTile.tileId();
+        try {
+          final var tileMetadata =
+              writeTileSetMetadata(
+                  MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, true),
+                  MLT_OUTPUT_DIR);
 
-    var optimizations = getOptimizations();
+          final var mlTile = convertMvtToMlt(optimizations, true, mvTile, tileMetadata);
 
-    for (var mvTile : repo) {
-      var tileId = mvTile.tileId();
-      try {
-        var mlTile = convertMvtToMlt(optimizations, true, mvTile, tileMetadata);
-
-        var z = tileId.getLeft();
-        var x = tileId.getMiddle();
-        var y = (int) Math.pow(2, z) - tileId.getRight() - 1;
-        writeTile(mlTile, MLT_OUTPUT_DIR, ".mlt", x, y, z);
-        var rawMvTile = repo.getRawTile(tileId);
-        writeTile(rawMvTile, MVT_OUTPUT_DIR, ".mvt", x, y, z);
-      } catch (Exception e) {
-        System.out.println("Error while processing tile " + tileId);
-        e.printStackTrace();
+          final var z = tileId.getLeft();
+          final var x = tileId.getMiddle();
+          final var y = (int) Math.pow(2, z) - tileId.getRight() - 1;
+          writeTile(mlTile, MLT_OUTPUT_DIR, ".mlt", x, y, z);
+          final var rawMvTile = repo.getRawTile(tileId);
+          writeTile(rawMvTile, MVT_OUTPUT_DIR, ".mvt", x, y, z);
+        } catch (Exception e) {
+          System.out.println("Error while processing tile " + tileId);
+          e.printStackTrace();
+        }
       }
     }
   }
@@ -112,12 +113,7 @@ public class MltGenerator {
                     throw new RuntimeException(e);
                   }
                 })
-            .collect(Collectors.toList());
-
-    var tileMetadata =
-        writeTileSetMetadata(
-            MltConverter.createTilesetMetadata(mvTiles, COLUMN_MAPPINGS, true),
-            MLT_SPECIFIC_TILES_OUTPUT_DIR);
+            .toList();
 
     var optimizations = getOptimizations();
 
@@ -125,6 +121,11 @@ public class MltGenerator {
       var mvt = Files.readAllBytes(Path.of(MVT_SPECIFIC_TILES_SOURCE_DIR, tileName.toString()));
       var mvTile = MvtUtils.decodeMvt(mvt, COLUMN_MAPPINGS);
       try {
+        var tileMetadata =
+            writeTileSetMetadata(
+                MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, true),
+                MLT_SPECIFIC_TILES_OUTPUT_DIR);
+
         var mlTile = convertMvtToMlt(optimizations, USE_POLYGON_TESSELLATION, mvTile, tileMetadata);
 
         var mltFilename = tileName.toString().replace(".mvt", ".mlt");
@@ -140,30 +141,29 @@ public class MltGenerator {
   @Disabled
   public void generateSpecificMlTilesFromMbtiles()
       throws IOException, SQLException, ClassNotFoundException {
-    var repo = new MbtilesRepository("jdbc:sqlite:" + MVT_SPECIFIC_TILES_SOURCE_MBTILES, 0, 14);
-    var mvTiles = repo.getLargestTilesPerZoom();
+    try (var repo =
+        new MbtilesRepository("jdbc:sqlite:" + MVT_SPECIFIC_TILES_SOURCE_MBTILES, 0, 14)) {
+      var mvTiles = repo.getLargestTilesPerZoom();
+      var optimizations = getOptimizations();
+      for (var mvTile : mvTiles) {
+        try {
+          var tileMetadata =
+              writeTileSetMetadata(
+                  MltConverter.createTilesetMetadata(mvTile.getMiddle(), COLUMN_MAPPINGS, true),
+                  MLT_SPECIFIC_TILES_OUTPUT_DIR);
 
-    var decodedMvTiles = mvTiles.stream().map(Triple::getMiddle).collect(Collectors.toList());
-    var tileMetadata =
-        writeTileSetMetadata(
-            MltConverter.createTilesetMetadata(decodedMvTiles, COLUMN_MAPPINGS, true),
-            MLT_SPECIFIC_TILES_OUTPUT_DIR);
+          var mlTile =
+              convertMvtToMlt(
+                  optimizations, USE_POLYGON_TESSELLATION, mvTile.getMiddle(), tileMetadata);
 
-    var optimizations = getOptimizations();
-
-    for (var mvTile : mvTiles) {
-      try {
-        var mlTile =
-            convertMvtToMlt(
-                optimizations, USE_POLYGON_TESSELLATION, mvTile.getMiddle(), tileMetadata);
-
-        var tileId = mvTile.getRight();
-        var tileName = tileId.getLeft() + "_" + tileId.getMiddle() + "_" + tileId.getRight();
-        Files.write(Path.of(MLT_SPECIFIC_TILES_OUTPUT_DIR, tileName + ".mlt"), mlTile);
-        Files.write(Path.of(MVT_SPECIFIC_TILES_OUTPUT_DIR, tileName + ".mvt"), mvTile.getLeft());
-      } catch (Exception e) {
-        System.out.println("Error while processing tile " + mvTile);
-        e.printStackTrace();
+          var tileId = mvTile.getRight();
+          var tileName = tileId.getLeft() + "_" + tileId.getMiddle() + "_" + tileId.getRight();
+          Files.write(Path.of(MLT_SPECIFIC_TILES_OUTPUT_DIR, tileName + ".mlt"), mlTile);
+          Files.write(Path.of(MVT_SPECIFIC_TILES_OUTPUT_DIR, tileName + ".mvt"), mvTile.getLeft());
+        } catch (Exception e) {
+          System.out.println("Error while processing tile " + mvTile);
+          e.printStackTrace();
+        }
       }
     }
   }

@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -27,7 +26,6 @@ public class BenchmarkUtils {
       Map<Integer, ByteArrayInputStream> encodedMvtTiles2,
       Map<Integer, byte[]> compressedMvtTiles,
       Map<Integer, byte[]> encodedMltTiles,
-      Map<Integer, byte[]> tileMetadata,
       String path,
       String separator)
       throws IOException {
@@ -37,11 +35,9 @@ public class BenchmarkUtils {
     compressedMvtTiles.put(z, EncodingUtils.gzip(encodedMvtTile.getLeft()));
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Optional.of(List.of(columnMapping));
+    var columnMappings = List.of(columnMapping);
     var metadata =
-        MltConverter.createTilesetMetadata(
-            List.of(encodedMvtTile.getRight()), columnMappings, true);
-    tileMetadata.put(z, MltConverter.createEmbeddedMetadata(metadata));
+        MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, true);
 
     var allowIdRegeneration = true;
     var allowSorting = true;

@@ -1,7 +1,6 @@
 package org.maplibre.mlt.converter;
 
 import java.util.List;
-import java.util.Optional;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 
 /**
@@ -14,6 +13,4 @@ import org.maplibre.mlt.converter.mvt.ColumnMapping;
  *     dictionary encoding among the nested columns.
  */
 public record FeatureTableOptimizations(
-    boolean allowSorting,
-    boolean allowIdRegeneration,
-    Optional<List<ColumnMapping>> columnMappings) {}
+    boolean allowSorting, boolean allowIdRegeneration, List<ColumnMapping> columnMappings) {}

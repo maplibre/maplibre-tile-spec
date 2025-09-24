@@ -5,7 +5,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -252,7 +251,7 @@ public class StringDecoderTest {
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var layer = mvTile.layers().get(0);
+    var layer = mvTile.layers().getFirst();
     var values = new ArrayList<String>();
     for (var feature : layer.features()) {
       var strProperties = new ArrayList<String>();
@@ -292,16 +291,14 @@ public class StringDecoderTest {
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var tileMetadata =
-        MltConverter.createTilesetMetadata(
-            List.of(mvTile), Optional.of(List.of(columnMapping)), true);
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, List.of(columnMapping), true);
     var fieldMetadata =
         tileMetadata.getFeatureTables(0).getColumnsList().stream()
             .filter(f -> f.getName().equals("name"))
             .findFirst()
-            .get();
+            .orElseThrow();
 
-    var layer = mvTile.layers().get(0);
+    var layer = mvTile.layers().getFirst();
     var sharedValues = new ArrayList<List<String>>();
     for (var column : fieldMetadata.getComplexType().getChildrenList()) {
       var values = new ArrayList<String>();
@@ -355,14 +352,12 @@ public class StringDecoderTest {
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var tileMetadata =
-        MltConverter.createTilesetMetadata(
-            List.of(mvTile), Optional.of(List.of(columnMapping)), true);
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, List.of(columnMapping), true);
     var fieldMetadata =
         tileMetadata.getFeatureTables(3).getColumnsList().stream()
             .filter(f -> f.getName().equals("name"))
             .findFirst()
-            .get();
+            .orElseThrow();
 
     var layer = mvTile.layers().get(3);
     var sharedValues = new ArrayList<List<String>>();

@@ -4,11 +4,9 @@ import com.google.gson.Gson;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -18,8 +16,8 @@ import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
-import org.maplibre.mlt.decoder.DecodingUtils;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.tileset.ColumnOptions;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class MltConverter {
@@ -27,196 +25,164 @@ public class MltConverter {
   private static final String ID_COLUMN_NAME = "id";
   private static final String GEOMETRY_COLUMN_NAME = "geometry";
 
-  /*
-   * The tileset metadata are serialized to a separate protobuf file.
-   * This metadata file holds the scheme for the complete tileset, so it only has to be requested once from a map client for
-   * the full session because it contains the scheme information for all tiles.
-   * This is a POC approach for generating the MLT metadata from a MVT tile.
-   * Possible approaches in production:
-   * - Generate the metadata scheme from the MVT TileJson file -> but not all types of MLT (like float, double, ...)
-   *   are available in the TileJSON file
-   * - Use the TileJSON as the base to get all property names and request as many tiles as needed to get the concrete data types
-   * - Define a separate scheme file where all information are contained
-   * To bring the flattened MVT properties into a nested structure it has to have the following structure:
-   * propertyPrefix|Delimiter|propertySuffix -> Example: name, name:us, name:en
-   * */
   public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
-      Iterable<MapboxVectorTile> mvTiles,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-          Optional<List<ColumnMapping>> columnMappings,
-      boolean isIdPresent) {
+      MapboxVectorTile tile, Collection<ColumnMapping> columnMappings, boolean isIdPresent) {
+
+    // TODO: Allow determining whether ID is present automatically
+    // TODO: Allow nullable ID columns
+
     var tilesetBuilder = MltTilesetMetadata.TileSetMetadata.newBuilder();
     tilesetBuilder.setVersion(VERSION);
 
-    var featureTableSchemes =
-        new LinkedHashMap<String, LinkedHashMap<String, MltTilesetMetadata.Column>>();
-    var complexPropertyColumnSchemesContainer =
-        new LinkedHashMap<
-            String, LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder>>();
-    for (var tile : mvTiles) {
-      for (var layer : tile.layers()) {
-        final LinkedHashMap<String, MltTilesetMetadata.Column> featureTableScheme;
+    for (var layer : tile.layers()) {
+      final LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas = new LinkedHashMap<>();
+      final LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder>
+          complexPropertyColumnSchemas = new LinkedHashMap<>();
 
-        if (!featureTableSchemes.containsKey(layer.name())) {
-          featureTableScheme = new LinkedHashMap<>();
-          featureTableSchemes.put(layer.name(), featureTableScheme);
-        } else {
-          featureTableScheme = featureTableSchemes.get(layer.name());
-        }
+      var isLongId = false;
+      for (var feature : layer.features()) {
+        feature.properties().entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(
+                property -> {
+                  resolveColumnType(
+                      property, columnMappings, columnSchemas, complexPropertyColumnSchemas);
+                });
 
-        var complexPropertyColumnSchemes =
-            complexPropertyColumnSchemesContainer.computeIfAbsent(
-                layer.name(), k -> new LinkedHashMap<>());
-
-        /* Create the scheme for the property columns by iterating over all features in the tile and collecting
-         * information about the feature properties*/
-        var isLongId = false;
-        for (var feature : layer.features()) {
-          /* sort so that the name of the parent column comes first before the nested fields as it has to be the shortest */
-          // TODO: refactor
-          var properties =
-              feature.properties().entrySet().stream()
-                  .sorted((a, b) -> a.getKey().compareTo(b.getKey()))
-                  .toList();
-          for (var property : properties) {
-            var mvtPropertyName = property.getKey();
-
-            if (featureTableScheme.containsKey(mvtPropertyName)) {
-              continue;
-            }
-
-            /* MVT can only contain scalar types */
-            var scalarType = getScalarType(property);
-
-            if (columnMappings.isPresent()) {
-              // TODO: refactor quick and dirty solution -> simplify that complex logic
-              if (columnMappings.get().stream()
-                      .anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
-                  && !complexPropertyColumnSchemes.containsKey(mvtPropertyName)) {
-                /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
-                 * In this case the field is mapped to the name default. */
-                var childField = createScalarFieldScheme("default", true, scalarType);
-                var fieldMetadataBuilder = createComplexColumnBuilder(childField);
-                complexPropertyColumnSchemes.put(mvtPropertyName, fieldMetadataBuilder);
-                continue;
-              } else if (columnMappings.get().stream()
-                      .anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
-                  && complexPropertyColumnSchemes.containsKey(mvtPropertyName)
-                  && complexPropertyColumnSchemes.get(mvtPropertyName).getChildrenList().stream()
-                      .noneMatch(c -> c.getName().equals("default"))) {
-                /* Case where the top-level field such as name is not present in the first feature */
-                var childField = createScalarFieldScheme("default", true, scalarType);
-                var columnMapping =
-                    columnMappings.get().stream()
-                        .filter(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
-                        .findFirst()
-                        .orElseThrow();
-                complexPropertyColumnSchemes
-                    .get(columnMapping.mvtPropertyPrefix())
-                    .addChildren(childField);
-                continue;
-              } else if (columnMappings.get().stream()
-                  .anyMatch(
-                      m ->
-                          mvtPropertyName.contains(
-                              m.mvtPropertyPrefix() + Settings.MLT_CHILD_FIELD_SEPARATOR))) {
-                var columnMapping =
-                    columnMappings.get().stream()
-                        .filter(
-                            m ->
-                                mvtPropertyName.contains(
-                                    m.mvtPropertyPrefix() + Settings.MLT_CHILD_FIELD_SEPARATOR))
-                        .findFirst()
-                        .orElseThrow();
-                var columnName = columnMapping.mvtPropertyPrefix();
-
-                var fieldNames = mvtPropertyName.split(Settings.MLT_CHILD_FIELD_SEPARATOR);
-                /* There are cases with double nested property names like name_ja_kana */
-                var fieldName =
-                    Arrays.stream(fieldNames)
-                        .skip(1)
-                        .collect(Collectors.joining(Settings.MLT_CHILD_FIELD_SEPARATOR));
-                var children = createScalarFieldScheme(fieldName, true, scalarType);
-                if (complexPropertyColumnSchemes.containsKey(columnName)) {
-                  /* add the nested properties to the parent like the name:* properties to the name parent struct */
-                  if (complexPropertyColumnSchemes.get(columnName).getChildrenList().stream()
-                      .noneMatch(c -> c.getName().equals(fieldName))) {
-                    complexPropertyColumnSchemes.get(columnName).addChildren(children);
-                  }
-                } else {
-                  /* Case where there is no explicit property available which serves as the name
-                   * for the top-level field. For example there is no name property only name:* */
-                  var complexColumnBuilder = createComplexColumnBuilder(children);
-                  complexPropertyColumnSchemes.put(columnName, complexColumnBuilder);
-                }
-                continue;
-              }
-            }
-
-            var columnScheme = createScalarColumnScheme(mvtPropertyName, true, scalarType);
-            featureTableScheme.put(mvtPropertyName, columnScheme);
-          }
-
-          if (isIdPresent
-              && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
-            isLongId = true;
-          }
-        }
-
-        if (isIdPresent && (!featureTableScheme.containsKey(ID_COLUMN_NAME))
-            || (isLongId
-                && featureTableScheme.get(ID_COLUMN_NAME).getScalarType().getPhysicalType()
-                    != MltTilesetMetadata.ScalarType.INT_64)) {
-          /* Narrow down unsigned long to unsigned int if possible as it can be currently more efficiently encoded
-           * based on FastPFOR (64 bit variant not yet implemented) instead of Varint and faster
-           * decoded in the Js decoder.
-           * */
-          var idDataType =
-              isLongId
-                  ? MltTilesetMetadata.ScalarType.UINT_64
-                  : MltTilesetMetadata.ScalarType.UINT_32;
-          var idMetadata = createScalarColumnScheme(ID_COLUMN_NAME, false, idDataType);
-          featureTableScheme.put(ID_COLUMN_NAME, idMetadata);
+        if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
+          isLongId = true;
         }
       }
-    }
 
-    for (var complexPropertyColumnSchemeLayer : complexPropertyColumnSchemesContainer.entrySet()) {
-      for (var complexPropertyColumnScheme :
-          complexPropertyColumnSchemeLayer.getValue().entrySet()) {
-        featureTableSchemes
-            .get(complexPropertyColumnSchemeLayer.getKey())
-            .put(
+      for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
+        columnSchemas.put(
+            complexPropertyColumnScheme.getKey(),
+            createColumn(
                 complexPropertyColumnScheme.getKey(),
-                createColumn(
-                    complexPropertyColumnScheme.getKey(),
-                    complexPropertyColumnScheme.getValue().build()));
+                complexPropertyColumnScheme.getValue().build()));
       }
-    }
 
-    for (var featureTableScheme : featureTableSchemes.entrySet()) {
+      // If the `id` column needs to be created, or needs to be a different type, (re-)create it.
+      // If none of the `id` values we encountered need 64 bits use a 32-bit column, as it can
+      // currently be more efficiently encoded based on FastPFOR (64 bit variant not yet
+      // implemented) instead of Varint and decoded faster in JS.
+      if (isIdPresent && (!columnSchemas.containsKey(ID_COLUMN_NAME))
+          || (isLongId
+              && columnSchemas.get(ID_COLUMN_NAME).getScalarType().getPhysicalType()
+                  != MltTilesetMetadata.ScalarType.INT_64)) {
+        /* Narrow down unsigned long to unsigned int if possible as it can be currently more efficiently encoded
+         * based on FastPFOR (64 bit variant not yet implemented) instead of Varint and faster
+         * decoded in the Js decoder.
+         * */
+        var idDataType =
+            isLongId
+                ? MltTilesetMetadata.ScalarType.UINT_64
+                : MltTilesetMetadata.ScalarType.UINT_32;
+        var idMetadata = createScalarColumnScheme(ID_COLUMN_NAME, false, idDataType);
+        columnSchemas.put(ID_COLUMN_NAME, idMetadata);
+      }
+
       var featureTableSchemaBuilder = MltTilesetMetadata.FeatureTableSchema.newBuilder();
-      featureTableSchemaBuilder.setName(featureTableScheme.getKey());
+      featureTableSchemaBuilder.setName(layer.name());
 
-      var columnSchema = featureTableScheme.getValue();
-      var idColumn = columnSchema.get(ID_COLUMN_NAME);
-      /* If present the Id column has to be the first column in a FeatureTable */
+      // If present, `id` must be the first column
+      var idColumn = columnSchemas.get(ID_COLUMN_NAME);
       if (idColumn != null) {
         featureTableSchemaBuilder.addColumns(idColumn);
-        featureTableScheme.getValue().remove(ID_COLUMN_NAME);
+        columnSchemas.remove(ID_COLUMN_NAME);
       }
 
-      /* The geometry column is mandatory and has to be the second column in a FeatureTable */
-      var geometryMetadata =
+      // The `geometry` column is mandatory and has to be the first column after `ID`
+      featureTableSchemaBuilder.addColumns(
           createComplexColumnScheme(
-              GEOMETRY_COLUMN_NAME, false, MltTilesetMetadata.ComplexType.GEOMETRY);
-      featureTableSchemaBuilder.addColumns(geometryMetadata);
+              GEOMETRY_COLUMN_NAME, false, MltTilesetMetadata.ComplexType.GEOMETRY));
 
-      columnSchema.forEach((k, v) -> featureTableSchemaBuilder.addColumns(v));
+      columnSchemas.forEach((k, v) -> featureTableSchemaBuilder.addColumns(v));
       tilesetBuilder.addFeatureTables(featureTableSchemaBuilder.build());
     }
 
     return tilesetBuilder.build();
+  }
+
+  private static void resolveColumnType(
+      Map.Entry<String, Object> property,
+      Collection<ColumnMapping> columnMappings,
+      LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas,
+      LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder>
+          complexPropertyColumnSchemas) {
+    final var mvtPropertyName = property.getKey();
+
+    if (columnSchemas.containsKey(mvtPropertyName)) {
+      return;
+    }
+
+    /* MVT can only contain scalar types */
+    final var scalarType = getScalarType(property);
+
+    if (!columnMappings.isEmpty()) {
+      // TODO: refactor quick and dirty solution -> simplify that complex logic
+      if (columnMappings.stream().anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
+          && !complexPropertyColumnSchemas.containsKey(mvtPropertyName)) {
+        /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
+         * In this case the field is mapped to the name default. */
+        final var childField = createScalarFieldScheme("default", true, scalarType);
+        final var fieldMetadataBuilder = createComplexColumnBuilder(childField);
+        complexPropertyColumnSchemas.put(mvtPropertyName, fieldMetadataBuilder);
+        return;
+      } else if (columnMappings.stream()
+              .anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
+          && complexPropertyColumnSchemas.containsKey(mvtPropertyName)
+          && complexPropertyColumnSchemas.get(mvtPropertyName).getChildrenList().stream()
+              .noneMatch(c -> c.getName().equals("default"))) {
+        /* Case where the top-level field such as name is not present in the first feature */
+        final var childField = createScalarFieldScheme("default", true, scalarType);
+        final var columnMapping =
+            columnMappings.stream()
+                .filter(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
+                .findFirst()
+                .orElseThrow();
+        complexPropertyColumnSchemas.get(columnMapping.mvtPropertyPrefix()).addChildren(childField);
+        return;
+      } else if (columnMappings.stream()
+          .anyMatch(
+              m ->
+                  mvtPropertyName.contains(
+                      m.mvtPropertyPrefix() + Settings.MLT_CHILD_FIELD_SEPARATOR))) {
+        final var columnMapping =
+            columnMappings.stream()
+                .filter(
+                    m ->
+                        mvtPropertyName.contains(
+                            m.mvtPropertyPrefix() + Settings.MLT_CHILD_FIELD_SEPARATOR))
+                .findFirst()
+                .orElseThrow();
+        final var columnName = columnMapping.mvtPropertyPrefix();
+
+        final var fieldNames = mvtPropertyName.split(Settings.MLT_CHILD_FIELD_SEPARATOR);
+        /* There are cases with double nested property names like name_ja_kana */
+        final var fieldName =
+            Arrays.stream(fieldNames)
+                .skip(1)
+                .collect(Collectors.joining(Settings.MLT_CHILD_FIELD_SEPARATOR));
+        final var children = createScalarFieldScheme(fieldName, true, scalarType);
+        if (complexPropertyColumnSchemas.containsKey(columnName)) {
+          /* add the nested properties to the parent like the name:* properties to the name parent struct */
+          if (complexPropertyColumnSchemas.get(columnName).getChildrenList().stream()
+              .noneMatch(c -> c.getName().equals(fieldName))) {
+            complexPropertyColumnSchemas.get(columnName).addChildren(children);
+          }
+        } else {
+          /* Case where there is no explicit property available which serves as the name
+           * for the top-level field. For example there is no name property only name:* */
+          final var complexColumnBuilder = createComplexColumnBuilder(children);
+          complexPropertyColumnSchemas.put(columnName, complexColumnBuilder);
+        }
+        return;
+      }
+    }
+
+    var columnScheme = createScalarColumnScheme(mvtPropertyName, true, scalarType);
+    columnSchemas.put(mvtPropertyName, columnScheme);
   }
 
   public static String createTilesetMetadataJSON(MltTilesetMetadata.TileSetMetadata pbMetadata) {
@@ -331,133 +297,34 @@ public class MltConverter {
   /// Produce the binary tile header containing the tile metadata
   /// <p>Note: Uses the protobuf format as input to avoid repeating the logic there, could be
   /// refactored to eliminate it</p>
-  public static byte[] createEmbeddedMetadata(MltTilesetMetadata.TileSetMetadata pbMetadata)
+  public static byte[] createEmbeddedMetadata(MltTilesetMetadata.FeatureTableSchema table)
       throws IOException {
     try (var byteStream = new ByteArrayOutputStream()) {
       try (var dataStream = new DataOutputStream(byteStream)) {
-        for (var table : pbMetadata.getFeatureTablesList()) {
-          EncodingUtils.putString(dataStream, table.getName());
-          EncodingUtils.putVarInt(dataStream, table.getColumnsCount());
-          for (var column : table.getColumnsList()) {
-            writeColumnOrFieldType(
-                dataStream,
-                column.getName(),
-                column.getNullable(),
-                (column.getColumnScope() == MltTilesetMetadata.ColumnScope.VERTEX),
-                column.hasScalarType() && column.getScalarType().hasPhysicalType()
-                    ? column.getScalarType().getPhysicalType()
-                    : null,
-                column.hasScalarType() && column.getScalarType().hasLogicalType()
-                    ? column.getScalarType().getLogicalType()
-                    : null,
-                column.hasComplexType() && column.getComplexType().hasPhysicalType()
-                    ? column.getComplexType().getPhysicalType()
-                    : null,
-                column.hasComplexType() && column.getComplexType().hasLogicalType()
-                    ? column.getComplexType().getLogicalType()
-                    : null,
-                column.hasComplexType() ? column.getComplexType().getChildrenList() : null);
-          }
+        EncodingUtils.putString(dataStream, table.getName());
+        EncodingUtils.putVarInt(dataStream, table.getColumnsCount());
+        for (var column : table.getColumnsList()) {
+          writeColumnOrFieldType(
+              dataStream,
+              column.getName(),
+              column.getNullable(),
+              (column.getColumnScope() == MltTilesetMetadata.ColumnScope.VERTEX),
+              column.hasScalarType() && column.getScalarType().hasPhysicalType()
+                  ? column.getScalarType().getPhysicalType()
+                  : null,
+              column.hasScalarType() && column.getScalarType().hasLogicalType()
+                  ? column.getScalarType().getLogicalType()
+                  : null,
+              column.hasComplexType() && column.getComplexType().hasPhysicalType()
+                  ? column.getComplexType().getPhysicalType()
+                  : null,
+              column.hasComplexType() && column.getComplexType().hasLogicalType()
+                  ? column.getComplexType().getLogicalType()
+                  : null,
+              column.hasComplexType() ? column.getComplexType().getChildrenList() : null);
         }
       }
       return byteStream.toByteArray();
-    }
-  }
-
-  static class FieldOptions {
-    public static final int NULLABLE = 1;
-    public static final int COMPLEX_TYPE = (1 << 1);
-    public static final int LOGICAL_TYPE = (1 << 2);
-    public static final int HAS_CHILDREN = (1 << 3);
-  }
-
-  static class ColumnOptions extends FieldOptions {
-    public static final int VERTEX_SCOPE = (1 << 4);
-  }
-
-  private static void decodeField(InputStream stream, MltTilesetMetadata.Field.Builder field)
-      throws IOException {
-    field.setName(DecodingUtils.decodeString(stream));
-
-    final var options = DecodingUtils.decodeVarint(stream);
-    final boolean logical = ((options & FieldOptions.LOGICAL_TYPE) != 0);
-    field.setNullable((options & FieldOptions.NULLABLE) != 0);
-
-    final var type = DecodingUtils.decodeVarint(stream);
-    if ((options & FieldOptions.LOGICAL_TYPE) != 0) {
-      final var complexField = field.getComplexFieldBuilder();
-      if (logical) {
-        complexField.setLogicalTypeValue(type);
-      } else {
-        complexField.setPhysicalTypeValue(type);
-      }
-      if ((options & FieldOptions.HAS_CHILDREN) != 0) {
-        final var childCount = DecodingUtils.decodeVarint(stream);
-        for (int i = 0; i < childCount; ++i) {
-          decodeField(stream, complexField.addChildrenBuilder());
-        }
-      }
-    } else {
-      final var scalarType = field.getScalarFieldBuilder();
-      if (logical) {
-        scalarType.setLogicalTypeValue(type);
-      } else {
-        scalarType.setPhysicalTypeValue(type);
-      }
-    }
-  }
-
-  private static void decodeColumn(
-      InputStream stream, int options, MltTilesetMetadata.Column.Builder column)
-      throws IOException {
-    final boolean logical = ((options & ColumnOptions.LOGICAL_TYPE) != 0);
-    final var type = DecodingUtils.decodeVarint(stream);
-    if ((options & ColumnOptions.COMPLEX_TYPE) != 0) {
-      final var complexType = column.getComplexTypeBuilder();
-      if (logical) {
-        complexType.setLogicalTypeValue(type);
-      } else {
-        complexType.setPhysicalTypeValue(type);
-      }
-      if ((options & ColumnOptions.HAS_CHILDREN) != 0) {
-        final var childCount = DecodingUtils.decodeVarint(stream);
-        for (int i = 0; i < childCount; ++i) {
-          decodeField(stream, complexType.addChildrenBuilder());
-        }
-      }
-    } else {
-      final var scalarType = column.getScalarTypeBuilder();
-      if (logical) {
-        scalarType.setLogicalTypeValue(type);
-      } else {
-        scalarType.setPhysicalTypeValue(type);
-      }
-    }
-  }
-
-  public static MltTilesetMetadata.TileSetMetadata parseEmbeddedMetadata(InputStream stream) {
-    try {
-      final var result = MltTilesetMetadata.TileSetMetadata.newBuilder();
-      while (stream.available() > 0) {
-        final var table = result.addFeatureTablesBuilder();
-        table.setName(DecodingUtils.decodeString(stream));
-        final var columnCount = DecodingUtils.decodeVarint(stream);
-        for (int i = 0; i < columnCount; ++i) {
-          final var columnOptions = DecodingUtils.decodeVarint(stream);
-          final boolean vertexScope = (columnOptions & ColumnOptions.VERTEX_SCOPE) != 0;
-          final var column = table.addColumnsBuilder();
-          column.setName(DecodingUtils.decodeString(stream));
-          column.setNullable((columnOptions & ColumnOptions.NULLABLE) != 0);
-          column.setColumnScope(
-              vertexScope
-                  ? MltTilesetMetadata.ColumnScope.VERTEX
-                  : MltTilesetMetadata.ColumnScope.FEATURE);
-          decodeColumn(stream, columnOptions, column);
-        }
-      }
-      return result.build();
-    } catch (IOException ignore) {
-      return null;
     }
   }
 
@@ -486,6 +353,19 @@ public class MltConverter {
       @Nullable URI tessellateSource,
       @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
+
+    // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
+    // We assume that the names are unique.
+    final var metaMap =
+        tilesetMetadata.getFeatureTablesList().stream()
+            .collect(
+                Collectors.toMap(
+                    MltTilesetMetadata.FeatureTableSchema::getName,
+                    table -> table,
+                    (existing, replacement) -> {
+                      throw new RuntimeException("duplicate key");
+                    }));
+
     var physicalLevelTechnique =
         config.getUseAdvancedEncodingSchemes()
             ? PhysicalLevelTechnique.FAST_PFOR
@@ -493,34 +373,22 @@ public class MltConverter {
 
     var mapLibreTileBuffer = new byte[0];
     for (var mvtLayer : mvt.layers()) {
-      var featureTableBodyBuffer = new byte[0];
+      final var layerMetadata = metaMap.get(mvtLayer.name());
+      if (layerMetadata == null) {
+        throw new RuntimeException("Missing Metadata");
+      }
 
-      var featureTableName = mvtLayer.name();
-      var mvtFeatures = mvtLayer.features();
-
-      /* Layout FeatureTableMetadata header (all u32 types are varint encoded):
-       *  version: u8 | featureTableId: u32 | layerExtent: u32 | maxLayerExtent: u32 | numFeatures: u32
-       *  */
-      var featureTables = tilesetMetadata.getFeatureTablesList();
-      var featureTableId =
-          IntStream.range(0, featureTables.size())
-              .filter(i -> featureTables.get(i).getName().equals(featureTableName))
-              .findFirst()
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          "Feature table with name '" + featureTableName + "' not found."));
-      var featureTableMetadata = featureTables.get(featureTableId);
-
-      var featureTableOptimizations =
+      final var featureTableName = mvtLayer.name();
+      final var mvtFeatures = mvtLayer.features();
+      final var featureTableOptimizations =
           config.getOptimizations() == null
               ? null
               : config.getOptimizations().get(featureTableName);
 
-      var createPolygonOutline =
+      final var createPolygonOutline =
           config.getOutlineFeatureTableNames().contains(featureTableName)
               || config.getOutlineFeatureTableNames().contains("*");
-      var result =
+      final var result =
           sortFeaturesAndEncodeGeometryColumn(
               config,
               featureTableOptimizations,
@@ -530,23 +398,19 @@ public class MltConverter {
               createPolygonOutline,
               tessellateSource,
               rawStreamData);
-      var sortedFeatures = result.getLeft();
-      var encodedGeometryColumn = result.getRight();
-      var encodedGeometryFieldMetadata =
-          EncodingUtils.encodeVarints(
-              new long[] {encodedGeometryColumn.numStreams()}, false, false);
+      final var sortedFeatures = result.getLeft();
+      final var encodedGeometryColumn = result.getRight();
+      final var encodedGeometryFieldMetadata =
+          EncodingUtils.encodeVarint(encodedGeometryColumn.numStreams(), false);
 
       var encodedPropertyColumns =
           encodePropertyColumns(
-              config,
-              featureTableMetadata,
-              sortedFeatures,
-              featureTableOptimizations,
-              rawStreamData);
+              config, layerMetadata, sortedFeatures, featureTableOptimizations, rawStreamData);
 
+      var featureTableBodyBuffer = new byte[0];
       if (config.getIncludeIds()) {
-        var idMetadata =
-            featureTableMetadata.getColumnsList().stream()
+        final var idMetadata =
+            layerMetadata.getColumnsList().stream()
                 .filter(f -> f.getName().equals(ID_COLUMN_NAME))
                 .findFirst()
                 .orElseThrow();
@@ -567,23 +431,23 @@ public class MltConverter {
               encodedGeometryColumn.encodedValues(),
               encodedPropertyColumns);
 
-      var featureTableBodySize = featureTableBodyBuffer.length;
-      var encodedFeatureTableInfo =
-          EncodingUtils.encodeVarints(
-              new long[] {
-                featureTableId,
-                featureTableBodySize,
-                mvtLayer.tileExtent(),
-                EncodingUtils.encodeZigZag(encodedGeometryColumn.maxVertexValue()),
-                sortedFeatures.size()
-              },
-              false,
-              false);
+      final var encodedFeatureTableInfo = EncodingUtils.encodeVarint(mvtLayer.tileExtent(), false);
+      final var metadataBuffer = createEmbeddedMetadata(layerMetadata);
+
+      final var tag = 1;
+      final var tagBuffer = EncodingUtils.encodeVarint(tag, false);
+      final var tagLength =
+          tagBuffer.length
+              + metadataBuffer.length
+              + encodedFeatureTableInfo.length
+              + featureTableBodyBuffer.length;
 
       mapLibreTileBuffer =
           CollectionUtils.concatByteArrays(
               mapLibreTileBuffer,
-              new byte[] {VERSION},
+              EncodingUtils.encodeVarint(tagLength, false),
+              EncodingUtils.encodeVarint(tag, false),
+              metadataBuffer,
               encodedFeatureTableInfo,
               featureTableBodyBuffer);
     }
@@ -603,9 +467,7 @@ public class MltConverter {
         propertyColumns,
         sortedFeatures,
         config.getUseAdvancedEncodingSchemes(),
-        featureTableOptimizations != null
-            ? featureTableOptimizations.columnMappings()
-            : Optional.empty(),
+        featureTableOptimizations != null ? featureTableOptimizations.columnMappings() : List.of(),
         rawStreamData);
   }
 

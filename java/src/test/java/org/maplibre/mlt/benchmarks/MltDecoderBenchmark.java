@@ -1,25 +1,22 @@
 package org.maplibre.mlt.benchmarks;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 
 /**
  * Quick and dirty benchmarks for the decoding of OpenMapTiles schema based tiles into the MVT and
  * MLT in-memory representations. Can be used for simple profiling. For more proper benchmarks based
- * on JMH see {@link org.maplibre.mlt.OmtDecoderBenchmark}
+ * on JMH see `OmtDecoderBenchmark`
  */
 public class MltDecoderBenchmark {
 
@@ -145,12 +142,10 @@ public class MltDecoderBenchmark {
 
     var mvt = Files.readAllBytes(mvtFilePath);
     var mvtTimeElapsed = 0L;
-    var is = new ByteArrayInputStream(mvt);
     for (int i = 0; i <= 200; i++) {
       long start = System.currentTimeMillis();
       var mvTile = MvtUtils.decodeMvtFast(mvt);
       long finish = System.currentTimeMillis();
-      is.reset();
 
       if (i > 100) {
         mvtTimeElapsed += (finish - start);
@@ -158,16 +153,14 @@ public class MltDecoderBenchmark {
     }
     System.out.println("MVT decoding time: " + (mvtTimeElapsed / 100.0));
 
-    MapboxVectorTile mvTile = MvtUtils.decodeMvt(mvtFilePath);
+    var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Optional.of(List.of(columnMapping));
-    var tileMetadata = MltConverter.createTilesetMetadata(List.of(mvTile), columnMappings, true);
+    var columnMappings = List.of(columnMapping);
+    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = true;
     var allowSorting = false;
-    // var allowIdRegeneration = true;
-    // var allowSorting = true;
     var optimization =
         new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
     // TODO: fix -> either add columMappings per layer or global like when creating the scheme
