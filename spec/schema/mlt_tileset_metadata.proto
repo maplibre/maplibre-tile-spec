@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package mlt;
 
-option java_package = "com.mlt.metadata.tileset";
+option java_package = "org.maplibre.mlt.metadata.tileset";
 
 message TileSetMetadata {
   int32 version = 1;
@@ -102,26 +102,12 @@ enum ScalarType {
 }
 
 enum ComplexType {
-  // fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-  VEC_2 = 0;
-  // fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-  VEC_3 = 1;
-  // vec2<Int32> for the VertexBuffer stream with additional information (streams) about the topology
-  GEOMETRY = 2;
-  // vec3<Int32> for the VertexBuffer stream with additional information (streams) about the topology
-  GEOMETRY_Z = 3;
-  LIST = 4;
-  MAP = 5;
-  STRUCT = 6;
+  GEOMETRY = 0;
+  STRUCT = 1;
 }
 
 enum LogicalScalarType {
-  // physical type: Int64 -> number of milliseconds since Unix epoch
-  TIMESTAMP = 0;
-  // physical type: Int32 -> number of days since Unix epoch
-  DATE = 1;
-  // physical type: String
-  JSON = 2;
+  ID = 0;
 }
 
 enum LogicalComplexType {
