@@ -149,10 +149,7 @@ public class Encode {
       @Nullable URI tessellateSource,
       boolean verbose)
       throws IOException {
-    var willOutput =
-        cmd.hasOption(OUTPUT_FILE_ARG)
-            || cmd.hasOption(OUTPUT_DIR_ARG)
-            || cmd.hasOption(INCLUDE_EMBEDDED_METADATA);
+    var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
     var willDecode = cmd.hasOption(DECODE_OPTION);
     var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
     var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
@@ -187,15 +184,11 @@ public class Encode {
           System.err.println("Writing converted tile to " + outputPath);
         }
 
-        if (cmd.hasOption(INCLUDE_EMBEDDED_METADATA)) {
-          try {
-            Files.write(outputPath, mlTile);
-          } catch (IOException ex) {
-            System.err.println("ERROR: Failed to write tile with embedded metadata");
-            ex.printStackTrace(System.err);
-          }
-        } else {
+        try {
           Files.write(outputPath, mlTile);
+        } catch (IOException ex) {
+          System.err.println("ERROR: Failed to write tile");
+          ex.printStackTrace(System.err);
         }
 
         if (cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION)) {
@@ -601,9 +594,7 @@ public class Encode {
       }
       return tileData;
     } catch (IOException ex) {
-      System.err.printf(
-          "ERROR: Failed to write tile with embedded PBF metadata (%d:%d,%d): %s%n",
-          z, x, y, ex.getMessage());
+      System.err.printf("ERROR: Failed to write tile (%d:%d,%d): %s%n", z, x, y, ex.getMessage());
       if (verbose) {
         ex.printStackTrace(System.err);
       }
@@ -747,7 +738,6 @@ public class Encode {
   private static final String INCLUDE_METADATA_OPTION = "metadata";
   private static final String INCLUDE_PBF_METADATA_OPTION = "pbfmetadata";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "tilesetmetadata";
-  private static final String INCLUDE_EMBEDDED_METADATA = "embedmetadata";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
@@ -907,18 +897,6 @@ public class Encode {
               .hasArg(false)
               .desc(
                   "Write tileset metadata JSON alongside the output tile (adding '.json'). "
-                      + "Only applies with --"
-                      + INPUT_TILE_ARG
-                      + ".")
-              .required(false)
-              .build());
-      options.addOption(
-          Option.builder()
-              .longOpt(INCLUDE_EMBEDDED_METADATA)
-              .hasArg(false)
-              .argName("file")
-              .desc(
-                  "Write output tile with embedded metadata. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")

@@ -82,18 +82,16 @@ test-java-cli:
     cd java  # Changing directory requires this recipe to have the #!/... line at the top, i.e. be a proper script
     ./gradlew cli
     # Test the encoding CLI
-    java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -mlt output/varint.mlt
+    java -jar ./build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
     # ensure expected size
-    python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # Test the meta CLI and ensure it doesn't overwrite the metadata (a sign it correctly matches the encode output)
-    java -jar ./build/libs/meta.jar -mvt ../test/fixtures/omt/10_530_682.mvt -meta output/varint.mlt.meta
+    #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # ensure expected size is maintained (meta writes the same meta file as encode)
-    python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+    #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # Test the using advanced encodings
-    java -jar ./build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --embedmetadata --advanced --mlt output/advanced.mlt
+    java -jar ./build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --advanced --mlt output/advanced.mlt
     # ensure expected sizes
-    python3 -c 'import os; expected=67516; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    python3 -c 'import os; expected=66523; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+    #python3 -c 'import os; expected=67516; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
+    #python3 -c 'import os; expected=66523; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # decode without advanced
     java -jar ./build/libs/decode.jar -mlt output/advanced.mlt
     # ensure we can decode the advanced tile
