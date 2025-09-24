@@ -7,6 +7,7 @@ use num_traits::PrimInt;
 use zigzag::ZigZag;
 
 use crate::MltError;
+use crate::MltResult;
 use crate::decoder::integer_stream::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
@@ -25,7 +26,7 @@ pub fn decode_long_stream(
     _tile: &mut TrackedBytes,
     _metadata: &StreamMetadata,
     _is_signed: bool,
-) -> Result<Vec<u64>, MltError> {
+) -> MltResult<Vec<u64>> {
     todo!()
 }
 
@@ -36,16 +37,13 @@ pub fn decode_int_stream(
     tile: &mut TrackedBytes,
     metadata: &StreamMetadata,
     is_signed: bool,
-) -> Result<Vec<i32>, MltError> {
+) -> MltResult<Vec<i32>> {
     let values = decode_physical(tile, metadata)?;
     decode_logical(&values, metadata, is_signed)
 }
 
 /// Byte-level decoding based on the physical technique and stream type
-pub fn decode_physical(
-    tile: &mut TrackedBytes,
-    metadata: &StreamMetadata,
-) -> Result<Vec<u32>, MltError> {
+pub fn decode_physical(tile: &mut TrackedBytes, metadata: &StreamMetadata) -> MltResult<Vec<u32>> {
     match &metadata.physical.technique {
         PhysicalLevelTechnique::FastPfor => decode_fast_pfor(tile, metadata),
         PhysicalLevelTechnique::Varint => varint::decode::<u32>(tile, metadata.num_values as usize),
@@ -61,7 +59,7 @@ fn decode_logical(
     values: &[u32],
     metadata: &StreamMetadata,
     is_signed: bool,
-) -> Result<Vec<i32>, MltError> {
+) -> MltResult<Vec<i32>> {
     match metadata.logical.technique1 {
         Some(LogicalLevelTechnique::Delta) => {
             if metadata.logical.technique2 == Some(LogicalLevelTechnique::Rle) {
@@ -109,10 +107,7 @@ fn decode_logical(
     }
 }
 
-fn decode_fast_pfor(
-    tile: &mut TrackedBytes,
-    metadata: &StreamMetadata,
-) -> Result<Vec<u32>, MltError> {
+fn decode_fast_pfor(tile: &mut TrackedBytes, metadata: &StreamMetadata) -> MltResult<Vec<u32>> {
     let codec = FastPFor128Codec::new();
     let expected_len = metadata.num_values as usize;
     let mut decoded = vec![0; expected_len];
@@ -130,7 +125,7 @@ fn decode_fast_pfor(
 }
 
 /// Convert a byte stream (little-endian, LE) to a vector of u32 integers.
-fn le_bytes_to_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Vec<u32>, MltError> {
+fn le_bytes_to_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> MltResult<Vec<u32>> {
     if !num_bytes.is_multiple_of(4) {
         return Err(MltError::InvalidByteMultiple {
             ctx: "bytes-to-be-encoded-u32 stream",
@@ -160,7 +155,7 @@ fn le_bytes_to_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> Result<Vec<u32
 
 /// Decode RLE (Run-Length Encoding) data
 /// It serves the same purpose as the `decodeUnsignedRLE` and `decodeRLE` methods in the Java code.
-fn decode_rle<T: PrimInt + Debug>(data: &[T], rle_meta: &Rle) -> Result<Vec<T>, MltError> {
+fn decode_rle<T: PrimInt + Debug>(data: &[T], rle_meta: &Rle) -> MltResult<Vec<T>> {
     let runs = rle_meta.runs as usize;
     let total = rle_meta.num_rle_values as usize;
     let (run_lens, values) = data.split_at(runs);
@@ -193,7 +188,7 @@ fn decode_zigzag_delta<T: ZigZag>(data: &[T::UInt]) -> Vec<T> {
 fn decode_morton_u64_to_i32_vec2<T: Into<u64>>(
     morton_code: T,
     coordinate_shift: u32,
-) -> Result<[i32; 2], MltError> {
+) -> MltResult<[i32; 2]> {
     let encoded: u64 = morton_code.into();
     let [xu, yu]: [u32; 2] = morton_decode(encoded);
 
@@ -224,7 +219,7 @@ fn decode_morton_u64_to_i32_vec2<T: Into<u64>>(
 fn decode_morton_u64_to_i32_vec2s_flat<T: Into<u64> + Copy>(
     data: &[T],
     coordinate_shift: u32,
-) -> Result<Vec<i32>, MltError> {
+) -> MltResult<Vec<i32>> {
     let mut vertices: Vec<i32> = Vec::with_capacity(data.len() * 2);
     for &code in data {
         let [x, y] = decode_morton_u64_to_i32_vec2(code, coordinate_shift)?;
@@ -234,7 +229,7 @@ fn decode_morton_u64_to_i32_vec2s_flat<T: Into<u64> + Copy>(
     Ok(vertices)
 }
 
-fn convert_u32_to_i32(values: &[u32]) -> Result<Vec<i32>, MltError> {
+fn convert_u32_to_i32(values: &[u32]) -> MltResult<Vec<i32>> {
     values
         .iter()
         .map(|&v| {
