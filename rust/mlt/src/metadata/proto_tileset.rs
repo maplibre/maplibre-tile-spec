@@ -223,17 +223,8 @@ impl ScalarType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ComplexType {
-    /// fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-    Vec2 = 0,
-    /// fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-    Vec3 = 1,
-    /// vec2<Int32> for the VertexBuffer stream with additional information (streams) about the topology
-    Geometry = 2,
-    /// vec3<Int32> for the VertexBuffer stream with additional information (streams) about the topology
-    GeometryZ = 3,
-    List = 4,
-    Map = 5,
-    Struct = 6,
+    Geometry = 0,
+    Struct = 1,
 }
 impl ComplexType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -242,24 +233,14 @@ impl ComplexType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            Self::Vec2 => "VEC_2",
-            Self::Vec3 => "VEC_3",
             Self::Geometry => "GEOMETRY",
-            Self::GeometryZ => "GEOMETRY_Z",
-            Self::List => "LIST",
-            Self::Map => "MAP",
             Self::Struct => "STRUCT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "VEC_2" => Some(Self::Vec2),
-            "VEC_3" => Some(Self::Vec3),
             "GEOMETRY" => Some(Self::Geometry),
-            "GEOMETRY_Z" => Some(Self::GeometryZ),
-            "LIST" => Some(Self::List),
-            "MAP" => Some(Self::Map),
             "STRUCT" => Some(Self::Struct),
             _ => None,
         }
@@ -268,12 +249,7 @@ impl ComplexType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum LogicalScalarType {
-    /// physical type: Int64 -> number of milliseconds since Unix epoch
-    Timestamp = 0,
-    /// physical type: Int32 -> number of days since Unix epoch
-    Date = 1,
-    /// physical type: String
-    Json = 2,
+    Id = 0,
 }
 impl LogicalScalarType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -282,17 +258,13 @@ impl LogicalScalarType {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            Self::Timestamp => "TIMESTAMP",
-            Self::Date => "DATE",
-            Self::Json => "JSON",
+            Self::Id => "ID",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "TIMESTAMP" => Some(Self::Timestamp),
-            "DATE" => Some(Self::Date),
-            "JSON" => Some(Self::Json),
+            "ID" => Some(Self::Id),
             _ => None,
         }
     }
