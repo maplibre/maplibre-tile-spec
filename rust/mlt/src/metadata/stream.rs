@@ -111,18 +111,18 @@ impl StreamMetadata {
             rle: None,
         };
 
-        if metadata.logical.technique1 == Some(MORTON) {
+        Ok(if metadata.logical.technique1 == Some(MORTON) {
             metadata.partial_decode(MORTON, tile)?;
-            return Ok(metadata);
+            metadata
         } else if (metadata.logical.technique1 == Some(RLE)
             || metadata.logical.technique2 == Some(RLE))
             && metadata.physical.technique != PhysicalLevelTechnique::None
         {
             metadata.partial_decode(RLE, tile)?;
-            return Ok(metadata);
-        }
-
-        Ok(metadata)
+            metadata
+        } else {
+            metadata
+        })
     }
 }
 

@@ -4,4 +4,5 @@ benchmarks/**/*.pbf
 data/
 fixtures/**/*.bin
 fixtures/**/*.json
+fixtures/**/*.mvt
 output/
