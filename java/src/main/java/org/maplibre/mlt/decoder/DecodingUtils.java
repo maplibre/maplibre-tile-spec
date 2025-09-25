@@ -205,7 +205,7 @@ public class DecodingUtils {
             // TODO: change to little endian
             .order(ByteOrder.BIG_ENDIAN)
             .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+    int[] intValues = new int[(int) Math.ceil(byteLength / 4d)];
     for (var i = 0; i < intValues.length; i++) {
       intValues[i] = intBuf.get(i);
     }
@@ -229,7 +229,7 @@ public class DecodingUtils {
             // TODO: change to little endian
             .order(ByteOrder.BIG_ENDIAN)
             .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+    int[] intValues = new int[(int) Math.ceil(byteLength / 4d)];
     for (var i = 0; i < intValues.length; i++) {
       intValues[i] = intBuf.get(i);
     }
@@ -274,7 +274,7 @@ public class DecodingUtils {
             // TODO: change to little endian
             .order(ByteOrder.BIG_ENDIAN)
             .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+    int[] intValues = new int[(int) Math.ceil(byteLength / 4d)];
     for (var i = 0; i < intValues.length; i++) {
       intValues[i] = intBuf.get(i);
     }
