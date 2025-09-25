@@ -56,7 +56,7 @@ function convertRequest(convertResponse) {
 function convertURL(urlString, type, req) {
   try {
     const url = new URL(urlString);
-              
+
     if (url.protocol != 'https:' && url.protocol != 'http:') {
       return urlString;
     }
@@ -139,7 +139,7 @@ const convertSourceRequest = convertRequest(convertSourceResponse);
 
 function convertTileResponse(filePath, res) {
   const mltPath = filePath + '.mlt';
-  const args = 
+  const args =
     ' --' + config.input + ' ' + filePath +
     ' --mlt ' + mltPath +
     (config.noids ? ' --noids' : '') +
