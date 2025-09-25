@@ -618,10 +618,10 @@ public class GeometryEncoder {
     }
 
     // TODO: get rid of that separate calculation
-    var minVertexValue =
+    var minVertexValue = vertexBuffer.isEmpty() ? Integer.MAX_VALUE :
         Collections.min(
             vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
-    var maxVertexValue =
+    var maxVertexValue = vertexBuffer.isEmpty() ? -Integer.MAX_VALUE :
         Collections.max(
             vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
 
