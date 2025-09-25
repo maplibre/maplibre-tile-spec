@@ -87,9 +87,19 @@ mod tests {
             assert!(!data.is_empty());
 
             // TODO(Weixing): implement the rest of the decoding
+            eprintln!("----------------------------------------------");
+            eprintln!("fixture name = {name}");
+            eprintln!("fixture path = {}", path.display());
+            eprintln!("decoded meta = {:#?}", meta);
+            eprintln!("raw data stream (hex): {:02x?}", data);
+
+            // read the expected json file
+            let expected = fs::read_to_string(path.with_extension("json")).expect(name);
+            eprintln!("expected: {}", expected);
 
             // if meta.logical.technique1 == Morton
             let result = decode_int_stream(&mut data.into(), &meta, false).expect(name);
+            eprintln!("result:   {}", serde_json::to_string(&result).expect(name));
 
             // let result: Vec<_> =
             //     decode_byte_rle(&mut data.into(), (meta.num_values as usize).div_ceil(8))
@@ -98,7 +108,6 @@ mod tests {
             //         .collect();
             // eprintln!("{name} => result {result:?}");
 
-            let expected = fs::read_to_string(path.with_extension("json")).expect(name);
             assert_eq!(
                 serde_json::to_string(&result).expect(name),
                 expected,
