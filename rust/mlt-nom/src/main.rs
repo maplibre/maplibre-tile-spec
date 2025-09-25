@@ -1,3 +1,5 @@
+#![allow(unused_mut)]
+
 mod structures;
 mod utils;
 
