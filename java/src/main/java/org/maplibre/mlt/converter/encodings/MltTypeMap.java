@@ -18,31 +18,31 @@ public class MltTypeMap {
       if (physicalScalarType != null) {
         if (!hasChildren) {
           return switch (physicalScalarType) {
-            case BOOLEAN -> Optional.of(isNullable ? 0 : 1);
-            case INT_8 -> Optional.of(isNullable ? 2 : 3);
-            case UINT_8 -> Optional.of(isNullable ? 4 : 5);
-            case INT_32 -> Optional.of(isNullable ? 6 : 7);
-            case UINT_32 -> Optional.of(isNullable ? 8 : 9);
-            case INT_64 -> Optional.of(isNullable ? 10 : 11);
-            case UINT_64 -> Optional.of(isNullable ? 12 : 13);
-            case FLOAT -> Optional.of(isNullable ? 14 : 15);
-            case DOUBLE -> Optional.of(isNullable ? 16 : 17);
-            case STRING -> Optional.of(isNullable ? 18 : 19);
+            case BOOLEAN -> Optional.of(isNullable ? 11 : 10);
+            case INT_8 -> Optional.of(isNullable ? 13 : 12);
+            case UINT_8 -> Optional.of(isNullable ? 15 : 14);
+            case INT_32 -> Optional.of(isNullable ? 17 : 16);
+            case UINT_32 -> Optional.of(isNullable ? 19 : 18);
+            case INT_64 -> Optional.of(isNullable ? 21 : 20);
+            case UINT_64 -> Optional.of(isNullable ? 23 : 22);
+            case FLOAT -> Optional.of(isNullable ? 25 : 24);
+            case DOUBLE -> Optional.of(isNullable ? 27 : 26);
+            case STRING -> Optional.of(isNullable ? 29 : 28);
             default -> Optional.empty();
           };
         }
       } else if (logicalScalarType != null) {
         if (logicalScalarType == MltTilesetMetadata.LogicalScalarType.ID) {
-          return Optional.of(isNullable ? (hasLongIDs ? 20 : 21) : (hasLongIDs ? 22 : 23));
+          return Optional.of(isNullable ? (hasLongIDs ? 3 : 2) : (hasLongIDs ? 1 : 0));
         }
       } else if (physicalComplexType != null) {
         if (physicalComplexType == MltTilesetMetadata.ComplexType.GEOMETRY) {
           if (!isNullable && !hasChildren) {
-            return Optional.of(24);
+            return Optional.of(4);
           }
         } else if (physicalComplexType == MltTilesetMetadata.ComplexType.STRUCT) {
           if (!isNullable && hasChildren) {
-            return Optional.of(25);
+            return Optional.of(30);
           }
         }
       }
@@ -53,44 +53,44 @@ public class MltTypeMap {
     /// The inverse of `getTag1TypeEncoding``
     public static MltTilesetMetadata.Column.Builder decodeColumnType(int typeCode) {
       final var builder = MltTilesetMetadata.Column.newBuilder();
-      if (0 <= typeCode && typeCode <= 19) {
+      if (10 <= typeCode && typeCode <= 29) {
         return MltTilesetMetadata.Column.newBuilder()
-            .setNullable((typeCode & 1) == 0)
+            .setNullable((typeCode & 1) != 0)
             .setScalarType(
                 MltTilesetMetadata.ScalarColumn.newBuilder()
                     .setPhysicalType(
                         switch (typeCode) {
-                          case 0, 1 -> MltTilesetMetadata.ScalarType.BOOLEAN;
-                          case 2, 3 -> MltTilesetMetadata.ScalarType.INT_8;
-                          case 4, 5 -> MltTilesetMetadata.ScalarType.UINT_8;
-                          case 6, 7 -> MltTilesetMetadata.ScalarType.INT_32;
-                          case 8, 9 -> MltTilesetMetadata.ScalarType.UINT_32;
-                          case 10, 11 -> MltTilesetMetadata.ScalarType.INT_64;
-                          case 12, 13 -> MltTilesetMetadata.ScalarType.UINT_64;
-                          case 14, 15 -> MltTilesetMetadata.ScalarType.FLOAT;
-                          case 16, 17 -> MltTilesetMetadata.ScalarType.DOUBLE;
-                          case 18, 19 -> MltTilesetMetadata.ScalarType.STRING;
+                          case 10, 11 -> MltTilesetMetadata.ScalarType.BOOLEAN;
+                          case 12, 13 -> MltTilesetMetadata.ScalarType.INT_8;
+                          case 14, 15 -> MltTilesetMetadata.ScalarType.UINT_8;
+                          case 16, 17 -> MltTilesetMetadata.ScalarType.INT_32;
+                          case 18, 19 -> MltTilesetMetadata.ScalarType.UINT_32;
+                          case 20, 21 -> MltTilesetMetadata.ScalarType.INT_64;
+                          case 22, 23 -> MltTilesetMetadata.ScalarType.UINT_64;
+                          case 24, 25 -> MltTilesetMetadata.ScalarType.FLOAT;
+                          case 26, 27 -> MltTilesetMetadata.ScalarType.DOUBLE;
+                          case 28, 29 -> MltTilesetMetadata.ScalarType.STRING;
                           default -> {
                             // Should be impossible due to the containing `if`
                             throw new IllegalStateException("Unsupported Type");
                           }
                         }));
-      } else if (20 <= typeCode && typeCode <= 23) {
+      } else if (0 <= typeCode && typeCode <= 3) {
         return builder
-            .setNullable(typeCode < 22)
+            .setNullable(1 < typeCode)
             .setName(PropertyEncoder.ID_COLUMN_NAME)
             .setScalarType(
                 MltTilesetMetadata.ScalarColumn.newBuilder()
-                    .setLongID((typeCode & 1) == 0)
+                    .setLongID((typeCode & 1) != 0)
                     .setLogicalType(MltTilesetMetadata.LogicalScalarType.ID));
-      } else if (24 == typeCode) {
+      } else if (4 == typeCode) {
         return builder
             .setNullable(false)
             .setName(PropertyEncoder.GEOMETRY_COLUMN_NAME)
             .setComplexType(
                 MltTilesetMetadata.ComplexColumn.newBuilder()
                     .setPhysicalType(MltTilesetMetadata.ComplexType.GEOMETRY));
-      } else if (25 == typeCode) {
+      } else if (30 == typeCode) {
         return builder
             .setNullable(false)
             .setComplexType(
@@ -102,11 +102,11 @@ public class MltTypeMap {
     }
 
     public static boolean columnTypeHasName(int typeCode) {
-      return (typeCode < 20 || typeCode > 24);
+      return (typeCode < 10);
     }
 
     public static boolean columnTypeHasChildren(int typeCode) {
-      return (typeCode == 25);
+      return (typeCode == 30);
     }
 
     public static boolean isID(MltTilesetMetadata.Column column) {
