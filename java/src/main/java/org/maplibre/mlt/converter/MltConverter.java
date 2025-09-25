@@ -646,7 +646,7 @@ public class MltConverter {
       String columnName, MltTilesetMetadata.ComplexColumn complexColumn) {
     return MltTilesetMetadata.Column.newBuilder()
         .setName(columnName)
-        .setNullable(true)
+        .setNullable(false) // See `PropertyDecoder.decodePropertyColumn()`
         .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
         .setComplexType(complexColumn)
         .build();
