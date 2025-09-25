@@ -60,8 +60,6 @@ public class StringEncoder {
 
           if (!dictionary.contains(value)) {
             dictionary.add(value);
-            var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
-            // lengthStream.add(utf8EncodedData.length);
             var index = dictionary.size() - 1;
             dataStream.add(index);
           } else {
@@ -128,7 +126,7 @@ public class StringEncoder {
     }
 
     // TODO: make present stream optional
-    var numStreams =
+    final var numStreams =
         (encodedSharedFsstDictionary != null
                     && encodedSharedFsstDictionary.length < encodedSharedDictionary.length
                 ? 5

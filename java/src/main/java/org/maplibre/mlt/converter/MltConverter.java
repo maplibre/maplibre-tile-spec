@@ -7,24 +7,21 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.encodings.GeometryEncoder;
+import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
-import org.maplibre.mlt.metadata.tileset.ColumnOptions;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class MltConverter {
-  private static final byte VERSION = 1;
-  private static final String ID_COLUMN_NAME = "id";
-  private static final String GEOMETRY_COLUMN_NAME = "geometry";
-
   public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile, Collection<ColumnMapping> columnMappings, boolean isIdPresent) {
 
@@ -32,14 +29,13 @@ public class MltConverter {
     // TODO: Allow nullable ID columns
 
     var tilesetBuilder = MltTilesetMetadata.TileSetMetadata.newBuilder();
-    tilesetBuilder.setVersion(VERSION);
 
     for (var layer : tile.layers()) {
       final LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas = new LinkedHashMap<>();
       final LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder>
           complexPropertyColumnSchemas = new LinkedHashMap<>();
 
-      var isLongId = false;
+      var hasLongId = false;
       for (var feature : layer.features()) {
         feature.properties().entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
@@ -50,7 +46,7 @@ public class MltConverter {
                 });
 
         if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
-          isLongId = true;
+          hasLongId = true;
         }
       }
 
@@ -62,42 +58,35 @@ public class MltConverter {
                 complexPropertyColumnScheme.getValue().build()));
       }
 
-      // If the `id` column needs to be created, or needs to be a different type, (re-)create it.
-      // If none of the `id` values we encountered need 64 bits use a 32-bit column, as it can
-      // currently be more efficiently encoded based on FastPFOR (64 bit variant not yet
-      // implemented) instead of Varint and decoded faster in JS.
-      if (isIdPresent && (!columnSchemas.containsKey(ID_COLUMN_NAME))
-          || (isLongId
-              && columnSchemas.get(ID_COLUMN_NAME).getScalarType().getPhysicalType()
-                  != MltTilesetMetadata.ScalarType.INT_64)) {
-        /* Narrow down unsigned long to unsigned int if possible as it can be currently more efficiently encoded
-         * based on FastPFOR (64 bit variant not yet implemented) instead of Varint and faster
-         * decoded in the Js decoder.
-         * */
-        var idDataType =
-            isLongId
-                ? MltTilesetMetadata.ScalarType.UINT_64
-                : MltTilesetMetadata.ScalarType.UINT_32;
-        var idMetadata = createScalarColumnScheme(ID_COLUMN_NAME, false, idDataType);
-        columnSchemas.put(ID_COLUMN_NAME, idMetadata);
-      }
-
-      var featureTableSchemaBuilder = MltTilesetMetadata.FeatureTableSchema.newBuilder();
-      featureTableSchemaBuilder.setName(layer.name());
+      var featureTableSchemaBuilder =
+          MltTilesetMetadata.FeatureTableSchema.newBuilder().setName(layer.name());
 
       // If present, `id` must be the first column
-      var idColumn = columnSchemas.get(ID_COLUMN_NAME);
-      if (idColumn != null) {
-        featureTableSchemaBuilder.addColumns(idColumn);
-        columnSchemas.remove(ID_COLUMN_NAME);
+      if (columnSchemas.containsKey(PropertyEncoder.ID_COLUMN_NAME)) {
+        throw new RuntimeException("Unexpected ID Column");
+      }
+      if (isIdPresent) {
+        featureTableSchemaBuilder.addColumns(
+            MltTilesetMetadata.Column.newBuilder()
+                .setName(PropertyEncoder.ID_COLUMN_NAME)
+                .setNullable(false)
+                .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
+                .setScalarType(
+                    MltTilesetMetadata.ScalarColumn.newBuilder()
+                        .setLogicalType(MltTilesetMetadata.LogicalScalarType.ID)
+                        .setLongID(hasLongId)
+                        .build())
+                .build());
       }
 
       // The `geometry` column is mandatory and has to be the first column after `ID`
       featureTableSchemaBuilder.addColumns(
           createComplexColumnScheme(
-              GEOMETRY_COLUMN_NAME, false, MltTilesetMetadata.ComplexType.GEOMETRY));
+              PropertyEncoder.GEOMETRY_COLUMN_NAME,
+              false,
+              MltTilesetMetadata.ComplexType.GEOMETRY));
 
-      columnSchemas.forEach((k, v) -> featureTableSchemaBuilder.addColumns(v));
+      columnSchemas.values().forEach(featureTableSchemaBuilder::addColumns);
       tilesetBuilder.addFeatureTables(featureTableSchemaBuilder.build());
     }
 
@@ -239,37 +228,36 @@ public class MltConverter {
       DataOutputStream stream,
       String name,
       boolean isNullable,
-      boolean vertexScope,
+      boolean hasLongIDs,
       @Nullable MltTilesetMetadata.ScalarType physicalScalarType,
       @Nullable MltTilesetMetadata.LogicalScalarType logicalScalarType,
       @Nullable MltTilesetMetadata.ComplexType physicalComplexType,
       @Nullable MltTilesetMetadata.LogicalComplexType logicalComplexType,
       @Nullable List<MltTilesetMetadata.Field> children)
       throws IOException {
-    final boolean isComplex = physicalComplexType != null || logicalComplexType != null;
-    final boolean isLogical = logicalScalarType != null || logicalComplexType != null;
+    // We expect exactly one of these
+    if (Stream.of(physicalScalarType, logicalScalarType, physicalComplexType, logicalComplexType)
+            .filter(Objects::nonNull)
+            .count()
+        != 1) {
+      throw new RuntimeException("Invalid Type");
+    }
+
     final boolean hasChildren = (children != null && !children.isEmpty());
+    final var typeCode =
+        MltTypeMap.Tag0x01.encodeColumnType(
+                physicalScalarType,
+                logicalScalarType,
+                physicalComplexType,
+                logicalComplexType,
+                isNullable,
+                hasChildren,
+                hasLongIDs)
+            .orElseThrow(() -> new RuntimeException("Unsupported Type"));
+    EncodingUtils.putVarInt(stream, typeCode);
 
-    final var options =
-        (isNullable ? ColumnOptions.NULLABLE : 0)
-            | (isComplex ? ColumnOptions.COMPLEX_TYPE : 0)
-            | (isLogical ? ColumnOptions.LOGICAL_TYPE : 0)
-            | (hasChildren ? ColumnOptions.HAS_CHILDREN : 0)
-            | (vertexScope ? ColumnOptions.VERTEX_SCOPE : 0);
-    EncodingUtils.putVarInt(stream, options);
-
-    EncodingUtils.putString(stream, name);
-
-    if (physicalScalarType != null) {
-      EncodingUtils.putVarInt(stream, physicalScalarType.getNumber());
-    } else if (physicalComplexType != null) {
-      EncodingUtils.putVarInt(stream, physicalComplexType.getNumber());
-    } else if (logicalScalarType != null) {
-      EncodingUtils.putVarInt(stream, logicalScalarType.getNumber());
-    } else if (logicalComplexType != null) {
-      EncodingUtils.putVarInt(stream, logicalComplexType.getNumber());
-    } else {
-      throw new IllegalArgumentException("invalid type specification");
+    if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
+      EncodingUtils.putString(stream, name);
     }
 
     if (hasChildren) {
@@ -284,7 +272,7 @@ public class MltConverter {
             stream,
             child.getName(),
             child.getNullable(),
-            /* vertexScope= */ false,
+            /* hasLongIDs= */ false,
             (!complex && !logical) ? child.getScalarField().getPhysicalType() : null,
             (!complex && logical) ? child.getScalarField().getLogicalType() : null,
             (complex && !logical) ? child.getComplexField().getPhysicalType() : null,
@@ -304,11 +292,16 @@ public class MltConverter {
         EncodingUtils.putString(dataStream, table.getName());
         EncodingUtils.putVarInt(dataStream, table.getColumnsCount());
         for (var column : table.getColumnsList()) {
+          if (column.getColumnScope() != MltTilesetMetadata.ColumnScope.FEATURE) {
+            throw new RuntimeException("Vertex scoped properties are not yet supported");
+          }
+          // Note: this is ugly because `Column` is nearly, but not quite, identical to `Field` but
+          // does not inherit from it
           writeColumnOrFieldType(
               dataStream,
               column.getName(),
               column.getNullable(),
-              (column.getColumnScope() == MltTilesetMetadata.ColumnScope.VERTEX),
+              column.hasScalarType() && column.getScalarType().getLongID(),
               column.hasScalarType() && column.getScalarType().hasPhysicalType()
                   ? column.getScalarType().getPhysicalType()
                   : null,
@@ -411,13 +404,26 @@ public class MltConverter {
       if (config.getIncludeIds()) {
         final var idMetadata =
             layerMetadata.getColumnsList().stream()
-                .filter(f -> f.getName().equals(ID_COLUMN_NAME))
+                .filter(f -> f.getName().equals(PropertyEncoder.ID_COLUMN_NAME))
                 .findFirst()
                 .orElseThrow();
 
+        // Write ID as a 32- or 64-bit scalar depending on the flag stored in the column metadata
+        final var rawType =
+            idMetadata.getScalarType().getLongID()
+                ? MltTilesetMetadata.ScalarType.INT_64
+                : MltTilesetMetadata.ScalarType.INT_32;
+        final var scalarColumnMetadata =
+            MltTilesetMetadata.Column.newBuilder()
+                .setName(idMetadata.getName())
+                .setNullable(idMetadata.getNullable())
+                .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
+                .setScalarType(
+                    MltTilesetMetadata.ScalarColumn.newBuilder().setPhysicalType(rawType))
+                .build();
         featureTableBodyBuffer =
             PropertyEncoder.encodeScalarPropertyColumn(
-                idMetadata,
+                scalarColumnMetadata,
                 sortedFeatures,
                 physicalLevelTechnique,
                 config.getUseAdvancedEncodingSchemes(),
@@ -546,7 +552,9 @@ public class MltConverter {
       MltTilesetMetadata.FeatureTableSchema featureTableMetadata) {
     return featureTableMetadata.getColumnsList().stream()
         .filter(
-            f -> !f.getName().equals(ID_COLUMN_NAME) && !f.getName().equals(GEOMETRY_COLUMN_NAME))
+            f ->
+                !f.getName().equals(PropertyEncoder.ID_COLUMN_NAME)
+                    && !f.getName().equals(PropertyEncoder.GEOMETRY_COLUMN_NAME))
         .collect(Collectors.toList());
   }
 
@@ -590,7 +598,9 @@ public class MltConverter {
   }
 
   private static MltTilesetMetadata.Column createScalarColumnScheme(
-      String columnName, boolean nullable, MltTilesetMetadata.ScalarType type) {
+      String columnName,
+      @SuppressWarnings("SameParameterValue") boolean nullable,
+      MltTilesetMetadata.ScalarType type) {
     var scalarColumn = MltTilesetMetadata.ScalarColumn.newBuilder().setPhysicalType(type);
     return MltTilesetMetadata.Column.newBuilder()
         .setName(columnName)
@@ -636,7 +646,7 @@ public class MltConverter {
       String columnName, MltTilesetMetadata.ComplexColumn complexColumn) {
     return MltTilesetMetadata.Column.newBuilder()
         .setName(columnName)
-        .setNullable(true)
+        .setNullable(false) // See `PropertyDecoder.decodePropertyColumn()`
         .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
         .setComplexType(complexColumn)
         .build();

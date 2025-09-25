@@ -87,6 +87,7 @@ mod tests {
             nullable: false,
             column_scope: 0,
             r#type: Some(column::Type::ScalarType(ScalarColumn {
+                long_id: false,
                 r#type: Some(scalar_column::Type::PhysicalType(ScalarType::Uint32 as i32)),
             })),
         };

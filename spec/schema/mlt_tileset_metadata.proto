@@ -36,6 +36,8 @@ message Column {
 }
 
 message ScalarColumn {
+  // this belongs elsewhere, but is here for now
+  bool longID = 1;
   oneof type {
     ScalarType physicalType = 4;
     LogicalScalarType logicalType = 5;
