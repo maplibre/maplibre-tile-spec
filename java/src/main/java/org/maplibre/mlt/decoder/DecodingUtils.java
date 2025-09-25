@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import me.lemire.integercompression.*;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.orc.impl.BufferChunk;
 import org.apache.orc.impl.InStream;
 import org.apache.orc.impl.RunLengthByteReader;
@@ -135,22 +136,31 @@ public class DecodingUtils {
     return offset;
   }
 
-  public static int decodeVarint(InputStream stream) throws IOException {
+  public static Pair<Integer, Integer> decodeVarintWithLength(InputStream stream)
+      throws IOException {
     var b = (byte) stream.read();
+    var bytesRead = 1;
     var value = b & 0x7f;
     if ((b & 0x80) != 0) {
       b = (byte) stream.read();
+      bytesRead++;
       value |= (b & 0x7f) << 7;
       if ((b & 0x80) != 0) {
         b = (byte) stream.read();
+        bytesRead++;
         value |= (b & 0x7f) << 14;
         if ((b & 0x80) != 0) {
           b = (byte) stream.read();
+          bytesRead++;
           value |= (b & 0x7f) << 21;
         }
       }
     }
-    return value;
+    return Pair.of(value, bytesRead);
+  }
+
+  public static int decodeVarint(InputStream stream) throws IOException {
+    return decodeVarintWithLength(stream).getLeft();
   }
 
   public static String decodeString(InputStream stream) throws IOException {

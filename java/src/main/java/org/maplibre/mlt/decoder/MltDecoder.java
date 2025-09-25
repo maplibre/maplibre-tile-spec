@@ -7,12 +7,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
 import org.locationtech.jts.geom.Geometry;
+import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
-import org.maplibre.mlt.metadata.tileset.ColumnOptions;
-import org.maplibre.mlt.metadata.tileset.FieldOptions;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class MltDecoder {
@@ -20,6 +19,56 @@ public class MltDecoder {
   private static final String GEOMETRY_COLUMN_NAME = "geometry";
 
   private MltDecoder() {}
+
+  private static MltTilesetMetadata.Column.Builder decodeType(int typeCode) {
+    final var builder = MltTilesetMetadata.Column.newBuilder();
+    if (0 <= typeCode && typeCode <= 19) {
+      return MltTilesetMetadata.Column.newBuilder()
+          .setNullable((typeCode & 1) == 0)
+          .setScalarType(
+              MltTilesetMetadata.ScalarColumn.newBuilder()
+                  .setPhysicalType(
+                      switch (typeCode) {
+                        case 0, 1 -> MltTilesetMetadata.ScalarType.BOOLEAN;
+                        case 2, 3 -> MltTilesetMetadata.ScalarType.INT_8;
+                        case 4, 5 -> MltTilesetMetadata.ScalarType.UINT_8;
+                        case 6, 7 -> MltTilesetMetadata.ScalarType.INT_32;
+                        case 8, 9 -> MltTilesetMetadata.ScalarType.UINT_32;
+                        case 10, 11 -> MltTilesetMetadata.ScalarType.INT_64;
+                        case 12, 13 -> MltTilesetMetadata.ScalarType.UINT_64;
+                        case 14, 15 -> MltTilesetMetadata.ScalarType.FLOAT;
+                        case 16, 17 -> MltTilesetMetadata.ScalarType.DOUBLE;
+                        case 18, 19 -> MltTilesetMetadata.ScalarType.STRING;
+                        default -> {
+                          // Should be impossible due to the containing `if`
+                          throw new IllegalStateException("Unsupported Type");
+                        }
+                      }));
+    } else if (20 <= typeCode && typeCode <= 23) {
+      return builder
+          .setNullable(typeCode < 22)
+          .setName(ID_COLUMN_NAME)
+          .setScalarType(
+              MltTilesetMetadata.ScalarColumn.newBuilder()
+                  .setLongID((typeCode & 1) == 0)
+                  .setLogicalType(MltTilesetMetadata.LogicalScalarType.ID));
+    } else if (24 == typeCode) {
+      return builder
+          .setNullable(false)
+          .setName(GEOMETRY_COLUMN_NAME)
+          .setComplexType(
+              MltTilesetMetadata.ComplexColumn.newBuilder()
+                  .setPhysicalType(MltTilesetMetadata.ComplexType.GEOMETRY));
+    } else if (25 == typeCode) {
+      return builder
+          .setNullable(false)
+          .setComplexType(
+              MltTilesetMetadata.ComplexColumn.newBuilder()
+                  .setPhysicalType(MltTilesetMetadata.ComplexType.STRUCT));
+    } else {
+      throw new IllegalStateException("Unsupported Type " + typeCode);
+    }
+  }
 
   private static Layer parseBasicMVTEquivalent(int tag, InputStream stream) throws IOException {
     final var metadata = parseEmbeddedMetadata(stream);
@@ -33,16 +82,15 @@ public class MltDecoder {
     try (final var stream = new ByteArrayInputStream(tileData)) {
       while (stream.available() > 0) {
         final var length = DecodingUtils.decodeVarint(stream);
-        final var tag = DecodingUtils.decodeVarint(stream);
-        switch (tag) {
-          case 1, 2:
-            final var layer = parseBasicMVTEquivalent(tag, stream);
-            if (layer != null) {
-              layers.add(layer);
-            }
-            break;
-          default:
-            var ignored = stream.skip(length);
+        final var tag = DecodingUtils.decodeVarintWithLength(stream);
+        if (tag.getLeft() == 1) {
+          final var layer = parseBasicMVTEquivalent(tag.getLeft(), stream);
+          if (layer != null) {
+            layers.add(layer);
+          }
+        } else {
+          // Skip the remainder of this one
+          final var ignored = stream.skip(length - tag.getRight());
         }
       }
     }
@@ -51,19 +99,18 @@ public class MltDecoder {
 
   /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
   public static Layer decodeMltLayer(
-      byte[] tile, MltTilesetMetadata.TileSetMetadata tileMetadata, int tileExtent)
+      byte[] tile, MltTilesetMetadata.FeatureTableSchema layerMetadata, int tileExtent)
       throws IOException {
     var offset = new IntWrapper(0);
     List<Long> ids = null;
     Geometry[] geometries = null;
     var properties = new HashMap<String, List<Object>>();
-    var metadata = tileMetadata.getFeatureTables(0);
-    for (var columnMetadata : metadata.getColumnsList()) {
-      var columnName = columnMetadata.getName();
-      var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
+    for (var columnMetadata : layerMetadata.getColumnsList()) {
+      final var columnName = columnMetadata.getName();
+      final var numStreams = DecodingUtils.decodeVarint(tile, offset, 1)[0];
       // TODO: add decoding of vector type to be compliant with the spec
       // TODO: compare based on ids
-      if (columnName.equals(ID_COLUMN_NAME)) {
+      if (MltConverter.isID(columnMetadata)) {
         if (numStreams == 2) {
           var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
           // TODO: handle present stream -> should a id column even be nullable?
@@ -76,17 +123,16 @@ public class MltDecoder {
         }
 
         var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-        var idDataType = columnMetadata.getScalarType().getPhysicalType();
-        if (idDataType.equals(MltTilesetMetadata.ScalarType.UINT_32)) {
+        if (columnMetadata.getScalarType().getLongID()) {
+          ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+        } else {
           ids =
               IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
                   .mapToLong(i -> i)
                   .boxed()
                   .collect(Collectors.toList());
-        } else {
-          ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
         }
-      } else if (columnName.equals(GEOMETRY_COLUMN_NAME)) {
+      } else if (MltConverter.isGeometry(columnMetadata)) {
         var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
         geometries = GeometryDecoder.decodeGeometry(geometryColumn);
       } else {
@@ -111,7 +157,7 @@ public class MltDecoder {
     }
 
     return (geometries != null)
-        ? convertToLayer(ids, geometries, properties, metadata, tileExtent)
+        ? convertToLayer(ids, geometries, properties, layerMetadata, tileExtent)
         : null;
   }
 
@@ -149,85 +195,65 @@ public class MltDecoder {
     return new Layer(metadata.getName(), features, tileExtent);
   }
 
-  private static void decodeField(InputStream stream, MltTilesetMetadata.Field.Builder field)
-      throws IOException {
-    field.setName(DecodingUtils.decodeString(stream));
+  private static MltTilesetMetadata.Column decodeColumn(InputStream stream) throws IOException {
+    final var typeCode = DecodingUtils.decodeVarint(stream);
+    final var column = decodeType(typeCode);
 
-    final var options = DecodingUtils.decodeVarint(stream);
-    final boolean logical = ((options & FieldOptions.LOGICAL_TYPE) != 0);
-    field.setNullable((options & FieldOptions.NULLABLE) != 0);
+    if (MltConverter.typeCodeHasName(typeCode)) {
+      column.setName(DecodingUtils.decodeString(stream));
+    }
 
-    final var type = DecodingUtils.decodeVarint(stream);
-    if ((options & FieldOptions.LOGICAL_TYPE) != 0) {
-      final var complexField = field.getComplexFieldBuilder();
-      if (logical) {
-        complexField.setLogicalTypeValue(type);
-      } else {
-        complexField.setPhysicalTypeValue(type);
-      }
-      if ((options & FieldOptions.HAS_CHILDREN) != 0) {
-        final var childCount = DecodingUtils.decodeVarint(stream);
-        for (int i = 0; i < childCount; ++i) {
-          decodeField(stream, complexField.addChildrenBuilder());
-        }
-      }
-    } else {
-      final var scalarType = field.getScalarFieldBuilder();
-      if (logical) {
-        scalarType.setLogicalTypeValue(type);
-      } else {
-        scalarType.setPhysicalTypeValue(type);
+    if (MltConverter.typeCodeHasChildren(typeCode)) {
+      final var childCount = DecodingUtils.decodeVarint(stream);
+      for (var i = 0; i < childCount; ++i) {
+        column.setComplexType(
+            MltTilesetMetadata.ComplexColumn.newBuilder(column.getComplexType())
+                .addChildren(toField(decodeColumn(stream))));
       }
     }
+
+    return column.build();
   }
 
-  private static void decodeColumn(
-      InputStream stream, int options, MltTilesetMetadata.Column.Builder column)
-      throws IOException {
-    final boolean logical = ((options & ColumnOptions.LOGICAL_TYPE) != 0);
-    final var type = DecodingUtils.decodeVarint(stream);
-    if ((options & ColumnOptions.COMPLEX_TYPE) != 0) {
-      final var complexType = column.getComplexTypeBuilder();
-      if (logical) {
-        complexType.setLogicalTypeValue(type);
+  private static MltTilesetMetadata.Field toField(MltTilesetMetadata.Column column) {
+    var field =
+        MltTilesetMetadata.Field.newBuilder()
+            .setNullable(column.getNullable())
+            .setName(column.getName());
+    if (column.hasScalarType()) {
+      final var builder = MltTilesetMetadata.ScalarField.newBuilder();
+      if (column.getScalarType().hasPhysicalType()) {
+        field.setScalarField(builder.setPhysicalType(column.getScalarType().getPhysicalType()));
+      } else if (column.getScalarType().hasLogicalType()) {
+        field.setScalarField(builder.setLogicalType(column.getScalarType().getLogicalType()));
       } else {
-        complexType.setPhysicalTypeValue(type);
+        throw new RuntimeException("Unsupported Field Type");
       }
-      if ((options & ColumnOptions.HAS_CHILDREN) != 0) {
-        final var childCount = DecodingUtils.decodeVarint(stream);
-        for (int i = 0; i < childCount; ++i) {
-          decodeField(stream, complexType.addChildrenBuilder());
-        }
+    } else if (column.hasComplexType()) {
+      final var builder = MltTilesetMetadata.ComplexField.newBuilder();
+      if (column.getComplexType().hasPhysicalType()) {
+        field.setComplexField(builder.setPhysicalType(column.getComplexType().getPhysicalType()));
+      } else if (column.getComplexType().hasLogicalType()) {
+        field.setComplexField(
+            builder.setLogicalType(column.getComplexTypeOrBuilder().getLogicalType()));
+      } else {
+        throw new RuntimeException("Unsupported Field Type");
       }
     } else {
-      final var scalarType = column.getScalarTypeBuilder();
-      if (logical) {
-        scalarType.setLogicalTypeValue(type);
-      } else {
-        scalarType.setPhysicalTypeValue(type);
-      }
+      throw new RuntimeException("Unsupported Field Type");
     }
+    return field.build();
   }
 
-  public static MltTilesetMetadata.TileSetMetadata parseEmbeddedMetadata(InputStream stream)
+  public static MltTilesetMetadata.FeatureTableSchema parseEmbeddedMetadata(InputStream stream)
       throws IOException {
-    final var result = MltTilesetMetadata.TileSetMetadata.newBuilder();
-    final var table = result.addFeatureTablesBuilder();
+    final var table = MltTilesetMetadata.FeatureTableSchema.newBuilder();
     table.setName(DecodingUtils.decodeString(stream));
 
     final var columnCount = DecodingUtils.decodeVarint(stream);
     for (int i = 0; i < columnCount; ++i) {
-      final var columnOptions = DecodingUtils.decodeVarint(stream);
-      final var vertexScope = (columnOptions & ColumnOptions.VERTEX_SCOPE) != 0;
-      final var column = table.addColumnsBuilder();
-      column.setName(DecodingUtils.decodeString(stream));
-      column.setNullable((columnOptions & ColumnOptions.NULLABLE) != 0);
-      column.setColumnScope(
-          vertexScope
-              ? MltTilesetMetadata.ColumnScope.VERTEX
-              : MltTilesetMetadata.ColumnScope.FEATURE);
-      decodeColumn(stream, columnOptions, column);
+      table.addColumns(decodeColumn(stream));
     }
-    return result.build();
+    return table.build();
   }
 }

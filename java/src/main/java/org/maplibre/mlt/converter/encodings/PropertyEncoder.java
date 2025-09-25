@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
@@ -57,9 +58,7 @@ public class PropertyEncoder {
         featureScopedPropertyColumns =
             CollectionUtils.concatByteArrays(
                 featureScopedPropertyColumns, encodedScalarPropertyColumn);
-      } else if (columnMetadata.hasComplexType()
-          && columnMetadata.getComplexType().getPhysicalType()
-              == MltTilesetMetadata.ComplexType.STRUCT) {
+      } else if (MltConverter.isStruct(columnMetadata)) {
         if (columnMappings.isEmpty()) {
           throw new IllegalArgumentException(
               "Column mappings are required for nested property column "
