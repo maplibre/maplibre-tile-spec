@@ -34,7 +34,6 @@ dependencies {
     implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
     implementation 'org.jetbrains:annotations:15.0'
-    implementation 'org.eclipse.jdt:org.eclipse.jdt.annotation:2.3.0'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
