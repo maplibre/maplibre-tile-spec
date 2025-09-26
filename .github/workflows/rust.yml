@@ -19,6 +19,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
+      - uses: ./.github/actions/mlt-setup-java
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - run: just -v ci-test
@@ -34,6 +35,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just' }
+      - uses: ./.github/actions/mlt-setup-java
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Read MSRV
@@ -56,6 +58,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-llvm-cov' }
+      - uses: ./.github/actions/mlt-setup-java
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Generate code coverage
