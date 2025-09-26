@@ -24,6 +24,15 @@ import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 public class MltConverter {
   public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile, Collection<ColumnMapping> columnMappings, boolean isIdPresent) {
+    return createTilesetMetadata(tile, columnMappings, isIdPresent, false, false);
+  }
+
+  public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
+      MapboxVectorTile tile,
+      Collection<ColumnMapping> columnMappings,
+      boolean isIdPresent,
+      boolean enableCoerceOnMismatch,
+      boolean enableElideOnMismatch) {
 
     // TODO: Allow determining whether ID is present automatically
     // TODO: Allow nullable ID columns
@@ -42,7 +51,12 @@ public class MltConverter {
             .forEach(
                 property -> {
                   resolveColumnType(
-                      property, columnMappings, columnSchemas, complexPropertyColumnSchemas);
+                      property,
+                      columnMappings,
+                      columnSchemas,
+                      complexPropertyColumnSchemas,
+                      enableCoerceOnMismatch,
+                      enableElideOnMismatch);
                 });
 
         if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
@@ -97,16 +111,46 @@ public class MltConverter {
       Map.Entry<String, Object> property,
       Collection<ColumnMapping> columnMappings,
       LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas,
-      LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder>
-          complexPropertyColumnSchemas) {
+      LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder> complexPropertyColumnSchemas,
+      boolean enableCoerceOnMismatch,
+      boolean enableElideOnMismatch) {
     final var mvtPropertyName = property.getKey();
-
-    if (columnSchemas.containsKey(mvtPropertyName)) {
-      return;
-    }
 
     /* MVT can only contain scalar types */
     final var scalarType = getScalarType(property);
+
+    // If this property already has a column...
+    final var previousSchema = columnSchemas.get(mvtPropertyName);
+    if (previousSchema != null) {
+      // Make sure the types match.
+      // If not, coercion or nullification must be enabled, and replace
+      // the column with a string column, if it isn't already.
+      if (previousSchema.hasScalarType()) {
+        final var previousScalarType = previousSchema.getScalarType();
+        if (previousScalarType.hasPhysicalType()) {
+          final var previousPhysicalType = previousScalarType.getPhysicalType();
+          if (previousPhysicalType != scalarType) {
+            if (enableCoerceOnMismatch) {
+              if (previousPhysicalType != MltTilesetMetadata.ScalarType.STRING) {
+                columnSchemas.put(
+                    mvtPropertyName,
+                    createScalarColumnScheme(
+                        mvtPropertyName, true, MltTilesetMetadata.ScalarType.STRING));
+              }
+            } else if (!enableElideOnMismatch) {
+              throw new RuntimeException(
+                  "Property '"
+                      + property.getKey()
+                      + "' has multiple types: "
+                      + previousPhysicalType.name()
+                      + " vs. "
+                      + scalarType.name());
+            }
+          }
+        }
+      }
+      return;
+    }
 
     if (!columnMappings.isEmpty()) {
       // TODO: refactor quick and dirty solution -> simplify that complex logic
@@ -427,6 +471,7 @@ public class MltConverter {
                 sortedFeatures,
                 physicalLevelTechnique,
                 config.getUseAdvancedEncodingSchemes(),
+                config.getCoercePropertyValues(),
                 rawStreamData);
       }
 
@@ -473,6 +518,7 @@ public class MltConverter {
         propertyColumns,
         sortedFeatures,
         config.getUseAdvancedEncodingSchemes(),
+        config.getCoercePropertyValues(),
         featureTableOptimizations != null ? featureTableOptimizations.columnMappings() : List.of(),
         rawStreamData);
   }

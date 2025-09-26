@@ -24,6 +24,7 @@ public class PropertyEncoder {
       List<MltTilesetMetadata.Column> propertyColumns,
       List<Feature> features,
       boolean useAdvancedEncodings,
+      boolean coercePropertyValues,
       List<ColumnMapping> columnMappings,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
@@ -54,6 +55,7 @@ public class PropertyEncoder {
                 features,
                 physicalLevelTechnique,
                 useAdvancedEncodings,
+                coercePropertyValues,
                 rawStreamData);
         featureScopedPropertyColumns =
             CollectionUtils.concatByteArrays(
@@ -143,11 +145,71 @@ public class PropertyEncoder {
     return featureScopedPropertyColumns;
   }
 
+  private static Boolean getBooleanPropertyValue(
+      Feature feature, MltTilesetMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.getName());
+    if (rawValue instanceof Boolean) {
+      return (Boolean) rawValue;
+    }
+    return null;
+  }
+
+  private static Integer getIntPropertyValue(
+      Feature feature, MltTilesetMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.getName());
+    if (rawValue instanceof Integer) {
+      return (Integer) rawValue;
+    } else if (rawValue instanceof Long) {
+      final var v = (long) rawValue;
+      if ((int) v == v) {
+        return (int) v;
+      }
+    }
+    return null;
+  }
+
+  private static Long getLongPropertyValue(
+      Feature feature, MltTilesetMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.getName());
+    if (rawValue instanceof Long) {
+      return (Long) rawValue;
+    } else if (rawValue instanceof Integer) {
+      return (long) (int) rawValue;
+    }
+    return null;
+  }
+
+  private static Float getFloatPropertyValue(
+      Feature feature, MltTilesetMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.getName());
+    if (rawValue instanceof Float) {
+      return (Float) rawValue;
+    } else if (rawValue instanceof Double) {
+      return (float) (double) rawValue;
+    }
+    return null;
+  }
+
+  private static String getStringPropertyValue(
+      Feature feature, MltTilesetMetadata.Column columnMetadata, boolean coercePropertyValues) {
+    final var rawValue = feature.properties().get(columnMetadata.getName());
+    if (rawValue != null) {
+      if (rawValue instanceof String) {
+        return (String) rawValue;
+      }
+      if (coercePropertyValues) {
+        return rawValue.toString();
+      }
+    }
+    return null;
+  }
+
   public static byte[] encodeScalarPropertyColumn(
       MltTilesetMetadata.Column columnMetadata,
       List<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useAdvancedEncodings,
+      boolean coercePropertyValues,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
     var scalarType = columnMetadata.getScalarType().getPhysicalType();
@@ -188,12 +250,16 @@ public class PropertyEncoder {
            *   -> SharedDictionaryLength, SharedDictionary, present1, data1, present2, data2
            * -> N Columns FsstDictionary
            * */
+          final var rawStringValues =
+              features.stream()
+                  .map(f -> getStringPropertyValue(f, columnMetadata, coercePropertyValues))
+                  .toList();
+          final var stringValues =
+              rawStringValues.stream().filter(Objects::nonNull).collect(Collectors.toList());
+
           final byte[] presentStream;
           if (columnMetadata.getNullable()) {
-            final var presentValues =
-                features.stream()
-                    .map(f -> f.properties().get(columnMetadata.getName()) != null)
-                    .toList();
+            final var presentValues = rawStringValues.stream().map(Objects::nonNull).toList();
             presentStream =
                 BooleanEncoder.encodeBooleanStream(
                     presentValues,
@@ -204,11 +270,6 @@ public class PropertyEncoder {
             presentStream = new byte[0];
           }
 
-          var stringValues =
-              features.stream()
-                  .map(f -> (String) f.properties().get(columnMetadata.getName()))
-                  .filter(Objects::nonNull)
-                  .collect(Collectors.toList());
           var stringColumn =
               StringEncoder.encode(
                   stringValues,
@@ -240,7 +301,7 @@ public class PropertyEncoder {
     var dataStreamIndex = 0;
     var presentStreamIndex = 0;
     for (var feature : features) {
-      final var propertyValue = feature.properties().get(fieldName);
+      final var propertyValue = getBooleanPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
         dataStream.set(dataStreamIndex++, (boolean) propertyValue);
@@ -313,14 +374,10 @@ public class PropertyEncoder {
     final var presentValues =
         metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
-      final var propertyValue = feature.properties().get(fieldName);
+      final var propertyValue = getFloatPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
-        if (propertyValue.getClass().getSimpleName().equals("Double")) {
-          values.add(((Double) propertyValue).floatValue());
-        } else {
-          values.add((float) propertyValue);
-        }
+        values.add(propertyValue);
       }
       if (presentValues != null) {
         presentValues.add(present);
@@ -352,14 +409,14 @@ public class PropertyEncoder {
     final var presentValues =
         metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
+      // TODO: refactor -> handle long values for ids differently
       final var propertyValue =
-          fieldName.equals(ID_COLUMN_NAME) ? feature.id() : feature.properties().get(fieldName);
+          fieldName.equals(ID_COLUMN_NAME)
+              ? Integer.valueOf((int) feature.id())
+              : getIntPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
-        // TODO: refactor -> handle long values for ids differently
-        final var intValue =
-            propertyValue instanceof Long ? ((Long) propertyValue).intValue() : (int) propertyValue;
-        values.add(intValue);
+        values.add(propertyValue);
       }
       if (presentValues != null) {
         presentValues.add(present);
@@ -399,7 +456,9 @@ public class PropertyEncoder {
         metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
       final var propertyValue =
-          fieldName.equals(ID_COLUMN_NAME) ? feature.id() : feature.properties().get(fieldName);
+          fieldName.equals(ID_COLUMN_NAME)
+              ? Long.valueOf(feature.id())
+              : getLongPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
         values.add((long) propertyValue);
