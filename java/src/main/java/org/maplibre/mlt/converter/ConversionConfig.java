@@ -7,6 +7,7 @@ import java.util.Map;
 public class ConversionConfig {
   private final boolean includeIds;
   private final boolean useAdvancedEncodingSchemes;
+  private final boolean coercePropertyValues;
   private final boolean useMortonEncoding;
   private final boolean preTessellatePolygons;
   private final Map<String, FeatureTableOptimizations> optimizations;
@@ -22,12 +23,14 @@ public class ConversionConfig {
   public ConversionConfig(
       boolean includeIds,
       boolean useAdvancedEncodingSchemes,
+      boolean coercePropertyValues,
       Map<String, FeatureTableOptimizations> optimizations,
       boolean preTessellatePolygons,
       boolean useMortonEncoding,
       List<String> outlineFeatureTableNames) {
     this.includeIds = includeIds;
     this.useAdvancedEncodingSchemes = useAdvancedEncodingSchemes;
+    this.coercePropertyValues = coercePropertyValues;
     this.preTessellatePolygons = preTessellatePolygons;
     this.useMortonEncoding = useMortonEncoding;
     this.optimizations = (optimizations != null) ? optimizations : new HashMap<>();
@@ -44,6 +47,7 @@ public class ConversionConfig {
     this(
         includeIds,
         useAdvancedEncodingSchemes,
+        /* coercePropertyValues= */ false,
         optimizations,
         preTessellatePolygons,
         useMortonEncoding,
@@ -58,6 +62,7 @@ public class ConversionConfig {
     this(
         includeIds,
         useAdvancedEncodingSchemes,
+        /* coercePropertyValues= */ false,
         null,
         preTessellatePolygons,
         /* useMortonEncoding= */ true,
@@ -71,6 +76,7 @@ public class ConversionConfig {
     this(
         includeIds,
         useAdvancedEncodingSchemes,
+        /* coercePropertyValues= */ false,
         optimizations,
         /* preTessellatePolygons= */ false,
         /* useMortonEncoding= */ true,
@@ -81,6 +87,7 @@ public class ConversionConfig {
     this(
         includeIds,
         useAdvancedEncodingSchemes,
+        /* coercePropertyValues= */ false,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ false,
         /* useMortonEncoding= */ true,
@@ -91,6 +98,7 @@ public class ConversionConfig {
     this(
         includeIds,
         /* useAdvancedEncodingSchemes= */ false,
+        /* coercePropertyValues= */ false,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ false,
         /* useMortonEncoding= */ true,
@@ -101,6 +109,7 @@ public class ConversionConfig {
     this(
         /* includeIds= */ true,
         /* useAdvancedEncodingSchemes= */ false,
+        /* coercePropertyValues= */ false,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ false,
         /* useMortonEncoding= */ true,
@@ -113,6 +122,10 @@ public class ConversionConfig {
 
   public boolean getUseAdvancedEncodingSchemes() {
     return this.useAdvancedEncodingSchemes;
+  }
+
+  public boolean getCoercePropertyValues() {
+    return this.coercePropertyValues;
   }
 
   public Map<String, FeatureTableOptimizations> getOptimizations() {

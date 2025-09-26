@@ -67,17 +67,19 @@ public class Encode {
         System.exit(1);
       }
 
-      var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
-      var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
-      var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
-      var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
-      var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
-      var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
-      var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
-      var preTessellatePolygons =
+      final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
+      final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
+      final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
+      final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
+      final var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
+      final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
+      final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
+      final var tessellatePolygons =
           (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
-      var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
-      var verbose = cmd.hasOption(VERBOSE_OPTION);
+      final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
+      final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
+      final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
+      final var verbose = cmd.hasOption(VERBOSE_OPTION);
 
       // No ColumnMapping as support is still buggy:
       // https://github.com/maplibre/maplibre-tile-spec/issues/59
@@ -92,8 +94,9 @@ public class Encode {
           new ConversionConfig(
               includeIds,
               useAdvancedEncodingSchemes,
+              enableCoerceOnTypeMismatch,
               optimizations,
-              preTessellatePolygons,
+              tessellatePolygons,
               useMortonEncoding,
               (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
 
@@ -104,7 +107,14 @@ public class Encode {
 
       if (cmd.hasOption(INPUT_TILE_ARG)) {
         // Converting one tile
-        encodeTile(tileFileName, cmd, columnMappings, conversionConfig, tessellateURI, verbose);
+        encodeTile(
+            tileFileName,
+            cmd,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            enableElideOnTypeMismatch,
+            verbose);
       } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
         // Converting all the tiles in an MBTiles file
         var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
@@ -116,6 +126,7 @@ public class Encode {
             conversionConfig,
             tessellateURI,
             compressionType,
+            enableElideOnTypeMismatch,
             verbose);
       } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
         var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
@@ -131,6 +142,7 @@ public class Encode {
             conversionConfig,
             tessellateURI,
             compressionType,
+            enableElideOnTypeMismatch,
             verbose);
       }
     } catch (Exception e) {
@@ -147,25 +159,32 @@ public class Encode {
       List<ColumnMapping> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      boolean enableElideOnTypeMismatch,
       boolean verbose)
       throws IOException {
-    var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
-    var willDecode = cmd.hasOption(DECODE_OPTION);
-    var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
-    var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
-    var willCompare = cmd.hasOption(COMPARE_OPTION);
-    var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
-    var willTime = cmd.hasOption(TIMER_OPTION);
-    var inputTilePath = Paths.get(tileFileName);
-    var inputTileName = inputTilePath.getFileName().toString();
-    var outputPath = getOutputPath(cmd, inputTileName, "mlt");
-    var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
+    final var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
+    final var willDecode = cmd.hasOption(DECODE_OPTION);
+    final var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
+    final var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
+    final var willCompare = cmd.hasOption(COMPARE_OPTION);
+    final var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
+    final var willTime = cmd.hasOption(TIMER_OPTION);
+    final var inputTilePath = Paths.get(tileFileName);
+    final var inputTileName = inputTilePath.getFileName().toString();
+    final var outputPath = getOutputPath(cmd, inputTileName, "mlt");
+    final var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
 
-    Timer timer = willTime ? new Timer() : null;
+    final Timer timer = willTime ? new Timer() : null;
 
-    var isIdPresent = true;
-    var metadata = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
-    var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
+    final var isIdPresent = true;
+    final var metadata =
+        MltConverter.createTilesetMetadata(
+            decodedMvTile,
+            columnMappings,
+            isIdPresent,
+            conversionConfig.getCoercePropertyValues(),
+            enableElideOnTypeMismatch);
+    final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
 
     HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
@@ -268,6 +287,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
+      boolean enableCoerceOrElideMismatch,
       boolean verbose) {
     MBTilesReader mbTilesReader = null;
     try {
@@ -309,6 +329,7 @@ public class Encode {
                 conversionConfig,
                 tessellateSource,
                 compressionType,
+                enableCoerceOrElideMismatch,
                 verbose);
           }
 
@@ -373,6 +394,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
+      boolean enableCoerceOrElideMismatch,
       boolean verbose)
       throws ClassNotFoundException {
     // Start with a copy of the source file so we don't have to rebuild the complex schema
@@ -431,6 +453,7 @@ public class Encode {
                   tessellateSource,
                   compressionType,
                   didCompress,
+                  enableCoerceOrElideMismatch,
                   verbose);
 
           if (tileData != null) {
@@ -521,6 +544,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
+      boolean enableCoerceOrElideMismatch,
       boolean verbose)
       throws IOException, MBTilesWriteException {
     final var x = tile.getColumn();
@@ -540,6 +564,7 @@ public class Encode {
             tessellateSource,
             compressionType,
             didCompress,
+            enableCoerceOrElideMismatch,
             verbose);
 
     if (tileData != null) {
@@ -562,13 +587,20 @@ public class Encode {
       URI tessellateSource,
       String compressionType,
       MutableBoolean didCompress,
+      boolean enableElideOnMismatch,
       boolean verbose) {
     try {
       final var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
 
       final var isIdPresent = true;
+      final var coercePropertyValues = conversionConfig.getCoercePropertyValues();
       final var metadata =
-          MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+          MltConverter.createTilesetMetadata(
+              decodedMvTile,
+              columnMappings,
+              isIdPresent,
+              coercePropertyValues,
+              enableElideOnMismatch);
       var tileData =
           MltConverter.convertMvt(decodedMvTile, metadata, conversionConfig, tessellateSource);
 
@@ -736,8 +768,9 @@ public class Encode {
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
   private static final String INCLUDE_METADATA_OPTION = "metadata";
-  private static final String INCLUDE_PBF_METADATA_OPTION = "pbfmetadata";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "tilesetmetadata";
+  private static final String ALLOW_COERCE_OPTION = "coerce-mismatch";
+  private static final String ALLOW_ELISION_OPTION = "elide-mismatch";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
@@ -881,13 +914,16 @@ public class Encode {
               .get());
       options.addOption(
           Option.builder()
-              .longOpt(INCLUDE_PBF_METADATA_OPTION)
+              .longOpt(ALLOW_COERCE_OPTION)
               .hasArg(false)
-              .desc(
-                  "Write tile legacy PBF metadata (adding '.meta.pbf'). "
-                      + "Only applies with --"
-                      + INPUT_TILE_ARG
-                      + ".")
+              .desc("Allow coercion of property values")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(ALLOW_ELISION_OPTION)
+              .hasArg(false)
+              .desc("Allow elision of mismatched property types")
               .required(false)
               .get());
 
