@@ -1,8 +1,8 @@
 package org.maplibre.mlt.converter.encodings;
 
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.metadata.stream.*;

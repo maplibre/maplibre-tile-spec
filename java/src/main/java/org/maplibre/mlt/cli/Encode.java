@@ -3,6 +3,7 @@ package org.maplibre.mlt.cli;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -26,13 +27,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
-import javax.annotation.Nullable;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorInputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorOutputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateParameters;
@@ -816,7 +816,7 @@ public class Encode {
     return forbiddenCharacterPattern.matcher(name).replaceAll("_");
   }
 
-  private static CommandLine getCommandLine(String[] args) throws ParseException {
+  private static CommandLine getCommandLine(String[] args) throws IOException {
     try {
       Options options = new Options();
       options.addOption(
@@ -826,7 +826,7 @@ public class Encode {
               .argName("file")
               .desc("Path to the input MVT file")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(INPUT_MBTILES_ARG)
@@ -834,7 +834,7 @@ public class Encode {
               .argName("file")
               .desc("Path of the input MBTiles file.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(INPUT_OFFLINEDB_ARG)
@@ -842,7 +842,7 @@ public class Encode {
               .argName("file")
               .desc("Path of the input offline database file.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(OUTPUT_DIR_ARG)
@@ -851,7 +851,7 @@ public class Encode {
               .desc(
                   "Directory where the output is written, using the input file basename (OPTIONAL).")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(OUTPUT_FILE_ARG)
@@ -860,14 +860,14 @@ public class Encode {
               .desc(
                   "Filename where the output will be written. Overrides --" + OUTPUT_DIR_ARG + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(EXCLUDE_IDS_OPTION)
               .hasArg(false)
               .desc("Don't include feature IDs.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(INCLUDE_METADATA_OPTION)
@@ -878,7 +878,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(INCLUDE_PBF_METADATA_OPTION)
@@ -889,7 +889,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
 
       options.addOption(
           Option.builder()
@@ -901,35 +901,35 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(ADVANCED_ENCODING_OPTION)
               .hasArg(false)
               .desc("Enable advanced encodings (FSST & FastPFOR).")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(NO_MORTON_OPTION)
               .hasArg(false)
               .desc("Disable Morton encoding.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(PRE_TESSELLATE_OPTION)
               .hasArg(false)
               .desc("Include tessellation data in converted tiles.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(TESSELLATE_URL_OPTION)
               .hasArg(true)
               .desc("Use a tessellation server (implies --" + PRE_TESSELLATE_OPTION + ").")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(OUTLINE_FEATURE_TABLES_OPTION)
@@ -941,7 +941,7 @@ public class Encode {
               .argName("tables")
               .required(false)
               .optionalArg(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(DECODE_OPTION)
@@ -952,7 +952,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(PRINT_MLT_OPTION)
@@ -963,7 +963,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(PRINT_MVT_OPTION)
@@ -974,7 +974,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(COMPARE_OPTION)
@@ -985,7 +985,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(VECTORIZED_OPTION)
@@ -993,7 +993,7 @@ public class Encode {
               .desc("Use the vectorized decoding path.")
               .required(false)
               .deprecated()
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(DUMP_STREAMS_OPTION)
@@ -1004,14 +1004,14 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(TIMER_OPTION)
               .hasArg(false)
               .desc("Print the time it takes, in ms, to decode a tile.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(COMPRESS_OPTION)
@@ -1021,7 +1021,7 @@ public class Encode {
                   "Compress tile data with one of 'deflate', 'gzip'. "
                       + "Only applies to MBTiles and offline databases.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .option("v")
@@ -1029,7 +1029,7 @@ public class Encode {
               .hasArg(false)
               .desc("Enable verbose output.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .option("h")
@@ -1037,24 +1037,23 @@ public class Encode {
               .hasArg(false)
               .desc("Show this output.")
               .required(false)
-              .build());
+              .get());
 
       var cmd = new DefaultParser().parse(options, args);
 
       var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
       if (tessellateSource != null) {
+        // throw if it's not a valid URI
         new URI(tessellateSource);
       }
 
       if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
-        var width = 100;
-        var autoUsage = true;
-        var header =
+        final var autoUsage = true;
+        final var header =
             "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";
-        var footer = "";
-        var formatter = new HelpFormatter();
-        formatter.setOptionComparator(null);
-        formatter.printHelp(width, Encode.class.getName(), header, options, footer, autoUsage);
+        final var footer = "";
+        final var formatter = HelpFormatter.builder().setComparator(null).get();
+        formatter.printHelp(Encode.class.getName(), header, options, footer, autoUsage);
       } else if (Stream.of(
                   cmd.hasOption(INPUT_TILE_ARG),
                   cmd.hasOption(INPUT_MBTILES_ARG),
@@ -1084,7 +1083,7 @@ public class Encode {
       } else {
         return cmd;
       }
-    } catch (ParseException ex) {
+    } catch (IOException | ParseException ex) {
       System.err.println("Failed to parse options: " + ex.getMessage());
     } catch (URISyntaxException e) {
       System.err.println("Invalid tessellation URL: " + e.getMessage());

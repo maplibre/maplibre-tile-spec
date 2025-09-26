@@ -4,13 +4,13 @@ import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeFastPfor
 import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 
 import com.google.gson.Gson;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.locationtech.jts.geom.Geometry;
