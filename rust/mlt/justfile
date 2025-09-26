@@ -32,7 +32,7 @@ check:
     cargo check {{packages}} {{features}} {{targets}}
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info && \
+ci-coverage: env-info gen-snippets && \
             (coverage '--codecov --output-path target/llvm-cov/codecov.info')
     # ATTENTION: the full file path above is used in the CI workflow
     mkdir -p target/llvm-cov
@@ -63,8 +63,6 @@ docs *args='--open':
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD $(pwd)"
-    {{just_executable()}} --version
     rustc --version
     cargo --version
     rustup --version

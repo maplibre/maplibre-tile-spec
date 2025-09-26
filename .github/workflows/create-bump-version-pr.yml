@@ -22,10 +22,7 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Use Node.js from nvmrc
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: 'js/.nvmrc'
+      - uses: ./.github/actions/mlt-setup-node
 
       - name: Bump version
         working-directory: js

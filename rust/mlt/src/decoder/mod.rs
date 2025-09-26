@@ -9,11 +9,12 @@ pub mod varint;
 #[allow(unused_imports)]
 #[allow(clippy::needless_for_each)]
 mod tests {
-    use std::fs;
-    use std::path::{Path, PathBuf};
-
     use insta::with_settings;
     use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering::Relaxed;
 
     use crate::decoder::integer::decode_int_stream;
     use crate::decoder::tracked_bytes::TrackedBytes;
@@ -43,6 +44,7 @@ mod tests {
 
     #[test]
     fn test_parse_meta_fixtures() {
+        let count = AtomicUsize::new(0);
         get_bin_fixtures()
             // .into_par_iter()
             .into_iter()
@@ -51,9 +53,6 @@ mod tests {
                     .expect(&name)
                     .into();
                 let meta = StreamMetadata::decode(&mut bytes).expect(&name);
-                // if !bytes.is_empty() {
-                //    eprintln!("case {name}, remaining {bytes:?}");
-                // }
                 assert!(bytes.is_empty(), "case {name}, remaining {bytes:?}");
 
                 if cfg!(feature = "test-snapshots") {
@@ -67,7 +66,13 @@ mod tests {
                 } else {
                     eprintln!("{name} => {meta:?}");
                 }
+
+                count.fetch_add(1, Relaxed);
             });
+
+        let count = count.load(Relaxed);
+        eprintln!("Parsed {count} meta fixtures");
+        assert!(count > 0);
     }
 
     #[test]
