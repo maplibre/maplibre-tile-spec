@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -14,20 +14,14 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          ref: main
+        with: { fetch-depth: 0, ref: main }
 
-      - name: Use Node.js from nvmrc
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: 'js/.nvmrc'
+      - uses: ./.github/actions/mlt-setup-node
 
       - name: Check if version has been updated
         id: check
         uses: EndBug/version-check@v2
-        with:
-          file-name: js/package.json
+        with: { file-name: js/package.json }
 
     outputs:
       publish: ${{ steps.check.outputs.changed }}
@@ -43,21 +37,14 @@ jobs:
     steps:
 
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          ref: main
+        with: { fetch-depth: 0, ref: main }
 
-      - name: Use Node.js from nvmrc
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: 'js/.nvmrc'
-          registry-url: 'https://registry.npmjs.org'
+      - uses: ./.github/actions/mlt-setup-node
 
       - name: Get version
         id: package-version
         uses: martinbeentjes/npm-get-version-action@v1.3.1
-        with:
-          path: js
+        with: { path: js }
 
       - name: Install
         working-directory: js

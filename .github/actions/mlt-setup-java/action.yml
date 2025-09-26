@@ -1,0 +1,17 @@
+name: mlt-setup-java
+description: Setup Java requirements
+
+inputs: {}
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Setup Java Gradle
+      uses: gradle/actions/setup-gradle@v4

@@ -1,8 +1,10 @@
 #!/usr/bin/env just --justfile
 
+ci_mode := if env('CI', '') != '' {'1'} else {''}
+
 # By default, show the list of all available commands
 @_default:
-    {{ just_executable() }} --list --unsorted
+    {{just_executable()}} --list
 
 bench: bench-js bench-java
 
@@ -30,6 +32,11 @@ clean-js:
 # Delete build files for Rust
 clean-rust:
     cd rust && cargo clean
+
+# Print Java environment info
+env-info-java:
+    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    cd java && ./gradlew --version
 
 # Run all formatting in every language
 fmt: fmt-java fmt-js fmt-rust
