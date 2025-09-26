@@ -1,6 +1,7 @@
 package org.maplibre.mlt.converter;
 
 import com.google.gson.Gson;
+import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -8,7 +9,6 @@ import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;

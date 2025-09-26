@@ -1,8 +1,8 @@
 package org.maplibre.mlt.decoder;
 
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
-import javax.annotation.Nullable;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;

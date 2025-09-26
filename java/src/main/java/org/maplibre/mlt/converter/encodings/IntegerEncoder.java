@@ -1,11 +1,11 @@
 package org.maplibre.mlt.converter.encodings;
 
 import com.google.common.collect.Lists;
+import jakarta.annotation.Nullable;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.metadata.stream.*;
