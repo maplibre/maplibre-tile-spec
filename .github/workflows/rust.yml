@@ -21,7 +21,7 @@ jobs:
         with: { tool: 'just,cargo-binstall' }
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - run: just ci-test
+      - run: just -v ci-test
 
   test-msrv:
     name: Test MSRV

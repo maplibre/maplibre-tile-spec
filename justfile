@@ -1,7 +1,5 @@
 #!/usr/bin/env just --justfile
 
-set shell := ['bash', '-c']
-
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 
 # By default, show the list of all available commands
@@ -38,8 +36,6 @@ clean-rust:
 # Print Java environment info
 env-info-java:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD $(pwd)"
-    {{just_executable()}} --version
     cd java && ./gradlew --version
 
 # Run all formatting in every language
