@@ -1,7 +1,7 @@
 package org.maplibre.mlt.converter.encodings;
 
+import jakarta.annotation.Nullable;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class MltTypeMap {

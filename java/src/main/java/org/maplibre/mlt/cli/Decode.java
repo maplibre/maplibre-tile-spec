@@ -26,7 +26,7 @@ public class Decode {
             .hasArg(true)
             .desc("Path to the input MLT file to read ([REQUIRED])")
             .required(true)
-            .build());
+            .get());
     options.addOption(
         Option.builder()
             .longOpt(VECTORIZED_OPTION)
@@ -34,21 +34,21 @@ public class Decode {
             .desc(
                 "Use the vectorized decoding path ([OPTIONAL], default: will use non-vectorized path)")
             .required(false)
-            .build());
+            .get());
     options.addOption(
         Option.builder()
             .longOpt(PRINT_MLT_OPTION)
             .hasArg(false)
             .desc("Print the MLT tile after encoding it ([OPTIONAL], default: false)")
             .required(false)
-            .build());
+            .get());
     options.addOption(
         Option.builder()
             .longOpt(TIMER_OPTION)
             .hasArg(false)
             .desc("Print the time it takes, in ms, to decode a tile ([OPTIONAL])")
             .required(false)
-            .build());
+            .get());
     CommandLineParser parser = new DefaultParser();
     try {
       CommandLine cmd = parser.parse(options, args);
