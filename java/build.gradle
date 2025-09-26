@@ -20,7 +20,7 @@ dependencies {
     implementation 'com.github.davidmoten:hilbert-curve:0.2.3'
     implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'com.google.guava:guava:33.5.0-jre'
-    implementation 'com.google.protobuf:protobuf-java:4.31.1'
+    implementation 'com.google.protobuf:protobuf-java:4.32.1'
     implementation 'commons-cli:commons-cli:1.10.0'
     implementation 'io.github.earcut4j:earcut4j:2.2.2'
     implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:25.1.0'
