@@ -1083,7 +1083,7 @@ public class Encode {
       } else {
         return cmd;
       }
-    } catch (ParseException ex) {
+    } catch (IOException | ParseException ex) {
       System.err.println("Failed to parse options: " + ex.getMessage());
     } catch (URISyntaxException e) {
       System.err.println("Invalid tessellation URL: " + e.getMessage());
