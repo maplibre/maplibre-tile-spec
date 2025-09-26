@@ -20,7 +20,7 @@ dependencies {
     implementation 'com.github.davidmoten:hilbert-curve:0.2.3'
     implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'com.google.guava:guava:33.5.0-jre'
-    implementation 'com.google.protobuf:protobuf-java:4.32.1'
+    implementation 'com.google.protobuf:protobuf-java:4.31.1'
     implementation 'commons-cli:commons-cli:1.10.0'
     implementation 'io.github.earcut4j:earcut4j:2.2.2'
     implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:25.1.0'
@@ -34,6 +34,7 @@ dependencies {
     implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
     implementation 'org.jetbrains:annotations:15.0'
+    implementation 'org.eclipse.jdt:org.eclipse.jdt.annotation:2.3.0'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
