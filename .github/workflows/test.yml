@@ -19,8 +19,8 @@ jobs:
         with: { tool: just }
       - uses: ./.github/actions/mlt-setup-node
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
-        run: just lint-js
-      - run: just test-js
+        run: just -v lint-js
+      - run: just -v test-js
 
   bench-js:
     runs-on: ${{ matrix.os }}
@@ -33,7 +33,7 @@ jobs:
         with: { tool: just }
       - uses: ./.github/actions/mlt-setup-node
       - name: Bench JS decoder
-        run: just bench-js
+        run: just -v bench-js
 
   test-java:
     runs-on: ${{ matrix.os }}
@@ -45,12 +45,12 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: just }
       - uses: ./.github/actions/mlt-setup-java
-      - run: just env-info-java
+      - run: just -v env-info-java
       - if: matrix.os == 'ubuntu-latest'
         name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
-        run: just lint-java
-      - run: just test-java
-      - run: just test-java-cli
+        run: just -v lint-java
+      - run: just -v test-java
+      - run: just -v test-java-cli
 
   # This final step is needed to mark the entire workflow as successful
   done:

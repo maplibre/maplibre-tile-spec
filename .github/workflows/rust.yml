@@ -45,7 +45,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-      - run: just ci_mode=0 ci-test-msrv  # Ignore warnings in MSRV
+      - run: just -v ci_mode=0 ci-test-msrv  # Ignore warnings in MSRV
 
   coverage:
     name: Code Coverage
@@ -62,7 +62,7 @@ jobs:
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Generate code coverage
-        run: just ci-coverage
+        run: just -v ci-coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:

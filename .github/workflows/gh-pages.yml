@@ -17,7 +17,7 @@ jobs:
         with: { tool: 'just' }
 
       - name: Build MLT documentation
-        run: just mkdocs-build
+        run: just -v mkdocs-build
 
       - name: Deploy 🚀
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository_owner == 'maplibre'
