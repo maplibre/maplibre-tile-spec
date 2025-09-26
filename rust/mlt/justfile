@@ -32,7 +32,7 @@ check:
     cargo check {{packages}} {{features}} {{targets}}
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info && \
+ci-coverage: env-info gen-snippets && \
             (coverage '--codecov --output-path target/llvm-cov/codecov.info')
     # ATTENTION: the full file path above is used in the CI workflow
     mkdir -p target/llvm-cov
