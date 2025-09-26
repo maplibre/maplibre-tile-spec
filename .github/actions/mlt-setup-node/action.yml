@@ -1,4 +1,5 @@
 name: mlt-setup-node
+description: Setup Node-JS requirements
 
 inputs: {}
 
