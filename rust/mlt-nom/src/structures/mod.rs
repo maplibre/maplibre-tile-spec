@@ -36,6 +36,7 @@ impl Layer<'_> {
         let (input, value) = take(size)(input)?;
 
         let layer = match tag {
+            // For now we only support tag 0x01 layers, but more will be added soon
             1 => {
                 let (data, meta) = FeatureMetaTable::parse(value)?;
                 Layer::Layer(FeatureTable::parse(data, meta)?)
