@@ -212,7 +212,7 @@ public class PropertyEncoder {
       boolean coercePropertyValues,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
-    var scalarType = columnMetadata.getScalarType().getPhysicalType();
+    final var scalarType = columnMetadata.getScalarType().getPhysicalType();
     switch (scalarType) {
       case BOOLEAN:
         {

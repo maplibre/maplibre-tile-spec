@@ -102,7 +102,7 @@ public class MltTypeMap {
     }
 
     public static boolean columnTypeHasName(int typeCode) {
-      return (typeCode < 10);
+      return (10 <= typeCode);
     }
 
     public static boolean columnTypeHasChildren(int typeCode) {
