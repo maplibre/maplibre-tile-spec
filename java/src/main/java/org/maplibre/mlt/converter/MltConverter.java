@@ -45,13 +45,17 @@ public class MltConverter {
           complexPropertyColumnSchemas = new LinkedHashMap<>();
 
       var hasLongId = false;
+      var featureIndex = 0;
       for (var feature : layer.features()) {
+        final var currentFeatureIndex = featureIndex;
         feature.properties().entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
             .forEach(
                 property -> {
                   resolveColumnType(
                       property,
+                      layer.name(),
+                      currentFeatureIndex,
                       columnMappings,
                       columnSchemas,
                       complexPropertyColumnSchemas,
@@ -62,6 +66,7 @@ public class MltConverter {
         if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
           hasLongId = true;
         }
+        featureIndex++;
       }
 
       for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
@@ -109,6 +114,8 @@ public class MltConverter {
 
   private static void resolveColumnType(
       Map.Entry<String, Object> property,
+      String layerName,
+      int featureIndex,
       Collection<ColumnMapping> columnMappings,
       LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas,
       LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder> complexPropertyColumnSchemas,
@@ -139,12 +146,16 @@ public class MltConverter {
               }
             } else if (!enableElideOnMismatch) {
               throw new RuntimeException(
-                  "Property '"
+                  "Layer '"
+                      + layerName
+                      + "' Feature index "
+                      + featureIndex
+                      + " Property '"
                       + property.getKey()
-                      + "' has multiple types: "
-                      + previousPhysicalType.name()
+                      + "' has different type: "
+                      + scalarType.name()
                       + " vs. "
-                      + scalarType.name());
+                      + previousPhysicalType.name());
             }
           }
         }
@@ -452,11 +463,12 @@ public class MltConverter {
                 .findFirst()
                 .orElseThrow();
 
-        // Write ID as a 32- or 64-bit scalar depending on the flag stored in the column metadata
+        // Write ID as a 32- or 64-bit scalar depending on the flag stored in the column metadata.
+        // The decoding assumes unsigned (no zigzag)
         final var rawType =
             idMetadata.getScalarType().getLongID()
-                ? MltTilesetMetadata.ScalarType.INT_64
-                : MltTilesetMetadata.ScalarType.INT_32;
+                ? MltTilesetMetadata.ScalarType.UINT_64
+                : MltTilesetMetadata.ScalarType.UINT_32;
         final var scalarColumnMetadata =
             MltTilesetMetadata.Column.newBuilder()
                 .setName(idMetadata.getName())
@@ -497,7 +509,7 @@ public class MltConverter {
           CollectionUtils.concatByteArrays(
               mapLibreTileBuffer,
               EncodingUtils.encodeVarint(tagLength, false),
-              EncodingUtils.encodeVarint(tag, false),
+              tagBuffer,
               metadataBuffer,
               encodedFeatureTableInfo,
               featureTableBodyBuffer);

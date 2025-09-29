@@ -27,7 +27,6 @@ public abstract class SpaceFillingCurve {
         || vertex.y() < minBound
         || vertex.x() > maxBound
         || vertex.y() > maxBound) {
-      // System.err.println("The specified tile buffer size is currently not supported.");
       throw new IllegalArgumentException(
           "The specified tile buffer size is currently not supported.");
     }

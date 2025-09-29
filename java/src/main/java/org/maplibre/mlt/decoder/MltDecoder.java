@@ -1,5 +1,6 @@
 package org.maplibre.mlt.decoder;
 
+import com.google.common.io.CountingInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,10 +18,14 @@ import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 public class MltDecoder {
   private MltDecoder() {}
 
-  private static Layer parseBasicMVTEquivalent(int tag, InputStream stream) throws IOException {
-    final var metadata = parseEmbeddedMetadata(stream);
-    final var tileExtent = DecodingUtils.decodeVarint(stream);
-    return decodeMltLayer(stream.readAllBytes(), metadata, tileExtent);
+  private static Layer parseBasicMVTEquivalent(int layerSize, InputStream stream)
+      throws IOException {
+    try (var countStream = new CountingInputStream(stream)) {
+      final var metadata = parseEmbeddedMetadata(countStream);
+      final var tileExtent = DecodingUtils.decodeVarint(countStream);
+      final var bodySize = layerSize - countStream.getCount();
+      return decodeMltLayer(stream.readNBytes((int) bodySize), metadata, tileExtent);
+    }
   }
 
   /** Decode an MLT tile with embedded metadata * */
@@ -30,8 +35,9 @@ public class MltDecoder {
       while (stream.available() > 0) {
         final var length = DecodingUtils.decodeVarint(stream);
         final var tag = DecodingUtils.decodeVarintWithLength(stream);
+        final var bodySize = length - tag.getRight();
         if (tag.getLeft() == 1) {
-          final var layer = parseBasicMVTEquivalent(tag.getLeft(), stream);
+          final var layer = parseBasicMVTEquivalent(bodySize, stream);
           if (layer != null) {
             layers.add(layer);
           }
