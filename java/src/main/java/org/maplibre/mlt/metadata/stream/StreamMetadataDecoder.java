@@ -1,10 +1,11 @@
 package org.maplibre.mlt.metadata.stream;
 
+import java.io.IOException;
 import me.lemire.integercompression.IntWrapper;
 
 public class StreamMetadataDecoder {
 
-  public static StreamMetadata decode(byte[] tile, IntWrapper offset) {
+  public static StreamMetadata decode(byte[] tile, IntWrapper offset) throws IOException {
     var streamMetadata = StreamMetadata.decode(tile, offset);
     /* Currently morton can't be combined with RLE only with delta */
     if (streamMetadata.logicalLevelTechnique1().equals(LogicalLevelTechnique.MORTON)) {

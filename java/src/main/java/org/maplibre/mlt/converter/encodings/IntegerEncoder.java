@@ -2,6 +2,7 @@ package org.maplibre.mlt.converter.encodings;
 
 import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -42,7 +43,8 @@ public class IntegerEncoder {
       List<Integer> values,
       int numBits,
       int coordinateShift,
-      PhysicalLevelTechnique physicalLevelTechnique) {
+      PhysicalLevelTechnique physicalLevelTechnique)
+      throws IOException {
     var encodedValueStream = encodeMortonCodes(values, physicalLevelTechnique);
     var valuesMetadata =
         new MortonEncodedStreamMetadata(
@@ -64,7 +66,8 @@ public class IntegerEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType) {
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     return encodeIntStream(
         values, physicalLevelTechnique, isSigned, streamType, logicalStreamType, null, null);
   }
@@ -76,7 +79,8 @@ public class IntegerEncoder {
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      @Nullable String streamName) {
+      @Nullable String streamName)
+      throws IOException {
     var encodedValueStream = IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned);
 
     // TODO: refactor -> also allow the use of none null suppression techniques
@@ -111,7 +115,8 @@ public class IntegerEncoder {
       List<Long> values,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType) {
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     return encodeLongStream(values, isSigned, streamType, logicalStreamType, null, null);
   }
 
@@ -121,7 +126,8 @@ public class IntegerEncoder {
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      @Nullable String streamName) {
+      @Nullable String streamName)
+      throws IOException {
     var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned);
 
     /* Currently FastPfor is only supported with 32 bit so for long we always have to fallback to Varint encoding */

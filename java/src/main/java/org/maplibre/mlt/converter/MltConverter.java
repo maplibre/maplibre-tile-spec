@@ -486,7 +486,8 @@ public class MltConverter {
           PhysicalLevelTechnique physicalLevelTechnique,
           boolean encodePolygonOutlines,
           @Nullable URI tessellateSource,
-          @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData) {
+          @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
+          throws IOException {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:
      * - if id column is present and ids should not be reassigned -> sort id column
