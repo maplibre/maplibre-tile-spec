@@ -24,7 +24,7 @@ public class MltDecoder {
       final var metadata = parseEmbeddedMetadata(countStream);
       final var tileExtent = DecodingUtils.decodeVarint(countStream);
       final var bodySize = layerSize - countStream.getCount();
-      return decodeMltLayer(stream.readNBytes((int) bodySize), metadata, tileExtent);
+      return decodeMltLayer(countStream.readNBytes((int) bodySize), metadata, tileExtent);
     }
   }
 
