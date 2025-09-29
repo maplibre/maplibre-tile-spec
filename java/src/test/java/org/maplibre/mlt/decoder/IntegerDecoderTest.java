@@ -41,6 +41,21 @@ public class IntegerDecoderTest {
   }
 
   @Test
+  public void decodeIntStream_SignedIntegerValues_PlainVarintEncode2() {
+    var values = List.of(1523632385);
+    var encodedStream =
+            IntegerEncoder.encodeIntStream(
+                    values, PhysicalLevelTechnique.VARINT, true, PhysicalStreamType.DATA, null);
+
+    var offset = new IntWrapper(0);
+    var streamMetadata = StreamMetadata.decode(encodedStream, offset);
+    var decodedValues = IntegerDecoder.decodeIntStream(encodedStream, offset, streamMetadata, true);
+
+    Assert.equals(values, decodedValues);
+    Assert.equals(LogicalLevelTechnique.NONE, streamMetadata.logicalLevelTechnique1());
+  }
+
+  @Test
   @Disabled
   public void decodeIntStream_SignedIntegerValues_FastPforDeltaRleEncode() {
     var values = List.of(-1, -2, -3, -4, -5, -6, -7, 8);
