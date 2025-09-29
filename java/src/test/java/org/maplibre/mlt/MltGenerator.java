@@ -69,9 +69,10 @@ public class MltGenerator {
       for (var mvTile : repo) {
         final var tileId = mvTile.tileId();
         try {
+          final var isIdPresent = false;
           final var tileMetadata =
               writeTileSetMetadata(
-                  MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, true),
+                  MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, isIdPresent),
                   MLT_OUTPUT_DIR);
 
           final var mlTile = convertMvtToMlt(optimizations, true, mvTile, tileMetadata);
@@ -121,9 +122,10 @@ public class MltGenerator {
       var mvt = Files.readAllBytes(Path.of(MVT_SPECIFIC_TILES_SOURCE_DIR, tileName.toString()));
       var mvTile = MvtUtils.decodeMvt(mvt, COLUMN_MAPPINGS);
       try {
-        var tileMetadata =
+        final var isIdPresent = false;
+        final var tileMetadata =
             writeTileSetMetadata(
-                MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, true),
+                MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, isIdPresent),
                 MLT_SPECIFIC_TILES_OUTPUT_DIR);
 
         var mlTile = convertMvtToMlt(optimizations, USE_POLYGON_TESSELLATION, mvTile, tileMetadata);
@@ -147,9 +149,11 @@ public class MltGenerator {
       var optimizations = getOptimizations();
       for (var mvTile : mvTiles) {
         try {
-          var tileMetadata =
+          final var isIdPresent = false;
+          final var tileMetadata =
               writeTileSetMetadata(
-                  MltConverter.createTilesetMetadata(mvTile.getMiddle(), COLUMN_MAPPINGS, true),
+                  MltConverter.createTilesetMetadata(
+                      mvTile.getMiddle(), COLUMN_MAPPINGS, isIdPresent),
                   MLT_SPECIFIC_TILES_OUTPUT_DIR);
 
           var mlTile =
@@ -196,6 +200,7 @@ public class MltGenerator {
         new ConversionConfig(
             /* includeIds= */ true,
             USE_ADVANCED_ENCODINGS,
+            /* coercePropertyValues= */ false,
             optimizations,
             USE_POLYGON_TESSELLATION,
             USE_MORTON_ENCODING,
