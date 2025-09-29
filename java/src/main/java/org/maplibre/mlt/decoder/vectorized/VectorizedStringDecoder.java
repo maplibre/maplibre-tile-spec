@@ -99,7 +99,8 @@ public class VectorizedStringDecoder {
       IntWrapper offset,
       int numStreams,
       BitVector bitVector,
-      int numFeatures) {
+      int numFeatures)
+      throws IOException {
     // TODO: handle ConstVector
     IntBuffer dictionaryLengthStream = null;
     IntBuffer offsetStream = null;
@@ -178,7 +179,7 @@ public class VectorizedStringDecoder {
   /** Not optimized for random access only for sequential iteration */
   @SuppressWarnings("rawtypes")
   public static Vector decodeSharedDictionary(
-      byte[] data, IntWrapper offset, MltTilesetMetadata.Column column) {
+      byte[] data, IntWrapper offset, MltTilesetMetadata.Column column) throws IOException {
     IntBuffer dictionaryLengthBuffer = null;
     ByteBuffer dictionaryBuffer = null;
     IntBuffer symbolLengthBuffer = null;
@@ -272,7 +273,8 @@ public class VectorizedStringDecoder {
 
   @SuppressWarnings("rawtypes")
   public static Vector decodeSharedDictionaryToRandomAccessFormat(
-      byte[] data, IntWrapper offset, MltTilesetMetadata.Column column, int numFeatures) {
+      byte[] data, IntWrapper offset, MltTilesetMetadata.Column column, int numFeatures)
+      throws IOException {
     IntBuffer dictionaryOffsetBuffer = null;
     ByteBuffer dictionaryBuffer = null;
     IntBuffer symbolOffsetBuffer = null;

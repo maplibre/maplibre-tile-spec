@@ -1,5 +1,6 @@
 package org.maplibre.mlt.metadata.stream;
 
+import java.io.IOException;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.ArrayUtils;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
@@ -40,12 +41,12 @@ public class RleEncodedStreamMetadata extends StreamMetadata {
     this.numRleValues = numRleValues;
   }
 
-  public byte[] encode() {
+  public byte[] encode() throws IOException {
     var encodedRleInfo = EncodingUtils.encodeVarints(new long[] {runs, numRleValues}, false, false);
     return ArrayUtils.addAll(super.encode(), encodedRleInfo);
   }
 
-  public static RleEncodedStreamMetadata decode(byte[] tile, IntWrapper offset) {
+  public static RleEncodedStreamMetadata decode(byte[] tile, IntWrapper offset) throws IOException {
     var streamMetadata = StreamMetadata.decode(tile, offset);
     var rleInfo = DecodingUtils.decodeVarint(tile, offset, 2);
     return new RleEncodedStreamMetadata(
@@ -61,7 +62,7 @@ public class RleEncodedStreamMetadata extends StreamMetadata {
   }
 
   public static RleEncodedStreamMetadata decodePartial(
-      StreamMetadata streamMetadata, byte[] tile, IntWrapper offset) {
+      StreamMetadata streamMetadata, byte[] tile, IntWrapper offset) throws IOException {
     var rleInfo = DecodingUtils.decodeVarint(tile, offset, 2);
     return new RleEncodedStreamMetadata(
         streamMetadata.physicalStreamType(),

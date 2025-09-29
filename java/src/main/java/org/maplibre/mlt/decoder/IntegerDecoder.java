@@ -1,5 +1,6 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,7 +14,8 @@ public class IntegerDecoder {
   private IntegerDecoder() {}
 
   public static List<Integer> decodeMortonStream(
-      byte[] data, IntWrapper offset, MortonEncodedStreamMetadata streamMetadata) {
+      byte[] data, IntWrapper offset, MortonEncodedStreamMetadata streamMetadata)
+      throws IOException {
     int[] values;
     if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR) {
       // TODO: numValues is not right if rle or delta rle is used -> add separate flag in
@@ -72,7 +74,8 @@ public class IntegerDecoder {
   }
 
   public static List<Integer> decodeIntStream(
-      byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned) {
+      byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned)
+      throws IOException {
     int[] values = null;
     if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR) {
       values =

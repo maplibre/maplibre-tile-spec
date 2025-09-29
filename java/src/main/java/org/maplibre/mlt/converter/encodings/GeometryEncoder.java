@@ -5,6 +5,7 @@ import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 
 import com.google.gson.Gson;
 import jakarta.annotation.Nullable;
+import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import java.util.function.Function;
@@ -53,7 +54,8 @@ public class GeometryEncoder {
       boolean useMortonEncoding,
       boolean encodePolygonOutlines,
       @Nullable URI tessellateSource,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData) {
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
+      throws IOException {
     var geometryTypes = new ArrayList<Integer>();
     var numGeometries = new ArrayList<Integer>();
     var numParts = new ArrayList<Integer>();
@@ -426,7 +428,8 @@ public class GeometryEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       ArrayList<Integer> numTriangles,
       ArrayList<Integer> indexBuffer,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData) {
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
+      throws IOException {
     var encodedNumTrianglesBuffer =
         IntegerEncoder.encodeIntStream(
             numTriangles,
@@ -456,7 +459,8 @@ public class GeometryEncoder {
       ArrayList<Integer> numRings,
       ArrayList<Integer> numTriangles,
       ArrayList<Integer> indexBuffer,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData) {
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
+      throws IOException {
     var encodedNumGeometries =
         IntegerEncoder.encodeIntStream(
             numGeometries,
@@ -526,7 +530,8 @@ public class GeometryEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       SortSettings sortSettings,
       boolean useMortonEncoding,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData) {
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
+      throws IOException {
     var geometryTypes = new ArrayList<Integer>();
     var numGeometries = new ArrayList<Integer>();
     var numParts = new ArrayList<Integer>();
@@ -985,7 +990,8 @@ public class GeometryEncoder {
       List<Integer> values,
       Collection<Vertex> vertices,
       PhysicalLevelTechnique physicalLevelTechnique,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData) {
+      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
+      throws IOException {
     var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? encodeFastPfor(values, false)

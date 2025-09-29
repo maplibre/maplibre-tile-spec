@@ -1,11 +1,12 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.IOException;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.metadata.stream.*;
 
 public class StreamDecoder {
 
-  public static StreamMetadata decode(byte[] tile, IntWrapper offset) {
+  public static StreamMetadata decode(byte[] tile, IntWrapper offset) throws IOException {
     var streamMetadata = StreamMetadata.decode(tile, offset);
 
     if (LogicalLevelTechnique.RLE.equals(streamMetadata.logicalLevelTechnique1())

@@ -179,7 +179,8 @@ public class StringEncoder {
       boolean encodeDataStream,
       boolean isSharedDictionary,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      String fieldName) {
+      String fieldName)
+      throws IOException {
     var dataStream = new ArrayList<Integer>(values.size());
     // var lengthStream = new ArrayList<Integer>();
     var dictionary = new ArrayList<String>();
@@ -220,7 +221,8 @@ public class StringEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSharedDictionary,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      @Nullable String fieldName) {
+      @Nullable String fieldName)
+      throws IOException {
     var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
     var symbolTable = FsstEncoder.encode(joinedValues);
 
@@ -299,7 +301,8 @@ public class StringEncoder {
       boolean encodeOffsetStream,
       boolean isSharedDictionary,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      String fieldName) {
+      String fieldName)
+      throws IOException {
     var offsetStream = new ArrayList<Integer>(values.size());
     var lengthStream = new ArrayList<Integer>();
     var dictionary = new ArrayList<String>();

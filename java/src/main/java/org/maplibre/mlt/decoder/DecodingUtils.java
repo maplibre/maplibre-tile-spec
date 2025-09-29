@@ -1,5 +1,6 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -20,7 +21,7 @@ public class DecodingUtils {
   private DecodingUtils() {}
 
   // TODO: quick and dirty -> optimize for performance
-  public static int[] decodeVarint(byte[] src, IntWrapper pos, int numValues) {
+  public static int[] decodeVarint(byte[] src, IntWrapper pos, int numValues) throws IOException {
     var values = new int[numValues];
     var dstOffset = 0;
     for (var i = 0; i < numValues; i++) {
@@ -68,72 +69,18 @@ public class DecodingUtils {
    * in to src of the first byte after the varint.
    *
    * @param src source buffer to retrieve from
-   * @param offset offset within src
+   * @param srcOffset offset within src
    * @param dst the resulting int values
+   * @param dstOffset offset with dst
    * @return the updated offset after reading the varint
    */
-  private static int decodeVarint(byte[] src, int offset, int[] dst) {
-    var dstOffset = 0;
-
-    /*
-     * Max 4 bytes supported.
-     * */
-    var b = src[offset++];
-    var value = b & 0x7f;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
+  private static int decodeVarint(byte[] src, int srcOffset, int[] dst, int dstOffset)
+      throws IOException {
+    try (var stream = new ByteArrayInputStream(src, srcOffset, src.length - srcOffset)) {
+      final var result = decodeVarintWithLength(stream);
+      dst[dstOffset] = result.getLeft();
+      return srcOffset + result.getRight();
     }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 7;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 14;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 21;
-    dst[dstOffset] = value;
-    return offset;
-  }
-
-  private static int decodeVarint(byte[] src, int offset, int[] dst, int dstOffset) {
-    /*
-     * Max 4 bytes supported.
-     * */
-    var b = src[offset++];
-    var value = b & 0x7f;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 7;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 14;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 21;
-    dst[dstOffset] = value;
-    return offset;
   }
 
   public static Pair<Integer, Integer> decodeVarintWithLength(InputStream stream)
@@ -153,6 +100,14 @@ public class DecodingUtils {
           b = (byte) stream.read();
           bytesRead++;
           value |= (b & 0x7f) << 21;
+          if ((b & 0x80) != 0) {
+            b = (byte) stream.read();
+            bytesRead++;
+            value |= (b & 0x7f) << 28;
+            if ((b & 0x80) != 0) {
+              throw new RuntimeException("Varint overflow");
+            }
+          }
         }
       }
     }
@@ -186,14 +141,6 @@ public class DecodingUtils {
     for (var i = 0; i < encoded.length; i++) {
       encoded[i] = decodeZigZag(encoded[i]);
     }
-  }
-
-  // TODO: quick and dirty -> optimize for performance
-  private static int[] decodeVarint(byte[] src, IntWrapper pos) {
-    var values = new int[1];
-    var offset = decodeVarint(src, pos.get(), values);
-    pos.set(offset);
-    return values;
   }
 
   public static int[] decodeFastPfor(
