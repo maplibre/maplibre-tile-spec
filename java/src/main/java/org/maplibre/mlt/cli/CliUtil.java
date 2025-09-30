@@ -1,5 +1,9 @@
 package org.maplibre.mlt.cli;
 
+import java.util.Comparator;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.vector.FeatureTable;
 
@@ -7,12 +11,10 @@ public class CliUtil {
 
   private CliUtil() {}
 
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   public static void decodeFeatureTables(FeatureTable[] featureTables) {
-    for (var i = 0; i < featureTables.length; i++) {
-      var featureTable = featureTables[i];
-      var featureIterator = featureTable.iterator();
-      while (featureIterator.hasNext()) {
-        var mltFeature = featureIterator.next();
+    for (FeatureTable featureTable : featureTables) {
+      for (Feature mltFeature : featureTable) {
         // Trigger decoding of the feature
         mltFeature.id();
         mltFeature.geometry();
@@ -22,27 +24,32 @@ public class CliUtil {
   }
 
   public static void printMLT(MapLibreTile mlTile) {
-    var mltLayers = mlTile.layers();
-    for (var i = 0; i < mltLayers.size(); i++) {
-      var mltLayer = mltLayers.get(i);
-      System.out.println(mltLayer.name());
-      var mltFeatures = mltLayer.features();
-      for (var j = 0; j < mltFeatures.size(); j++) {
-        var mltFeature = mltFeatures.get(j);
-        System.out.println("  " + mltFeature);
-      }
-    }
-  }
-
-  public static void printMLTVectorized(FeatureTable[] featureTables) {
-    for (var i = 0; i < featureTables.length; i++) {
-      var featureTable = featureTables[i];
-      System.out.println(featureTable.getName());
-      var featureIterator = featureTable.iterator();
-      while (featureIterator.hasNext()) {
-        var mltFeature = featureIterator.next();
-        System.out.println("  " + mltFeature);
-      }
-    }
+    mlTile
+        .layers()
+        .forEach(
+            layer -> {
+              System.out.println(layer.name());
+              layer
+                  .features()
+                  .forEach(
+                      feature -> {
+                        // Print properties sorted by key and drop those with null values to allow
+                        // for direct comparison with MVT output.
+                        final var properties =
+                            feature.properties().entrySet().stream()
+                                .filter(entry -> entry.getValue() != null)
+                                .sorted(Comparator.comparing(Map.Entry::getKey))
+                                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                                .collect(Collectors.joining(", "));
+                        System.out.println(
+                            "  Feature[id="
+                                + feature.id()
+                                + ", geometry="
+                                + feature.geometry()
+                                + ", properties={"
+                                + properties
+                                + "}]");
+                      });
+            });
   }
 }

@@ -19,11 +19,14 @@ import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -166,7 +169,9 @@ public class Encode {
     final var willDecode = cmd.hasOption(DECODE_OPTION);
     final var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
     final var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
-    final var willCompare = cmd.hasOption(COMPARE_OPTION);
+    final var compareProp = cmd.hasOption(COMPARE_PROP_OPTION) || cmd.hasOption(COMPARE_ALL_OPTION);
+    final var compareGeom = cmd.hasOption(COMPARE_GEOM_OPTION) || cmd.hasOption(COMPARE_ALL_OPTION);
+    final var willCompare = compareProp || compareGeom;
     final var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
     final var willTime = cmd.hasOption(TIMER_OPTION);
     final var inputTilePath = Paths.get(tileFileName);
@@ -274,7 +279,7 @@ public class Encode {
         CliUtil.printMLT(decodedTile);
       }
       if (willCompare) {
-        compare(decodedTile, decodedMvTile);
+        compare(decodedTile, decodedMvTile, compareGeom, compareProp);
       }
     }
   }
@@ -688,19 +693,45 @@ public class Encode {
   }
 
   public static void printMVT(MapboxVectorTile mvTile) {
-    var mvtLayers = mvTile.layers();
-    for (var i = 0; i < mvtLayers.size(); i++) {
-      var mvtLayer = mvtLayers.get(i);
-      System.out.println(mvtLayer.name());
-      var mvtFeatures = mvtLayer.features();
-      for (var j = 0; j < mvtFeatures.size(); j++) {
-        var mvtFeature = mvtFeatures.get(j);
-        System.out.println("  " + mvtFeature);
-      }
-    }
+    mvTile
+        .layers()
+        .forEach(
+            layer -> {
+              System.out.println(layer.name());
+              layer
+                  .features()
+                  .forEach(
+                      feature -> {
+                        // Print properties sorted by key to allow for direct comparison with MLT
+                        // output.
+                        final var properties =
+                            feature.properties().entrySet().stream()
+                                .sorted(Comparator.comparing(Map.Entry::getKey))
+                                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                                .collect(Collectors.joining(", "));
+                        System.out.println(
+                            "  Feature[id="
+                                + feature.id()
+                                + ", geometry="
+                                + feature.geometry()
+                                + ", properties={"
+                                + properties
+                                + "}]");
+                      });
+            });
   }
 
-  public static void compare(MapLibreTile mlTile, MapboxVectorTile mvTile) {
+  private static boolean propertyValuesEqual(Object a, Object b) {
+    // Try simple equality
+    if (Objects.equals(a, b)) {
+      return true;
+    }
+    // Allow for, e.g., int32 and int64 representations of the same number by comparing strings
+    return a.toString().equals(b.toString());
+  }
+
+  public static void compare(
+      MapLibreTile mlTile, MapboxVectorTile mvTile, boolean compareGeom, boolean compareProp) {
     var mltLayers = mlTile.layers();
     var mvtLayers = mvTile.layers();
     if (mltLayers.size() != mvtLayers.size()) {
@@ -725,37 +756,57 @@ public class Encode {
                   + " != "
                   + ((mltFeature != null) ? mltFeature.id() : "(none)"));
         }
-        var mltGeometry = mltFeature.geometry();
-        var mvtGeometry = mvtFeature.geometry();
-        if (!mltGeometry.equals(mvtGeometry)) {
-          throw new RuntimeException(
-              "Geometries in MLT and MVT layers do not match: "
-                  + mvtGeometry
-                  + " != "
-                  + mltGeometry);
+        if (compareGeom) {
+          final var mltGeometry = mltFeature.geometry();
+          final var mvtGeometry = mvtFeature.geometry();
+          if (!mltGeometry.equals(mvtGeometry)) {
+            throw new RuntimeException(
+                "Geometries in MLT and MVT layers do not match: \nMVT:\n"
+                    + mvtGeometry
+                    + "\n"
+                    + "MLT:\n"
+                    + mltGeometry);
+          }
         }
-        var mltProperties = mltFeature.properties();
-        var mvtProperties = mvtFeature.properties();
-        if (mvtProperties.size() != mltProperties.size()) {
-          throw new RuntimeException("Number of properties in MLT and MVT features do not match");
-        }
-        var mvtPropertyKeys = mvtProperties.keySet();
-        var mltPropertyKeys = mltProperties.keySet();
-        // compare keys
-        if (!mvtPropertyKeys.equals(mltPropertyKeys)) {
-          throw new RuntimeException("Property keys in MLT and MVT features do not match");
-        }
-        // compare values
-        var equalValues =
-            mvtProperties.keySet().stream()
-                .allMatch(key -> mvtProperties.get(key).equals(mltProperties.get(key)));
-        if (!equalValues) {
-          throw new RuntimeException(
-              "Property values in MLT and MVT features do not match: \n'"
-                  + mvtProperties
-                  + "'\n'"
-                  + mltProperties
-                  + "'");
+        if (compareProp) {
+          final var mltProperties = mltFeature.properties();
+          final var mvtProperties = mvtFeature.properties();
+          final var nonNullMLTProperties =
+              mltProperties.entrySet().stream().filter(entry -> entry.getValue() != null).toList();
+          if (mvtProperties.size() != nonNullMLTProperties.size()) {
+            throw new RuntimeException("Number of properties in MLT and MVT features do not match");
+          }
+          final var mvtPropertyKeys = mvtProperties.keySet();
+          final var nonNullMLTPropertyKeys =
+              nonNullMLTProperties.stream()
+                  .map(Map.Entry::getKey)
+                  .collect(Collectors.toUnmodifiableSet());
+          // compare keys
+          if (!mvtPropertyKeys.equals(nonNullMLTPropertyKeys)) {
+            throw new RuntimeException("Property keys in MLT and MVT features do not match");
+          }
+          // compare values
+          final var unequalKeys =
+              mvtProperties.keySet().stream()
+                  .filter(
+                      key -> !propertyValuesEqual(mvtProperties.get(key), mltProperties.get(key)))
+                  .toList();
+          if (!unequalKeys.isEmpty()) {
+            final var unequalValues =
+                unequalKeys.stream()
+                    .map(
+                        key ->
+                            "  "
+                                + key
+                                + ": mvt="
+                                + mvtProperties.get(key)
+                                + ", mlt="
+                                + mltProperties.get(key)
+                                + "\n")
+                    .toList();
+            throw new RuntimeException(
+                "Property values in MLT and MVT features do not match: \n" + unequalValues);
+          }
         }
       }
     }
@@ -779,7 +830,9 @@ public class Encode {
   private static final String DECODE_OPTION = "decode";
   private static final String PRINT_MLT_OPTION = "printmlt";
   private static final String PRINT_MVT_OPTION = "printmvt";
-  private static final String COMPARE_OPTION = "compare";
+  private static final String COMPARE_ALL_OPTION = "compare-all";
+  private static final String COMPARE_GEOM_OPTION = "compare-geometry";
+  private static final String COMPARE_PROP_OPTION = "compare-properties";
   private static final String VECTORIZED_OPTION = "vectorized";
   private static final String TIMER_OPTION = "timer";
   private static final String COMPRESS_OPTION = "compress";
@@ -1013,13 +1066,31 @@ public class Encode {
               .get());
       options.addOption(
           Option.builder()
-              .longOpt(COMPARE_OPTION)
+              .longOpt(COMPARE_GEOM_OPTION)
               .hasArg(false)
               .desc(
-                  "Assert that data in the the decoded tile is the same as the input tile. "
+                  "Assert that geometry in the the decoded tile is the same as the input tile. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COMPARE_PROP_OPTION)
+              .hasArg(false)
+              .desc(
+                  "Assert that properties in the the decoded tile is the same as the input tile. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COMPARE_ALL_OPTION)
+              .hasArg(false)
+              .desc("Equivalent to --" + COMPARE_GEOM_OPTION + " --" + COMPARE_PROP_OPTION + ".")
               .required(false)
               .get());
       options.addOption(
