@@ -804,7 +804,7 @@ public class Encode {
                                 + "\n")
                     .toList();
             throw new RuntimeException(
-                "Property values in MLT and MVT features do not match: \n" + unequalValues);
+                "Property values in MLT and MVT features do not match: \n" + String.join("", unequalValues));
           }
         }
       }
