@@ -13,7 +13,6 @@ public class IntegerDecoderTest {
   @Test
   public void encode_Int_Limits() throws IOException {
     for (int v : new int[] {Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE}) {
-      EncodingUtils.encodeVarint(v, true);
       final var encoded = EncodingUtils.encodeVarint(v, false);
       final var decoded = DecodingUtils.decodeVarints(encoded, new IntWrapper(0), 1)[0];
       Assert.equals(decoded, v);
@@ -23,7 +22,6 @@ public class IntegerDecoderTest {
   @Test
   public void encode_Int_Limits_ZigZag() throws IOException {
     for (int v : new int[] {Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE}) {
-      EncodingUtils.encodeVarint(v, true);
       final var encoded = EncodingUtils.encodeVarint(v, true);
       final var zigzag = DecodingUtils.decodeVarints(encoded, new IntWrapper(0), 1)[0];
       final var decoded = DecodingUtils.decodeZigZag(zigzag);
