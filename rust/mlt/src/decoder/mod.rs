@@ -1,3 +1,4 @@
+pub mod boolean;
 mod decode;
 mod helpers;
 pub mod integer;
@@ -16,7 +17,7 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering::Relaxed;
 
-    use crate::decoder::helpers::decode_boolean_rle;
+    use crate::decoder::boolean::decode_boolean_stream;
     use crate::decoder::integer::decode_int_stream;
     use crate::decoder::tracked_bytes::TrackedBytes;
     use crate::metadata::stream::StreamMetadata;
@@ -102,16 +103,7 @@ mod tests {
             let result = match meta.physical.r#type {
                 PhysicalStreamType::Present => {
                     // Use boolean decoder for PRESENT streams
-                    use crate::decoder::helpers::decode_boolean_rle;
-                    let bytes = decode_boolean_rle(&mut data.into(), meta.num_values as usize);
-                    // Convert bytes to booleans
-                    let mut booleans = Vec::new();
-                    for byte in bytes {
-                        for i in 0..8 {
-                            booleans.push((byte & (1 << i)) != 0);
-                        }
-                    }
-                    booleans.truncate(meta.num_values as usize);
+                    let booleans = decode_boolean_stream(&mut data.into(), &meta).expect(name);
                     serde_json::to_string(&booleans).expect(name)
                 }
                 PhysicalStreamType::Length | PhysicalStreamType::Offset => {
