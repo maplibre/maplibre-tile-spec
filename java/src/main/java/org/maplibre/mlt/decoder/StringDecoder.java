@@ -102,7 +102,7 @@ public class StringDecoder {
     var numValues = new HashMap<String, Integer>();
     var values = new HashMap<String, List<String>>();
     for (var childField : column.getComplexType().getChildrenList()) {
-      var numStreams = DecodingUtils.decodeVarint(data, offset, 1)[0];
+      var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
       if (numStreams != 2
           || childField.hasComplexField()
           || childField.getScalarField().getPhysicalType()

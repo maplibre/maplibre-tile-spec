@@ -98,20 +98,20 @@ public class StringEncoder {
 
       if (dataStream.isEmpty()) {
         /* If no values are present in this column add zero for number of streams */
-        var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+        final var encodedFieldMetadata = EncodingUtils.encodeVarint(0, false);
         sharedDictionary = CollectionUtils.concatByteArrays(sharedDictionary, encodedFieldMetadata);
         continue;
       }
 
-      var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
-      var encodedPresentStream =
+      final var encodedFieldMetadata = EncodingUtils.encodeVarints(new int[] {2}, false, false);
+      final var encodedPresentStream =
           BooleanEncoder.encodeBooleanStream(
               presentStream,
               PhysicalStreamType.PRESENT,
               rawStreamData,
               fieldName + "_present_" + i);
 
-      var encodedDataStream =
+      final var encodedDataStream =
           IntegerEncoder.encodeIntStream(
               dataStream,
               physicalLevelTechnique,

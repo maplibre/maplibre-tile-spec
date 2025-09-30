@@ -995,8 +995,7 @@ public class GeometryEncoder {
     var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? encodeFastPfor(values, false)
-            : encodeVarint(
-                values.stream().mapToLong(i -> i).boxed().collect(Collectors.toList()), false);
+            : encodeVarint(values, false);
 
     var encodedMetadata =
         new StreamMetadata(
