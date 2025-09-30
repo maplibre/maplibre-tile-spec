@@ -21,7 +21,7 @@ public class DecodingUtils {
   private DecodingUtils() {}
 
   // TODO: quick and dirty -> optimize for performance
-  public static int[] decodeVarint(byte[] src, IntWrapper pos, int numValues) throws IOException {
+  public static int[] decodeVarints(byte[] src, IntWrapper pos, int numValues) throws IOException {
     var values = new int[numValues];
     var dstOffset = 0;
     for (var i = 0; i < numValues; i++) {
@@ -32,7 +32,7 @@ public class DecodingUtils {
     return values;
   }
 
-  public static long[] decodeLongVarint(byte[] src, IntWrapper pos, int numValues) {
+  public static long[] decodeLongVarints(byte[] src, IntWrapper pos, int numValues) {
     var values = new long[numValues];
     for (var i = 0; i < numValues; i++) {
       var value = decodeLongVarint(src, pos);
@@ -53,7 +53,7 @@ public class DecodingUtils {
         break;
       }
       shift += 7;
-      if (shift >= 64) {
+      if (shift > 63) {
         throw new IllegalArgumentException("Varint too long");
       }
     }
@@ -87,7 +87,7 @@ public class DecodingUtils {
       throws IOException {
     var b = (byte) stream.read();
     var bytesRead = 1;
-    var value = b & 0x7f;
+    int value = b & 0x7f;
     if ((b & 0x80) != 0) {
       b = (byte) stream.read();
       bytesRead++;
@@ -104,8 +104,8 @@ public class DecodingUtils {
             b = (byte) stream.read();
             bytesRead++;
             value |= (b & 0x7f) << 28;
-            if ((b & 0x80) != 0) {
-              throw new RuntimeException("Varint overflow");
+            if ((b & 0x80) != 0 || 15 < b) {
+              throw new IOException("Varint overflow");
             }
           }
         }

@@ -61,7 +61,7 @@ public class MltDecoder {
     for (var columnMetadata : layerMetadata.getColumnsList()) {
       final var columnName = columnMetadata.getName();
       final var hasStreamCount = MltTypeMap.Tag0x01.hasStreamCount(columnMetadata);
-      final var numStreams = hasStreamCount ? DecodingUtils.decodeVarint(tile, offset, 1)[0] : 0;
+      final var numStreams = hasStreamCount ? DecodingUtils.decodeVarints(tile, offset, 1)[0] : 0;
       // TODO: add decoding of vector type to be compliant with the spec
       // TODO: compare based on ids
       if (MltTypeMap.Tag0x01.isID(columnMetadata)) {

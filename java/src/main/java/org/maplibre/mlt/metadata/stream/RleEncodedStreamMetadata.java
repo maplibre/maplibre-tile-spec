@@ -42,13 +42,14 @@ public class RleEncodedStreamMetadata extends StreamMetadata {
   }
 
   public byte[] encode() throws IOException {
-    var encodedRleInfo = EncodingUtils.encodeVarints(new long[] {runs, numRleValues}, false, false);
+    final var encodedRleInfo =
+        EncodingUtils.encodeVarints(new int[] {runs, numRleValues}, false, false);
     return ArrayUtils.addAll(super.encode(), encodedRleInfo);
   }
 
   public static RleEncodedStreamMetadata decode(byte[] tile, IntWrapper offset) throws IOException {
     var streamMetadata = StreamMetadata.decode(tile, offset);
-    var rleInfo = DecodingUtils.decodeVarint(tile, offset, 2);
+    var rleInfo = DecodingUtils.decodeVarints(tile, offset, 2);
     return new RleEncodedStreamMetadata(
         streamMetadata.physicalStreamType(),
         streamMetadata.logicalStreamType(),
@@ -63,7 +64,7 @@ public class RleEncodedStreamMetadata extends StreamMetadata {
 
   public static RleEncodedStreamMetadata decodePartial(
       StreamMetadata streamMetadata, byte[] tile, IntWrapper offset) throws IOException {
-    var rleInfo = DecodingUtils.decodeVarint(tile, offset, 2);
+    var rleInfo = DecodingUtils.decodeVarints(tile, offset, 2);
     return new RleEncodedStreamMetadata(
         streamMetadata.physicalStreamType(),
         streamMetadata.logicalStreamType(),
