@@ -54,12 +54,13 @@ public class VectorizedDecodingUtilsTest {
   }
 
   @Test
-  void decodeLongVarint_UnsignedLong() {
+  void decodeLongVarint_UnsignedLong() throws IOException {
     var values = new long[] {0, 1, 127, 128, 255, 256, 555};
 
-    var encodedValues = EncodingUtils.encodeVarints(values, false, false);
-    var pos = new IntWrapper(0);
-    var decodedValues = VectorizedDecodingUtils.decodeLongVarint(encodedValues, pos, values.length);
+    final var encodedValues = EncodingUtils.encodeVarints(values, false, false);
+    final var pos = new IntWrapper(0);
+    final var decodedValues =
+        VectorizedDecodingUtils.decodeLongVarint(encodedValues, pos, values.length);
 
     assertEquals(values.length, decodedValues.capacity());
     assertEquals(pos.get(), encodedValues.length);

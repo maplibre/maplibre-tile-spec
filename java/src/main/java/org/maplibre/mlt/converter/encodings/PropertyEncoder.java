@@ -40,16 +40,17 @@ public class PropertyEncoder {
     var i = 0;
     for (var columnMetadata : propertyColumns) {
       if (columnMetadata.hasScalarType()) {
-        if (features.stream()
-            .noneMatch(f -> f.properties().containsKey(columnMetadata.getName()))) {
+        if (MltTypeMap.Tag0x01.hasStreamCount(columnMetadata)
+            && features.stream()
+                .noneMatch(f -> f.properties().containsKey(columnMetadata.getName()))) {
           /* Indicate a missing property column in the tile with a zero for the number of streams */
-          var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+          final var encodedFieldMetadata = EncodingUtils.encodeVarint(0, false);
           featureScopedPropertyColumns =
               CollectionUtils.concatByteArrays(featureScopedPropertyColumns, encodedFieldMetadata);
           continue;
         }
 
-        var encodedScalarPropertyColumn =
+        final var encodedScalarPropertyColumn =
             encodeScalarPropertyColumn(
                 columnMetadata,
                 features,
@@ -113,7 +114,7 @@ public class PropertyEncoder {
 
         if (sharedDictionary.stream().allMatch(List::isEmpty)) {
           /* Set number of streams to zero if no columns are present in this tile */
-          var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+          final var encodedFieldMetadata = EncodingUtils.encodeVarint(0, false);
           return CollectionUtils.concatByteArrays(
               featureScopedPropertyColumns, encodedFieldMetadata);
         }
@@ -126,10 +127,9 @@ public class PropertyEncoder {
                 rawStreamData,
                 columnMetadata.getName());
         // TODO: fix -> ony quick and dirty fix
-        var numStreams = nestedColumns.getLeft() == 0 ? 0 : 1;
+        final var numStreams = nestedColumns.getLeft() == 0 ? 0 : 1;
         /* Set number of streams to zero if no columns are present in this tile */
-        var encodedFieldMetadata =
-            EncodingUtils.encodeVarints(new long[] {numStreams}, false, false);
+        final var encodedFieldMetadata = EncodingUtils.encodeVarint(numStreams, false);
 
         // TODO: add present stream and present stream metadata for struct column in addition
         // to the FieldMetadata to be compliant with the specification

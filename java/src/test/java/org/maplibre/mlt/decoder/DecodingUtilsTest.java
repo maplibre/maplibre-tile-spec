@@ -2,6 +2,7 @@ package org.maplibre.mlt.decoder;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.ArrayUtils;
@@ -15,15 +16,15 @@ import org.maplibre.mlt.vector.BitVector;
 public class DecodingUtilsTest {
 
   @Test
-  public void decodeLongVarint() {
+  public void decodeLongVarints() throws IOException {
     var value = (long) Math.pow(2, 54);
     var value2 = (long) Math.pow(2, 17);
     var value3 = (long) Math.pow(2, 57);
     var encodedValues =
         EncodingUtils.encodeVarints(new long[] {value, value2, value3}, false, false);
 
-    var pos = new IntWrapper(0);
-    var decodedValue = DecodingUtils.decodeLongVarint(encodedValues, pos, 3);
+    final var pos = new IntWrapper(0);
+    final var decodedValue = DecodingUtils.decodeLongVarints(encodedValues, pos, 3);
 
     Assert.equals(value, decodedValue[0]);
     Assert.equals(value2, decodedValue[1]);

@@ -525,13 +525,17 @@ public class MltConverter {
       FeatureTableOptimizations featureTableOptimizations,
       @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
-    var propertyColumns = filterPropertyColumns(featureTableMetadata);
+    final var propertyColumns = filterPropertyColumns(featureTableMetadata);
+    final List<ColumnMapping> columnMappings =
+        (featureTableOptimizations != null)
+            ? featureTableOptimizations.columnMappings()
+            : List.of();
     return PropertyEncoder.encodePropertyColumns(
         propertyColumns,
         sortedFeatures,
         config.getUseAdvancedEncodingSchemes(),
         config.getCoercePropertyValues(),
-        featureTableOptimizations != null ? featureTableOptimizations.columnMappings() : List.of(),
+        columnMappings,
         rawStreamData);
   }
 

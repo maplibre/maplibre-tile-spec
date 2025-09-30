@@ -51,14 +51,14 @@ public class StreamMetadata {
   }
 
   public byte[] encode() throws IOException {
-    var encodedStreamType = (byte) ((physicalStreamType.ordinal()) << 4 | getLogicalType());
-    var encodedEncodingScheme =
+    final var encodedStreamType = (byte) ((physicalStreamType.ordinal()) << 4 | getLogicalType());
+    final var encodedEncodingScheme =
         (byte)
             (logicalLevelTechnique1.ordinal() << 5
                 | logicalLevelTechnique2.ordinal() << 2
                 | physicalLevelTechnique.ordinal());
-    var encodedLengthInfo =
-        EncodingUtils.encodeVarints(new long[] {numValues, byteLength}, false, false);
+    final var encodedLengthInfo =
+        EncodingUtils.encodeVarints(new int[] {numValues, byteLength}, false, false);
     return Bytes.concat(new byte[] {encodedStreamType, encodedEncodingScheme}, encodedLengthInfo);
   }
 
@@ -84,7 +84,7 @@ public class StreamMetadata {
     var logicalLevelTechnique2 = LogicalLevelTechnique.values()[encodingsHeader >> 2 & 0x7];
     var physicalLevelTechnique = PhysicalLevelTechnique.values()[encodingsHeader & 0x3];
     offset.increment();
-    var sizeInfo = DecodingUtils.decodeVarint(tile, offset, 2);
+    var sizeInfo = DecodingUtils.decodeVarints(tile, offset, 2);
     var numValues = sizeInfo[0];
     var byteLength = sizeInfo[1];
 

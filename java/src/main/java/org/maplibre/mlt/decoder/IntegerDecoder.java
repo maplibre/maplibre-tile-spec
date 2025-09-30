@@ -24,7 +24,7 @@ public class IntegerDecoder {
           DecodingUtils.decodeFastPfor(
               data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
-      values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
+      values = DecodingUtils.decodeVarints(data, offset, streamMetadata.numValues());
     } else {
       throw new IllegalArgumentException(
           "Specified physical level technique not yet supported: "
@@ -82,7 +82,7 @@ public class IntegerDecoder {
           DecodingUtils.decodeFastPfor(
               data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
-      values = DecodingUtils.decodeVarint(data, offset, streamMetadata.numValues());
+      values = DecodingUtils.decodeVarints(data, offset, streamMetadata.numValues());
     } else {
       throw new IllegalArgumentException(
           "Specified physical level technique not yet supported: "
@@ -93,7 +93,7 @@ public class IntegerDecoder {
   }
 
   private static List<Integer> decodeIntArray(
-      int[] values, StreamMetadata streamMetadata, boolean isSigned) {
+      int[] values, StreamMetadata streamMetadata, boolean isSigned) throws IOException {
     switch (streamMetadata.logicalLevelTechnique1()) {
       case DELTA:
         if (streamMetadata.logicalLevelTechnique2().equals(LogicalLevelTechnique.RLE)) {
@@ -137,7 +137,7 @@ public class IntegerDecoder {
 
   public static List<Long> decodeLongStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned) {
-    var values = DecodingUtils.decodeLongVarint(data, offset, streamMetadata.numValues());
+    var values = DecodingUtils.decodeLongVarints(data, offset, streamMetadata.numValues());
     return decodeLongArray(values, streamMetadata, isSigned);
   }
 

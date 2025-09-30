@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -21,6 +22,7 @@ import org.apache.orc.impl.OutStream;
 import org.apache.orc.impl.RunLengthByteWriter;
 import org.apache.orc.impl.RunLengthIntegerWriter;
 import org.apache.orc.impl.writer.StreamOptions;
+import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtils {
 
@@ -53,7 +55,8 @@ public class EncodingUtils {
 
   // Source:
   // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
-  public static byte[] encodeVarints(long[] values, boolean zigZagEncode, boolean deltaEncode) {
+  public static byte[] encodeVarints(int[] values, boolean zigZagEncode, boolean deltaEncode)
+      throws IOException {
     var encodedValues = values;
     if (deltaEncode) {
       encodedValues = encodeDeltas(values);
@@ -71,12 +74,59 @@ public class EncodingUtils {
     return Arrays.copyOfRange(varintBuffer, 0, i);
   }
 
-  public static byte[] encodeVarint(long value, boolean zigZagEncode) {
+  public static byte[] encodeVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
+      throws IOException {
+    var encodedValues = values;
+    if (deltaEncode) {
+      encodedValues = encodeDeltas(values);
+    }
+
+    if (zigZagEncode) {
+      encodedValues = encodeZigZag(encodedValues);
+    }
+
+    var varintBuffer = new byte[values.length * 8];
+    var i = 0;
+    for (var value : encodedValues) {
+      i = putVarInt(value, varintBuffer, i);
+    }
+    return Arrays.copyOfRange(varintBuffer, 0, i);
+  }
+
+  public static byte[] encodeVarints(
+      Collection<Integer> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
+    return encodeVarints(
+        values.stream().mapToInt(Integer::intValue).toArray(), zigZagEncode, deltaEncode);
+  }
+
+  public static byte[] encodeLongVarints(
+      Collection<Long> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
+    return encodeVarints(values.stream().mapToLong(x -> x).toArray(), zigZagEncode, deltaEncode);
+  }
+
+  public static byte[] encodeLongVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
+      throws IOException {
+    return encodeVarints(values, zigZagEncode, deltaEncode);
+  }
+
+  public static byte[] encodeVarint(int value, boolean zigZagEncode) throws IOException {
     if (zigZagEncode) {
       value = encodeZigZag(value);
     }
     var varintBuffer = new byte[8];
     return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
+  }
+
+  public static byte[] encodeVarint(long value, boolean zigZagEncode) throws IOException {
+    if (zigZagEncode) {
+      value = encodeZigZag(value);
+    }
+    var varintBuffer = new byte[8];
+    return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
+  }
+
+  private static int putVarInt(int v, byte[] sink) throws IOException {
+    return putVarInt(v, sink, 0);
   }
 
   // Source:
@@ -90,31 +140,68 @@ public class EncodingUtils {
    * @param offset the offset within sink to begin writing
    * @return the updated offset after writing the varint
    */
-  private static int putVarInt(long v, byte[] sink, int offset) {
+  private static int putVarInt(
+      int v, byte[] sink, @SuppressWarnings("SameParameterValue") int offset) throws IOException {
+    final var checkValue = v;
+    var sinkRemaining = Math.min(sink.length - offset, 5);
+    var sinkUsed = 0;
+    do {
+      // Encode next 7 bits + terminator bit
+      final int bits = v & 0x7F;
+      v >>>= 7;
+      final byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
+      if (sinkRemaining - sinkUsed < 1) {
+        throw new IOException("Varint overflow");
+      }
+      sink[offset + sinkUsed++] = b;
+    } while (v != 0);
+
+    // ensure that the result decodes back into the input
+    if (DecodingUtils.decodeVarints(sink, new IntWrapper(offset), 1)[0] != checkValue) {
+      throw new IOException("Varint Overflow");
+    }
+
+    return offset + sinkUsed;
+  }
+
+  private static int putVarInt(long v, byte[] sink, int offset) throws IOException {
+    final var checkValue = v;
+    var sinkRemaining = Math.min(sink.length - offset, 10);
+    var sinkUsed = 0;
     do {
       // Encode next 7 bits + terminator bit
       final long bits = v & 0x7F;
       v >>>= 7;
       final byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
-      sink[offset++] = b;
+      if (sinkRemaining - sinkUsed < 1) {
+        throw new IOException("Varint overflow");
+      }
+      sink[offset + sinkUsed++] = b;
     } while (v != 0);
-    return offset;
+
+    if (DecodingUtils.decodeLongVarint(sink, new IntWrapper(offset)) != checkValue) {
+      throw new IOException("Varint Overflow");
+    }
+    return offset + sinkUsed;
+  }
+
+  @SuppressWarnings("UnusedReturnValue")
+  public static DataOutputStream putVarInt(DataOutputStream stream, int v) throws IOException {
+    final var buffer = new byte[5];
+    stream.write(buffer, 0, putVarInt(v, buffer, 0));
+    return stream;
   }
 
   @SuppressWarnings("UnusedReturnValue")
   public static DataOutputStream putVarInt(DataOutputStream stream, long v) throws IOException {
-    do {
-      // Encode next 7 bits + terminator bit
-      final long bits = v & 0x7F;
-      v >>>= 7;
-      stream.writeByte((byte) (bits + ((v != 0) ? 0x80 : 0)));
-    } while (v != 0);
+    final var buffer = new byte[10];
+    stream.write(buffer, 0, putVarInt(v, buffer, 0));
     return stream;
   }
 
   @SuppressWarnings("UnusedReturnValue")
   public static DataOutputStream putString(DataOutputStream stream, String s) throws IOException {
-    var bytes = s.getBytes(StandardCharsets.UTF_8);
+    final var bytes = s.getBytes(StandardCharsets.UTF_8);
     putVarInt(stream, bytes.length);
     stream.write(bytes);
     return stream;
