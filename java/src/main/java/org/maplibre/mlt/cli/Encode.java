@@ -771,18 +771,17 @@ public class Encode {
         if (compareProp) {
           final var mltProperties = mltFeature.properties();
           final var mvtProperties = mvtFeature.properties();
-          final var nonNullMLTProperties =
-              mltProperties.entrySet().stream().filter(entry -> entry.getValue() != null).toList();
-          if (mvtProperties.size() != nonNullMLTProperties.size()) {
+          final var nonNullMLTKeys =
+              mltProperties.entrySet().stream()
+                  .filter(entry -> entry.getValue() != null)
+                  .map(Map.Entry::getKey)
+                  .collect(Collectors.toUnmodifiableSet());
+          if (mvtProperties.size() != nonNullMLTKeys.size()) {
             throw new RuntimeException("Number of properties in MLT and MVT features do not match");
           }
           final var mvtPropertyKeys = mvtProperties.keySet();
-          final var nonNullMLTPropertyKeys =
-              nonNullMLTProperties.stream()
-                  .map(Map.Entry::getKey)
-                  .collect(Collectors.toUnmodifiableSet());
           // compare keys
-          if (!mvtPropertyKeys.equals(nonNullMLTPropertyKeys)) {
+          if (!mvtPropertyKeys.equals(nonNullMLTKeys)) {
             throw new RuntimeException("Property keys in MLT and MVT features do not match");
           }
           // compare values
@@ -1069,7 +1068,7 @@ public class Encode {
               .longOpt(COMPARE_GEOM_OPTION)
               .hasArg(false)
               .desc(
-                  "Assert that geometry in the the decoded tile is the same as the input tile. "
+                  "Assert that geometry in the decoded tile is the same as the input tile. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
@@ -1080,7 +1079,7 @@ public class Encode {
               .longOpt(COMPARE_PROP_OPTION)
               .hasArg(false)
               .desc(
-                  "Assert that properties in the the decoded tile is the same as the input tile. "
+                  "Assert that properties in the decoded tile is the same as the input tile. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")

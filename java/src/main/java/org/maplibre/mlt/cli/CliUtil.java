@@ -11,6 +11,8 @@ public class CliUtil {
 
   private CliUtil() {}
 
+  // The method calls below are used to trigger lazy decoding of features, and their return values
+  // are intentionally ignored.
   @SuppressWarnings("ResultOfMethodCallIgnored")
   public static void decodeFeatureTables(FeatureTable[] featureTables) {
     for (FeatureTable featureTable : featureTables) {
