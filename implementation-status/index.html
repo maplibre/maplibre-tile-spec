@@ -10,11 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/">
+        <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/implementation-status/">
       
       
+        <link rel="prev" href="..">
       
-        <link rel="next" href="implementation-status/">
+      
+        <link rel="next" href="../encodings/">
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
@@ -22,14 +24,14 @@
     
     
       
-        <title>MapLibre Tile Specification</title>
+        <title>Implementation Status - MapLibre Tile Specification</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.2a3383ac.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.2a3383ac.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -48,11 +50,11 @@
       
     
     
-      <link rel="stylesheet" href="assets/extra.css">
+      <link rel="stylesheet" href="../assets/extra.css">
     
-      <link rel="stylesheet" href="assets/stylesheets/panzoom.css">
+      <link rel="stylesheet" href="../assets/stylesheets/panzoom.css">
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -61,11 +63,11 @@
       
         <meta  property="og:type"  content="website" >
       
-        <meta  property="og:title"  content="MapLibre Tile Specification" >
+        <meta  property="og:title"  content="Implementation Status - MapLibre Tile Specification" >
       
         <meta  property="og:description"  content="MapLibre Tile Specification" >
       
-        <meta  property="og:image"  content="https://www.maplibre.org/maplibre-tile-spec/assets/images/social/index.png" >
+        <meta  property="og:image"  content="https://www.maplibre.org/maplibre-tile-spec/assets/images/social/implementation-status.png" >
       
         <meta  property="og:image:type"  content="image/png" >
       
@@ -73,15 +75,15 @@
       
         <meta  property="og:image:height"  content="630" >
       
-        <meta  property="og:url"  content="https://www.maplibre.org/maplibre-tile-spec/" >
+        <meta  property="og:url"  content="https://www.maplibre.org/maplibre-tile-spec/implementation-status/" >
       
         <meta  name="twitter:card"  content="summary_large_image" >
       
-        <meta  name="twitter:title"  content="MapLibre Tile Specification" >
+        <meta  name="twitter:title"  content="Implementation Status - MapLibre Tile Specification" >
       
         <meta  name="twitter:description"  content="MapLibre Tile Specification" >
       
-        <meta  name="twitter:image"  content="https://www.maplibre.org/maplibre-tile-spec/assets/images/social/index.png" >
+        <meta  name="twitter:image"  content="https://www.maplibre.org/maplibre-tile-spec/assets/images/social/implementation-status.png" >
       
     
     
@@ -105,7 +107,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#introduction" class="md-skip">
+        <a href="#implementation-status" class="md-skip">
           Skip to content
         </a>
       
@@ -121,9 +123,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="MapLibre Tile Specification" class="md-header__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
+    <a href=".." title="MapLibre Tile Specification" class="md-header__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
-  <img src="assets/logo.svg" alt="logo">
+  <img src="../assets/logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -140,7 +142,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              Implementation Status
             
           </span>
         </div>
@@ -270,9 +272,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="MapLibre Tile Specification" class="md-nav__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
+    <a href=".." title="MapLibre Tile Specification" class="md-nav__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
-  <img src="assets/logo.svg" alt="logo">
+  <img src="../assets/logo.svg" alt="logo">
 
     </a>
     MapLibre Tile Specification
@@ -296,6 +298,28 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -308,30 +332,20 @@
         
       
       
-      <a href="." class="md-nav__link md-nav__link--active">
-        
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
   
   
   <span class="md-ellipsis">
-    Home
+    Implementation Status
     
   </span>
   
 
-      </a>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="implementation-status/" class="md-nav__link">
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -342,6 +356,44 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#integrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Integrations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementations
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -353,7 +405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="encodings/" class="md-nav__link">
+      <a href="../encodings/" class="md-nav__link">
         
   
   
@@ -375,7 +427,7 @@
   
   
     <li class="md-nav__item">
-      <a href="specification/" class="md-nav__link">
+      <a href="../specification/" class="md-nav__link">
         
   
   
@@ -406,7 +458,7 @@
 
 
   
-    <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/mkdocs/docs/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/mkdocs/docs/implementation-status.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -414,20 +466,63 @@
   
 
 
-<h1 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Link to this section">&para;</a></h1>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This is a live specification that evolves continuously. Features marked as <span class="experimental"></span> are under active development and may change in future versions. Stable features are those without experimental tags.</p>
-</div>
-<p>The MLT format is mainly inspired by the <a href="https://github.com/mapbox/vector-tile-spec">MVT format</a>, but has been redesigned from the ground up to improve the following areas:</p>
-<ul>
-<li><strong>Improved compression ratio</strong> - up to 6x on large tiles, based on a column oriented layout with (custom) lightweight encodings</li>
-<li><strong>Better decoding performance</strong> - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions</li>
-<li><strong>Support for linear referencing and m-values</strong> to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)</li>
-<li><strong>Support 3D coordinates</strong>, i.e. elevation</li>
-<li><strong>Support complex types</strong>, including nested properties, lists and maps</li>
-<li><strong>Improved processing performance</strong>: Based on an in-memory format that can be processed efficiently on the CPU and GPU and loaded directly into GPU buffers partially (like polygons in WebGL) or completely (in case of WebGPU compute shader usage) without additional processing</li>
-</ul>
+<h1 id="implementation-status">Implementation Status<a class="headerlink" href="#implementation-status" title="Link to this section">&para;</a></h1>
+<h2 id="integrations">Integrations<a class="headerlink" href="#integrations" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Integration</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MapLibre Native</td>
+<td>PR: <a href="https://github.com/maplibre/maplibre-native/pull/3246">maplibre-native#3246</a></td>
+</tr>
+<tr>
+<td>MapLibre GL JS</td>
+<td>Issue: <a href="https://github.com/maplibre/maplibre-gl-js/issues/6258">maplibre-gl-js#6258</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="implementations">Implementations<a class="headerlink" href="#implementations" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Implementation</th>
+<th>Language</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp">maplibre-tile-spec/cpp</a></td>
+<td>C++</td>
+<td>Decoder</td>
+<td>Will be used by MapLibre Native</td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/js">maplibre-tile-spec/js</a></td>
+<td>TypeScript</td>
+<td>Decoder</td>
+<td>Will be used by MapLibre GL JS</td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/java">maplibre-tile-spec/java</a></td>
+<td>Java</td>
+<td>Encoder</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt">maplibre-tile-spec/rust/mlt</a></td>
+<td>Rust</td>
+<td>Decoder / Encoder</td>
+<td></td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -541,14 +636,14 @@
     
     
       
-      <script id="__config" type="application/json">{"base": ".", "features": ["content.code.copy", "search.suggest", "navigation.instant", "navigation.sections", "content.action.edit", "toc.integrate"], "search": "assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.code.copy", "search.suggest", "navigation.instant", "navigation.sections", "content.action.edit", "toc.integrate"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.f55a23d4.min.js"></script>
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
       
-        <script src="assets/javascripts/panzoom.min.js"></script>
+        <script src="../assets/javascripts/panzoom.min.js"></script>
       
-        <script src="assets/javascripts/zoompan.js"></script>
+        <script src="../assets/javascripts/zoompan.js"></script>
       
     
   </body>
