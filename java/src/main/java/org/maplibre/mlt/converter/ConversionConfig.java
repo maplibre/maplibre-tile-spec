@@ -178,11 +178,11 @@ public class ConversionConfig {
   }
 
   @Nullable
-  Pattern getLayerFilterPattern() {
+  public Pattern getLayerFilterPattern() {
     return layerFilterPattern;
   }
 
-  boolean getLayerFilterInvert() {
+  public boolean getLayerFilterInvert() {
     return layerFilterInvert;
   }
 }
