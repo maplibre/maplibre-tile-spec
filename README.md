@@ -9,7 +9,7 @@
 # MapLibre Tiles (MLT)
 
 > [!NOTE]
-> [The specification](https://maplibre.org/maplibre-tile-spec/specification/) is deemed stable as of October 2025. However, as a living standard, experimental features may continue to evolve. Implementations and intergrations are being developed, refer to the [implementation status](https://maplibre.org/maplibre-tile-spec/implementation-status/) page for the current status.
+> [The specification](https://maplibre.org/maplibre-tile-spec/specification/) is deemed stable as of October 2025. However, as a living standard, experimental features may continue to evolve. Implementations and integrations are being developed, refer to the [implementation status](https://maplibre.org/maplibre-tile-spec/implementation-status/) page for the current status.
 
 The MapLibre Tile specification is mainly inspired by the [Mapbox Vector Tile (MVT)](https://github.com/mapbox/vector-tile-spec) specification,
 but has been redesigned from the ground up to address the challenges of rapidly growing geospatial data volumes
