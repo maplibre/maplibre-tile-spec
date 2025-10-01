@@ -141,7 +141,9 @@ if(MLT_WITH_FASTPFOR)
     set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
 
     add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
-    target_compile_options(FastPFOR PRIVATE -Wno-shorten-64-to-32 -Wno-error=shorten-64-to-32)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(FastPFOR PRIVATE -Wshorten-64-to-32 -Wno-error=shorten-64-to-32)
+    endif()
 
     target_link_libraries(mlt-cpp FastPFOR)
     target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
