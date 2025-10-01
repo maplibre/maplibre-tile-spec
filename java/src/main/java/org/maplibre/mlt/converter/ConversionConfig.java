@@ -62,11 +62,11 @@ public class ConversionConfig {
     this(
         includeIds,
         useAdvancedEncodingSchemes,
-        /* coercePropertyValues= */ false,
+        coercePropertyValues,
         optimizations,
         preTessellatePolygons,
         useMortonEncoding,
-        /* outlineFeatureTableNames= */ null,
+        outlineFeatureTableNames,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ false);
   }
