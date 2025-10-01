@@ -127,9 +127,9 @@ pub fn decode_byte_rle(tile: &mut TrackedBytes, num_bytes: usize) -> Vec<u8> {
 fn bytes_to_booleans(bytes: &[u8], num_booleans: usize) -> Vec<bool> {
     let mut result = Vec::with_capacity(num_booleans);
 
-    for (byte_index, &byte) in bytes.iter().enumerate() {
+    for &byte in bytes.iter() {
         for bit_index in 0..8 {
-            let global_index = byte_index * 8 + bit_index;
+            let global_index = result.len();
             if global_index >= num_booleans {
                 break;
             }
@@ -137,15 +137,61 @@ fn bytes_to_booleans(bytes: &[u8], num_booleans: usize) -> Vec<bool> {
         }
     }
 
-    // Ensure we have exactly the expected number of booleans
-    result.truncate(num_booleans);
     result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metadata::stream::{Rle, StreamMetadata};
     use crate::metadata::stream_encoding::{Logical, Physical};
+
+    #[test]
+    fn test_decode_boolean_rle_vs_stream_equivalence() {
+        use crate::metadata::stream::{Rle, StreamMetadata};
+        use crate::metadata::stream_encoding::{
+            Logical, LogicalLevelTechnique, Physical, PhysicalLevelTechnique, PhysicalStreamType,
+        };
+
+        // Prepare a dummy tile: 0x03, 0x01 encodes 5 bytes of value 1 (see test_decode_byte_rle)
+        let mut tile_rle: TrackedBytes = vec![0x03, 0x01].into();
+        let mut tile_stream: TrackedBytes = vec![0x03, 0x01].into();
+
+        // Metadata for decode_boolean_rle (just need num_booleans)
+        let num_booleans = 5;
+
+        // Metadata for decode_boolean_stream
+        let metadata = StreamMetadata {
+            num_values: num_booleans as u32,
+            byte_length: 2 as u32,
+            physical: Physical {
+                r#type: PhysicalStreamType::Present,
+                technique: PhysicalLevelTechnique::None,
+            },
+            logical: Logical {
+                r#type: None,
+                technique1: Some(LogicalLevelTechnique::Rle),
+                technique2: None,
+            },
+            rle: Some(Rle {
+                runs: 1,
+                num_rle_values: 5,
+            }),
+            morton: None,
+        };
+
+        // decode_boolean_rle returns Vec<u8> (bytes), convert to bools
+        let rle_bytes = decode_boolean_rle(&mut tile_rle, num_booleans);
+        let rle_bools = bytes_to_booleans(&rle_bytes, num_booleans);
+
+        // decode_boolean_stream returns Vec<bool>
+        let stream_bools = decode_boolean_stream(&mut tile_stream, &metadata).unwrap();
+
+        assert_eq!(
+            rle_bools, stream_bools,
+            "decode_boolean_rle and decode_boolean_stream should produce the same boolean vector"
+        );
+    }
 
     #[test]
     fn test_decode_byte_rle() {
