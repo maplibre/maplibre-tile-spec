@@ -6,7 +6,7 @@
 |---|---|
 | MapLibre Native | PR: [maplibre-native#3246](https://github.com/maplibre/maplibre-native/pull/3246) |
 | MapLibre GL JS | Issue: [maplibre-gl-js#6258](https://github.com/maplibre/maplibre-gl-js/issues/6258) |
-| Planetiler | Issue [onthegomap/planetiler#1349](https://github.com/onthegomap/planetiler/issues/1349) |
+| Planetiler | Issue: [onthegomap/planetiler#1349](https://github.com/onthegomap/planetiler/issues/1349) |
 
 ## Implementations
 
