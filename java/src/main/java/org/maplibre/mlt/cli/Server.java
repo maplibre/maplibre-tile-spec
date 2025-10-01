@@ -33,7 +33,7 @@ public class Server {
 
         new Thread(() -> handleClient(client)).start();
       }
-    } catch(Exception e) {
+    } catch (Exception e) {
       System.err.println("Failed:");
       e.printStackTrace(System.err);
       return false;
@@ -41,20 +41,18 @@ public class Server {
   }
 
   private void handleClient(Socket socket) {
-    try (
-      BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-      PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-    ) {
+    try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true); ) {
       try {
         String command = in.readLine();
 
         if (command != null) {
           Encode.run(command.trim().split("\\s+"));
         }
-      } catch(Exception e) {
+      } catch (Exception e) {
         e.printStackTrace(out);
       }
-    } catch(Exception e) {
+    } catch (Exception e) {
       System.err.println("Failed:");
       e.printStackTrace(System.err);
     }

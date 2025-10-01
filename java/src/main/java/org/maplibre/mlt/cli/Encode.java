@@ -86,19 +86,19 @@ public class Encode {
       return new Server().run(Integer.parseInt(cmd.getOptionValue(SERVER_ARG, "3001")));
     }
 
-      final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
-      final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
-      final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
-      final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
-      final var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
-      final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
-      final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
-      final var tessellatePolygons =
-          (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
-      final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
-      final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
-      final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
-      final var verbose = cmd.hasOption(VERBOSE_OPTION);
+    final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
+    final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
+    final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
+    final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
+    final var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
+    final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
+    final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
+    final var tessellatePolygons =
+        (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
+    final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
+    final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
+    final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
+    final var verbose = cmd.hasOption(VERBOSE_OPTION);
 
     // No ColumnMapping as support is still buggy:
     // https://github.com/maplibre/maplibre-tile-spec/issues/59
@@ -109,66 +109,63 @@ public class Encode {
     // each layer:
     //  new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
 
-      var conversionConfig =
-          new ConversionConfig(
-              includeIds,
-              useAdvancedEncodingSchemes,
-              enableCoerceOnTypeMismatch,
-              optimizations,
-              tessellatePolygons,
-              useMortonEncoding,
-              (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
+    var conversionConfig =
+        new ConversionConfig(
+            includeIds,
+            useAdvancedEncodingSchemes,
+            enableCoerceOnTypeMismatch,
+            optimizations,
+            tessellatePolygons,
+            useMortonEncoding,
+            (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
 
     if (verbose && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
           "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
     }
 
-      if (cmd.hasOption(INPUT_TILE_ARG)) {
-        // Converting one tile
-        encodeTile(
-            tileFileName,
-            cmd,
-            columnMappings,
-            conversionConfig,
-            tessellateURI,
-            enableElideOnTypeMismatch,
-            verbose);
-      } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
-        // Converting all the tiles in an MBTiles file
-        var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
-        var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
-        encodeMBTiles(
-            inputPath,
-            outputPath,
-            columnMappings,
-            conversionConfig,
-            tessellateURI,
-            compressionType,
-            enableElideOnTypeMismatch,
-            verbose);
-      } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
-        var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
-        var ext = FilenameUtils.getExtension(inputPath);
-        if (!ext.isEmpty()) {
-          ext = "." + ext;
-        }
-        var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
-        encodeOfflineDB(
-            Path.of(inputPath),
-            outputPath,
-            columnMappings,
-            conversionConfig,
-            tessellateURI,
-            compressionType,
-            enableElideOnTypeMismatch,
-            verbose);
+    if (cmd.hasOption(INPUT_TILE_ARG)) {
+      // Converting one tile
+      encodeTile(
+          tileFileName,
+          cmd,
+          columnMappings,
+          conversionConfig,
+          tessellateURI,
+          enableElideOnTypeMismatch,
+          verbose);
+    } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
+      // Converting all the tiles in an MBTiles file
+      var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
+      var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
+      encodeMBTiles(
+          inputPath,
+          outputPath,
+          columnMappings,
+          conversionConfig,
+          tessellateURI,
+          compressionType,
+          enableElideOnTypeMismatch,
+          verbose);
+    } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
+      var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
+      var ext = FilenameUtils.getExtension(inputPath);
+      if (!ext.isEmpty()) {
+        ext = "." + ext;
       }
-    } catch (Exception e) {
-      System.err.println("Failed:");
-      e.printStackTrace(System.err);
-      System.exit(1);
+      var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
+      encodeOfflineDB(
+          Path.of(inputPath),
+          outputPath,
+          columnMappings,
+          conversionConfig,
+          tessellateURI,
+          compressionType,
+          enableElideOnTypeMismatch,
+          verbose);
     }
+
+    return true;
   }
 
   ///  Convert a single tile from an individual file
@@ -1160,7 +1157,8 @@ public class Encode {
               .longOpt(HELP_OPTION)
               .hasArg(false)
               .desc("Show this output.")
-              .required(false);
+              .required(false)
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(SERVER_ARG)
@@ -1169,7 +1167,7 @@ public class Encode {
               .argName("port")
               .desc("Start encoding server")
               .required(false)
-              .build());
+              .get());
 
       var cmd = new DefaultParser().parse(options, args);
 
