@@ -70,9 +70,10 @@ fn decode_logical(
                     .as_ref()
                     .ok_or(MltError::MissingLogicalMetadata { which: "rle" })?;
                 let values = decode_rle(values, rle_metadata)?;
-                return Ok(decode_zigzag_delta(&values));
+                Ok(decode_zigzag_delta(&values))
+            } else {
+                Ok(decode_zigzag_delta(values))
             }
-            Ok(decode_zigzag_delta(values))
         }
         Some(LogicalLevelTechnique::Rle) => {
             let rle_metadata = metadata
@@ -83,14 +84,15 @@ fn decode_logical(
             if is_signed {
                 Ok(decode_zigzag(&values))
             } else {
-                Ok(convert_u32_to_i32(&values)?)
+                convert_u32_to_i32(&values)
             }
         }
         Some(LogicalLevelTechnique::None) => {
             if is_signed {
-                return Ok(decode_zigzag(values));
+                Ok(decode_zigzag(values))
+            } else {
+                convert_u32_to_i32(values)
             }
-            Ok(convert_u32_to_i32(values)?)
         }
         Some(LogicalLevelTechnique::Morton) => {
             let morton_metadata = metadata
@@ -223,13 +225,13 @@ fn decode_morton_u64_to_i32_vec2s_flat<T: Into<u64> + Copy>(
     data: &[T],
     coordinate_shift: u32,
 ) -> Result<Vec<i32>, MltError> {
-    let mut vectices: Vec<i32> = Vec::with_capacity(data.len() * 2);
+    let mut vertices: Vec<i32> = Vec::with_capacity(data.len() * 2);
     for &code in data {
         let [x, y] = decode_morton_u64_to_i32_vec2(code, coordinate_shift)?;
-        vectices.push(x);
-        vectices.push(y);
+        vertices.push(x);
+        vertices.push(y);
     }
-    Ok(vectices)
+    Ok(vertices)
 }
 
 fn convert_u32_to_i32(values: &[u32]) -> Result<Vec<i32>, MltError> {
