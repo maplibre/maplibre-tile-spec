@@ -2,6 +2,7 @@ benchmark/
 benchmarks/**/*.mvt
 benchmarks/**/*.pbf
 data/
+expected/**/*.mlt.geojson
 fixtures/**/*.bin
 fixtures/**/*.json
 fixtures/**/*.mvt

@@ -5272,6 +5272,19 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     *
+     *
+     * <pre>
+     * this belongs elsewhere, but is here for now
+     * </pre>
+     *
+     * <code>bool longID = 1;</code>
+     *
+     * @return The longID.
+     */
+    boolean getLongID();
+
+    /**
      * <code>.mlt.ScalarType physicalType = 4;</code>
      *
      * @return Whether the physicalType field is set.
@@ -5405,6 +5418,25 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       return TypeCase.forNumber(typeCase_);
     }
 
+    public static final int LONGID_FIELD_NUMBER = 1;
+    private boolean longID_ = false;
+
+    /**
+     *
+     *
+     * <pre>
+     * this belongs elsewhere, but is here for now
+     * </pre>
+     *
+     * <code>bool longID = 1;</code>
+     *
+     * @return The longID.
+     */
+    @java.lang.Override
+    public boolean getLongID() {
+      return longID_;
+    }
+
     public static final int PHYSICALTYPE_FIELD_NUMBER = 4;
 
     /**
@@ -5499,6 +5531,9 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
 
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output) throws java.io.IOException {
+      if (longID_ != false) {
+        output.writeBool(1, longID_);
+      }
       if (typeCase_ == 4) {
         output.writeEnum(4, ((java.lang.Integer) type_));
       }
@@ -5514,6 +5549,9 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       if (size != -1) return size;
 
       size = 0;
+      if (longID_ != false) {
+        size += com.google.protobuf.CodedOutputStream.computeBoolSize(1, longID_);
+      }
       if (typeCase_ == 4) {
         size +=
             com.google.protobuf.CodedOutputStream.computeEnumSize(4, ((java.lang.Integer) type_));
@@ -5538,6 +5576,7 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn other =
           (org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn) obj;
 
+      if (getLongID() != other.getLongID()) return false;
       if (!getTypeCase().equals(other.getTypeCase())) return false;
       switch (typeCase_) {
         case 4:
@@ -5560,6 +5599,8 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      hash = (37 * hash) + LONGID_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(getLongID());
       switch (typeCase_) {
         case 4:
           hash = (37 * hash) + PHYSICALTYPE_FIELD_NUMBER;
@@ -5707,6 +5748,7 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       public Builder clear() {
         super.clear();
         bitField0_ = 0;
+        longID_ = false;
         typeCase_ = 0;
         type_ = null;
         return this;
@@ -5749,6 +5791,9 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       private void buildPartial0(
           org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn result) {
         int from_bitField0_ = bitField0_;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          result.longID_ = longID_;
+        }
       }
 
       private void buildPartialOneofs(
@@ -5773,6 +5818,9 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
         if (other
             == org.maplibre.mlt.metadata.tileset.MltTilesetMetadata.ScalarColumn
                 .getDefaultInstance()) return this;
+        if (other.getLongID() != false) {
+          setLongID(other.getLongID());
+        }
         switch (other.getTypeCase()) {
           case PHYSICALTYPE:
             {
@@ -5815,6 +5863,12 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
               case 0:
                 done = true;
                 break;
+              case 8:
+                {
+                  longID_ = input.readBool();
+                  bitField0_ |= 0x00000001;
+                  break;
+                } // case 8
               case 32:
                 {
                   int rawValue = input.readEnum();
@@ -5861,6 +5915,62 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
       }
 
       private int bitField0_;
+
+      private boolean longID_;
+
+      /**
+       *
+       *
+       * <pre>
+       * this belongs elsewhere, but is here for now
+       * </pre>
+       *
+       * <code>bool longID = 1;</code>
+       *
+       * @return The longID.
+       */
+      @java.lang.Override
+      public boolean getLongID() {
+        return longID_;
+      }
+
+      /**
+       *
+       *
+       * <pre>
+       * this belongs elsewhere, but is here for now
+       * </pre>
+       *
+       * <code>bool longID = 1;</code>
+       *
+       * @param value The longID to set.
+       * @return This builder for chaining.
+       */
+      public Builder setLongID(boolean value) {
+
+        longID_ = value;
+        bitField0_ |= 0x00000001;
+        onChanged();
+        return this;
+      }
+
+      /**
+       *
+       *
+       * <pre>
+       * this belongs elsewhere, but is here for now
+       * </pre>
+       *
+       * <code>bool longID = 1;</code>
+       *
+       * @return This builder for chaining.
+       */
+      public Builder clearLongID() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        longID_ = false;
+        onChanged();
+        return this;
+      }
 
       /**
        * <code>.mlt.ScalarType physicalType = 4;</code>
@@ -10999,33 +11109,33 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
           + "lable\030\002 \001(\010\022%\n\013columnScope\030\003 \001(\0162\020.mlt.C"
           + "olumnScope\022\'\n\nscalarType\030\004 \001(\0132\021.mlt.Sca"
           + "larColumnH\000\022)\n\013complexType\030\005 \001(\0132\022.mlt.C"
-          + "omplexColumnH\000B\006\n\004type\"n\n\014ScalarColumn\022\'"
-          + "\n\014physicalType\030\004 \001(\0162\017.mlt.ScalarTypeH\000\022"
-          + "-\n\013logicalType\030\005 \001(\0162\026.mlt.LogicalScalar"
-          + "TypeH\000B\006\n\004type\"\217\001\n\rComplexColumn\022(\n\014phys"
-          + "icalType\030\004 \001(\0162\020.mlt.ComplexTypeH\000\022.\n\013lo"
-          + "gicalType\030\005 \001(\0162\027.mlt.LogicalComplexType"
-          + "H\000\022\034\n\010children\030\006 \003(\0132\n.mlt.FieldB\006\n\004type"
-          + "\"\243\001\n\005Field\022\021\n\004name\030\001 \001(\tH\001\210\001\001\022\025\n\010nullabl"
-          + "e\030\002 \001(\010H\002\210\001\001\022\'\n\013scalarField\030\003 \001(\0132\020.mlt."
-          + "ScalarFieldH\000\022)\n\014complexField\030\004 \001(\0132\021.ml"
-          + "t.ComplexFieldH\000B\006\n\004typeB\007\n\005_nameB\013\n\t_nu"
-          + "llable\"m\n\013ScalarField\022\'\n\014physicalType\030\001 "
-          + "\001(\0162\017.mlt.ScalarTypeH\000\022-\n\013logicalType\030\002 "
-          + "\001(\0162\026.mlt.LogicalScalarTypeH\000B\006\n\004type\"\216\001"
-          + "\n\014ComplexField\022(\n\014physicalType\030\001 \001(\0162\020.m"
-          + "lt.ComplexTypeH\000\022.\n\013logicalType\030\002 \001(\0162\027."
-          + "mlt.LogicalComplexTypeH\000\022\034\n\010children\030\003 \003"
-          + "(\0132\n.mlt.FieldB\006\n\004type*&\n\013ColumnScope\022\013\n"
-          + "\007FEATURE\020\000\022\n\n\006VERTEX\020\001*\205\001\n\nScalarType\022\013\n"
-          + "\007BOOLEAN\020\000\022\t\n\005INT_8\020\001\022\n\n\006UINT_8\020\002\022\n\n\006INT"
-          + "_32\020\003\022\013\n\007UINT_32\020\004\022\n\n\006INT_64\020\005\022\013\n\007UINT_6"
-          + "4\020\006\022\t\n\005FLOAT\020\007\022\n\n\006DOUBLE\020\010\022\n\n\006STRING\020\t*\'"
-          + "\n\013ComplexType\022\014\n\010GEOMETRY\020\000\022\n\n\006STRUCT\020\001*"
-          + "\033\n\021LogicalScalarType\022\006\n\002ID\020\000*/\n\022LogicalC"
-          + "omplexType\022\n\n\006BINARY\020\000\022\r\n\tRANGE_MAP\020\001B#\n"
-          + "!org.maplibre.mlt.metadata.tilesetb\006prot"
-          + "o3"
+          + "omplexColumnH\000B\006\n\004type\"~\n\014ScalarColumn\022\016"
+          + "\n\006longID\030\001 \001(\010\022\'\n\014physicalType\030\004 \001(\0162\017.m"
+          + "lt.ScalarTypeH\000\022-\n\013logicalType\030\005 \001(\0162\026.m"
+          + "lt.LogicalScalarTypeH\000B\006\n\004type\"\217\001\n\rCompl"
+          + "exColumn\022(\n\014physicalType\030\004 \001(\0162\020.mlt.Com"
+          + "plexTypeH\000\022.\n\013logicalType\030\005 \001(\0162\027.mlt.Lo"
+          + "gicalComplexTypeH\000\022\034\n\010children\030\006 \003(\0132\n.m"
+          + "lt.FieldB\006\n\004type\"\243\001\n\005Field\022\021\n\004name\030\001 \001(\t"
+          + "H\001\210\001\001\022\025\n\010nullable\030\002 \001(\010H\002\210\001\001\022\'\n\013scalarFi"
+          + "eld\030\003 \001(\0132\020.mlt.ScalarFieldH\000\022)\n\014complex"
+          + "Field\030\004 \001(\0132\021.mlt.ComplexFieldH\000B\006\n\004type"
+          + "B\007\n\005_nameB\013\n\t_nullable\"m\n\013ScalarField\022\'\n"
+          + "\014physicalType\030\001 \001(\0162\017.mlt.ScalarTypeH\000\022-"
+          + "\n\013logicalType\030\002 \001(\0162\026.mlt.LogicalScalarT"
+          + "ypeH\000B\006\n\004type\"\216\001\n\014ComplexField\022(\n\014physic"
+          + "alType\030\001 \001(\0162\020.mlt.ComplexTypeH\000\022.\n\013logi"
+          + "calType\030\002 \001(\0162\027.mlt.LogicalComplexTypeH\000"
+          + "\022\034\n\010children\030\003 \003(\0132\n.mlt.FieldB\006\n\004type*&"
+          + "\n\013ColumnScope\022\013\n\007FEATURE\020\000\022\n\n\006VERTEX\020\001*\205"
+          + "\001\n\nScalarType\022\013\n\007BOOLEAN\020\000\022\t\n\005INT_8\020\001\022\n\n"
+          + "\006UINT_8\020\002\022\n\n\006INT_32\020\003\022\013\n\007UINT_32\020\004\022\n\n\006IN"
+          + "T_64\020\005\022\013\n\007UINT_64\020\006\022\t\n\005FLOAT\020\007\022\n\n\006DOUBLE"
+          + "\020\010\022\n\n\006STRING\020\t*\'\n\013ComplexType\022\014\n\010GEOMETR"
+          + "Y\020\000\022\n\n\006STRUCT\020\001*\033\n\021LogicalScalarType\022\006\n\002"
+          + "ID\020\000*/\n\022LogicalComplexType\022\n\n\006BINARY\020\000\022\r"
+          + "\n\tRANGE_MAP\020\001B#\n!org.maplibre.mlt.metada"
+          + "ta.tilesetb\006proto3"
     };
     descriptor =
         com.google.protobuf.Descriptors.FileDescriptor.internalBuildGeneratedFileFrom(
@@ -11064,7 +11174,7 @@ public final class MltTilesetMetadata extends com.google.protobuf.GeneratedFile 
         new com.google.protobuf.GeneratedMessage.FieldAccessorTable(
             internal_static_mlt_ScalarColumn_descriptor,
             new java.lang.String[] {
-              "PhysicalType", "LogicalType", "Type",
+              "LongID", "PhysicalType", "LogicalType", "Type",
             });
     internal_static_mlt_ComplexColumn_descriptor = getDescriptor().getMessageTypes().get(4);
     internal_static_mlt_ComplexColumn_fieldAccessorTable =

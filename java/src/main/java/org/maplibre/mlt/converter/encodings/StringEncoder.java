@@ -1,5 +1,6 @@
 package org.maplibre.mlt.converter.encodings;
 
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -7,7 +8,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.CollectionUtils;
@@ -60,8 +60,6 @@ public class StringEncoder {
 
           if (!dictionary.contains(value)) {
             dictionary.add(value);
-            var utf8EncodedData = value.getBytes(StandardCharsets.UTF_8);
-            // lengthStream.add(utf8EncodedData.length);
             var index = dictionary.size() - 1;
             dataStream.add(index);
           } else {
@@ -100,20 +98,20 @@ public class StringEncoder {
 
       if (dataStream.isEmpty()) {
         /* If no values are present in this column add zero for number of streams */
-        var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {0}, false, false);
+        final var encodedFieldMetadata = EncodingUtils.encodeVarint(0, false);
         sharedDictionary = CollectionUtils.concatByteArrays(sharedDictionary, encodedFieldMetadata);
         continue;
       }
 
-      var encodedFieldMetadata = EncodingUtils.encodeVarints(new long[] {2}, false, false);
-      var encodedPresentStream =
+      final var encodedFieldMetadata = EncodingUtils.encodeVarints(new int[] {2}, false, false);
+      final var encodedPresentStream =
           BooleanEncoder.encodeBooleanStream(
               presentStream,
               PhysicalStreamType.PRESENT,
               rawStreamData,
               fieldName + "_present_" + i);
 
-      var encodedDataStream =
+      final var encodedDataStream =
           IntegerEncoder.encodeIntStream(
               dataStream,
               physicalLevelTechnique,
@@ -128,7 +126,7 @@ public class StringEncoder {
     }
 
     // TODO: make present stream optional
-    var numStreams =
+    final var numStreams =
         (encodedSharedFsstDictionary != null
                     && encodedSharedFsstDictionary.length < encodedSharedDictionary.length
                 ? 5
@@ -181,7 +179,8 @@ public class StringEncoder {
       boolean encodeDataStream,
       boolean isSharedDictionary,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      String fieldName) {
+      String fieldName)
+      throws IOException {
     var dataStream = new ArrayList<Integer>(values.size());
     // var lengthStream = new ArrayList<Integer>();
     var dictionary = new ArrayList<String>();
@@ -222,7 +221,8 @@ public class StringEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSharedDictionary,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      @Nullable String fieldName) {
+      @Nullable String fieldName)
+      throws IOException {
     var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
     var symbolTable = FsstEncoder.encode(joinedValues);
 
@@ -301,7 +301,8 @@ public class StringEncoder {
       boolean encodeOffsetStream,
       boolean isSharedDictionary,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      String fieldName) {
+      String fieldName)
+      throws IOException {
     var offsetStream = new ArrayList<Integer>(values.size());
     var lengthStream = new ArrayList<Integer>();
     var dictionary = new ArrayList<String>();

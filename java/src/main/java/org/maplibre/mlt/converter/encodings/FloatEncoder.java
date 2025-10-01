@@ -1,9 +1,10 @@
 package org.maplibre.mlt.converter.encodings;
 
+import jakarta.annotation.Nullable;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.metadata.stream.*;
@@ -15,7 +16,8 @@ public class FloatEncoder {
   public static byte[] encodeFloatStream(
       List<Float> values,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      @Nullable String streamName) {
+      @Nullable String streamName)
+      throws IOException {
     // TODO: add encodings -> RLE, Dictionary, PDE, ALP
     float[] floatArray = new float[values.size()];
     for (int i = 0; i < values.size(); i++) {

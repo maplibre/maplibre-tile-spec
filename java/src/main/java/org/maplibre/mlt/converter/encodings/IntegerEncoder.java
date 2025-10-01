@@ -1,11 +1,11 @@
 package org.maplibre.mlt.converter.encodings;
 
 import com.google.common.collect.Lists;
+import jakarta.annotation.Nullable;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.metadata.stream.*;
@@ -42,7 +42,8 @@ public class IntegerEncoder {
       List<Integer> values,
       int numBits,
       int coordinateShift,
-      PhysicalLevelTechnique physicalLevelTechnique) {
+      PhysicalLevelTechnique physicalLevelTechnique)
+      throws IOException {
     var encodedValueStream = encodeMortonCodes(values, physicalLevelTechnique);
     var valuesMetadata =
         new MortonEncodedStreamMetadata(
@@ -64,7 +65,8 @@ public class IntegerEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType) {
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     return encodeIntStream(
         values, physicalLevelTechnique, isSigned, streamType, logicalStreamType, null, null);
   }
@@ -76,7 +78,8 @@ public class IntegerEncoder {
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      @Nullable String streamName) {
+      @Nullable String streamName)
+      throws IOException {
     var encodedValueStream = IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned);
 
     // TODO: refactor -> also allow the use of none null suppression techniques
@@ -111,7 +114,8 @@ public class IntegerEncoder {
       List<Long> values,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType) {
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     return encodeLongStream(values, isSigned, streamType, logicalStreamType, null, null);
   }
 
@@ -121,7 +125,8 @@ public class IntegerEncoder {
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
-      @Nullable String streamName) {
+      @Nullable String streamName)
+      throws IOException {
     var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned);
 
     /* Currently FastPfor is only supported with 32 bit so for long we always have to fallback to Varint encoding */
@@ -154,7 +159,7 @@ public class IntegerEncoder {
 
   // TODO: make dependent on specified LogicalLevelTechnique
   public static IntegerEncodingResult encodeMortonCodes(
-      List<Integer> values, PhysicalLevelTechnique physicalLevelTechnique) {
+      List<Integer> values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
     var previousValue = 0;
     var deltaValues = new ArrayList<Integer>();
     for (var i = 0; i < values.size(); i++) {
@@ -167,8 +172,7 @@ public class IntegerEncoder {
     var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? encodeFastPfor(deltaValues, false)
-            : encodeVarint(
-                deltaValues.stream().mapToLong(i -> i).boxed().collect(Collectors.toList()), false);
+            : EncodingUtils.encodeVarints(deltaValues, false, false);
 
     var result = new IntegerEncodingResult();
     result.logicalLevelTechnique1 = LogicalLevelTechnique.MORTON;
@@ -210,8 +214,13 @@ public class IntegerEncoder {
     BiFunction<List<Integer>, Boolean, byte[]> encoder =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
             ? IntegerEncoder::encodeFastPfor
-            : (v, s) ->
-                encodeVarint(v.stream().mapToLong(i -> i).boxed().collect(Collectors.toList()), s);
+            : (v, s) -> {
+              try {
+                return EncodingUtils.encodeVarints(v, s, false);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            };
 
     var plainEncodedValues = encoder.apply(values, isSigned);
     var deltaEncodedValues = encoder.apply(deltaValues, true);
@@ -324,8 +333,13 @@ public class IntegerEncoder {
     }
 
     BiFunction<List<Long>, Boolean, byte[]> encoder =
-        (v, s) ->
-            encodeVarint(v.stream().mapToLong(i -> i).boxed().collect(Collectors.toList()), s);
+        (v, s) -> {
+          try {
+            return EncodingUtils.encodeLongVarints(v, s, false);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        };
 
     var plainEncodedValues = encoder.apply(values, isSigned);
     var deltaEncodedValues = encoder.apply(deltaValues, true);
@@ -413,7 +427,11 @@ public class IntegerEncoder {
         values.stream().mapToInt(i -> i).toArray(), signed, false);
   }
 
-  public static byte[] encodeVarint(List<Long> values, boolean signed) {
-    return EncodingUtils.encodeVarints(values.stream().mapToLong(i -> i).toArray(), signed, false);
+  public static byte[] encodeVarint(List<Integer> values, boolean signed) throws IOException {
+    return EncodingUtils.encodeVarints(values, signed, false);
+  }
+
+  public static byte[] encodeLongVarint(List<Long> values, boolean signed) throws IOException {
+    return EncodingUtils.encodeLongVarints(values, signed, false);
   }
 }

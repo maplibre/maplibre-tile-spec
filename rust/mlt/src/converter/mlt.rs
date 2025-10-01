@@ -81,12 +81,14 @@ pub fn create_tileset_metadata(
                 r#type: {
                     if layer.features.iter().all(|f| f.id <= i64::from(i32::MAX)) {
                         Some(column::Type::ScalarType(ScalarColumn {
+                            long_id: false,
                             r#type: Some(scalar_column::Type::PhysicalType(
                                 ScalarType::Uint32 as i32,
                             )),
                         }))
                     } else {
                         Some(column::Type::ScalarType(ScalarColumn {
+                            long_id: true,
                             r#type: Some(scalar_column::Type::PhysicalType(
                                 ScalarType::Uint64 as i32,
                             )),
@@ -238,6 +240,7 @@ pub fn create_tileset_metadata(
                     nullable: true,
                     column_scope: ColumnScope::Feature.into(),
                     r#type: Some(column::Type::ScalarType(ScalarColumn {
+                        long_id: false, // fixme: not sure if this is correct
                         r#type: Some(scalar_column::Type::PhysicalType(scalar_type as i32)),
                     })),
                 };

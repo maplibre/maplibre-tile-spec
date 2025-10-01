@@ -1,5 +1,6 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.IOException;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Disabled;
@@ -9,9 +10,27 @@ import org.maplibre.mlt.converter.encodings.*;
 import org.maplibre.mlt.metadata.stream.*;
 
 public class IntegerDecoderTest {
+  @Test
+  public void encode_Int_Limits() throws IOException {
+    for (int v : new int[] {Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE}) {
+      final var encoded = EncodingUtils.encodeVarint(v, false);
+      final var decoded = DecodingUtils.decodeVarints(encoded, new IntWrapper(0), 1)[0];
+      Assert.equals(decoded, v);
+    }
+  }
 
   @Test
-  public void decodeIntStream_SignedIntegerValues_PlainFastPforEncode() {
+  public void encode_Int_Limits_ZigZag() throws IOException {
+    for (int v : new int[] {Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE}) {
+      final var encoded = EncodingUtils.encodeVarint(v, true);
+      final var zigzag = DecodingUtils.decodeVarints(encoded, new IntWrapper(0), 1)[0];
+      final var decoded = DecodingUtils.decodeZigZag(zigzag);
+      Assert.equals(decoded, v);
+    }
+  }
+
+  @Test
+  public void decodeIntStream_SignedIntegerValues_PlainFastPforEncode() throws IOException {
     var values = List.of(1, 2, 7, 3, -4, 5, 1, -8);
     var encodedStream =
         IntegerEncoder.encodeIntStream(
@@ -26,7 +45,7 @@ public class IntegerDecoderTest {
   }
 
   @Test
-  public void decodeIntStream_SignedIntegerValues_PlainVarintEncode() {
+  public void decodeIntStream_SignedIntegerValues_PlainVarintEncode() throws IOException {
     var values = List.of(1, 2, 7, 3, -4, 5, 1, -8);
     var encodedStream =
         IntegerEncoder.encodeIntStream(
@@ -42,7 +61,7 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeIntStream_SignedIntegerValues_FastPforDeltaRleEncode() {
+  public void decodeIntStream_SignedIntegerValues_FastPforDeltaRleEncode() throws IOException {
     var values = List.of(-1, -2, -3, -4, -5, -6, -7, 8);
     var encodedStream =
         IntegerEncoder.encodeIntStream(
@@ -57,7 +76,7 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeIntStream_SignedIntegerValues_VarintDeltaRleEncode() {
+  public void decodeIntStream_SignedIntegerValues_VarintDeltaRleEncode() throws IOException {
     var values = List.of(-1, -2, -3, -4, -5, -6, -7, 8);
     var encodedStream =
         IntegerEncoder.encodeIntStream(
@@ -72,7 +91,7 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeIntStream_SignedIntegerValues_FastPforRleEncode() {
+  public void decodeIntStream_SignedIntegerValues_FastPforRleEncode() throws IOException {
     var values = List.of(-1, -1, -1, -1, -1, -1, -2, -2);
     var encodedStream =
         IntegerEncoder.encodeIntStream(
@@ -88,7 +107,7 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeIntStream_SignedIntegerValues_VarintRleEncode() {
+  public void decodeIntStream_SignedIntegerValues_VarintRleEncode() throws IOException {
     var values = List.of(-1, -1, -1, -1, -1, -1, -2, -2);
     var encodedStream =
         IntegerEncoder.encodeIntStream(
@@ -104,7 +123,7 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeIntStream_UnsignedIntegerValues_VarintRleEncode() {
+  public void decodeIntStream_UnsignedIntegerValues_VarintRleEncode() throws IOException {
     var values = List.of(1, 1, 1, 1, 1, 1, 2, 2);
     var encodedStream =
         IntegerEncoder.encodeIntStream(
@@ -120,8 +139,8 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeLongStream_SignedIntegerValues_PlainEncode() {
-    var values = List.of(1l, 2l, 7l, 3l, -4l, 5l, 1l, -8l);
+  public void decodeLongStream_SignedIntegerValues_PlainEncode() throws IOException {
+    final var values = List.of(1L, 2L, 7L, 3L, -4L, 5L, 1L, -8L);
     var encodedStream =
         IntegerEncoder.encodeLongStream(values, true, PhysicalStreamType.DATA, null);
 
@@ -136,8 +155,8 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeLongStream_SignedIntegerValues_DeltaRleEncode() {
-    var values = List.of(-1l, -2l, -3l, -4l, -5l, -6l, -7l, 8l);
+  public void decodeLongStream_SignedIntegerValues_DeltaRleEncode() throws IOException {
+    final var values = List.of(-1L, -2L, -3L, -4L, -5L, -6L, -7L, 8L);
     var encodedStream =
         IntegerEncoder.encodeLongStream(values, true, PhysicalStreamType.DATA, null);
 
@@ -151,8 +170,8 @@ public class IntegerDecoderTest {
 
   @Test
   @Disabled
-  public void decodeLongStream_SignedIntegerValues_RleEncode() {
-    var values = List.of(-1l, -1l, -1l, -1l, -1l, -1l, -2l, -2l);
+  public void decodeLongStream_SignedIntegerValues_RleEncode() throws IOException {
+    final var values = List.of(-1L, -1L, -1L, -1L, -1L, -1L, -2L, -2L);
     var encodedStream =
         IntegerEncoder.encodeLongStream(values, true, PhysicalStreamType.DATA, null);
 

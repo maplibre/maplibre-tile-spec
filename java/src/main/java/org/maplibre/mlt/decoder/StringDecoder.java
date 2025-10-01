@@ -102,7 +102,7 @@ public class StringDecoder {
     var numValues = new HashMap<String, Integer>();
     var values = new HashMap<String, List<String>>();
     for (var childField : column.getComplexType().getChildrenList()) {
-      var numStreams = DecodingUtils.decodeVarint(data, offset, 1)[0];
+      var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
       if (numStreams != 2
           || childField.hasComplexField()
           || childField.getScalarField().getPhysicalType()
@@ -170,7 +170,6 @@ public class StringDecoder {
      * -> fsst dictionary -> symbolTable, symbolLength, dictionary, length, present, data
      * */
 
-    // BitSet presentStream = null;
     List<Integer> dictionaryLengthStream = null;
     List<Integer> offsetStream = null;
     byte[] dataStream = null;
@@ -178,15 +177,8 @@ public class StringDecoder {
     List<Integer> symbolLengthStream = null;
     byte[] symbolTableStream = null;
     for (var i = 0; i < numStreams; i++) {
-      var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       switch (streamMetadata.physicalStreamType()) {
-          /*case PRESENT: {
-              //var presentStreamMetadata = StreamMetadata.decode(data, offset);
-              //TODO: set numValues in different stream if present stream is nullable
-              numValues = streamMetadata.numValues();
-              presentStream = DecodingUtils.decodeBooleanRle(data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
-              break;
-          }*/
         case OFFSET:
           {
             offsetStream = IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false);
@@ -218,8 +210,7 @@ public class StringDecoder {
       }
     }
 
-    if (symbolTableStream != null && dictionaryLengthStream != null) {
-      @SuppressWarnings("deprecation")
+    if (symbolTableStream != null && symbolLengthStream != null && dictionaryLengthStream != null) {
       var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,

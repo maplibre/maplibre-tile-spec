@@ -1,0 +1,16 @@
+name: mlt-setup-node
+description: Setup Node-JS requirements
+
+inputs: {}
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version-file: 'js/.nvmrc'
+        cache: 'npm'
+        cache-dependency-path: 'js/package-lock.json'
+        registry-url: 'https://registry.npmjs.org'

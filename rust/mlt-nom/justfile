@@ -1,8 +1,8 @@
 #!/usr/bin/env just --justfile
 
 main_crate := file_name(justfile_directory())
-packages := '--package mlt'  # All crates in the workspace
-features := '--features default'
+packages := '-p mlt-nom'  # All crates in the workspace
+features := '--all-features'  # Enable all features
 targets := '--all-targets'  # For all targets (lib, bin, tests, examples, benches)
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
@@ -32,16 +32,16 @@ check:
     cargo check {{packages}} {{features}} {{targets}}
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info gen-snippets && \
+ci-coverage: env-info && \
             (coverage '--codecov --output-path target/llvm-cov/codecov.info')
     # ATTENTION: the full file path above is used in the CI workflow
     mkdir -p target/llvm-cov
 
 # Run all tests as expected by CI
-ci-test: env-info test-fmt clippy gen-snippets test test-doc && assert-git-is-clean
+ci-test: env-info test-fmt clippy check test test-doc && assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info check gen-snippets test
+ci-test-msrv: env-info check test
 
 # Clean all build artifacts
 clean:
@@ -63,6 +63,8 @@ docs *args='--open':
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "PWD $(pwd)"
+    {{just_executable()}} --version
     rustc --version
     cargo --version
     rustup --version
@@ -84,17 +86,7 @@ fmt:
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args:  (cargo-install 'cargo-sort')
-    cargo sort --workspace --grouped {{args}}
-
-# Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
-[working-directory: '../../java']
-gen-snippets:  (cargo-install 'fd' 'fd-find')
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ./gradlew cli
-    fd . ../test/fixtures -e pbf -x java -jar build/libs/encode.jar --mvt {} \
-        --mlt "$(tmp='{.}'; echo ${tmp/\/fixtures\///expected/}).mvt" \
-        --rawstreams --tessellate --outlines '\*' || echo "### Some snippets failed to generate ###"
+    cargo sort {{packages}} --grouped {{args}}
 
 # Get any package's field from the metadata
 get-crate-field field package=main_crate:  (assert-cmd 'jq')

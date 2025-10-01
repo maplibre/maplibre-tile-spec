@@ -3,6 +3,7 @@ package org.maplibre.mlt.cli;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -18,21 +19,23 @@ import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
-import javax.annotation.Nullable;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorInputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorOutputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateParameters;
@@ -83,17 +86,19 @@ public class Encode {
       return new Server().run(Integer.parseInt(cmd.getOptionValue(SERVER_ARG, "3001")));
     }
 
-    var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
-    var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
-    var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
-    var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
-    var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
-    var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
-    var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
-    var preTessellatePolygons =
-        (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
-    var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
-    var verbose = cmd.hasOption(VERBOSE_OPTION);
+      final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
+      final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
+      final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
+      final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
+      final var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
+      final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
+      final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
+      final var tessellatePolygons =
+          (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
+      final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
+      final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
+      final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
+      final var verbose = cmd.hasOption(VERBOSE_OPTION);
 
     // No ColumnMapping as support is still buggy:
     // https://github.com/maplibre/maplibre-tile-spec/issues/59
@@ -104,53 +109,66 @@ public class Encode {
     // each layer:
     //  new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
 
-    var conversionConfig =
-        new ConversionConfig(
-            includeIds,
-            useAdvancedEncodingSchemes,
-            optimizations,
-            preTessellatePolygons,
-            useMortonEncoding,
-            (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
+      var conversionConfig =
+          new ConversionConfig(
+              includeIds,
+              useAdvancedEncodingSchemes,
+              enableCoerceOnTypeMismatch,
+              optimizations,
+              tessellatePolygons,
+              useMortonEncoding,
+              (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
 
     if (verbose && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
           "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
     }
 
-    if (cmd.hasOption(INPUT_TILE_ARG)) {
-      // Converting one tile
-      encodeTile(tileFileName, cmd, columnMappings, conversionConfig, tessellateURI, verbose);
-    } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
-      // Converting all the tiles in an MBTiles file
-      var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
-      var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
-      encodeMBTiles(
-          inputPath,
-          outputPath,
-          columnMappings,
-          conversionConfig,
-          tessellateURI,
-          compressionType,
-          verbose);
-    } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
-      var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
-      var ext = FilenameUtils.getExtension(inputPath);
-      if (!ext.isEmpty()) {
-        ext = "." + ext;
+      if (cmd.hasOption(INPUT_TILE_ARG)) {
+        // Converting one tile
+        encodeTile(
+            tileFileName,
+            cmd,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            enableElideOnTypeMismatch,
+            verbose);
+      } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
+        // Converting all the tiles in an MBTiles file
+        var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
+        var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
+        encodeMBTiles(
+            inputPath,
+            outputPath,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            compressionType,
+            enableElideOnTypeMismatch,
+            verbose);
+      } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
+        var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
+        var ext = FilenameUtils.getExtension(inputPath);
+        if (!ext.isEmpty()) {
+          ext = "." + ext;
+        }
+        var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
+        encodeOfflineDB(
+            Path.of(inputPath),
+            outputPath,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            compressionType,
+            enableElideOnTypeMismatch,
+            verbose);
       }
-      var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
-      encodeOfflineDB(
-          Path.of(inputPath),
-          outputPath,
-          columnMappings,
-          conversionConfig,
-          tessellateURI,
-          compressionType,
-          verbose);
+    } catch (Exception e) {
+      System.err.println("Failed:");
+      e.printStackTrace(System.err);
+      System.exit(1);
     }
-
-    return true;
   }
 
   ///  Convert a single tile from an individual file
@@ -160,25 +178,34 @@ public class Encode {
       List<ColumnMapping> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      boolean enableElideOnTypeMismatch,
       boolean verbose)
       throws IOException {
-    var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
-    var willDecode = cmd.hasOption(DECODE_OPTION);
-    var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
-    var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
-    var willCompare = cmd.hasOption(COMPARE_OPTION);
-    var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
-    var willTime = cmd.hasOption(TIMER_OPTION);
-    var inputTilePath = Paths.get(tileFileName);
-    var inputTileName = inputTilePath.getFileName().toString();
-    var outputPath = getOutputPath(cmd, inputTileName, "mlt");
-    var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
+    final var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
+    final var willDecode = cmd.hasOption(DECODE_OPTION);
+    final var willPrintMLT = cmd.hasOption(PRINT_MLT_OPTION);
+    final var willPrintMVT = cmd.hasOption(PRINT_MVT_OPTION);
+    final var compareProp = cmd.hasOption(COMPARE_PROP_OPTION) || cmd.hasOption(COMPARE_ALL_OPTION);
+    final var compareGeom = cmd.hasOption(COMPARE_GEOM_OPTION) || cmd.hasOption(COMPARE_ALL_OPTION);
+    final var willCompare = compareProp || compareGeom;
+    final var willUseVectorized = cmd.hasOption(VECTORIZED_OPTION);
+    final var willTime = cmd.hasOption(TIMER_OPTION);
+    final var inputTilePath = Paths.get(tileFileName);
+    final var inputTileName = inputTilePath.getFileName().toString();
+    final var outputPath = getOutputPath(cmd, inputTileName, "mlt");
+    final var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
 
-    Timer timer = willTime ? new Timer() : null;
+    final Timer timer = willTime ? new Timer() : null;
 
-    var isIdPresent = true;
-    var metadata = MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
-    var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
+    final var isIdPresent = true;
+    final var metadata =
+        MltConverter.createTilesetMetadata(
+            decodedMvTile,
+            columnMappings,
+            isIdPresent,
+            conversionConfig.getCoercePropertyValues(),
+            enableElideOnTypeMismatch);
+    final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
 
     HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
@@ -268,7 +295,7 @@ public class Encode {
         CliUtil.printMLT(decodedTile);
       }
       if (willCompare) {
-        compare(decodedTile, decodedMvTile);
+        compare(decodedTile, decodedMvTile, compareGeom, compareProp);
       }
     }
   }
@@ -281,6 +308,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
+      boolean enableCoerceOrElideMismatch,
       boolean verbose) {
     MBTilesReader mbTilesReader = null;
     try {
@@ -322,6 +350,7 @@ public class Encode {
                 conversionConfig,
                 tessellateSource,
                 compressionType,
+                enableCoerceOrElideMismatch,
                 verbose);
           }
 
@@ -386,6 +415,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
+      boolean enableCoerceOrElideMismatch,
       boolean verbose)
       throws ClassNotFoundException {
     // Start with a copy of the source file so we don't have to rebuild the complex schema
@@ -444,6 +474,7 @@ public class Encode {
                   tessellateSource,
                   compressionType,
                   didCompress,
+                  enableCoerceOrElideMismatch,
                   verbose);
 
           if (tileData != null) {
@@ -534,6 +565,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
+      boolean enableCoerceOrElideMismatch,
       boolean verbose)
       throws IOException, MBTilesWriteException {
     final var x = tile.getColumn();
@@ -553,6 +585,7 @@ public class Encode {
             tessellateSource,
             compressionType,
             didCompress,
+            enableCoerceOrElideMismatch,
             verbose);
 
     if (tileData != null) {
@@ -575,13 +608,20 @@ public class Encode {
       URI tessellateSource,
       String compressionType,
       MutableBoolean didCompress,
+      boolean enableElideOnMismatch,
       boolean verbose) {
     try {
       final var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
 
       final var isIdPresent = true;
+      final var coercePropertyValues = conversionConfig.getCoercePropertyValues();
       final var metadata =
-          MltConverter.createTilesetMetadata(decodedMvTile, columnMappings, isIdPresent);
+          MltConverter.createTilesetMetadata(
+              decodedMvTile,
+              columnMappings,
+              isIdPresent,
+              coercePropertyValues,
+              enableElideOnMismatch);
       var tileData =
           MltConverter.convertMvt(decodedMvTile, metadata, conversionConfig, tessellateSource);
 
@@ -669,19 +709,45 @@ public class Encode {
   }
 
   public static void printMVT(MapboxVectorTile mvTile) {
-    var mvtLayers = mvTile.layers();
-    for (var i = 0; i < mvtLayers.size(); i++) {
-      var mvtLayer = mvtLayers.get(i);
-      System.out.println(mvtLayer.name());
-      var mvtFeatures = mvtLayer.features();
-      for (var j = 0; j < mvtFeatures.size(); j++) {
-        var mvtFeature = mvtFeatures.get(j);
-        System.out.println("  " + mvtFeature);
-      }
-    }
+    mvTile
+        .layers()
+        .forEach(
+            layer -> {
+              System.out.println(layer.name());
+              layer
+                  .features()
+                  .forEach(
+                      feature -> {
+                        // Print properties sorted by key to allow for direct comparison with MLT
+                        // output.
+                        final var properties =
+                            feature.properties().entrySet().stream()
+                                .sorted(Comparator.comparing(Map.Entry::getKey))
+                                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                                .collect(Collectors.joining(", "));
+                        System.out.println(
+                            "  Feature[id="
+                                + feature.id()
+                                + ", geometry="
+                                + feature.geometry()
+                                + ", properties={"
+                                + properties
+                                + "}]");
+                      });
+            });
   }
 
-  public static void compare(MapLibreTile mlTile, MapboxVectorTile mvTile) {
+  private static boolean propertyValuesEqual(Object a, Object b) {
+    // Try simple equality
+    if (Objects.equals(a, b)) {
+      return true;
+    }
+    // Allow for, e.g., int32 and int64 representations of the same number by comparing strings
+    return a.toString().equals(b.toString());
+  }
+
+  public static void compare(
+      MapLibreTile mlTile, MapboxVectorTile mvTile, boolean compareGeom, boolean compareProp) {
     var mltLayers = mlTile.layers();
     var mvtLayers = mvTile.layers();
     if (mltLayers.size() != mvtLayers.size()) {
@@ -706,37 +772,57 @@ public class Encode {
                   + " != "
                   + ((mltFeature != null) ? mltFeature.id() : "(none)"));
         }
-        var mltGeometry = mltFeature.geometry();
-        var mvtGeometry = mvtFeature.geometry();
-        if (!mltGeometry.equals(mvtGeometry)) {
-          throw new RuntimeException(
-              "Geometries in MLT and MVT layers do not match: "
-                  + mvtGeometry
-                  + " != "
-                  + mltGeometry);
+        if (compareGeom) {
+          final var mltGeometry = mltFeature.geometry();
+          final var mvtGeometry = mvtFeature.geometry();
+          if (!mltGeometry.equals(mvtGeometry)) {
+            throw new RuntimeException(
+                "Geometries in MLT and MVT layers do not match: \nMVT:\n"
+                    + mvtGeometry
+                    + "\n"
+                    + "MLT:\n"
+                    + mltGeometry);
+          }
         }
-        var mltProperties = mltFeature.properties();
-        var mvtProperties = mvtFeature.properties();
-        if (mvtProperties.size() != mltProperties.size()) {
-          throw new RuntimeException("Number of properties in MLT and MVT features do not match");
-        }
-        var mvtPropertyKeys = mvtProperties.keySet();
-        var mltPropertyKeys = mltProperties.keySet();
-        // compare keys
-        if (!mvtPropertyKeys.equals(mltPropertyKeys)) {
-          throw new RuntimeException("Property keys in MLT and MVT features do not match");
-        }
-        // compare values
-        var equalValues =
-            mvtProperties.keySet().stream()
-                .allMatch(key -> mvtProperties.get(key).equals(mltProperties.get(key)));
-        if (!equalValues) {
-          throw new RuntimeException(
-              "Property values in MLT and MVT features do not match: \n'"
-                  + mvtProperties
-                  + "'\n'"
-                  + mltProperties
-                  + "'");
+        if (compareProp) {
+          final var mltProperties = mltFeature.properties();
+          final var mvtProperties = mvtFeature.properties();
+          final var nonNullMLTKeys =
+              mltProperties.entrySet().stream()
+                  .filter(entry -> entry.getValue() != null)
+                  .map(Map.Entry::getKey)
+                  .collect(Collectors.toUnmodifiableSet());
+          if (mvtProperties.size() != nonNullMLTKeys.size()) {
+            throw new RuntimeException("Number of properties in MLT and MVT features do not match");
+          }
+          final var mvtPropertyKeys = mvtProperties.keySet();
+          // compare keys
+          if (!mvtPropertyKeys.equals(nonNullMLTKeys)) {
+            throw new RuntimeException("Property keys in MLT and MVT features do not match");
+          }
+          // compare values
+          final var unequalKeys =
+              mvtProperties.keySet().stream()
+                  .filter(
+                      key -> !propertyValuesEqual(mvtProperties.get(key), mltProperties.get(key)))
+                  .toList();
+          if (!unequalKeys.isEmpty()) {
+            final var unequalValues =
+                unequalKeys.stream()
+                    .map(
+                        key ->
+                            "  "
+                                + key
+                                + ": mvt="
+                                + mvtProperties.get(key)
+                                + ", mlt="
+                                + mltProperties.get(key)
+                                + "\n")
+                    .toList();
+            throw new RuntimeException(
+                "Property values in MLT and MVT features do not match: \n"
+                    + String.join("", unequalValues));
+          }
         }
       }
     }
@@ -749,8 +835,9 @@ public class Encode {
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
   private static final String INCLUDE_METADATA_OPTION = "metadata";
-  private static final String INCLUDE_PBF_METADATA_OPTION = "pbfmetadata";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "tilesetmetadata";
+  private static final String ALLOW_COERCE_OPTION = "coerce-mismatch";
+  private static final String ALLOW_ELISION_OPTION = "elide-mismatch";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
@@ -759,7 +846,9 @@ public class Encode {
   private static final String DECODE_OPTION = "decode";
   private static final String PRINT_MLT_OPTION = "printmlt";
   private static final String PRINT_MVT_OPTION = "printmvt";
-  private static final String COMPARE_OPTION = "compare";
+  private static final String COMPARE_ALL_OPTION = "compare-all";
+  private static final String COMPARE_GEOM_OPTION = "compare-geometry";
+  private static final String COMPARE_PROP_OPTION = "compare-properties";
   private static final String VECTORIZED_OPTION = "vectorized";
   private static final String TIMER_OPTION = "timer";
   private static final String COMPRESS_OPTION = "compress";
@@ -830,7 +919,7 @@ public class Encode {
     return forbiddenCharacterPattern.matcher(name).replaceAll("_");
   }
 
-  private static CommandLine getCommandLine(String[] args) throws ParseException {
+  private static CommandLine getCommandLine(String[] args) throws IOException {
     try {
       Options options = new Options();
       options.addOption(
@@ -840,7 +929,7 @@ public class Encode {
               .argName("file")
               .desc("Path to the input MVT file")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(INPUT_MBTILES_ARG)
@@ -848,7 +937,7 @@ public class Encode {
               .argName("file")
               .desc("Path of the input MBTiles file.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(INPUT_OFFLINEDB_ARG)
@@ -856,7 +945,7 @@ public class Encode {
               .argName("file")
               .desc("Path of the input offline database file.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(OUTPUT_DIR_ARG)
@@ -865,7 +954,7 @@ public class Encode {
               .desc(
                   "Directory where the output is written, using the input file basename (OPTIONAL).")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(OUTPUT_FILE_ARG)
@@ -874,14 +963,14 @@ public class Encode {
               .desc(
                   "Filename where the output will be written. Overrides --" + OUTPUT_DIR_ARG + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(EXCLUDE_IDS_OPTION)
               .hasArg(false)
               .desc("Don't include feature IDs.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(INCLUDE_METADATA_OPTION)
@@ -892,18 +981,21 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
-              .longOpt(INCLUDE_PBF_METADATA_OPTION)
+              .longOpt(ALLOW_COERCE_OPTION)
               .hasArg(false)
-              .desc(
-                  "Write tile legacy PBF metadata (adding '.meta.pbf'). "
-                      + "Only applies with --"
-                      + INPUT_TILE_ARG
-                      + ".")
+              .desc("Allow coercion of property values")
               .required(false)
-              .build());
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(ALLOW_ELISION_OPTION)
+              .hasArg(false)
+              .desc("Allow elision of mismatched property types")
+              .required(false)
+              .get());
 
       options.addOption(
           Option.builder()
@@ -915,35 +1007,35 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(ADVANCED_ENCODING_OPTION)
               .hasArg(false)
               .desc("Enable advanced encodings (FSST & FastPFOR).")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(NO_MORTON_OPTION)
               .hasArg(false)
               .desc("Disable Morton encoding.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(PRE_TESSELLATE_OPTION)
               .hasArg(false)
               .desc("Include tessellation data in converted tiles.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(TESSELLATE_URL_OPTION)
               .hasArg(true)
               .desc("Use a tessellation server (implies --" + PRE_TESSELLATE_OPTION + ").")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(OUTLINE_FEATURE_TABLES_OPTION)
@@ -955,7 +1047,7 @@ public class Encode {
               .argName("tables")
               .required(false)
               .optionalArg(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(DECODE_OPTION)
@@ -966,7 +1058,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(PRINT_MLT_OPTION)
@@ -977,7 +1069,7 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(PRINT_MVT_OPTION)
@@ -988,18 +1080,36 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
-              .longOpt(COMPARE_OPTION)
+              .longOpt(COMPARE_GEOM_OPTION)
               .hasArg(false)
               .desc(
-                  "Assert that data in the the decoded tile is the same as the input tile. "
+                  "Assert that geometry in the decoded tile is the same as the input tile. "
                       + "Only applies with --"
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COMPARE_PROP_OPTION)
+              .hasArg(false)
+              .desc(
+                  "Assert that properties in the decoded tile is the same as the input tile. "
+                      + "Only applies with --"
+                      + INPUT_TILE_ARG
+                      + ".")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COMPARE_ALL_OPTION)
+              .hasArg(false)
+              .desc("Equivalent to --" + COMPARE_GEOM_OPTION + " --" + COMPARE_PROP_OPTION + ".")
+              .required(false)
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(VECTORIZED_OPTION)
@@ -1007,7 +1117,7 @@ public class Encode {
               .desc("Use the vectorized decoding path.")
               .required(false)
               .deprecated()
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(DUMP_STREAMS_OPTION)
@@ -1018,14 +1128,14 @@ public class Encode {
                       + INPUT_TILE_ARG
                       + ".")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(TIMER_OPTION)
               .hasArg(false)
               .desc("Print the time it takes, in ms, to decode a tile.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .longOpt(COMPRESS_OPTION)
@@ -1035,7 +1145,7 @@ public class Encode {
                   "Compress tile data with one of 'deflate', 'gzip'. "
                       + "Only applies to MBTiles and offline databases.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .option("v")
@@ -1043,15 +1153,14 @@ public class Encode {
               .hasArg(false)
               .desc("Enable verbose output.")
               .required(false)
-              .build());
+              .get());
       options.addOption(
           Option.builder()
               .option("h")
               .longOpt(HELP_OPTION)
               .hasArg(false)
               .desc("Show this output.")
-              .required(false)
-              .build());
+              .required(false);
       options.addOption(
           Option.builder()
               .longOpt(SERVER_ARG)
@@ -1066,20 +1175,19 @@ public class Encode {
 
       var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
       if (tessellateSource != null) {
+        // throw if it's not a valid URI
         new URI(tessellateSource);
       }
 
       if (cmd.hasOption(SERVER_ARG)) {
         return cmd;
       } else if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
-        var width = 100;
-        var autoUsage = true;
-        var header =
+        final var autoUsage = true;
+        final var header =
             "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";
-        var footer = "";
-        var formatter = new HelpFormatter();
-        formatter.setOptionComparator(null);
-        formatter.printHelp(width, Encode.class.getName(), header, options, footer, autoUsage);
+        final var footer = "";
+        final var formatter = HelpFormatter.builder().setComparator(null).get();
+        formatter.printHelp(Encode.class.getName(), header, options, footer, autoUsage);
       } else if (Stream.of(
                   cmd.hasOption(INPUT_TILE_ARG),
                   cmd.hasOption(INPUT_MBTILES_ARG),
@@ -1109,7 +1217,7 @@ public class Encode {
       } else {
         return cmd;
       }
-    } catch (ParseException ex) {
+    } catch (IOException | ParseException ex) {
       System.err.println("Failed to parse options: " + ex.getMessage());
     } catch (URISyntaxException e) {
       System.err.println("Invalid tessellation URL: " + e.getMessage());

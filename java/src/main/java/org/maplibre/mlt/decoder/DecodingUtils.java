@@ -1,5 +1,6 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -10,6 +11,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import me.lemire.integercompression.*;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.orc.impl.BufferChunk;
 import org.apache.orc.impl.InStream;
 import org.apache.orc.impl.RunLengthByteReader;
@@ -19,7 +21,7 @@ public class DecodingUtils {
   private DecodingUtils() {}
 
   // TODO: quick and dirty -> optimize for performance
-  public static int[] decodeVarint(byte[] src, IntWrapper pos, int numValues) {
+  public static int[] decodeVarints(byte[] src, IntWrapper pos, int numValues) throws IOException {
     var values = new int[numValues];
     var dstOffset = 0;
     for (var i = 0; i < numValues; i++) {
@@ -30,7 +32,7 @@ public class DecodingUtils {
     return values;
   }
 
-  public static long[] decodeLongVarint(byte[] src, IntWrapper pos, int numValues) {
+  public static long[] decodeLongVarints(byte[] src, IntWrapper pos, int numValues) {
     var values = new long[numValues];
     for (var i = 0; i < numValues; i++) {
       var value = decodeLongVarint(src, pos);
@@ -51,7 +53,7 @@ public class DecodingUtils {
         break;
       }
       shift += 7;
-      if (shift >= 64) {
+      if (shift > 63) {
         throw new IllegalArgumentException("Varint too long");
       }
     }
@@ -67,90 +69,53 @@ public class DecodingUtils {
    * in to src of the first byte after the varint.
    *
    * @param src source buffer to retrieve from
-   * @param offset offset within src
+   * @param srcOffset offset within src
    * @param dst the resulting int values
+   * @param dstOffset offset with dst
    * @return the updated offset after reading the varint
    */
-  private static int decodeVarint(byte[] src, int offset, int[] dst) {
-    var dstOffset = 0;
-
-    /*
-     * Max 4 bytes supported.
-     * */
-    var b = src[offset++];
-    var value = b & 0x7f;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
+  private static int decodeVarint(byte[] src, int srcOffset, int[] dst, int dstOffset)
+      throws IOException {
+    try (var stream = new ByteArrayInputStream(src, srcOffset, src.length - srcOffset)) {
+      final var result = decodeVarintWithLength(stream);
+      dst[dstOffset] = result.getLeft();
+      return srcOffset + result.getRight();
     }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 7;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 14;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 21;
-    dst[dstOffset] = value;
-    return offset;
   }
 
-  private static int decodeVarint(byte[] src, int offset, int[] dst, int dstOffset) {
-    /*
-     * Max 4 bytes supported.
-     * */
-    var b = src[offset++];
-    var value = b & 0x7f;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 7;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 14;
-    if ((b & 0x80) == 0) {
-      dst[dstOffset] = value;
-      return offset;
-    }
-
-    b = src[offset++];
-    value |= (b & 0x7f) << 21;
-    dst[dstOffset] = value;
-    return offset;
-  }
-
-  public static int decodeVarint(InputStream stream) throws IOException {
+  public static Pair<Integer, Integer> decodeVarintWithLength(InputStream stream)
+      throws IOException {
     var b = (byte) stream.read();
-    var value = b & 0x7f;
+    var bytesRead = 1;
+    int value = b & 0x7f;
     if ((b & 0x80) != 0) {
       b = (byte) stream.read();
+      bytesRead++;
       value |= (b & 0x7f) << 7;
       if ((b & 0x80) != 0) {
         b = (byte) stream.read();
+        bytesRead++;
         value |= (b & 0x7f) << 14;
         if ((b & 0x80) != 0) {
           b = (byte) stream.read();
+          bytesRead++;
           value |= (b & 0x7f) << 21;
+          if ((b & 0x80) != 0) {
+            b = (byte) stream.read();
+            bytesRead++;
+            value |= (b & 0x7f) << 28;
+            if ((b & 0x80) != 0 || 15 < b) {
+              throw new IOException("Varint overflow");
+            }
+          }
         }
       }
     }
-    return value;
+    return Pair.of(value, bytesRead);
+  }
+
+  public static int decodeVarint(InputStream stream) throws IOException {
+    return decodeVarintWithLength(stream).getLeft();
   }
 
   public static String decodeString(InputStream stream) throws IOException {
@@ -178,14 +143,6 @@ public class DecodingUtils {
     }
   }
 
-  // TODO: quick and dirty -> optimize for performance
-  private static int[] decodeVarint(byte[] src, IntWrapper pos) {
-    var values = new int[1];
-    var offset = decodeVarint(src, pos.get(), values);
-    pos.set(offset);
-    return values;
-  }
-
   public static int[] decodeFastPfor(
       byte[] encodedValues, int numValues, int byteLength, IntWrapper pos) {
     var encodedValuesSlice = Arrays.copyOfRange(encodedValues, pos.get(), pos.get() + byteLength);
@@ -195,7 +152,7 @@ public class DecodingUtils {
             // TODO: change to little endian
             .order(ByteOrder.BIG_ENDIAN)
             .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+    int[] intValues = new int[(int) Math.ceil(byteLength / 4d)];
     for (var i = 0; i < intValues.length; i++) {
       intValues[i] = intBuf.get(i);
     }
@@ -219,7 +176,7 @@ public class DecodingUtils {
             // TODO: change to little endian
             .order(ByteOrder.BIG_ENDIAN)
             .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+    int[] intValues = new int[(int) Math.ceil(byteLength / 4d)];
     for (var i = 0; i < intValues.length; i++) {
       intValues[i] = intBuf.get(i);
     }
@@ -264,7 +221,7 @@ public class DecodingUtils {
             // TODO: change to little endian
             .order(ByteOrder.BIG_ENDIAN)
             .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4)];
+    int[] intValues = new int[(int) Math.ceil(byteLength / 4d)];
     for (var i = 0; i < intValues.length; i++) {
       intValues[i] = intBuf.get(i);
     }

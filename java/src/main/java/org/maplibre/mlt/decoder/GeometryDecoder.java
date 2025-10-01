@@ -1,5 +1,6 @@
 package org.maplibre.mlt.decoder;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,8 +24,8 @@ public class GeometryDecoder {
 
   private GeometryDecoder() {}
 
-  public static GeometryColumn decodeGeometryColumn(
-      byte[] tile, int numStreams, IntWrapper offset) {
+  public static GeometryColumn decodeGeometryColumn(byte[] tile, int numStreams, IntWrapper offset)
+      throws IOException {
     var geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
     var geometryTypes = IntegerDecoder.decodeIntStream(tile, offset, geometryTypeMetadata, false);
 

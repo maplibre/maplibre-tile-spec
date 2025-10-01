@@ -54,6 +54,9 @@ pub mod column {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ScalarColumn {
+    /// this belongs elsewhere, but is here for now
+    #[prost(bool, tag = "1")]
+    pub long_id: bool,
     #[prost(oneof = "scalar_column::Type", tags = "4, 5")]
     pub r#type: ::core::option::Option<scalar_column::Type>,
 }

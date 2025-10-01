@@ -36,8 +36,9 @@ public class BenchmarkUtils {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = List.of(columnMapping);
+    final var isIdPresent = true;
     var metadata =
-        MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, true);
+        MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, isIdPresent);
 
     var allowIdRegeneration = true;
     var allowSorting = true;

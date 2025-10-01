@@ -1,6 +1,7 @@
 package org.maplibre.mlt.metadata.stream;
 
 import com.google.common.primitives.Bytes;
+import java.io.IOException;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
@@ -49,19 +50,19 @@ public class StreamMetadata {
     return logicalStreamType.offsetType().ordinal();
   }
 
-  public byte[] encode() {
-    var encodedStreamType = (byte) ((physicalStreamType.ordinal()) << 4 | getLogicalType());
-    var encodedEncodingScheme =
+  public byte[] encode() throws IOException {
+    final var encodedStreamType = (byte) ((physicalStreamType.ordinal()) << 4 | getLogicalType());
+    final var encodedEncodingScheme =
         (byte)
             (logicalLevelTechnique1.ordinal() << 5
                 | logicalLevelTechnique2.ordinal() << 2
                 | physicalLevelTechnique.ordinal());
-    var encodedLengthInfo =
-        EncodingUtils.encodeVarints(new long[] {numValues, byteLength}, false, false);
+    final var encodedLengthInfo =
+        EncodingUtils.encodeVarints(new int[] {numValues, byteLength}, false, false);
     return Bytes.concat(new byte[] {encodedStreamType, encodedEncodingScheme}, encodedLengthInfo);
   }
 
-  public static StreamMetadata decode(byte[] tile, IntWrapper offset) {
+  public static StreamMetadata decode(byte[] tile, IntWrapper offset) throws IOException {
     var streamType = tile[offset.get()];
     var physicalStreamType = PhysicalStreamType.values()[streamType >> 4];
     LogicalStreamType logicalStreamType = null;
@@ -83,7 +84,7 @@ public class StreamMetadata {
     var logicalLevelTechnique2 = LogicalLevelTechnique.values()[encodingsHeader >> 2 & 0x7];
     var physicalLevelTechnique = PhysicalLevelTechnique.values()[encodingsHeader & 0x3];
     offset.increment();
-    var sizeInfo = DecodingUtils.decodeVarint(tile, offset, 2);
+    var sizeInfo = DecodingUtils.decodeVarints(tile, offset, 2);
     var numValues = sizeInfo[0];
     var byteLength = sizeInfo[1];
 
