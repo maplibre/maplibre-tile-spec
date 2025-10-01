@@ -421,12 +421,21 @@ public class MltConverter {
 
     var mapLibreTileBuffer = new byte[0];
     for (var mvtLayer : mvt.layers()) {
-      final var layerMetadata = metaMap.get(mvtLayer.name());
+      final var featureTableName = mvtLayer.name();
+
+      if (config.getLayerFilterPattern() != null) {
+        final var matcher = config.getLayerFilterPattern().matcher(featureTableName);
+        final var isMatch = matcher.matches() ^ config.getLayerFilterInvert();
+        if (!isMatch) {
+          continue;
+        }
+      }
+
+      final var layerMetadata = metaMap.get(featureTableName);
       if (layerMetadata == null) {
         throw new RuntimeException("Missing Metadata");
       }
 
-      final var featureTableName = mvtLayer.name();
       final var mvtFeatures = mvtLayer.features();
       final var featureTableOptimizations =
           config.getOptimizations() == null
