@@ -1,3 +1,4 @@
+pub mod boolean;
 mod decode;
 mod helpers;
 pub mod integer;
@@ -16,9 +17,11 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering::Relaxed;
 
+    use crate::decoder::boolean::decode_boolean_stream;
     use crate::decoder::integer::decode_int_stream;
     use crate::decoder::tracked_bytes::TrackedBytes;
     use crate::metadata::stream::StreamMetadata;
+    use crate::metadata::stream_encoding::PhysicalStreamType;
 
     /// Returns a list of (string name, path stem) for all files in the fixtures directory.
     fn get_bin_fixtures() -> Vec<(String, PathBuf)> {
@@ -86,30 +89,36 @@ mod tests {
             eprintln!("{name} => data {data:?}");
             assert!(!data.is_empty());
 
-            // if meta.logical.technique1 == Morton
-            let result = decode_int_stream(&mut data.into(), &meta, false).expect(name);
+            // TODO(Weixing): implement the rest of the decoding
+            eprintln!("----------------------------------------------");
+            eprintln!("fixture name = {name}");
+            eprintln!("fixture path = {}", path.display());
+            eprintln!("decoded meta = {:#?}", meta);
+            eprintln!("raw data stream (hex): {:02x?}", data);
 
-            // let result: Vec<_> =
-            //     decode_byte_rle(&mut data.into(), (meta.num_values as usize).div_ceil(8))
-            //         .into_iter()
-            //         .map(|b| b != 0)
-            //         .collect();
-            // eprintln!("{name} => result {result:?}");
-
+            // read the expected json file
             let expected = fs::read_to_string(path.with_extension("json")).expect(name);
-            assert_eq!(
-                serde_json::to_string(&result).expect(name),
-                expected,
-                "case {name}"
-            );
+            eprintln!("expected: {}", expected);
 
-            // with_settings!(
-            //     { snapshot_suffix => name,
-            //       snapshot_path => "../../snapshots",
-            //       omit_expression => true,
-            //       prepend_module_to_snapshot => false },
-            //     { insta::assert_debug_snapshot!(result) }
-            // );
+            let result = match meta.physical.r#type {
+                PhysicalStreamType::Present => {
+                    // Use boolean decoder for PRESENT streams
+                    let booleans = decode_boolean_stream(&mut data.into(), &meta).expect(name);
+                    serde_json::to_string(&booleans).expect(name)
+                }
+                PhysicalStreamType::Length | PhysicalStreamType::Offset => {
+                    // Use integer decoder for LENGTH and OFFSET streams
+                    let result = decode_int_stream(&mut data.into(), &meta, false).expect(name);
+                    serde_json::to_string(&result).expect(name)
+                }
+                PhysicalStreamType::Data => {
+                    // TODO: Implement data stream decoder
+                    return;
+                }
+            };
+
+            eprintln!("result:   {}", result);
+            assert_eq!(result, expected, "case {name}");
         }
     }
 }
