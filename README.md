@@ -15,8 +15,8 @@ large (planet-scale) 2D and 2.5 basemaps. In particular, MLT offers the followin
 allowing for efficient processing on both CPU and GPU. The formats are designed to be loaded into
 GPU buffers with little or no additional processing
 
-📝 For a more in-depth exploration of MLT have a look at the [following slides](https://github.com/mactrem/presentations/blob/main/FOSS4G_2024_Europe/FOSS4G_2024_Europe.pdf) or watch
-[this talk](https://www.youtube.com/watch?v=YHcoAFcsES0).
+📝 For a more in-depth exploration of MLT have a look at the [following slides](https://github.com/mactrem/presentations/blob/main/FOSS4G_2024_Europe/FOSS4G_2024_Europe.pdf), watch
+[this talk](https://www.youtube.com/watch?v=YHcoAFcsES0) or [read our documentation](https://maplibre.org/maplibre-tile-spec/).
 
 
 > [!CAUTION]
