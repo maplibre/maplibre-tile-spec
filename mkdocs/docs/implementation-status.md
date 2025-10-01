@@ -1,6 +1,6 @@
 # Implementation Status
 
-## Intergrations
+## Integrations
 
 | Integration | Status |
 |---|---|
