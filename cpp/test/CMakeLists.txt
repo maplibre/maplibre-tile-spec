@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 3.12)
-project(mlt-cpp-test)
-
 set(TEST_SOURCES
     test_decode.cpp
     test_fsst.cpp
@@ -17,7 +14,7 @@ add_executable(mlt-cpp-test ${TEST_SOURCES})
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 
 # Tests have access to private headers
-target_include_directories(mlt-cpp-test PUBLIC "${PROJECT_SOURCE_DIR}/../src")
+target_include_directories(mlt-cpp-test PUBLIC "${PROJECT_SOURCE_DIR}/src")
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 
@@ -32,10 +29,6 @@ set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../../vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/../googletest" EXCLUDE_FROM_ALL SYSTEM)
-else()
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../../vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/../googletest" EXCLUDE_FROM_ALL)
-endif()
+add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
 target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
