@@ -58,6 +58,7 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
@@ -83,6 +84,9 @@ public class Encode {
       final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
       final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
       final var verbose = cmd.hasOption(VERBOSE_OPTION);
+      final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
+      final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
+      final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
 
       // No ColumnMapping as support is still buggy:
       // https://github.com/maplibre/maplibre-tile-spec/issues/59
@@ -101,7 +105,9 @@ public class Encode {
               optimizations,
               tessellatePolygons,
               useMortonEncoding,
-              (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()));
+              (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
+              filterPattern,
+              filterInvert);
 
       if (verbose && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
         System.err.println(
@@ -732,57 +738,97 @@ public class Encode {
 
   public static void compare(
       MapLibreTile mlTile, MapboxVectorTile mvTile, boolean compareGeom, boolean compareProp) {
-    var mltLayers = mlTile.layers();
-    var mvtLayers = mvTile.layers();
+    final var mltLayers = mlTile.layers();
+    final var mvtLayers = mvTile.layers();
     if (mltLayers.size() != mvtLayers.size()) {
-      throw new RuntimeException("Number of layers in MLT and MVT tiles do not match");
+      final var mvtNames = mvtLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
+      final var mltNames = mltLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
+      throw new RuntimeException(
+          "Number of layers in MLT and MVT tiles do not match:\nMVT:\n"
+              + mvtNames
+              + "\nMLT:\n"
+              + mltNames);
     }
     for (var i = 0; i < mvtLayers.size(); i++) {
-      var mltLayer = mltLayers.get(i);
-      var mvtLayer = mvtLayers.get(i);
-      var mltFeatures = mltLayer.features();
-      var mvtFeatures = mvtLayer.features();
+      final var mltLayer = mltLayers.get(i);
+      final var mvtLayer = mvtLayers.get(i);
+      final var mltFeatures = mltLayer.features();
+      final var mvtFeatures = mvtLayer.features();
+      if (!mltLayer.name().equals(mvtLayer.name())) {
+        throw new RuntimeException(
+            "Layer index "
+                + i
+                + " of MVT and MLT tile differ: '"
+                + mvtLayer.name()
+                + "' != '"
+                + mltLayer.name()
+                + "'");
+      }
       if (mltFeatures.size() != mvtFeatures.size()) {
-        throw new RuntimeException("Number of features in MLT and MVT layers do not match");
+        throw new RuntimeException(
+            "Number of features in MLT and MVT layer '"
+                + mvtLayer.name()
+                + "' do not match: "
+                + mltFeatures.size()
+                + " != "
+                + mvtFeatures.size());
       }
       for (var j = 0; j < mvtFeatures.size(); j++) {
-        var mvtFeature = mvtFeatures.get(j);
-        var mltFeature =
-            mltFeatures.stream().filter(f -> f.id() == mvtFeature.id()).findFirst().orElse(null);
-        if (mltFeature == null || mvtFeature.id() != mltFeature.id()) {
+        final var mvtFeature = mvtFeatures.get(j);
+        // Expect features to be written in the same order
+        final var mltFeature = mltFeatures.get(j);
+        if (mvtFeature.id() != mltFeature.id()) {
           throw new RuntimeException(
-              "Feature IDs in MLT and MVT layers do not match: "
+              "Feature IDs for index "
+                  + j
+                  + " in MLT and MVT layers do not match: "
                   + mvtFeature.id()
                   + " != "
-                  + ((mltFeature != null) ? mltFeature.id() : "(none)"));
+                  + mltFeature.id());
         }
         if (compareGeom) {
           final var mltGeometry = mltFeature.geometry();
+          final var mltGeomValid = mltGeometry.isValid();
           final var mvtGeometry = mvtFeature.geometry();
-          if (!mltGeometry.equals(mvtGeometry)) {
+          final var mvtGeomValid = mvtGeometry.isValid();
+          if (mltGeomValid != mvtGeomValid) {
+            throw new RuntimeException(
+                "Geometry validity in MLT and MVT layers do not match: \nMVT:\n"
+                    + mvtGeomValid
+                    + "\nMLT:\n"
+                    + mltGeomValid);
+          }
+
+          if (mvtGeomValid && !mltGeometry.equals(mvtGeometry)) {
             throw new RuntimeException(
                 "Geometries in MLT and MVT layers do not match: \nMVT:\n"
                     + mvtGeometry
-                    + "\n"
-                    + "MLT:\n"
-                    + mltGeometry);
+                    + "\nMLT:\n"
+                    + mltGeometry
+                    + "\nDifference:\n"
+                    + mvtGeometry.difference(mltGeometry));
           }
         }
         if (compareProp) {
           final var mltProperties = mltFeature.properties();
           final var mvtProperties = mvtFeature.properties();
+          final var mvtPropertyKeys = mvtProperties.keySet();
           final var nonNullMLTKeys =
               mltProperties.entrySet().stream()
                   .filter(entry -> entry.getValue() != null)
                   .map(Map.Entry::getKey)
                   .collect(Collectors.toUnmodifiableSet());
-          if (mvtProperties.size() != nonNullMLTKeys.size()) {
-            throw new RuntimeException("Number of properties in MLT and MVT features do not match");
-          }
-          final var mvtPropertyKeys = mvtProperties.keySet();
           // compare keys
           if (!mvtPropertyKeys.equals(nonNullMLTKeys)) {
-            throw new RuntimeException("Property keys in MLT and MVT features do not match");
+            throw new RuntimeException(
+                "Property keys in MLT and MVT feature index "
+                    + j
+                    + " in layer '"
+                    + mvtLayer.name()
+                    + "' do not match:\nMVT:\n"
+                    + String.join(",", mvtPropertyKeys)
+                    + "\nMLT:\n"
+                    + String.join(",", nonNullMLTKeys));
           }
           // compare values
           final var unequalKeys =
@@ -802,10 +848,14 @@ public class Encode {
                                 + ", mlt="
                                 + mltProperties.get(key)
                                 + "\n")
-                    .toList();
+                    .collect(Collectors.joining());
             throw new RuntimeException(
-                "Property values in MLT and MVT features do not match: \n"
-                    + String.join("", unequalValues));
+                "Property values in MLT and MVT feature index "
+                    + j
+                    + " in layer '"
+                    + mvtLayer.name()
+                    + "' do not match: \n"
+                    + unequalValues);
           }
         }
       }
@@ -818,6 +868,8 @@ public class Encode {
   private static final String OUTPUT_DIR_ARG = "dir";
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
+  private static final String FILTER_LAYERS_OPTION = "filter-layers";
+  private static final String FILTER_LAYERS_INVERT_OPTION = "filter-layers-invert";
   private static final String INCLUDE_METADATA_OPTION = "metadata";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "tilesetmetadata";
   private static final String ALLOW_COERCE_OPTION = "coerce-mismatch";
@@ -952,6 +1004,20 @@ public class Encode {
               .longOpt(EXCLUDE_IDS_OPTION)
               .hasArg(false)
               .desc("Don't include feature IDs.")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(FILTER_LAYERS_OPTION)
+              .hasArg(true)
+              .desc("Filter layers by regex")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(FILTER_LAYERS_INVERT_OPTION)
+              .hasArg(false)
+              .desc("Invert the result of --" + FILTER_LAYERS_OPTION)
               .required(false)
               .get());
       options.addOption(
@@ -1151,7 +1217,13 @@ public class Encode {
       var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
       if (tessellateSource != null) {
         // throw if it's not a valid URI
-        new URI(tessellateSource);
+        var ignored = new URI(tessellateSource);
+      }
+
+      final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
+      if (filterRegex != null) {
+        // throw if it's not a valid regex
+        var ignored = Pattern.compile(filterRegex);
       }
 
       if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
