@@ -1,139 +1,0 @@
-å
-
-water_name
-id" 
-geometry* 
-class" 	
-intermittent" 
-name" 	
-name:ar" 	
-
-name:latin" 	
-name:ru" 	
-name_de" 	
-name_en" 	
-name_int" 	
-name:en" 	
-name:es" 	<
-housenumber
-id" 
-geometry* 
-housenumber" 	F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	2
-landuse
-id" 
-geometry* 
-class" 	ú
-place
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:el" 	
-name:fr" 	
-name:ja" 	
-name:ru" 	
-name:en" 	
-name:ar" 	í
-poi
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-subclass" 	
-agg_stop" 
-name:ru" 	
-layer" 
-name:en" 	
-name:nonlatin" 	
-name:ja" 	
-name:zh" 	
-level" 
-name:fr" 	
-name:es" 	
-name:ko" 	
-name:pt" 	
-name:hi" 	
-name:sr" 	
-name:ar" 	
-name:uk" 	
-name:br" 	
-name:de" 	
-name:be" 	
-indoor" 
-name:lv" 	
-name:it" 	
-name:ko-Latn" 	
-name:pl" 	
-name:nl" 	
-name:ro" 	
-name:ca" 	
-name:cs" 	
-name:da" 	
-name:el" 	
-name:fi" 	
-name:he" 	
-name:id" 	
-name:sk" 	F
-water
-id" 
-geometry* 
-class" 	
-intermittent" «
-transportation_name
-id" 
-geometry* 
-brunnel" 	
-class" 	
-layer" 
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-subclass" 	
-network" 	
-ref" 	
-
-ref_length" 
-name:es" 	
-name:pl" 	
-name:ru" 	f
-building
-id" 
-geometry* 
-render_height" 
-render_min_height" 
-colour" 	è
-transportation
-id" 
-geometry* 
-brunnel" 	
-class" 	
-layer" 
-oneway" 
-ramp" 
-subclass" 	
-level" 
-service" 	
-surface" 	
-foot" 	
-bicycle" 	
-horse" 	

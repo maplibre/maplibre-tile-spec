@@ -1,120 +1,0 @@
-F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	É
-aerodrome_label
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-icao" 	
-ele" 
-ele_ft" 
-iata" 	c
-waterway
-id" 
-geometry* 
-class" 	
-name" 	
-name_de" 	
-name_en" 	2
-landuse
-id" 
-geometry* 
-class" 	¹
-mountain_peak
-id" 
-geometry* 
-class" 	
-ele" 
-ele_ft" 
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" ½
-place
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:ar" 	
-name:be" 	
-name:bg" 	
-name:de" 	
-name:el" 	
-name:fy" 	
-name:he" 	
-name:ja" 	
-name:ka" 	
-name:kk" 	
-name:ko" 	
-name:la" 	
-name:lt" 	
-name:lv" 	
-name:mk" 	
-name:nl" 	
-name:ru" 	
-name:sr" 	
-name:uk" 	
-name:zh" 	
-name:hu" 	
-name:th" 	
-name:fr" 	
-name:br" 	
-name:en" 	F
-water
-id" 
-geometry* 
-class" 	
-intermittent" p
-transportation_name
-id" 
-geometry* 
-class" 	
-network" 	
-ref" 	
-
-ref_length" …
-park
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	?
-aeroway
-id" 
-geometry* 
-class" 	
-ref" 	·
-transportation
-id" 
-geometry* 
-class" 	
-layer" 
-ramp" 
-bicycle" 	
-foot" 	
-horse" 	
-oneway" 
-subclass" 	
-brunnel" 	

@@ -1,103 +1,0 @@
-F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	°
-waterway
-id" 
-geometry* 
-brunnel" 	
-class" 	
-intermittent" 
-name_de" 	
-name_en" 	
-name" 	
-
-name:latin" 	
-name_int" 	2
-landuse
-id" 
-geometry* 
-class" 	Ï
-place
-id" 
-geometry* 
-class" 	
-name" 	
-name:ar" 	
-name:br" 	
-name:de" 	
-name:hu" 	
-name:ja" 	
-name:la" 	
-
-name:latin" 	
-name:mk" 	
-name:ru" 	
-name:sr" 	
-name:uk" 	
-name:zh" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" ¤
-poi
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-subclass" 	F
-water
-id" 
-geometry* 
-class" 	
-intermittent" ×
-transportation_name
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-network" 	
-ref" 	
-
-ref_length" 
-brunnel" 	…
-park
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	$
-building
-id" 
-geometry* Ù
-transportation
-id" 
-geometry* 
-brunnel" 	
-class" 	
-layer" 
-oneway" 
-ramp" 
-service" 	
-surface" 	
-subclass" 	
-horse" 	
-bicycle" 	
-foot" 	

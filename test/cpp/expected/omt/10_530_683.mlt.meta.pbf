@@ -1,136 +1,0 @@
-F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	…
-aerodrome_label
-id" 
-geometry* 
-class" 	
-ele" 
-ele_ft" 
-iata" 	
-icao" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	Ø
-waterway
-id" 
-geometry* 
-class" 	
-name" 	
-name_de" 	
-name_en" 	
-name:de" 	
-name:en" 	
-name:es" 	
-name:fr" 	
-name:hu" 	
-name:it" 	
-name:ja" 	
-name:nl" 	
-name:pl" 	
-name:ru" 	
-name:sk" 	
-name:uk" 	2
-landuse
-id" 
-geometry* 
-class" 	π
-mountain_peak
-id" 
-geometry* 
-class" 	
-ele" 
-ele_ft" 
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" Å
-place
-id" 
-geometry* 
-capital" 
-class" 	
-name" 	
-name:ar" 	
-name:be" 	
-name:de" 	
-name:el" 	
-name:en" 	
-name:eo" 	
-name:fr" 	
-name:ja" 	
-name:la" 	
-
-name:latin" 	
-name:lt" 	
-name:mk" 	
-name:ru" 	
-name:sr" 	
-name:uk" 	
-name:zh" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:bg" 	
-name:he" 	
-name:hu" 	
-name:ka" 	
-name:kk" 	
-name:ko" 	
-name:lv" 	
-name:th" 	
-name:ca" 	
-name:es" 	
-name:nl" 	
-name:pt" 	
-name:fy" 	F
-water
-id" 
-geometry* 
-class" 	
-intermittent" p
-transportation_name
-id" 
-geometry* 
-class" 	
-network" 	
-ref" 	
-
-ref_length" Ö
-park
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	?
-aeroway
-id" 
-geometry* 
-class" 	
-ref" 	∑
-transportation
-id" 
-geometry* 
-brunnel" 	
-class" 	
-layer" 
-bicycle" 	
-foot" 	
-oneway" 
-ramp" 
-subclass" 	
-horse" 	

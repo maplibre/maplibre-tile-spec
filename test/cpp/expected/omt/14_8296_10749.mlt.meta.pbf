@@ -1,116 +1,0 @@
-Ã
-
-water_name
-id" 
-geometry* 
-class" 	
-intermittent" 
-name" 	
-name:ar" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-name:en" 	<
-housenumber
-id" 
-geometry* 
-housenumber" 	F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	2
-landuse
-id" 
-geometry* 
-class" 	ú
-place
-id" 
-geometry* 
-class" 	
-name" 	
-name:el" 	
-name:fr" 	
-name:ja" 	
-
-name:latin" 	
-name:ru" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:en" 	
-name:ar" 	¥
-poi
-id" 
-geometry* 
-agg_stop" 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-subclass" 	
-layer" 
-name:ru" 	
-name:fr" 	
-name:nonlatin" 	
-name:en" 	
-indoor" 
-level" 
-name:uk" 	
-name:ja" 	
-name:pt" 	
-name:ar" 	
-name:zh" 	
-name:ko" 	
-name:it" 	F
-water
-id" 
-geometry* 
-class" 	
-intermittent" ‰
-transportation_name
-id" 
-geometry* 
-brunnel" 	
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-subclass" 	
-name:fr" 	
-network" 	
-ref" 	
-
-ref_length" 
-layer" V
-building
-id" 
-geometry* 
-render_height" 
-render_min_height" ø
-transportation
-id" 
-geometry* 
-brunnel" 	
-class" 	
-layer" 
-oneway" 
-ramp" 
-subclass" 	
-foot" 	
-bicycle" 	
-surface" 	
-horse" 	
-service" 	
-level" 
-indoor" 
