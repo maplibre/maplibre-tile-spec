@@ -40,7 +40,7 @@ jobs:
         run: build/test/mlt-cpp-test
 
       - name: sanity test for mlt-cpp-json tool
-        run: build/tool/mlt-cpp-json ../test/cpp/expected/bing/4-12-6.mlt | jq .
+        run: build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
 
       - name: Build with Bazel
         run: bazel build //cpp:mlt_cpp

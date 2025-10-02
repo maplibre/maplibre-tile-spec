@@ -1,129 +1,0 @@
-F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	È
-aerodrome_label
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-ele" 
-ele_ft" 
-iata" 	
-icao" 	
-name:de" 	
-name:en" 	
-name:es" 	
-name:fr" 	
-name:hr" 	
-name:id" 	
-name:it" 	
-name:ja" 	
-name:mk" 	
-name:nl" 	
-name:pl" 	
-name:sk" 	
-name:sv" 	
-name:uk" 	
-name:zh" 	c
-waterway
-id" 
-geometry* 
-class" 	
-name" 	
-name_de" 	
-name_en" 	2
-landuse
-id" 
-geometry* 
-class" 	¹
-mountain_peak
-id" 
-geometry* 
-class" 	
-ele" 
-ele_ft" 
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" ×
-place
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:ar" 	
-name:de" 	
-name:el" 	
-name:ja" 	
-name:la" 	
-name:ru" 	
-name:sr" 	
-name:zh" 	
-name:br" 	
-name:hu" 	
-name:mk" 	
-name:uk" 	
-name:fr" 	
-name:en" 	
-name:kk" 	
-name:bg" 	
-name:he" 	
-name:ko" 	
-name:lt" 	F
-water
-id" 
-geometry* 
-class" 	
-intermittent" p
-transportation_name
-id" 
-geometry* 
-class" 	
-network" 	
-ref" 	
-
-ref_length" …
-park
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	?
-aeroway
-id" 
-geometry* 
-class" 	
-ref" 	·
-transportation
-id" 
-geometry* 
-bicycle" 	
-brunnel" 	
-class" 	
-foot" 	
-layer" 
-oneway" 
-ramp" 
-subclass" 	
-horse" 	

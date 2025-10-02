@@ -35,13 +35,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    const std::string baseName = argv[1];
-    auto metadataBuffer = loadFile(baseName + ".meta.pbf");
-    if (metadataBuffer.empty()) {
-        std::cerr << "Failed to load " + baseName + ".meta.pbf\n";
-        return 1;
-    }
-
     std::uint32_t x = 0;
     std::uint32_t y = 0;
     std::uint32_t z = 0;
@@ -51,6 +44,7 @@ int main(int argc, char** argv) {
         y = static_cast<std::uint32_t>(std::stoul(argv[4]));
     }
 
+    const std::string baseName = argv[1];
     auto buffer = loadFile(baseName);
     if (buffer.empty()) {
         std::cerr << "Failed to load " + baseName + "\n";
@@ -58,7 +52,7 @@ int main(int argc, char** argv) {
     }
 
     mlt::Decoder decoder;
-    const auto tileData = decoder.decodeTile({buffer.data(), buffer.size()});
+    const auto tileData = decoder.decode({buffer.data(), buffer.size()});
     const auto tileJSON = mlt::geojson::toGeoJSON(tileData, {.x = x, .y = y, .z = z});
     std::cout << tileJSON.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
 

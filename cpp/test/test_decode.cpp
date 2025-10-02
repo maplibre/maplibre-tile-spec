@@ -56,7 +56,7 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
     return false;
 }
 
-const auto basePath = "../test/cpp/expected"s;
+const auto basePath = "../test/expected/tag0x01"s;
 
 #if MLT_WITH_JSON
 auto dump(const nlohmann::json& json) {
@@ -70,7 +70,7 @@ std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::str
         return {std::nullopt, "Failed to read tile data"};
     }
 
-    auto tile = mlt::Decoder().decodeTile({(tileData.data()), tileData.size()});
+    auto tile = mlt::Decoder().decode({(tileData.data()), tileData.size()});
 
 #if MLT_WITH_JSON
     // Load the GeoJSON file, if present
@@ -109,7 +109,6 @@ TEST(Decode, SimplePointBoolean) {
     const auto* mltLayer = tile->getLayer("layer");
     EXPECT_TRUE(mltLayer);
     EXPECT_EQ(mltLayer->getName(), "layer");
-    EXPECT_EQ(mltLayer->getVersion(), 1); // TODO: doesn't match JS version
     EXPECT_EQ(mltLayer->getExtent(), 4096);
     EXPECT_EQ(mltLayer->getFeatures().size(), 1);
 
