@@ -57,6 +57,23 @@ pub fn decode_byte_rle(tile: &mut TrackedBytes, num_bytes: usize) -> Vec<u8> {
     result
 }
 
+/// Converts a byte array to a boolean array.
+pub fn bytes_to_booleans(bytes: &[u8], num_booleans: usize) -> Vec<bool> {
+    let mut result = Vec::with_capacity(num_booleans);
+
+    for &byte in bytes.iter() {
+        for bit_index in 0..8 {
+            let global_index = result.len();
+            if global_index >= num_booleans {
+                break;
+            }
+            result.push((byte & (1 << bit_index)) != 0);
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

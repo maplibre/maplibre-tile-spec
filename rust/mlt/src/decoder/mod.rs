@@ -3,6 +3,7 @@ mod decode;
 mod helpers;
 pub mod integer;
 pub mod integer_stream;
+pub mod stream;
 pub mod tracked_bytes;
 pub mod varint;
 
@@ -17,11 +18,9 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering::Relaxed;
 
-    use crate::decoder::boolean::decode_boolean_stream;
-    use crate::decoder::integer::decode_int_stream;
+    use crate::decoder::stream::{StreamValue, decode_stream};
     use crate::decoder::tracked_bytes::TrackedBytes;
     use crate::metadata::stream::StreamMetadata;
-    use crate::metadata::stream_encoding::PhysicalStreamType;
 
     /// Returns a list of (string name, path stem) for all files in the fixtures directory.
     fn get_bin_fixtures() -> Vec<(String, PathBuf)> {
@@ -100,22 +99,13 @@ mod tests {
             let expected = fs::read_to_string(path.with_extension("json")).expect(name);
             eprintln!("expected: {}", expected);
 
-            let result = match meta.physical.r#type {
-                PhysicalStreamType::Present => {
-                    // Use boolean decoder for PRESENT streams
-                    let booleans = decode_boolean_stream(&mut data.into(), &meta).expect(name);
-                    serde_json::to_string(&booleans).expect(name)
-                }
-                PhysicalStreamType::Length | PhysicalStreamType::Offset => {
-                    // Use integer decoder for LENGTH and OFFSET streams
-                    let result = decode_int_stream(&mut data.into(), &meta, false).expect(name);
-                    serde_json::to_string(&result).expect(name)
-                }
-                PhysicalStreamType::Data => {
-                    // TODO: Implement data stream decoder
-                    return;
-                }
+            let value = decode_stream(&mut data.into(), &meta, false).expect(name);
+            let decoded_values = match value {
+                StreamValue::Boolean(bools) => serde_json::json!(bools),
+                StreamValue::Integer(ints) => serde_json::json!(ints),
+                StreamValue::Data(data) => serde_json::json!(data),
             };
+            let result = decoded_values.to_string();
 
             eprintln!("result:   {}", result);
             assert_eq!(result, expected, "case {name}");
