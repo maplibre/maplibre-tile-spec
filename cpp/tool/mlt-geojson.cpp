@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     const std::string baseName = argv[1];
     auto metadataBuffer = loadFile(baseName + ".meta.pbf");
     if (metadataBuffer.empty()) {
-        std::cout << "Failed to load " + baseName + ".meta.pbf\n";
+        std::cerr << "Failed to load " + baseName + ".meta.pbf\n";
         return 1;
     }
 
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 
     auto buffer = loadFile(baseName);
     if (buffer.empty()) {
-        std::cout << "Failed to load " + baseName + "\n";
+        std::cerr << "Failed to load " + baseName + "\n";
         return 1;
     }
 

@@ -9,12 +9,13 @@ pub mod varint;
 #[allow(unused_imports)]
 #[allow(clippy::needless_for_each)]
 mod tests {
-    use insta::with_settings;
-    use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering::Relaxed;
+
+    use insta::with_settings;
+    use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
     use crate::decoder::integer::decode_int_stream;
     use crate::decoder::tracked_bytes::TrackedBytes;
