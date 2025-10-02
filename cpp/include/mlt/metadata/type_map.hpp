@@ -18,7 +18,7 @@ struct Tag0x01 {
     static std::optional<std::uint32_t> encodeColumnType(std::optional<ScalarType> physicalScalarType,
                                                          std::optional<LogicalScalarType> logicalScalarType,
                                                          std::optional<ComplexType> physicalComplexType,
-                                                         __unused std::optional<LogicalComplexType> logicalComplexType,
+                                                         std::optional<LogicalComplexType>,
                                                          bool isNullable,
                                                          bool hasChildren,
                                                          bool hasLongIDs) {
