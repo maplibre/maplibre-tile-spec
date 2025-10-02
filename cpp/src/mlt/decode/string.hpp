@@ -52,7 +52,7 @@ public:
                         !streamMetadata->getLogicalStreamType()->getLengthType()) {
                         throw std::runtime_error("Length stream missing logical type");
                     }
-                    lengthType = *streamMetadata->getLogicalStreamType()->getLengthType();
+                    lengthType = streamMetadata->getLogicalStreamType()->getLengthType();
                     intDecoder.decodeIntStream<std::uint32_t>(tileData, lengthStream, *streamMetadata);
                     break;
                 }
@@ -61,7 +61,7 @@ public:
                         !streamMetadata->getLogicalStreamType()->getDictionaryType()) {
                         throw std::runtime_error("Data stream missing logical type");
                     }
-                    dictType = *streamMetadata->getLogicalStreamType()->getDictionaryType();
+                    dictType = streamMetadata->getLogicalStreamType()->getDictionaryType();
                     decodeRaw(tileData, dataStream, streamMetadata->getByteLength(), /*consume=*/true);
                     break;
                 }

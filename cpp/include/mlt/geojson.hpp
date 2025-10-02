@@ -180,7 +180,6 @@ inline json toGeoJSON(const Layer& layer, const TileCoordinate& tileCoord) {
     const auto projection = Projection{layer.getExtent(), tileCoord};
     const auto features = std::ranges::views::all(layer.getFeatures());
     return {{"name", layer.getName()},
-            {"version", layer.getVersion()},
             {"extent", layer.getExtent()},
             {"features",
              detail::buildArray(features, [&](const auto& feature) { return toGeoJSON(layer, feature, projection); })}};
