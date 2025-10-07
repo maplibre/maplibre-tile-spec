@@ -173,11 +173,10 @@ public:
                             assert(geomStreamMetadata->getMetadataType() == LogicalLevelTechnique::MORTON);
                             const auto& mortonStreamMetadata = static_cast<const MortonEncodedStreamMetadata&>(
                                 *geomStreamMetadata);
-                            // TODO: This results in double-morton-decoding, need to align with JS implementation.
-                            // mortonSettings = geometry::MortonSettings{
+                            // TODO: This results in double-morton-decoding, need to align with TypeScript
+                            // implementation. mortonSettings = geometry::MortonSettings{
                             //    .numBits = mortonStreamMetadata.getNumBits(),
                             //    .coordinateShift = mortonStreamMetadata.getCoordinateShift()};
-                            vertices.resize(mortonStreamMetadata.getNumValues());
                             intDecoder.decodeMortonStream<std::uint32_t, std::int32_t>(
                                 tileData, vertices, mortonStreamMetadata);
                             break;
