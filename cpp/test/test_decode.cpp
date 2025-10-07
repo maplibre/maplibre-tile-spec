@@ -16,7 +16,7 @@ using namespace std::string_literals;
 using namespace std::string_view_literals;
 
 #if MLT_WITH_JSON
-#include <mlt/geojson.hpp>
+#include <mlt/json.hpp>
 #include <mlt/util/json_diff.hpp>
 #endif
 
@@ -81,7 +81,7 @@ std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::str
             jsonBuffer, nullptr, /*allow_exceptions=*/false, /*ignore_comments=*/true);
 
         // Convert the tile we loaded to GeoJSON
-        const auto actualJSON = mlt::geojson::toGeoJSON(tile, {.x = 3, .y = 5, .z = 7});
+        const auto actualJSON = mlt::json::toJSON(tile, {.x = 3, .y = 5, .z = 7}, true);
 
         // Compare the two
         const auto diffJSON = mlt::util::diff(expectedJSON, actualJSON, {});
