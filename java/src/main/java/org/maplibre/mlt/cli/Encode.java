@@ -1,6 +1,7 @@
 package org.maplibre.mlt.cli;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import jakarta.annotation.Nullable;
@@ -19,12 +20,12 @@ import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -58,6 +59,7 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.decoder.MltDecoder;
@@ -264,7 +266,7 @@ public class Encode {
       }
     }
     if (willPrintMVT) {
-      printMVT(decodedMvTile);
+      System.out.write(printMVT(decodedMvTile).getBytes(StandardCharsets.UTF_8));
     }
     var needsDecoding = willDecode || willCompare || willPrintMLT;
     if (needsDecoding) {
@@ -282,7 +284,7 @@ public class Encode {
         timer.stop("decoding");
       }
       if (willPrintMLT) {
-        CliUtil.printMLT(decodedTile);
+        System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
         compare(decodedTile, decodedMvTile, compareGeom, compareProp);
@@ -698,33 +700,31 @@ public class Encode {
     return srcStream.readAllBytes();
   }
 
-  public static void printMVT(MapboxVectorTile mvTile) {
-    mvTile
-        .layers()
-        .forEach(
-            layer -> {
-              System.out.println(layer.name());
-              layer
-                  .features()
-                  .forEach(
-                      feature -> {
-                        // Print properties sorted by key to allow for direct comparison with MLT
-                        // output.
-                        final var properties =
-                            feature.properties().entrySet().stream()
-                                .sorted(Comparator.comparing(Map.Entry::getKey))
-                                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                                .collect(Collectors.joining(", "));
-                        System.out.println(
-                            "  Feature[id="
-                                + feature.id()
-                                + ", geometry="
-                                + feature.geometry()
-                                + ", properties={"
-                                + properties
-                                + "}]");
-                      });
-            });
+  public static String printMVT(MapboxVectorTile mvTile) {
+    final var gson = new GsonBuilder().setPrettyPrinting().create();
+    return gson.toJson(Map.of("layers", mvTile.layers().stream().map(Encode::toJSON).toList()));
+  }
+
+  private static Map<String, Object> toJSON(Layer layer) {
+    var map = new TreeMap<String, Object>();
+    map.put("name", layer.name());
+    map.put("extent", layer.tileExtent());
+    map.put("features", layer.features().stream().map(Encode::toJSON).toList());
+    return map;
+  }
+
+  private static Map<String, Object> toJSON(Feature feature) {
+    var map = new TreeMap<String, Object>();
+    map.put("id", feature.id());
+    map.put("geometry", feature.geometry().toString());
+    map.put(
+        "properties",
+        feature.properties().entrySet().stream()
+            .filter(entry -> entry.getValue() != null)
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1, TreeMap::new)));
+    return map;
   }
 
   private static boolean propertyValuesEqual(Object a, Object b) {
@@ -1231,7 +1231,7 @@ public class Encode {
         final var header =
             "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";
         final var footer = "";
-        final var formatter = HelpFormatter.builder().setComparator(null).get();
+        final var formatter = HelpFormatter.builder().get();
         formatter.printHelp(Encode.class.getName(), header, options, footer, autoUsage);
       } else if (Stream.of(
                   cmd.hasOption(INPUT_TILE_ARG),

@@ -1,5 +1,6 @@
 package org.maplibre.mlt.cli;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.apache.commons.cli.CommandLine;
@@ -72,7 +73,7 @@ public class Decode {
         var decodedTile = MltDecoder.decodeMlTile(mltTileBuffer);
         if (willTime) timer.stop("decoding");
         if (willPrintMLT) {
-          CliUtil.printMLT(decodedTile);
+          System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
         }
       }
     } catch (Exception e) {
