@@ -152,7 +152,7 @@ inline json buildGeometryElement(const geometry::MultiLineString& mls, const Pro
                                     }));
     } else {
         std::ostringstream ss;
-        ss << "MULTILINESTRING(";
+        ss << "MULTILINESTRING (";
         const auto& lineStrings = mls.getLineStrings();
         for (std::size_t i = 0, n = lineStrings.size(); i < n; ++i) {
             if (i != 0) {
