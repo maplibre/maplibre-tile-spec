@@ -655,7 +655,7 @@ public class Encode {
             if (verbose) {
               System.err.printf(
                   "Compression of %d:%d,%d not effective, saving uncompressed (%d vs %d bytes)%n",
-                  z, x, y, srcTileData.length, outputStream.size());
+                  z, x, y, tileData.length, outputStream.size());
             }
             didCompress.setFalse();
           }
