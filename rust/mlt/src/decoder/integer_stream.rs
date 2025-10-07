@@ -86,6 +86,32 @@ pub fn decode_const_int_stream_unsigned(
     }
 }
 
+/// Extract sequence parameters from ZigZag-encoded RLE data
+/// Returns (base, delta) for generating arithmetic sequences
+pub fn decode_sequence_int_stream(
+    tile: &mut TrackedBytes,
+    metadata: &StreamMetadata,
+) -> MltResult<(i32, i32)> {
+    let values = decode_physical(tile, metadata)?;
+    decode_zigzag_sequence_rle::<i32>(&values)
+}
+
+fn decode_zigzag_sequence_rle<T: ZigZag>(data: &[T::UInt]) -> MltResult<(T, T)> {
+    if data.len() < 2 {
+        return Err(MltError::MinLength {
+            ctx: "zigzag sequence RLE stream",
+            min: 2,
+            got: data.len(),
+        });
+    }
+    if data.len() == 2 {
+        let value = T::decode(data[1]);
+        Ok((value, value))
+    } else {
+        Ok((T::decode(data[1]), T::decode(data[3])))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,6 +120,25 @@ mod tests {
         Logical, LogicalLevelTechnique, LogicalStreamType, Physical, PhysicalLevelTechnique,
         PhysicalStreamType,
     };
+
+    #[test]
+    fn test_decode_zigzag_sequence_rle() {
+        let encoded: Vec<u32> = vec![1, 200, 4, 2];
+        let decoded = decode_zigzag_sequence_rle::<i32>(&encoded).unwrap();
+        assert_eq!(decoded, (100, 1));
+
+        let encoded: Vec<u32> = vec![4, 200];
+        let decoded = decode_zigzag_sequence_rle::<i32>(&encoded).unwrap();
+        assert_eq!(decoded, (100, 100));
+
+        let encoded: Vec<u32> = vec![4];
+        let decoded = decode_zigzag_sequence_rle::<i32>(&encoded);
+        assert!(decoded.is_err());
+
+        let encoded: Vec<u32> = vec![];
+        let decoded = decode_zigzag_sequence_rle::<i32>(&encoded);
+        assert!(decoded.is_err());
+    }
 
     fn generate_metadata(
         t1: LogicalLevelTechnique,
