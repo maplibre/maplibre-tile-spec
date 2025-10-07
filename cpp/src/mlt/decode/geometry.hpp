@@ -171,7 +171,7 @@ public:
                             break;
                         case DictionaryType::MORTON: {
                             assert(geomStreamMetadata->getMetadataType() == LogicalLevelTechnique::MORTON);
-                            const auto& mortonStreamMetadata = static_cast<MortonEncodedStreamMetadata&>(
+                            const auto& mortonStreamMetadata = static_cast<const MortonEncodedStreamMetadata&>(
                                 *geomStreamMetadata);
                             // TODO: This results in double-morton-decoding, need to align with JS implementation.
                             // mortonSettings = geometry::MortonSettings{
