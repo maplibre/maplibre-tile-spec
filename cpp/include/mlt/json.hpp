@@ -132,7 +132,7 @@ inline json buildGeometryElement(const geometry::LinearRing& line, const Project
 
 inline json buildGeometryElement(const geometry::MultiPoint& points, const Projection& projection, bool geoJSON) {
     if (geoJSON) {
-        buildGeometryElement("MultiPoint", buildCoordinatesArray(points.getCoordinates(), projection));
+        return buildGeometryElement("MultiPoint", buildCoordinatesArray(points.getCoordinates(), projection));
     } else {
         std::ostringstream ss;
         ss << "MULTIPOINT (";
