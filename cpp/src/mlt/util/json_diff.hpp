@@ -2,7 +2,7 @@
 #include <cstddef>
 #if MLT_WITH_JSON
 
-#include <mlt/geojson.hpp>
+#include <mlt/json.hpp>
 
 #include <nlohmann/detail/string_concat.hpp>
 

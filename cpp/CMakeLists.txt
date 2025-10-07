@@ -122,7 +122,7 @@ list(APPEND MLT_SRC_FILES
 )
 
 if(MLT_WITH_JSON)
-    list(APPEND MLT_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/geojson.hpp)
+    list(APPEND MLT_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/json.hpp)
 endif(MLT_WITH_JSON)
 
 target_sources(mlt-cpp PRIVATE
@@ -159,7 +159,7 @@ target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
 
 # json
 if(MLT_WITH_JSON)
-    message(STATUS "[MLT] Including GeoJSON support")
+    message(STATUS "[MLT] Including JSON support")
 
     add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/json" "${CMAKE_CURRENT_BINARY_DIR}/json" EXCLUDE_FROM_ALL SYSTEM)
 
@@ -167,7 +167,7 @@ if(MLT_WITH_JSON)
     target_include_directories(mlt-cpp PUBLIC "${json_SOURCE_DIR}/include")
     target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_JSON=1)
 else()
-    message(STATUS "[MLT] No GeoJSON support")
+    message(STATUS "[MLT] No JSON support")
 endif(MLT_WITH_JSON)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
