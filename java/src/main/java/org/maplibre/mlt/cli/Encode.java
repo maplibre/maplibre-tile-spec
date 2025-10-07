@@ -717,6 +717,7 @@ public class Encode {
     var map = new TreeMap<String, Object>();
     map.put("id", feature.id());
     map.put("geometry", feature.geometry().toString());
+    // Print properties sorted by key to allow for direct comparison with MLT output.
     map.put(
         "properties",
         feature.properties().entrySet().stream()
