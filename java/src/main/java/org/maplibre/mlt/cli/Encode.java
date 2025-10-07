@@ -156,6 +156,13 @@ public class Encode {
             enableElideOnTypeMismatch,
             verbose);
       }
+      if (verbose && totalCompressedInput > 0) {
+        System.err.printf(
+            "Compressed %d bytes to %d bytes (%.1f%%)%n",
+            totalCompressedInput,
+            totalCompressedOutput,
+            100 * (double) totalCompressedOutput / totalCompressedInput);
+      }
     } catch (Exception e) {
       System.err.println("Failed:");
       e.printStackTrace(System.err);
@@ -625,14 +632,31 @@ public class Encode {
 
           // If the compressed version is enough of an improvement to
           // justify the cost of decompressing it, use that instead.
-          // Just guesses for now, these should be established with testing.
+          // Just guesses for now, these should be established with testing and/or configurable.
           final double ratioThreshold = 0.98;
           final int fixedThreshold = 20;
           if (outputStream.size() < tileData.length - fixedThreshold
               && outputStream.size() < tileData.length * ratioThreshold) {
+            if (verbose) {
+              System.err.printf(
+                  "Compressed %d:%d,%d from %d to %d bytes (%.1f%%)%n",
+                  z,
+                  x,
+                  y,
+                  tileData.length,
+                  outputStream.size(),
+                  100 * (double) outputStream.size() / tileData.length);
+              totalCompressedInput += tileData.length;
+              totalCompressedOutput += outputStream.size();
+            }
             didCompress.setTrue();
             tileData = outputStream.toByteArray();
           } else {
+            if (verbose) {
+              System.err.printf(
+                  "Compression of %d:%d,%d not effective, saving uncompressed (%d vs %d bytes)%n",
+                  z, x, y, tileData.length, outputStream.size());
+            }
             didCompress.setFalse();
           }
         }
@@ -1270,6 +1294,9 @@ public class Encode {
     }
     return null;
   }
+
+  private static long totalCompressedInput = 0;
+  private static long totalCompressedOutput = 0;
 
   private static final String MetadataMIMEType = "application/vnd.maplibre-vector-tile";
 }
