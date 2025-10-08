@@ -97,7 +97,7 @@ gradle.projectsEvaluated {
 ["encode", "decode", "meta"].each { name ->
     task "$name"(type: Jar, dependsOn: compileJava) {
         archiveFileName = name + ".jar"
-        archiveClassifier = "cli"  // Add classifier to avoid conflicts with maven publication
+        archiveClassifier = "cli"
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
         manifest.from jar.manifest
@@ -130,7 +130,6 @@ tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
 
-// Semver validation task
 tasks.register('validateSemver') {
     doLast {
         def version = project.version
@@ -148,7 +147,6 @@ tasks.register('validateSemver') {
     }
 }
 
-// Maven Central Publishing Configuration
 mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
 
