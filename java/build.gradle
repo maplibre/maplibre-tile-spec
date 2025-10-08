@@ -150,7 +150,7 @@ mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
     signAllPublications()
 
-    coordinates("nl.bartlouwers", "mlt", version)
+    coordinates("org.maplibre", "mlt", version)
 
     publishToMavenCentral.dependsOn validateSemver
 
