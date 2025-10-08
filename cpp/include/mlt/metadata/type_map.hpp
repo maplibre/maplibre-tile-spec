@@ -125,10 +125,10 @@ private:
                 return ScalarType::BOOLEAN;
             case 12:
             case 13:
-                return ScalarType::UINT_8;
+                return ScalarType::INT_8;
             case 14:
             case 15:
-                return ScalarType::BOOLEAN;
+                return ScalarType::UINT_8;
             case 16:
             case 17:
                 return ScalarType::INT_32;
