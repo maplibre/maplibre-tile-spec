@@ -166,6 +166,23 @@ mod tests {
     }
 
     #[test]
+    fn test_decode_componentwise_delta_vec2s() {
+        // original Vec2s: [(3, 5), (7, 6), (12, 4)]
+        // delta:          [3, 5, 4, 1, 5, -2]
+        // ZigZag:         [6, 10, 8, 2, 10, 3]
+        let encoded_from_positives: Vec<u32> = vec![6, 10, 8, 2, 10, 3];
+        let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded_from_positives).unwrap();
+        assert_eq!(decoded, vec![3, 5, 7, 6, 12, 4]);
+
+        // original Vec2s: [(3, 5), (-1, 6), (4, -4)]
+        // delta:          [3, 5, -4, 1, 5, -10]
+        // ZigZag:         [6, 10, 7, 2, 10, 19]
+        let encoded_from_negatives: Vec<u32> = vec![6, 10, 7, 2, 10, 19];
+        let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded_from_negatives).unwrap();
+        assert_eq!(decoded, vec![3, 5, -1, 6, 4, -4]);
+    }
+
+    #[test]
     fn test_decode_zigzag_const_rle() {
         let encoded: Vec<u32> = vec![0, 10];
         let decoded = decode_zigzag_const_rle::<i32>(&encoded).unwrap();

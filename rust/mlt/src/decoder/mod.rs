@@ -1,3 +1,4 @@
+pub mod boolean;
 mod decode;
 mod helpers;
 pub mod integer;
@@ -77,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "not all parsing has been implemented yet"]
+    #[ignore = "not all parsing has been implemented yet - some boolean test fixtures have incorrect JSON output due to Java encoder bug (see issue #569)"]
     fn test_decode_fixtures() {
         for (name, path) in &get_bin_fixtures() {
             let meta = fs::read(path.with_extension("meta.bin")).expect(name);
@@ -98,6 +99,8 @@ mod tests {
             // eprintln!("{name} => result {result:?}");
 
             let expected = fs::read_to_string(path.with_extension("json")).expect(name);
+            // Note: Some boolean test fixtures may have incorrect JSON output due to Java encoder bug
+            // where JSON is truncated at the last true bit (issue #569). The binary data is correct.
             assert_eq!(
                 serde_json::to_string(&result).expect(name),
                 expected,

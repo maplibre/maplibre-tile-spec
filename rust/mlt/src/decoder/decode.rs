@@ -5,7 +5,8 @@ use bytes::Buf;
 use zigzag::ZigZag;
 
 use crate::data::MapLibreTile;
-use crate::decoder::helpers::{decode_boolean_rle, get_data_type_from_column};
+use crate::decoder::boolean::decode_boolean_rle;
+use crate::decoder::helpers::get_data_type_from_column;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::encoder::geometry::GeometryScaling;
 use crate::metadata::proto_tileset::{Column, ScalarType, TileSetMetadata};
