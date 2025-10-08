@@ -147,7 +147,7 @@ tasks.register('validateSemver') {
 }
 
 mavenPublishing {
-    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    publishToMavenCentral(true)
     signAllPublications()
 
     coordinates("org.maplibre", "mlt", version)
