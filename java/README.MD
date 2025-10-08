@@ -78,25 +78,20 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-// Read MVT tile
 byte[] mvtData = Files.readAllBytes(Path.of("tile.mvt"));
 var mvtTile = MvtUtils.decodeMvt(mvtData);
 
 // Configure column mappings for nested properties (e.g., name:en, name:de)
 var columnMappings = List.of(new ColumnMapping("name", ":", true));
 
-// Create tileset metadata
 var tilesetMetadata = MltConverter.createTilesetMetadata(mvtTile, columnMappings, true);
 
-// Configure conversion settings
 var optimization = new FeatureTableOptimizations(false, false, columnMappings);
 var optimizations = Map.of("layer_name", optimization);
 var config = new ConversionConfig(true, true, optimizations);
 
-// Convert MVT to MLT
 byte[] mltData = MltConverter.convertMvt(mvtTile, tilesetMetadata, config, null);
 
-// Save MLT tile
 Files.write(Path.of("tile.mlt"), mltData);
 ```
 
@@ -111,13 +106,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-// Read MLT tile from file
 byte[] mltData = Files.readAllBytes(Path.of("tile.mlt"));
 
-// Decode the MLT tile
 MapLibreTile tile = MltDecoder.decodeMlTile(mltData);
 
-// Access layers and features
 for (var layer : tile.layers()) {
   System.out.println("Layer: " + layer.name());
   System.out.println("Features: " + layer.features().size());
@@ -138,7 +130,6 @@ For better compression, you can enable advanced encoding schemes and sorting:
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import java.util.Map;
 
-// Enable sorting and ID regeneration for better compression
 var optimization = new FeatureTableOptimizations(true, true, columnMappings);
 var optimizations = Map.of(
   "water", optimization,
@@ -146,10 +137,8 @@ var optimizations = Map.of(
   "buildings", optimization
 );
 
-// Use advanced encoding schemes for better compression
 var config = new ConversionConfig(true, true, optimizations);
 
-// Convert with optimizations
 byte[] mltData = MltConverter.convertMvt(mvtTile, tilesetMetadata, config, null);
 ```
 
@@ -161,15 +150,12 @@ Access and manipulate feature properties:
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.data.MapLibreTile;
 
-// Decode MLT tile
 MapLibreTile tile = MltDecoder.decodeMlTile(mltData);
 
 for (var layer : tile.layers()) {
   for (var feature : layer.features()) {
-    // Access properties
     var properties = feature.properties();
 
-    // Get specific property values
     String name = (String) properties.get("name");
     Integer population = (Integer) properties.get("population");
     Boolean isCapital = (Boolean) properties.get("is_capital");
@@ -178,7 +164,6 @@ for (var layer : tile.layers()) {
     String nameEn = (String) properties.get("name:en");
     String nameDe = (String) properties.get("name:de");
 
-    // Modify properties
     properties.put("processed", true);
   }
 }
@@ -201,19 +186,16 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-// Process all MVT files in a directory
 try (Stream<Path> paths = Files.list(Paths.get("input_tiles"))) {
   paths.filter(path -> path.toString().endsWith(".mvt"))
        .forEach(mvtPath -> {
          try {
-           // Convert each MVT to MLT
            byte[] mvtData = Files.readAllBytes(mvtPath);
            var mvtTile = MvtUtils.decodeMvt(mvtData);
            var tilesetMetadata = MltConverter.createTilesetMetadata(mvtTile, List.of(), true);
            var config = new ConversionConfig(true, true, Map.of());
            byte[] mltData = MltConverter.convertMvt(mvtTile, tilesetMetadata, config, null);
 
-           // Save as MLT
            String mltPath = mvtPath.toString().replace(".mvt", ".mlt");
            Files.write(Paths.get(mltPath), mltData);
 
