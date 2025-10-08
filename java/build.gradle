@@ -147,9 +147,10 @@ tasks.register('validateSemver') {
 }
 
 mavenPublishing {
-    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    signAllPublications()
 
-    coordinates("org.maplibre", "mlt", version)
+    coordinates("nl.bartlouwers", "mlt", version)
 
     publishToMavenCentral.dependsOn validateSemver
 
