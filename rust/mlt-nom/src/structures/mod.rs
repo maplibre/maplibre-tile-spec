@@ -9,6 +9,7 @@ use nom::{IResult, Parser};
 use crate::structures::v1::{FeatureMetaTable, FeatureTable};
 use crate::utils;
 
+mod enums;
 pub(crate) mod v1;
 
 /// A layer that can be either MVT-compatible or unknown

@@ -3,6 +3,7 @@ use nom::IResult;
 use nom::error::Error;
 use num_enum::TryFromPrimitive;
 
+use crate::structures::enums::{LogicalLevelTechnique, PhysicalLevelTechnique, PhysicalStreamType};
 use crate::utils;
 use crate::utils::fail_parse;
 
@@ -15,22 +16,14 @@ pub struct FeatureTable<'a> {
     pub data: &'a [u8],
 }
 
-#[borrowme]
-#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
-#[repr(u8)]
-pub enum PhysicalStreamType {
-    Present = 0,
-    Data = 1,
-    Offset = 2,
-    Length = 3,
-    ValueCount = 4,
-}
-
 /// MVT-compatible feature table data
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct FeatureStream<'a> {
     pub physical_stream_type: PhysicalStreamType,
+    pub logical_level_technique1: LogicalLevelTechnique,
+    pub logical_level_technique2: LogicalLevelTechnique,
+    pub physical_level_technique: PhysicalLevelTechnique,
     #[borrowme(borrow_with = Vec::as_slice)]
     pub data: &'a [u8],
 }
@@ -41,13 +34,24 @@ impl FeatureStream<'_> {
         _column: &'_ Column<'_>,
         _meta: &'_ FeatureMetaTable<'_>,
     ) -> IResult<&'a [u8], FeatureStream<'a>> {
-        let (input, stream_type) = utils::parse_u8(input)?;
-        let physical_stream_type =
-            PhysicalStreamType::try_from(stream_type >> 4).or(fail_parse(input))?;
+        let (input, val) = utils::parse_u8(input)?;
+        let physical_stream_type = PhysicalStreamType::from_u8(val >> 4).ok_or(fail_parse(input))?;
+
+        let (input, val) = utils::parse_u8(input)?;
+        let logical_level_technique1 =
+            LogicalLevelTechnique::try_from(val >> 5).or(fail_parse(input))?;
+        let logical_level_technique2 =
+            LogicalLevelTechnique::try_from((val >> 2) & 0x7).or(fail_parse(input))?;
+        let physical_level_technique =
+            PhysicalLevelTechnique::try_from(val & 0x3).or(fail_parse(input))?;
+
         Ok((
             input,
             FeatureStream {
                 physical_stream_type,
+                logical_level_technique1,
+                logical_level_technique2,
+                physical_level_technique,
                 data: input,
             },
         ))
