@@ -96,6 +96,17 @@ gen-snippets:  (cargo-install 'fd' 'fd-find')
         --mlt "$(tmp='{.}'; echo ${tmp/\/fixtures\///expected/}).mvt" \
         --rawstreams --tessellate --outlines ALL || echo "### Some snippets failed to generate ###"
 
+# Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
+[working-directory: '../../java']
+gen-tests:  (cargo-install 'fd' 'fd-find')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./gradlew cli
+    fd . ../test/fixtures -e pbf -x bash -c 'java -jar build/libs/encode.jar --mvt {} \
+        --mlt "$(tmp={.}; echo ${tmp/fixtures/expected/tag0x01/}).mlt" \
+        --outlines "\*" --tessellate --coerce-mismatch --verbose || echo "### Some snippets failed to generate ###"'
+
+
 # Get any package's field from the metadata
 get-crate-field field package=main_crate:  (assert-cmd 'jq')
     cargo metadata --format-version 1 | jq -e -r '.packages | map(select(.name == "{{package}}")) | first | .{{field}} | select(. != null)'

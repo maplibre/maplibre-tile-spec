@@ -66,8 +66,10 @@ public class BingMapsDecoderBenchmark {
 
   private FeatureTable[] decodeVectorized(int n) throws IOException {
     var mlTile = encodedMltTiles.get(n);
-    var mltMetadata =
+    var mltMetadataExtent =
         MltDecoder.parseEmbeddedMetadata(new ByteArrayInputStream(tileMetadata.get(n)));
+    var mltMetadata = mltMetadataExtent.getLeft();
+    var tileExtent = mltMetadataExtent.getRight();
     // Vectorized decoding currently disabled
     return new FeatureTable[0]; // MltDecoder.decodeMlTileVectorized(mlTile, mltMetadata);
   }

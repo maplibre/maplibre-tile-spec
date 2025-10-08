@@ -125,6 +125,7 @@ struct Column {
 
 struct FeatureTable {
     std::string name;
+    std::uint32_t extent;
     std::vector<Column> columns;
 };
 

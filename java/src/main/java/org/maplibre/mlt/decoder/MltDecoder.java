@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 import me.lemire.integercompression.IntWrapper;
+import org.apache.commons.lang3.tuple.Pair;
 import org.locationtech.jts.geom.Geometry;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.data.Feature;
@@ -21,8 +22,9 @@ public class MltDecoder {
   private static Layer parseBasicMVTEquivalent(int layerSize, InputStream stream)
       throws IOException {
     try (var countStream = new CountingInputStream(stream)) {
-      final var metadata = parseEmbeddedMetadata(countStream);
-      final var tileExtent = DecodingUtils.decodeVarint(countStream);
+      final var metadataExtent = parseEmbeddedMetadata(countStream);
+      final var metadata = metadataExtent.getLeft();
+      final var tileExtent = metadataExtent.getRight();
       final var bodySize = layerSize - countStream.getCount();
       return decodeMltLayer(countStream.readNBytes((int) bodySize), metadata, tileExtent);
     }
@@ -167,15 +169,16 @@ public class MltDecoder {
     return column.build();
   }
 
-  public static MltTilesetMetadata.FeatureTableSchema parseEmbeddedMetadata(InputStream stream)
-      throws IOException {
+  public static Pair<MltTilesetMetadata.FeatureTableSchema, Integer> parseEmbeddedMetadata(
+      InputStream stream) throws IOException {
     final var table = MltTilesetMetadata.FeatureTableSchema.newBuilder();
     table.setName(DecodingUtils.decodeString(stream));
+    final var extent = DecodingUtils.decodeVarint(stream);
 
     final var columnCount = DecodingUtils.decodeVarint(stream);
     for (int i = 0; i < columnCount; ++i) {
       table.addColumns(decodeColumn(stream));
     }
-    return table.build();
+    return Pair.of(table.build(), extent);
   }
 }
