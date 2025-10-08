@@ -171,6 +171,10 @@ generate-one-expected-mlt file:
         --coerce-mismatch \
         --verbose
 
+# Extract version from a tag by removing language prefix and 'v' prefix
+extract-version language tag:
+    @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
+
 # Check if a certain Cargo command is installed, and install it if needed
 [private]
 cargo-install $COMMAND $INSTALL_CMD='' *args='':
