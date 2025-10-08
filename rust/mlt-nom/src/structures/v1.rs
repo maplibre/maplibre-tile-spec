@@ -1,9 +1,12 @@
 use borrowme::borrowme;
+use mlt::MltError;
+use mlt::metadata::stream::Morton;
 use nom::IResult;
 use nom::error::Error;
 use num_enum::TryFromPrimitive;
 
-use crate::structures::enums::{ColumnType, LogicalLevelTechnique, PhysicalLevelTechnique, PhysicalStreamType};
+use crate::structures::complex_enums::{Decoder, PhysicalStreamType};
+use crate::structures::enums::{ColumnType, LogicalLevelTechnique, PhysicalLevelTechnique};
 use crate::utils;
 use crate::utils::fail;
 
@@ -24,12 +27,14 @@ pub struct FeatureStream<'a> {
     pub logical_level_technique1: LogicalLevelTechnique,
     pub logical_level_technique2: LogicalLevelTechnique,
     pub physical_level_technique: PhysicalLevelTechnique,
+    pub num_values: u32,
+    pub byte_length: u32,
     #[borrowme(borrow_with = Vec::as_slice)]
     pub data: &'a [u8],
 }
 
 impl FeatureStream<'_> {
-    fn parse<'a>(
+    fn parse_metadata<'a>(
         input: &'a [u8],
         _column: &'_ Column<'_>,
         _meta: &'_ FeatureMetaTable<'_>,
@@ -45,6 +50,21 @@ impl FeatureStream<'_> {
         let physical_level_technique =
             PhysicalLevelTechnique::try_from(val & 0x3).or(Err(fail(input)))?;
 
+        let (input, num_values) = utils::parse_varint_u32(input)?;
+        let (input, byte_length) = utils::parse_varint_u32(input)?;
+
+        let decoder = match logical_level_technique1 {
+            LogicalLevelTechnique::Morton => Decoder::Morton {
+                num_bits: num_values,
+                coordinate_shift: byte_length,
+            },
+            LogicalLevelTechnique::Rle => Decoder::Rle {
+                runs: num_values,
+                num_rle_values: byte_length,
+            },
+            _ => Decoder::None,
+        };
+
         Ok((
             input,
             FeatureStream {
@@ -52,6 +72,8 @@ impl FeatureStream<'_> {
                 logical_level_technique1,
                 logical_level_technique2,
                 physical_level_technique,
+                num_values,
+                byte_length,
                 data: input,
             },
         ))
@@ -65,47 +87,34 @@ impl FeatureTable<'_> {
         meta: FeatureMetaTable<'a>,
     ) -> Result<FeatureTable<'a>, nom::Err<Error<&'a [u8]>>> {
         for column in &meta.columns {
-            let _stream_count = if column.typ.has_stream_count() {
-                let pair = utils::parse_u7(input)?;
-                input = pair.0;
-                pair.1
-            } else {
-                1
-            };
-            if column.typ.is_optional() {
-                let _opt = FeatureStream::parse(input, column, &meta)?;
-            }
-            let _main = FeatureStream::parse(input, column, &meta)?;
+            if matches!(
+                column.typ,
+                ColumnType::Id | ColumnType::OptId | ColumnType::LongId | ColumnType::OptLongId
+            ) {
+                let _stream_count = if column.typ.has_stream_count() {
+                    let pair = utils::parse_u7(input)?;
+                    input = pair.0;
+                    pair.1
+                } else {
+                    1
+                };
+                if column.typ.is_optional() {
+                    (input, _) = FeatureStream::parse_metadata(input, column, &meta)?;
+                }
 
-            // #[expect(clippy::match_same_arms)]
-            // match column.typ {
-            //     ColumnType::Id => {}
-            //     ColumnType::OptId => {}
-            //     ColumnType::LongId => {}
-            //     ColumnType::OptLongId => {}
-            //     ColumnType::Geometry => {}
-            //     ColumnType::Bool => {}
-            //     ColumnType::OptBool => {}
-            //     ColumnType::I8 => {}
-            //     ColumnType::OptI8 => {}
-            //     ColumnType::U8 => {}
-            //     ColumnType::OptU8 => {}
-            //     ColumnType::I32 => {}
-            //     ColumnType::OptI32 => {}
-            //     ColumnType::U32 => {}
-            //     ColumnType::OptU32 => {}
-            //     ColumnType::I64 => {}
-            //     ColumnType::OptI64 => {}
-            //     ColumnType::U64 => {}
-            //     ColumnType::OptU64 => {}
-            //     ColumnType::F32 => {}
-            //     ColumnType::OptF32 => {}
-            //     ColumnType::F64 => {}
-            //     ColumnType::OptF64 => {}
-            //     ColumnType::Str => {}
-            //     ColumnType::OptStr => {}
-            //     ColumnType::Struct => {}
-            // }
+                let main_meta;
+                (input, main_meta) = FeatureStream::parse_metadata(input, column, &meta)?;
+
+                let ids = Vec::<u64>::with_capacity(main_meta.num_values as usize);
+                if matches!(column.typ, ColumnType::Id | ColumnType::OptId) {
+                    utils::parse_varints(input, main_meta.num_values as usize)?;
+                } else {
+                    utils::parse_varints_64(input, main_meta.num_values as usize)?;
+                }
+
+
+                dbg!(main_meta);
+            }
         }
 
         Ok(FeatureTable { meta, data: input })

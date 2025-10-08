@@ -1,30 +1,9 @@
 use borrowme::borrowme;
-use num_enum::TryFromPrimitive;
 use nom::IResult;
+use num_enum::TryFromPrimitive;
+
 use crate::utils;
 use crate::utils::fail;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum PhysicalStreamType {
-    Present,
-    Data(DictionaryType),
-    Offset(OffsetType),
-    Length(LengthType),
-}
-
-impl PhysicalStreamType {
-    pub fn from_u8(value: u8) -> Option<Self> {
-        let prefix = value >> 4;
-        let suffix = value & 0x0F;
-        Some(match prefix {
-            0 => PhysicalStreamType::Present,
-            1 => PhysicalStreamType::Data(DictionaryType::try_from(suffix).ok()?),
-            2 => PhysicalStreamType::Offset(OffsetType::try_from(suffix).ok()?),
-            3 => PhysicalStreamType::Length(LengthType::try_from(suffix).ok()?),
-            _ => return None,
-        })
-    }
-}
 
 #[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
@@ -48,7 +27,7 @@ pub enum PhysicalLevelTechnique {
     FastPFOR = 1,
     /// Can produce better results in combination with a heavyweight compression scheme like Gzip.
     /// Simple compression scheme where the decoder are easier to implement compared to FastPfor.
-    Varint = 2,
+    VarInt = 2,
     /// Adaptive Lossless floating-Point Compression
     Alp = 3,
 }

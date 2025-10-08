@@ -1,10 +1,10 @@
-mod converter;
-mod data;
-mod decoder;
-mod encoder;
-mod error;
-mod metadata;
-mod vector;
+pub mod converter;
+pub mod data;
+pub mod decoder;
+pub mod encoder;
+pub mod error;
+pub mod metadata;
+pub mod vector;
 
 pub use converter::mlt::{FeatureTableOptimizations, create_tileset_metadata};
 pub use converter::mvt;

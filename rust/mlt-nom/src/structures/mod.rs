@@ -8,6 +8,7 @@ use crate::structures::v1::{FeatureMetaTable, FeatureTable};
 use crate::utils;
 use crate::utils::fail;
 
+mod complex_enums;
 mod enums;
 pub(crate) mod v1;
 
