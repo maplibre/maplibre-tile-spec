@@ -13,7 +13,6 @@ repositories {
     }
 }
 
-group 'org.maplibre.mlt'
 dependencies {
     implementation 'com.carrotsearch:hppc:0.10.0'
     implementation 'com.github.davidmoten:hilbert-curve:0.2.3'

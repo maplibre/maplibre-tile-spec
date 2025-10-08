@@ -23,6 +23,7 @@ jobs:
       - name: Get version from tag
         id: get_version
         run: |
+          chmod +x .github/scripts/extract-version.sh
           version="$(./.github/scripts/extract-version.sh java ${{ github.ref_name }})"
           echo version="$version" >> "$GITHUB_ENV"
 
