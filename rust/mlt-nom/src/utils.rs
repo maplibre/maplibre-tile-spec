@@ -8,7 +8,7 @@ use nom::{IResult, Parser};
 pub fn parse_varint(input: &[u8]) -> IResult<&[u8], u64> {
     match u64::decode_var(input) {
         Some((value, consumed)) => Ok((&input[consumed..], value)),
-        None => fail_parse(input),
+        None => Err(fail(input)),
     }
 }
 
@@ -32,7 +32,7 @@ pub fn parse_varint_u32(input: &[u8]) -> IResult<&[u8], u32> {
 pub fn parse_string(input: &[u8]) -> IResult<&[u8], &str> {
     let (input, length) = parse_varint_usize(input)?;
     let (input, value) = take(length).parse(input)?;
-    let value = str::from_utf8(value).or(fail_parse(input))?;
+    let value = str::from_utf8(value).or(Err(fail(input)))?;
     Ok((input, value))
 }
 
@@ -51,7 +51,7 @@ pub fn parse_u7(input: &[u8]) -> IResult<&[u8], u8> {
     if value < 128 {
         Ok((input, value))
     } else {
-        fail_parse(input)
+        Err(fail(input))
     }
 }
 
@@ -66,6 +66,6 @@ pub fn encode_str(data: &mut Vec<u8>, value: &[u8]) {
 }
 
 #[inline]
-pub fn fail_parse<T>(input: &[u8]) -> Result<T, nom::Err<Error<&[u8]>>> {
-    Err(NomError(Error::new(input, ErrorKind::Fail)))
+pub fn fail(input: &[u8]) -> nom::Err<Error<&[u8]>> {
+    NomError(Error::new(input, ErrorKind::Fail))
 }

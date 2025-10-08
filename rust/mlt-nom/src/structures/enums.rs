@@ -1,5 +1,8 @@
 use borrowme::borrowme;
-use num_enum::{TryFromPrimitive};
+use num_enum::TryFromPrimitive;
+use nom::IResult;
+use crate::utils;
+use crate::utils::fail;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PhysicalStreamType {
@@ -83,4 +86,67 @@ pub enum OffsetType {
     Index = 1,
     String = 2,
     Key = 3,
+}
+
+/// Column type enumeration
+#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[repr(u8)]
+pub enum ColumnType {
+    Id = 0,
+    OptId = 1,
+    LongId = 2,
+    OptLongId = 3,
+    Geometry = 4,
+    Bool = 10,
+    OptBool = 11,
+    I8 = 12,
+    OptI8 = 13,
+    U8 = 14,
+    OptU8 = 15,
+    I32 = 16,
+    OptI32 = 17,
+    U32 = 18,
+    OptU32 = 19,
+    I64 = 20,
+    OptI64 = 21,
+    U64 = 22,
+    OptU64 = 23,
+    F32 = 24,
+    OptF32 = 25,
+    F64 = 26,
+    OptF64 = 27,
+    Str = 28,
+    OptStr = 29,
+    Struct = 30,
+}
+
+impl ColumnType {
+    /// Parse a column type from u8
+    pub fn parse(input: &[u8]) -> IResult<&[u8], Self> {
+        let (input, value) = utils::parse_u8(input)?;
+        let value = Self::try_from(value).or(Err(fail(input)))?;
+        Ok((input, value))
+    }
+
+    pub fn has_name(self) -> bool {
+        match self {
+            ColumnType::Id
+            | ColumnType::OptId
+            | ColumnType::LongId
+            | ColumnType::OptLongId
+            | ColumnType::Geometry => false,
+            _ => true,
+        }
+    }
+
+    pub fn is_optional(self) -> bool {
+        (self as u8) & 1 != 0
+    }
+
+    pub fn has_stream_count(self) -> bool {
+        matches!(
+            self,
+            ColumnType::Geometry | ColumnType::Str | ColumnType::OptStr | ColumnType::Struct
+        )
+    }
 }

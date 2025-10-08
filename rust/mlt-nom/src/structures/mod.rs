@@ -1,13 +1,12 @@
 use borrowme::borrowme;
-use nom::Err::Error as NomError;
 use nom::bytes::complete::take;
 use nom::combinator::complete;
-use nom::error::{Error, ErrorKind};
 use nom::multi::many0;
 use nom::{IResult, Parser};
 
 use crate::structures::v1::{FeatureMetaTable, FeatureTable};
 use crate::utils;
+use crate::utils::fail;
 
 mod enums;
 pub(crate) mod v1;
@@ -31,9 +30,7 @@ impl Layer<'_> {
         // so we can use a faster u8 and fail if it is bigger than 127.
         let (input, tag) = utils::parse_u8(input)?;
         // 1 byte must be parsed for the tag, so if size is 0, it's invalid
-        let size = size
-            .checked_sub(1)
-            .ok_or(NomError(Error::new(input, ErrorKind::Fail)))?;
+        let size = size.checked_sub(1).ok_or(fail(input))?;
         let (input, value) = take(size).parse(input)?;
 
         let layer = match tag {
