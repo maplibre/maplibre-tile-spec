@@ -8,7 +8,7 @@ use crate::utils::fail;
 #[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
-pub enum LogicalLevelTechnique {
+pub enum LogicalTechnique {
     None = 0,
     Delta = 1,
     ComponentwiseDelta = 2,
@@ -20,7 +20,7 @@ pub enum LogicalLevelTechnique {
 #[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
-pub enum PhysicalLevelTechnique {
+pub enum PhysicalTechnique {
     None = 0,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
