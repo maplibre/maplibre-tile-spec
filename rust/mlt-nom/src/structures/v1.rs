@@ -1,10 +1,10 @@
 use borrowme::borrowme;
-use nom::Err::Error as NomError;
 use nom::IResult;
-use nom::error::{Error, ErrorKind};
+use nom::error::Error;
 use num_enum::TryFromPrimitive;
 
 use crate::utils;
+use crate::utils::fail_parse;
 
 /// MVT-compatible feature table data
 #[borrowme]
@@ -15,43 +15,92 @@ pub struct FeatureTable<'a> {
     pub data: &'a [u8],
 }
 
+#[borrowme]
+#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[repr(u8)]
+pub enum PhysicalStreamType {
+    Present = 0,
+    Data = 1,
+    Offset = 2,
+    Length = 3,
+    ValueCount = 4,
+}
+
+/// MVT-compatible feature table data
+#[borrowme]
+#[derive(Debug, PartialEq)]
+pub struct FeatureStream<'a> {
+    pub physical_stream_type: PhysicalStreamType,
+    #[borrowme(borrow_with = Vec::as_slice)]
+    pub data: &'a [u8],
+}
+
+impl FeatureStream<'_> {
+    fn parse<'a>(
+        input: &'a [u8],
+        _column: &'_ Column<'_>,
+        _meta: &'_ FeatureMetaTable<'_>,
+    ) -> IResult<&'a [u8], FeatureStream<'a>> {
+        let (input, stream_type) = utils::parse_u8(input)?;
+        let physical_stream_type =
+            PhysicalStreamType::try_from(stream_type >> 4).or(fail_parse(input))?;
+        Ok((
+            input,
+            FeatureStream {
+                physical_stream_type,
+                data: input,
+            },
+        ))
+    }
+}
+
 impl FeatureTable<'_> {
     #[expect(clippy::unnecessary_wraps)]
     pub fn parse<'a>(
-        input: &'a [u8],
+        mut input: &'a [u8],
         meta: FeatureMetaTable<'a>,
     ) -> Result<FeatureTable<'a>, nom::Err<Error<&'a [u8]>>> {
         for column in &meta.columns {
-            #[expect(clippy::match_same_arms)]
-            match column.typ {
-                ColumnType::Id => {
-                    // TODO: parse id
-                }
-                ColumnType::Geometry => {
-                    // TODO
-                }
-                ColumnType::StringProperty => {
-                    // TODO
-                }
-                ColumnType::FloatProperty => {
-                    // TODO
-                }
-                ColumnType::DoubleProperty => {
-                    // TODO
-                }
-                ColumnType::IntProperty => {
-                    // TODO
-                }
-                ColumnType::UintProperty => {
-                    // TODO
-                }
-                ColumnType::SintProperty => {
-                    // TODO
-                }
-                ColumnType::BoolProperty => {
-                    // TODO
-                }
+            let _stream_count = if column.typ.has_stream_count() {
+                let pair = utils::parse_u7(input)?;
+                input = pair.0;
+                pair.1
+            } else {
+                1
+            };
+            if column.typ.is_optional() {
+                FeatureStream::parse(input, column, &meta)?;
             }
+
+            // #[expect(clippy::match_same_arms)]
+            // match column.typ {
+            //     ColumnType::Id => {}
+            //     ColumnType::OptId => {}
+            //     ColumnType::LongId => {}
+            //     ColumnType::OptLongId => {}
+            //     ColumnType::Geometry => {}
+            //     ColumnType::Bool => {}
+            //     ColumnType::OptBool => {}
+            //     ColumnType::I8 => {}
+            //     ColumnType::OptI8 => {}
+            //     ColumnType::U8 => {}
+            //     ColumnType::OptU8 => {}
+            //     ColumnType::I32 => {}
+            //     ColumnType::OptI32 => {}
+            //     ColumnType::U32 => {}
+            //     ColumnType::OptU32 => {}
+            //     ColumnType::I64 => {}
+            //     ColumnType::OptI64 => {}
+            //     ColumnType::U64 => {}
+            //     ColumnType::OptU64 => {}
+            //     ColumnType::F32 => {}
+            //     ColumnType::OptF32 => {}
+            //     ColumnType::F64 => {}
+            //     ColumnType::OptF64 => {}
+            //     ColumnType::Str => {}
+            //     ColumnType::OptStr => {}
+            //     ColumnType::Struct => {}
+            // }
         }
 
         Ok(FeatureTable { meta, data: input })
@@ -104,7 +153,7 @@ impl Column<'_> {
     /// Parse a single column definition
     fn parse(input: &[u8]) -> IResult<&[u8], Column<'_>> {
         let (mut input, typ) = ColumnType::parse(input)?;
-        let name = if typ != ColumnType::Id && typ != ColumnType::Geometry {
+        let name = if typ.has_name() {
             let pair = utils::parse_string(input)?;
             input = pair.0;
             Some(pair.1)
@@ -119,26 +168,61 @@ impl Column<'_> {
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum ColumnType {
-    Id = 1,
-    // TODO: decide if we need additional geometry types like
-    //   PointGeometry/LineGeometry/PolygonGeometry -- if all of them are the same
-    //   PreTessellated geometry - if we include additional tessellation data
-    Geometry = 2,
-    StringProperty = 3,
-    FloatProperty = 4,
-    DoubleProperty = 5,
-    IntProperty = 6,
-    UintProperty = 7,
-    SintProperty = 8,
-    BoolProperty = 9,
+    Id = 0,
+    OptId = 1,
+    LongId = 2,
+    OptLongId = 3,
+    Geometry = 4,
+    Bool = 10,
+    OptBool = 11,
+    I8 = 12,
+    OptI8 = 13,
+    U8 = 14,
+    OptU8 = 15,
+    I32 = 16,
+    OptI32 = 17,
+    U32 = 18,
+    OptU32 = 19,
+    I64 = 20,
+    OptI64 = 21,
+    U64 = 22,
+    OptU64 = 23,
+    F32 = 24,
+    OptF32 = 25,
+    F64 = 26,
+    OptF64 = 27,
+    Str = 28,
+    OptStr = 29,
+    Struct = 30,
 }
 
 impl ColumnType {
     /// Parse a column type from u8
     fn parse(input: &[u8]) -> IResult<&[u8], Self> {
         let (input, value) = utils::parse_u8(input)?;
-        let value = Self::try_from(value);
-        let value = value.or(Err(NomError(Error::new(input, ErrorKind::Fail))))?;
+        let value = Self::try_from(value).or(fail_parse(input))?;
         Ok((input, value))
+    }
+
+    pub fn has_name(self) -> bool {
+        match self {
+            ColumnType::Id
+            | ColumnType::OptId
+            | ColumnType::LongId
+            | ColumnType::OptLongId
+            | ColumnType::Geometry => false,
+            _ => true,
+        }
+    }
+
+    pub fn is_optional(self) -> bool {
+        (self as u8) & 1 != 0
+    }
+
+    pub fn has_stream_count(self) -> bool {
+        matches!(
+            self,
+            ColumnType::Geometry | ColumnType::Str | ColumnType::OptStr | ColumnType::Struct
+        )
     }
 }

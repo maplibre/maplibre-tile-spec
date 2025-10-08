@@ -1,0 +1,81 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+(
+    [],
+    [
+        Layer(
+            FeatureTable {
+                meta: FeatureMetaTable {
+                    name: "layer",
+                    extent: 4096,
+                    columns: [
+                        Column {
+                            typ: Id,
+                            name: None,
+                        },
+                        Column {
+                            typ: Geometry,
+                            name: None,
+                        },
+                        Column {
+                            typ: OptBool,
+                            name: Some(
+                                "key",
+                            ),
+                        },
+                    ],
+                },
+                data: [
+                    2,
+                    1,
+                    1,
+                    1,
+                    4,
+                    48,
+                    2,
+                    1,
+                    1,
+                    4,
+                    49,
+                    2,
+                    1,
+                    1,
+                    2,
+                    50,
+                    2,
+                    2,
+                    2,
+                    3,
+                    2,
+                    19,
+                    66,
+                    10,
+                    10,
+                    4,
+                    4,
+                    0,
+                    16,
+                    16,
+                    0,
+                    17,
+                    17,
+                    4,
+                    8,
+                    0,
+                    96,
+                    1,
+                    2,
+                    255,
+                    1,
+                    16,
+                    96,
+                    1,
+                    2,
+                    255,
+                    1,
+                ],
+            },
+        ),
+    ],
+)

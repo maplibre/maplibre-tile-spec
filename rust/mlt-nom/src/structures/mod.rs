@@ -33,10 +33,10 @@ impl Layer<'_> {
         let size = size
             .checked_sub(1)
             .ok_or(NomError(Error::new(input, ErrorKind::Fail)))?;
-        let (input, value) = take(size)(input)?;
+        let (input, value) = take(size).parse(input)?;
 
         let layer = match tag {
-            // For now we only support tag 0x01 layers, but more will be added soon
+            // For now, we only support tag 0x01 layers, but more will be added soon
             1 => {
                 let (data, meta) = FeatureMetaTable::parse(value)?;
                 Layer::Layer(FeatureTable::parse(data, meta)?)
