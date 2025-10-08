@@ -444,7 +444,7 @@ public class MltConverter {
 
       final var createPolygonOutline =
           config.getOutlineFeatureTableNames().contains(featureTableName)
-              || config.getOutlineFeatureTableNames().contains("*");
+              || config.getOutlineFeatureTableNames().contains("ALL");
       final var result =
           sortFeaturesAndEncodeGeometryColumn(
               config,

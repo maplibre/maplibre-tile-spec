@@ -1116,7 +1116,7 @@ public class Encode {
               .hasArgs()
               .desc(
                   "The feature tables for which outlines are included "
-                      + "([OPTIONAL], comma-separated, * for all, default: none).")
+                      + "([OPTIONAL], comma-separated, 'ALL' for all, default: none).")
               .valueSeparator(',')
               .argName("tables")
               .required(false)

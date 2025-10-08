@@ -25,7 +25,7 @@ public class ConversionConfig {
    * @param preTessellatePolygons Specifies if Polygons should be pre-tessellated.
    * @param useMortonEncoding Use Morton encoding
    * @param outlineFeatureTableNames A collection of names for which to include outline geometry, or
-   *     '*' for all
+   *     'ALL' for all
    * @param layerFilterPattern A regex to filter layer names
    * @param layerFilterInvert True to invert the pattern
    */
