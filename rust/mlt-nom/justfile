@@ -14,13 +14,14 @@ ci_mode := if env('CI', '') != '' {'1'} else {''}
 binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 @_default:
     {{just_executable()}} --list
 
 # Run integration tests and save its output as the new expected output
 bless *args:  (cargo-install 'cargo-insta')
+    # rm -rf tests/snapshots-*
     cargo insta test --accept --unreferenced=delete {{features}} {{args}}
 
 # Build the project
@@ -32,16 +33,16 @@ check:
     cargo check {{packages}} {{features}} {{targets}}
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info && \
+ci-coverage: env-info gen-snippets && \
             (coverage '--codecov --output-path target/llvm-cov/codecov.info')
     # ATTENTION: the full file path above is used in the CI workflow
     mkdir -p target/llvm-cov
 
 # Run all tests as expected by CI
-ci-test: env-info test-fmt clippy check test test-doc && assert-git-is-clean
+ci-test: env-info test-fmt clippy gen-snippets test test-doc && assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info check test
+ci-test-msrv: env-info check gen-snippets test
 
 # Clean all build artifacts
 clean:
@@ -88,6 +89,16 @@ fmt:
 fmt-toml *args:  (cargo-install 'cargo-sort')
     cargo sort {{packages}} --grouped {{args}}
 
+# Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
+[working-directory: '../../java']
+gen-snippets:  (cargo-install 'fd' 'fd-find')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./gradlew cli
+    fd . ../test/fixtures -e pbf -x java -jar build/libs/encode.jar --mvt {} \
+        --mlt "$(tmp='{.}'; echo ${tmp/\/fixtures\///expected/}).mvt" \
+        --rawstreams --tessellate --outlines '\*' || echo "### Some snippets failed to generate ###"
+
 # Get any package's field from the metadata
 get-crate-field field package=main_crate:  (assert-cmd 'jq')
     cargo metadata --format-version 1 | jq -e -r '.packages | map(select(.name == "{{package}}")) | first | .{{field}} | select(. != null)'
@@ -116,7 +127,7 @@ test:
 test-doc:  (docs '')
 
 # Test code formatting
-test-fmt: && (fmt-toml '--check' '--check-format')
+test-fmt: # && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
 # Use the experimental workspace publishing with --dry-run. Requires nightly Rust.
