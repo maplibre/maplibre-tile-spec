@@ -1,0 +1,40 @@
+name: Release to Maven Central
+
+on:
+  push:
+    tags:
+      - 'java-v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          version="$(just extract-version java ${{ github.ref_name }})"
+          echo version="$version" >> "$GITHUB_ENV"
+
+      - name: Make gradlew executable
+        run: chmod +x ./java/gradlew
+
+      - name: Publish to Maven Central
+        working-directory: java
+        run: ./gradlew publishToMavenCentral -Pversion=${{ env.version }}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
