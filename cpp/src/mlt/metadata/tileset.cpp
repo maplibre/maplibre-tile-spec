@@ -45,9 +45,10 @@ Column decodeColumn(BufferStream& stream) {
 
 FeatureTable decodeFeatureTable(BufferStream& stream) {
     auto name = decodeString(stream);
+    const auto extent = decodeVarint<std::uint32_t>(stream);
     const auto columnCount = decodeVarint<std::uint32_t>(stream);
     auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(stream); });
-    return {.name = std::move(name), .columns = std::move(columns)};
+    return {.name = std::move(name), .extent = extent, .columns = std::move(columns)};
 }
 
 } // namespace mlt::metadata::tileset

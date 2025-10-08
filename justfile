@@ -1,6 +1,9 @@
 #!/usr/bin/env just --justfile
 
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+# cargo-binstall needs a workaround due to caching
+# ci_mode might be manually set by user, so re-check the env var
+binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
 
 # By default, show the list of all available commands
 @_default:
@@ -147,3 +150,38 @@ mkdocs:
 mkdocs-build:
     docker build -t squidfunk/mkdocs-material mkdocs
     cd mkdocs && docker run --rm -v ${PWD}:/docs squidfunk/mkdocs-material build --strict
+
+# Build Java encoder and generate .mlt files for all .pbf files in test/fixtures
+[working-directory: 'java']
+generate-expected-mlt:  (cargo-install 'fd' 'fd-find')
+    ./gradlew cli
+    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{just_executable()}} generate-one-expected-mlt
+
+# Generate a single .mlt file for a given .mvt or .pbf file, assuming JAR is built
+[working-directory: 'java']
+[private]
+generate-one-expected-mlt file:
+    java \
+        -Dcom.google.protobuf.use_unsafe_pre22_gencode \
+        -jar build/libs/encode.jar \
+        --mvt {{quote(file)}} \
+        --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
+        --outlines ALL \
+        --tessellate \
+        --coerce-mismatch \
+        --verbose
+
+# Check if a certain Cargo command is installed, and install it if needed
+[private]
+cargo-install $COMMAND $INSTALL_CMD='' *args='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v $COMMAND > /dev/null; then
+        if ! command -v cargo-binstall > /dev/null; then
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
+        else
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
+        fi
+    fi

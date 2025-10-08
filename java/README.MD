@@ -11,9 +11,9 @@ cd java
 Example of converting MVT to MLT:
 
 ```console
-java -jar build/libs/encode.jar --mvt ../test/fixtures/simple/point-boolean.pbf --mlt /tmp/point-boolean.mlt --tessellate --outlines \*  --embedmetadata --verbose
+java -jar build/libs/encode.jar --mvt ../test/fixtures/simple/point-boolean.pbf --mlt /tmp/point-boolean.mlt --tessellate --outlines ALL  --embedmetadata --verbose
 
-java -jar build/libs/encode.jar --mbtiles /Users/timsylvester/src/ml/ml-tile-spec/test/omt-ref.mbtiles --mlt /tmp/omt-basic-mlt.mbtiles --tessellate --outlines \* --compress=deflate --verbose
+java -jar build/libs/encode.jar --mbtiles /Users/timsylvester/src/ml/ml-tile-spec/test/omt-ref.mbtiles --mlt /tmp/omt-basic-mlt.mbtiles --tessellate --outlines ALL --compress=deflate --verbose
 ```
 
 To use the remote polygon pre-tessellation feature (using `--tessellateurl http://localhost:3000`) currently a separate Node.js application has to be started in the tessellation directory via:

@@ -46,7 +46,6 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
     using metadata::type_map::Tag0x01;
 
     const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData);
-    const auto layerExtent = decodeVarint<std::uint32_t>(tileData);
 
     std::vector<Feature::id_t> ids;
     std::unique_ptr<geometry::GeometryVector> geometryVector;
@@ -80,7 +79,7 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
     }
 
     return {layerMetadata.name,
-            layerExtent,
+            layerMetadata.extent,
             std::move(geometryVector),
             makeFeatures(ids, geometryVector->getGeometries(*geometryFactory)),
             std::move(properties)};

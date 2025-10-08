@@ -340,11 +340,12 @@ public class MltConverter {
   /// Produce the binary tile header containing the tile metadata
   /// <p>Note: Uses the protobuf format as input to avoid repeating the logic there, could be
   /// refactored to eliminate it</p>
-  public static byte[] createEmbeddedMetadata(MltTilesetMetadata.FeatureTableSchema table)
-      throws IOException {
+  public static byte[] createEmbeddedMetadata(
+      MltTilesetMetadata.FeatureTableSchema table, int extent) throws IOException {
     try (var byteStream = new ByteArrayOutputStream()) {
       try (var dataStream = new DataOutputStream(byteStream)) {
         EncodingUtils.putString(dataStream, table.getName());
+        EncodingUtils.putVarInt(dataStream, extent);
         EncodingUtils.putVarInt(dataStream, table.getColumnsCount());
         for (var column : table.getColumnsList()) {
           if (column.getColumnScope() != MltTilesetMetadata.ColumnScope.FEATURE) {
@@ -444,7 +445,7 @@ public class MltConverter {
 
       final var createPolygonOutline =
           config.getOutlineFeatureTableNames().contains(featureTableName)
-              || config.getOutlineFeatureTableNames().contains("*");
+              || config.getOutlineFeatureTableNames().contains("ALL");
       final var result =
           sortFeaturesAndEncodeGeometryColumn(
               config,
@@ -503,16 +504,12 @@ public class MltConverter {
               encodedGeometryColumn.encodedValues(),
               encodedPropertyColumns);
 
-      final var encodedFeatureTableInfo = EncodingUtils.encodeVarint(mvtLayer.tileExtent(), false);
-      final var metadataBuffer = createEmbeddedMetadata(layerMetadata);
+      final var metadataBuffer = createEmbeddedMetadata(layerMetadata, mvtLayer.tileExtent());
 
       final var tag = 1;
       final var tagBuffer = EncodingUtils.encodeVarint(tag, false);
       final var tagLength =
-          tagBuffer.length
-              + metadataBuffer.length
-              + encodedFeatureTableInfo.length
-              + featureTableBodyBuffer.length;
+          tagBuffer.length + metadataBuffer.length + featureTableBodyBuffer.length;
 
       mapLibreTileBuffer =
           CollectionUtils.concatByteArrays(
@@ -520,7 +517,6 @@ public class MltConverter {
               EncodingUtils.encodeVarint(tagLength, false),
               tagBuffer,
               metadataBuffer,
-              encodedFeatureTableInfo,
               featureTableBodyBuffer);
     }
 
