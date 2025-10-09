@@ -6,74 +6,112 @@ source: mlt-nom/tests/snapshots.rs
     [
         Layer(
             FeatureTable {
-                meta: FeatureMetaTable {
-                    name: "layer",
-                    extent: 4096,
-                    columns: [
-                        Column {
-                            typ: Id,
-                            name: None,
-                        },
-                        Column {
-                            typ: Geometry,
-                            name: None,
-                        },
-                        Column {
-                            typ: OptBool,
-                            name: Some(
-                                "key",
+                name: "layer",
+                extent: 4096,
+                columns: [
+                    Id(
+                        Stream {
+                            physical_stream_type: Data(
+                                None,
                             ),
+                            logical_technique1: None,
+                            logical_technique2: None,
+                            physical_technique: VarInt,
+                            num_values: 1,
+                            data: [
+                                1,
+                            ],
                         },
-                    ],
-                },
-                data: [
-                    2,
-                    1,
-                    1,
-                    1,
-                    4,
-                    48,
-                    2,
-                    1,
-                    1,
-                    4,
-                    49,
-                    2,
-                    1,
-                    1,
-                    2,
-                    50,
-                    2,
-                    2,
-                    2,
-                    3,
-                    2,
-                    19,
-                    66,
-                    10,
-                    10,
-                    4,
-                    4,
-                    0,
-                    16,
-                    16,
-                    0,
-                    17,
-                    17,
-                    4,
-                    8,
-                    0,
-                    96,
-                    1,
-                    2,
-                    255,
-                    1,
-                    16,
-                    96,
-                    1,
-                    2,
-                    255,
-                    1,
+                    ),
+                    Geometry(
+                        [
+                            Stream {
+                                physical_stream_type: Length(
+                                    VarBinary,
+                                ),
+                                logical_technique1: None,
+                                logical_technique2: None,
+                                physical_technique: VarInt,
+                                num_values: 1,
+                                data: [
+                                    4,
+                                ],
+                            },
+                            Stream {
+                                physical_stream_type: Length(
+                                    Geometries,
+                                ),
+                                logical_technique1: None,
+                                logical_technique2: None,
+                                physical_technique: VarInt,
+                                num_values: 1,
+                                data: [
+                                    2,
+                                ],
+                            },
+                            Stream {
+                                physical_stream_type: Length(
+                                    Parts,
+                                ),
+                                logical_technique1: None,
+                                logical_technique2: None,
+                                physical_technique: VarInt,
+                                num_values: 2,
+                                data: [
+                                    3,
+                                    2,
+                                ],
+                            },
+                            Stream {
+                                physical_stream_type: Data(
+                                    Vertex,
+                                ),
+                                logical_technique1: ComponentwiseDelta,
+                                logical_technique2: None,
+                                physical_technique: VarInt,
+                                num_values: 10,
+                                data: [
+                                    4,
+                                    4,
+                                    0,
+                                    16,
+                                    16,
+                                    0,
+                                    17,
+                                    17,
+                                    4,
+                                    8,
+                                ],
+                            },
+                        ],
+                    ),
+                    OptBool(
+                        "key",
+                        Stream {
+                            physical_stream_type: Present,
+                            logical_technique1: Rle,
+                            logical_technique2: None,
+                            physical_technique: None,
+                            num_values: 1,
+                            data: [
+                                255,
+                                1,
+                            ],
+                        },
+                        Stream {
+                            physical_stream_type: Data(
+                                None,
+                            ),
+                            logical_technique1: Rle,
+                            logical_technique2: None,
+                            physical_technique: None,
+                            num_values: 1,
+                            data: [
+                                255,
+                                1,
+                            ],
+                        },
+                    ),
                 ],
             },
         ),

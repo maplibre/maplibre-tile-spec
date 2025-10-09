@@ -9,10 +9,7 @@ use std::path::Path;
 use galileo_mvt::MvtTile;
 
 use crate::structures::Layer;
-use crate::structures::v1::{OwnedFeatureMetaTable, OwnedFeatureTable};
-
-#[cfg(test)]
-mod tests;
+use crate::structures::v1::OwnedFeatureTable;
 
 fn simple_test() {
     println!("\n=== Layer Stream Parsing Demo ===");
@@ -25,21 +22,10 @@ fn simple_test() {
             for (i, layer) in layers.iter().enumerate() {
                 match layer {
                     Layer::Layer(layer_v1) => {
-                        println!("  Layer {i}: Layer");
-                        println!("    Name: {}", layer_v1.meta.name);
-                        println!("    Extent: {}", layer_v1.meta.extent);
-                        for (j, column) in layer_v1.meta.columns.iter().enumerate() {
-                            match column.name {
-                                Some(name) => {
-                                    println!(
-                                        "    Column {j}: name='{name}', type={:?}",
-                                        column.typ
-                                    );
-                                }
-                                None => println!("    Column {j}: type={:?}", column.typ),
-                            }
-                        }
-                        println!("    Data: {:?}", layer_v1.data);
+                        println!("  Layer {i}:");
+                        println!("      Name {}", layer_v1.name);
+                        println!("    Extent {}", layer_v1.extent);
+                        println!("   Columns {:?}", layer_v1.columns);
                     }
                     Layer::Unknown(unknown) => {
                         println!(
@@ -81,7 +67,6 @@ fn generate_tile(path: &Path) {
     let mut mlt = Vec::with_capacity(tile.layers.len());
     for layer in &tile.layers {
         let mut columns = Vec::new();
-        let mut data = Vec::new();
         for _feature in &layer.features {
             // let geometry = &feature.geometry;
             // let bytes =
@@ -92,12 +77,9 @@ fn generate_tile(path: &Path) {
             // assert_eq!(&deserialized, geometry);
         }
         mlt.push(OwnedFeatureTable {
-            meta: OwnedFeatureMetaTable {
-                name: layer.name.clone(),
-                extent: layer.size,
-                columns,
-            },
-            data,
+            name: layer.name.clone(),
+            extent: layer.size,
+            columns,
         });
     }
 }

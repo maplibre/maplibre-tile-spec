@@ -118,14 +118,7 @@ impl ColumnType {
         }
     }
 
-    pub fn is_optional(self) -> bool {
+    pub fn _is_optional(self) -> bool {
         (self as u8) & 1 != 0
-    }
-
-    pub fn has_stream_count(self) -> bool {
-        matches!(
-            self,
-            ColumnType::Geometry | ColumnType::Str | ColumnType::OptStr | ColumnType::Struct
-        )
     }
 }

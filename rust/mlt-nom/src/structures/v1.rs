@@ -1,20 +1,12 @@
 use borrowme::borrowme;
-use nom::IResult;
+use nom::bytes::complete::take;
 use nom::error::Error;
+use nom::{IResult, Parser};
 
-use crate::structures::complex_enums::PhysicalStreamType;
+use crate::structures::complex_enums::{ColumnStreams, PhysicalStreamType};
 use crate::structures::enums::{ColumnType, LogicalTechnique, PhysicalTechnique};
 use crate::utils;
-use crate::utils::{fail, parse_varint_vec};
-
-/// MVT-compatible feature table data
-#[borrowme]
-#[derive(Debug, PartialEq)]
-pub struct FeatureTable<'a> {
-    pub meta: FeatureMetaTable<'a>,
-    #[borrowme(borrow_with = Vec::as_slice)]
-    pub data: &'a [u8],
-}
+use crate::utils::{fail, parse_u7, parse_varint_vec};
 
 /// MVT-compatible feature table data
 #[borrowme]
@@ -25,17 +17,12 @@ pub struct Stream<'a> {
     pub logical_technique2: LogicalTechnique,
     pub physical_technique: PhysicalTechnique,
     pub num_values: u32,
-    pub byte_length: u32,
     #[borrowme(borrow_with = Vec::as_slice)]
     pub data: &'a [u8],
 }
 
 impl Stream<'_> {
-    fn parse<'a>(
-        input: &'a [u8],
-        _column: &'_ Column<'_>,
-        _meta: &'_ FeatureMetaTable<'_>,
-    ) -> IResult<&'a [u8], Stream<'a>> {
+    fn parse(input: &[u8]) -> IResult<&[u8], Stream<'_>> {
         let (input, val) = utils::parse_u8(input)?;
         let physical_stream_type = PhysicalStreamType::from_u8(val).ok_or(fail(input))?;
 
@@ -47,6 +34,7 @@ impl Stream<'_> {
 
         let (input, num_values) = utils::parse_varint::<u32>(input)?;
         let (input, byte_length) = utils::parse_varint::<u32>(input)?;
+        let (input, data) = take(byte_length).parse(input)?;
 
         Ok((
             input,
@@ -56,13 +44,12 @@ impl Stream<'_> {
                 logical_technique2,
                 physical_technique,
                 num_values,
-                byte_length,
-                data: input,
+                data,
             },
         ))
     }
 
-    pub fn decode<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Vec<u32>> {
+    pub fn _decode<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Vec<u32>> {
         match self.physical_stream_type {
             PhysicalStreamType::Present => {
                 todo!()
@@ -78,80 +65,193 @@ impl Stream<'_> {
     }
 }
 
-impl FeatureTable<'_> {
-    #[expect(clippy::unnecessary_wraps)]
-    pub fn parse<'a>(
-        mut input: &'a [u8],
-        tbl_meta: FeatureMetaTable<'a>,
-    ) -> Result<FeatureTable<'a>, nom::Err<Error<&'a [u8]>>> {
-        for column in &tbl_meta.columns {
-            if matches!(
-                column.typ,
-                ColumnType::Id | ColumnType::OptId | ColumnType::LongId | ColumnType::OptLongId
-            ) {
-                let _stream_count = if column.typ.has_stream_count() {
-                    let pair = utils::parse_u7(input)?;
-                    input = pair.0;
-                    pair.1
-                } else {
-                    1
-                };
-                let bools = if column.typ.is_optional() {
-                    let meta;
-                    (input, meta) = Stream::parse(input, column, &tbl_meta)?;
-                    let bools = meta.decode(input)?;
-                    Some(bools)
-                } else {
-                    None
-                };
-
-                let meta;
-                (input, meta) = Stream::parse(input, column, &tbl_meta)?;
-                let ints;
-                (input, ints) = meta.decode(input)?;
-
-                dbg!(bools);
-                dbg!(ints);
-            }
-        }
-
-        Ok(FeatureTable { meta: tbl_meta, data: input })
-    }
-}
-
-/// `FeatureTable` V1 metadata structure
+/// MVT-compatible feature table data
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct FeatureMetaTable<'a> {
+pub struct FeatureTable<'a> {
     pub name: &'a str,
     pub extent: u32,
-    pub columns: Vec<Column<'a>>,
+    pub columns: Vec<ColumnStreams<'a>>,
 }
 
-impl FeatureMetaTable<'_> {
+impl FeatureTable<'_> {
     /// Parse `FeatureTable` V1 metadata
-    pub fn parse(input: &[u8]) -> IResult<&[u8], FeatureMetaTable<'_>> {
-        let (input, name) = utils::parse_string(input)?;
-        let (input, extent) = utils::parse_varint::<u32>(input)?;
-        let (mut input, column_count) = utils::parse_varint::<usize>(input)?;
+    pub fn parse(mut input: &[u8]) -> Result<FeatureTable<'_>, nom::Err<Error<&[u8]>>> {
+        let name;
+        let extent;
+        let column_count;
 
-        let mut columns = Vec::with_capacity(column_count);
+        (input, name) = utils::parse_string(input)?;
+        (input, extent) = utils::parse_varint::<u32>(input)?;
+        (input, column_count) = utils::parse_varint::<usize>(input)?;
+
+        let mut col_info = Vec::with_capacity(column_count);
         for _ in 0..column_count {
-            let pair = Column::parse(input)?;
-            input = pair.0;
-            columns.push(pair.1);
+            let typ;
+            (input, typ) = Column::parse(input)?;
+            col_info.push(typ);
         }
 
-        Ok((
-            input,
-            FeatureMetaTable {
+        let mut columns = Vec::with_capacity(col_info.len());
+        for info in col_info {
+            let opt;
+            let val;
+            let nam = info.name.unwrap_or("");
+            match info.typ {
+                ColumnType::Id => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::Id(val));
+                }
+                ColumnType::OptId => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptId(opt, val));
+                }
+                ColumnType::LongId => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::LongId(val));
+                }
+                ColumnType::OptLongId => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptLongId(opt, val));
+                }
+                ColumnType::Geometry => {
+                    let stream_count;
+                    // let geom_metadata;
+                    (input, stream_count) = parse_u7(input)?;
+                    // (input, geom_metadata) = Stream::parse(input)?;
+                    let mut vec = Vec::with_capacity(stream_count as usize);
+                    for _ in 0..stream_count {
+                        let stream;
+                        (input, stream) = Stream::parse(input)?;
+                        vec.push(stream);
+                    }
+                    columns.push(ColumnStreams::Geometry(vec));
+                }
+                ColumnType::Bool => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::Bool(nam, val));
+                }
+                ColumnType::OptBool => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptBool(nam, opt, val));
+                }
+                ColumnType::I8 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::I8(nam, val));
+                }
+                ColumnType::OptI8 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptI8(nam, opt, val));
+                }
+                ColumnType::U8 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::U8(nam, val));
+                }
+                ColumnType::OptU8 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptU8(nam, opt, val));
+                }
+                ColumnType::I32 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::I32(nam, val));
+                }
+                ColumnType::OptI32 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptI32(nam, opt, val));
+                }
+                ColumnType::U32 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::U32(nam, val));
+                }
+                ColumnType::OptU32 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptU32(nam, opt, val));
+                }
+                ColumnType::I64 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::I64(nam, val));
+                }
+                ColumnType::OptI64 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptI64(nam, opt, val));
+                }
+                ColumnType::U64 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::U64(nam, val));
+                }
+                ColumnType::OptU64 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptU64(nam, opt, val));
+                }
+                ColumnType::F32 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::F32(nam, val));
+                }
+                ColumnType::OptF32 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptF32(nam, opt, val));
+                }
+                ColumnType::F64 => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::F64(nam, val));
+                }
+                ColumnType::OptF64 => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptF64(nam, opt, val));
+                }
+                ColumnType::Str => {
+                    (input, val) = Stream::parse(input)?;
+                    columns.push(ColumnStreams::Str(nam, val));
+                }
+                ColumnType::OptStr => {
+                    (input, (opt, val)) = parse_pair(input)?;
+                    columns.push(ColumnStreams::OptStr(nam, opt, val));
+                }
+                ColumnType::Struct => {}
+            }
+        }
+        if input.is_empty() {
+            Ok(FeatureTable {
                 name,
                 extent,
                 columns,
-            },
-        ))
+            })
+        } else {
+            Err(fail(input))
+        }
     }
 }
+
+pub fn parse_pair(input: &[u8]) -> IResult<&[u8], (Stream<'_>, Stream<'_>)> {
+    let (input, opt) = Stream::parse(input)?;
+    let (input, val) = Stream::parse(input)?;
+    Ok((input, (opt, val)))
+}
+
+// impl FeatureMetaTable<'_> {
+//     /// Parse `FeatureTable` V1 metadata
+//     pub fn parse(input: &[u8]) -> IResult<&[u8], FeatureMetaTable<'_>> {
+//         let (input, name) = utils::parse_string(input)?;
+//         let (input, extent) = utils::parse_varint::<u32>(input)?;
+//         let (mut input, column_count) = utils::parse_varint::<usize>(input)?;
+//
+//         let mut columns = Vec::with_capacity(column_count);
+//         for _ in 0..column_count {
+//             let pair = Column::parse(input)?;
+//             input = pair.0;
+//             columns.push(pair.1);
+//         }
+//
+//         Ok((
+//             input,
+//             FeatureMetaTable {
+//                 name,
+//                 extent,
+//                 columns,
+//             },
+//         ))
+//     }
+// }
 
 /// Column definition
 #[borrowme]

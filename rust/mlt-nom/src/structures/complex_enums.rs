@@ -1,4 +1,6 @@
 use crate::structures::enums::{DictionaryType, LengthType, OffsetType};
+use crate::structures::v1::Stream;
+use borrowme::borrowme;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PhysicalStreamType {
@@ -20,6 +22,38 @@ impl PhysicalStreamType {
             _ => return None,
         })
     }
+}
+
+/// Column type enumeration
+#[borrowme]
+#[derive(Debug, PartialEq)]
+pub enum ColumnStreams<'a> {
+    Id(Stream<'a>),
+    OptId(Stream<'a>, Stream<'a>),
+    LongId(Stream<'a>),
+    OptLongId(Stream<'a>, Stream<'a>),
+    Geometry(Vec<Stream<'a>>),
+    Bool(&'a str, Stream<'a>),
+    OptBool(&'a str, Stream<'a>, Stream<'a>),
+    I8(&'a str, Stream<'a>),
+    OptI8(&'a str, Stream<'a>, Stream<'a>),
+    U8(&'a str, Stream<'a>),
+    OptU8(&'a str, Stream<'a>, Stream<'a>),
+    I32(&'a str, Stream<'a>),
+    OptI32(&'a str, Stream<'a>, Stream<'a>),
+    U32(&'a str, Stream<'a>),
+    OptU32(&'a str, Stream<'a>, Stream<'a>),
+    I64(&'a str, Stream<'a>),
+    OptI64(&'a str, Stream<'a>, Stream<'a>),
+    U64(&'a str, Stream<'a>),
+    OptU64(&'a str, Stream<'a>, Stream<'a>),
+    F32(&'a str, Stream<'a>),
+    OptF32(&'a str, Stream<'a>, Stream<'a>),
+    F64(&'a str, Stream<'a>),
+    OptF64(&'a str, Stream<'a>, Stream<'a>),
+    Str(&'a str, Stream<'a>),
+    OptStr(&'a str, Stream<'a>, Stream<'a>),
+    Struct(&'a str, Stream<'a>),
 }
 
 pub enum Decoder {

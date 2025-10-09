@@ -4,7 +4,7 @@ use nom::combinator::complete;
 use nom::multi::many0;
 use nom::{IResult, Parser};
 
-use crate::structures::v1::{FeatureMetaTable, FeatureTable};
+use crate::structures::v1::FeatureTable;
 use crate::utils;
 use crate::utils::fail;
 
@@ -36,10 +36,7 @@ impl Layer<'_> {
 
         let layer = match tag {
             // For now, we only support tag 0x01 layers, but more will be added soon
-            1 => {
-                let (data, meta) = FeatureMetaTable::parse(value)?;
-                Layer::Layer(FeatureTable::parse(data, meta)?)
-            }
+            1 => Layer::Layer(FeatureTable::parse(value)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
 
