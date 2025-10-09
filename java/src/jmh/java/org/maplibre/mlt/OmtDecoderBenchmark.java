@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;
@@ -327,7 +326,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z2() throws IOException {
     var mvTile = encodedMvtTiles2.get(2);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -339,7 +338,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z3() throws IOException {
     var mvTile = encodedMvtTiles2.get(3);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -351,7 +350,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z4() throws IOException {
     var mvTile = encodedMvtTiles2.get(4);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -363,7 +362,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z5() throws IOException {
     var mvTile = encodedMvtTiles2.get(5);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -375,7 +374,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z6() throws IOException {
     var mvTile = encodedMvtTiles2.get(6);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -387,7 +386,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z7() throws IOException {
     var mvTile = encodedMvtTiles2.get(7);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -399,7 +398,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z8() throws IOException {
     var mvTile = encodedMvtTiles2.get(8);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -411,7 +410,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z9() throws IOException {
     var mvTile = encodedMvtTiles2.get(9);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -423,7 +422,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z10() throws IOException {
     var mvTile = encodedMvtTiles2.get(10);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -435,7 +434,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z11() throws IOException {
     var mvTile = encodedMvtTiles2.get(11);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -447,7 +446,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z12() throws IOException {
     var mvTile = encodedMvtTiles2.get(12);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -459,7 +458,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z13() throws IOException {
     var mvTile = encodedMvtTiles2.get(13);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -471,7 +470,7 @@ public class OmtDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z14() throws IOException {
     var mvTile = encodedMvtTiles2.get(14);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }*/
 
 }
