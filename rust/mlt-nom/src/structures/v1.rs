@@ -2,10 +2,10 @@ use borrowme::borrowme;
 use nom::IResult;
 use nom::error::Error;
 
-use crate::structures::complex_enums::{ PhysicalStreamType};
+use crate::structures::complex_enums::PhysicalStreamType;
 use crate::structures::enums::{ColumnType, LogicalTechnique, PhysicalTechnique};
 use crate::utils;
-use crate::utils::fail;
+use crate::utils::{fail, parse_varint_vec};
 
 /// MVT-compatible feature table data
 #[borrowme]
@@ -40,15 +40,13 @@ impl Stream<'_> {
         let physical_stream_type = PhysicalStreamType::from_u8(val).ok_or(fail(input))?;
 
         let (input, val) = utils::parse_u8(input)?;
-        let logical_technique1 =
-            LogicalTechnique::try_from(val >> 5).or(Err(fail(input)))?;
+        let logical_technique1 = LogicalTechnique::try_from(val >> 5).or(Err(fail(input)))?;
         let logical_technique2 =
             LogicalTechnique::try_from((val >> 2) & 0x7).or(Err(fail(input)))?;
-        let physical_technique =
-            PhysicalTechnique::try_from(val & 0x3).or(Err(fail(input)))?;
+        let physical_technique = PhysicalTechnique::try_from(val & 0x3).or(Err(fail(input)))?;
 
-        let (input, num_values) = utils::parse_varint_u32(input)?;
-        let (input, byte_length) = utils::parse_varint_u32(input)?;
+        let (input, num_values) = utils::parse_varint::<u32>(input)?;
+        let (input, byte_length) = utils::parse_varint::<u32>(input)?;
 
         Ok((
             input,
@@ -64,42 +62,19 @@ impl Stream<'_> {
         ))
     }
 
-    pub fn decode(&self, input: &[u8]) -> Vec<u32> {
-        // let decoder = match logical_technique1 {
-        //     LogicalTechnique::Morton => Decoder::Morton {
-        //         num_bits: num_values,
-        //         coordinate_shift: byte_length,
-        //     },
-        //     LogicalTechnique::Rle => Decoder::Rle {
-        //         runs: num_values,
-        //         num_rle_values: byte_length,
-        //     },
-        //     _ => Decoder::None,
-        // };
-
-        let mut result = Vec::with_capacity(self.num_values as usize);
+    pub fn decode<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Vec<u32>> {
         match self.physical_stream_type {
             PhysicalStreamType::Present => {
-                for _ in 0..self.num_values {
-                    result.push(1);
-                }
+                todo!()
             }
-            PhysicalStreamType::Data(_) => {
-                // Decode data stream based on logical and physical techniques
-                // This is a placeholder implementation
-                for i in 0..self.num_values {
-                    result.push(i); // Replace with actual decoding logic
-                }
+            PhysicalStreamType::Data(_v) => parse_varint_vec(input, self.num_values as usize),
+            PhysicalStreamType::Offset(_v) => {
+                todo!()
             }
-            PhysicalStreamType::Offset(_) | PhysicalStreamType::Length(_) => {
-                // Decode offset or length stream based on logical and physical techniques
-                // This is a placeholder implementation
-                for i in 0..self.num_values {
-                    result.push(i * 2); // Replace with actual decoding logic
-                }
+            PhysicalStreamType::Length(_v) => {
+                todo!()
             }
         }
-        result
     }
 }
 
@@ -107,9 +82,9 @@ impl FeatureTable<'_> {
     #[expect(clippy::unnecessary_wraps)]
     pub fn parse<'a>(
         mut input: &'a [u8],
-        meta: FeatureMetaTable<'a>,
+        tbl_meta: FeatureMetaTable<'a>,
     ) -> Result<FeatureTable<'a>, nom::Err<Error<&'a [u8]>>> {
-        for column in &meta.columns {
+        for column in &tbl_meta.columns {
             if matches!(
                 column.typ,
                 ColumnType::Id | ColumnType::OptId | ColumnType::LongId | ColumnType::OptLongId
@@ -122,24 +97,25 @@ impl FeatureTable<'_> {
                     1
                 };
                 let bools = if column.typ.is_optional() {
-                    let bools;
-                    (input, bools) = Stream::parse(input, column, &meta)?;
-                    let bools = bools.decode(input);
+                    let meta;
+                    (input, meta) = Stream::parse(input, column, &tbl_meta)?;
+                    let bools = meta.decode(input)?;
                     Some(bools)
                 } else {
                     None
                 };
 
+                let meta;
+                (input, meta) = Stream::parse(input, column, &tbl_meta)?;
                 let ints;
-                (input, ints) = Stream::parse(input, column, &meta)?;
-
+                (input, ints) = meta.decode(input)?;
 
                 dbg!(bools);
                 dbg!(ints);
             }
         }
 
-        Ok(FeatureTable { meta, data: input })
+        Ok(FeatureTable { meta: tbl_meta, data: input })
     }
 }
 
@@ -156,8 +132,8 @@ impl FeatureMetaTable<'_> {
     /// Parse `FeatureTable` V1 metadata
     pub fn parse(input: &[u8]) -> IResult<&[u8], FeatureMetaTable<'_>> {
         let (input, name) = utils::parse_string(input)?;
-        let (input, extent) = utils::parse_varint_u32(input)?;
-        let (mut input, column_count) = utils::parse_varint_usize(input)?;
+        let (input, extent) = utils::parse_varint::<u32>(input)?;
+        let (mut input, column_count) = utils::parse_varint::<usize>(input)?;
 
         let mut columns = Vec::with_capacity(column_count);
         for _ in 0..column_count {

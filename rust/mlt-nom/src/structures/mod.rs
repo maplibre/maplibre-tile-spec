@@ -25,7 +25,7 @@ pub enum Layer<'a> {
 impl Layer<'_> {
     /// Parse a single binary tuple: size (varint), tag (varint), value (bytes)
     pub fn parse(input: &[u8]) -> IResult<&[u8], Layer<'_>> {
-        let (input, size) = utils::parse_varint_usize(input)?;
+        let (input, size) = utils::parse_varint::<usize>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
         // so we can use a faster u8 and fail if it is bigger than 127.

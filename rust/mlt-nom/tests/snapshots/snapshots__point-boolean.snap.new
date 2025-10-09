@@ -29,7 +29,6 @@ expression: pairs
                     ],
                 },
                 data: [
-                    1,
                     2,
                     48,
                     2,
