@@ -98,25 +98,25 @@ public class BingMapsDecoderBenchmark {
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ4() throws IOException {
     var mvTile = encodedMvtTiles.get(4);
-    return MvtTestUtils.decodeMvtMapbox(mvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ5() throws IOException {
     var mvTile = encodedMvtTiles.get(5);
-    return MvtTestUtils.decodeMvtMapbox(mvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ6() throws IOException {
     var mvTile = encodedMvtTiles.get(6);
-    return MvtTestUtils.decodeMvtMapbox(mvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ7() throws IOException {
     var mvTile = encodedMvtTiles.get(7);
-    return MvtTestUtils.decodeMvtMapbox(mvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark

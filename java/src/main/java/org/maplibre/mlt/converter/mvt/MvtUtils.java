@@ -35,7 +35,7 @@ public class MvtUtils {
    * To get realistic number and have a fair comparison in terms of the decoding performance,
    * the geometries of the features have to be decoded.
    * */
-  public static Map<String, VectorTileLayer> decodeMvtMapbox(byte[] mvtTile) throws IOException {
+  static Map<String, VectorTileLayer> decodeMvtMapbox(byte[] mvtTile) throws IOException {
     Pbf pbf = new Pbf(mvtTile);
     VectorTile vectorTile = new VectorTile(pbf, pbf.length);
     for (var layer : vectorTile.layers.values()) {
