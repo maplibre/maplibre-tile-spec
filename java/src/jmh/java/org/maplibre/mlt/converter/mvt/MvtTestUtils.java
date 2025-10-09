@@ -35,7 +35,6 @@ public class MvtTestUtils {
     return MvtReader.loadMvt(mvtTile, geometryFactory, new TagKeyValueMapConverter(true, ID_KEY));
   }
 
-
   private static MapboxVectorTile decodeMvt2(byte[] mvtTile) throws IOException {
     final PrecisionModel precisionModel = new PrecisionModel();
     final PackedCoordinateSequenceFactory coordinateSequenceFactory =
@@ -69,5 +68,4 @@ public class MvtTestUtils {
 
     return new MapboxVectorTile(layers);
   }
-
 }

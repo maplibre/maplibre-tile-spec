@@ -21,7 +21,6 @@ public class MvtUtils {
     return decodeMvt(mvt);
   }
 
-
   /* Uses the java-vector-tile library for decoding the MVT tile */
   public static List<VectorTileDecoder.Feature> decodeMvtFast(byte[] mvtTile) throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
@@ -29,7 +28,6 @@ public class MvtUtils {
     var decodedTile = mvtDecoder.decode(mvtTile);
     return decodedTile.asList();
   }
-
 
   /* Use the java port of the vector-tile-js library created by Dane Springmeyer.
    * To get realistic number and have a fair comparison in terms of the decoding performance,
@@ -86,7 +84,6 @@ public class MvtUtils {
 
     return new MapboxVectorTile(layers);
   }
-
 
   static Map<String, Object> transformNestedPropertyNames(
       Map<?, ?> properties, List<ColumnMapping> columnMappings) {

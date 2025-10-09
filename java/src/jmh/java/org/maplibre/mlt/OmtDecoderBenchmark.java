@@ -6,8 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.converter.mvt.MvtTestUtils;
-import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;
