@@ -11,7 +11,6 @@ import java.util.*;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
-import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.springmeyer.Pbf;
@@ -79,7 +78,7 @@ public class MvtTestUtils {
         var id = (long) properties.get(ID_KEY);
         properties.remove(ID_KEY);
         // TODO: quick and dirty -> implement generic
-        var transformedProperties = transformNestedPropertyNames(properties, List.of());
+        var transformedProperties = MvtUtils.transformNestedPropertyNames(properties, List.of());
         var feature = new Feature(id, mvtFeature, transformedProperties);
         features.add(feature);
       }
@@ -90,36 +89,4 @@ public class MvtTestUtils {
     return new MapboxVectorTile(layers);
   }
 
-  private static Map<String, Object> transformNestedPropertyNames(
-      Map<?, ?> properties, List<ColumnMapping> columnMappings) {
-    var transformedProperties = new LinkedHashMap<String, Object>();
-    properties.forEach(
-        (k, v) -> {
-          /* Currently id is not supported as a property name in a FeatureTable,
-           *  so this quick workaround is implemented */
-          // TODO: refactor -> implement proper solution
-          final var key = k.toString();
-          if (k.equals(ID_KEY)) {
-            transformedProperties.put("_" + ID_KEY, v);
-            return;
-          }
-
-          if (!columnMappings.isEmpty()) {
-            final var columnMapping =
-                columnMappings.stream()
-                    .filter(m -> key.startsWith(m.mvtPropertyPrefix()))
-                    .findFirst();
-            if (columnMapping.isPresent()) {
-              final var transformedKey =
-                  key.replaceAll(
-                      columnMapping.get().mvtDelimiterSign(), Settings.MLT_CHILD_FIELD_SEPARATOR);
-              transformedProperties.put(transformedKey, v);
-              return;
-            }
-          }
-
-          transformedProperties.put(key, v);
-        });
-    return transformedProperties;
-  }
 }

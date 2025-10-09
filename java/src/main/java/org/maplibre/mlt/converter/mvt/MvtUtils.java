@@ -88,7 +88,7 @@ public class MvtUtils {
   }
 
 
-  private static Map<String, Object> transformNestedPropertyNames(
+  static Map<String, Object> transformNestedPropertyNames(
       Map<?, ?> properties, List<ColumnMapping> columnMappings) {
     var transformedProperties = new LinkedHashMap<String, Object>();
     properties.forEach(
