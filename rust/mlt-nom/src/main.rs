@@ -1,7 +1,10 @@
 #![allow(unused_mut)]
 
+mod errors;
 mod structures;
 mod utils;
+pub use errors::{MltError, MltResult};
+pub use structures::parse_binary_stream;
 
 use std::io::Cursor;
 use std::path::Path;
@@ -16,8 +19,8 @@ fn simple_test() {
     let test_data = create_test_data();
     println!("Parsing test data of size: {}", test_data.len());
 
-    match structures::parse_binary_stream(&test_data) {
-        Ok((remaining, layers)) => {
+    match parse_binary_stream(&test_data) {
+        Ok(layers) => {
             println!("Successfully parsed {} layers:", layers.len());
             for (i, layer) in layers.iter().enumerate() {
                 match layer {
@@ -34,9 +37,6 @@ fn simple_test() {
                         );
                     }
                 }
-            }
-            if !remaining.is_empty() {
-                println!("Warning: {} bytes remaining unparsed", remaining.len());
             }
         }
         Err(e) => println!("Parse error: {e:?}"),

@@ -56,7 +56,7 @@ pub enum ColumnStreams<'a> {
     Struct(&'a str, Stream<'a>),
 }
 
-pub enum Decoder {
+pub enum _Decoder {
     None,
     Delta,
     DeltaRle {

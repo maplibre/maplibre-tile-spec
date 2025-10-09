@@ -1,12 +1,10 @@
-use borrowme::borrowme;
-use nom::bytes::complete::take;
-use nom::error::Error;
-use nom::{IResult, Parser};
-
+use crate::MltError::Fail;
 use crate::structures::complex_enums::{ColumnStreams, PhysicalStreamType};
 use crate::structures::enums::{ColumnType, LogicalTechnique, PhysicalTechnique};
 use crate::utils;
-use crate::utils::{fail, parse_u7, parse_varint_vec};
+use crate::utils::{parse_u7, parse_varint_vec, take};
+use crate::{MltError, MltResult};
+use borrowme::borrowme;
 
 /// MVT-compatible feature table data
 #[borrowme]
@@ -22,19 +20,18 @@ pub struct Stream<'a> {
 }
 
 impl Stream<'_> {
-    fn parse(input: &[u8]) -> IResult<&[u8], Stream<'_>> {
+    fn parse(input: &[u8]) -> MltResult<'_, Stream<'_>> {
         let (input, val) = utils::parse_u8(input)?;
-        let physical_stream_type = PhysicalStreamType::from_u8(val).ok_or(fail(input))?;
+        let physical_stream_type = PhysicalStreamType::from_u8(val).ok_or(Fail)?;
 
         let (input, val) = utils::parse_u8(input)?;
-        let logical_technique1 = LogicalTechnique::try_from(val >> 5).or(Err(fail(input)))?;
-        let logical_technique2 =
-            LogicalTechnique::try_from((val >> 2) & 0x7).or(Err(fail(input)))?;
-        let physical_technique = PhysicalTechnique::try_from(val & 0x3).or(Err(fail(input)))?;
+        let logical_technique1 = LogicalTechnique::try_from(val >> 5).or(Err(Fail))?;
+        let logical_technique2 = LogicalTechnique::try_from((val >> 2) & 0x7).or(Err(Fail))?;
+        let physical_technique = PhysicalTechnique::try_from(val & 0x3).or(Err(Fail))?;
 
         let (input, num_values) = utils::parse_varint::<u32>(input)?;
-        let (input, byte_length) = utils::parse_varint::<u32>(input)?;
-        let (input, data) = take(byte_length).parse(input)?;
+        let (input, byte_length) = utils::parse_varint::<usize>(input)?;
+        let (input, data) = take(input, byte_length)?;
 
         Ok((
             input,
@@ -49,7 +46,7 @@ impl Stream<'_> {
         ))
     }
 
-    pub fn _decode<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Vec<u32>> {
+    pub fn _decode<'a>(&self, input: &'a [u8]) -> MltResult<'a, Vec<u32>> {
         match self.physical_stream_type {
             PhysicalStreamType::Present => {
                 todo!()
@@ -76,7 +73,7 @@ pub struct FeatureTable<'a> {
 
 impl FeatureTable<'_> {
     /// Parse `FeatureTable` V1 metadata
-    pub fn parse(mut input: &[u8]) -> Result<FeatureTable<'_>, nom::Err<Error<&[u8]>>> {
+    pub fn parse(mut input: &[u8]) -> Result<FeatureTable<'_>, MltError> {
         let name;
         let extent;
         let column_count;
@@ -217,12 +214,12 @@ impl FeatureTable<'_> {
                 columns,
             })
         } else {
-            Err(fail(input))
+            Err(Fail)
         }
     }
 }
 
-pub fn parse_pair(input: &[u8]) -> IResult<&[u8], (Stream<'_>, Stream<'_>)> {
+pub fn parse_pair(input: &[u8]) -> MltResult<'_, (Stream<'_>, Stream<'_>)> {
     let (input, opt) = Stream::parse(input)?;
     let (input, val) = Stream::parse(input)?;
     Ok((input, (opt, val)))
@@ -230,7 +227,7 @@ pub fn parse_pair(input: &[u8]) -> IResult<&[u8], (Stream<'_>, Stream<'_>)> {
 
 // impl FeatureMetaTable<'_> {
 //     /// Parse `FeatureTable` V1 metadata
-//     pub fn parse(input: &[u8]) -> IResult<&[u8], FeatureMetaTable<'_>> {
+//     pub fn parse(input: &[u8]) -> MltResult<FeatureMetaTable<'_>> {
 //         let (input, name) = utils::parse_string(input)?;
 //         let (input, extent) = utils::parse_varint::<u32>(input)?;
 //         let (mut input, column_count) = utils::parse_varint::<usize>(input)?;
@@ -263,7 +260,7 @@ pub struct Column<'a> {
 
 impl Column<'_> {
     /// Parse a single column definition
-    fn parse(input: &[u8]) -> IResult<&[u8], Column<'_>> {
+    fn parse(input: &[u8]) -> MltResult<'_, Column<'_>> {
         let (mut input, typ) = ColumnType::parse(input)?;
         let name = if typ.has_name() {
             let pair = utils::parse_string(input)?;

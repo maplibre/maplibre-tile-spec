@@ -1,18 +1,16 @@
+use crate::MltError::Fail;
+use crate::MltResult;
 use integer_encoding::VarInt;
-use nom::Err::Error as NomError;
-use nom::bytes::complete::take;
-use nom::error::{Error, ErrorKind};
-use nom::{IResult, Parser};
 
 /// Parse a varint (variable-length integer) from the input
-pub fn parse_varint<T: VarInt>(input: &[u8]) -> IResult<&[u8], T> {
+pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltResult<'_, T> {
     match VarInt::decode_var(input) {
         Some((value, consumed)) => Ok((&input[consumed..], value)),
-        None => Err(fail(input)),
+        None => Err(Fail),
     }
 }
 
-pub fn parse_varint_vec<T: VarInt>(mut input: &[u8], size: usize) -> IResult<&[u8], Vec<T>> {
+pub fn parse_varint_vec<T: VarInt>(mut input: &[u8], size: usize) -> MltResult<'_, Vec<T>> {
     let mut values = Vec::with_capacity(size);
     let mut val;
     for _ in 0..size {
@@ -23,29 +21,29 @@ pub fn parse_varint_vec<T: VarInt>(mut input: &[u8], size: usize) -> IResult<&[u
 }
 
 /// Parse a length-prefixed UTF-8 string from the input
-pub fn parse_string(input: &[u8]) -> IResult<&[u8], &str> {
+pub fn parse_string(input: &[u8]) -> MltResult<'_, &str> {
     let (input, length) = parse_varint::<usize>(input)?;
-    let (input, value) = take(length).parse(input)?;
-    let value = str::from_utf8(value).or(Err(fail(input)))?;
+    let (input, value) = take(input, length)?;
+    let value = str::from_utf8(value)?;
     Ok((input, value))
 }
 
 /// Parse a single byte from the input
-pub fn parse_u8(input: &[u8]) -> IResult<&[u8], u8> {
+pub fn parse_u8(input: &[u8]) -> MltResult<'_, u8> {
     if input.is_empty() {
-        Err(NomError(Error::new(input, ErrorKind::Eof)))
+        Err(Fail)
     } else {
         Ok((&input[1..], input[0]))
     }
 }
 
 /// Parse a single byte from the input when we know the value is less than 128
-pub fn parse_u7(input: &[u8]) -> IResult<&[u8], u8> {
+pub fn parse_u7(input: &[u8]) -> MltResult<'_, u8> {
     let (input, value) = parse_u8(input)?;
     if value < 128 {
         Ok((input, value))
     } else {
-        Err(fail(input))
+        Err(Fail)
     }
 }
 
@@ -60,6 +58,7 @@ pub fn encode_str(data: &mut Vec<u8>, value: &[u8]) {
 }
 
 #[inline]
-pub fn fail(input: &[u8]) -> nom::Err<Error<&[u8]>> {
-    NomError(Error::new(input, ErrorKind::Fail))
+pub fn take<'a>(input: &'a [u8], size: usize) -> MltResult<'a, &'a [u8]> {
+    let (value, input) = input.split_at_checked(size).ok_or(Fail)?;
+    Ok((input, value))
 }

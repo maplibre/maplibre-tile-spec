@@ -12,13 +12,13 @@ rust-version.workspace = true
 [dependencies]
 borrowme = "0.0.15"
 integer-encoding = "4.0.2"
-nom = "8.0.0"
 num_enum = "0.7.4"
 #mvt-reader = "2.1.0"
 galileo-mvt = "0.2.1"
 mvt = "0.10.3"
 walkdir = "2.5.0"
-mlt = { path = "../mlt" }
+#mlt = { path = "../mlt" }
+thiserror = "2.0.11"
 
 [dev-dependencies]
 insta = "1.43.2"

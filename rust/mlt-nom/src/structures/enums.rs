@@ -1,9 +1,8 @@
-use borrowme::borrowme;
-use nom::IResult;
-use num_enum::TryFromPrimitive;
-
+use crate::MltError::Fail;
+use crate::MltResult;
 use crate::utils;
-use crate::utils::fail;
+use borrowme::borrowme;
+use num_enum::TryFromPrimitive;
 
 #[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
@@ -101,9 +100,9 @@ pub enum ColumnType {
 
 impl ColumnType {
     /// Parse a column type from u8
-    pub fn parse(input: &[u8]) -> IResult<&[u8], Self> {
+    pub fn parse(input: &[u8]) -> MltResult<'_, Self> {
         let (input, value) = utils::parse_u8(input)?;
-        let value = Self::try_from(value).or(Err(fail(input)))?;
+        let value = Self::try_from(value).or(Err(Fail))?;
         Ok((input, value))
     }
 

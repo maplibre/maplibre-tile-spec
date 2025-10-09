@@ -51,15 +51,12 @@ fn parse_one_file(path: impl AsRef<Path>) {
     let file_name = path.file_stem().unwrap().to_string_lossy().to_string();
     let buffer = fs::read(path).unwrap();
     match parse_binary_stream(&buffer) {
-        Ok(pairs) => {
-            if pairs.0.len() > 0 {
-                assert_debug_snapshot!(format!("{file_name}___bad"), format!("Unparsed bytes: {:?}", pairs.0.len()) );
-            }
-            if pairs.1.len() > 0 {
-                assert_debug_snapshot!(file_name, pairs.1);
-            }
+        Ok(value) => {
+            assert_debug_snapshot!(file_name, value);
         }
-        Err(e) => panic!("Failed to parse {file_name}.mlt: {e:#?}"),
+        Err(e) => {
+            assert_debug_snapshot!(format!("{file_name}___bad"), e);
+        }
     }
 }
 
