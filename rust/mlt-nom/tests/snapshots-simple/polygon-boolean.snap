@@ -1,18 +1,53 @@
 ---
 source: mlt-nom/tests/snapshots.rs
 ---
-(
-    [],
-    [
-        Layer(
-            FeatureTable {
-                name: "layer",
-                extent: 4096,
-                columns: [
-                    Id(
+[
+    Layer(
+        FeatureTable {
+            name: "layer",
+            extent: 4096,
+            columns: [
+                Id(
+                    Stream {
+                        physical_stream_type: Data(
+                            None,
+                        ),
+                        logical_technique1: None,
+                        logical_technique2: None,
+                        physical_technique: VarInt,
+                        num_values: 1,
+                        data: [
+                            1,
+                        ],
+                    },
+                ),
+                Geometry(
+                    [
                         Stream {
-                            physical_stream_type: Data(
-                                None,
+                            physical_stream_type: Length(
+                                VarBinary,
+                            ),
+                            logical_technique1: None,
+                            logical_technique2: None,
+                            physical_technique: VarInt,
+                            num_values: 1,
+                            data: [
+                                2,
+                            ],
+                        },
+                        Stream {
+                            physical_stream_type: Length(
+                                Geometries,
+                            ),
+                            logical_technique1: None,
+                            logical_technique2: None,
+                            physical_technique: VarInt,
+                            num_values: 0,
+                            data: [],
+                        },
+                        Stream {
+                            physical_stream_type: Length(
+                                Parts,
                             ),
                             logical_technique1: None,
                             logical_technique2: None,
@@ -22,129 +57,91 @@ source: mlt-nom/tests/snapshots.rs
                                 1,
                             ],
                         },
-                    ),
-                    Geometry(
-                        [
-                            Stream {
-                                physical_stream_type: Length(
-                                    VarBinary,
-                                ),
-                                logical_technique1: None,
-                                logical_technique2: None,
-                                physical_technique: VarInt,
-                                num_values: 1,
-                                data: [
-                                    2,
-                                ],
-                            },
-                            Stream {
-                                physical_stream_type: Length(
-                                    Geometries,
-                                ),
-                                logical_technique1: None,
-                                logical_technique2: None,
-                                physical_technique: VarInt,
-                                num_values: 0,
-                                data: [],
-                            },
-                            Stream {
-                                physical_stream_type: Length(
-                                    Parts,
-                                ),
-                                logical_technique1: None,
-                                logical_technique2: None,
-                                physical_technique: VarInt,
-                                num_values: 1,
-                                data: [
-                                    1,
-                                ],
-                            },
-                            Stream {
-                                physical_stream_type: Length(
-                                    Rings,
-                                ),
-                                logical_technique1: None,
-                                logical_technique2: None,
-                                physical_technique: VarInt,
-                                num_values: 1,
-                                data: [
-                                    3,
-                                ],
-                            },
-                            Stream {
-                                physical_stream_type: Length(
-                                    Triangles,
-                                ),
-                                logical_technique1: None,
-                                logical_technique2: None,
-                                physical_technique: VarInt,
-                                num_values: 1,
-                                data: [
-                                    1,
-                                ],
-                            },
-                            Stream {
-                                physical_stream_type: Offset(
-                                    Index,
-                                ),
-                                logical_technique1: None,
-                                logical_technique2: None,
-                                physical_technique: VarInt,
-                                num_values: 3,
-                                data: [
-                                    1,
-                                    2,
-                                    0,
-                                ],
-                            },
-                            Stream {
-                                physical_stream_type: Data(
-                                    Vertex,
-                                ),
-                                logical_technique1: ComponentwiseDelta,
-                                logical_technique2: None,
-                                physical_technique: VarInt,
-                                num_values: 6,
-                                data: [
-                                    6,
-                                    12,
-                                    10,
-                                    12,
-                                    24,
-                                    44,
-                                ],
-                            },
-                        ],
-                    ),
-                    OptBool(
-                        "key",
                         Stream {
-                            physical_stream_type: Present,
-                            logical_technique1: Rle,
+                            physical_stream_type: Length(
+                                Rings,
+                            ),
+                            logical_technique1: None,
                             logical_technique2: None,
-                            physical_technique: None,
+                            physical_technique: VarInt,
                             num_values: 1,
                             data: [
-                                255,
+                                3,
+                            ],
+                        },
+                        Stream {
+                            physical_stream_type: Length(
+                                Triangles,
+                            ),
+                            logical_technique1: None,
+                            logical_technique2: None,
+                            physical_technique: VarInt,
+                            num_values: 1,
+                            data: [
                                 1,
+                            ],
+                        },
+                        Stream {
+                            physical_stream_type: Offset(
+                                Index,
+                            ),
+                            logical_technique1: None,
+                            logical_technique2: None,
+                            physical_technique: VarInt,
+                            num_values: 3,
+                            data: [
+                                1,
+                                2,
+                                0,
                             ],
                         },
                         Stream {
                             physical_stream_type: Data(
-                                None,
+                                Vertex,
                             ),
-                            logical_technique1: Rle,
+                            logical_technique1: ComponentwiseDelta,
                             logical_technique2: None,
-                            physical_technique: None,
-                            num_values: 1,
+                            physical_technique: VarInt,
+                            num_values: 6,
                             data: [
-                                255,
-                                1,
+                                6,
+                                12,
+                                10,
+                                12,
+                                24,
+                                44,
                             ],
                         },
-                    ),
-                ],
-            },
-        ),
-    ],
-)
+                    ],
+                ),
+                OptBool(
+                    "key",
+                    Stream {
+                        physical_stream_type: Present,
+                        logical_technique1: Rle,
+                        logical_technique2: None,
+                        physical_technique: None,
+                        num_values: 1,
+                        data: [
+                            255,
+                            1,
+                        ],
+                    },
+                    Stream {
+                        physical_stream_type: Data(
+                            None,
+                        ),
+                        logical_technique1: Rle,
+                        logical_technique2: None,
+                        physical_technique: None,
+                        num_values: 1,
+                        data: [
+                            255,
+                            1,
+                        ],
+                    },
+                ),
+            ],
+        },
+    ),
+]

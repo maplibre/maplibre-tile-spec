@@ -7,7 +7,13 @@ use mlt_nom::parse_binary_stream;
 /// Test parsing all MLT files
 #[test]
 fn test_mlt_files() {
-    let test_dirs = [("../../test/expected/tag0x01/simple", "simple")];
+    let test_dirs = [
+        ("../../test/expected/tag0x01/simple", "simple"),
+        ("../../test/expected/tag0x01/amazon", "amazon"),
+        ("../../test/expected/tag0x01/amazon_here", "amazon_here"),
+        ("../../test/expected/tag0x01/bing", "bing"),
+        ("../../test/expected/tag0x01/omt", "omt"),
+    ];
     for (path, file_name) in test_dirs {
         let path = Path::new(path);
         let snapshot_path = String::from("snapshots-") + file_name;
@@ -45,7 +51,14 @@ fn parse_one_file(path: impl AsRef<Path>) {
     let file_name = path.file_stem().unwrap().to_string_lossy().to_string();
     let buffer = fs::read(path).unwrap();
     match parse_binary_stream(&buffer) {
-        Ok(pairs) => assert_debug_snapshot!(file_name, pairs),
+        Ok(pairs) => {
+            if pairs.0.len() > 0 {
+                assert_debug_snapshot!(format!("{file_name}___bad"), format!("Unparsed bytes: {:?}", pairs.0.len()) );
+            }
+            if pairs.1.len() > 0 {
+                assert_debug_snapshot!(file_name, pairs.1);
+            }
+        }
         Err(e) => panic!("Failed to parse {file_name}.mlt: {e:#?}"),
     }
 }
