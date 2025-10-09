@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.converter.mvt.MvtTestUtils;
+import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.vector.FeatureTable;
 import org.openjdk.jmh.annotations.*;
@@ -59,7 +61,6 @@ public class BingMapsDecoderBenchmark {
         encodedMvtTiles2,
         compressedMVTiles,
         encodedMltTiles,
-        tileMetadata,
         TestSettings.BING_MVT_PATH,
         SEPARATOR);
   }
@@ -97,25 +98,25 @@ public class BingMapsDecoderBenchmark {
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ4() throws IOException {
     var mvTile = encodedMvtTiles.get(4);
-    return MvtUtils.decodeMvtMapbox(mvTile);
+    return MvtTestUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ5() throws IOException {
     var mvTile = encodedMvtTiles.get(5);
-    return MvtUtils.decodeMvtMapbox(mvTile);
+    return MvtTestUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ6() throws IOException {
     var mvTile = encodedMvtTiles.get(6);
-    return MvtUtils.decodeMvtMapbox(mvTile);
+    return MvtTestUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark
   public Map<String, VectorTileLayer> decodeMvtMapboxZ7() throws IOException {
     var mvTile = encodedMvtTiles.get(7);
-    return MvtUtils.decodeMvtMapbox(mvTile);
+    return MvtTestUtils.decodeMvtMapbox(mvTile);
   }
 
   @Benchmark
@@ -127,7 +128,7 @@ public class BingMapsDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z4() throws IOException {
     var mvTile = encodedMvtTiles2.get(4);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -139,7 +140,7 @@ public class BingMapsDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z5() throws IOException {
     var mvTile = encodedMvtTiles2.get(5);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -151,7 +152,7 @@ public class BingMapsDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z6() throws IOException {
     var mvTile = encodedMvtTiles2.get(6);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 
   @Benchmark
@@ -163,6 +164,6 @@ public class BingMapsDecoderBenchmark {
   @Benchmark
   public JtsMvt decodeMvt2Z7() throws IOException {
     var mvTile = encodedMvtTiles2.get(7);
-    return MvtUtils.decodeMvt2Fast(mvTile);
+    return MvtTestUtils.decodeMvt2Fast(mvTile);
   }
 }
