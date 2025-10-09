@@ -1,11 +1,8 @@
 use borrowme::borrowme;
-use mlt::MltError;
-use mlt::metadata::stream::Morton;
 use nom::IResult;
 use nom::error::Error;
-use num_enum::TryFromPrimitive;
 
-use crate::structures::complex_enums::{Decoder, PhysicalStreamType};
+use crate::structures::complex_enums::{ PhysicalStreamType};
 use crate::structures::enums::{ColumnType, LogicalTechnique, PhysicalTechnique};
 use crate::utils;
 use crate::utils::fail;
@@ -34,7 +31,7 @@ pub struct Stream<'a> {
 }
 
 impl Stream<'_> {
-    fn parse_metadata<'a>(
+    fn parse<'a>(
         input: &'a [u8],
         _column: &'_ Column<'_>,
         _meta: &'_ FeatureMetaTable<'_>,
@@ -53,30 +50,56 @@ impl Stream<'_> {
         let (input, num_values) = utils::parse_varint_u32(input)?;
         let (input, byte_length) = utils::parse_varint_u32(input)?;
 
-        let decoder = match logical_technique1 {
-            LogicalTechnique::Morton => Decoder::Morton {
-                num_bits: num_values,
-                coordinate_shift: byte_length,
-            },
-            LogicalTechnique::Rle => Decoder::Rle {
-                runs: num_values,
-                num_rle_values: byte_length,
-            },
-            _ => Decoder::None,
-        };
-
         Ok((
             input,
             Stream {
                 physical_stream_type,
-                logical_technique1: logical_technique1,
-                logical_technique2: logical_technique2,
-                physical_technique: physical_technique,
+                logical_technique1,
+                logical_technique2,
+                physical_technique,
                 num_values,
                 byte_length,
                 data: input,
             },
         ))
+    }
+
+    pub fn decode(&self, input: &[u8]) -> Vec<u32> {
+        // let decoder = match logical_technique1 {
+        //     LogicalTechnique::Morton => Decoder::Morton {
+        //         num_bits: num_values,
+        //         coordinate_shift: byte_length,
+        //     },
+        //     LogicalTechnique::Rle => Decoder::Rle {
+        //         runs: num_values,
+        //         num_rle_values: byte_length,
+        //     },
+        //     _ => Decoder::None,
+        // };
+
+        let mut result = Vec::with_capacity(self.num_values as usize);
+        match self.physical_stream_type {
+            PhysicalStreamType::Present => {
+                for _ in 0..self.num_values {
+                    result.push(1);
+                }
+            }
+            PhysicalStreamType::Data(_) => {
+                // Decode data stream based on logical and physical techniques
+                // This is a placeholder implementation
+                for i in 0..self.num_values {
+                    result.push(i); // Replace with actual decoding logic
+                }
+            }
+            PhysicalStreamType::Offset(_) | PhysicalStreamType::Length(_) => {
+                // Decode offset or length stream based on logical and physical techniques
+                // This is a placeholder implementation
+                for i in 0..self.num_values {
+                    result.push(i * 2); // Replace with actual decoding logic
+                }
+            }
+        }
+        result
     }
 }
 
@@ -98,22 +121,21 @@ impl FeatureTable<'_> {
                 } else {
                     1
                 };
-                if column.typ.is_optional() {
-                    (input, _) = Stream::parse_metadata(input, column, &meta)?;
-                }
+                let bools = if column.typ.is_optional() {
+                    let bools;
+                    (input, bools) = Stream::parse(input, column, &meta)?;
+                    let bools = bools.decode(input);
+                    Some(bools)
+                } else {
+                    None
+                };
 
-                let main_meta;
-                (input, main_meta) = Stream::parse_metadata(input, column, &meta)?;
-
-                let ids = Vec::<u64>::with_capacity(main_meta.num_values as usize);
-                // if matches!(column.typ, ColumnType::Id | ColumnType::OptId) {
-                //     utils::parse_varints(input, main_meta.num_values as usize)?;
-                // } else {
-                //     utils::parse_varints_64(input, main_meta.num_values as usize)?;
-                // }
+                let ints;
+                (input, ints) = Stream::parse(input, column, &meta)?;
 
 
-                dbg!(main_meta);
+                dbg!(bools);
+                dbg!(ints);
             }
         }
 

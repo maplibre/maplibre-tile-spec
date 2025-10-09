@@ -1,0 +1,61 @@
+---
+source: mlt-nom/tests/snapshots.rs
+assertion_line: 48
+expression: pairs
+---
+(
+    [],
+    [
+        Layer(
+            FeatureTable {
+                meta: FeatureMetaTable {
+                    name: "layer",
+                    extent: 4096,
+                    columns: [
+                        Column {
+                            typ: Id,
+                            name: None,
+                        },
+                        Column {
+                            typ: Geometry,
+                            name: None,
+                        },
+                        Column {
+                            typ: OptBool,
+                            name: Some(
+                                "key",
+                            ),
+                        },
+                    ],
+                },
+                data: [
+                    1,
+                    2,
+                    48,
+                    2,
+                    1,
+                    1,
+                    0,
+                    19,
+                    66,
+                    2,
+                    2,
+                    50,
+                    34,
+                    0,
+                    96,
+                    1,
+                    2,
+                    255,
+                    1,
+                    16,
+                    96,
+                    1,
+                    2,
+                    255,
+                    1,
+                ],
+            },
+        ),
+    ],
+)

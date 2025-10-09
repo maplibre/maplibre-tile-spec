@@ -5,8 +5,8 @@ use nom::error::{Error, ErrorKind};
 use nom::{IResult, Parser};
 
 /// Parse a varint (variable-length integer) from the input
-pub fn parse_varint(input: &[u8]) -> IResult<&[u8], u64> {
-    match u64::decode_var(input) {
+pub fn parse_varint<T: VarInt>(input: &[u8]) -> IResult<&[u8], T> {
+    match VarInt::decode_var(input) {
         Some((value, consumed)) => Ok((&input[consumed..], value)),
         None => Err(fail(input)),
     }
@@ -14,7 +14,7 @@ pub fn parse_varint(input: &[u8]) -> IResult<&[u8], u64> {
 
 /// Parse a varint (variable-length integer) from the input and convert to usize
 pub fn parse_varint_usize(input: &[u8]) -> IResult<&[u8], usize> {
-    let (input, value) = parse_varint(input)?;
+    let (input, value) = parse_varint::<usize>(input)?;
     let value = usize::try_from(value);
     let value = value.or(Err(NomError(Error::new(input, ErrorKind::TooLarge))))?;
     Ok((input, value))
@@ -22,11 +22,20 @@ pub fn parse_varint_usize(input: &[u8]) -> IResult<&[u8], usize> {
 
 /// Parse a varint (variable-length integer) from the input and convert to u32
 pub fn parse_varint_u32(input: &[u8]) -> IResult<&[u8], u32> {
-    let (input, value) = parse_varint(input)?;
+    let (input, value) = parse_varint::<u32>(input)?;
     let value = u32::try_from(value);
     let value = value.or(Err(NomError(Error::new(input, ErrorKind::TooLarge))))?;
     Ok((input, value))
 }
+
+// pub fn decode<T: VarInt>(input: &[u8], size: usize) -> IResult<&[u8], Vec<T>> {
+//     let mut values = Vec::with_capacity(size);
+//     for _ in 0..size {
+//         let val = T::decode_var(input)?;
+//         values.push(val);
+//     }
+//     Ok(values)
+// }
 
 /// Parse a length-prefixed UTF-8 string from the input
 pub fn parse_string(input: &[u8]) -> IResult<&[u8], &str> {

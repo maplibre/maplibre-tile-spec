@@ -10,13 +10,13 @@ pub enum PhysicalStreamType {
 
 impl PhysicalStreamType {
     pub fn from_u8(value: u8) -> Option<Self> {
-        let prefix = value >> 4;
-        let suffix = value & 0x0F;
-        Some(match prefix {
+        let high4 = value >> 4;
+        let low4 = value & 0x0F;
+        Some(match high4 {
             0 => PhysicalStreamType::Present,
-            1 => PhysicalStreamType::Data(DictionaryType::try_from(suffix).ok()?),
-            2 => PhysicalStreamType::Offset(OffsetType::try_from(suffix).ok()?),
-            3 => PhysicalStreamType::Length(LengthType::try_from(suffix).ok()?),
+            1 => PhysicalStreamType::Data(DictionaryType::try_from(low4).ok()?),
+            2 => PhysicalStreamType::Offset(OffsetType::try_from(low4).ok()?),
+            3 => PhysicalStreamType::Length(LengthType::try_from(low4).ok()?),
             _ => return None,
         })
     }
@@ -25,6 +25,10 @@ impl PhysicalStreamType {
 pub enum Decoder {
     None,
     Delta,
+    DeltaRle {
+        runs: u32,
+        num_rle_values: u32,
+    },
     ComponentwiseDelta,
     Rle {
         runs: u32,

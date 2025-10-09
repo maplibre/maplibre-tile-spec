@@ -11,7 +11,7 @@ fn test_varint_parsing() {
     assert_eq!(parse_varint(&[0x80, 0x01]), Ok((&[][..], 128)));
     assert_eq!(
         parse_varint(&[0xFF, 0xFF, 0xFF, 0xFF, 0x0F]),
-        Ok((&[][..], 0xFFFF_FFFF))
+        Ok((&[][..], 0xFFFF_FFFF_u32))
     );
 }
 
