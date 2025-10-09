@@ -32,6 +32,7 @@ dependencies {
     implementation 'org.apache.orc:orc-core:1.8.1'
     cliImplementation 'org.imintel:mbtiles4j:1.0.6'
     implementation 'org.locationtech.jts:jts-core:1.20.0'
+    implementation 'org.slf4j:slf4j-simple:2.0.17'
     cliImplementation 'org.xerial:sqlite-jdbc:3.50.3.0'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
     implementation 'org.jetbrains:annotations:15.0'
