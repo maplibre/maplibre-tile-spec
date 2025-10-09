@@ -66,5 +66,7 @@ fn parse_one_file(path: impl AsRef<Path>) {
 #[test]
 #[ignore]
 fn test_plain() {
-    parse_one_file("../../test/expected/tag0x01/simple/point-boolean.mlt");
+    let path = "../../test/expected/tag0x01/simple/multipoint-boolean.mlt";
+    let buffer = fs::read(path).unwrap();
+    parse_binary_stream(&buffer).unwrap();
 }
