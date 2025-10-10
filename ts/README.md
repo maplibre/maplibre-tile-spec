@@ -10,25 +10,15 @@ Install node module dependencies
 ```bash
 npm install
 ```
-
 Build the project
 ```bash
 npm run build
 ```
-
-## Running the benchmarks
-
-Go to the [benchmark directory ](./benchmark)to get more information about the data and benchmarks.
-
-Running the decoding (transcoding) benchmarks for different basemaps datasets
 ```bash
-npm run benchmark:decoding
+npm install codegen 
+```
+```bash
+npm run bundle
 ```
 
-Running the filtering benchmarks 
-```bash
-npm run benchmark:filering
-```
-
-The benchmarking results are stored in separate files in the dist folder.
 
