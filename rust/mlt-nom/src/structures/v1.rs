@@ -13,7 +13,7 @@ use crate::{MltError, MltResult, utils};
 pub struct Geometry {
     pub vector_type: VectorType,
     pub vector_types: Vec<GeometryType>,
-    pub geometryOffsets: Option<Vec<u32>>,
+    // pub geometryOffsets: Option<Vec<u32>>,
     pub partOffsets: Option<Vec<u32>>,
     pub ringOffsets: Option<Vec<u32>>,
     pub vertexOffsets: Option<Vec<u32>>,
@@ -66,18 +66,13 @@ impl Geometry {
             }
             vec.push(stream);
         }
-        let geometryOffsets = if let Some(geometryOffsets) = geometryOffsets {
-
+        if let Some(geometryOffsets) = geometryOffsets {
+            // auto geometryOffsetsCopy = geometryOffsets; // TODO: avoid copies
             // decodeRootLengthStream(geometryTypes,
             //                        geometryOffsetsCopy,
             //                        /*bufferId=*/GeometryType::POLYGON,
             //                        geometryOffsets);
-
-
-            Some(geometryOffsets)
-        } else {
-            geometryOffsets
-        };
+        }
 
         // columns.push(ColumnStreams::Geometry(vec));
         Ok((
@@ -85,7 +80,7 @@ impl Geometry {
             Geometry {
                 vector_type,
                 vector_types,
-                geometryOffsets,
+                // geometryOffsets,
                 partOffsets,
                 ringOffsets,
                 vertexOffsets,
