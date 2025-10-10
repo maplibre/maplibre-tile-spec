@@ -3,6 +3,10 @@
 //
 // use crate::metadata::stream_encoding::{LogicalLevelTechnique, PhysicalLevelTechnique};
 
+use num_enum::TryFromPrimitiveError;
+
+use crate::structures::enums::GeometryType;
+
 pub type MltResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
@@ -13,6 +17,11 @@ pub enum MltError {
     #[error("UTF-8 decode error: {0}")]
     Utf8(#[from] std::str::Utf8Error),
 
+    #[error("num_enum conversion error: {0}")]
+    TryFromPrimitive(#[from] TryFromPrimitiveError<GeometryType>),
+
+    // #[error("num_enum conversion error: {0}")]
+    // TryFromPrimitive2(#[from] TryFromPrimitiveError<u32>),
     //////////////////////////////////////////////
 
     // External errors (foreign errors)

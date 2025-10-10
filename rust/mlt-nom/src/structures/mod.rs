@@ -5,9 +5,9 @@ use crate::structures::v1::FeatureTable;
 use crate::utils::take;
 use crate::{MltError, MltResult, utils};
 
-mod complex_enums;
-mod enums;
-pub(crate) mod v1;
+pub mod complex_enums;
+pub mod enums;
+pub mod v1;
 
 /// A layer that can be either MVT-compatible or unknown
 #[borrowme]

@@ -121,3 +121,14 @@ impl ColumnType {
         (self as u8) & 1 != 0
     }
 }
+
+#[derive(Debug, Clone, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum GeometryType {
+    Point,
+    LineString,
+    Polygon,
+    MultiPoint,
+    MultiLineString,
+    MultiPolygon,
+}

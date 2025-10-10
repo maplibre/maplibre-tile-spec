@@ -9,10 +9,10 @@ source: mlt-nom/tests/snapshots.rs
             columns: [
                 Id(
                     Stream {
-                        physical_stream_type: Data(
+                        physical_type: Data(
                             None,
                         ),
-                        logical_stream_type: VarInt,
+                        logical_type: VarInt,
                         num_values: 1,
                         data: [
                             1,
@@ -20,35 +20,18 @@ source: mlt-nom/tests/snapshots.rs
                     },
                 ),
                 Geometry(
-                    [
-                        Stream {
-                            physical_stream_type: Length(
-                                VarBinary,
-                            ),
-                            logical_stream_type: VarInt,
-                            num_values: 1,
-                            data: [
-                                0,
-                            ],
-                        },
-                        Stream {
-                            physical_stream_type: Data(
-                                Vertex,
-                            ),
-                            logical_stream_type: ComponentwiseDeltaVarInt,
-                            num_values: 2,
-                            data: [
-                                50,
-                                34,
-                            ],
-                        },
-                    ],
+                    Geometry {
+                        vector_type: Const,
+                        vector_types: [
+                            Point,
+                        ],
+                    },
                 ),
                 OptBool(
                     "key",
                     Stream {
-                        physical_stream_type: Present,
-                        logical_stream_type: Rle,
+                        physical_type: Present,
+                        logical_type: Rle,
                         num_values: 1,
                         data: [
                             255,
@@ -56,10 +39,10 @@ source: mlt-nom/tests/snapshots.rs
                         ],
                     },
                     Stream {
-                        physical_stream_type: Data(
+                        physical_type: Data(
                             None,
                         ),
-                        logical_stream_type: Rle,
+                        logical_type: Rle,
                         num_values: 1,
                         data: [
                             255,

@@ -62,6 +62,7 @@ pub enum StreamType {
     DeltaMorton,
     MortonRleFastPFOR,
     NoneCompDeltaNone,
+    DeltaRle,
 }
 
 /// Column type enumeration

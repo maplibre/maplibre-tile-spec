@@ -1,63 +1,98 @@
 use borrowme::borrowme;
+use integer_encoding::VarInt;
 
 use crate::MltError::Fail;
 use crate::structures::complex_enums::{ColumnStreams, PhysicalStreamType, StreamType};
-use crate::structures::enums::{ColumnType, LogicalTechnique, PhysicalTechnique};
-use crate::utils::{parse_u7, parse_varint_vec, take};
+use crate::structures::enums::{ColumnType, GeometryType, LengthType, LogicalTechnique, PhysicalTechnique};
+use crate::utils::{all, parse_u7, parse_varint_vec, take};
 use crate::{MltError, MltResult, utils};
 
-
 #[derive(Debug, Clone, PartialEq)]
-pub struct Geometry {}
+pub struct Geometry {
+    pub vector_type: VectorType,
+    pub vector_types: Vec<GeometryType>,
+}
 
 impl Geometry {
     fn parse(input: &[u8]) -> MltResult<'_, Self> {
         let (input, stream_count) = parse_u7(input)?;
         let mut vec = Vec::with_capacity(stream_count as usize);
         let (input, meta) = Stream::parse(input)?;
+        let vector_type = Self::get_vector_type_int_stream(&meta);
+        let vector_types = meta.decode::<u8, GeometryType>()?;
         vec.push(meta);
+        let mut geometryOffsets: Option<Vec<u32>> = None;
+        let mut partOffsets: Option<Vec<u32>> = None;
+        let mut ringOffsets: Option<Vec<u32>> = None;
+        let mut vertexOffsets: Option<Vec<u32>> = None;
+        let mut indexBuffer: Option<Vec<u32>> = None;
+        let mut triangles: Option<Vec<u32>> = None;
+        let mut vertices: Option<Vec<i32>> = None;
 
+        let mut input = input;
         for _ in 1..stream_count {
             let stream;
             (input, stream) = Stream::parse(input)?;
+            match stream.physical_type {
+                PhysicalStreamType::Present => {}
+                PhysicalStreamType::Data(_) => {}
+                PhysicalStreamType::Offset(_) => {}
+                PhysicalStreamType::Length(len) => {
+                    match len {
+                        LengthType::VarBinary => {}
+                        LengthType::Geometries => {
+                            geometryOffsets = Some(stream.decode::<u32, u32>()?);
+                        }
+                        LengthType::Parts => {}
+                        LengthType::Rings => {}
+                        LengthType::Triangles => {}
+                        LengthType::Symbol => {}
+                        LengthType::Dictionary => {}
+                    }
+                    panic!("Geometry stream cannot have Length physical type: {:?}", len);
+                }
+            }
             vec.push(stream);
         }
         // columns.push(ColumnStreams::Geometry(vec));
-        todo!()
+        Ok((
+            input,
+            Geometry {
+                vector_type,
+                vector_types,
+            },
+        ))
     }
-}
 
-pub enum VectorType {
-Flat,
-Const,
-Sequence,
-Dictionary,
-FsstDictionary,
-}
-/*
-    VectorType getVectorTypeIntStream(const metadata::stream::StreamMetadata& streamMetadata) {
-        using namespace metadata::stream;
-        const auto logicalLevelTechnique1 = streamMetadata.getLogicalLevelTechnique1();
-        const auto logicalLevelTechnique2 = streamMetadata.getLogicalLevelTechnique2();
-        const auto metadataType = streamMetadata.getMetadataType();
-        const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
-        const auto rleRuns = (metadataType == LogicalLevelTechnique::RLE) ? rleMetadata.getRuns() : 0;
-
-        if (logicalLevelTechnique1 == LogicalLevelTechnique::RLE) {
-            assert(metadataType == LogicalLevelTechnique::RLE);
-            return (rleRuns == 1) ? VectorType::CONST : VectorType::FLAT;
-        } else if (logicalLevelTechnique1 == LogicalLevelTechnique::DELTA &&
-                   logicalLevelTechnique2 == LogicalLevelTechnique::RLE) {
-            assert(metadataType == LogicalLevelTechnique::RLE);
-            // If base value equals delta value then one run else two runs
-            if (rleRuns == 1 || rleRuns == 2) {
-                return VectorType::SEQUENCE;
+    pub fn get_vector_type_int_stream(metadata: &Stream) -> VectorType {
+        match metadata.logical_type {
+            StreamType::Rle => {
+                if metadata.data.len() == 1 {
+                    VectorType::Const
+                } else {
+                    VectorType::Flat
+                }
+            }
+            StreamType::DeltaRle if (1..=2).contains(&metadata.data.len()) => VectorType::Sequence,
+            _ => {
+                if metadata.num_values == 1 {
+                    VectorType::Const
+                } else {
+                    VectorType::Flat
+                }
             }
         }
-
-        return (streamMetadata.getNumValues() == 1) ? VectorType::CONST : VectorType::FLAT;
     }
-*/
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VectorType {
+    Flat,
+    Const,
+    Sequence,
+    // Dictionary,
+    // FsstDictionary,
+}
 
 /// MVT-compatible feature table data
 #[borrowme]
@@ -65,7 +100,7 @@ FsstDictionary,
 pub struct Stream<'a> {
     pub physical_type: PhysicalStreamType,
     pub logical_type: StreamType,
-    pub num_values: u32,
+    pub num_values: usize,
     #[borrowme(borrow_with = Vec::as_slice)]
     pub data: &'a [u8],
 }
@@ -81,8 +116,7 @@ impl Stream<'_> {
         let logical_technique1 = LT::try_from(val >> 5).or(Err(Fail))?;
         let logical_technique2 = LT::try_from((val >> 2) & 0x7).or(Err(Fail))?;
         let physical_technique = PT::try_from(val & 0x3).or(Err(Fail))?;
-        let logical_type = match (logical_technique1, logical_technique2, physical_technique)
-        {
+        let logical_type = match (logical_technique1, logical_technique2, physical_technique) {
             (LT::ComponentwiseDelta, LT::None, PT::VarInt) => StreamType::ComponentwiseDeltaVarInt,
             (LT::Delta, LT::ComponentwiseDelta, PT::VarInt) => StreamType::DeltaCompDeltaAlp,
             (LT::Delta, LT::Morton, PT::VarInt) => StreamType::DetaMortonVarInt,
@@ -121,7 +155,7 @@ impl Stream<'_> {
             ), // return Err(Fail),
         };
 
-        let (input, num_values) = utils::parse_varint::<u32>(input)?;
+        let (input, num_values) = utils::parse_varint::<usize>(input)?;
         let (input, byte_length) = utils::parse_varint::<usize>(input)?;
         let (input, data) = take(input, byte_length)?;
 
@@ -136,20 +170,35 @@ impl Stream<'_> {
         ))
     }
 
-    pub fn decode<'a>(&'_ self) -> MltResult<'_, Vec<u32>> {
-        match self.physical_type {
-            PhysicalStreamType::Present => {
-                todo!()
+    pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
+    where
+        T: VarInt,
+        U: TryFrom<T>,
+        MltError: From<<U as TryFrom<T>>::Error>,
+    {
+        match self.logical_type {
+            StreamType::VarInt => {
+                // LogicalLevelTechnique::NONE
+                all(parse_varint_vec::<T, U>(self.data, self.num_values)?)
             }
-            PhysicalStreamType::Data(_v) => parse_varint_vec(&[], self.num_values as usize),
-            PhysicalStreamType::Offset(_v) => {
-                todo!()
-            }
-            PhysicalStreamType::Length(_v) => {
-                todo!()
-            }
+            _ => panic!("Unsupported physical type: {:?}", self.logical_type),
         }
     }
+
+    // pub fn decode2<'a>(&'_ self) -> MltResult<'_, Vec<u32>> {
+    //     match self.physical_type {
+    //         PhysicalStreamType::Present => {
+    //             todo!()
+    //         }
+    //         PhysicalStreamType::Data(_v) => parse_varint_vec::<u32, u32>(&[], self.num_values),
+    //         PhysicalStreamType::Offset(_v) => {
+    //             todo!()
+    //         }
+    //         PhysicalStreamType::Length(_v) => {
+    //             todo!()
+    //         }
+    //     }
+    // }
 }
 
 /// MVT-compatible feature table data

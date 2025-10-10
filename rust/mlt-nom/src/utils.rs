@@ -1,7 +1,7 @@
 use integer_encoding::VarInt;
 
 use crate::MltError::Fail;
-use crate::MltResult;
+use crate::{MltError, MltResult};
 
 /// Parse a varint (variable-length integer) from the input
 pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltResult<'_, T> {
@@ -11,12 +11,27 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltResult<'_, T> {
     }
 }
 
-pub fn parse_varint_vec<T: VarInt>(mut input: &[u8], size: usize) -> MltResult<'_, Vec<T>> {
+pub fn all<T>((input, value): (&[u8], T)) -> Result<T, MltError> {
+    if input.is_empty() {
+        Ok(value)
+    } else {
+        Err(MltError::BufferUnderflow {
+            needed: input.len(),
+            remaining: 0,
+        })
+    }
+}
+pub fn parse_varint_vec<T, U>(mut input: &[u8], size: usize) -> MltResult<'_, Vec<U>>
+where
+    T: VarInt,
+    U: TryFrom<T>,
+    MltError: From<<U as TryFrom<T>>::Error>,
+{
     let mut values = Vec::with_capacity(size);
     let mut val;
     for _ in 0..size {
         (input, val) = parse_varint::<T>(input)?;
-        values.push(val);
+        values.push(val.try_into()?);
     }
     Ok((input, values))
 }
