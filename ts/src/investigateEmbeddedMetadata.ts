@@ -2,7 +2,7 @@ import decodeTile from "./mltDecoder";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const MLT_DATA_DIR = "C:\\Users\\VOGL_B\\Desktop\\mlt-project\\maplibre-tile-spec\\test\\expected\\tag0x01\\amazon";
+const MLT_DATA_DIR = "../../test/expected/tag0x01/omt";
 
 export function investigateEmbeddedMetadata(filePath: string) {
 	console.log(`\n========== ${path.basename(filePath)} ==========`);
