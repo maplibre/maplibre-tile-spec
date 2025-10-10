@@ -87,7 +87,6 @@ function decodeScalarPropertyColumn(
             return decodeIntColumn(data, offset, columnMetadata, column, sizeOrNullabilityBuffer);
         case ScalarType.STRING:
             // In embedded format: numStreams includes nullability stream if column is nullable
-            // C++ subtracts 1 when passing to string decoder (property.hpp:188)
             const stringDataStreams = columnMetadata.nullable ? numStreams - 1 : numStreams;
             return StringDecoder.decode(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer);
         case ScalarType.BOOLEAN:
@@ -117,6 +116,7 @@ function decodeBooleanColumn(
     const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
         ? decodeNullableBooleanRle(data, numValues, offset, sizeOrNullabilityBuffer)
         : decodeBooleanRle(data, numValues, offset);
+    // TODO: refactor decodeNullableBooleanRle
     // Fix offset: RLE decoders don't consume all compressed bytes
     offset.set(streamDataStart + dataStreamMetadata.byteLength);
     const dataVector = new BitVector(dataStream, numValues);

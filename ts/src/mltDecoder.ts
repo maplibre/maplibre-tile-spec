@@ -58,7 +58,9 @@ export default function decodeTile(
 
         // Decode embedded metadata (one feature table per block)
         const metadata = decodeEmbeddedTileSetMetadata(tile, offset);
-        const extent = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
+        // Quickfix extent was moved again in pr #576 (its not always 4096)
+        // ToDo: include in metadata schema
+        const extent = 4096
         const featureTableMetadata = metadata.featureTables[0];
 
         // Decode columns directly from stream
