@@ -13,6 +13,13 @@ use crate::{MltError, MltResult, utils};
 pub struct Geometry {
     pub vector_type: VectorType,
     pub vector_types: Vec<GeometryType>,
+    pub geometryOffsets: Option<Vec<u32>>,
+    pub partOffsets: Option<Vec<u32>>,
+    pub ringOffsets: Option<Vec<u32>>,
+    pub vertexOffsets: Option<Vec<u32>>,
+    pub indexBuffer: Option<Vec<u32>>,
+    pub triangles: Option<Vec<u32>>,
+    pub vertices: Option<Vec<i32>>,
 }
 
 impl Geometry {
@@ -37,26 +44,21 @@ impl Geometry {
             (input, stream) = Stream::parse(input)?;
             match stream.physical_type {
                 PhysicalStreamType::Data(data) => match data {
-                    DictionaryType::Vertex => match stream.logical_type {
-                        StreamType::VarInt => {
-                            if vertices.is_some() {
-                                return Err(Fail);
-                            }
-                            vertices = Some(stream.decode::<u32, i32>()?);
+                    DictionaryType::Vertex => {
+                        if vertices.replace(stream.decode::<u32, i32>()?).is_some() {
+                            return Err(Fail);
                         }
-                        _ => panic!(
-                            "Geometry stream cannot have Data logical type: {:?}",
-                            stream.logical_type
-                        ),
-                    },
+                    }
                     _ => panic!("Geometry stream cannot have Data physical type: {data:?}"),
                 },
                 PhysicalStreamType::Length(len) => match len {
                     LengthType::Geometries => {
-                        if geometryOffsets.is_some() {
+                        if geometryOffsets
+                            .replace(stream.decode::<u32, u32>()?)
+                            .is_some()
+                        {
                             return Err(Fail);
                         }
-                        geometryOffsets = Some(stream.decode::<u32, u32>()?);
                     }
                     _ => panic!("Geometry stream cannot have Length physical type: {len:?}"),
                 },
@@ -64,12 +66,25 @@ impl Geometry {
             }
             vec.push(stream);
         }
+        let geometryOffsets = if let Some(geometryOffsets) = geometryOffsets {
+            Some(geometryOffsets)
+        } else {
+            geometryOffsets
+        };
+
         // columns.push(ColumnStreams::Geometry(vec));
         Ok((
             input,
             Geometry {
                 vector_type,
                 vector_types,
+                geometryOffsets,
+                partOffsets,
+                ringOffsets,
+                vertexOffsets,
+                indexBuffer,
+                triangles,
+                vertices,
             },
         ))
     }
@@ -187,7 +202,7 @@ impl Stream<'_> {
         MltError: From<<U as TryFrom<T>>::Error>,
     {
         match self.logical_type {
-            StreamType::VarInt => {
+            StreamType::VarInt | StreamType::ComponentwiseDeltaVarInt => {
                 // LogicalLevelTechnique::NONE
                 all(parse_varint_vec::<T, U>(self.data, self.num_values)?)
             }
