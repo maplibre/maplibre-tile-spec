@@ -3,7 +3,9 @@ use integer_encoding::VarInt;
 
 use crate::MltError::Fail;
 use crate::structures::complex_enums::{ColumnStreams, PhysicalStreamType, StreamType};
-use crate::structures::enums::{ColumnType, GeometryType, LengthType, LogicalTechnique, PhysicalTechnique};
+use crate::structures::enums::{
+    ColumnType, DictionaryType, GeometryType, LengthType, LogicalTechnique, PhysicalTechnique,
+};
 use crate::utils::{all, parse_u7, parse_varint_vec, take};
 use crate::{MltError, MltResult, utils};
 
@@ -34,23 +36,31 @@ impl Geometry {
             let stream;
             (input, stream) = Stream::parse(input)?;
             match stream.physical_type {
-                PhysicalStreamType::Present => {}
-                PhysicalStreamType::Data(_) => {}
-                PhysicalStreamType::Offset(_) => {}
-                PhysicalStreamType::Length(len) => {
-                    match len {
-                        LengthType::VarBinary => {}
-                        LengthType::Geometries => {
-                            geometryOffsets = Some(stream.decode::<u32, u32>()?);
+                PhysicalStreamType::Data(data) => match data {
+                    DictionaryType::Vertex => match stream.logical_type {
+                        StreamType::VarInt => {
+                            if vertices.is_some() {
+                                return Err(Fail);
+                            }
+                            vertices = Some(stream.decode::<u32, i32>()?);
                         }
-                        LengthType::Parts => {}
-                        LengthType::Rings => {}
-                        LengthType::Triangles => {}
-                        LengthType::Symbol => {}
-                        LengthType::Dictionary => {}
+                        _ => panic!(
+                            "Geometry stream cannot have Data logical type: {:?}",
+                            stream.logical_type
+                        ),
+                    },
+                    _ => panic!("Geometry stream cannot have Data physical type: {data:?}"),
+                },
+                PhysicalStreamType::Length(len) => match len {
+                    LengthType::Geometries => {
+                        if geometryOffsets.is_some() {
+                            return Err(Fail);
+                        }
+                        geometryOffsets = Some(stream.decode::<u32, u32>()?);
                     }
-                    panic!("Geometry stream cannot have Length physical type: {:?}", len);
-                }
+                    _ => panic!("Geometry stream cannot have Length physical type: {len:?}"),
+                },
+                _ => panic!("Geometry stream cannot have physical type: {stream:?}"),
             }
             vec.push(stream);
         }

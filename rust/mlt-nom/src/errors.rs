@@ -3,6 +3,8 @@
 //
 // use crate::metadata::stream_encoding::{LogicalLevelTechnique, PhysicalLevelTechnique};
 
+use std::convert::Infallible;
+
 use num_enum::TryFromPrimitiveError;
 
 use crate::structures::enums::GeometryType;
@@ -19,6 +21,9 @@ pub enum MltError {
 
     #[error("num_enum conversion error: {0}")]
     TryFromPrimitive(#[from] TryFromPrimitiveError<GeometryType>),
+
+    #[error("integer conversion error: {0}")]
+    TryFromIntError(#[from] std::num::TryFromIntError),
 
     // #[error("num_enum conversion error: {0}")]
     // TryFromPrimitive2(#[from] TryFromPrimitiveError<u32>),
@@ -119,4 +124,10 @@ pub enum MltError {
     // Other errors
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
+}
+
+impl From<Infallible> for MltError {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
 }
