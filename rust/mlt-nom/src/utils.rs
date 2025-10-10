@@ -1,6 +1,7 @@
+use integer_encoding::VarInt;
+
 use crate::MltError::Fail;
 use crate::MltResult;
-use integer_encoding::VarInt;
 
 /// Parse a varint (variable-length integer) from the input
 pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltResult<'_, T> {

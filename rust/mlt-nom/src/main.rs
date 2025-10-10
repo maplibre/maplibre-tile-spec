@@ -3,13 +3,12 @@
 mod errors;
 mod structures;
 mod utils;
-pub use errors::{MltError, MltResult};
-pub use structures::parse_binary_stream;
-
 use std::io::Cursor;
 use std::path::Path;
 
+pub use errors::{MltError, MltResult};
 use galileo_mvt::MvtTile;
+pub use structures::parse_binary_stream;
 
 use crate::structures::Layer;
 use crate::structures::v1::OwnedFeatureTable;

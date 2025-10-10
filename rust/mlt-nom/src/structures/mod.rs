@@ -1,9 +1,9 @@
+use borrowme::borrowme;
+
 use crate::MltError::Fail;
 use crate::structures::v1::FeatureTable;
-use crate::utils;
-use crate::{MltError, MltResult};
-use borrowme::borrowme;
 use crate::utils::take;
+use crate::{MltError, MltResult, utils};
 
 mod complex_enums;
 mod enums;

@@ -1,8 +1,8 @@
-use crate::MltError::Fail;
-use crate::MltResult;
-use crate::utils;
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
+
+use crate::MltError::Fail;
+use crate::{MltResult, utils};
 
 #[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]

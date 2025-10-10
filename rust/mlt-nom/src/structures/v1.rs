@@ -1,19 +1,70 @@
-use crate::MltError::Fail;
-use crate::structures::complex_enums::{ColumnStreams, PhysicalStreamType};
-use crate::structures::enums::{ColumnType, LogicalTechnique, PhysicalTechnique};
-use crate::utils;
-use crate::utils::{parse_u7, parse_varint_vec, take};
-use crate::{MltError, MltResult};
 use borrowme::borrowme;
+
+use crate::MltError::Fail;
+use crate::structures::complex_enums::{ColumnStreams, PhysicalStreamType, StreamType};
+use crate::structures::enums::{ColumnType, LogicalTechnique, PhysicalTechnique};
+use crate::utils::{parse_u7, parse_varint_vec, take};
+use crate::{MltError, MltResult, utils};
+
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Geometry {}
+
+impl Geometry {
+    fn parse(input: &[u8]) -> MltResult<'_, Self> {
+        let (input, stream_count) = parse_u7(input)?;
+        let mut vec = Vec::with_capacity(stream_count as usize);
+        let (input, meta) = Stream::parse(input)?;
+        vec.push(meta);
+
+        for _ in 1..stream_count {
+            let stream;
+            (input, stream) = Stream::parse(input)?;
+            vec.push(stream);
+        }
+        // columns.push(ColumnStreams::Geometry(vec));
+        todo!()
+    }
+}
+
+pub enum VectorType {
+Flat,
+Const,
+Sequence,
+Dictionary,
+FsstDictionary,
+}
+/*
+    VectorType getVectorTypeIntStream(const metadata::stream::StreamMetadata& streamMetadata) {
+        using namespace metadata::stream;
+        const auto logicalLevelTechnique1 = streamMetadata.getLogicalLevelTechnique1();
+        const auto logicalLevelTechnique2 = streamMetadata.getLogicalLevelTechnique2();
+        const auto metadataType = streamMetadata.getMetadataType();
+        const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
+        const auto rleRuns = (metadataType == LogicalLevelTechnique::RLE) ? rleMetadata.getRuns() : 0;
+
+        if (logicalLevelTechnique1 == LogicalLevelTechnique::RLE) {
+            assert(metadataType == LogicalLevelTechnique::RLE);
+            return (rleRuns == 1) ? VectorType::CONST : VectorType::FLAT;
+        } else if (logicalLevelTechnique1 == LogicalLevelTechnique::DELTA &&
+                   logicalLevelTechnique2 == LogicalLevelTechnique::RLE) {
+            assert(metadataType == LogicalLevelTechnique::RLE);
+            // If base value equals delta value then one run else two runs
+            if (rleRuns == 1 || rleRuns == 2) {
+                return VectorType::SEQUENCE;
+            }
+        }
+
+        return (streamMetadata.getNumValues() == 1) ? VectorType::CONST : VectorType::FLAT;
+    }
+*/
 
 /// MVT-compatible feature table data
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Stream<'a> {
-    pub physical_stream_type: PhysicalStreamType,
-    pub logical_technique1: LogicalTechnique,
-    pub logical_technique2: LogicalTechnique,
-    pub physical_technique: PhysicalTechnique,
+    pub physical_type: PhysicalStreamType,
+    pub logical_type: StreamType,
     pub num_values: u32,
     #[borrowme(borrow_with = Vec::as_slice)]
     pub data: &'a [u8],
@@ -21,13 +72,54 @@ pub struct Stream<'a> {
 
 impl Stream<'_> {
     fn parse(input: &[u8]) -> MltResult<'_, Stream<'_>> {
-        let (input, val) = utils::parse_u8(input)?;
-        let physical_stream_type = PhysicalStreamType::from_u8(val).ok_or(Fail)?;
+        use {LogicalTechnique as LT, PhysicalTechnique as PT};
 
         let (input, val) = utils::parse_u8(input)?;
-        let logical_technique1 = LogicalTechnique::try_from(val >> 5).or(Err(Fail))?;
-        let logical_technique2 = LogicalTechnique::try_from((val >> 2) & 0x7).or(Err(Fail))?;
-        let physical_technique = PhysicalTechnique::try_from(val & 0x3).or(Err(Fail))?;
+        let physical_type = PhysicalStreamType::from_u8(val).ok_or(Fail)?;
+
+        let (input, val) = utils::parse_u8(input)?;
+        let logical_technique1 = LT::try_from(val >> 5).or(Err(Fail))?;
+        let logical_technique2 = LT::try_from((val >> 2) & 0x7).or(Err(Fail))?;
+        let physical_technique = PT::try_from(val & 0x3).or(Err(Fail))?;
+        let logical_type = match (logical_technique1, logical_technique2, physical_technique)
+        {
+            (LT::ComponentwiseDelta, LT::None, PT::VarInt) => StreamType::ComponentwiseDeltaVarInt,
+            (LT::Delta, LT::ComponentwiseDelta, PT::VarInt) => StreamType::DeltaCompDeltaAlp,
+            (LT::Delta, LT::Morton, PT::VarInt) => StreamType::DetaMortonVarInt,
+            (LT::Delta, LT::None, PT::FastPFOR) => StreamType::DeltaFastPFOR,
+            (LT::Delta, LT::None, PT::None) => StreamType::DeltaVarInt,
+            (LT::Delta, LT::None, PT::VarInt) => StreamType::DeltaNoneVarInt,
+            (LT::Delta, LT::PseudoDecimal, PT::Alp) => StreamType::DeltaPseudoDecimalAlp,
+            (LT::Delta, LT::PseudoDecimal, PT::None) => StreamType::DeltaPseudoDecimal,
+            (LT::Delta, LT::PseudoDecimal, PT::VarInt) => StreamType::DeltaPseudoDecimalVarInt,
+            (LT::None, LT::ComponentwiseDelta, PT::Alp) => StreamType::NoneCompDeltaAlp,
+            (LT::None, LT::Delta, PT::Alp) => StreamType::NoneDeltaAlp,
+            (LT::None, LT::Rle, PT::VarInt) => StreamType::NoneRleVarInt,
+            (LT::Delta, LT::Morton, PT::None) => StreamType::DeltaMorton,
+            (LT::Morton, LT::Rle, PT::FastPFOR) => StreamType::MortonRleFastPFOR,
+            (LT::None, LT::ComponentwiseDelta, PT::None) => StreamType::NoneCompDeltaNone,
+            (LT::None, LT::Delta, PT::FastPFOR) => StreamType::NoneDeltaFastPFOR,
+            (LT::None, LT::Delta, PT::None) => StreamType::NoneDelta,
+            (LT::None, LT::Delta, PT::VarInt) => StreamType::NoneDeltaVarInt,
+            (LT::None, LT::Morton, PT::Alp) => StreamType::NoneMortonAlp,
+            (LT::None, LT::Morton, PT::FastPFOR) => StreamType::NoneMortonFastPFOR,
+            (LT::None, LT::Morton, PT::None) => StreamType::NoneMorton,
+            (LT::None, LT::None, PT::Alp) => StreamType::Alp,
+            (LT::None, LT::None, PT::FastPFOR) => StreamType::NoneFastPFOR,
+            (LT::None, LT::None, PT::None) => StreamType::None,
+            (LT::None, LT::None, PT::VarInt) => StreamType::VarInt,
+            (LT::None, LT::PseudoDecimal, PT::Alp) => StreamType::NonePseudoDecimalAlp,
+            (LT::None, LT::PseudoDecimal, PT::None) => StreamType::NonePseudoDecimal,
+            (LT::None, LT::Rle, PT::FastPFOR) => StreamType::NoneRleFastPFOR,
+            (LT::None, LT::Rle, PT::None) => StreamType::NoneRle,
+            (LT::PseudoDecimal, LT::None, PT::None) => StreamType::PseudoDecimal,
+            (LT::Rle, LT::None, PT::None) => StreamType::Rle,
+            (LT::Rle, LT::None, PT::VarInt) => StreamType::RleVarInt,
+            _ => panic!(
+                "Unsupported logical/physical technique combination: {:?}, {:?}, {:?}",
+                logical_technique1, logical_technique2, physical_technique
+            ), // return Err(Fail),
+        };
 
         let (input, num_values) = utils::parse_varint::<u32>(input)?;
         let (input, byte_length) = utils::parse_varint::<usize>(input)?;
@@ -36,22 +128,20 @@ impl Stream<'_> {
         Ok((
             input,
             Stream {
-                physical_stream_type,
-                logical_technique1,
-                logical_technique2,
-                physical_technique,
+                physical_type,
+                logical_type,
                 num_values,
                 data,
             },
         ))
     }
 
-    pub fn _decode<'a>(&self, input: &'a [u8]) -> MltResult<'a, Vec<u32>> {
-        match self.physical_stream_type {
+    pub fn decode<'a>(&'_ self) -> MltResult<'_, Vec<u32>> {
+        match self.physical_type {
             PhysicalStreamType::Present => {
                 todo!()
             }
-            PhysicalStreamType::Data(_v) => parse_varint_vec(input, self.num_values as usize),
+            PhysicalStreamType::Data(_v) => parse_varint_vec(&[], self.num_values as usize),
             PhysicalStreamType::Offset(_v) => {
                 todo!()
             }
@@ -89,7 +179,7 @@ impl FeatureTable<'_> {
             col_info.push(typ);
         }
 
-        let mut columns = Vec::with_capacity(col_info.len());
+        let mut columns = Vec::with_capacity(col_info.len() - 1);
         for info in col_info {
             let opt;
             let val;
@@ -112,17 +202,10 @@ impl FeatureTable<'_> {
                     columns.push(ColumnStreams::OptLongId(opt, val));
                 }
                 ColumnType::Geometry => {
-                    let stream_count;
-                    // let geom_metadata;
-                    (input, stream_count) = parse_u7(input)?;
-                    // (input, geom_metadata) = Stream::parse(input)?;
-                    let mut vec = Vec::with_capacity(stream_count as usize);
-                    for _ in 0..stream_count {
-                        let stream;
-                        (input, stream) = Stream::parse(input)?;
-                        vec.push(stream);
-                    }
-                    columns.push(ColumnStreams::Geometry(vec));
+                    // Geometry columns do not have a name
+                    let val;
+                    (input, val) = Geometry::parse(input)?;
+                    columns.push(ColumnStreams::Geometry(val));
                 }
                 ColumnType::Bool => {
                     (input, val) = Stream::parse(input)?;
@@ -224,31 +307,6 @@ pub fn parse_pair(input: &[u8]) -> MltResult<'_, (Stream<'_>, Stream<'_>)> {
     let (input, val) = Stream::parse(input)?;
     Ok((input, (opt, val)))
 }
-
-// impl FeatureMetaTable<'_> {
-//     /// Parse `FeatureTable` V1 metadata
-//     pub fn parse(input: &[u8]) -> MltResult<FeatureMetaTable<'_>> {
-//         let (input, name) = utils::parse_string(input)?;
-//         let (input, extent) = utils::parse_varint::<u32>(input)?;
-//         let (mut input, column_count) = utils::parse_varint::<usize>(input)?;
-//
-//         let mut columns = Vec::with_capacity(column_count);
-//         for _ in 0..column_count {
-//             let pair = Column::parse(input)?;
-//             input = pair.0;
-//             columns.push(pair.1);
-//         }
-//
-//         Ok((
-//             input,
-//             FeatureMetaTable {
-//                 name,
-//                 extent,
-//                 columns,
-//             },
-//         ))
-//     }
-// }
 
 /// Column definition
 #[borrowme]

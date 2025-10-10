@@ -1,6 +1,7 @@
-use crate::structures::enums::{DictionaryType, LengthType, OffsetType};
-use crate::structures::v1::Stream;
 use borrowme::borrowme;
+
+use crate::structures::enums::{DictionaryType, LengthType, OffsetType};
+use crate::structures::v1::{Geometry, Stream};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PhysicalStreamType {
@@ -24,6 +25,45 @@ impl PhysicalStreamType {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum StreamType {
+    Alp,
+    CompDelta2,
+    ComponentwiseDeltaVarInt,
+    DeltaCompDeltaAlp,
+    DeltaFastPFOR,
+    DeltaVarInt,
+    Morton,
+    None,
+    NoneCompDeltaAlp,
+    NoneDelta,
+    NoneDeltaAlp,
+    NoneDeltaFastPFOR,
+    NoneMortonAlp,
+    NoneRle,
+    PseudoDecimal,
+    Rle,
+    RleVarInt,
+    VarInt,
+    DeltaNoneVarInt,
+    NoneMorton,
+    NoneFastPFOR,
+    NoneRleFastPFOR,
+    DeltaPseudoDecimalVarInt,
+    NoneMortonFastPFOR,
+    DeltaPseudoDecimalAlp,
+    NonePseudoDecimalAlp,
+    NonePseudoDecimal,
+    NoneDeltaVarInt,
+    DeltaPseudoDecimal,
+    DetaMortonVarInt,
+    NoneRleVar,
+    NoneRleVarInt,
+    DeltaMorton,
+    MortonRleFastPFOR,
+    NoneCompDeltaNone,
+}
+
 /// Column type enumeration
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -32,7 +72,7 @@ pub enum ColumnStreams<'a> {
     OptId(Stream<'a>, Stream<'a>),
     LongId(Stream<'a>),
     OptLongId(Stream<'a>, Stream<'a>),
-    Geometry(Vec<Stream<'a>>),
+    Geometry(Geometry),
     Bool(&'a str, Stream<'a>),
     OptBool(&'a str, Stream<'a>, Stream<'a>),
     I8(&'a str, Stream<'a>),
