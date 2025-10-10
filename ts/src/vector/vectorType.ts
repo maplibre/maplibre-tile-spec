@@ -1,4 +1,3 @@
-
 export enum VectorType {
     FLAT,
     CONST,

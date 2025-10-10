@@ -1,10 +1,10 @@
-import { StreamMetadata } from './streamMetadata';
-import { PhysicalStreamType } from './physicalStreamType';
-import { LogicalStreamType } from './logicalStreamType';
-import { LogicalLevelTechnique } from './logicalLevelTechnique';
-import { PhysicalLevelTechnique } from './physicalLevelTechnique';
+import { StreamMetadata } from "./streamMetadata";
+import { PhysicalStreamType } from "./physicalStreamType";
+import { LogicalStreamType } from "./logicalStreamType";
+import { LogicalLevelTechnique } from "./logicalLevelTechnique";
+import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
 import IntWrapper from "../../encodings/intWrapper";
-import {decodeVarintInt32} from "../../encodings/integerDecodingUtils";
+import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
 
 export class MortonEncodedStreamMetadata extends StreamMetadata {
     private readonly num_bits: number;
@@ -19,7 +19,7 @@ export class MortonEncodedStreamMetadata extends StreamMetadata {
         numValues: number,
         byteLength: number,
         numBits: number,
-        coordinateShift: number
+        coordinateShift: number,
     ) {
         super(
             physicalStreamType,
@@ -28,7 +28,7 @@ export class MortonEncodedStreamMetadata extends StreamMetadata {
             logicalLevelTechnique2,
             physicalLevelTechnique,
             numValues,
-            byteLength
+            byteLength,
         );
         this.num_bits = numBits;
         this.coordinate_shift = coordinateShift;
@@ -46,11 +46,15 @@ export class MortonEncodedStreamMetadata extends StreamMetadata {
             streamMetadata.numValues,
             streamMetadata.byteLength,
             mortonInfo[0],
-            mortonInfo[1]
+            mortonInfo[1],
         );
     }
 
-    public static decodePartial(streamMetadata: StreamMetadata, tile: Uint8Array, offset: IntWrapper): MortonEncodedStreamMetadata {
+    public static decodePartial(
+        streamMetadata: StreamMetadata,
+        tile: Uint8Array,
+        offset: IntWrapper,
+    ): MortonEncodedStreamMetadata {
         const mortonInfo = decodeVarintInt32(tile, offset, 2);
         return new MortonEncodedStreamMetadata(
             streamMetadata.physicalStreamType,
@@ -61,7 +65,7 @@ export class MortonEncodedStreamMetadata extends StreamMetadata {
             streamMetadata.numValues,
             streamMetadata.byteLength,
             mortonInfo[0],
-            mortonInfo[1]
+            mortonInfo[1],
         );
     }
 

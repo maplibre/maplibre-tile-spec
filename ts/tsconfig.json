@@ -16,7 +16,8 @@
   "include": [
     "src/**/*.ts",
     "test/benchmark/**/*.ts",
-    "test/server/**/*.ts"
+    "test/server/**/*.ts",
+    "benchmark/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

@@ -1,34 +1,24 @@
 # maplibre-tile-spec
 
-This package contains a JavaScript decoder for the experimental MapLibre Tile (MLT) vector tile format.
+This project contains a TypeScript decoder for the MapLibre Tile (MLT) vector tile format.
 
-## Install
+## Preparing the Environment 
 
-`npm install @maplibre/maplibre-tile-spec`
+Install a current version (>= 22) of Node.js.
 
-## Quick Start
-
-To decode a tile, you will want to load `MltDecoder` and `TileSetMetadata`:
-
-```js
-import decodeTile, { decodeMetadata } from '@maplibre/maplibre-tile-spec';
-
-const data = fs.readFileSync(tilePath);
-const metadata = fs.readFileSync(metadataPath);
-const tilesetMetadata = decodeMetadata(metadata);
-const tile = decodeTile(data, tilesetMetadata);
+Install node module dependencies
+```bash
+npm install
+```
+Build the project
+```bash
+npm run build
+```
+```bash
+npm install codegen 
+```
+```bash
+npm run bundle
 ```
 
-## Contents
 
-### Code
-
-Code is in `src/`.
-
-### Tests
-
-Tests are in `test/unit/`. Run tests by running `npm run test`.
-
-### Benchmarks
-
-Benchmarks are in `bench/`. Run benchmarks by running `npm run bench`.

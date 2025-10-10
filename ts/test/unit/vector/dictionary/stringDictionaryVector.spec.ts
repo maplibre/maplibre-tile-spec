@@ -1,4 +1,4 @@
-import {StringDictionaryVector} from "../../../../src/vector/dictionary/stringDictionaryVector";
+import { StringDictionaryVector } from "../../../../src/vector/dictionary/stringDictionaryVector";
 
 describe("StringDictionaryVector", () => {
     let values: string[];
@@ -18,7 +18,7 @@ describe("StringDictionaryVector", () => {
         offsetBuffer = new Int32Array(values.length + 1);
         offsetBuffer[0] = 0;
         let i = 1;
-        for(const value of dictionary){
+        for (const value of dictionary) {
             const data = encoder.encode(value);
             dataBuffer.set(data, offset);
             offset += data.length;
@@ -39,15 +39,14 @@ describe("StringDictionaryVector", () => {
         it("should return correct indices for a given predicate", () => {
             const value = values[0];
             const result = stringDictionaryVector.filter(value);
-            expect(result).toEqual([0, 3]);
+            expect(result.selectionValues()).toEqual([0, 3]);
         });
     });
 
     describe("filterIn", () => {
         it("should return correct indices for a given predicate", () => {
             const result = stringDictionaryVector.match([values[0], values[2]]);
-            expect(result).toEqual([0, 2, 3]);
+            expect(result.selectionValues()).toEqual([0, 2, 3]);
         });
     });
-
 });

@@ -1,8 +1,8 @@
-import { StreamMetadata } from './streamMetadata';
-import { LogicalLevelTechnique } from './logicalLevelTechnique';
-import { PhysicalLevelTechnique } from './physicalLevelTechnique';
-import { MortonEncodedStreamMetadata } from './mortonEncodedStreamMetadata';
-import { RleEncodedStreamMetadata } from './rleEncodedStreamMetadata';
+import { StreamMetadata } from "./streamMetadata";
+import { LogicalLevelTechnique } from "./logicalLevelTechnique";
+import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
+import { MortonEncodedStreamMetadata } from "./mortonEncodedStreamMetadata";
+import { RleEncodedStreamMetadata } from "./rleEncodedStreamMetadata";
 import IntWrapper from "../../encodings/intWrapper";
 
 export class StreamMetadataDecoder {

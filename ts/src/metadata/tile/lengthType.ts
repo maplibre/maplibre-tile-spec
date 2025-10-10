@@ -5,5 +5,5 @@ export enum LengthType {
     RINGS = "RINGS",
     TRIANGLES = "TRIANGLES",
     SYMBOL = "SYMBOL",
-    DICTIONARY = "DICTIONARY"
+    DICTIONARY = "DICTIONARY",
 }
