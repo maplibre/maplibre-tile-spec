@@ -1,4 +1,5 @@
 use integer_encoding::VarInt;
+use zigzag::ZigZag;
 
 use crate::MltError::Fail;
 use crate::{MltError, MltResult};
@@ -74,7 +75,28 @@ pub fn encode_str(data: &mut Vec<u8>, value: &[u8]) {
 }
 
 #[inline]
-pub fn take<'a>(input: &'a [u8], size: usize) -> MltResult<'a, &'a [u8]> {
+pub fn take(input: &[u8], size: usize) -> MltResult<&[u8]> {
     let (value, input) = input.split_at_checked(size).ok_or(Fail)?;
     Ok((input, value))
+}
+
+/// Decode ([`ZigZag`] + delta) for Vec2s
+// TODO: The encoded process is (delta + ZigZag) for each component
+pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<Vec<T>, MltError> {
+    if data.is_empty() || !data.len().is_multiple_of(2) {
+        return Err(MltError::InvalidPairStreamSize(data.len()));
+    }
+
+    let mut result = Vec::with_capacity(data.len());
+    let mut last1 = T::zero();
+    let mut last2 = T::zero();
+
+    for i in (0..data.len()).step_by(2) {
+        last1 = T::decode(data[i]) + last1;
+        last2 = T::decode(data[i + 1]) + last2;
+        result.push(last1);
+        result.push(last2);
+    }
+
+    Ok(result)
 }

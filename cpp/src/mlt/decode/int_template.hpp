@@ -85,7 +85,7 @@ void IntegerDecoder::decodeIntArray(const T* values,
             }
             throw std::runtime_error("Logical level technique COMPONENTWISE_DELTA not implemented for 64-bit values");
         case LogicalLevelTechnique::RLE: {
-            if (streamMetadata.getMetadataType() != metadata::stream::LogicalLevelTechnique::RLE) {
+            if (streamMetadata.getMetadataType() != LogicalLevelTechnique::RLE) {
                 throw std::runtime_error("invalid RLE metadata");
             }
             const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);

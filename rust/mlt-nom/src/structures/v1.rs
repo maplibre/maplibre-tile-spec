@@ -1,12 +1,16 @@
+use std::convert::TryFrom;
+use std::ops::Add;
+
 use borrowme::borrowme;
 use integer_encoding::VarInt;
+use zigzag::ZigZag;
 
 use crate::MltError::Fail;
 use crate::structures::complex_enums::{ColumnStreams, PhysicalStreamType, StreamType};
 use crate::structures::enums::{
     ColumnType, DictionaryType, GeometryType, LengthType, LogicalTechnique, PhysicalTechnique,
 };
-use crate::utils::{all, parse_u7, parse_varint_vec, take};
+use crate::utils::{all, decode_componentwise_delta_vec2s, parse_u7, parse_varint_vec, take};
 use crate::{MltError, MltResult, utils};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -200,15 +204,14 @@ impl Stream<'_> {
     pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
     where
         T: VarInt,
-        U: TryFrom<T>,
+        U: TryFrom<T> + ZigZag,
         MltError: From<<U as TryFrom<T>>::Error>,
     {
         match self.logical_type {
-            StreamType::VarInt =>all(parse_varint_vec::<T, U>(self.data, self.num_values)?),
+            StreamType::VarInt => all(parse_varint_vec::<T, U>(self.data, self.num_values)?),
             StreamType::ComponentwiseDeltaVarInt => {
                 let physical_decode = all(parse_varint_vec::<T, U>(self.data, self.num_values)?)?;
-
-                Ok(decodeComponentwiseDeltaVec2(physical_decode))
+                decode_componentwise_delta_vec2s(physical_decode.as_slice())
             }
             _ => panic!("Unsupported physical type: {:?}", self.logical_type),
         }
@@ -229,31 +232,6 @@ impl Stream<'_> {
     //     }
     // }
 }
-
-// fn decodeComponentwiseDeltaVec2<T, U>(data: &[T]) -> Vec<T>
-// where
-//     T: VarInt,
-//     U: TryFrom<T>,
-// {
-//     todo!()
-// }
-
-/*
-template <typename T>
-    requires(std::is_integral_v<T> && sizeof(T) == 4)
-inline void decodeComponentwiseDeltaVec2(T* const data, const std::size_t count) noexcept {
-    assert((count % 2) == 0);
-    if (1 < count) {
-        data[0] = shift_and_xor(data[0]);
-        data[1] = shift_and_xor(data[1]);
-        for (std::size_t i = 2; i + 1 < count; i += 2) {
-            data[i] = shift_and_xor(data[i]) + data[i - 2];
-            data[i + 1] = shift_and_xor(data[i + 1]) + data[i - 1];
-        }
-    }
-}
- */
-
 
 /// MVT-compatible feature table data
 #[borrowme]
@@ -446,13 +424,14 @@ pub fn decode_root_length_stream(
     let mut previous_offset = 0_u32;
     let mut root_length_counter = 0_usize;
     for &geom_type in geometry_types {
-        let offset = previous_offset + if geom_type > buffer_id {
-            let val = root_length_stream[root_length_counter];
-            root_length_counter += 1;
-            val
-        } else {
-            1
-        };
+        let offset = previous_offset
+            + if geom_type > buffer_id {
+                let val = root_length_stream[root_length_counter];
+                root_length_counter += 1;
+                val
+            } else {
+                1
+            };
         root_buffer_offsets.push(offset);
         previous_offset = offset;
     }
