@@ -13,11 +13,11 @@ use crate::{MltError, MltResult, utils};
 pub struct Geometry {
     pub vector_type: VectorType,
     pub vector_types: Vec<GeometryType>,
-    // pub geometryOffsets: Option<Vec<u32>>,
-    pub partOffsets: Option<Vec<u32>>,
-    pub ringOffsets: Option<Vec<u32>>,
-    pub vertexOffsets: Option<Vec<u32>>,
-    pub indexBuffer: Option<Vec<u32>>,
+    pub geometry_offsets: Option<Vec<u32>>,
+    pub part_offsets: Option<Vec<u32>>,
+    pub ring_offsets: Option<Vec<u32>>,
+    pub vertex_offsets: Option<Vec<u32>>,
+    pub index_buffer: Option<Vec<u32>>,
     pub triangles: Option<Vec<u32>>,
     pub vertices: Option<Vec<i32>>,
 }
@@ -30,11 +30,11 @@ impl Geometry {
         let vector_type = Self::get_vector_type_int_stream(&meta);
         let vector_types = meta.decode::<u8, GeometryType>()?;
         vec.push(meta);
-        let mut geometryOffsets: Option<Vec<u32>> = None;
-        let mut partOffsets: Option<Vec<u32>> = None;
-        let mut ringOffsets: Option<Vec<u32>> = None;
-        let mut vertexOffsets: Option<Vec<u32>> = None;
-        let mut indexBuffer: Option<Vec<u32>> = None;
+        let mut geometry_offsets: Option<Vec<u32>> = None;
+        let mut part_offsets: Option<Vec<u32>> = None;
+        let mut ring_offsets: Option<Vec<u32>> = None;
+        let mut vertex_offsets: Option<Vec<u32>> = None;
+        let mut index_buffer: Option<Vec<u32>> = None;
         let mut triangles: Option<Vec<u32>> = None;
         let mut vertices: Option<Vec<i32>> = None;
 
@@ -53,7 +53,7 @@ impl Geometry {
                 },
                 PhysicalStreamType::Length(len) => match len {
                     LengthType::Geometries => {
-                        if geometryOffsets
+                        if geometry_offsets
                             .replace(stream.decode::<u32, u32>()?)
                             .is_some()
                         {
@@ -66,12 +66,12 @@ impl Geometry {
             }
             vec.push(stream);
         }
-        if let Some(geometryOffsets) = geometryOffsets {
-            // auto geometryOffsetsCopy = geometryOffsets; // TODO: avoid copies
-            // decodeRootLengthStream(geometryTypes,
-            //                        geometryOffsetsCopy,
-            //                        /*bufferId=*/GeometryType::POLYGON,
-            //                        geometryOffsets);
+        if let Some(offsets) = geometry_offsets.take() {
+            geometry_offsets = Some(decode_root_length_stream(
+                &vector_types,
+                offsets,
+                GeometryType::Polygon,
+            ))
         }
 
         // columns.push(ColumnStreams::Geometry(vec));
@@ -80,42 +80,16 @@ impl Geometry {
             Geometry {
                 vector_type,
                 vector_types,
-                // geometryOffsets,
-                partOffsets,
-                ringOffsets,
-                vertexOffsets,
-                indexBuffer,
+                geometry_offsets,
+                part_offsets,
+                ring_offsets,
+                vertex_offsets,
+                index_buffer,
                 triangles,
                 vertices,
             },
         ))
     }
-
-    /*
-//
-// Handle the parsing of the different topology length buffers separate not generic to reduce the
-// branching and improve the performance
-//
-    void decodeRootLengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
-                                const std::vector<std::uint32_t>& rootLengthStream,
-                                const metadata::tileset::GeometryType bufferId,
-                                std::vector<std::uint32_t>& rootBufferOffsets) {
-        assert(&rootLengthStream != &rootBufferOffsets);
-        rootBufferOffsets.resize(geometryTypes.size() + 1);
-        std::uint32_t previousOffset = rootBufferOffsets[0] = 0;
-        std::uint32_t rootLengthCounter = 0;
-        for (std::size_t i = 0; i < geometryTypes.size(); ++i) {
-            /* Test if the geometry has and entry in the root buffer
-             * BufferId: 2 GeometryOffsets -> MultiPolygon, MultiLineString, MultiPoint
-             * BufferId: 1 PartOffsets -> Polygon
-             * BufferId: 0 PartOffsets, RingOffsets -> LineString
-             * */
-            previousOffset = rootBufferOffsets[i + 1] = previousOffset + ((geometryTypes[i] > bufferId)
-                                                                              ? rootLengthStream[rootLengthCounter++]
-                                                                              : 1);
-        }
-    }
-*/
 
     pub fn get_vector_type_int_stream(metadata: &Stream) -> VectorType {
         match metadata.logical_type {
@@ -230,9 +204,11 @@ impl Stream<'_> {
         MltError: From<<U as TryFrom<T>>::Error>,
     {
         match self.logical_type {
-            StreamType::VarInt | StreamType::ComponentwiseDeltaVarInt => {
-                // LogicalLevelTechnique::NONE
-                all(parse_varint_vec::<T, U>(self.data, self.num_values)?)
+            StreamType::VarInt =>all(parse_varint_vec::<T, U>(self.data, self.num_values)?),
+            StreamType::ComponentwiseDeltaVarInt => {
+                let physical_decode = all(parse_varint_vec::<T, U>(self.data, self.num_values)?)?;
+
+                Ok(decodeComponentwiseDeltaVec2(physical_decode))
             }
             _ => panic!("Unsupported physical type: {:?}", self.logical_type),
         }
@@ -253,6 +229,31 @@ impl Stream<'_> {
     //     }
     // }
 }
+
+// fn decodeComponentwiseDeltaVec2<T, U>(data: &[T]) -> Vec<T>
+// where
+//     T: VarInt,
+//     U: TryFrom<T>,
+// {
+//     todo!()
+// }
+
+/*
+template <typename T>
+    requires(std::is_integral_v<T> && sizeof(T) == 4)
+inline void decodeComponentwiseDeltaVec2(T* const data, const std::size_t count) noexcept {
+    assert((count % 2) == 0);
+    if (1 < count) {
+        data[0] = shift_and_xor(data[0]);
+        data[1] = shift_and_xor(data[1]);
+        for (std::size_t i = 2; i + 1 < count; i += 2) {
+            data[i] = shift_and_xor(data[i]) + data[i - 2];
+            data[i + 1] = shift_and_xor(data[i + 1]) + data[i - 1];
+        }
+    }
+}
+ */
+
 
 /// MVT-compatible feature table data
 #[borrowme]
@@ -431,4 +432,29 @@ impl Column<'_> {
         };
         Ok((input, Column { typ, name }))
     }
+}
+
+///Handle the parsing of the different topology length buffers separate not generic to reduce the
+///branching and improve the performance
+pub fn decode_root_length_stream(
+    geometry_types: &[GeometryType],
+    root_length_stream: Vec<u32>,
+    buffer_id: GeometryType,
+) -> Vec<u32> {
+    let mut root_buffer_offsets = Vec::with_capacity(geometry_types.len() + 1);
+    root_buffer_offsets.push(0);
+    let mut previous_offset = 0_u32;
+    let mut root_length_counter = 0_usize;
+    for &geom_type in geometry_types {
+        let offset = previous_offset + if geom_type > buffer_id {
+            let val = root_length_stream[root_length_counter];
+            root_length_counter += 1;
+            val
+        } else {
+            1
+        };
+        root_buffer_offsets.push(offset);
+        previous_offset = offset;
+    }
+    root_buffer_offsets
 }

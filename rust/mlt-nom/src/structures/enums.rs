@@ -122,7 +122,7 @@ impl ColumnType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, TryFromPrimitive)]
 #[repr(u8)]
 pub enum GeometryType {
     Point,
