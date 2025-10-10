@@ -1,12 +1,13 @@
-import { DictionaryType } from './dictionaryType';
-import { OffsetType } from './offsetType';
-import { LengthType } from './lengthType';
+import { DictionaryType } from "./dictionaryType";
+import { OffsetType } from "./offsetType";
+import { LengthType } from "./lengthType";
 
 export class LogicalStreamType {
-
-    constructor(private readonly _dictionaryType?: DictionaryType, private readonly _offsetType?: OffsetType,
-                private readonly _lengthType?: LengthType) {
-    }
+    constructor(
+        private readonly _dictionaryType?: DictionaryType,
+        private readonly _offsetType?: OffsetType,
+        private readonly _lengthType?: LengthType,
+    ) {}
 
     get dictionaryType(): DictionaryType | undefined {
         return this._dictionaryType;

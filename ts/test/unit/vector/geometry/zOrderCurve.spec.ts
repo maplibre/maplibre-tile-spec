@@ -1,6 +1,5 @@
 import ZOrderCurve from "../../../../src/vector/geometry/zOrderCurve";
 
-
 describe("ZOrderCurve", () => {
     it("decode", () => {
         const expectedIndex = 38865244;

@@ -1,4 +1,4 @@
-import {IntegerCODEC, SkippableIntegerCODEC} from "./codec";
+import { IntegerCODEC, SkippableIntegerCODEC } from "./codec";
 //
 // function toNum(low: number, high: number, isSigned: boolean): number {
 //     return isSigned ? high * 0x100000000 + (low >>> 0) : ((high >>> 0) * 0x100000000) + (low >>> 0);
@@ -17,37 +17,57 @@ import {IntegerCODEC, SkippableIntegerCODEC} from "./codec";
 //     throw new Error('Expected varint not more than 10 bytes');
 // }
 
-
 export class VarInt implements IntegerCODEC, SkippableIntegerCODEC {
     public static default(): VarInt {
         return new VarInt();
     }
 
     private toNum(low: number, high: number, isSigned: boolean): number {
-        return isSigned ? high * 0x100000000 + (low >>> 0) : ((high >>> 0) * 0x100000000) + (low >>> 0);
+        return isSigned ? high * 0x100000000 + (low >>> 0) : (high >>> 0) * 0x100000000 + (low >>> 0);
     }
 
-    private readVarintRemainder(val: number, isSigned: boolean, model: { buffer: Uint8Array, pos: number }): number {
+    private readVarintRemainder(val: number, isSigned: boolean, model: { buffer: Uint8Array; pos: number }): number {
         let h: number, b: number;
 
-        b = model.buffer[model.pos++]; h  = (b & 0x70) >> 4;  if (b < 0x80) return this.toNum(val, h, isSigned);
-        b = model.buffer[model.pos++]; h |= (b & 0x7f) << 3;  if (b < 0x80) return this.toNum(val, h, isSigned);
-        b = model.buffer[model.pos++]; h |= (b & 0x7f) << 10; if (b < 0x80) return this.toNum(val, h, isSigned);
-        b = model.buffer[model.pos++]; h |= (b & 0x7f) << 17; if (b < 0x80) return this.toNum(val, h, isSigned);
-        b = model.buffer[model.pos++]; h |= (b & 0x7f) << 24; if (b < 0x80) return this.toNum(val, h, isSigned);
-        b = model.buffer[model.pos++]; h |= (b & 0x01) << 31; if (b < 0x80) return this.toNum(val, h, isSigned);
+        b = model.buffer[model.pos++];
+        h = (b & 0x70) >> 4;
+        if (b < 0x80) return this.toNum(val, h, isSigned);
+        b = model.buffer[model.pos++];
+        h |= (b & 0x7f) << 3;
+        if (b < 0x80) return this.toNum(val, h, isSigned);
+        b = model.buffer[model.pos++];
+        h |= (b & 0x7f) << 10;
+        if (b < 0x80) return this.toNum(val, h, isSigned);
+        b = model.buffer[model.pos++];
+        h |= (b & 0x7f) << 17;
+        if (b < 0x80) return this.toNum(val, h, isSigned);
+        b = model.buffer[model.pos++];
+        h |= (b & 0x7f) << 24;
+        if (b < 0x80) return this.toNum(val, h, isSigned);
+        b = model.buffer[model.pos++];
+        h |= (b & 0x01) << 31;
+        if (b < 0x80) return this.toNum(val, h, isSigned);
 
-        throw new Error('Expected varint not more than 10 bytes');
+        throw new Error("Expected varint not more than 10 bytes");
     }
 
-    private uncompress_single(model: { buffer: Uint8Array, pos: number}, isSigned: boolean = false): number {
+    private uncompress_single(model: { buffer: Uint8Array; pos: number }, isSigned: boolean = false): number {
         let val: number, b: number;
 
-        b = model.buffer[model.pos++]; val  =  b & 0x7f;        if (b < 0x80) return val;
-        b = model.buffer[model.pos++]; val |= (b & 0x7f) << 7;  if (b < 0x80) return val;
-        b = model.buffer[model.pos++]; val |= (b & 0x7f) << 14; if (b < 0x80) return val;
-        b = model.buffer[model.pos++]; val |= (b & 0x7f) << 21; if (b < 0x80) return val;
-        b = model.buffer[model.pos];   val |= (b & 0x0f) << 28;
+        b = model.buffer[model.pos++];
+        val = b & 0x7f;
+        if (b < 0x80) return val;
+        b = model.buffer[model.pos++];
+        val |= (b & 0x7f) << 7;
+        if (b < 0x80) return val;
+        b = model.buffer[model.pos++];
+        val |= (b & 0x7f) << 14;
+        if (b < 0x80) return val;
+        b = model.buffer[model.pos++];
+        val |= (b & 0x7f) << 21;
+        if (b < 0x80) return val;
+        b = model.buffer[model.pos];
+        val |= (b & 0x0f) << 28;
 
         return this.readVarintRemainder(val, isSigned, model);
     }
@@ -58,10 +78,10 @@ export class VarInt implements IntegerCODEC, SkippableIntegerCODEC {
         const tmp = new Uint8Array(model.input.buffer);
         const inner_model = {
             buffer: tmp,
-            pos: 0
+            pos: 0,
         };
 
-        for (let i=0; inner_model.pos < model.input.length; i++) {
+        for (let i = 0; inner_model.pos < model.input.length; i++) {
             output[i] = this.uncompress_single(inner_model, false);
         }
 
@@ -80,7 +100,7 @@ export class VarInt implements IntegerCODEC, SkippableIntegerCODEC {
         inlength: number;
         output: Uint32Array;
         outpos: number;
-        num: number
+        num: number;
     }) {
         let s = 0;
         let val = 0;
@@ -88,7 +108,7 @@ export class VarInt implements IntegerCODEC, SkippableIntegerCODEC {
         let tmpoutpos = model.outpos;
         const finaloutpos = model.num + tmpoutpos;
 
-        for (let v = 0, shift = 0; tmpoutpos < finaloutpos;) {
+        for (let v = 0, shift = 0; tmpoutpos < finaloutpos; ) {
             val = model.input[p];
             const c = val >>> s;
             // Shift to next byte
@@ -97,7 +117,7 @@ export class VarInt implements IntegerCODEC, SkippableIntegerCODEC {
             p += s >> 5;
             // cycle from 31 to 0
             s = s & 31;
-            v += ((c & 127) << shift);
+            v += (c & 127) << shift;
 
             if ((c & 128) === 128) {
                 model.output[tmpoutpos++] = v;

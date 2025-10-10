@@ -1,14 +1,12 @@
-import {SkippableIntegerCODEC} from "./codec";
-import {FastPFOR} from "./fastpfor";
-import {VarInt} from "./varint";
-
+import { SkippableIntegerCODEC } from "./codec";
+import { FastPFOR } from "./fastpfor";
+import { VarInt } from "./varint";
 
 // When in doubt use FastPFORDecoder
 
-
 export class SkippableComposition implements SkippableIntegerCODEC {
-    F1: SkippableIntegerCODEC
-    F2: SkippableIntegerCODEC
+    F1: SkippableIntegerCODEC;
+    F2: SkippableIntegerCODEC;
 
     public constructor(f1: SkippableIntegerCODEC, f2: SkippableIntegerCODEC) {
         this.F1 = f1;
@@ -21,7 +19,7 @@ export class SkippableComposition implements SkippableIntegerCODEC {
         inlength: number;
         output: Uint32Array;
         outpos: number;
-        num: number
+        num: number;
     }): void {
         const init = model.inpos;
         const num = model.num;
@@ -40,16 +38,13 @@ export class SkippableComposition implements SkippableIntegerCODEC {
 }
 
 export class FastPFORDecoder {
-    codec: SkippableIntegerCODEC
+    codec: SkippableIntegerCODEC;
 
     public constructor(codec: SkippableIntegerCODEC) {
         this.codec = codec;
     }
     public static default(): FastPFORDecoder {
-        return new FastPFORDecoder(new SkippableComposition(
-            FastPFOR.default(),
-            VarInt.default()
-        ));
+        return new FastPFORDecoder(new SkippableComposition(FastPFOR.default(), VarInt.default()));
     }
 
     public uncompress(input: Uint32Array): Uint32Array {
@@ -61,7 +56,7 @@ export class FastPFORDecoder {
             inlength: input.length - 1,
             output: output,
             outpos: 0,
-            num: output.length
+            num: output.length,
         });
 
         return output;

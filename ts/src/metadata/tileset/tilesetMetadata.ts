@@ -3,345 +3,358 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+    BinaryReadOptions,
+    FieldList,
+    JsonReadOptions,
+    JsonValue,
+    PartialMessage,
+    PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
  * @generated from enum mlt.ColumnScope
  */
 export enum ColumnScope {
-  /**
-   * 1:1 Mapping of property and feature -> id and geometry
-   *
-   * @generated from enum value: FEATURE = 0;
-   */
-  FEATURE = 0,
+    /**
+     * 1:1 Mapping of property and feature -> id and geometry
+     *
+     * @generated from enum value: FEATURE = 0;
+     */
+    FEATURE = 0,
 
-  /**
-   * For M-Values -> 1:1 Mapping for property and vertex
-   *
-   * @generated from enum value: VERTEX = 1;
-   */
-  VERTEX = 1,
+    /**
+     * For M-Values -> 1:1 Mapping for property and vertex
+     *
+     * @generated from enum value: VERTEX = 1;
+     */
+    VERTEX = 1,
 }
 // Retrieve enum metadata with: proto3.getEnumType(ColumnScope)
 proto3.util.setEnumType(ColumnScope, "mlt.ColumnScope", [
-  { no: 0, name: "FEATURE" },
-  { no: 1, name: "VERTEX" },
+    { no: 0, name: "FEATURE" },
+    { no: 1, name: "VERTEX" },
 ]);
 
 /**
  * @generated from enum mlt.ScalarType
  */
 export enum ScalarType {
-  /**
-   * @generated from enum value: BOOLEAN = 0;
-   */
-  BOOLEAN = 0,
+    /**
+     * @generated from enum value: BOOLEAN = 0;
+     */
+    BOOLEAN = 0,
 
-  /**
-   * @generated from enum value: INT_8 = 1;
-   */
-  INT_8 = 1,
+    /**
+     * @generated from enum value: INT_8 = 1;
+     */
+    INT_8 = 1,
 
-  /**
-   * @generated from enum value: UINT_8 = 2;
-   */
-  UINT_8 = 2,
+    /**
+     * @generated from enum value: UINT_8 = 2;
+     */
+    UINT_8 = 2,
 
-  /**
-   * @generated from enum value: INT_32 = 3;
-   */
-  INT_32 = 3,
+    /**
+     * @generated from enum value: INT_32 = 3;
+     */
+    INT_32 = 3,
 
-  /**
-   * @generated from enum value: UINT_32 = 4;
-   */
-  UINT_32 = 4,
+    /**
+     * @generated from enum value: UINT_32 = 4;
+     */
+    UINT_32 = 4,
 
-  /**
-   * @generated from enum value: INT_64 = 5;
-   */
-  INT_64 = 5,
+    /**
+     * @generated from enum value: INT_64 = 5;
+     */
+    INT_64 = 5,
 
-  /**
-   * @generated from enum value: UINT_64 = 6;
-   */
-  UINT_64 = 6,
+    /**
+     * @generated from enum value: UINT_64 = 6;
+     */
+    UINT_64 = 6,
 
-  /**
-   * @generated from enum value: FLOAT = 7;
-   */
-  FLOAT = 7,
+    /**
+     * @generated from enum value: FLOAT = 7;
+     */
+    FLOAT = 7,
 
-  /**
-   * @generated from enum value: DOUBLE = 8;
-   */
-  DOUBLE = 8,
+    /**
+     * @generated from enum value: DOUBLE = 8;
+     */
+    DOUBLE = 8,
 
-  /**
-   * @generated from enum value: STRING = 9;
-   */
-  STRING = 9,
+    /**
+     * @generated from enum value: STRING = 9;
+     */
+    STRING = 9,
 }
 // Retrieve enum metadata with: proto3.getEnumType(ScalarType)
 proto3.util.setEnumType(ScalarType, "mlt.ScalarType", [
-  { no: 0, name: "BOOLEAN" },
-  { no: 1, name: "INT_8" },
-  { no: 2, name: "UINT_8" },
-  { no: 3, name: "INT_32" },
-  { no: 4, name: "UINT_32" },
-  { no: 5, name: "INT_64" },
-  { no: 6, name: "UINT_64" },
-  { no: 7, name: "FLOAT" },
-  { no: 8, name: "DOUBLE" },
-  { no: 9, name: "STRING" },
+    { no: 0, name: "BOOLEAN" },
+    { no: 1, name: "INT_8" },
+    { no: 2, name: "UINT_8" },
+    { no: 3, name: "INT_32" },
+    { no: 4, name: "UINT_32" },
+    { no: 5, name: "INT_64" },
+    { no: 6, name: "UINT_64" },
+    { no: 7, name: "FLOAT" },
+    { no: 8, name: "DOUBLE" },
+    { no: 9, name: "STRING" },
 ]);
 
 /**
  * @generated from enum mlt.ComplexType
  */
 export enum ComplexType {
-  /**
-   * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-   *
-   * @generated from enum value: VEC_2 = 0;
-   */
-  VEC_2 = 0,
+    /**
+     * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
+     *
+     * @generated from enum value: VEC_2 = 0;
+     */
+    VEC_2 = 0,
 
-  /**
-   * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
-   *
-   * @generated from enum value: VEC_3 = 1;
-   */
-  VEC_3 = 1,
+    /**
+     * fixed size binary with 2 values of the same type either signed or unsigned Int8, Int32, Int64 as well as Float or Double
+     *
+     * @generated from enum value: VEC_3 = 1;
+     */
+    VEC_3 = 1,
 
-  /**
-   * vec2<Int32> for the VertexBuffer stream with additional information (streams) about the topology
-   *
-   * @generated from enum value: GEOMETRY = 2;
-   */
-  GEOMETRY = 2,
+    /**
+     * vec2<Int32> for the VertexBuffer stream with additional information (streams) about the topology
+     *
+     * @generated from enum value: GEOMETRY = 2;
+     */
+    GEOMETRY = 2,
 
-  /**
-   * vec3<Int32> for the VertexBuffer stream with additional information (streams) about the topology
-   *
-   * @generated from enum value: GEOMETRY_Z = 3;
-   */
-  GEOMETRY_Z = 3,
+    /**
+     * vec3<Int32> for the VertexBuffer stream with additional information (streams) about the topology
+     *
+     * @generated from enum value: GEOMETRY_Z = 3;
+     */
+    GEOMETRY_Z = 3,
 
-  /**
-   * @generated from enum value: LIST = 4;
-   */
-  LIST = 4,
+    /**
+     * @generated from enum value: LIST = 4;
+     */
+    LIST = 4,
 
-  /**
-   * @generated from enum value: MAP = 5;
-   */
-  MAP = 5,
+    /**
+     * @generated from enum value: MAP = 5;
+     */
+    MAP = 5,
 
-  /**
-   * @generated from enum value: STRUCT = 6;
-   */
-  STRUCT = 6,
+    /**
+     * @generated from enum value: STRUCT = 6;
+     */
+    STRUCT = 6,
 }
 // Retrieve enum metadata with: proto3.getEnumType(ComplexType)
 proto3.util.setEnumType(ComplexType, "mlt.ComplexType", [
-  { no: 0, name: "VEC_2" },
-  { no: 1, name: "VEC_3" },
-  { no: 2, name: "GEOMETRY" },
-  { no: 3, name: "GEOMETRY_Z" },
-  { no: 4, name: "LIST" },
-  { no: 5, name: "MAP" },
-  { no: 6, name: "STRUCT" },
+    { no: 0, name: "VEC_2" },
+    { no: 1, name: "VEC_3" },
+    { no: 2, name: "GEOMETRY" },
+    { no: 3, name: "GEOMETRY_Z" },
+    { no: 4, name: "LIST" },
+    { no: 5, name: "MAP" },
+    { no: 6, name: "STRUCT" },
 ]);
 
 /**
  * @generated from enum mlt.LogicalScalarType
  */
 export enum LogicalScalarType {
-  /**
-   * physical type: Int64 -> number of milliseconds since Unix epoch
-   *
-   * @generated from enum value: TIMESTAMP = 0;
-   */
-  TIMESTAMP = 0,
+    /**
+     * physical type: Int64 -> number of milliseconds since Unix epoch
+     *
+     * @generated from enum value: TIMESTAMP = 0;
+     */
+    TIMESTAMP = 0,
 
-  /**
-   * physical type: Int32 -> number of days since Unix epoch
-   *
-   * @generated from enum value: DATE = 1;
-   */
-  DATE = 1,
+    /**
+     * physical type: Int32 -> number of days since Unix epoch
+     *
+     * @generated from enum value: DATE = 1;
+     */
+    DATE = 1,
 
-  /**
-   * physical type: String
-   *
-   * @generated from enum value: JSON = 2;
-   */
-  JSON = 2,
+    /**
+     * physical type: String
+     *
+     * @generated from enum value: JSON = 2;
+     */
+    JSON = 2,
 }
 // Retrieve enum metadata with: proto3.getEnumType(LogicalScalarType)
 proto3.util.setEnumType(LogicalScalarType, "mlt.LogicalScalarType", [
-  { no: 0, name: "TIMESTAMP" },
-  { no: 1, name: "DATE" },
-  { no: 2, name: "JSON" },
+    { no: 0, name: "TIMESTAMP" },
+    { no: 1, name: "DATE" },
+    { no: 2, name: "JSON" },
 ]);
 
 /**
  * @generated from enum mlt.LogicalComplexType
  */
 export enum LogicalComplexType {
-  /**
-   * physical type: list<UInt8>
-   *
-   * @generated from enum value: BINARY = 0;
-   */
-  BINARY = 0,
+    /**
+     * physical type: list<UInt8>
+     *
+     * @generated from enum value: BINARY = 0;
+     */
+    BINARY = 0,
 
-  /**
-   * physical type: map<vec2<double, T>> -> special data structure which can be used for a efficient representation of linear referencing
-   *
-   * @generated from enum value: RANGE_MAP = 1;
-   */
-  RANGE_MAP = 1,
+    /**
+     * physical type: map<vec2<double, T>> -> special data structure which can be used for a efficient representation of linear referencing
+     *
+     * @generated from enum value: RANGE_MAP = 1;
+     */
+    RANGE_MAP = 1,
 }
 // Retrieve enum metadata with: proto3.getEnumType(LogicalComplexType)
 proto3.util.setEnumType(LogicalComplexType, "mlt.LogicalComplexType", [
-  { no: 0, name: "BINARY" },
-  { no: 1, name: "RANGE_MAP" },
+    { no: 0, name: "BINARY" },
+    { no: 1, name: "RANGE_MAP" },
 ]);
 
 /**
  * @generated from message mlt.TileSetMetadata
  */
 export class TileSetMetadata extends Message<TileSetMetadata> {
-  /**
-   * @generated from field: int32 version = 1;
-   */
-  version = 0;
+    /**
+     * @generated from field: int32 version = 1;
+     */
+    version = 0;
 
-  /**
-   * @generated from field: repeated mlt.FeatureTableSchema featureTables = 2;
-   */
-  featureTables: FeatureTableSchema[] = [];
+    /**
+     * @generated from field: repeated mlt.FeatureTableSchema featureTables = 2;
+     */
+    featureTables: FeatureTableSchema[] = [];
 
-  /**
-   * @generated from field: optional string name = 3;
-   */
-  name?: string;
+    /**
+     * @generated from field: optional string name = 3;
+     */
+    name?: string;
 
-  /**
-   * @generated from field: optional string description = 4;
-   */
-  description?: string;
+    /**
+     * @generated from field: optional string description = 4;
+     */
+    description?: string;
 
-  /**
-   * @generated from field: optional string attribution = 5;
-   */
-  attribution?: string;
+    /**
+     * @generated from field: optional string attribution = 5;
+     */
+    attribution?: string;
 
-  /**
-   * @generated from field: optional int32 minZoom = 6;
-   */
-  minZoom?: number;
+    /**
+     * @generated from field: optional int32 minZoom = 6;
+     */
+    minZoom?: number;
 
-  /**
-   * @generated from field: optional int32 maxZoom = 7;
-   */
-  maxZoom?: number;
+    /**
+     * @generated from field: optional int32 maxZoom = 7;
+     */
+    maxZoom?: number;
 
-  /**
-   * order left, bottom, right, top in WGS84
-   *
-   * @generated from field: repeated double bounds = 8;
-   */
-  bounds: number[] = [];
+    /**
+     * order left, bottom, right, top in WGS84
+     *
+     * @generated from field: repeated double bounds = 8;
+     */
+    bounds: number[] = [];
 
-  /**
-   * order longitude, latitude in WGS84
-   *
-   * @generated from field: repeated double center = 9;
-   */
-  center: number[] = [];
+    /**
+     * order longitude, latitude in WGS84
+     *
+     * @generated from field: repeated double center = 9;
+     */
+    center: number[] = [];
 
-  constructor(data?: PartialMessage<TileSetMetadata>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    constructor(data?: PartialMessage<TileSetMetadata>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.TileSetMetadata";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "version", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
-    { no: 2, name: "featureTables", kind: "message", T: FeatureTableSchema, repeated: true },
-    { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
-    { no: 4, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
-    { no: 5, name: "attribution", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
-    { no: 6, name: "minZoom", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
-    { no: 7, name: "maxZoom", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
-    { no: 8, name: "bounds", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, repeated: true },
-    { no: 9, name: "center", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, repeated: true },
-  ]);
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.TileSetMetadata";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 1, name: "version", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+        { no: 2, name: "featureTables", kind: "message", T: FeatureTableSchema, repeated: true },
+        { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+        { no: 4, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+        { no: 5, name: "attribution", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+        { no: 6, name: "minZoom", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+        { no: 7, name: "maxZoom", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+        { no: 8, name: "bounds", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, repeated: true },
+        { no: 9, name: "center", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, repeated: true },
+    ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TileSetMetadata {
-    return new TileSetMetadata().fromBinary(bytes, options);
-  }
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TileSetMetadata {
+        return new TileSetMetadata().fromBinary(bytes, options);
+    }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): TileSetMetadata {
-    return new TileSetMetadata().fromJson(jsonValue, options);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): TileSetMetadata {
+        return new TileSetMetadata().fromJson(jsonValue, options);
+    }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): TileSetMetadata {
-    return new TileSetMetadata().fromJsonString(jsonString, options);
-  }
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): TileSetMetadata {
+        return new TileSetMetadata().fromJsonString(jsonString, options);
+    }
 
-  static equals(a: TileSetMetadata | PlainMessage<TileSetMetadata> | undefined, b: TileSetMetadata | PlainMessage<TileSetMetadata> | undefined): boolean {
-    return proto3.util.equals(TileSetMetadata, a, b);
-  }
+    static equals(
+        a: TileSetMetadata | PlainMessage<TileSetMetadata> | undefined,
+        b: TileSetMetadata | PlainMessage<TileSetMetadata> | undefined,
+    ): boolean {
+        return proto3.util.equals(TileSetMetadata, a, b);
+    }
 }
 
 /**
  * @generated from message mlt.FeatureTableSchema
  */
 export class FeatureTableSchema extends Message<FeatureTableSchema> {
-  /**
-   * @generated from field: string name = 1;
-   */
-  name = "";
+    /**
+     * @generated from field: string name = 1;
+     */
+    name = "";
 
-  /**
-   * @generated from field: repeated mlt.Column columns = 2;
-   */
-  columns: Column[] = [];
+    /**
+     * @generated from field: repeated mlt.Column columns = 2;
+     */
+    columns: Column[] = [];
 
-  constructor(data?: PartialMessage<FeatureTableSchema>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    constructor(data?: PartialMessage<FeatureTableSchema>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.FeatureTableSchema";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "columns", kind: "message", T: Column, repeated: true },
-  ]);
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.FeatureTableSchema";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+        { no: 2, name: "columns", kind: "message", T: Column, repeated: true },
+    ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): FeatureTableSchema {
-    return new FeatureTableSchema().fromBinary(bytes, options);
-  }
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): FeatureTableSchema {
+        return new FeatureTableSchema().fromBinary(bytes, options);
+    }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): FeatureTableSchema {
-    return new FeatureTableSchema().fromJson(jsonValue, options);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): FeatureTableSchema {
+        return new FeatureTableSchema().fromJson(jsonValue, options);
+    }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): FeatureTableSchema {
-    return new FeatureTableSchema().fromJsonString(jsonString, options);
-  }
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): FeatureTableSchema {
+        return new FeatureTableSchema().fromJsonString(jsonString, options);
+    }
 
-  static equals(a: FeatureTableSchema | PlainMessage<FeatureTableSchema> | undefined, b: FeatureTableSchema | PlainMessage<FeatureTableSchema> | undefined): boolean {
-    return proto3.util.equals(FeatureTableSchema, a, b);
-  }
+    static equals(
+        a: FeatureTableSchema | PlainMessage<FeatureTableSchema> | undefined,
+        b: FeatureTableSchema | PlainMessage<FeatureTableSchema> | undefined,
+    ): boolean {
+        return proto3.util.equals(FeatureTableSchema, a, b);
+    }
 }
 
 /**
@@ -350,120 +363,129 @@ export class FeatureTableSchema extends Message<FeatureTableSchema> {
  * @generated from message mlt.Column
  */
 export class Column extends Message<Column> {
-  /**
-   * @generated from field: string name = 1;
-   */
-  name = "";
-
-  /**
-   * specifies if the values are optional in the column and a present stream should be used
-   *
-   * @generated from field: bool nullable = 2;
-   */
-  nullable = false;
-
-  /**
-   * @generated from field: mlt.ColumnScope columnScope = 3;
-   */
-  columnScope = ColumnScope.FEATURE;
-
-  /**
-   * @generated from oneof mlt.Column.type
-   */
-  type: {
     /**
-     * @generated from field: mlt.ScalarColumn scalarType = 4;
+     * @generated from field: string name = 1;
      */
-    value: ScalarColumn;
-    case: "scalarType";
-  } | {
+    name = "";
+
     /**
-     * @generated from field: mlt.ComplexColumn complexType = 5;
+     * specifies if the values are optional in the column and a present stream should be used
+     *
+     * @generated from field: bool nullable = 2;
      */
-    value: ComplexColumn;
-    case: "complexType";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+    nullable = false;
 
-  constructor(data?: PartialMessage<Column>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    /**
+     * @generated from field: mlt.ColumnScope columnScope = 3;
+     */
+    columnScope = ColumnScope.FEATURE;
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.Column";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "nullable", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 3, name: "columnScope", kind: "enum", T: proto3.getEnumType(ColumnScope) },
-    { no: 4, name: "scalarType", kind: "message", T: ScalarColumn, oneof: "type" },
-    { no: 5, name: "complexType", kind: "message", T: ComplexColumn, oneof: "type" },
-  ]);
+    /**
+     * @generated from oneof mlt.Column.type
+     */
+    type:
+        | {
+              /**
+               * @generated from field: mlt.ScalarColumn scalarType = 4;
+               */
+              value: ScalarColumn;
+              case: "scalarType";
+          }
+        | {
+              /**
+               * @generated from field: mlt.ComplexColumn complexType = 5;
+               */
+              value: ComplexColumn;
+              case: "complexType";
+          }
+        | { case: undefined; value?: undefined } = { case: undefined };
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Column {
-    return new Column().fromBinary(bytes, options);
-  }
+    constructor(data?: PartialMessage<Column>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Column {
-    return new Column().fromJson(jsonValue, options);
-  }
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.Column";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+        { no: 2, name: "nullable", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+        { no: 3, name: "columnScope", kind: "enum", T: proto3.getEnumType(ColumnScope) },
+        { no: 4, name: "scalarType", kind: "message", T: ScalarColumn, oneof: "type" },
+        { no: 5, name: "complexType", kind: "message", T: ComplexColumn, oneof: "type" },
+    ]);
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Column {
-    return new Column().fromJsonString(jsonString, options);
-  }
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Column {
+        return new Column().fromBinary(bytes, options);
+    }
 
-  static equals(a: Column | PlainMessage<Column> | undefined, b: Column | PlainMessage<Column> | undefined): boolean {
-    return proto3.util.equals(Column, a, b);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Column {
+        return new Column().fromJson(jsonValue, options);
+    }
+
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Column {
+        return new Column().fromJsonString(jsonString, options);
+    }
+
+    static equals(a: Column | PlainMessage<Column> | undefined, b: Column | PlainMessage<Column> | undefined): boolean {
+        return proto3.util.equals(Column, a, b);
+    }
 }
 
 /**
  * @generated from message mlt.ScalarColumn
  */
 export class ScalarColumn extends Message<ScalarColumn> {
-  /**
-   * @generated from oneof mlt.ScalarColumn.type
-   */
-  type: {
     /**
-     * @generated from field: mlt.ScalarType physicalType = 4;
+     * @generated from oneof mlt.ScalarColumn.type
      */
-    value: ScalarType;
-    case: "physicalType";
-  } | {
-    /**
-     * @generated from field: mlt.LogicalScalarType logicalType = 5;
-     */
-    value: LogicalScalarType;
-    case: "logicalType";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+    type:
+        | {
+              /**
+               * @generated from field: mlt.ScalarType physicalType = 4;
+               */
+              value: ScalarType;
+              case: "physicalType";
+          }
+        | {
+              /**
+               * @generated from field: mlt.LogicalScalarType logicalType = 5;
+               */
+              value: LogicalScalarType;
+              case: "logicalType";
+          }
+        | { case: undefined; value?: undefined } = { case: undefined };
 
-  constructor(data?: PartialMessage<ScalarColumn>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    constructor(data?: PartialMessage<ScalarColumn>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.ScalarColumn";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 4, name: "physicalType", kind: "enum", T: proto3.getEnumType(ScalarType), oneof: "type" },
-    { no: 5, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalScalarType), oneof: "type" },
-  ]);
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.ScalarColumn";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 4, name: "physicalType", kind: "enum", T: proto3.getEnumType(ScalarType), oneof: "type" },
+        { no: 5, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalScalarType), oneof: "type" },
+    ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ScalarColumn {
-    return new ScalarColumn().fromBinary(bytes, options);
-  }
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ScalarColumn {
+        return new ScalarColumn().fromBinary(bytes, options);
+    }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ScalarColumn {
-    return new ScalarColumn().fromJson(jsonValue, options);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ScalarColumn {
+        return new ScalarColumn().fromJson(jsonValue, options);
+    }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ScalarColumn {
-    return new ScalarColumn().fromJsonString(jsonString, options);
-  }
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ScalarColumn {
+        return new ScalarColumn().fromJsonString(jsonString, options);
+    }
 
-  static equals(a: ScalarColumn | PlainMessage<ScalarColumn> | undefined, b: ScalarColumn | PlainMessage<ScalarColumn> | undefined): boolean {
-    return proto3.util.equals(ScalarColumn, a, b);
-  }
+    static equals(
+        a: ScalarColumn | PlainMessage<ScalarColumn> | undefined,
+        b: ScalarColumn | PlainMessage<ScalarColumn> | undefined,
+    ): boolean {
+        return proto3.util.equals(ScalarColumn, a, b);
+    }
 }
 
 /**
@@ -473,59 +495,65 @@ export class ScalarColumn extends Message<ScalarColumn> {
  * @generated from message mlt.ComplexColumn
  */
 export class ComplexColumn extends Message<ComplexColumn> {
-  /**
-   * @generated from oneof mlt.ComplexColumn.type
-   */
-  type: {
     /**
-     * @generated from field: mlt.ComplexType physicalType = 4;
+     * @generated from oneof mlt.ComplexColumn.type
      */
-    value: ComplexType;
-    case: "physicalType";
-  } | {
+    type:
+        | {
+              /**
+               * @generated from field: mlt.ComplexType physicalType = 4;
+               */
+              value: ComplexType;
+              case: "physicalType";
+          }
+        | {
+              /**
+               * @generated from field: mlt.LogicalComplexType logicalType = 5;
+               */
+              value: LogicalComplexType;
+              case: "logicalType";
+          }
+        | { case: undefined; value?: undefined } = { case: undefined };
+
     /**
-     * @generated from field: mlt.LogicalComplexType logicalType = 5;
+     * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
+     * RangeMap has only one child specifying the type of the value since the key is always a vec2<double>.
+     *
+     * @generated from field: repeated mlt.Field children = 6;
      */
-    value: LogicalComplexType;
-    case: "logicalType";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+    children: Field[] = [];
 
-  /**
-   * The complex type Geometry and the logical type BINARY have no children since there layout is implicit known.
-   * RangeMap has only one child specifying the type of the value since the key is always a vec2<double>.
-   *
-   * @generated from field: repeated mlt.Field children = 6;
-   */
-  children: Field[] = [];
+    constructor(data?: PartialMessage<ComplexColumn>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  constructor(data?: PartialMessage<ComplexColumn>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.ComplexColumn";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 4, name: "physicalType", kind: "enum", T: proto3.getEnumType(ComplexType), oneof: "type" },
+        { no: 5, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalComplexType), oneof: "type" },
+        { no: 6, name: "children", kind: "message", T: Field, repeated: true },
+    ]);
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.ComplexColumn";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 4, name: "physicalType", kind: "enum", T: proto3.getEnumType(ComplexType), oneof: "type" },
-    { no: 5, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalComplexType), oneof: "type" },
-    { no: 6, name: "children", kind: "message", T: Field, repeated: true },
-  ]);
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ComplexColumn {
+        return new ComplexColumn().fromBinary(bytes, options);
+    }
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ComplexColumn {
-    return new ComplexColumn().fromBinary(bytes, options);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ComplexColumn {
+        return new ComplexColumn().fromJson(jsonValue, options);
+    }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ComplexColumn {
-    return new ComplexColumn().fromJson(jsonValue, options);
-  }
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ComplexColumn {
+        return new ComplexColumn().fromJsonString(jsonString, options);
+    }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ComplexColumn {
-    return new ComplexColumn().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: ComplexColumn | PlainMessage<ComplexColumn> | undefined, b: ComplexColumn | PlainMessage<ComplexColumn> | undefined): boolean {
-    return proto3.util.equals(ComplexColumn, a, b);
-  }
+    static equals(
+        a: ComplexColumn | PlainMessage<ComplexColumn> | undefined,
+        b: ComplexColumn | PlainMessage<ComplexColumn> | undefined,
+    ): boolean {
+        return proto3.util.equals(ComplexColumn, a, b);
+    }
 }
 
 /**
@@ -534,169 +562,184 @@ export class ComplexColumn extends Message<ComplexColumn> {
  * @generated from message mlt.Field
  */
 export class Field extends Message<Field> {
-  /**
-   * name and nullable are only needed in combination with a struct not for vec, list and map
-   * Map -> has the order key type, value type
-   *
-   * @generated from field: optional string name = 1;
-   */
-  name?: string;
-
-  /**
-   * @generated from field: optional bool nullable = 2;
-   */
-  nullable?: boolean;
-
-  /**
-   * @generated from oneof mlt.Field.type
-   */
-  type: {
     /**
-     * @generated from field: mlt.ScalarField scalarField = 3;
+     * name and nullable are only needed in combination with a struct not for vec, list and map
+     * Map -> has the order key type, value type
+     *
+     * @generated from field: optional string name = 1;
      */
-    value: ScalarField;
-    case: "scalarField";
-  } | {
+    name?: string;
+
     /**
-     * @generated from field: mlt.ComplexField complexField = 4;
+     * @generated from field: optional bool nullable = 2;
      */
-    value: ComplexField;
-    case: "complexField";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+    nullable?: boolean;
 
-  constructor(data?: PartialMessage<Field>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    /**
+     * @generated from oneof mlt.Field.type
+     */
+    type:
+        | {
+              /**
+               * @generated from field: mlt.ScalarField scalarField = 3;
+               */
+              value: ScalarField;
+              case: "scalarField";
+          }
+        | {
+              /**
+               * @generated from field: mlt.ComplexField complexField = 4;
+               */
+              value: ComplexField;
+              case: "complexField";
+          }
+        | { case: undefined; value?: undefined } = { case: undefined };
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.Field";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
-    { no: 2, name: "nullable", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
-    { no: 3, name: "scalarField", kind: "message", T: ScalarField, oneof: "type" },
-    { no: 4, name: "complexField", kind: "message", T: ComplexField, oneof: "type" },
-  ]);
+    constructor(data?: PartialMessage<Field>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Field {
-    return new Field().fromBinary(bytes, options);
-  }
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.Field";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+        { no: 2, name: "nullable", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+        { no: 3, name: "scalarField", kind: "message", T: ScalarField, oneof: "type" },
+        { no: 4, name: "complexField", kind: "message", T: ComplexField, oneof: "type" },
+    ]);
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Field {
-    return new Field().fromJson(jsonValue, options);
-  }
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Field {
+        return new Field().fromBinary(bytes, options);
+    }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Field {
-    return new Field().fromJsonString(jsonString, options);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Field {
+        return new Field().fromJson(jsonValue, options);
+    }
 
-  static equals(a: Field | PlainMessage<Field> | undefined, b: Field | PlainMessage<Field> | undefined): boolean {
-    return proto3.util.equals(Field, a, b);
-  }
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Field {
+        return new Field().fromJsonString(jsonString, options);
+    }
+
+    static equals(a: Field | PlainMessage<Field> | undefined, b: Field | PlainMessage<Field> | undefined): boolean {
+        return proto3.util.equals(Field, a, b);
+    }
 }
 
 /**
  * @generated from message mlt.ScalarField
  */
 export class ScalarField extends Message<ScalarField> {
-  /**
-   * @generated from oneof mlt.ScalarField.type
-   */
-  type: {
     /**
-     * @generated from field: mlt.ScalarType physicalType = 1;
+     * @generated from oneof mlt.ScalarField.type
      */
-    value: ScalarType;
-    case: "physicalType";
-  } | {
-    /**
-     * @generated from field: mlt.LogicalScalarType logicalType = 2;
-     */
-    value: LogicalScalarType;
-    case: "logicalType";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+    type:
+        | {
+              /**
+               * @generated from field: mlt.ScalarType physicalType = 1;
+               */
+              value: ScalarType;
+              case: "physicalType";
+          }
+        | {
+              /**
+               * @generated from field: mlt.LogicalScalarType logicalType = 2;
+               */
+              value: LogicalScalarType;
+              case: "logicalType";
+          }
+        | { case: undefined; value?: undefined } = { case: undefined };
 
-  constructor(data?: PartialMessage<ScalarField>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    constructor(data?: PartialMessage<ScalarField>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.ScalarField";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "physicalType", kind: "enum", T: proto3.getEnumType(ScalarType), oneof: "type" },
-    { no: 2, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalScalarType), oneof: "type" },
-  ]);
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.ScalarField";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 1, name: "physicalType", kind: "enum", T: proto3.getEnumType(ScalarType), oneof: "type" },
+        { no: 2, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalScalarType), oneof: "type" },
+    ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ScalarField {
-    return new ScalarField().fromBinary(bytes, options);
-  }
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ScalarField {
+        return new ScalarField().fromBinary(bytes, options);
+    }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ScalarField {
-    return new ScalarField().fromJson(jsonValue, options);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ScalarField {
+        return new ScalarField().fromJson(jsonValue, options);
+    }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ScalarField {
-    return new ScalarField().fromJsonString(jsonString, options);
-  }
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ScalarField {
+        return new ScalarField().fromJsonString(jsonString, options);
+    }
 
-  static equals(a: ScalarField | PlainMessage<ScalarField> | undefined, b: ScalarField | PlainMessage<ScalarField> | undefined): boolean {
-    return proto3.util.equals(ScalarField, a, b);
-  }
+    static equals(
+        a: ScalarField | PlainMessage<ScalarField> | undefined,
+        b: ScalarField | PlainMessage<ScalarField> | undefined,
+    ): boolean {
+        return proto3.util.equals(ScalarField, a, b);
+    }
 }
 
 /**
  * @generated from message mlt.ComplexField
  */
 export class ComplexField extends Message<ComplexField> {
-  /**
-   * @generated from oneof mlt.ComplexField.type
-   */
-  type: {
     /**
-     * @generated from field: mlt.ComplexType physicalType = 1;
+     * @generated from oneof mlt.ComplexField.type
      */
-    value: ComplexType;
-    case: "physicalType";
-  } | {
+    type:
+        | {
+              /**
+               * @generated from field: mlt.ComplexType physicalType = 1;
+               */
+              value: ComplexType;
+              case: "physicalType";
+          }
+        | {
+              /**
+               * @generated from field: mlt.LogicalComplexType logicalType = 2;
+               */
+              value: LogicalComplexType;
+              case: "logicalType";
+          }
+        | { case: undefined; value?: undefined } = { case: undefined };
+
     /**
-     * @generated from field: mlt.LogicalComplexType logicalType = 2;
+     * @generated from field: repeated mlt.Field children = 3;
      */
-    value: LogicalComplexType;
-    case: "logicalType";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+    children: Field[] = [];
 
-  /**
-   * @generated from field: repeated mlt.Field children = 3;
-   */
-  children: Field[] = [];
+    constructor(data?: PartialMessage<ComplexField>) {
+        super();
+        proto3.util.initPartial(data, this);
+    }
 
-  constructor(data?: PartialMessage<ComplexField>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
+    static readonly runtime: typeof proto3 = proto3;
+    static readonly typeName = "mlt.ComplexField";
+    static readonly fields: FieldList = proto3.util.newFieldList(() => [
+        { no: 1, name: "physicalType", kind: "enum", T: proto3.getEnumType(ComplexType), oneof: "type" },
+        { no: 2, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalComplexType), oneof: "type" },
+        { no: 3, name: "children", kind: "message", T: Field, repeated: true },
+    ]);
 
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "mlt.ComplexField";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "physicalType", kind: "enum", T: proto3.getEnumType(ComplexType), oneof: "type" },
-    { no: 2, name: "logicalType", kind: "enum", T: proto3.getEnumType(LogicalComplexType), oneof: "type" },
-    { no: 3, name: "children", kind: "message", T: Field, repeated: true },
-  ]);
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ComplexField {
+        return new ComplexField().fromBinary(bytes, options);
+    }
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ComplexField {
-    return new ComplexField().fromBinary(bytes, options);
-  }
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ComplexField {
+        return new ComplexField().fromJson(jsonValue, options);
+    }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ComplexField {
-    return new ComplexField().fromJson(jsonValue, options);
-  }
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ComplexField {
+        return new ComplexField().fromJsonString(jsonString, options);
+    }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ComplexField {
-    return new ComplexField().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: ComplexField | PlainMessage<ComplexField> | undefined, b: ComplexField | PlainMessage<ComplexField> | undefined): boolean {
-    return proto3.util.equals(ComplexField, a, b);
-  }
+    static equals(
+        a: ComplexField | PlainMessage<ComplexField> | undefined,
+        b: ComplexField | PlainMessage<ComplexField> | undefined,
+    ): boolean {
+        return proto3.util.equals(ComplexField, a, b);
+    }
 }

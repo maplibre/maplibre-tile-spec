@@ -4,5 +4,5 @@ export enum DictionaryType {
     SHARED = "SHARED",
     VERTEX = "VERTEX",
     MORTON = "MORTON",
-    FSST = "FSST"
+    FSST = "FSST",
 }
