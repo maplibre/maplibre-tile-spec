@@ -4,6 +4,13 @@
 
 A Java library for encoding and decoding MapLibre Tile (MLT) format, providing efficient compression and fast access to vector tile data.
 
+## Project Structure
+
+This is a multi-project Gradle build with the following structure:
+
+- **`mlt-core`**: Core library containing the MLT implementation
+- **`mlt-cli`**: Command-line tools for encoding, decoding, and metadata generation
+
 ## Installation
 
 ### Gradle (`build.gradle`)
@@ -207,26 +214,168 @@ try (Stream<Path> paths = Files.list(Paths.get("input_tiles"))) {
 }
 ```
 
-## CLI Usage
+## CLI Tools
 
-To build command line tools:
+The project includes three command-line tools for working with MLT files:
+
+### Building CLI Tools
 
 ```console
 ./gradlew cli
 ```
 
-Example of converting MVT to MLT:
+This creates the following JAR files in `mlt-cli/build/libs/`:
+- `encode.jar` - Convert MVT to MLT format
+- `decode.jar` - Decode MLT files
+- `meta.jar` - Generate metadata from MVT files
+
+### Encode Tool
+
+Convert Mapbox Vector Tiles (MVT) to MLT format:
 
 ```console
-java -jar build/libs/encode.jar --mvt ../test/fixtures/simple/point-boolean.pbf --mlt /tmp/point-boolean.mlt --tessellate --outlines ALL  --embedmetadata --verbose
+# Convert a single tile
+java -jar mlt-cli/build/libs/encode.jar --mvt input.mvt --mlt output.mlt
 
-java -jar build/libs/encode.jar --mbtiles /Users/timsylvester/src/ml/ml-tile-spec/test/omt-ref.mbtiles --mlt /tmp/omt-basic-mlt.mbtiles --tessellate --outlines ALL --compress=deflate --verbose
+# Convert an entire MBTiles database
+java -jar mlt-cli/build/libs/encode.jar --mbtiles input.mbtiles --mlt output.mbtiles
+
+# Advanced conversion with optimizations
+java -jar mlt-cli/build/libs/encode.jar \
+  --mvt input.mvt \
+  --mlt output.mlt \
+  --tessellate \
+  --outlines ALL \
+  --advanced \
+  --compress=gzip \
+  --verbose
 ```
 
-## Contributing
+**Key Options:**
+- `--mvt <file>`: Input MVT file
+- `--mbtiles <file>`: Input MBTiles database
+- `--mlt <file>`: Output MLT file
+- `--tessellate`: Include tessellation data
+- `--outlines <layers>`: Include outlines for specified layers
+- `--advanced`: Enable advanced encoding schemes (FSST & FastPFOR)
+- `--compress <type>`: Compression type (gzip, deflate, none)
+- `--verbose`: Enable verbose output
 
-Run the tests:
+### Decode Tool
 
+Decode MLT files back to readable format:
+
+```console
+# Decode and print MLT content
+java -jar mlt-cli/build/libs/decode.jar --mlt input.mlt --printmlt
+
+# Decode with timing information
+java -jar mlt-cli/build/libs/decode.jar --mlt input.mlt --timer
 ```
+
+**Key Options:**
+- `--mlt <file>`: Input MLT file (required)
+- `--printmlt`: Print decoded MLT content
+- `--timer`: Show decoding time
+
+### Meta Tool
+
+Generate metadata from MVT files:
+
+```console
+# Generate metadata and print to stdout
+java -jar mlt-cli/build/libs/meta.jar --mvt input.mvt
+
+# Generate metadata and save to file
+java -jar mlt-cli/build/libs/meta.jar --mvt input.mvt --output metadata.json
+```
+
+**Key Options:**
+- `--mvt <file>`: Input MVT file (required)
+- `--output <file>`: Output metadata file (optional, defaults to stdout)
+
+### Example Workflows
+
+**Convert a single tile:**
+```console
+java -jar mlt-cli/build/libs/encode.jar \
+  --mvt ../test/fixtures/simple/point-boolean.pbf \
+  --mlt /tmp/point-boolean.mlt \
+  --tessellate \
+  --outlines ALL \
+  --verbose
+```
+
+**Convert an MBTiles database:**
+```console
+java -jar mlt-cli/build/libs/encode.jar \
+  --mbtiles input.mbtiles \
+  --mlt output.mbtiles \
+  --tessellate \
+  --outlines ALL \
+  --compress=deflate \
+  --verbose
+```
+
+**Batch process multiple tiles:**
+```console
+for file in *.mvt; do
+  java -jar mlt-cli/build/libs/encode.jar \
+    --mvt "$file" \
+    --mlt "${file%.mvt}.mlt" \
+    --advanced
+done
+```
+
+## Development
+
+### Building the Project
+
+```console
+# Build all projects including CLI tools
+./gradlew buildAll
+
+# Build individual projects
+./gradlew :mlt-core:build    # Core library only
+./gradlew :mlt-cli:build     # CLI tools only
+./gradlew cli                # Build CLI JARs
+```
+
+### Running Tests
+
+```console
+# Run all tests
 ./gradlew test
+
+# Run tests for specific projects
+./gradlew :mlt-core:test
+./gradlew :mlt-cli:test
 ```
+
+### Code Formatting
+
+The project uses Spotless for code formatting:
+
+```console
+# Apply formatting
+./gradlew spotlessApply
+
+# Check formatting
+./gradlew spotlessCheck
+```
+
+### Project Structure
+
+- **`mlt-core/`**: Core library implementation
+  - `src/main/java/`: Main source code
+  - `src/test/java/`: Unit tests
+  - `src/jmh/`: JMH benchmarks
+  - `resources/`: Native compilation scripts
+
+- **`mlt-cli/`**: Command-line tools
+  - `src/main/java/`: CLI application code
+  - `src/test/java/`: CLI tests
+
+Built JARs are available in:
+- Core library: `mlt-core/build/libs/`
+- CLI tools: `mlt-cli/build/libs/`
