@@ -6,8 +6,6 @@ use morton_encoding::{morton_decode, morton_encode};
 use num_traits::PrimInt;
 use zigzag::ZigZag;
 
-use crate::MltError;
-use crate::MltResult;
 use crate::decoder::integer_stream::decode_componentwise_delta_vec2s;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::decoder::varint;
@@ -17,6 +15,7 @@ use crate::metadata::stream_encoding::{
     Logical, LogicalLevelTechnique, LogicalStreamType, Physical, PhysicalLevelTechnique,
     PhysicalStreamType,
 };
+use crate::{MltError, MltResult};
 
 /// a placeholder for future implementation
 /// For some reason, the Java code has a method that decodes long streams,
