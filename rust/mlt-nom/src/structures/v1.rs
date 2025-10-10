@@ -67,6 +67,13 @@ impl Geometry {
             vec.push(stream);
         }
         let geometryOffsets = if let Some(geometryOffsets) = geometryOffsets {
+
+            // decodeRootLengthStream(geometryTypes,
+            //                        geometryOffsetsCopy,
+            //                        /*bufferId=*/GeometryType::POLYGON,
+            //                        geometryOffsets);
+
+
             Some(geometryOffsets)
         } else {
             geometryOffsets
@@ -88,6 +95,32 @@ impl Geometry {
             },
         ))
     }
+
+    /*
+//
+// Handle the parsing of the different topology length buffers separate not generic to reduce the
+// branching and improve the performance
+//
+    void decodeRootLengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
+                                const std::vector<std::uint32_t>& rootLengthStream,
+                                const metadata::tileset::GeometryType bufferId,
+                                std::vector<std::uint32_t>& rootBufferOffsets) {
+        assert(&rootLengthStream != &rootBufferOffsets);
+        rootBufferOffsets.resize(geometryTypes.size() + 1);
+        std::uint32_t previousOffset = rootBufferOffsets[0] = 0;
+        std::uint32_t rootLengthCounter = 0;
+        for (std::size_t i = 0; i < geometryTypes.size(); ++i) {
+            /* Test if the geometry has and entry in the root buffer
+             * BufferId: 2 GeometryOffsets -> MultiPolygon, MultiLineString, MultiPoint
+             * BufferId: 1 PartOffsets -> Polygon
+             * BufferId: 0 PartOffsets, RingOffsets -> LineString
+             * */
+            previousOffset = rootBufferOffsets[i + 1] = previousOffset + ((geometryTypes[i] > bufferId)
+                                                                              ? rootLengthStream[rootLengthCounter++]
+                                                                              : 1);
+        }
+    }
+*/
 
     pub fn get_vector_type_int_stream(metadata: &Stream) -> VectorType {
         match metadata.logical_type {
