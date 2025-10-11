@@ -1,0 +1,56 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+[
+    Layer(
+        FeatureTable {
+            name: "layer",
+            extent: 4096,
+            columns: [
+                Id(
+                    Stream {
+                        physical_type: Data(
+                            None,
+                        ),
+                        logical_type: VarInt,
+                        num_values: 1,
+                        data: [
+                            1,
+                        ],
+                    },
+                ),
+                Geometry(
+                    Geometry {
+                        vector_type: Const,
+                        vector_types: [
+                            Polygon,
+                        ],
+                    },
+                ),
+                OptBool(
+                    "key",
+                    Stream {
+                        physical_type: Present,
+                        logical_type: Rle,
+                        num_values: 1,
+                        data: [
+                            255,
+                            1,
+                        ],
+                    },
+                    Stream {
+                        physical_type: Data(
+                            None,
+                        ),
+                        logical_type: Rle,
+                        num_values: 1,
+                        data: [
+                            255,
+                            1,
+                        ],
+                    },
+                ),
+            ],
+        },
+    ),
+]

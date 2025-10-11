@@ -1,45 +1,31 @@
 #![allow(unused_mut)]
 
+mod errors;
 mod structures;
 mod utils;
 
-use std::io::Cursor;
-use std::path::Path;
-
+pub use errors::{MltError, MltResult};
 use galileo_mvt::MvtTile;
+pub use structures::parse_binary_stream;
 
 use crate::structures::Layer;
-use crate::structures::v1::{OwnedFeatureMetaTable, OwnedFeatureTable};
-
-#[cfg(test)]
-mod tests;
+// use crate::structures::v1::OwnedFeatureTable;
 
 fn simple_test() {
     println!("\n=== Layer Stream Parsing Demo ===");
     let test_data = create_test_data();
     println!("Parsing test data of size: {}", test_data.len());
 
-    match structures::parse_binary_stream(&test_data) {
-        Ok((remaining, layers)) => {
+    match parse_binary_stream(&test_data) {
+        Ok(layers) => {
             println!("Successfully parsed {} layers:", layers.len());
             for (i, layer) in layers.iter().enumerate() {
                 match layer {
                     Layer::Layer(layer_v1) => {
-                        println!("  Layer {i}: Layer");
-                        println!("    Name: {}", layer_v1.meta.name);
-                        println!("    Extent: {}", layer_v1.meta.extent);
-                        for (j, column) in layer_v1.meta.columns.iter().enumerate() {
-                            match column.name {
-                                Some(name) => {
-                                    println!(
-                                        "    Column {j}: name='{name}', type={:?}",
-                                        column.typ
-                                    );
-                                }
-                                None => println!("    Column {j}: type={:?}", column.typ),
-                            }
-                        }
-                        println!("    Data: {:?}", layer_v1.data);
+                        println!("  Layer {i}:");
+                        println!("      Name {}", layer_v1.name);
+                        println!("    Extent {}", layer_v1.extent);
+                        println!("   Columns {:?}", layer_v1.columns);
                     }
                     Layer::Unknown(unknown) => {
                         println!(
@@ -49,62 +35,55 @@ fn simple_test() {
                     }
                 }
             }
-            if !remaining.is_empty() {
-                println!("Warning: {} bytes remaining unparsed", remaining.len());
-            }
         }
         Err(e) => println!("Parse error: {e:?}"),
     }
 }
 
-fn generate() {
-    // walk using walkdir through all *.mvt files in ../test/fixtures
-    for path in walkdir::WalkDir::new("../test/fixtures")
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().extension().unwrap_or_default() == "mvt")
-    {
-        generate_tile(path.path());
-    }
-}
+// fn generate() {
+//     // walk using walkdir through all *.mvt files in ../test/fixtures
+//     for path in walkdir::WalkDir::new("../test/fixtures")
+//         .into_iter()
+//         .filter_map(Result::ok)
+//         .filter(|entry| entry.path().extension().unwrap_or_default() == "mvt")
+//     {
+//         generate_tile(path.path());
+//     }
+// }
 
-fn generate_tile(path: &Path) {
-    let data = std::fs::read(path).expect("Failed to read MVT file");
-    println!(
-        "Processing MVT file: {} ({} bytes)",
-        path.display(),
-        data.len()
-    );
-
-    let tile = MvtTile::decode(&mut Cursor::new(&data), false).unwrap();
-
-    let mut mlt = Vec::with_capacity(tile.layers.len());
-    for layer in &tile.layers {
-        let mut columns = Vec::new();
-        let mut data = Vec::new();
-        for _feature in &layer.features {
-            // let geometry = &feature.geometry;
-            // let bytes =
-            //     bincode::serde::encode_to_vec(geometry, bincode::config::standard()).unwrap();
-            // let (deserialized, _): (MvtGeometry, _) =
-            //     bincode::serde::decode_from_slice(&bytes, bincode::config::standard()).unwrap();
-
-            // assert_eq!(&deserialized, geometry);
-        }
-        mlt.push(OwnedFeatureTable {
-            meta: OwnedFeatureMetaTable {
-                name: layer.name.clone(),
-                extent: layer.size,
-                columns,
-            },
-            data,
-        });
-    }
-}
+// fn generate_tile(path: &Path) {
+//     let data = std::fs::read(path).expect("Failed to read MVT file");
+//     println!(
+//         "Processing MVT file: {} ({} bytes)",
+//         path.display(),
+//         data.len()
+//     );
+//
+//     let tile = MvtTile::decode(&mut Cursor::new(&data), false).unwrap();
+//
+//     let mut mlt = Vec::with_capacity(tile.layers.len());
+//     for layer in &tile.layers {
+//         let mut columns = Vec::new();
+//         for _feature in &layer.features {
+//             // let geometry = &feature.geometry;
+//             // let bytes =
+//             //     bincode::serde::encode_to_vec(geometry, bincode::config::standard()).unwrap();
+//             // let (deserialized, _): (MvtGeometry, _) =
+//             //     bincode::serde::decode_from_slice(&bytes, bincode::config::standard()).unwrap();
+//
+//             // assert_eq!(&deserialized, geometry);
+//         }
+//         mlt.push(OwnedFeatureTable {
+//             name: layer.name.clone(),
+//             extent: layer.size,
+//             columns,
+//         });
+//     }
+// }
 
 fn main() {
     simple_test();
-    generate();
+    // generate();
 }
 
 /// Helper function to create test data
