@@ -2,10 +2,10 @@ use integer_encoding::VarInt;
 use zigzag::ZigZag;
 
 use crate::MltError::Fail;
-use crate::{MltError, MltResult};
+use crate::{MltError, MltRefResult};
 
 /// Parse a varint (variable-length integer) from the input
-pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltResult<'_, T> {
+pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
     match VarInt::decode_var(input) {
         Some((value, consumed)) => Ok((&input[consumed..], value)),
         None => Err(Fail),
@@ -22,7 +22,7 @@ pub fn all<T>((input, value): (&[u8], T)) -> Result<T, MltError> {
         })
     }
 }
-pub fn parse_varint_vec<T, U>(mut input: &[u8], size: usize) -> MltResult<'_, Vec<U>>
+pub fn parse_varint_vec<T, U>(mut input: &[u8], size: usize) -> MltRefResult<'_, Vec<U>>
 where
     T: VarInt,
     U: TryFrom<T>,
@@ -38,7 +38,7 @@ where
 }
 
 /// Parse a length-prefixed UTF-8 string from the input
-pub fn parse_string(input: &[u8]) -> MltResult<'_, &str> {
+pub fn parse_string(input: &[u8]) -> MltRefResult<'_, &str> {
     let (input, length) = parse_varint::<usize>(input)?;
     let (input, value) = take(input, length)?;
     let value = str::from_utf8(value)?;
@@ -46,7 +46,7 @@ pub fn parse_string(input: &[u8]) -> MltResult<'_, &str> {
 }
 
 /// Parse a single byte from the input
-pub fn parse_u8(input: &[u8]) -> MltResult<'_, u8> {
+pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
     if input.is_empty() {
         Err(Fail)
     } else {
@@ -55,7 +55,7 @@ pub fn parse_u8(input: &[u8]) -> MltResult<'_, u8> {
 }
 
 /// Parse a single byte from the input when we know the value is less than 128
-pub fn parse_u7(input: &[u8]) -> MltResult<'_, u8> {
+pub fn parse_u7(input: &[u8]) -> MltRefResult<'_, u8> {
     let (input, value) = parse_u8(input)?;
     if value < 128 {
         Ok((input, value))
@@ -75,7 +75,7 @@ pub fn encode_str(data: &mut Vec<u8>, value: &[u8]) {
 }
 
 #[inline]
-pub fn take(input: &[u8], size: usize) -> MltResult<'_, &[u8]> {
+pub fn take(input: &[u8], size: usize) -> MltRefResult<'_, &[u8]> {
     let (value, input) = input.split_at_checked(size).ok_or(Fail)?;
     Ok((input, value))
 }
@@ -99,4 +99,18 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<V
     }
 
     Ok(result)
+}
+
+pub trait SetOptionOnce<T> {
+    fn set_once(&mut self, value: T) -> Result<(), MltError>;
+}
+
+impl<T> SetOptionOnce<T> for Option<T> {
+    fn set_once(&mut self, value: T) -> Result<(), MltError> {
+        if self.replace(value).is_some() {
+            Err(MltError::DuplicateValue)
+        } else {
+            Ok(())
+        }
+    }
 }

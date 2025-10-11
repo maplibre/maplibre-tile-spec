@@ -3,7 +3,7 @@
 use crate::MltError::Fail;
 use crate::structures::v1::FeatureTable;
 use crate::utils::take;
-use crate::{MltError, MltResult, utils};
+use crate::{MltError, MltRefResult, utils};
 
 pub mod complex_enums;
 pub mod enums;
@@ -21,7 +21,7 @@ pub enum Layer<'a> {
 
 impl Layer<'_> {
     /// Parse a single binary tuple: size (varint), tag (varint), value (bytes)
-    pub fn parse(input: &[u8]) -> MltResult<'_, Layer<'_>> {
+    pub fn parse(input: &[u8]) -> MltRefResult<'_, Layer<'_>> {
         let (input, size) = utils::parse_varint::<usize>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,

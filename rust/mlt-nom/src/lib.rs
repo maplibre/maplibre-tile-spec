@@ -4,5 +4,5 @@ mod errors;
 mod structures;
 mod utils;
 
-pub use errors::{MltError, MltResult};
+pub use errors::{MltError, MltRefResult};
 pub use structures::parse_binary_stream;

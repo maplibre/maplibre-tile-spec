@@ -2,7 +2,7 @@
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::Fail;
-use crate::{MltResult, utils};
+use crate::{MltRefResult, utils};
 
 //#[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
@@ -100,7 +100,7 @@ pub enum ColumnType {
 
 impl ColumnType {
     /// Parse a column type from u8
-    pub fn parse(input: &[u8]) -> MltResult<'_, Self> {
+    pub fn parse(input: &[u8]) -> MltRefResult<'_, Self> {
         let (input, value) = utils::parse_u8(input)?;
         let value = Self::try_from(value).or(Err(Fail))?;
         Ok((input, value))

@@ -9,7 +9,7 @@ use num_enum::TryFromPrimitiveError;
 
 use crate::structures::enums::GeometryType;
 
-pub type MltResult<'a, T> = Result<(&'a [u8], T), MltError>;
+pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -24,6 +24,9 @@ pub enum MltError {
 
     #[error("integer conversion error: {0}")]
     TryFromIntError(#[from] std::num::TryFromIntError),
+
+    #[error("duplicate value found where unique required")]
+    DuplicateValue,
 
     // #[error("num_enum conversion error: {0}")]
     // TryFromPrimitive2(#[from] TryFromPrimitiveError<u32>),

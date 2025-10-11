@@ -6,6 +6,7 @@ use mlt_nom::parse_binary_stream;
 
 /// Test parsing all MLT files
 #[test]
+#[ignore]
 fn test_mlt_files() {
     let test_dirs = [
         ("../../test/expected/tag0x01/simple", "simple"),

@@ -1,15 +1,13 @@
-use std::convert::TryFrom;
-
-// use borrowme::borrowme;
 use integer_encoding::VarInt;
-
+use std::convert::TryFrom;
+// use borrowme::borrowme;
 use crate::MltError::Fail;
-use crate::structures::complex_enums::{ColumnStreams, DataRaw, DataVarInt, PhysicalStreamType, Stream, StreamMeta};
+use crate::structures::complex_enums::{ColumnStreams, DataRaw, DataVarInt, LogicalStream2,  PhysicalStreamType, Stream, StreamData, StreamMeta};
 use crate::structures::enums::{
     ColumnType, DictionaryType, GeometryType, LengthType, LogicalTechnique, PhysicalTechnique,
 };
-use crate::utils::{all, parse_u7, parse_varint_vec, take};
-use crate::{MltError, MltResult, utils};
+use crate::utils::{SetOptionOnce, all, parse_u7, take};
+use crate::{MltError, MltRefResult, utils};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Geometry {
@@ -25,73 +23,82 @@ pub struct Geometry {
 }
 
 impl Geometry {
-    fn parse(input: &[u8]) -> MltResult<'_, Self> {
+    fn parse(input: &[u8]) -> MltRefResult<'_, Self> {
         let (input, stream_count) = parse_u7(input)?;
-        todo!()
         // let mut vec = Vec::with_capacity(stream_count as usize);
-        // let (input, meta) = Stream::parse(input)?;
+        let (input, meta) = Stream::parse(input)?;
         // let vector_type = Self::get_vector_type_int_stream(&meta);
-        // let vector_types = meta.decode::<u8, GeometryType>()?;
+        let vector_types = meta.decode::<u8, GeometryType>()?;
         // vec.push(meta);
-        // let mut geometry_offsets: Option<Vec<u32>> = None;
-        // let mut part_offsets: Option<Vec<u32>> = None;
-        // let mut ring_offsets: Option<Vec<u32>> = None;
-        // let mut vertex_offsets: Option<Vec<u32>> = None;
-        // let mut index_buffer: Option<Vec<u32>> = None;
-        // let mut triangles: Option<Vec<u32>> = None;
-        // let mut vertices: Option<Vec<i32>> = None;
+        let mut geometry_offsets: Option<Vec<u32>> = None;
+        let mut part_offsets: Option<Vec<u32>> = None;
+        let mut ring_offsets: Option<Vec<u32>> = None;
+        let mut vertex_offsets: Option<Vec<u32>> = None;
+        let mut index_buffer: Option<Vec<u32>> = None;
+        let mut triangles: Option<Vec<u32>> = None;
+        let mut vertices: Option<Vec<i32>> = None;
+
+        let mut input = input;
+        for _ in 1..stream_count {
+            let stream;
+            (input, stream) = Stream::parse(input)?;
+
+            match stream.meta.physical_type {
+                PhysicalStreamType::Present => {}
+                PhysicalStreamType::Data(v) => match v {
+                    DictionaryType::Vertex => {
+                        let v = stream.decode::<u32, u32>()?;
+                        let v = v.u32()?;
+                        vertices.set_once(v.decode_i32()?)?;
+                    }
+                    _ => panic!("Geometry stream cannot have Data physical type: {v:?}"),
+                },
+                PhysicalStreamType::Offset(_) => {}
+                PhysicalStreamType::Length(v) => match v {
+                    LengthType::Geometries => {
+                        let v = stream.decode::<u32, u32>()?.u32()?
+                        .decode_u32()?;
+                        // geometry_offsets.set_once(v)?;
+                        panic!("Geometry stream cannot have Geometries length type yet: {v:?}");
+                    }
+                    _ => panic!("Geometry stream cannot have Length physical type: {v:?}"),
+                },
+            }
+            //         PhysicalStreamType::Data(data) => match data {
+            //             DictionaryType::Vertex => {
+            //                 if vertices.replace(stream.decode::<u32, i32>()?).is_some() {
+            //                     return Err(Fail);
+            //                 }
+            //             }
+            //             _ => panic!("Geometry stream cannot have Data physical type: {data:?}"),
+            //         },
+            //         _ => panic!("Geometry stream cannot have physical type: {stream:?}"),
+            //     }
+            //     vec.push(stream);
+            // }
+            // if let Some(offsets) = geometry_offsets.take() {
+            //     geometry_offsets = Some(decode_root_length_stream(
+            //         &vector_types,
+            //         offsets,
+            //         GeometryType::Polygon,
+            //     ))
+        }
         //
-        // let mut input = input;
-        // for _ in 1..stream_count {
-        //     let stream;
-        //     (input, stream) = Stream::parse(input)?;
-        //     match stream {
-        //         PhysicalStreamType::Data(data) => match data {
-        //             DictionaryType::Vertex => {
-        //                 if vertices.replace(stream.decode::<u32, i32>()?).is_some() {
-        //                     return Err(Fail);
-        //                 }
-        //             }
-        //             _ => panic!("Geometry stream cannot have Data physical type: {data:?}"),
-        //         },
-        //         PhysicalStreamType::Length(len) => match len {
-        //             LengthType::Geometries => {
-        //                 if geometry_offsets
-        //                     .replace(stream.decode::<u32, u32>()?)
-        //                     .is_some()
-        //                 {
-        //                     return Err(Fail);
-        //                 }
-        //             }
-        //             _ => panic!("Geometry stream cannot have Length physical type: {len:?}"),
-        //         },
-        //         _ => panic!("Geometry stream cannot have physical type: {stream:?}"),
-        //     }
-        //     vec.push(stream);
-        // }
-        // if let Some(offsets) = geometry_offsets.take() {
-        //     geometry_offsets = Some(decode_root_length_stream(
-        //         &vector_types,
-        //         offsets,
-        //         GeometryType::Polygon,
-        //     ))
-        // }
-        //
-        // // columns.push(ColumnStreams::Geometry(vec));
-        // Ok((
-        //     input,
-        //     Geometry {
-        //         // vector_type,
-        //         vector_types,
-        //         geometry_offsets,
-        //         part_offsets,
-        //         ring_offsets,
-        //         vertex_offsets,
-        //         index_buffer,
-        //         triangles,
-        //         vertices,
-        //     },
-        // ))
+        // columns.push(ColumnStreams::Geometry(vec));
+        Ok((
+            input,
+            Geometry {
+                // vector_type,
+                vector_types: Default::default(),
+                geometry_offsets: Default::default(),
+                part_offsets: Default::default(),
+                ring_offsets: Default::default(),
+                vertex_offsets: Default::default(),
+                index_buffer: Default::default(),
+                triangles: Default::default(),
+                vertices: Default::default(),
+            },
+        ))
     }
 
     // pub fn get_vector_type_int_stream(metadata: &Stream) -> VectorType {
@@ -125,7 +132,7 @@ pub enum VectorType {
 }
 
 impl Stream<'_> {
-    fn parse(input: &[u8]) -> MltResult<'_, Stream<'_>> {
+    fn parse(input: &[u8]) -> MltRefResult<'_, Stream<'_>> {
         use {LogicalTechnique as LT, PhysicalTechnique as PT};
 
         let (input, val) = utils::parse_u8(input)?;
@@ -148,57 +155,52 @@ impl Stream<'_> {
             num_values,
         };
 
-        let stream = match physical_technique {
-            PT::None => DataRaw::new(meta, data),
-            PT::VarInt => DataVarInt::new(meta, data),
-            _ => {
-                panic!("Unsupported logical/physical technique combination: {physical_technique:?}",)
-            }
-        };
+        let stream = Stream::new(
+            meta,
+            match physical_technique {
+                PT::None => DataRaw::new(data),
+                PT::VarInt => DataVarInt::new(data),
+                _ => {
+                    panic!(
+                        "Unsupported logical/physical technique combination: {physical_technique:?}",
+                    )
+                }
+            },
+        );
 
-        Ok((
-            input,
-            stream,
-        ))
+        Ok((input, stream))
+    }
 
-        // let logical_type = match (logical_technique1, logical_technique2, physical_technique) {
-        //     (LT::ComponentwiseDelta, LT::None, PT::VarInt) => DataComponentwiseDeltaVarInt::new(data),
-        //     (LT::None, LT::None, PT::VarInt) => DataVarInt::new(data),
-        //     // (LT::Delta, LT::ComponentwiseDelta, PT::VarInt) => StreamType::DeltaCompDeltaAlp,
-        //     // (LT::Delta, LT::Morton, PT::None) => StreamType::DeltaMorton,
-        //     // (LT::Delta, LT::Morton, PT::VarInt) => StreamType::DetaMortonVarInt,
-        //     // (LT::Delta, LT::None, PT::FastPFOR) => StreamType::DeltaFastPFOR,
-        //     // (LT::Delta, LT::None, PT::None) => StreamType::DeltaVarInt,
-        //     // (LT::Delta, LT::None, PT::VarInt) => StreamType::DeltaNoneVarInt,
-        //     // (LT::Delta, LT::PseudoDecimal, PT::Alp) => StreamType::DeltaPseudoDecimalAlp,
-        //     // (LT::Delta, LT::PseudoDecimal, PT::None) => StreamType::DeltaPseudoDecimal,
-        //     // (LT::Delta, LT::PseudoDecimal, PT::VarInt) => StreamType::DeltaPseudoDecimalVarInt,
-        //     // (LT::Morton, LT::Rle, PT::FastPFOR) => StreamType::MortonRleFastPFOR,
-        //     // (LT::None, LT::ComponentwiseDelta, PT::Alp) => StreamType::NoneCompDeltaAlp,
-        //     // (LT::None, LT::ComponentwiseDelta, PT::None) => StreamType::NoneCompDeltaNone,
-        //     // (LT::None, LT::Delta, PT::Alp) => StreamType::NoneDeltaAlp,
-        //     // (LT::None, LT::Delta, PT::FastPFOR) => StreamType::NoneDeltaFastPFOR,
-        //     // (LT::None, LT::Delta, PT::None) => StreamType::NoneDelta,
-        //     // (LT::None, LT::Delta, PT::VarInt) => StreamType::NoneDeltaVarInt,
-        //     // (LT::None, LT::Morton, PT::Alp) => StreamType::NoneMortonAlp,
-        //     // (LT::None, LT::Morton, PT::FastPFOR) => StreamType::NoneMortonFastPFOR,
-        //     // (LT::None, LT::Morton, PT::None) => StreamType::NoneMorton,
-        //     // (LT::None, LT::None, PT::Alp) => StreamType::Alp,
-        //     // (LT::None, LT::None, PT::FastPFOR) => StreamType::NoneFastPFOR,
-        //     // (LT::None, LT::None, PT::None) => StreamType::None,
-        //     // (LT::None, LT::PseudoDecimal, PT::Alp) => StreamType::NonePseudoDecimalAlp,
-        //     // (LT::None, LT::PseudoDecimal, PT::None) => StreamType::NonePseudoDecimal,
-        //     // (LT::None, LT::Rle, PT::FastPFOR) => StreamType::NoneRleFastPFOR,
-        //     // (LT::None, LT::Rle, PT::None) => StreamType::NoneRle,
-        //     // (LT::None, LT::Rle, PT::VarInt) => StreamType::NoneRleVarInt,
-        //     // (LT::PseudoDecimal, LT::None, PT::None) => StreamType::PseudoDecimal,
-        //     // (LT::Rle, LT::None, PT::None) => StreamType::Rle,
-        //     // (LT::Rle, LT::None, PT::VarInt) => StreamType::RleVarInt,
+    pub fn decode<T, U>(self) -> Result<LogicalStream2<U>, MltError>
+    where
+        T: VarInt,
+        U: TryFrom<T>,
+        MltError: From<<U as TryFrom<T>>::Error>,
+    {
+        let value = match self.data {
+            StreamData::VarInt(data) => all(utils::parse_varint_vec::<T, U>(
+                data.data,
+                self.meta.num_values,
+            )?),
+            // StreamData::Raw(data) => {
+            //     // let physical_decode = all(parse_varint_vec::<T, U>(self.data, self.num_values)?)?;
+            //     // decode_componentwise_delta_vec2s(physical_decode.as_slice())
+            // }
+            _ => panic!("Unsupported physical type: {:?}", self.data)
+        }?;
+        Ok(LogicalStream2::new(self.meta, value))
+        // Ok(match self.meta.logical_technique1 {
+        //     LogicalTechnique::None => {
+        //         LogicalStream2::new(self.meta, value)
+        //     }
+        //     LogicalTechnique::ComponentwiseDelta => {
+        //         LogicalStream2::new(self.meta, value)
+        //     }
         //     _ => panic!(
-        //         "Unsupported logical/physical technique combination: {:?}, {:?}, {:?}",
-        //         logical_technique1, logical_technique2, physical_technique
-        //     ), // return Err(Fail),
-        // };
+        //         "Unsupported logical technique for decoding: {:?}",
+        //         self.meta.logical_technique1
+        //     ),
+        // })
     }
 
     // pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
@@ -384,7 +386,7 @@ impl FeatureTable<'_> {
     }
 }
 
-pub fn parse_pair(input: &[u8]) -> MltResult<'_, (Stream<'_>, Stream<'_>)> {
+pub fn parse_pair(input: &[u8]) -> MltRefResult<'_, (Stream<'_>, Stream<'_>)> {
     let (input, opt) = Stream::parse(input)?;
     let (input, val) = Stream::parse(input)?;
     Ok((input, (opt, val)))
@@ -400,7 +402,7 @@ pub struct Column<'a> {
 
 impl Column<'_> {
     /// Parse a single column definition
-    fn parse(input: &[u8]) -> MltResult<'_, Column<'_>> {
+    fn parse(input: &[u8]) -> MltRefResult<'_, Column<'_>> {
         let (mut input, typ) = ColumnType::parse(input)?;
         let name = if typ.has_name() {
             let pair = utils::parse_string(input)?;

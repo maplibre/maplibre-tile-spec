@@ -1,11 +1,9 @@
-// use borrowme::borrowme;
-
-use integer_encoding::VarInt;
-
-use crate::structures::enums::{DictionaryType, LengthType, LogicalTechnique, OffsetType, PhysicalTechnique};
-use crate::structures::v1::{Geometry};
-use crate::{MltError, MltResult};
-use crate::utils::parse_varint_vec;
+use crate::{MltError, };
+use crate::structures::enums::{
+    DictionaryType, LengthType, LogicalTechnique, OffsetType, PhysicalTechnique,
+};
+use crate::structures::v1::Geometry;
+use crate::utils::{decode_componentwise_delta_vec2s, parse_varint_vec};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PhysicalStreamType {
@@ -82,44 +80,138 @@ pub struct StreamMeta {
     pub physical_technique: PhysicalTechnique,
 }
 
-
-macro_rules! data {
+macro_rules! stream_data {
     ($($enm:ident : $ty:ident),+ $(,)?) => {
         #[derive(Debug, PartialEq)]
-        pub enum Stream<'a> {
+        pub enum StreamData<'a> {
             $($enm($ty<'a>),)+
         }
 
         $(
             #[derive(Debug, PartialEq)]
             pub struct $ty<'a> {
-                pub meta: StreamMeta,
                 pub data: &'a [u8],
             }
             impl<'a> $ty<'a> {
-                pub fn new(meta: StreamMeta, data: &'a [u8]) -> Stream<'a> {
-                    Stream::$enm(Self { meta, data } )
+                pub fn new(data: &'a [u8]) -> StreamData<'a> {
+                    StreamData::$enm(Self { data } )
                 }
             }
         )+
     };
 }
 
-data![
-    ComponentwiseDeltaVarInt: DataComponentwiseDeltaVarInt,
+stream_data![
     VarInt: DataVarInt,
     Raw: DataRaw,
 ];
 
-impl<'a, T, U> TryFrom<DataVarInt<'a>> for Vec<U>
+macro_rules! stream_logical_data {
+    ($($enm:ident : $ty:ident($ty2:ty)),+ $(,)?) => {
+        #[derive(Debug, PartialEq)]
+        pub enum LogicalStreamData {
+            $($enm($ty),)+
+        }
+
+        $(
+            #[derive(Debug, PartialEq)]
+            pub struct $ty {
+                pub data: $ty2,
+            }
+            impl $ty {
+                pub fn new(data: $ty2) -> LogicalStreamData {
+                    LogicalStreamData::$enm(Self { data } )
+                }
+            }
+        )+
+    };
+}
+
+stream_logical_data![
+    None: LogDataNone(Vec<u32>),
+    ComponentwiseDelta: LogDataComponentwiseDelta(Vec<u32>),
+];
+
+#[derive(Debug, PartialEq)]
+pub struct Stream<'a> {
+    pub meta: StreamMeta,
+    pub data: StreamData<'a>,
+}
+
+impl<'a> Stream<'a> {
+    pub fn new(meta: StreamMeta, data: StreamData<'a>) -> Self {
+        Self { meta, data }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LogicalStream2<T> {
+    pub meta: StreamMeta,
+    pub data: Vec<T>,
+}
+
+impl<T> LogicalStream2<T> {
+    pub fn new(meta: StreamMeta, data: Vec<T>) -> Self {
+        Self { meta, data }
+    }
+}
+impl LogicalStream2<u32> {
+    pub fn u32(self) -> Result<LogicalStream, MltError> {
+        Ok(match self.meta.logical_technique1 {
+            LogicalTechnique::None => LogicalStream {
+                meta: self.meta,
+                data: LogDataNone::new(self.data),
+            },
+            LogicalTechnique::ComponentwiseDelta => LogicalStream {
+                meta: self.meta,
+                data: LogDataComponentwiseDelta::new(self.data),
+            },
+            _ => panic!("Unsupported logical technique for i32"),
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LogicalStream {
+    pub meta: StreamMeta,
+    pub data: LogicalStreamData,
+}
+
+impl<T> LogicalStream where T: Sized, Vec<i32>: TryFromStream<T> {
+    pub fn decode_i32(self) -> Result<Vec<i32>, MltError> {
+        match self.data {
+            LogicalStreamData::ComponentwiseDelta(value) => {
+                TryFromStream::try_from2(value, &self.meta)
+            }
+            _ => panic!("Unsupported logical technique for i32"),
+        }
+    }
+}
+
+impl TryFromStream<LogDataComponentwiseDelta> for Vec<i32> {
+    fn try_from2(value: LogDataComponentwiseDelta, _meta: &StreamMeta) -> Result<Vec<i32>, MltError> {
+        decode_componentwise_delta_vec2s(&value.data)
+    }
+}
+
+impl<'a> LogicalStream {
+    pub fn new(meta: StreamMeta, data: LogicalStreamData) -> Self {
+        Self { meta, data }
+    }
+}
+
+pub trait TryFromStream<T>: Sized {
+    fn try_from2(value: T, meta: &StreamMeta) -> Result<Self, MltError>;
+}
+
+impl<'a, T> TryFromStream<DataVarInt<'a>> for Vec<T>
 where
-    T: VarInt,
-    U: TryFrom<T>,
-    MltError: From<<U as TryFrom<T>>::Error>,
+    T: TryFrom<u64>,
+    MltError: From<<T as TryFrom<u64>>::Error>,
 {
-    type Error = MltError;
-    fn try_from(value: DataVarInt) -> MltResult<Self> {
-        parse_varint_vec(value.data, value.meta.num_values)
+    fn try_from2(value: DataVarInt, meta: &StreamMeta) -> Result<Vec<T>, MltError> {
+        let (_, result) = parse_varint_vec(value.data, meta.num_values)?;
+        Ok(result)
     }
 }
 
@@ -155,7 +247,8 @@ pub enum ColumnStreams<'a> {
     Struct(&'a str, Stream<'a>),
 }
 
-pub enum _Decoder {
+#[derive(Debug, PartialEq)]
+pub enum Decoder {
     None,
     Delta,
     DeltaRle {
