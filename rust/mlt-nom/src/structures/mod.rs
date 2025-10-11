@@ -1,4 +1,4 @@
-use borrowme::borrowme;
+// use borrowme::borrowme;
 
 use crate::MltError::Fail;
 use crate::structures::v1::FeatureTable;
@@ -10,7 +10,7 @@ pub mod enums;
 pub mod v1;
 
 /// A layer that can be either MVT-compatible or unknown
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum Layer<'a> {
     /// MVT-compatible layer (tag = 1)
@@ -42,11 +42,11 @@ impl Layer<'_> {
 }
 
 /// Unknown layer data
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Unknown<'a> {
     pub tag: u8,
-    #[borrowme(borrow_with = Vec::as_slice)]
+    // #[borrowme(borrow_with = Vec::as_slice)]
     pub value: &'a [u8],
 }
 

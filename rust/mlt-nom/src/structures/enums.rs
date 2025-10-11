@@ -1,10 +1,10 @@
-use borrowme::borrowme;
+// use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::Fail;
 use crate::{MltResult, utils};
 
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LogicalTechnique {
@@ -16,7 +16,7 @@ pub enum LogicalTechnique {
     PseudoDecimal = 5,
 }
 
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum PhysicalTechnique {
@@ -31,7 +31,7 @@ pub enum PhysicalTechnique {
     Alp = 3,
 }
 
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum DictionaryType {
@@ -43,7 +43,7 @@ pub enum DictionaryType {
     Fsst = 5,
 }
 
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LengthType {
@@ -56,7 +56,7 @@ pub enum LengthType {
     Dictionary = 6,
 }
 
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OffsetType {

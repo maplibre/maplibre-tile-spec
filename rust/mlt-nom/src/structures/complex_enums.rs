@@ -1,7 +1,11 @@
-use borrowme::borrowme;
+// use borrowme::borrowme;
 
-use crate::structures::enums::{DictionaryType, LengthType, OffsetType};
-use crate::structures::v1::{Geometry, Stream};
+use integer_encoding::VarInt;
+
+use crate::structures::enums::{DictionaryType, LengthType, LogicalTechnique, OffsetType, PhysicalTechnique};
+use crate::structures::v1::{Geometry};
+use crate::{MltError, MltResult};
+use crate::utils::parse_varint_vec;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PhysicalStreamType {
@@ -25,48 +29,102 @@ impl PhysicalStreamType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum StreamType {
-    Alp,
-    CompDelta2,
-    ComponentwiseDeltaVarInt,
-    DeltaCompDeltaAlp,
-    DeltaFastPFOR,
-    DeltaVarInt,
-    Morton,
-    None,
-    NoneCompDeltaAlp,
-    NoneDelta,
-    NoneDeltaAlp,
-    NoneDeltaFastPFOR,
-    NoneMortonAlp,
-    NoneRle,
-    PseudoDecimal,
-    Rle,
-    RleVarInt,
-    VarInt,
-    DeltaNoneVarInt,
-    NoneMorton,
-    NoneFastPFOR,
-    NoneRleFastPFOR,
-    DeltaPseudoDecimalVarInt,
-    NoneMortonFastPFOR,
-    DeltaPseudoDecimalAlp,
-    NonePseudoDecimalAlp,
-    NonePseudoDecimal,
-    NoneDeltaVarInt,
-    DeltaPseudoDecimal,
-    DetaMortonVarInt,
-    NoneRleVar,
-    NoneRleVarInt,
-    DeltaMorton,
-    MortonRleFastPFOR,
-    NoneCompDeltaNone,
-    DeltaRle,
+//#[borrowme]
+// #[derive(Debug, PartialEq)]
+// pub enum StreamType<'a> {
+// Alp,
+// CompDelta2,
+// DeltaCompDeltaAlp,
+// DeltaFastPFOR,
+// DeltaMorton,
+// DeltaNoneVarInt,
+// DeltaPseudoDecimal,
+// DeltaPseudoDecimalAlp,
+// DeltaPseudoDecimalVarInt,
+// DeltaVarInt,
+// DetaMortonVarInt,
+// Morton,
+// MortonRleFastPFOR,
+// None,
+// NoneCompDeltaAlp,
+// NoneCompDeltaNone,
+// NoneDelta,
+// NoneDeltaAlp,
+// NoneDeltaFastPFOR,
+// NoneDeltaVarInt,
+// NoneFastPFOR,
+// NoneMorton,
+// NoneMortonAlp,
+// NoneMortonFastPFOR,
+// NonePseudoDecimal,
+// NonePseudoDecimalAlp,
+// NoneRle,
+// NoneRleFastPFOR,
+// NoneRleVar,
+// NoneRleVarInt,
+// PseudoDecimal,
+// RleVarInt,
+// DeltaRle,
+// Rle,
+// ComponentwiseDeltaVarInt(DataComponentwiseDeltaVarInt<'a>),
+// Raw(DataRaw<'a>),
+// VarInt(DataVarInt<'a>),
+// }
+
+/// MVT-compatible feature table data
+//#[borrowme]
+#[derive(Debug, PartialEq)]
+pub struct StreamMeta {
+    pub physical_type: PhysicalStreamType,
+    pub num_values: usize,
+    pub logical_technique1: LogicalTechnique,
+    pub logical_technique2: LogicalTechnique,
+    pub physical_technique: PhysicalTechnique,
+}
+
+
+macro_rules! data {
+    ($($enm:ident : $ty:ident),+ $(,)?) => {
+        #[derive(Debug, PartialEq)]
+        pub enum Stream<'a> {
+            $($enm($ty<'a>),)+
+        }
+
+        $(
+            #[derive(Debug, PartialEq)]
+            pub struct $ty<'a> {
+                pub meta: StreamMeta,
+                pub data: &'a [u8],
+            }
+            impl<'a> $ty<'a> {
+                pub fn new(meta: StreamMeta, data: &'a [u8]) -> Stream<'a> {
+                    Stream::$enm(Self { meta, data } )
+                }
+            }
+        )+
+    };
+}
+
+data![
+    ComponentwiseDeltaVarInt: DataComponentwiseDeltaVarInt,
+    VarInt: DataVarInt,
+    Raw: DataRaw,
+];
+
+impl<'a, T, U> TryFrom<DataVarInt<'a>> for Vec<U>
+where
+    T: VarInt,
+    U: TryFrom<T>,
+    MltError: From<<U as TryFrom<T>>::Error>,
+{
+    type Error = MltError;
+    fn try_from(value: DataVarInt) -> MltResult<Self> {
+        parse_varint_vec(value.data, value.meta.num_values)
+    }
 }
 
 /// Column type enumeration
-#[borrowme]
+//#[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum ColumnStreams<'a> {
     Id(Stream<'a>),

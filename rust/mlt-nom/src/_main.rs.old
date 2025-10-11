@@ -3,15 +3,13 @@
 mod errors;
 mod structures;
 mod utils;
-use std::io::Cursor;
-use std::path::Path;
 
 pub use errors::{MltError, MltResult};
 use galileo_mvt::MvtTile;
 pub use structures::parse_binary_stream;
 
 use crate::structures::Layer;
-use crate::structures::v1::OwnedFeatureTable;
+// use crate::structures::v1::OwnedFeatureTable;
 
 fn simple_test() {
     println!("\n=== Layer Stream Parsing Demo ===");
@@ -42,50 +40,50 @@ fn simple_test() {
     }
 }
 
-fn generate() {
-    // walk using walkdir through all *.mvt files in ../test/fixtures
-    for path in walkdir::WalkDir::new("../test/fixtures")
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().extension().unwrap_or_default() == "mvt")
-    {
-        generate_tile(path.path());
-    }
-}
+// fn generate() {
+//     // walk using walkdir through all *.mvt files in ../test/fixtures
+//     for path in walkdir::WalkDir::new("../test/fixtures")
+//         .into_iter()
+//         .filter_map(Result::ok)
+//         .filter(|entry| entry.path().extension().unwrap_or_default() == "mvt")
+//     {
+//         generate_tile(path.path());
+//     }
+// }
 
-fn generate_tile(path: &Path) {
-    let data = std::fs::read(path).expect("Failed to read MVT file");
-    println!(
-        "Processing MVT file: {} ({} bytes)",
-        path.display(),
-        data.len()
-    );
-
-    let tile = MvtTile::decode(&mut Cursor::new(&data), false).unwrap();
-
-    let mut mlt = Vec::with_capacity(tile.layers.len());
-    for layer in &tile.layers {
-        let mut columns = Vec::new();
-        for _feature in &layer.features {
-            // let geometry = &feature.geometry;
-            // let bytes =
-            //     bincode::serde::encode_to_vec(geometry, bincode::config::standard()).unwrap();
-            // let (deserialized, _): (MvtGeometry, _) =
-            //     bincode::serde::decode_from_slice(&bytes, bincode::config::standard()).unwrap();
-
-            // assert_eq!(&deserialized, geometry);
-        }
-        mlt.push(OwnedFeatureTable {
-            name: layer.name.clone(),
-            extent: layer.size,
-            columns,
-        });
-    }
-}
+// fn generate_tile(path: &Path) {
+//     let data = std::fs::read(path).expect("Failed to read MVT file");
+//     println!(
+//         "Processing MVT file: {} ({} bytes)",
+//         path.display(),
+//         data.len()
+//     );
+//
+//     let tile = MvtTile::decode(&mut Cursor::new(&data), false).unwrap();
+//
+//     let mut mlt = Vec::with_capacity(tile.layers.len());
+//     for layer in &tile.layers {
+//         let mut columns = Vec::new();
+//         for _feature in &layer.features {
+//             // let geometry = &feature.geometry;
+//             // let bytes =
+//             //     bincode::serde::encode_to_vec(geometry, bincode::config::standard()).unwrap();
+//             // let (deserialized, _): (MvtGeometry, _) =
+//             //     bincode::serde::decode_from_slice(&bytes, bincode::config::standard()).unwrap();
+//
+//             // assert_eq!(&deserialized, geometry);
+//         }
+//         mlt.push(OwnedFeatureTable {
+//             name: layer.name.clone(),
+//             extent: layer.size,
+//             columns,
+//         });
+//     }
+// }
 
 fn main() {
     simple_test();
-    generate();
+    // generate();
 }
 
 /// Helper function to create test data

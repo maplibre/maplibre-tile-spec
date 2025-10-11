@@ -75,7 +75,7 @@ pub fn encode_str(data: &mut Vec<u8>, value: &[u8]) {
 }
 
 #[inline]
-pub fn take(input: &[u8], size: usize) -> MltResult<&[u8]> {
+pub fn take(input: &[u8], size: usize) -> MltResult<'_, &[u8]> {
     let (value, input) = input.split_at_checked(size).ok_or(Fail)?;
     Ok((input, value))
 }
