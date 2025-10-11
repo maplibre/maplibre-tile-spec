@@ -177,20 +177,21 @@ pub struct LogicalStream {
     pub data: LogicalStreamData,
 }
 
-impl<T> LogicalStream where T: Sized, Vec<i32>: TryFromStream<T> {
+impl LogicalStream {
     pub fn decode_i32(self) -> Result<Vec<i32>, MltError> {
         match self.data {
             LogicalStreamData::ComponentwiseDelta(value) => {
-                TryFromStream::try_from2(value, &self.meta)
+                decode_componentwise_delta_vec2s(&value.data)
             }
             _ => panic!("Unsupported logical technique for i32"),
         }
     }
-}
 
-impl TryFromStream<LogDataComponentwiseDelta> for Vec<i32> {
-    fn try_from2(value: LogDataComponentwiseDelta, _meta: &StreamMeta) -> Result<Vec<i32>, MltError> {
-        decode_componentwise_delta_vec2s(&value.data)
+    pub fn decode_u32(self) -> Result<Vec<u32>, MltError> {
+        match self.data {
+            LogicalStreamData::None(value) => Ok(value.data),
+            _ => panic!("Unsupported logical technique for u32"),
+        }
     }
 }
 
