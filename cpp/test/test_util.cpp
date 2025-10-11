@@ -63,7 +63,7 @@ TEST(Util, ComponentwiseDeltaVec2_Uint32) {
         {{10, 14, 3, 9}, {5, 7, 3, 2}},
         {{0u, 0u, 4294967295u, 0u}, {0u, 0u, 2147483647u, 0u}}, // max uint32_t
         {{0u, 0u, 2147483648u, 0u}, {0u, 0u, 1073741824u, 0u}}, // large value
-        {{1u, 2u, 3u, 4u}, {0u, 1u, 1u, 3u}}, // simple sequence
+        {{1u, 2u, 3u, 4u}, {0u, 1u, 1u, 3u}},                   // simple sequence
     };
     using namespace mlt::util::decoding::vectorized;
     for (std::size_t i = 0; i < cases.size(); ++i) {
@@ -77,10 +77,10 @@ TEST(Util, ComponentwiseDeltaVec2_Uint32) {
 TEST(Util, ComponentwiseDeltaVec2_Int32_EdgeCases) {
     // input, expected output
     const std::vector<std::pair<std::vector<std::int32_t>, std::vector<std::int32_t>>> cases{
-        {{0, 0, -1, 0}, {0, 0, -1, 0}}, // negative value
+        {{0, 0, -1, 0}, {0, 0, -1, 0}},                                  // negative value
         {{INT32_MAX, INT32_MIN, 0, 0}, {1073741823, -1073741824, 0, 0}}, // max/min int32_t
-        {{-10, -20, -30, -40}, {-5, -10, -15, -30}}, // all negative
-        {{0, 0, 0, 0}, {0, 0, 0, 0}}, // all zero
+        {{-10, -20, -30, -40}, {-5, -10, -15, -30}},                     // all negative
+        {{0, 0, 0, 0}, {0, 0, 0, 0}},                                    // all zero
     };
     using namespace mlt::util::decoding::vectorized;
     for (std::size_t i = 0; i < cases.size(); ++i) {

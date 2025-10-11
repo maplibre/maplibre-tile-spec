@@ -1,4 +1,4 @@
-use crate::{MltError, };
+use crate::MltError;
 use crate::structures::enums::{
     DictionaryType, LengthType, LogicalTechnique, OffsetType, PhysicalTechnique,
 };

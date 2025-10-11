@@ -2,7 +2,10 @@ use integer_encoding::VarInt;
 use std::convert::TryFrom;
 // use borrowme::borrowme;
 use crate::MltError::Fail;
-use crate::structures::complex_enums::{ColumnStreams, DataRaw, DataVarInt, LogicalStream2, LogicalStreamDecoder, PhysicalStreamType, Stream, StreamData, StreamMeta};
+use crate::structures::complex_enums::{
+    ColumnStreams, DataRaw, DataVarInt, LogicalStream2, LogicalStreamDecoder, PhysicalStreamType,
+    Stream, StreamData, StreamMeta,
+};
 use crate::structures::enums::{
     ColumnType, DictionaryType, GeometryType, LengthType, LogicalTechnique, PhysicalTechnique,
 };
@@ -183,7 +186,7 @@ impl Stream<'_> {
             //     // let physical_decode = all(parse_varint_vec::<T, U>(self.data, self.num_values)?)?;
             //     // decode_componentwise_delta_vec2s(physical_decode.as_slice())
             // }
-            _ => panic!("Unsupported physical type: {:?}", self.data)
+            _ => panic!("Unsupported physical type: {:?}", self.data),
         }?;
         Ok(LogicalStream2::new(self.meta, value))
         // Ok(match self.meta.logical_technique1 {
