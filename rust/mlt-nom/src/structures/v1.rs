@@ -2,7 +2,7 @@ use integer_encoding::VarInt;
 use std::convert::TryFrom;
 // use borrowme::borrowme;
 use crate::MltError::Fail;
-use crate::structures::complex_enums::{ColumnStreams, DataRaw, DataVarInt, LogicalStream2,  PhysicalStreamType, Stream, StreamData, StreamMeta};
+use crate::structures::complex_enums::{ColumnStreams, DataRaw, DataVarInt, LogicalStream2, LogicalStreamDecoder, PhysicalStreamType, Stream, StreamData, StreamMeta};
 use crate::structures::enums::{
     ColumnType, DictionaryType, GeometryType, LengthType, LogicalTechnique, PhysicalTechnique,
 };
@@ -47,19 +47,16 @@ impl Geometry {
                 PhysicalStreamType::Present => {}
                 PhysicalStreamType::Data(v) => match v {
                     DictionaryType::Vertex => {
-                        let v = stream.decode::<u32, u32>()?;
-                        let v = v.u32()?;
-                        vertices.set_once(v.decode_i32()?)?;
+                        let v = stream.decode::<u32, u32>()?.u32()?;
+                        vertices.set_once(LogicalStreamDecoder::decode(v)?)?;
                     }
                     _ => panic!("Geometry stream cannot have Data physical type: {v:?}"),
                 },
                 PhysicalStreamType::Offset(_) => {}
                 PhysicalStreamType::Length(v) => match v {
                     LengthType::Geometries => {
-                        let v = stream.decode::<u32, u32>()?.u32()?
-                        .decode_u32()?;
-                        // geometry_offsets.set_once(v)?;
-                        panic!("Geometry stream cannot have Geometries length type yet: {v:?}");
+                        let v = stream.decode::<u32, u32>()?.u32()?;
+                        geometry_offsets.set_once(LogicalStreamDecoder::decode(v)?)?;
                     }
                     _ => panic!("Geometry stream cannot have Length physical type: {v:?}"),
                 },

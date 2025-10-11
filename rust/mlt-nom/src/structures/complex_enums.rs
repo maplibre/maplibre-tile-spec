@@ -177,8 +177,12 @@ pub struct LogicalStream {
     pub data: LogicalStreamData,
 }
 
-impl LogicalStream {
-    pub fn decode_i32(self) -> Result<Vec<i32>, MltError> {
+pub trait LogicalStreamDecoder<T> {
+    fn decode(self) -> Result<Vec<T>, MltError>;
+}
+
+impl LogicalStreamDecoder<i32> for LogicalStream {
+    fn decode(self) -> Result<Vec<i32>, MltError> {
         match self.data {
             LogicalStreamData::ComponentwiseDelta(value) => {
                 decode_componentwise_delta_vec2s(&value.data)
@@ -186,8 +190,10 @@ impl LogicalStream {
             _ => panic!("Unsupported logical technique for i32"),
         }
     }
+}
 
-    pub fn decode_u32(self) -> Result<Vec<u32>, MltError> {
+impl LogicalStreamDecoder<u32> for LogicalStream {
+    fn decode(self) -> Result<Vec<u32>, MltError> {
         match self.data {
             LogicalStreamData::None(value) => Ok(value.data),
             _ => panic!("Unsupported logical technique for u32"),
