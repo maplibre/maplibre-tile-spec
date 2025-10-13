@@ -1,7 +1,8 @@
 // Ported from https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/IntWrapper.java
 
 export default class IntWrapper {
-    constructor(private value: number) {}
+    constructor(private value: number) {
+    }
 
     public get(): number {
         return this.value;
@@ -18,4 +19,5 @@ export default class IntWrapper {
     public add(v: number): void {
         this.value += v;
     }
+
 }

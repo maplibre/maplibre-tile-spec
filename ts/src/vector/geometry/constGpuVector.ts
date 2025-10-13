@@ -1,18 +1,19 @@
-import { SelectionVector } from "../filter/selectionVector";
-import { FlatSelectionVector } from "../filter/flatSelectionVector";
-import { GpuVector } from "./gpuVector";
-import { SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
+import {SelectionVector} from "../filter/selectionVector";
+import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import {GpuVector} from "./gpuVector";
+import {SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
 import TopologyVector from "./topologyVector";
 
+
 //TODO: extend from GeometryVector -> make topology vector optional
-export class ConstGpuVector extends GpuVector {
+export class ConstGpuVector extends GpuVector{
     constructor(
         private readonly _numGeometries: number,
         private readonly _geometryType: number,
         triangleOffsets: Int32Array,
         indexBuffer: Int32Array,
         vertexBuffer: Int32Array,
-        topologyVector?: TopologyVector | null,
+        topologyVector?: TopologyVector | null
     ) {
         super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
     }
@@ -23,7 +24,7 @@ export class ConstGpuVector extends GpuVector {
         triangleOffsets: Int32Array,
         indexBuffer: Int32Array,
         vertexBuffer: Int32Array,
-        topologyVector?: TopologyVector | null,
+        topologyVector?: TopologyVector | null
     ): GpuVector {
         return new ConstGpuVector(
             numGeometries,
@@ -31,7 +32,7 @@ export class ConstGpuVector extends GpuVector {
             triangleOffsets,
             indexBuffer,
             vertexBuffer,
-            topologyVector,
+            topologyVector
         );
     }
 
@@ -68,25 +69,26 @@ export class ConstGpuVector extends GpuVector {
     //TODO: refactor -> quick and dirty -> let a multi part geometry be equal to a single part geometry
     //to produce the same results as with MVT and the existing styles
     filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector {
-        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
+        if(geometryType !== this._geometryType && (geometryType + 3) !== this._geometryType){
             return new FlatSelectionVector([]);
         }
 
         //TODO: use ConstSelectionVector
         const selectionVector = new Array(this.numGeometries);
-        for (let i = 0; i < this.numGeometries; i++) {
+        for(let i = 0; i < this.numGeometries; i++){
             selectionVector[i] = i;
         }
         return new FlatSelectionVector(selectionVector);
     }
 
-    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector) {
-        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
+    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
+        if(geometryType !== this._geometryType && (geometryType + 3) !== this._geometryType){
             selectionVector.setLimit(0);
         }
     }
 
-    containsSingleGeometryType(): boolean {
+    containsSingleGeometryType(): boolean{
         return true;
     }
+
 }

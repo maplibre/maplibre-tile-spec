@@ -1,12 +1,13 @@
-import { StreamMetadata } from "./streamMetadata";
-import { PhysicalStreamType } from "./physicalStreamType";
-import { LogicalStreamType } from "./logicalStreamType";
-import { LogicalLevelTechnique } from "./logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
+import { StreamMetadata } from './streamMetadata';
+import { PhysicalStreamType } from './physicalStreamType';
+import { LogicalStreamType } from './logicalStreamType';
+import { LogicalLevelTechnique } from './logicalLevelTechnique';
+import { PhysicalLevelTechnique } from './physicalLevelTechnique';
 import IntWrapper from "../../encodings/intWrapper";
-import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
+import {decodeVarintInt32} from "../../encodings/integerDecodingUtils";
 
 export class RleEncodedStreamMetadata extends StreamMetadata {
+
     /**
      * @param numValues After LogicalLevelTechnique was applied -> numRuns + numValues
      * @param _runs Length of the runs array
@@ -21,7 +22,7 @@ export class RleEncodedStreamMetadata extends StreamMetadata {
         numValues: number,
         byteLength: number,
         private readonly _runs: number,
-        private readonly _numRleValues: number,
+        private readonly _numRleValues: number
     ) {
         super(
             physicalStreamType,
@@ -30,7 +31,7 @@ export class RleEncodedStreamMetadata extends StreamMetadata {
             logicalLevelTechnique2,
             physicalLevelTechnique,
             numValues,
-            byteLength,
+            byteLength
         );
     }
 
@@ -46,14 +47,14 @@ export class RleEncodedStreamMetadata extends StreamMetadata {
             streamMetadata.numValues,
             streamMetadata.byteLength,
             rleInfo[0],
-            rleInfo[1],
+            rleInfo[1]
         );
     }
 
     static decodePartial(
         streamMetadata: StreamMetadata,
         tile: Uint8Array,
-        offset: IntWrapper,
+        offset: IntWrapper
     ): RleEncodedStreamMetadata {
         const rleInfo = decodeVarintInt32(tile, offset, 2);
         return new RleEncodedStreamMetadata(
@@ -65,7 +66,7 @@ export class RleEncodedStreamMetadata extends StreamMetadata {
             streamMetadata.numValues,
             streamMetadata.byteLength,
             rleInfo[0],
-            rleInfo[1],
+            rleInfo[1]
         );
     }
 

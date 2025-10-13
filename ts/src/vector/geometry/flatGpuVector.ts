@@ -1,17 +1,18 @@
-import { SelectionVector } from "../filter/selectionVector";
-import { FlatSelectionVector } from "../filter/flatSelectionVector";
-import { GpuVector } from "./gpuVector";
-import { SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
+import {SelectionVector} from "../filter/selectionVector";
+import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import {GpuVector} from "./gpuVector";
+import {SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
 import TopologyVector from "./topologyVector";
 
+
 //TODO: extend from GeometryVector -> make topology vector optional
-export class FlatGpuVector extends GpuVector {
+export class FlatGpuVector extends GpuVector{
     constructor(
         private readonly _geometryTypes: Int32Array,
         triangleOffsets: Int32Array,
         indexBuffer: Int32Array,
         vertexBuffer: Int32Array,
-        topologyVector: TopologyVector | null,
+        topologyVector: TopologyVector | null
     ) {
         super(triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
     }
@@ -21,9 +22,15 @@ export class FlatGpuVector extends GpuVector {
         triangleOffsets: Int32Array,
         indexBuffer: Int32Array,
         vertexBuffer: Int32Array,
-        topologyVector?: TopologyVector | null,
+        topologyVector?: TopologyVector | null
     ): GpuVector {
-        return new FlatGpuVector(geometryTypes, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
+        return new FlatGpuVector(
+            geometryTypes,
+            triangleOffsets,
+            indexBuffer,
+            vertexBuffer,
+            topologyVector
+        );
     }
 
     /*static createMortonEncoded(
@@ -56,22 +63,22 @@ export class FlatGpuVector extends GpuVector {
 
     //TODO: refactor -> quick and dirty -> let a multi part geometry be equal to a single part geometry
     //to produce the same results as with MVT and the existing styles
-    filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector {
+    filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector{
         const selectionVector = [];
-        for (let i = 0; i < this.numGeometries; i++) {
-            if (this.geometryType(i) === geometryType || this.geometryType(i) === geometryType + 3) {
+        for(let i = 0; i < this.numGeometries; i++){
+            if(this.geometryType(i) === geometryType || this.geometryType(i) === (geometryType + 3)){
                 selectionVector.push(i);
             }
         }
         return new FlatSelectionVector(selectionVector);
     }
 
-    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector) {
+    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
         let limit = 0;
         const vector = selectionVector.selectionValues();
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const index = selectionVector[i];
-            if (this.geometryType(index) === geometryType || this.geometryType(index) === geometryType + 3) {
+            if(this.geometryType(index) === geometryType || this.geometryType(index) === (geometryType + 3)){
                 vector[limit++] = index;
             }
         }
@@ -79,7 +86,9 @@ export class FlatGpuVector extends GpuVector {
         selectionVector.setLimit(limit);
     }
 
-    containsSingleGeometryType(): boolean {
+
+    containsSingleGeometryType(): boolean{
         return false;
     }
+
 }

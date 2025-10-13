@@ -1,4 +1,4 @@
-import { StringFlatVector } from "../../../../src/vector/flat/stringFlatVector";
+import {StringFlatVector} from "../../../../src/vector/flat/stringFlatVector";
 
 describe("StringFlatVector", () => {
     let values: string[];
@@ -15,7 +15,7 @@ describe("StringFlatVector", () => {
         offsetBuffer = new Int32Array(values.length + 1);
         offsetBuffer[0] = 0;
         let i = 1;
-        for (const value of values) {
+        for(const value of values){
             const data = encoder.encode(value);
             dataBuffer.set(data, offset);
             offset += data.length;

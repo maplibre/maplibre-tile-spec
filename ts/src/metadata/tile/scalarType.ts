@@ -8,5 +8,5 @@ export enum ScalarType {
     UINT_64 = 6,
     FLOAT = 7,
     DOUBLE = 8,
-    STRING = 9,
+    STRING = 9
 }

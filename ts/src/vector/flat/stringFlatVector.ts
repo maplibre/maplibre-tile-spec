@@ -1,13 +1,15 @@
-import { VariableSizeVector } from "../variableSizeVector";
+import {VariableSizeVector} from "../variableSizeVector";
 import BitVector from "./bitVector";
-import { decodeString } from "../../encodings/decodingUtils";
-import { SelectionVector } from "../filter/selectionVector";
-import { FlatSelectionVector } from "../filter/flatSelectionVector";
+import {decodeString} from "../../encodings/decodingUtils";
+import {SelectionVector} from "../filter/selectionVector";
+import {FlatSelectionVector} from "../filter/flatSelectionVector";
 
-export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
+
+export class StringFlatVector extends VariableSizeVector<Uint8Array, string>{
     private readonly textEncoder: TextEncoder;
 
-    constructor(name: string, offsetBuffer: Int32Array, dataBuffer: Uint8Array, nullabilityBuffer?: BitVector) {
+    constructor(name: string, offsetBuffer: Int32Array, dataBuffer: Uint8Array,
+                          nullabilityBuffer?: BitVector){
         super(name, offsetBuffer, dataBuffer, nullabilityBuffer ?? offsetBuffer.length - 1);
         this.textEncoder = new TextEncoder();
     }
@@ -21,16 +23,13 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
     filter(testValue: string): SelectionVector {
         const selectionVector = [];
         const predicateUtf8 = this.textEncoder.encode(testValue);
-        for (let i = 0; i < this.size - 1; i++) {
-            const length = this.offsetBuffer[i + 1] - this.offsetBuffer[i];
+        for(let i = 0; i < this.size - 1; i++){
+            const length = this.offsetBuffer[i+1] - this.offsetBuffer[i];
             //TODO: get rid of every
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                length === predicateUtf8.length &&
-                this.dataBuffer
-                    .subarray(this.offsetBuffer[i], this.offsetBuffer[i + 1])
-                    .every((val, idx) => val === predicateUtf8[idx])
-            ) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && length === predicateUtf8.length &&
+                this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i+1]).
+                    every((val, idx) => val === predicateUtf8[idx])
+            ){
                 selectionVector.push(i);
             }
         }
@@ -41,18 +40,15 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
     match(testValues: string[]): SelectionVector {
         const selectionVector = [];
         const numPredicates = testValues.length;
-        const testValuesUtf8 = testValues.map((v) => this.textEncoder.encode(v));
-        for (let i = 0; i < this.size - 1; i++) {
-            const valueLength = this.offsetBuffer[i + 1] - this.offsetBuffer[i];
-            const valueUtf8 = this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i + 1]);
+        const testValuesUtf8 = testValues.map(v => this.textEncoder.encode(v));
+        for(let i = 0; i < this.size-1; i++){
+            const valueLength = this.offsetBuffer[i+1] - this.offsetBuffer[i];
+            const valueUtf8 = this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i+1]);
 
-            for (let j = 0; j < numPredicates; j++) {
+            for(let j = 0; j < numPredicates; j++){
                 //TODO: get rid of every
-                if (
-                    (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                    valueLength === testValuesUtf8[j].length &&
-                    valueUtf8.every((val, idx) => val === testValuesUtf8[j][idx])
-                ) {
+                if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && valueLength === testValuesUtf8[j].length &&
+                    valueUtf8.every((val, idx) => val === testValuesUtf8[j][idx])){
                     selectionVector.push(i);
                 }
             }
@@ -65,17 +61,14 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
         const predicateUtf8 = this.textEncoder.encode(value);
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const index = selectionVector[i];
-            const length = this.offsetBuffer[index + 1] - this.offsetBuffer[index];
+            const length = this.offsetBuffer[index+1] - this.offsetBuffer[index];
             //TODO: get rid of every
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                length === predicateUtf8.length &&
-                this.dataBuffer
-                    .subarray(this.offsetBuffer[index], this.offsetBuffer[index + 1])
-                    .every((val, idx) => val === predicateUtf8[idx])
-            ) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && length === predicateUtf8.length &&
+                this.dataBuffer.subarray(this.offsetBuffer[index], this.offsetBuffer[index+1]).
+                every((val, idx) => val === predicateUtf8[idx])
+            ){
                 vector[limit++] = index;
             }
         }
@@ -83,23 +76,21 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
         selectionVector.setLimit(limit);
     }
 
-    matchSelected(values: string[], selectionVector: SelectionVector): void {
+    matchSelected(values: string[], selectionVector: SelectionVector): void{
         //TODO: get rid of map?
-        const testValuesUtf8 = values.map((v) => this.textEncoder.encode(v));
+        const testValuesUtf8 = values.map(v => this.textEncoder.encode(v));
 
         //TODO: sort and use binary search?
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const index = selectionVector[i];
-            const value = this.dataBuffer.subarray(this.offsetBuffer[index], this.offsetBuffer[index + 1]);
-            for (const testValue of testValuesUtf8) {
+            const value = this.dataBuffer.subarray(this.offsetBuffer[index], this.offsetBuffer[index+1]);
+            for(const testValue of testValuesUtf8){
                 //TODO: get rid of every
-                if (
-                    (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                    value.length === testValue.length &&
+                if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && value.length === testValue.length &&
                     value.every((val, idx) => val === testValue[idx])
-                ) {
+                ){
                     vector[limit++] = index;
                     break;
                 }
@@ -112,16 +103,13 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
     filterNotEqual(testValue: string): SelectionVector {
         const selectionVector = [];
         const predicateUtf8 = this.textEncoder.encode(testValue);
-        for (let i = 0; i < this.size - 1; i++) {
-            const length = this.offsetBuffer[i + 1] - this.offsetBuffer[i];
+        for(let i = 0; i < this.size - 1; i++){
+            const length = this.offsetBuffer[i+1] - this.offsetBuffer[i];
             //TODO: get rid of every
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                (length !== predicateUtf8.length ||
-                    !this.dataBuffer
-                        .subarray(this.offsetBuffer[i], this.offsetBuffer[i + 1])
-                        .every((val, idx) => val === predicateUtf8[idx]))
-            ) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && (length !== predicateUtf8.length ||
+                !this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i+1]).
+                every((val, idx) => val === predicateUtf8[idx]))
+            ){
                 selectionVector.push(i);
             }
         }
@@ -133,17 +121,14 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
         const predicateUtf8 = this.textEncoder.encode(value);
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const index = selectionVector[i];
-            const length = this.offsetBuffer[index + 1] - this.offsetBuffer[index];
+            const length = this.offsetBuffer[index+1] - this.offsetBuffer[index];
             //TODO: get rid of every
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                (length !== predicateUtf8.length ||
-                    !this.dataBuffer
-                        .subarray(this.offsetBuffer[i], this.offsetBuffer[i + 1])
-                        .every((val, idx) => val === predicateUtf8[idx]))
-            ) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && (length !== predicateUtf8.length ||
+                !this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i+1]).
+                every((val, idx) => val === predicateUtf8[idx]))
+            ){
                 vector[limit++] = index;
             }
         }
@@ -154,18 +139,15 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
     noneMatch(testValues: string[]): SelectionVector {
         const selectionVector = [];
         const numPredicates = testValues.length;
-        const testValuesUtf8 = testValues.map((v) => this.textEncoder.encode(v));
-        for (let i = 0; i < this.size - 1; i++) {
-            const valueLength = this.offsetBuffer[i + 1] - this.offsetBuffer[i];
-            const valueUtf8 = this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i + 1]);
+        const testValuesUtf8 = testValues.map(v => this.textEncoder.encode(v));
+        for(let i = 0; i < this.size-1; i++){
+            const valueLength = this.offsetBuffer[i+1] - this.offsetBuffer[i];
+            const valueUtf8 = this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i+1]);
 
-            for (let j = 0; j < numPredicates; j++) {
+            for(let j = 0; j < numPredicates; j++){
                 //TODO: get rid of every
-                if (
-                    (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                    (valueLength !== testValuesUtf8[j].length ||
-                        !valueUtf8.every((val, idx) => val === testValuesUtf8[j][idx]))
-                ) {
+                if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && (valueLength !== testValuesUtf8[j].length ||
+                    !valueUtf8.every((val, idx) => val === testValuesUtf8[j][idx]))){
                     selectionVector.push(i);
                 }
             }
@@ -176,20 +158,19 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
 
     noneMatchSelected(values: string[], selectionVector: SelectionVector): void {
         //TODO: get rid of map?
-        const testValuesUtf8 = values.map((v) => this.textEncoder.encode(v));
+        const testValuesUtf8 = values.map(v => this.textEncoder.encode(v));
 
         //TODO: sort and use binary search?
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const index = selectionVector[i];
-            const value = this.dataBuffer.subarray(this.offsetBuffer[index], this.offsetBuffer[index + 1]);
-            for (const testValue of testValuesUtf8) {
+            const value = this.dataBuffer.subarray(this.offsetBuffer[index], this.offsetBuffer[index+1]);
+            for(const testValue of testValuesUtf8){
                 //TODO: get rid of every
-                if (
-                    (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                    (value.length !== testValue.length || !value.every((val, idx) => val === testValue[idx]))
-                ) {
+                if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && (value.length !== testValue.length ||
+                    !value.every((val, idx) => val === testValue[idx]))
+                ){
                     vector[limit++] = index;
                     break;
                 }
@@ -197,6 +178,7 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
         }
 
         selectionVector.setLimit(limit);
+
     }
 
     greaterThanOrEqualTo(value: string): SelectionVector {
@@ -214,4 +196,5 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
     smallerThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
         throw new Error("Not implemented yet.");
     }
+
 }
