@@ -1,35 +1,31 @@
-import { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
-import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
+import {GeometryVector, MortonSettings} from "../vector/geometry/geometryVector";
+import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "./intWrapper";
 import IntegerStreamDecoder from "./integerStreamDecoder";
-import { VectorType } from "../vector/vectorType";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
-import { MortonEncodedStreamMetadata } from "../metadata/tile/mortonEncodedStreamMetadata";
+import {VectorType} from "../vector/vectorType";
+import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
+import {LengthType} from "../metadata/tile/lengthType";
+import {DictionaryType} from "../metadata/tile/dictionaryType";
+import {MortonEncodedStreamMetadata} from "../metadata/tile/mortonEncodedStreamMetadata";
 import TopologyVector from "../vector/geometry/topologyVector";
-import { ConstGeometryVector } from "../vector/geometry/constGeometryVector";
-import { FlatGeometryVector } from "../vector/geometry/flatGeometryVector";
-import { OffsetType } from "../metadata/tile/offsetType";
-import { ConstGpuVector } from "../vector/geometry/constGpuVector";
-import { GpuVector } from "../vector/geometry/gpuVector";
-import { FlatGpuVector } from "../vector/geometry/flatGpuVector";
+import {ConstGeometryVector} from "../vector/geometry/constGeometryVector";
+import {FlatGeometryVector} from "../vector/geometry/flatGeometryVector";
+import {OffsetType} from "../metadata/tile/offsetType";
+import {ConstGpuVector} from "../vector/geometry/constGpuVector";
+import {GpuVector} from "../vector/geometry/gpuVector";
+import {FlatGpuVector} from "../vector/geometry/flatGpuVector";
 import GeometryScaling from "./geometryScaling";
 
+
 // TODO: get rid of numFeatures parameter
-export function decodeGeometryColumn(
-    tile: Uint8Array,
-    numStreams: number,
-    offset: IntWrapper,
-    numFeatures: number,
-    scalingData?: GeometryScaling,
-): GeometryVector | GpuVector {
+export function decodeGeometryColumn(tile: Uint8Array, numStreams: number, offset: IntWrapper, numFeatures: number,
+                                     scalingData?: GeometryScaling): GeometryVector | GpuVector  {
     const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
     const geometryTypesVectorType = IntegerStreamDecoder.getVectorType(geometryTypeMetadata, numFeatures);
 
     let geometryOffsets: Int32Array = null;
     let partOffsets: Int32Array = null;
-    let ringOffsets: Int32Array = null;
+    let ringOffsets: Int32Array  = null;
     let vertexOffsets: Int32Array = null;
     let vertexBuffer: Int32Array = null;
     let mortonSettings: MortonSettings = null;
@@ -49,121 +45,90 @@ export function decodeGeometryColumn(
                     switch (geometryStreamMetadata.logicalStreamType.lengthType) {
                         case LengthType.GEOMETRIES:
                             geometryOffsets = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
-                                tile,
-                                offset,
-                                geometryStreamMetadata,
-                            );
+                                tile, offset, geometryStreamMetadata);
                             break;
                         case LengthType.PARTS:
-                            partOffsets = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
-                                tile,
-                                offset,
-                                geometryStreamMetadata,
-                            );
+                            partOffsets =
+                                IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
+                                    tile, offset, geometryStreamMetadata);
                             break;
                         case LengthType.RINGS:
-                            ringOffsets = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
-                                tile,
-                                offset,
-                                geometryStreamMetadata,
-                            );
+                            ringOffsets =
+                                IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
+                                    tile, offset, geometryStreamMetadata);
                             break;
                         case LengthType.TRIANGLES:
                             triangleOffsets = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
-                                tile,
-                                offset,
-                                geometryStreamMetadata,
-                            );
+                                tile, offset, geometryStreamMetadata);
                     }
                     break;
-                case PhysicalStreamType.OFFSET: {
+                case PhysicalStreamType.OFFSET:{
                     switch (geometryStreamMetadata.logicalStreamType.offsetType) {
                         case OffsetType.VERTEX:
-                            vertexOffsets = IntegerStreamDecoder.decodeIntStream(
-                                tile,
-                                offset,
-                                geometryStreamMetadata,
-                                false,
-                            );
+                            vertexOffsets =
+                                IntegerStreamDecoder.decodeIntStream(
+                                    tile, offset, geometryStreamMetadata, false);
                             break;
                         case OffsetType.INDEX:
-                            indexBuffer = IntegerStreamDecoder.decodeIntStream(
-                                tile,
-                                offset,
-                                geometryStreamMetadata,
-                                false,
-                            );
+                            indexBuffer =
+                                IntegerStreamDecoder.decodeIntStream(
+                                    tile, offset, geometryStreamMetadata, false);
                             break;
                     }
                     break;
                 }
                 case PhysicalStreamType.DATA: {
                     if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
-                        vertexBuffer = IntegerStreamDecoder.decodeIntStream(
-                            tile,
-                            offset,
-                            geometryStreamMetadata,
-                            true,
-                            scalingData,
-                        );
+                        vertexBuffer =
+                            IntegerStreamDecoder.decodeIntStream(
+                                tile, offset, geometryStreamMetadata, true, scalingData);
                     } else {
                         const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
                         mortonSettings = {
                             numBits: mortonMetadata.numBits(),
-                            coordinateShift: mortonMetadata.coordinateShift(),
+                            coordinateShift: mortonMetadata.coordinateShift()
                         };
                         vertexBuffer = IntegerStreamDecoder.decodeIntStream(
-                            tile,
-                            offset,
-                            geometryStreamMetadata,
-                            false,
-                            scalingData,
-                        );
+                            tile, offset, geometryStreamMetadata, false, scalingData);
                     }
                     break;
                 }
             }
         }
 
-        if (indexBuffer !== null) {
-            if (geometryOffsets != null || partOffsets != null) {
+        if(indexBuffer !== null){
+            if(geometryOffsets != null || partOffsets != null){
                 /* Case when the indices of a Polygon outline are encoded in the tile */
                 const topologyVector = new TopologyVector(geometryOffsets, partOffsets, ringOffsets);
-                return ConstGpuVector.create(
-                    numFeatures,
-                    geometryType,
-                    triangleOffsets,
-                    indexBuffer,
-                    vertexBuffer,
-                    topologyVector,
-                );
+                return ConstGpuVector.create(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer,
+                    topologyVector);
             }
 
             /* Case when the no Polygon outlines are encoded in the tile */
             return ConstGpuVector.create(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer);
         }
 
-        return mortonSettings === null
-            ? /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
-              ConstGeometryVector.create(
-                  numFeatures,
-                  geometryType,
-                  new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
-                  vertexOffsets,
-                  vertexBuffer,
-              )
-            : ConstGeometryVector.createMortonEncoded(
-                  numFeatures,
-                  geometryType,
-                  new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
-                  vertexOffsets,
-                  vertexBuffer,
-                  mortonSettings,
-              );
+        return mortonSettings === null?
+            /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
+            ConstGeometryVector.create(
+                numFeatures,
+                geometryType,
+                new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+                vertexOffsets,
+                vertexBuffer):
+            ConstGeometryVector.createMortonEncoded(
+                numFeatures,
+                geometryType,
+                new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+                vertexOffsets,
+                vertexBuffer,
+                mortonSettings);
+
     }
 
     /* Different geometry types are mixed in the geometry column */
-    const geometryTypeVector = IntegerStreamDecoder.decodeIntStream(tile, offset, geometryTypeMetadata, false);
+    const geometryTypeVector =
+        IntegerStreamDecoder.decodeIntStream(tile, offset, geometryTypeMetadata, false);
 
     for (let i = 0; i < numStreams - 1; i++) {
         const geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
@@ -171,72 +136,60 @@ export function decodeGeometryColumn(
             case PhysicalStreamType.LENGTH:
                 switch (geometryStreamMetadata.logicalStreamType.lengthType) {
                     case LengthType.GEOMETRIES:
-                        geometryOffsets = IntegerStreamDecoder.decodeIntStream(
-                            tile,
-                            offset,
-                            geometryStreamMetadata,
-                            false,
-                        );
+                        geometryOffsets =
+                            IntegerStreamDecoder.decodeIntStream(
+                                tile, offset, geometryStreamMetadata, false);
                         break;
                     case LengthType.PARTS:
-                        partOffsets = IntegerStreamDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        partOffsets =
+                            IntegerStreamDecoder.decodeIntStream(
+                                tile, offset, geometryStreamMetadata, false);
                         break;
                     case LengthType.RINGS:
-                        ringOffsets = IntegerStreamDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        ringOffsets =
+                            IntegerStreamDecoder.decodeIntStream(
+                                tile, offset, geometryStreamMetadata, false);
                         break;
                     case LengthType.TRIANGLES:
                         triangleOffsets = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
-                            tile,
-                            offset,
-                            geometryStreamMetadata,
-                        );
+                            tile, offset, geometryStreamMetadata);
                 }
                 break;
             case PhysicalStreamType.OFFSET:
                 switch (geometryStreamMetadata.logicalStreamType.offsetType) {
                     case OffsetType.VERTEX:
-                        vertexOffsets = IntegerStreamDecoder.decodeIntStream(
-                            tile,
-                            offset,
-                            geometryStreamMetadata,
-                            false,
-                        );
+                        vertexOffsets =
+                            IntegerStreamDecoder.decodeIntStream(
+                                tile, offset, geometryStreamMetadata, false);
                         break;
                     case OffsetType.INDEX:
-                        indexBuffer = IntegerStreamDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        indexBuffer =
+                            IntegerStreamDecoder.decodeIntStream(
+                                tile, offset, geometryStreamMetadata, false);
                         break;
                 }
                 break;
             case PhysicalStreamType.DATA:
-                if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType) {
-                    vertexBuffer = IntegerStreamDecoder.decodeIntStream(
-                        tile,
-                        offset,
-                        geometryStreamMetadata,
-                        true,
-                        scalingData,
-                    );
-                } else {
+                if (DictionaryType.VERTEX === geometryStreamMetadata.logicalStreamType.dictionaryType){
+                    vertexBuffer =
+                        IntegerStreamDecoder.decodeIntStream(
+                            tile, offset, geometryStreamMetadata, true, scalingData);
+                }
+                else {
                     const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
-                    mortonSettings = {
-                        numBits: mortonMetadata.numBits(),
-                        coordinateShift: mortonMetadata.coordinateShift(),
-                    };
-                    vertexBuffer = IntegerStreamDecoder.decodeIntStream(
-                        tile,
-                        offset,
-                        geometryStreamMetadata,
-                        false,
-                        scalingData,
-                    );
+                    mortonSettings = {numBits: mortonMetadata.numBits(),
+                        coordinateShift: mortonMetadata.coordinateShift()};
+                    vertexBuffer =
+                        IntegerStreamDecoder.decodeIntStream(
+                            tile, offset, geometryStreamMetadata, false, scalingData);
                 }
                 break;
         }
     }
 
-    if (indexBuffer !== null && partOffsets === null) {
+    if(indexBuffer !== null && partOffsets === null){
         /* Case when the indices of a Polygon outline are not encoded in the data so no
-         *  topology data are present in the tile */
+        *  topology data are present in the tile */
         return FlatGpuVector.create(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
     }
 
@@ -248,7 +201,8 @@ export function decodeGeometryColumn(
             partOffsets = decodeLevel1LengthStream(geometryTypeVector, geometryOffsets, partOffsets, false);
             ringOffsets = decodeLevel2LengthStream(geometryTypeVector, geometryOffsets, partOffsets, ringOffsets);
         } else if (partOffsets !== null) {
-            partOffsets = decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, geometryOffsets, partOffsets);
+            partOffsets =
+                decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, geometryOffsets, partOffsets);
         }
     } else if (partOffsets !== null && ringOffsets !== null) {
         partOffsets = decodeRootLengthStream(geometryTypeVector, partOffsets, 1);
@@ -257,31 +211,25 @@ export function decodeGeometryColumn(
         partOffsets = decodeRootLengthStream(geometryTypeVector, partOffsets, 0);
     }
 
-    if (indexBuffer !== null) {
+    if(indexBuffer !== null){
         /* Case when the indices of a Polygon outline are encoded in the tile */
-        return FlatGpuVector.create(
-            geometryTypeVector,
-            triangleOffsets,
-            indexBuffer,
-            vertexBuffer,
-            new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
-        );
+        return FlatGpuVector.create(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer,
+            new TopologyVector(geometryOffsets, partOffsets, ringOffsets));
     }
 
-    return mortonSettings === null /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
-        ? FlatGeometryVector.create(
-              geometryTypeVector,
-              new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
-              vertexOffsets,
-              vertexBuffer,
-          )
+    return mortonSettings === null? /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
+        FlatGeometryVector.create(
+            geometryTypeVector,
+            new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+            vertexOffsets,
+            vertexBuffer)
         : FlatGeometryVector.createMortonEncoded(
-              geometryTypeVector,
-              new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
-              vertexOffsets,
-              vertexBuffer,
-              mortonSettings,
-          );
+            geometryTypeVector,
+            new TopologyVector(geometryOffsets, partOffsets, ringOffsets),
+            vertexOffsets,
+            vertexBuffer,
+            mortonSettings);
+
 }
 
 /*
@@ -299,19 +247,15 @@ function decodeRootLengthStream(geometryTypes: Int32Array, rootLengthStream: Int
          * BufferId: 1 PartOffsets -> Polygon
          * BufferId: 0 PartOffsets, RingOffsets -> LineString
          * */
-        previousOffset = rootBufferOffsets[i + 1] =
-            previousOffset + (geometryTypes[i] > bufferId ? rootLengthStream[rootLengthCounter++] : 1);
+        previousOffset = rootBufferOffsets[i + 1] = previousOffset + (geometryTypes[i] > bufferId
+            ? rootLengthStream[rootLengthCounter++] : 1);
     }
 
     return rootBufferOffsets;
 }
 
-function decodeLevel1LengthStream(
-    geometryTypes: Int32Array,
-    rootOffsetBuffer: Int32Array,
-    level1LengthBuffer: Int32Array,
-    isLineStringPresent: boolean,
-): Int32Array {
+function decodeLevel1LengthStream(geometryTypes: Int32Array, rootOffsetBuffer: Int32Array,
+                                  level1LengthBuffer: Int32Array, isLineStringPresent: boolean): Int32Array {
     const level1BufferOffsets = new Int32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
     let previousOffset = 0;
     level1BufferOffsets[0] = previousOffset;
@@ -320,11 +264,8 @@ function decodeLevel1LengthStream(
     for (let i = 0; i < geometryTypes.length; i++) {
         const geometryType = geometryTypes[i];
         const numGeometries = rootOffsetBuffer[i + 1] - rootOffsetBuffer[i];
-        if (
-            geometryType === 5 ||
-            geometryType === 2 ||
-            (isLineStringPresent && (geometryType === 4 || geometryType === 1))
-        ) {
+        if (geometryType === 5 || geometryType === 2 || (isLineStringPresent &&
+            (geometryType === 4 || geometryType === 1))) {
             /* For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
              * a value in the level1LengthBuffer exists */
             for (let j = 0; j < numGeometries; j++) {
@@ -346,11 +287,8 @@ function decodeLevel1LengthStream(
 /*
  * Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer
  */
-function decodeLevel1WithoutRingBufferLengthStream(
-    geometryTypes: Int32Array,
-    rootOffsetBuffer: Int32Array,
-    level1LengthBuffer: Int32Array,
-): Int32Array {
+function decodeLevel1WithoutRingBufferLengthStream(geometryTypes: Int32Array, rootOffsetBuffer: Int32Array,
+                                                   level1LengthBuffer: Int32Array): Int32Array {
     const level1BufferOffsets = new Int32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
     let previousOffset = 0;
     level1BufferOffsets[0] = previousOffset;
@@ -376,13 +314,10 @@ function decodeLevel1WithoutRingBufferLengthStream(
     return level1BufferOffsets;
 }
 
-function decodeLevel2LengthStream(
-    geometryTypes: Int32Array,
-    rootOffsetBuffer: Int32Array,
-    level1OffsetBuffer: Int32Array,
-    level2LengthBuffer: Int32Array,
-): Int32Array {
-    const level2BufferOffsets = new Int32Array(level1OffsetBuffer[level1OffsetBuffer.length - 1] + 1);
+function decodeLevel2LengthStream(geometryTypes: Int32Array, rootOffsetBuffer: Int32Array, level1OffsetBuffer: Int32Array,
+                                  level2LengthBuffer: Int32Array): Int32Array {
+    const level2BufferOffsets =
+        new Int32Array(level1OffsetBuffer[level1OffsetBuffer.length - 1] + 1);
     let previousOffset = 0;
     level2BufferOffsets[0] = previousOffset;
     let level1OffsetBufferCounter = 1;
@@ -396,11 +331,13 @@ function decodeLevel2LengthStream(
              * exists */
             for (let j = 0; j < numGeometries; j++) {
                 const numParts =
-                    level1OffsetBuffer[level1OffsetBufferCounter] - level1OffsetBuffer[level1OffsetBufferCounter - 1];
+                    level1OffsetBuffer[level1OffsetBufferCounter]
+                    - level1OffsetBuffer[level1OffsetBufferCounter - 1];
                 level1OffsetBufferCounter++;
                 for (let k = 0; k < numParts; k++) {
-                    previousOffset = level2BufferOffsets[level2OffsetBufferCounter++] =
-                        previousOffset + level2LengthBuffer[level2LengthBufferCounter++];
+                    previousOffset =
+                        level2BufferOffsets[level2OffsetBufferCounter++] =
+                            previousOffset + level2LengthBuffer[level2LengthBufferCounter++];
                 }
             }
         } else {

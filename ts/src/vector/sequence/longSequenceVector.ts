@@ -1,8 +1,9 @@
-import { SequenceVector } from "./sequenceVector";
-import { SelectionVector } from "../filter/selectionVector";
-import { FlatSelectionVector } from "../filter/flatSelectionVector";
+import {SequenceVector} from "./sequenceVector";
+import {SelectionVector} from "../filter/selectionVector";
+import {FlatSelectionVector} from "../filter/flatSelectionVector";
 
 export class LongSequenceVector extends SequenceVector<BigInt64Array, bigint> {
+
     public constructor(name: string, baseValue: bigint, delta: bigint, size: number) {
         super(name, BigInt64Array.of(baseValue), delta, size);
     }
@@ -10,11 +11,11 @@ export class LongSequenceVector extends SequenceVector<BigInt64Array, bigint> {
     filter(value: bigint): SelectionVector {
         const index = (value - this.dataBuffer[0]) / this.delta;
         const sequenceValue = this.dataBuffer[0] + index * this.delta;
-        if (value === sequenceValue) {
-            return new FlatSelectionVector([Number(index)]);
+        if(value ===  sequenceValue){
+            return new FlatSelectionVector([Number(index)])
         }
 
-        const vector = sequenceValue ? [Number(index)] : [];
+        const vector = sequenceValue? [Number(index)] : [];
         return new FlatSelectionVector(vector);
     }
 
@@ -65,4 +66,5 @@ export class LongSequenceVector extends SequenceVector<BigInt64Array, bigint> {
     smallerThanOrEqualToSelected(value: bigint, selectionVector: SelectionVector): void {
         throw new Error("Not implemented yet.");
     }
+
 }

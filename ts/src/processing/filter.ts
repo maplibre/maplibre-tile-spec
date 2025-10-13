@@ -1,79 +1,78 @@
 import FeatureTable from "../vector/featureTable";
-import { SelectionVector } from "../vector/filter/selectionVector";
-import { FlatSelectionVector } from "../vector/filter/flatSelectionVector";
-import { SINGLE_PART_GEOMETRY_TYPE } from "../vector/geometry/geometryType";
+import {SelectionVector} from "../vector/filter/selectionVector";
+import {FlatSelectionVector} from "../vector/filter/flatSelectionVector";
+import {SINGLE_PART_GEOMETRY_TYPE} from "../vector/geometry/geometryType";
 import { ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
 
 const compoundExpressions = ["all", "any"];
 const comparisonExpressions = ["==", "!=", ">=", "<=", ">", "<"];
 const matchExpressions = ["in", "!in", "has", "!has", "none"];
 
-export default function filter(featureTable: FeatureTable, expression: ExpressionSpecification): SelectionVector {
-    if (!expression) {
+export default function filter(featureTable: FeatureTable, expression: ExpressionSpecification): SelectionVector{
+    if(!expression){
         //TODO: get rid of that workaround for performance reasons
         const selectionVector = new Array(featureTable.numFeatures);
-        for (let i = 0; i < featureTable.numFeatures; i++) {
+        for(let i = 0; i < featureTable.numFeatures; i++){
             selectionVector[i] = i;
         }
         return new FlatSelectionVector(selectionVector);
     }
 
-    if (isCompoundExpression(expression)) {
+    if(isCompoundExpression(expression)){
         return executeCompoundExpression(featureTable, expression);
     }
-    if (isComparisonExpression(expression)) {
+    if(isComparisonExpression(expression)){
         return executeComparisonExpression(featureTable, expression);
     }
 
-    if (isMatchExpression(expression)) {
+    if(isMatchExpression(expression)){
         return executeMatchExpression(featureTable, expression);
     }
 
     throw new Error(`Filter ${expression[0]} not supported.`);
 }
 
-function isCompoundExpression(expression: ExpressionSpecification): boolean {
+function isCompoundExpression(expression: ExpressionSpecification): boolean{
     return compoundExpressions.includes(expression[0]);
 }
 
-function isComparisonExpression(expression: ExpressionSpecification): boolean {
+function isComparisonExpression(expression: ExpressionSpecification): boolean{
     return comparisonExpressions.includes(expression[0]);
 }
 
-function isMatchExpression(expression: ExpressionSpecification): boolean {
+function isMatchExpression(expression: ExpressionSpecification): boolean{
     return matchExpressions.includes(expression[0]);
 }
 
-function executeCompoundExpression(
-    featureTable: FeatureTable,
-    expressionSpecification: ExpressionSpecification,
-): SelectionVector {
-    if (expressionSpecification[0] !== "all") {
+function executeCompoundExpression(featureTable: FeatureTable, expressionSpecification: ExpressionSpecification): SelectionVector {
+    if(expressionSpecification[0] !== "all"){
         throw new Error("Specified type of CompoundExpression not supported (yet).");
     }
 
     let selectionVector = null;
     const numExpressions = expressionSpecification.length - 1;
 
-    const geometryTypeExpressionIndex = expressionSpecification.findIndex((e) => e[0] === "$type");
-    if (geometryTypeExpressionIndex > 0) {
+    const geometryTypeExpressionIndex = expressionSpecification.findIndex(e => e[0] === "$type")
+    if(geometryTypeExpressionIndex > 0){
         /* Move geometry type expression ($type) to the front as currently no filtering based on a SelectionVector is
-         *  supported in a GeometryVector. Only one geometry type expression is currently supported. */
+        *  supported in a GeometryVector. Only one geometry type expression is currently supported. */
         const geometryTypeExpression = expressionSpecification.splice(geometryTypeExpressionIndex, 1)[0];
         expressionSpecification.unshift(geometryTypeExpression);
     }
 
-    for (let i = 1; i <= numExpressions; i++) {
+    for(let i = 1; i <= numExpressions; i++){
         const expression = expressionSpecification[i] as ExpressionSpecification;
-        if (isComparisonExpression(expression)) {
+        if(isComparisonExpression(expression)) {
             selectionVector = executeComparisonExpression(featureTable, expression, selectionVector);
-        } else if (isMatchExpression(expression)) {
+        }
+        else if(isMatchExpression(expression)) {
             selectionVector = executeMatchExpression(featureTable, expression, selectionVector);
-        } else {
+        }
+        else{
             throw new Error("Expression not supported.");
         }
 
-        if (selectionVector.limit === 0) {
+        if(selectionVector.limit === 0){
             return selectionVector;
         }
     }
@@ -81,19 +80,15 @@ function executeCompoundExpression(
     return selectionVector;
 }
 
-function executeMatchExpression(
-    featureTable: FeatureTable,
-    expression: ExpressionSpecification,
-    selectionVector?: SelectionVector,
-): SelectionVector {
+function executeMatchExpression(featureTable: FeatureTable, expression: ExpressionSpecification, selectionVector?: SelectionVector): SelectionVector{
     //TODO: get rid of any case
     const comparisonInstruction = expression[0] as any;
     const columnName = expression[1] as string;
 
     const propertyVector = featureTable.getPropertyVector(columnName);
-    if (!propertyVector) {
+    if(!propertyVector){
         //TODO: implement proper solution
-        if (comparisonInstruction[0] === "!") {
+        if(comparisonInstruction[0] === "!"){
             //TODO: use SequenceSelectionVector
             return selectionVector ?? createSequenceSelectionVector(featureTable);
         }
@@ -122,16 +117,14 @@ function executeMatchExpression(
             return propertyVector.noneMatch(filterLiterals);
         }
         case "has":
-            return selectionVector
-                ? propertyVector.presentValuesSelected(selectionVector)
-                : propertyVector.presentValues();
+            return selectionVector? propertyVector.presentValuesSelected(selectionVector) :
+                propertyVector.presentValues();
         case "!has": {
-            return selectionVector
-                ? propertyVector.nullableValuesSelected(selectionVector)
-                : propertyVector.nullableValues();
+            return selectionVector? propertyVector.nullableValuesSelected(selectionVector) :
+                propertyVector.nullableValues();
         }
         default:
-            throw new Error("Specified match expression not supported (yet).");
+            throw new Error("Specified match expression not supported (yet).")
     }
 }
 
@@ -144,23 +137,19 @@ function createSequenceSelectionVector(featureTable: FeatureTable) {
     return new FlatSelectionVector(selectionVector);
 }
 
-function executeComparisonExpression(
-    featureTable: FeatureTable,
-    expression: ExpressionSpecification,
-    selectionVector?: SelectionVector,
-): SelectionVector {
+function executeComparisonExpression(featureTable: FeatureTable, expression: ExpressionSpecification, selectionVector?: SelectionVector): SelectionVector {
     const comparisonInstruction = expression[0];
     const columnName = expression[1] as string;
     const predicateValue = expression[2] as any;
 
-    if (columnName === "$type" || columnName === "geometry-type") {
-        if (comparisonInstruction === "!=") {
+    if(columnName === "$type" || columnName === "geometry-type") {
+        if(comparisonInstruction === "!="){
             throw new Error("Specified filter not supported on GeometryVector (yet).");
         }
 
         const geometryType = getSingePartGeometryType(predicateValue);
         const geometryVector = featureTable.geometryVector;
-        if (selectionVector) {
+        if(selectionVector){
             geometryVector.filterSelected(geometryType, selectionVector);
             return selectionVector;
         }
@@ -169,17 +158,17 @@ function executeComparisonExpression(
     }
 
     const propertyVector = featureTable.getPropertyVector(columnName);
-    if (!propertyVector) {
-        if (comparisonInstruction === "!=") {
+    if(!propertyVector){
+        if(comparisonInstruction === "!="){
             return selectionVector ?? createSequenceSelectionVector(featureTable);
         }
 
         return new FlatSelectionVector([]);
     }
 
-    switch (comparisonInstruction) {
+    switch(comparisonInstruction){
         case "==": {
-            if (selectionVector) {
+            if(selectionVector){
                 propertyVector.filterSelected(predicateValue, selectionVector);
                 return selectionVector;
             }

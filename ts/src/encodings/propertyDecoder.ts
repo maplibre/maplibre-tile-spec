@@ -73,7 +73,7 @@ function decodeScalarPropertyColumn(
         const streamDataStart = offset.get();
         // Decode the RLE boolean data
         const presentVector = decodeBooleanRle(data, numValues, offset);
-        // CRITICAL FIX: decodeBooleanRle doesn't consume all bytes!
+        // FIX: decodeBooleanRle doesn't consume all bytes!
         // We must advance to the end of the stream using byteLength from metadata
         offset.set(streamDataStart + presentStreamMetadata.byteLength);
         nullabilityBuffer = new BitVector(presentVector, presentStreamMetadata.numValues);

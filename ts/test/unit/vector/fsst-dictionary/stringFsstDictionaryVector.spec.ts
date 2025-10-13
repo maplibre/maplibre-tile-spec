@@ -1,5 +1,6 @@
 import BitVector from "../../../../src/vector/flat/bitVector";
-import { StringFsstDictionaryVector } from "../../../../src/vector/fsst-dictionary/stringFsstDictionaryVector";
+import {StringFsstDictionaryVector} from "../../../../src/vector/fsst-dictionary/stringFsstDictionaryVector";
+
 
 describe("StringFsstDictionaryVector", () => {
     let indexBuffer: Int32Array;
@@ -12,13 +13,9 @@ describe("StringFsstDictionaryVector", () => {
     beforeEach(() => {
         indexBuffer = new Int32Array([0, 1, 2]);
         offsetBuffer = new Int32Array([0, 5, 10]);
-        dictionaryBuffer = new Uint8Array([
-            /* mock data */
-        ]);
+        dictionaryBuffer = new Uint8Array([/* mock data */]);
         symbolOffsetBuffer = new Int32Array([0, 3, 6]);
-        symbolTableBuffer = new Uint8Array([
-            /* mock data */
-        ]);
+        symbolTableBuffer = new Uint8Array([/* mock data */]);
         nullabilityBuffer = new BitVector(new Uint8Array([0b00000001]), 2);
     });
 
@@ -30,7 +27,7 @@ describe("StringFsstDictionaryVector", () => {
             dictionaryBuffer,
             symbolOffsetBuffer,
             symbolTableBuffer,
-            nullabilityBuffer,
+            nullabilityBuffer
         );
         expect(vector).toBeInstanceOf(StringFsstDictionaryVector);
     });

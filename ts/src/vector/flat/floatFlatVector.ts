@@ -1,10 +1,16 @@
-import { FixedSizeVector } from "../fixedSizeVector";
+import {FixedSizeVector} from "../fixedSizeVector";
 import BitVector from "./bitVector";
-import { SelectionVector } from "../filter/selectionVector";
-import { FlatSelectionVector } from "../filter/flatSelectionVector";
+import {SelectionVector} from "../filter/selectionVector";
+import {FlatSelectionVector} from "../filter/flatSelectionVector";
 
-export class FloatFlatVector extends FixedSizeVector<Float32Array, number> {
-    constructor(name: string, dataBuffer: Float32Array, sizeOrNullabilityBuffer: number | BitVector) {
+
+export class FloatFlatVector extends FixedSizeVector<Float32Array, number>{
+
+    constructor(
+        name: string,
+        dataBuffer: Float32Array,
+        sizeOrNullabilityBuffer: number | BitVector
+    ) {
         super(name, dataBuffer, sizeOrNullabilityBuffer);
     }
 
@@ -12,7 +18,7 @@ export class FloatFlatVector extends FixedSizeVector<Float32Array, number> {
         return this.dataBuffer[index];
     }
 
-    filter(testValue: number): SelectionVector {
+    filter(testValue: number): SelectionVector{
         const selectionVector = [];
         for (let i = 0; i < this.dataBuffer.length; i++) {
             if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[i] === testValue) {
@@ -27,11 +33,8 @@ export class FloatFlatVector extends FixedSizeVector<Float32Array, number> {
         const selectionVector = [];
 
         for (let i = 0; i < this.dataBuffer.length; i++) {
-            for (let j = 0; j < testValues.length; j++) {
-                if (
-                    (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                    this.dataBuffer[i] === testValues[j]
-                ) {
+            for(let j = 0; j < testValues.length; j++){
+                if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[i] === testValues[j]) {
                     selectionVector.push(i);
                 }
             }
@@ -45,10 +48,7 @@ export class FloatFlatVector extends FixedSizeVector<Float32Array, number> {
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) &&
-                this.dataBuffer[index] === testValue
-            ) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] === testValue) {
                 vector[limit++] = index;
             }
         }
@@ -61,10 +61,7 @@ export class FloatFlatVector extends FixedSizeVector<Float32Array, number> {
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) &&
-                testValues.includes(this.dataBuffer[index])
-            ) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && testValues.includes(this.dataBuffer[index])) {
                 vector[limit++] = index;
             }
         }
@@ -135,4 +132,5 @@ export class FloatFlatVector extends FixedSizeVector<Float32Array, number> {
     filterNotEqualSelected(value: number, selectionVector: SelectionVector): void {
         throw new Error("Not implemented yet.");
     }
+
 }

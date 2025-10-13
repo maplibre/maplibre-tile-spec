@@ -1,8 +1,9 @@
-import { VariableSizeVector } from "../variableSizeVector";
+import {VariableSizeVector} from "../variableSizeVector";
 import BitVector from "../flat/bitVector";
-import { decodeFsst } from "../../encodings/fsstDecoder";
-import { decodeString } from "../../encodings/decodingUtils";
-import { SelectionVector } from "../filter/selectionVector";
+import {decodeFsst} from "../../encodings/fsstDecoder";
+import {decodeString} from "../../encodings/decodingUtils";
+import {SelectionVector} from "../filter/selectionVector";
+
 
 export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, string> {
     private readonly textEncoder: TextEncoder;
@@ -19,7 +20,7 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
         dictionaryBuffer: Uint8Array,
         private readonly symbolOffsetBuffer: Int32Array,
         private readonly symbolTableBuffer: Uint8Array,
-        nullabilityBuffer: BitVector,
+        nullabilityBuffer : BitVector
     ) {
         super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer);
         this.textEncoder = new TextEncoder();
@@ -27,24 +28,24 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
 
     filter(value: string): SelectionVector {
         /*
-         * -> create utf-8 buffer from value
-         * -> convert utf-8 buffer to fsst compressed corpus
-         * -> replace utf-8 character with index of SymbolTable
-         * */
+        * -> create utf-8 buffer from value
+        * -> convert utf-8 buffer to fsst compressed corpus
+        * -> replace utf-8 character with index of SymbolTable
+        * */
 
-        throw new Error("Not implemented yet.");
+        throw new Error("Not implemented yet.")
     }
 
     match(values: string[]): SelectionVector {
-        throw new Error("Not implemented yet.");
+        throw new Error("Not implemented yet.")
     }
 
     filterSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
+        throw new Error("Not implemented yet.")
     }
 
     matchSelected(values: string[], selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
+        throw new Error("Not implemented yet.")
     }
 
     protected getValueFromBuffer(index: number): string {
@@ -102,7 +103,7 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
         const lengthBuffer = new Uint32Array(offsetBuffer.length - 1);
         let previousOffset = offsetBuffer[0];
         for (let i = 1; i < offsetBuffer.length; i++) {
-            const offset = offsetBuffer[i];
+            const offset = offsetBuffer[i]
             lengthBuffer[i - 1] = offset - previousOffset;
             previousOffset = offset;
         }
@@ -151,4 +152,5 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
             }
         }
     }*/
+
 }

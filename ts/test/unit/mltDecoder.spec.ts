@@ -1,12 +1,12 @@
 import * as fs from "fs";
 import * as Path from "path";
 import decodeTile from "../../src/mltDecoder";
-import { TileSetMetadata } from "../../src/metadata/tileset/tilesetMetadata";
-import { VectorTile } from "@mapbox/vector-tile";
+import {TileSetMetadata} from "../../src/metadata/tileset/tilesetMetadata";
+import {VectorTile} from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import * as path from "node:path";
-import { FeatureTable, GpuVector } from "../../src";
-import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
+import {FeatureTable, GpuVector} from "../../src";
+import {classifyRings} from "@maplibre/maplibre-gl-style-spec";
 //TODO: refactor to use npm package
 import earcut from "../utils/earcut";
 
@@ -32,101 +32,77 @@ const userSessionOmtOptimizedMvtDir = "./test/data/omt/optimized_user_session/mv
 const userSessionOverturePlainMltDir = "./test/data/overture/mlt/plain";
 const userSessionOvertureMvtDir = "./test/data/overture/mvt";
 
-/*
- * TODOs:
- * - When ids sorted in converter tests are wrong
- * - Fix pre-tessellation tests
- * */
 
 /*
- * Optimizations:
- * - decodeScalarPropertyColumn -> handle case again when nullability buffer is present but all values in the column
- *   are present -> skip nullability buffer decoding -> fix calculation for 4 bits in getVectorTypeBooleanStream
- *   function or use flag in metadata
- * - decodeBooleanColumn -> add check for ConstBooleanVector again
- *
- * Improvements:
- * - decodePropertyColumn -> Handle struct which currently only supports strings as nested fields for supporting shared
- *   dictionary encoding
- *
- * */
+* TODOs:
+* - When ids sorted in converter tests are wrong
+* - Fix pre-tessellation tests
+* */
+
+/*
+* Optimizations:
+* - decodeScalarPropertyColumn -> handle case again when nullability buffer is present but all values in the column
+*   are present -> skip nullability buffer decoding -> fix calculation for 4 bits in getVectorTypeBooleanStream
+*   function or use flag in metadata
+* - decodeBooleanColumn -> add check for ConstBooleanVector again
+*
+* Improvements:
+* - decodePropertyColumn -> Handle struct which currently only supports strings as nested fields for supporting shared
+*   dictionary encoding
+*
+* */
 
 describe("decodeTile", () => {
-    it(
-        "should decode a user session based dictionary of plain encoded Overture Maps schema based tiles " +
-            "with global tileset metadata",
-        async () => {
-            testTiles(userSessionOverturePlainMltDir, userSessionOvertureMvtDir, false, false, false);
-        },
-    );
+    it("should decode a user session based dictionary of plain encoded Overture Maps schema based tiles " +
+        "with global tileset metadata", async () => {
+        testTiles(userSessionOverturePlainMltDir, userSessionOvertureMvtDir, false, false,
+            false);
+    });
 
-    it(
-        "should decode a user session based dictionary of plain encoded Swisstopo schema based tiles " +
-            "with global tileset metadata",
-        async () => {
-            testTiles(userSessionSwisstopoPlainMltDir, userSessionSwisstopoMvtDir, false);
-        },
-    );
+    it("should decode a user session based dictionary of plain encoded Swisstopo schema based tiles " +
+        "with global tileset metadata", async () => {
+        testTiles(userSessionSwisstopoPlainMltDir, userSessionSwisstopoMvtDir, false);
+    });
 
-    it(
-        "should decode a user session based dictionary of unoptimized plain encoded OMT schema based tiles " +
-            "with global tileset metadata",
-        async () => {
-            testTiles(userSessionOmtUnoptimizedPlainMltDir, userSessionOmtUnoptimizedMvtDir, false);
-        },
-    );
+    it("should decode a user session based dictionary of unoptimized plain encoded OMT schema based tiles " +
+        "with global tileset metadata", async () => {
+        testTiles(userSessionOmtUnoptimizedPlainMltDir, userSessionOmtUnoptimizedMvtDir, false);
+    });
 
-    it(
-        "should decode a user session based dictionary of optimized plain encoded OMT schema based tiles " +
-            "with global tileset metadata",
-        async () => {
-            testTiles(userSessionOmtOptimizedPlainMltDir, userSessionOmtOptimizedMvtDir, false);
-        },
-    );
+    it("should decode a user session based dictionary of optimized plain encoded OMT schema based tiles " +
+        "with global tileset metadata", async () => {
+        testTiles(userSessionOmtOptimizedPlainMltDir, userSessionOmtOptimizedMvtDir, false);
+    });
 
-    it(
-        "should decode dictionary of unoptimized plain encoded OMT schema based tiles with global tileset " +
-            "metadata",
-        async () => {
-            testTiles(omtUnoptimizedPlainMltDir, omtUnoptimizedMvtDir, false);
-        },
-    );
+    it("should decode dictionary of unoptimized plain encoded OMT schema based tiles with global tileset " +
+        "metadata", async () => {
+        testTiles(omtUnoptimizedPlainMltDir, omtUnoptimizedMvtDir, false);
+    });
 
-    it("should decode dictionary of optimized plain encoded OMT schema based tiles with global tileset metadata", async () => {
+    it("should decode dictionary of optimized plain encoded OMT schema based tiles with global tileset metadata",
+        async () => {
         testTiles(omtOptimizedPlainMltDir, omtOptimizedMvtDir, false);
     });
 
-    it(
-        "should decode dictionary of unoptimized plain morton encoded OMT schema based tiles with global tileset " +
-            "metadata",
-        async () => {
-            testTiles(omtUnoptimizedPlainMortonMltDir, omtUnoptimizedMvtDir, false);
-        },
-    );
+    it("should decode dictionary of unoptimized plain morton encoded OMT schema based tiles with global tileset " +
+        "metadata", async () => {
+        testTiles(omtUnoptimizedPlainMortonMltDir, omtUnoptimizedMvtDir, false);
+    });
 
-    it(
-        "should decode dictionary of optimized plain morton encoded OMT schema based tiles with global tileset " +
-            "metadata",
-        async () => {
+    it("should decode dictionary of optimized plain morton encoded OMT schema based tiles with global tileset " +
+        "metadata", async () => {
             testTiles(omtOptimizedPlainMortonMltDir, omtOptimizedMvtDir, false);
-        },
-    );
+    });
 
-    it(
-        "should decode dictionary of unoptimized pre-tessellated OMT schema based tiles with global tileset " +
-            "metadata",
-        async () => {
-            testTiles(omtUnoptimizedPretessellatedMltDir, omtUnoptimizedMvtDir, true);
-        },
-    );
+    it("should decode dictionary of unoptimized pre-tessellated OMT schema based tiles with global tileset " +
+        "metadata", async () => {
+        testTiles(omtUnoptimizedPretessellatedMltDir, omtUnoptimizedMvtDir, true);
+    });
 
-    it(
-        "should decode dictionary of optimized pre-tessellated OMT schema based tiles with global tileset " +
-            "metadata",
-        async () => {
-            testTiles(omtOptimizedPretessellatedMltDir, omtOptimizedMvtDir, true);
-        },
-    );
+    it("should decode dictionary of optimized pre-tessellated OMT schema based tiles with global tileset " +
+        "metadata", async () => {
+        testTiles(omtOptimizedPretessellatedMltDir, omtOptimizedMvtDir, true);
+    });
 
     /*it.each(["2_2_2"])(
         "should partially decode optimized OMT schema based tile %i with global tileset metadata and without advanced encodings" +
@@ -179,6 +155,7 @@ describe("decodeTile", () => {
 
             comparePreTessellatedTile(decodedMlt, decodedMvt);
         });*/
+
 });
 
 function getTileData(tileId: string, mltSearchPath: string, mvtSearchPath: string) {
@@ -188,26 +165,19 @@ function getTileData(tileId: string, mltSearchPath: string, mvtSearchPath: strin
     const encodedMvt = fs.readFileSync(mvtFileName);
     const tilesetMetadata = fs.readFileSync(mltMetaFilename);
     const encodedMlt = fs.readFileSync(mltFilename);
-    const buf = new Pbf(encodedMvt);
+    const buf = new Pbf(encodedMvt)
     const decodedMvt = new VectorTile(buf);
     const metadata = TileSetMetadata.fromBinary(tilesetMetadata);
-    return { tilesetMetadata: metadata, encodedMlt, decodedMvt };
+    return {tilesetMetadata: metadata, encodedMlt, decodedMvt};
 }
 
-function testTiles(
-    mltSearchDir: string,
-    mvtSearchDir: string,
-    isPreTessellated: boolean,
-    isSorted = false,
-    idWithinMaxSafeInteger = true,
-) {
-    const mltFileNames = fs
-        .readdirSync(mltSearchDir)
-        .filter((file) => path.parse(file).ext === ".mlt")
-        .map((file) => path.parse(file).name);
+function testTiles(mltSearchDir: string, mvtSearchDir: string, isPreTessellated: boolean, isSorted = false,
+                   idWithinMaxSafeInteger = true) {
+    const mltFileNames = fs.readdirSync(mltSearchDir).filter(file => path.parse(file).ext === ".mlt").
+    map((file) => path.parse(file).name);
     const mltMetaFileName = path.join(mltSearchDir, "tileset.pbf");
 
-    for (const fileName of mltFileNames) {
+    for(const fileName of mltFileNames){
         console.info(`Testing tile ${fileName} ---------------------------------------------------------`);
 
         const mltFileName = `${fileName}.mlt`;
@@ -217,19 +187,22 @@ function testTiles(
         const encodedMvt = fs.readFileSync(mvtPath);
         const tilesetMetadata = fs.readFileSync(mltMetaFileName);
         const encodedMlt = fs.readFileSync(mltPath);
-        const buf = new Pbf(encodedMvt);
+        const buf = new Pbf(encodedMvt)
         const decodedMvt = new VectorTile(buf);
 
         const metadata = TileSetMetadata.fromBinary(tilesetMetadata);
-        const decodedMlt = decodeTile(encodedMlt, metadata, undefined, undefined, idWithinMaxSafeInteger);
+        const decodedMlt = decodeTile(encodedMlt, metadata, undefined,
+            undefined, idWithinMaxSafeInteger);
 
-        if (isPreTessellated) {
-            try {
+        if(isPreTessellated){
+            try{
                 comparePreTessellatedTile(decodedMlt, decodedMvt);
-            } catch (e) {
+            }
+            catch (e){
                 console.error("Error comparing pre-tessellated tiles", e);
             }
-        } else {
+
+        } else{
             comparePlainGeometryEncodedTile(decodedMlt, decodedMvt, isSorted, idWithinMaxSafeInteger);
         }
     }
@@ -244,18 +217,14 @@ function removeEmptyStrings(mvtProperties) {
     }
 }
 
-function comparePlainGeometryEncodedTile(
-    mlt: FeatureTable[],
-    mvt: VectorTile,
-    isSorted = false,
-    idWithinMaxSafeInteger = true,
-) {
-    for (const featureTable of mlt) {
+function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile, isSorted = false,
+                                         idWithinMaxSafeInteger = true){
+    for(const featureTable of mlt){
         const layer = mvt.layers[featureTable.name];
 
         let j = 0;
-        for (const mltFeature of featureTable) {
-            const mvtFeature = isSorted ? getMvtFeatureById(layer, mltFeature.id) : layer.feature(j++);
+        for(const mltFeature of featureTable) {
+            const mvtFeature = isSorted? getMvtFeatureById(layer, mltFeature.id): layer.feature(j++);
 
             compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger);
 
@@ -266,7 +235,7 @@ function comparePlainGeometryEncodedTile(
             const mltProperties = mltFeature.properties;
             const mvtProperties = mvtFeature.properties;
             transformPropertyNames(mltProperties);
-            transformPropertyNames(mvtProperties);
+            transformPropertyNames(mvtProperties)
             convertBigIntPropertyValues(mltProperties);
             //TODO: fix -> since a change in the java converter shared dictionary encoding empty strings are not
             //encoded anymore
@@ -279,15 +248,15 @@ function comparePlainGeometryEncodedTile(
     }
 }
 
-function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
+function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger){
     if (!mvtFeature.id) {
         /* Java MVT library in the MVT converter decodes zero for undefined ids */
         expect([0, null, 0n]).toContain(mltFeature.id);
-    } else {
+    } else{
         const mltFeatureId = mltFeature.id;
         /* For const and sequence vectors the decoder can return bigint compared to the vector-tile-js library */
-        const actualId =
-            idWithinMaxSafeInteger && typeof mltFeatureId !== "bigint" ? mltFeatureId : Number(mltFeatureId);
+        const actualId = idWithinMaxSafeInteger && typeof mltFeatureId !== 'bigint'?
+                mltFeatureId : Number(mltFeatureId);
         /*
          * The id check can fail for two known reasons:
          * - The java-vector-tile library used in the Java converter returns negative integers  for the
@@ -295,11 +264,12 @@ function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
          * - The vector-tile-js is library is using number types for the id so there can only be stored
          *   values up to 53 bits without loss of precision
          **/
-        if (mltFeatureId < 0 || mltFeatureId > Number.MAX_SAFE_INTEGER) {
+        if(mltFeatureId < 0 || mltFeatureId > Number.MAX_SAFE_INTEGER){
             /* Expected to fail in some/most cases */
-            try {
+            try{
                 expect(actualId).toEqual(mvtFeature.id);
-            } catch (e) {
+            }
+            catch(e) {
                 //console.info("id mismatch", featureTableName, mltFeatureId, mvtFeature.id);
             }
             return;
@@ -309,28 +279,28 @@ function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
     }
 }
 
-function getMvtFeatureById(layer, id) {
-    for (let i = 0; i < layer.length; i++) {
+function getMvtFeatureById(layer, id){
+    for(let i = 0; i < layer.length; i++){
         const mvtFeature = layer.feature(i);
-        if (mvtFeature.id === id || mvtFeature.properties["id"] === id) {
+        if(mvtFeature.id === id || mvtFeature.properties["id"] === id){
             return mvtFeature;
         }
     }
     return null;
 }
 
-function comparePreTessellatedTile(mlt: FeatureTable[], mvt: VectorTile) {
-    for (const featureTable of mlt) {
+function comparePreTessellatedTile(mlt: FeatureTable[], mvt: VectorTile){
+    for(const featureTable of mlt){
         const layer = mvt.layers[featureTable.name];
-        const gpuVector =
-            featureTable.geometryVector instanceof GpuVector ? (featureTable.geometryVector as GpuVector) : null;
+        const gpuVector = featureTable.geometryVector instanceof GpuVector?
+            featureTable.geometryVector as GpuVector : null;
 
         //console.info(featureTable.name);
 
         const mvtIndexBuffer = [];
         const mvtVertexBuffer = [];
         let j = 0;
-        for (const mltFeature of featureTable) {
+        for(const mltFeature of featureTable){
             const mvtFeature = layer.feature(j++);
 
             /* Layers with ids which are unique per tile but contain no global information, so they are reassigned
@@ -343,11 +313,12 @@ function comparePreTessellatedTile(mlt: FeatureTable[], mvt: VectorTile) {
 
             const mvtGeometry = mvtFeature.loadGeometry();
             const mltGeometry = mltFeature.geometry;
-            if (gpuVector) {
+            if(gpuVector){
                 const tessellation = tessellatePolygon(mvtGeometry);
                 mvtIndexBuffer.push(...tessellation.indices);
                 mvtVertexBuffer.push(...tessellation.vertexBuffer);
-            } else {
+            }
+            else{
                 expect(mltGeometry).toEqual(mvtGeometry);
             }
 
@@ -356,21 +327,18 @@ function comparePreTessellatedTile(mlt: FeatureTable[], mvt: VectorTile) {
             const mvtProperties = mvtFeature.properties;
 
             transformPropertyNames(mltProperties);
-            transformPropertyNames(mvtProperties);
+            transformPropertyNames(mvtProperties)
             convertBigIntPropertyValues(mltProperties);
             expect(mltProperties).toEqual(mvtProperties);
         }
 
-        if (gpuVector) {
+        if(gpuVector){
             //TODO: fix wrong indices
             //expect(gpuVector.indexBuffer).toEqual(new Int32Array(mvtIndexBuffer));
             //expect(gpuVector.indexBuffer.length).toEqual(mvtIndexBuffer.length);
-            if (gpuVector.indexBuffer.length !== mvtIndexBuffer.length) {
-                console.error(
-                    "index buffer in MLT and MVT have different length",
-                    gpuVector.indexBuffer.length,
-                    mvtIndexBuffer.length,
-                );
+            if(gpuVector.indexBuffer.length !== mvtIndexBuffer.length){
+                console.error("index buffer in MLT and MVT have different length",
+                    gpuVector.indexBuffer.length, mvtIndexBuffer.length);
             }
             expect(gpuVector.vertexBuffer).toEqual(new Int32Array(mvtVertexBuffer));
         }
@@ -391,17 +359,18 @@ function transformPropertyNames(properties: { [p: string]: any }) {
     for (let k = 0; k < propertyNames.length; k++) {
         const key = propertyNames[k];
 
-        let newKey = key;
+        let newKey= key;
         /* rename the property names which are separated with : in mlt to match _ in omt mvts */
         if (key.startsWith("name") && key.includes(":")) {
-            newKey = (key as any).replaceAll(":", "_");
+            newKey = (key as any).replaceAll(":", "_")
             properties[newKey] = properties[key];
             delete properties[key];
         }
 
+
         /* Currently id is not supported as a property name in a FeatureTable,
-         *  so this quick workaround is implemented */
-        if (newKey === "_id") {
+        *  so this quick workaround is implemented */
+        if(newKey === "_id"){
             properties["id"] = properties[newKey];
             delete properties[newKey];
         }
@@ -409,9 +378,9 @@ function transformPropertyNames(properties: { [p: string]: any }) {
 }
 
 /* Polygon tessellation code from the FillBucket class of MapLibre GL JS
- *  Slightly modified to tessellate without the closing point to match the MLT approach
- * */
-function tessellatePolygon(geometry: Array<Array<{ x: number; y: number }>>) {
+*  Slightly modified to tessellate without the closing point to match the MLT approach
+* */
+function tessellatePolygon(geometry: Array<Array<{x: number, y: number}>>) {
     const EARCUT_MAX_RINGS = 500;
     const polygonIndices = [];
     const vertexBuffer = [];
@@ -429,7 +398,7 @@ function tessellatePolygon(geometry: Array<Array<{ x: number; y: number }>>) {
 
             flattened.push(ring[0].x);
             flattened.push(ring[0].y);
-            for (let i = 1; i < ring.length - 1; i++) {
+            for (let i = 1; i < ring.length-1; i++) {
                 flattened.push(ring[i].x);
                 flattened.push(ring[i].y);
             }
@@ -440,5 +409,5 @@ function tessellatePolygon(geometry: Array<Array<{ x: number; y: number }>>) {
         vertexBuffer.push(...flattened);
     }
 
-    return { indices: polygonIndices, vertexBuffer };
+    return {indices: polygonIndices, vertexBuffer};
 }

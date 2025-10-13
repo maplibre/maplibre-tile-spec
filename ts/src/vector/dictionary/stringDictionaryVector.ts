@@ -1,20 +1,16 @@
-import { VariableSizeVector } from "../variableSizeVector";
+import {VariableSizeVector} from "../variableSizeVector";
 import BitVector from "../flat/bitVector";
-import { decodeString } from "../../encodings/decodingUtils";
-import { SelectionVector } from "../filter/selectionVector";
-import { FlatSelectionVector } from "../filter/flatSelectionVector";
-import { createSelectionVector } from "../filter/selectionVectorUtils";
+import {decodeString} from "../../encodings/decodingUtils";
+import {SelectionVector} from "../filter/selectionVector";
+import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import {createSelectionVector} from "../filter/selectionVectorUtils";
 
-export class StringDictionaryVector extends VariableSizeVector<Uint8Array, string> {
+
+export class StringDictionaryVector extends VariableSizeVector<Uint8Array, string>{
     private readonly textEncoder: TextEncoder;
 
-    constructor(
-        name: string,
-        private readonly indexBuffer: Int32Array,
-        offsetBuffer: Int32Array,
-        dictionaryBuffer: Uint8Array,
-        nullabilityBuffer?: BitVector,
-    ) {
+    constructor(name: string, private readonly indexBuffer: Int32Array, offsetBuffer: Int32Array, dictionaryBuffer: Uint8Array,
+                       nullabilityBuffer?: BitVector) {
         super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
         this.indexBuffer = indexBuffer;
         this.textEncoder = new TextEncoder();
@@ -32,15 +28,12 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
         const testValueUtf8 = this.textEncoder.encode(testValue);
         const testValueDictionaryIndex = this.findDictionaryIndex(testValueUtf8);
 
-        if (testValueDictionaryIndex === -1) {
+        if(testValueDictionaryIndex === -1){
             return new FlatSelectionVector([]);
         }
 
-        for (let i = 0; i < this.indexBuffer.length; i++) {
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                this.indexBuffer[i] === testValueDictionaryIndex
-            ) {
+        for(let i = 0; i < this.indexBuffer.length; i++){
+            if((!this.nullabilityBuffer || (this.nullabilityBuffer.get(i))) && this.indexBuffer[i]  === testValueDictionaryIndex){
                 selectionVector.push(i);
             }
         }
@@ -50,21 +43,18 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
 
     match(testValues: string[]): SelectionVector {
         const selectionVector = [];
-        const testValuesDictionaryIndices = testValues
-            .map((v) => this.findDictionaryIndex(this.textEncoder.encode(v)))
-            .filter((i) => i !== -1);
+        const testValuesDictionaryIndices = testValues.map(v => this.findDictionaryIndex(this.textEncoder.encode(v)))
+            .filter(i => i !== -1);
 
-        if (testValuesDictionaryIndices.length === 0) {
+        if(testValuesDictionaryIndices.length === 0){
             return new FlatSelectionVector([]);
         }
 
         //TODO: sort and use binary search?
-        for (let i = 0; i < this.size; i++) {
+        for(let i = 0; i < this.size; i++){
             const valueDictionaryIndex = this.indexBuffer[i];
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) &&
-                testValuesDictionaryIndices.includes(valueDictionaryIndex)
-            ) {
+            if((!this.nullabilityBuffer || (this.nullabilityBuffer.get(i)))
+                && testValuesDictionaryIndices.includes(valueDictionaryIndex)){
                 selectionVector.push(i);
             }
         }
@@ -76,19 +66,17 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
         const testValueUtf8 = this.textEncoder.encode(testValue);
         const testValueDictionaryIndex = this.findDictionaryIndex(testValueUtf8);
 
-        if (testValueDictionaryIndex === -1) {
+        if(testValueDictionaryIndex === -1){
             selectionVector.setLimit(0);
             return;
         }
 
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const featureIndex = vector[i];
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(featureIndex)) &&
-                this.indexBuffer[featureIndex] === testValueDictionaryIndex
-            ) {
+            if((!this.nullabilityBuffer || (this.nullabilityBuffer.get(featureIndex))) &&
+                this.indexBuffer[featureIndex] === testValueDictionaryIndex){
                 vector[limit++] = featureIndex;
             }
         }
@@ -96,12 +84,11 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
         selectionVector.setLimit(limit);
     }
 
-    matchSelected(testValues: string[], selectionVector: SelectionVector): void {
-        const testValuesDictionaryIndices = testValues
-            .map((v) => this.findDictionaryIndex(this.textEncoder.encode(v)))
-            .filter((i) => i !== -1);
+    matchSelected(testValues: string[], selectionVector: SelectionVector): void{
+        const testValuesDictionaryIndices = testValues.map(v =>
+            this.findDictionaryIndex(this.textEncoder.encode(v))).filter(i => i !== -1);
 
-        if (testValuesDictionaryIndices.length === 0) {
+        if(testValuesDictionaryIndices.length === 0){
             selectionVector.setLimit(0);
             return;
         }
@@ -109,12 +96,10 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
         //TODO: sort and use binary search?
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const featureIndex = vector[i];
-            if (
-                (!this.nullabilityBuffer || this.nullabilityBuffer.get(featureIndex)) &&
-                testValuesDictionaryIndices.includes(this.indexBuffer[featureIndex])
-            ) {
+            if((!this.nullabilityBuffer || (this.nullabilityBuffer.get(featureIndex))) &&
+                testValuesDictionaryIndices.includes(this.indexBuffer[featureIndex])){
                 vector[limit++] = featureIndex;
             }
         }
@@ -127,15 +112,12 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
         const testValueUtf8 = this.textEncoder.encode(testValue);
         const testValueDictionaryIndex = this.findDictionaryIndex(testValueUtf8);
 
-        if (testValueDictionaryIndex === -1) {
+        if(testValueDictionaryIndex === -1){
             return createSelectionVector(this.size);
         }
 
-        for (let i = 0; i < this.indexBuffer.length; i++) {
-            if (
-                (this.nullabilityBuffer && !this.nullabilityBuffer.get(i)) ||
-                this.indexBuffer[i] !== testValueDictionaryIndex
-            ) {
+        for(let i = 0; i < this.indexBuffer.length; i++){
+            if((this.nullabilityBuffer && !this.nullabilityBuffer.get(i)) || this.indexBuffer[i] !== testValueDictionaryIndex){
                 selectionVector.push(i);
             }
         }
@@ -147,18 +129,15 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
         const testValueUtf8 = this.textEncoder.encode(testValue);
         const testValueDictionaryIndex = this.findDictionaryIndex(testValueUtf8);
 
-        if (testValueDictionaryIndex === -1) {
+        if(testValueDictionaryIndex === -1){
             return;
         }
 
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const featureIndex = vector[i];
-            if (
-                (this.nullabilityBuffer && !this.nullabilityBuffer.get(featureIndex)) ||
-                this.indexBuffer[featureIndex] !== testValueDictionaryIndex
-            ) {
+            if((this.nullabilityBuffer && !this.nullabilityBuffer.get(featureIndex)) || this.indexBuffer[featureIndex] !== testValueDictionaryIndex){
                 vector[limit++] = featureIndex;
             }
         }
@@ -167,23 +146,19 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
     }
 
     noneMatch(testValues: string[]): SelectionVector {
-        const testValuesDictionaryIndices = testValues
-            .map((v) => this.findDictionaryIndex(this.textEncoder.encode(v)))
-            .filter((i) => i !== -1);
+        const testValuesDictionaryIndices = testValues.map(v => this.findDictionaryIndex(this.textEncoder.encode(v)))
+            .filter(i => i !== -1);
 
-        if (testValuesDictionaryIndices.length === 0) {
+        if(testValuesDictionaryIndices.length === 0){
             return createSelectionVector(this.size);
         }
 
         //TODO: sort and use binary search?
-        for (let i = 0; i < this.size; i++) {
+        for(let i = 0; i < this.size; i++){
             const valueDictionaryIndex = this.indexBuffer[i];
 
             const selectionVector = [];
-            if (
-                (this.nullabilityBuffer && !this.nullabilityBuffer.get(i)) ||
-                !testValuesDictionaryIndices.includes(valueDictionaryIndex)
-            ) {
+            if((this.nullabilityBuffer && !this.nullabilityBuffer.get(i)) || !testValuesDictionaryIndices.includes(valueDictionaryIndex)){
                 selectionVector.push(i);
             }
         }
@@ -192,23 +167,19 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
     }
 
     noneMatchSelected(testValues: string[], selectionVector: SelectionVector): void {
-        const testValuesDictionaryIndices = testValues
-            .map((v) => this.findDictionaryIndex(this.textEncoder.encode(v)))
-            .filter((i) => i !== -1);
+        const testValuesDictionaryIndices =
+            testValues.map(v => this.findDictionaryIndex(this.textEncoder.encode(v))).filter(i => i !== -1);
 
-        if (testValuesDictionaryIndices.length === 0) {
+        if(testValuesDictionaryIndices.length === 0){
             return;
         }
 
         //TODO: sort and use binary search?
         const vector = selectionVector.selectionValues();
         let limit = 0;
-        for (let i = 0; i < selectionVector.limit; i++) {
+        for(let i = 0; i < selectionVector.limit; i++){
             const featureIndex = vector[i];
-            if (
-                (this.nullabilityBuffer && !this.nullabilityBuffer.get(featureIndex)) ||
-                !testValuesDictionaryIndices.includes(this.indexBuffer[featureIndex])
-            ) {
+            if((this.nullabilityBuffer && !this.nullabilityBuffer.get(featureIndex)) || !testValuesDictionaryIndices.includes(this.indexBuffer[featureIndex])){
                 vector[limit++] = featureIndex;
             }
         }

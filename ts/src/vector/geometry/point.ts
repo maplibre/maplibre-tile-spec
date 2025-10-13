@@ -1,6 +1,7 @@
 //Ts port of https://github.com/mapbox/point-geometry/blob/main/index.js
 
-export default class Point {
+export default class Point{
+
     /**
      * A standalone point geometry with useful accessor, comparison, and
      * modification methods.
@@ -12,19 +13,15 @@ export default class Point {
      * @example
      * const point = new Point(-77, 38);
      */
-    constructor(
-        public x,
-        public y,
-    ) {}
+    constructor(public x, public y) {
+    }
 
     /**
      * Clone this point, returning a new point that can be modified
      * without affecting the old one.
      * @return {Point} the clone
      */
-    clone() {
-        return new Point(this.x, this.y);
-    }
+    clone() { return new Point(this.x, this.y); }
 
     /**
      * Add this point's x & y coordinates to another point,
@@ -32,9 +29,7 @@ export default class Point {
      * @param {Point} p the other point
      * @return {Point} output point
      */
-    add(p) {
-        return this.clone()._add(p);
-    }
+    add(p) { return this.clone()._add(p); }
 
     /**
      * Subtract this point's x & y coordinates to from point,
@@ -42,9 +37,7 @@ export default class Point {
      * @param {Point} p the other point
      * @return {Point} output point
      */
-    sub(p) {
-        return this.clone()._sub(p);
-    }
+    sub(p) { return this.clone()._sub(p); }
 
     /**
      * Multiply this point's x & y coordinates by point,
@@ -52,9 +45,7 @@ export default class Point {
      * @param {Point} p the other point
      * @return {Point} output point
      */
-    multByPoint(p) {
-        return this.clone()._multByPoint(p);
-    }
+    multByPoint(p) { return this.clone()._multByPoint(p); }
 
     /**
      * Divide this point's x & y coordinates by point,
@@ -62,9 +53,7 @@ export default class Point {
      * @param {Point} p the other point
      * @return {Point} output point
      */
-    divByPoint(p) {
-        return this.clone()._divByPoint(p);
-    }
+    divByPoint(p) { return this.clone()._divByPoint(p); }
 
     /**
      * Multiply this point's x & y coordinates by a factor,
@@ -72,9 +61,7 @@ export default class Point {
      * @param {number} k factor
      * @return {Point} output point
      */
-    mult(k) {
-        return this.clone()._mult(k);
-    }
+    mult(k) { return this.clone()._mult(k); }
 
     /**
      * Divide this point's x & y coordinates by a factor,
@@ -82,9 +69,7 @@ export default class Point {
      * @param {number} k factor
      * @return {Point} output point
      */
-    div(k) {
-        return this.clone()._div(k);
-    }
+    div(k) { return this.clone()._div(k); }
 
     /**
      * Rotate this point around the 0, 0 origin by an angle a,
@@ -92,9 +77,7 @@ export default class Point {
      * @param {number} a angle to rotate around, in radians
      * @return {Point} output point
      */
-    rotate(a) {
-        return this.clone()._rotate(a);
-    }
+    rotate(a) { return this.clone()._rotate(a); }
 
     /**
      * Rotate this point around p point by an angle a,
@@ -103,18 +86,14 @@ export default class Point {
      * @param {Point} p Point to rotate around
      * @return {Point} output point
      */
-    rotateAround(a, p) {
-        return this.clone()._rotateAround(a, p);
-    }
+    rotateAround(a, p) { return this.clone()._rotateAround(a, p); }
 
     /**
      * Multiply this point by a 4x1 transformation matrix
      * @param {[number, number, number, number]} m transformation matrix
      * @return {Point} output point
      */
-    matMult(m) {
-        return this.clone()._matMult(m);
-    }
+    matMult(m) { return this.clone()._matMult(m); }
 
     /**
      * Calculate this point but as a unit vector from 0, 0, meaning
@@ -123,9 +102,7 @@ export default class Point {
      * point to the 0, 0 coordinate will be the same as before.
      * @return {Point} unit vector point
      */
-    unit() {
-        return this.clone()._unit();
-    }
+    unit() { return this.clone()._unit(); }
 
     /**
      * Compute a perpendicular point, where the new y coordinate
@@ -133,18 +110,14 @@ export default class Point {
      * coordinate multiplied by -1
      * @return {Point} perpendicular point
      */
-    perp() {
-        return this.clone()._perp();
-    }
+    perp() { return this.clone()._perp(); }
 
     /**
      * Return a version of this point with the x & y coordinates
      * rounded to integers.
      * @return {Point} rounded point
      */
-    round() {
-        return this.clone()._round();
-    }
+    round() { return this.clone()._round(); }
 
     /**
      * Return the magnitude of this point: this is the Euclidean
@@ -163,7 +136,8 @@ export default class Point {
      * @return {boolean} whether the points are equal
      */
     equals(other) {
-        return this.x === other.x && this.y === other.y;
+        return this.x === other.x &&
+            this.y === other.y;
     }
 
     /**
@@ -223,7 +197,9 @@ export default class Point {
      * @return {number} the angle in radians
      */
     angleWithSep(x, y) {
-        return Math.atan2(this.x * y - this.y * x, this.x * x + this.y * y);
+        return Math.atan2(
+            this.x * y - this.y * x,
+            this.x * x + this.y * y);
     }
 
     /** @param {[number, number, number, number]} m */
@@ -319,6 +295,7 @@ export default class Point {
         this.y = Math.round(this.y);
         return this;
     }
+
 }
 
 /**
