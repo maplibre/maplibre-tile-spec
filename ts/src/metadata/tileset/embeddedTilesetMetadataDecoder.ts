@@ -123,7 +123,7 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
  * @param bytes The byte array containing the metadata
  * @param offset The current offset in the byte array (will be advanced)
  */
-export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrapper): TileSetMetadata {
+export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrapper): [TileSetMetadata, number] {
     const meta = new TileSetMetadata();
     meta.featureTables = [];
 
@@ -139,5 +139,5 @@ export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrap
 
     meta.featureTables.push(table);
 
-    return meta;
+    return [meta, extent];
 }

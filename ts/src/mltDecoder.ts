@@ -1,5 +1,5 @@
 import FeatureTable from "./vector/featureTable";
-import { Column, ScalarColumn, ScalarType, TileSetMetadata } from "./metadata/tileset/tilesetMetadata";
+import { Column, ScalarColumn, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./encodings/intWrapper";
 import { StreamMetadataDecoder } from "./metadata/tile/streamMetadataDecoder";
 import { RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamMetadata";
@@ -21,6 +21,7 @@ import { decodeBooleanRle } from "./encodings/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
 import { TypeMap } from "./metadata/tileset/typeMap";
+import {StreamMetadata} from "./metadata/tile/streamMetadata";
 
 const ID_COLUMN_NAME = "id";
 const GEOMETRY_COLUMN_NAME = "geometry";
@@ -57,10 +58,9 @@ export default function decodeTile(
         }
 
         // Decode embedded metadata (one feature table per block)
-        const metadata = decodeEmbeddedTileSetMetadata(tile, offset);
-        // Quickfix extent was moved again in pr #576 (its not always 4096)
-        // ToDo: include in metadata schema
-        const extent = 4096
+        const decode = decodeEmbeddedTileSetMetadata(tile, offset);
+        const metadata = decode[0];
+        const extent = decode[1];
         const featureTableMetadata = metadata.featureTables[0];
 
         // Decode columns directly from stream
@@ -143,7 +143,7 @@ function decodeIdColumn(
     columnMetadata: Column,
     offset: IntWrapper,
     columnName: string,
-    idDataStreamMetadata: any,
+    idDataStreamMetadata: StreamMetadata,
     sizeOrNullabilityBuffer: number | BitVector,
     idWithinMaxSafeInteger: boolean = false,
 ): IntVector {
