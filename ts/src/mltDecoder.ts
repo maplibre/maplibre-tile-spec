@@ -57,13 +57,13 @@ export default function decodeTile(
             continue;
         }
 
-        // Decode embedded metadata (one feature table per block)
+        // Decode embedded metadata and extent (one of each per block)
         const decode = decodeEmbeddedTileSetMetadata(tile, offset);
         const metadata = decode[0];
         const extent = decode[1];
         const featureTableMetadata = metadata.featureTables[0];
 
-        // Decode columns directly from stream
+        // Decode columns from streams
         let idVector = null;
         let geometryVector = null;
         const propertyVectors = [];
