@@ -15,7 +15,7 @@ export interface MortonSettings {
 export enum VertexBufferType {
     MORTON,
     VEC_2,
-    VEC_3
+    VEC_3,
 }
 
 export abstract class GeometryVector implements Iterable<Geometry> {
