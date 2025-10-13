@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
@@ -17,8 +18,6 @@ import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class PropertyEncoder {
-  public static final String ID_COLUMN_NAME = "id";
-  public static final String GEOMETRY_COLUMN_NAME = "geometry";
 
   public static byte[] encodePropertyColumns(
       List<MltTilesetMetadata.Column> propertyColumns,
@@ -411,7 +410,7 @@ public class PropertyEncoder {
     for (var feature : features) {
       // TODO: refactor -> handle long values for ids differently
       final var propertyValue =
-          fieldName.equals(ID_COLUMN_NAME)
+          MltConverter.isID(metadata)
               ? Integer.valueOf((int) feature.id())
               : getIntPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
@@ -456,7 +455,7 @@ public class PropertyEncoder {
         metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
       final var propertyValue =
-          fieldName.equals(ID_COLUMN_NAME)
+              MltConverter.isID(metadata)
               ? Long.valueOf(feature.id())
               : getLongPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
