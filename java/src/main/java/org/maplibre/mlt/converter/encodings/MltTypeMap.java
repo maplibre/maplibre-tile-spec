@@ -78,7 +78,6 @@ public class MltTypeMap {
       } else if (0 <= typeCode && typeCode <= 3) {
         return builder
             .setNullable(1 < typeCode)
-            .setName(PropertyEncoder.ID_COLUMN_NAME)
             .setScalarType(
                 MltTilesetMetadata.ScalarColumn.newBuilder()
                     .setLongID((typeCode & 1) != 0)
@@ -86,7 +85,6 @@ public class MltTypeMap {
       } else if (4 == typeCode) {
         return builder
             .setNullable(false)
-            .setName(PropertyEncoder.GEOMETRY_COLUMN_NAME)
             .setComplexType(
                 MltTilesetMetadata.ComplexColumn.newBuilder()
                     .setPhysicalType(MltTilesetMetadata.ComplexType.GEOMETRY));
