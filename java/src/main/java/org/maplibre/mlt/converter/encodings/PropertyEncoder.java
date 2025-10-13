@@ -7,7 +7,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.CollectionUtils;
-import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
@@ -52,6 +51,7 @@ public class PropertyEncoder {
         final var encodedScalarPropertyColumn =
             encodeScalarPropertyColumn(
                 columnMetadata,
+                false,
                 features,
                 physicalLevelTechnique,
                 useAdvancedEncodings,
@@ -205,6 +205,7 @@ public class PropertyEncoder {
 
   public static byte[] encodeScalarPropertyColumn(
       MltTilesetMetadata.Column columnMetadata,
+      boolean isID,
       List<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useAdvancedEncodings,
@@ -224,14 +225,14 @@ public class PropertyEncoder {
           final var signed = (scalarType == MltTilesetMetadata.ScalarType.INT_32);
           // no stream count
           return encodeInt32Column(
-              features, columnMetadata, physicalLevelTechnique, signed, rawStreamData);
+              features, columnMetadata, isID, physicalLevelTechnique, signed, rawStreamData);
         }
       case INT_64:
       case UINT_64:
         {
           final var signed = (scalarType == MltTilesetMetadata.ScalarType.INT_64);
           // no stream count
-          return encodeInt64Column(features, columnMetadata, signed, rawStreamData);
+          return encodeInt64Column(features, columnMetadata, isID, signed, rawStreamData);
         }
       case FLOAT:
       case DOUBLE:
@@ -399,6 +400,7 @@ public class PropertyEncoder {
   private static byte[] encodeInt32Column(
       List<Feature> features,
       MltTilesetMetadata.Column metadata,
+      boolean isID,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
@@ -410,9 +412,7 @@ public class PropertyEncoder {
     for (var feature : features) {
       // TODO: refactor -> handle long values for ids differently
       final var propertyValue =
-          MltConverter.isID(metadata)
-              ? Integer.valueOf((int) feature.id())
-              : getIntPropertyValue(feature, metadata);
+          isID ? Integer.valueOf((int) feature.id()) : getIntPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
         values.add(propertyValue);
@@ -446,6 +446,7 @@ public class PropertyEncoder {
   private static byte[] encodeInt64Column(
       List<Feature> features,
       MltTilesetMetadata.Column metadata,
+      boolean isID,
       boolean isSigned,
       @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData)
       throws IOException {
@@ -455,9 +456,7 @@ public class PropertyEncoder {
         metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
       final var propertyValue =
-          MltConverter.isID(metadata)
-              ? Long.valueOf(feature.id())
-              : getLongPropertyValue(feature, metadata);
+          isID ? Long.valueOf(feature.id()) : getLongPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
         values.add((long) propertyValue);

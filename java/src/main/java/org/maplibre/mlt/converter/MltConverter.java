@@ -81,7 +81,7 @@ public class MltConverter {
           MltTilesetMetadata.FeatureTableSchema.newBuilder().setName(layer.name());
 
       // If present, `id` must be the first column
-      if (columnSchemas.values().stream().anyMatch(MltConverter::isID)) {
+      if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
         throw new RuntimeException("Unexpected ID Column");
       }
       if (isIdPresent) {
@@ -106,18 +106,6 @@ public class MltConverter {
     }
 
     return tilesetBuilder.build();
-  }
-
-  public static boolean isID(MltTilesetMetadata.Column column) {
-    return column.hasScalarType()
-        && column.getScalarType().hasLogicalType()
-        && column.getScalarType().getLogicalType() == MltTilesetMetadata.LogicalScalarType.ID;
-  }
-
-  public static boolean isGeometry(MltTilesetMetadata.Column column) {
-    return column.hasComplexType()
-        && column.getComplexType().hasPhysicalType()
-        && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.GEOMETRY;
   }
 
   private static void resolveColumnType(
@@ -477,7 +465,7 @@ public class MltConverter {
       if (config.getIncludeIds()) {
         final var idMetadata =
             layerMetadata.getColumnsList().stream()
-                .filter(MltConverter::isID)
+                .filter(MltTypeMap.Tag0x01::isID)
                 .findFirst()
                 .orElseThrow();
 
@@ -498,6 +486,7 @@ public class MltConverter {
         featureTableBodyBuffer =
             PropertyEncoder.encodeScalarPropertyColumn(
                 scalarColumnMetadata,
+                true,
                 sortedFeatures,
                 physicalLevelTechnique,
                 config.getUseAdvancedEncodingSchemes(),
@@ -627,7 +616,7 @@ public class MltConverter {
   private static List<MltTilesetMetadata.Column> filterPropertyColumns(
       MltTilesetMetadata.FeatureTableSchema featureTableMetadata) {
     return featureTableMetadata.getColumnsList().stream()
-        .filter(f -> !isID(f) && !isGeometry(f))
+        .filter(f -> !MltTypeMap.Tag0x01.isID(f) && !MltTypeMap.Tag0x01.isGeometry(f))
         .collect(Collectors.toList());
   }
 
