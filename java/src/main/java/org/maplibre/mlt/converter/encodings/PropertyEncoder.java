@@ -455,7 +455,7 @@ public class PropertyEncoder {
         metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
       final var propertyValue =
-              MltConverter.isID(metadata)
+          MltConverter.isID(metadata)
               ? Long.valueOf(feature.id())
               : getLongPropertyValue(feature, metadata);
       final var present = (propertyValue != null);

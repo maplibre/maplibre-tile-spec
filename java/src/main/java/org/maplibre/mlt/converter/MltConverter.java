@@ -99,10 +99,7 @@ public class MltConverter {
 
       // The `geometry` column is mandatory and has to be the first column after `ID`
       featureTableSchemaBuilder.addColumns(
-          createComplexColumnScheme(
-              null,
-              false,
-              MltTilesetMetadata.ComplexType.GEOMETRY));
+          createComplexColumnScheme(null, false, MltTilesetMetadata.ComplexType.GEOMETRY));
 
       columnSchemas.values().forEach(featureTableSchemaBuilder::addColumns);
       tilesetBuilder.addFeatureTables(featureTableSchemaBuilder.build());
@@ -111,11 +108,16 @@ public class MltConverter {
     return tilesetBuilder.build();
   }
 
-  public static boolean isID( MltTilesetMetadata.Column column) {
-    return column.hasScalarType() && column.getScalarType().hasLogicalType() && column.getScalarType().getLogicalType() == MltTilesetMetadata.LogicalScalarType.ID;
+  public static boolean isID(MltTilesetMetadata.Column column) {
+    return column.hasScalarType()
+        && column.getScalarType().hasLogicalType()
+        && column.getScalarType().getLogicalType() == MltTilesetMetadata.LogicalScalarType.ID;
   }
-  public static boolean isGeometry( MltTilesetMetadata.Column column) {
-    return column.hasComplexType() && column.getComplexType().hasPhysicalType() && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.GEOMETRY;
+
+  public static boolean isGeometry(MltTilesetMetadata.Column column) {
+    return column.hasComplexType()
+        && column.getComplexType().hasPhysicalType()
+        && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.GEOMETRY;
   }
 
   private static void resolveColumnType(
@@ -625,9 +627,7 @@ public class MltConverter {
   private static List<MltTilesetMetadata.Column> filterPropertyColumns(
       MltTilesetMetadata.FeatureTableSchema featureTableMetadata) {
     return featureTableMetadata.getColumnsList().stream()
-        .filter(
-            f ->
-                !isID(f) && !isGeometry(f))
+        .filter(f -> !isID(f) && !isGeometry(f))
         .collect(Collectors.toList());
   }
 
@@ -699,11 +699,13 @@ public class MltConverter {
       @SuppressWarnings("SameParameterValue") @Nullable String columnName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       @SuppressWarnings("SameParameterValue") MltTilesetMetadata.ComplexType type) {
-    final var complexColumn = MltTilesetMetadata.ComplexColumn.newBuilder().setPhysicalType(type).build();
-    final var builder = MltTilesetMetadata.Column.newBuilder()
-        .setNullable(nullable)
-        .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
-        .setComplexType(complexColumn);
+    final var complexColumn =
+        MltTilesetMetadata.ComplexColumn.newBuilder().setPhysicalType(type).build();
+    final var builder =
+        MltTilesetMetadata.Column.newBuilder()
+            .setNullable(nullable)
+            .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
+            .setComplexType(complexColumn);
     if (columnName != null) {
       builder.setName(columnName);
     }
