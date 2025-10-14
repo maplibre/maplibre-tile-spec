@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.InvalidParameterException;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -342,15 +343,31 @@ public class Encode {
         var tiles = mbTilesReader.getTiles();
         try {
           while (tiles.hasNext()) {
-            convertTile(
-                tiles.next(),
-                mbTilesWriter,
-                columnMappings,
-                conversionConfig,
-                tessellateSource,
-                compressionType,
-                enableCoerceOrElideMismatch,
-                verbose);
+            final var tile = tiles.next();
+            try {
+              convertTile(
+                  tile,
+                  mbTilesWriter,
+                  columnMappings,
+                  conversionConfig,
+                  tessellateSource,
+                  compressionType,
+                  enableCoerceOrElideMismatch,
+                  verbose);
+            } catch (InvalidParameterException ex) {
+              System.err.println(
+                  "WARNING: Failed to convert tile ("
+                      + tile.getZoom()
+                      + ":"
+                      + tile.getColumn()
+                      + ","
+                      + tile.getRow()
+                      + ") : "
+                      + ex.getMessage());
+              if (verbose) {
+                ex.printStackTrace(System.err);
+              }
+            }
           }
 
           // mbtiles4j doesn't support types other than png and jpg,
@@ -571,6 +588,10 @@ public class Encode {
     final var y = tile.getRow();
     final var z = tile.getZoom();
 
+    if (verbose) {
+      System.err.printf("Converting %d:%d,%d%n", z, x, y);
+    }
+
     final var srcTileData = getTileData(tile);
     final var didCompress = new MutableBoolean(false);
     final var tileData =
@@ -589,10 +610,6 @@ public class Encode {
 
     if (tileData != null) {
       mbTilesWriter.addTile(tileData, z, x, y);
-    }
-
-    if (verbose) {
-      System.err.printf("Added %d:%d,%d%n", z, x, y);
     }
   }
 
@@ -764,7 +781,7 @@ public class Encode {
   public static void compare(
       MapLibreTile mlTile, MapboxVectorTile mvTile, boolean compareGeom, boolean compareProp) {
     final var mltLayers = mlTile.layers();
-    final var mvtLayers = mvTile.layers();
+    final var mvtLayers = mvTile.layers().stream().filter(x -> !x.features().isEmpty()).toList();
     if (mltLayers.size() != mvtLayers.size()) {
       final var mvtNames = mvtLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
       final var mltNames = mltLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
