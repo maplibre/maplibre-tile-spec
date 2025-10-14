@@ -90,10 +90,6 @@ gradle.projectsEvaluated {
     }
 }
 
-
-tasks.withType(JavaExec).configureEach {
-}
-
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
