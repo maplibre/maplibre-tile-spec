@@ -33,7 +33,7 @@ public class MltTypeMap {
         }
       } else if (logicalScalarType != null) {
         if (logicalScalarType == MltTilesetMetadata.LogicalScalarType.ID) {
-          return Optional.of(isNullable ? (hasLongIDs ? 3 : 2) : (hasLongIDs ? 1 : 0));
+          return Optional.of(isNullable ? (hasLongIDs ? 3 : 1) : (hasLongIDs ? 2 : 0));
         }
       } else if (physicalComplexType != null) {
         if (physicalComplexType == MltTilesetMetadata.ComplexType.GEOMETRY) {
@@ -77,16 +77,14 @@ public class MltTypeMap {
                         }));
       } else if (0 <= typeCode && typeCode <= 3) {
         return builder
-            .setNullable(1 < typeCode)
-            .setName(PropertyEncoder.ID_COLUMN_NAME)
+            .setNullable((typeCode & 1) != 0)
             .setScalarType(
                 MltTilesetMetadata.ScalarColumn.newBuilder()
-                    .setLongID((typeCode & 1) != 0)
+                    .setLongID(typeCode > 1)
                     .setLogicalType(MltTilesetMetadata.LogicalScalarType.ID));
       } else if (4 == typeCode) {
         return builder
             .setNullable(false)
-            .setName(PropertyEncoder.GEOMETRY_COLUMN_NAME)
             .setComplexType(
                 MltTilesetMetadata.ComplexColumn.newBuilder()
                     .setPhysicalType(MltTilesetMetadata.ComplexType.GEOMETRY));
