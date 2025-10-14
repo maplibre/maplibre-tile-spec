@@ -1,0 +1,110 @@
+plugins {
+    id 'java-library'
+    id('com.diffplug.spotless') version '8.0.0'
+    id 'jacoco'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://maven.ecc.no/releases'
+    }
+}
+
+dependencies {
+    // Core library dependency
+    implementation project(':mlt-core')
+
+    // CLI-specific dependencies
+    implementation 'commons-cli:commons-cli:1.10.0'
+    implementation 'org.apache.commons:commons-compress:1.28.0'
+    implementation 'org.imintel:mbtiles4j:1.0.6'
+    implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
+
+    // Additional dependencies needed by CLI classes
+    implementation 'com.google.code.gson:gson:2.13.2'
+    implementation 'com.google.protobuf:protobuf-java:4.32.1'
+    implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
+    implementation 'org.jetbrains:annotations:15.0'
+    implementation 'org.locationtech.jts:jts-core:1.20.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.3'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        outputs.upToDateWhen { false }
+        showStandardStreams = true
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+spotless {
+    java {
+        importOrder()
+        target 'src/*/java/**/*.java'
+        googleJavaFormat()
+        removeUnusedImports()
+     }
+}
+
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile).tap {
+        configureEach {
+            options.compilerArgs << "-Xlint:unchecked"
+            options.compilerArgs << "-Xlint:deprecation"
+            options.compilerArgs << "-Xlint:all"
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+}
+
+tasks.withType(JavaExec).configureEach {
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+// Create CLI JARs
+["encode", "decode"].each { name ->
+    task "$name"(type: Jar, dependsOn: [compileJava, ':mlt-core:jar']) {
+        archiveFileName = name + ".jar"
+        archiveClassifier = "cli"
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        from {
+            configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+        }
+        manifest.from jar.manifest
+        with jar
+    }
+}
+
+encode.manifest.attributes 'Implementation-Title': 'encode an mlt from an mvt',
+        'Main-Class': 'org.maplibre.mlt.cli.Encode'
+decode.manifest.attributes 'Implementation-Title': 'decode an mlt',
+        'Main-Class': 'org.maplibre.mlt.cli.Decode'
+
+tasks.register('cli') {
+    // Uncomment the following line to clear out the jars before rebuilding
+    delete "${layout.buildDirectory}/libs"
+    dependsOn encode
+    dependsOn decode
+}

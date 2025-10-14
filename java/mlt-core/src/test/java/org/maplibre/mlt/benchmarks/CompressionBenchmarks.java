@@ -27,7 +27,7 @@ import org.maplibre.mlt.decoder.MltDecoder;
  * */
 public class CompressionBenchmarks {
   private static final String BING_MAPS_PATH = "../test/benchmarks/bing";
-  private static final String OMT_PATH = "../test/benchmarks/omt";
+  private static final String OMT_PATH = "../../test/fixtures/omt";
   public static final String PLACEHOLDER_FILE = ".gitkeep";
 
   @Test
@@ -85,6 +85,11 @@ public class CompressionBenchmarks {
       String path, boolean allowSorting, List<String> reassignableLayers) throws IOException {
     File bingDirectory = new File(path);
     File[] files = bingDirectory.listFiles();
+
+    if (files == null) {
+      System.out.printf("Directory %s does not exist or cannot be read\n", path);
+      return null;
+    }
 
     var tileSizes = new ArrayList<Pair<Integer, Integer>>();
     var tiles =

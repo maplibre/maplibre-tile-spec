@@ -4,10 +4,10 @@ import java.nio.file.Paths;
 import java.util.List;
 
 public class TestSettings {
-  public static final String OMT_MVT_PATH = Paths.get("..", "test", "fixtures", "omt").toString();
-  public static final String BING_MVT_PATH = Paths.get("..", "test", "fixtures", "bing").toString();
+  public static final String OMT_MVT_PATH = Paths.get("..", "..", "test", "fixtures", "omt").toString();
+  public static final String BING_MVT_PATH = Paths.get("..", "..", "test", "fixtures", "bing").toString();
   public static final String AMZ_HERE_MVT_PATH =
-      Paths.get("..", "test", "fixtures", "amazon_here").toString();
+      Paths.get("..", "..", "test", "fixtures", "amazon_here").toString();
   public static final List<String> OPTIMIZED_MVT_LAYERS =
       List.of(
           "place",

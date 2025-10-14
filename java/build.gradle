@@ -1,9 +1,7 @@
 plugins {
     id 'java-library'
     id('com.diffplug.spotless') version '8.0.0'
-    id 'me.champeau.jmh' version '0.7.2'
     id 'jacoco'
-    id 'com.vanniktech.maven.publish' version '0.34.0'
 }
 
 repositories {
@@ -13,36 +11,11 @@ repositories {
     }
 }
 
-configurations {
-    cliImplementation
-}
-
 dependencies {
-    implementation 'com.carrotsearch:hppc:0.10.0'
-    implementation 'com.github.davidmoten:hilbert-curve:0.2.3'
-    implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.google.guava:guava:33.5.0-jre'
-    implementation 'com.google.protobuf:protobuf-java:4.32.1'
-    cliImplementation 'commons-cli:commons-cli:1.10.0'
-    implementation 'io.github.earcut4j:earcut4j:2.2.2'
-    testImplementation 'io.github.sebasbaumh:mapbox-vector-tile-java:25.1.0'
-    implementation 'me.lemire.integercompression:JavaFastPFOR:0.2.1'
-    implementation 'no.ecc.vectortile:java-vector-tile:1.3.23'
-    cliImplementation 'org.apache.commons:commons-compress:1.28.0'
-    implementation 'org.apache.orc:orc-core:1.8.1'
-    cliImplementation 'org.imintel:mbtiles4j:1.0.6'
-    implementation 'org.locationtech.jts:jts-core:1.20.0'
-    implementation 'org.slf4j:slf4j-simple:2.0.17'
-    cliImplementation 'org.xerial:sqlite-jdbc:3.50.3.0'
-    implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
-    implementation 'org.jetbrains:annotations:15.0'
-
+    // Root project dependencies for common tasks
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.3'
-    testImplementation 'org.openjdk.jmh:jmh-core:1.37 '
-    testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
-    testImplementation 'org.xerial:sqlite-jdbc:3.50.3.0'
 }
 
 test {
@@ -66,10 +39,6 @@ java {
     }
 }
 
-// Add CLI dependencies to compile classpath for CLI classes
-compileJava {
-    classpath += configurations.cliImplementation
-}
 
 spotless {
     java {
@@ -102,31 +71,6 @@ gradle.projectsEvaluated {
 
 //compileJava.dependsOn compileWrapper
 
-["encode", "decode"].each { name ->
-    task "$name"(type: Jar, dependsOn: compileJava) {
-        archiveFileName = name + ".jar"
-        archiveClassifier = "cli"
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from {
-            configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } +
-            configurations.cliImplementation.collect { it.isDirectory() ? it : zipTree(it) }
-        }
-        manifest.from jar.manifest
-        with jar
-    }
-}
-
-encode.manifest.attributes 'Implementation-Title': 'encode an mlt from an mvt',
-        'Main-Class': 'org.maplibre.mlt.cli.Encode'
-decode.manifest.attributes 'Implementation-Title': 'decode an mlt',
-        'Main-Class': 'org.maplibre.mlt.cli.Decode'
-
-tasks.register('cli') {
-    // Uncomment the following line to clear out the jars before rebuilding
-    delete "${layout.buildDirectory}/libs"
-    dependsOn encode
-    dependsOn decode
-}
 
 tasks.withType(JavaCompile).configureEach {
 }
@@ -136,57 +80,4 @@ tasks.withType(JavaExec).configureEach {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
-}
-
-tasks.register('validateSemver') {
-    doLast {
-        def version = project.version
-        if (version == null || version == 'unspecified') {
-            throw new GradleException("Version is not set. Please provide a version using -Pversion=<version>")
-        }
-
-        def semverPattern = /^\d+\.\d+\.\d+$/
-
-        if (!version.matches(semverPattern)) {
-            throw new GradleException("Version '$version' is not a valid semantic version. Expected format: major.minor.patch (e.g., 1.0.0, 2.1.3)")
-        }
-
-        println "✓ Version '$version' is valid semver"
-    }
-}
-
-mavenPublishing {
-    publishToMavenCentral(true)
-    signAllPublications()
-
-    coordinates("org.maplibre", "mlt", version)
-
-    publishToMavenCentral.dependsOn validateSemver
-
-    pom {
-        name = "MapLibre Tile Specification"
-        description = "Java implementation of the MapLibre Tile (MLT) specification"
-        url = "https://github.com/maplibre/maplibre-tile-spec"
-
-        licenses {
-            license {
-                name = "The Apache License, Version 2.0"
-                url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
-            }
-        }
-
-        developers {
-            developer {
-                id = "maplibre"
-                name = "MapLibre contributors"
-                url = "https://github.com/maplibre"
-            }
-        }
-
-        scm {
-            connection = "scm:git:git://github.com/maplibre/maplibre-tile-spec.git"
-            developerConnection = "scm:git:ssh://github.com:maplibre/maplibre-tile-spec.git"
-            url = "https://github.com/maplibre/maplibre-tile-spec"
-        }
-    }
 }
