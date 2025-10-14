@@ -183,13 +183,13 @@ public:
 
     LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::RLE; }
 
-    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
-        const auto [runs, numValues] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
+    static RleEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& tileData) {
+        const auto [runs, numValues] = util::decoding::decodeVarints<std::uint32_t, 2>(tileData);
         return RleEncodedStreamMetadata(std::move(streamMetadata), runs, numValues);
     }
 
-    static RleEncodedStreamMetadata decode(BufferStream& buffer) {
-        return decodePartial(decodeInternal(buffer), buffer);
+    static RleEncodedStreamMetadata decode(BufferStream& tileData) {
+        return decodePartial(decodeInternal(tileData), tileData);
     }
 
     unsigned getRuns() const noexcept { return runs; }
@@ -228,13 +228,13 @@ public:
 
     LogicalLevelTechnique getMetadataType() const noexcept override { return LogicalLevelTechnique::MORTON; }
 
-    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& buffer) {
-        const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(buffer);
+    static MortonEncodedStreamMetadata decodePartial(StreamMetadata&& streamMetadata, BufferStream& tileData) {
+        const auto [numBits, coordShift] = util::decoding::decodeVarints<std::uint32_t, 2>(tileData);
         return MortonEncodedStreamMetadata(std::move(streamMetadata), numBits, coordShift);
     }
 
-    static MortonEncodedStreamMetadata decode(BufferStream& buffer) {
-        return decodePartial(decodeInternal(buffer), buffer);
+    static MortonEncodedStreamMetadata decode(BufferStream& tileData) {
+        return decodePartial(decodeInternal(tileData), tileData);
     }
 
     unsigned getNumBits() const noexcept { return numBits; }
