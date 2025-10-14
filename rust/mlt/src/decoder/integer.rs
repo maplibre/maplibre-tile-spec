@@ -17,10 +17,6 @@ use crate::metadata::stream_encoding::{
 };
 use crate::{MltError, MltResult};
 
-/// a placeholder for future implementation
-/// For some reason, the Java code has a method that decodes long streams,
-/// but it has different logic than the integer stream decoding.
-/// It is not clear what the purpose of this method is, so it is left unimplemented
 pub fn decode_long_stream(
     _tile: &mut TrackedBytes,
     _metadata: &StreamMetadata,
