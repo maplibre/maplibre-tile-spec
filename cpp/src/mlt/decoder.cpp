@@ -78,7 +78,10 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
         }
     }
 
-    assert(!tileData.available());
+    // Check framing, we expect to use all the data in the buffer provided.
+    if (tileData.available() > 0) {
+        throw std::runtime_error(std::to_string(tileData.available()) + " bytes trailing layer " + layerMetadata.name);
+    }
 
     return {layerMetadata.name,
             layerMetadata.extent,
@@ -111,9 +114,10 @@ MapLibreTile Decoder::decode(BufferStream tileData) {
     std::vector<Layer> layers;
     while (tileData.available()) {
         const auto layerLength = decodeVarint<std::uint32_t>(tileData);
-        // Create a new BufferStream for this layer
-        DataView layerDataView(reinterpret_cast<const char*>(tileData.getReadPosition()), layerLength);
-        BufferStream layerStream(layerDataView);
+
+        // Create a new BufferStream for this layer and advance past it in the main stream
+        auto layerStream = tileData.getSubStream(0, layerLength);
+        tileData.consume(layerLength);
 
         const auto layerTag = decodeVarint<std::uint32_t>(layerStream);
         if (layerTag == 1) {
@@ -121,8 +125,6 @@ MapLibreTile Decoder::decode(BufferStream tileData) {
         } else {
             // Skipping unknown layer
         }
-        // Advance the main stream by layerLength bytes
-        tileData.consume(layerLength);
     }
     return {std::move(layers)};
 }
