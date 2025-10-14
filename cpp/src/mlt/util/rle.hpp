@@ -105,7 +105,7 @@ inline void decodeByte(BufferStream& buffer, std::uint8_t* out, std::uint32_t nu
 /// Decode RLE bits to a byte array
 /// @param buffer The source data
 /// @param out The target for output
-/// @param numBytes The number of bits to write, and the size of `out` multiplied by 8
+/// @param numBits The number of bits to write, and the size of `out` multiplied by 8
 /// @throws std::runtime_error The provided buffer does not contain enough data
 /// @note Bit counts not divisible by 8 will be padded with zeros
 inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, std::uint32_t numBits) {

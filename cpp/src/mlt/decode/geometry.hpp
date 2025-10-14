@@ -60,7 +60,7 @@ public:
         using namespace metadata::stream;
         using namespace metadata::tileset;
 
-        std::vector<metadata::tileset::GeometryType> geometryTypes;
+        std::vector<GeometryType> geometryTypes;
         std::vector<std::uint32_t> geometryOffsets;
         std::vector<std::uint32_t> partOffsets;
         std::vector<std::uint32_t> ringOffsets;
