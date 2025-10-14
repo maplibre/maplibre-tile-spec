@@ -86,11 +86,6 @@ public class CompressionBenchmarks {
     File bingDirectory = new File(path);
     File[] files = bingDirectory.listFiles();
 
-    if (files == null) {
-      System.out.printf("Directory %s does not exist or cannot be read\n", path);
-      return null;
-    }
-
     var tileSizes = new ArrayList<Pair<Integer, Integer>>();
     var tiles =
         Arrays.stream(files)
