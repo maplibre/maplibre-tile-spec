@@ -17,7 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.security.InvalidParameterException;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -354,16 +353,10 @@ public class Encode {
                   compressionType,
                   enableCoerceOrElideMismatch,
                   verbose);
-            } catch (InvalidParameterException ex) {
-              System.err.println(
-                  "WARNING: Failed to convert tile ("
-                      + tile.getZoom()
-                      + ":"
-                      + tile.getColumn()
-                      + ","
-                      + tile.getRow()
-                      + ") : "
-                      + ex.getMessage());
+            } catch (IllegalArgumentException ex) {
+              System.err.printf(
+                  "WARNING: Failed to convert tile (%d:%d,%d) : %s%n",
+                  tile.getZoom(), tile.getColumn(), tile.getRow(), ex.getMessage());
               if (verbose) {
                 ex.printStackTrace(System.err);
               }
