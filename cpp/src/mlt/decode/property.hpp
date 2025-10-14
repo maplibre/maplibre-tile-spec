@@ -185,6 +185,7 @@ protected:
             }
             case ScalarType::STRING: {
                 const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
+                // FIXME? why numStreams - 1? what if its not optional
                 auto strings = stringDecoder.decode(tileData, numStreams - 1, static_cast<std::uint32_t>(stringCount));
 
                 PropertyVec result{std::move(strings)};
