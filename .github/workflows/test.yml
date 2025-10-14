@@ -51,6 +51,8 @@ jobs:
         run: just -v lint-java
       - run: just -v test-java
       - run: just -v test-java-cli
+      - name: Test Maven local publishing
+        run: cd java && ./gradlew publishMavenPublicationToMavenLocal
 
   # This final step is needed to mark the entire workflow as successful
   done:
