@@ -98,7 +98,7 @@ public class StringDecoder {
     } else if (dictionaryLengthStream != null) {
       dictionary = decodeDictionary(dictionaryLengthStream, dictionaryStream);
     } else {
-      throw new NotImplementedException();
+      throw new NotImplementedException("Expected streams missing in shared dictionary decoding");
     }
 
     var presentStreams = new HashMap<String, BitSet>();

@@ -24,7 +24,7 @@ public class MLTStreamObserverFile implements MLTStreamObserver {
 
   @Override
   public boolean isActive() {
-    return !layerName.isEmpty();
+    return layerName != null && !layerName.isEmpty();
   }
 
   @Override

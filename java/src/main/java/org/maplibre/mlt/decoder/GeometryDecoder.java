@@ -329,7 +329,7 @@ public class GeometryDecoder {
           var coordinate = new Coordinate(vertex[0], vertex[1]);
           geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
         } else {
-          throw new NotImplementedException();
+          throw new NotImplementedException("Expected streams missing in geometry decoding");
         }
 
         if (geometryOffsets != null) {
@@ -521,7 +521,7 @@ public class GeometryDecoder {
           }
           geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
         } else {
-          throw new NotImplementedException();
+          throw new NotImplementedException("Expected streams missing in geometry decoding");
         }
       } else if (geometryType == GeometryType.MULTIPOLYGON.ordinal() && geometryOffsets != null) {
         var numPolygons =
