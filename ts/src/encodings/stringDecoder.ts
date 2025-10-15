@@ -8,7 +8,7 @@ import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
 import {DictionaryType} from "../metadata/tile/dictionaryType";
 import {LengthType} from "../metadata/tile/lengthType";
 import IntegerStreamDecoder from "./integerStreamDecoder";
-import {Column, ComplexColumn, ComplexField, ScalarField, ScalarType} from "../metadata/tileset/tilesetMetadata";
+import {Column, ComplexColumn, ComplexField, ScalarField, ScalarType} from "../metadata/tileset/tilesetMetadata.g";
 import {decodeVarintInt32} from "./integerDecodingUtils";
 import {decodeBooleanRle, skipColumn} from "./decodingUtils";
 import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";

@@ -83,12 +83,13 @@ export class FlatGeometryVector extends GeometryVector{
         return new FlatSelectionVector(selectionVector);
     }
 
-    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
+    filterSelected(predicateGeometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
         let limit = 0;
         const vector = selectionVector.selectionValues();
         for(let i = 0; i < selectionVector.limit; i++){
-            const index = selectionVector[i];
-            if(this.geometryType(index) === geometryType || this.geometryType(index) === (geometryType + 3)){
+            const index = vector[i];
+            const geometryType = this.geometryType(index);
+            if(predicateGeometryType === geometryType || (predicateGeometryType + 3) ===  geometryType){
                 vector[limit++] = index;
             }
         }

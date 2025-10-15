@@ -1,22 +1,27 @@
 import IntWrapper from "./intWrapper";
-import {VectorType} from "../vector/vectorType";
+import { VectorType } from "../vector/vectorType";
 import BitVector from "../vector/flat/bitVector";
-import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
+import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
 
-export function skipColumn(numStreams: number, tile: Uint8Array, offset: IntWrapper){
+export function skipColumn(numStreams: number, tile: Uint8Array, offset: IntWrapper) {
     //TODO: add size of column in Mlt for fast skipping
-    for(let i = 0; i < numStreams; i++){
+    for (let i = 0; i < numStreams; i++) {
         const streamMetadata = StreamMetadataDecoder.decode(tile, offset);
         offset.add(streamMetadata.byteLength);
     }
 }
 
-export function decodeBooleanRle(buffer: Uint8Array, numBooleans: number, pos: IntWrapper): Uint8Array{
+export function decodeBooleanRle(buffer: Uint8Array, numBooleans: number, pos: IntWrapper): Uint8Array {
     const numBytes = Math.ceil(numBooleans / 8.0);
     return decodeByteRle(buffer, numBytes, pos);
 }
 
-export function decodeNullableBooleanRle(buffer: Uint8Array, numBooleans: number, pos: IntWrapper, nullabilityBuffer: BitVector): Uint8Array {
+export function decodeNullableBooleanRle(
+    buffer: Uint8Array,
+    numBooleans: number,
+    pos: IntWrapper,
+    nullabilityBuffer: BitVector,
+): Uint8Array {
     // TODO: refactor quick and dirty solution -> use solution in one pass
     const numBytes = Math.ceil(numBooleans / 8);
     const values = decodeByteRle(buffer, numBytes, pos);
@@ -26,12 +31,8 @@ export function decodeNullableBooleanRle(buffer: Uint8Array, numBooleans: number
     const nullableBitvector = new BitVector(new Uint8Array(size), size);
     let valueCounter = 0;
     for (let i = 0; i < nullabilityBuffer.size(); i++) {
-        if (nullabilityBuffer.get(i)) {
-            const value = bitVector.get(valueCounter++);
-            nullableBitvector.set(i, value);
-        } else {
-            nullableBitvector.set(i, false);
-        }
+        const value = nullabilityBuffer.get(i) ? bitVector.get(valueCounter++) : false;
+        nullableBitvector.set(i, value);
     }
 
     return nullableBitvector.getBuffer();
@@ -63,43 +64,62 @@ export function decodeByteRle(buffer: Uint8Array, numBytes: number, pos: IntWrap
 }
 
 export function decodeFloatsLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): Float32Array {
-    const fb = new Float32Array(new Uint8Array(encodedValues.subarray(pos.get(), pos.get() + numValues * Float32Array.BYTES_PER_ELEMENT)).buffer);
-    pos.set(pos.get() + numValues * Float32Array.BYTES_PER_ELEMENT);
+    const currentPos = pos.get();
+    const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
+    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
+    const fb = new Float32Array(newBuf);
+    pos.set(newOffset);
     return fb;
 }
 
 export function decodeDoublesLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): Float64Array {
-    const bytesPerElement = Float64Array.BYTES_PER_ELEMENT;
-    const fb = new Float64Array(new Uint16Array(encodedValues.subarray(pos.get(), pos.get() + numValues * bytesPerElement)).buffer);
-    pos.set(pos.get() + numValues * bytesPerElement);
+    const currentPos = pos.get();
+    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
+    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
+    const fb = new Float64Array(newBuf);
+    pos.set(newOffset);
     return fb;
 }
 
-export function decodeNullableFloatsLE(encodedValues: Uint8Array, pos: IntWrapper, nullabilityBuffer: BitVector): Float32Array {
-    const numValues = nullabilityBuffer.size();
-    const newOffset = pos.get() + numValues * Float64Array.BYTES_PER_ELEMENT;
-    const fb = new Float32Array(encodedValues.subarray(pos.get(), newOffset));
+export function decodeNullableFloatsLE(
+    encodedValues: Uint8Array,
+    pos: IntWrapper,
+    nullabilityBuffer: BitVector,
+    numValues: number,
+): Float32Array {
+    const currentPos = pos.get();
+    const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
+    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
+    const fb = new Float32Array(newBuf);
     pos.set(newOffset);
 
-    const nullableFloatsBuffer = new Float32Array(numValues);
-    for (let i = 0; i < nullabilityBuffer.size(); i++) {
-        // TODO: or use Double.NaN -> check performance
-        nullableFloatsBuffer[i] = nullabilityBuffer.get(i) ? fb[i] : 0;
+    const numTotalValues = nullabilityBuffer.size();
+    const nullableFloatsBuffer = new Float32Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numTotalValues; i++) {
+        nullableFloatsBuffer[i] = nullabilityBuffer.get(i) ? fb[offset++] : 0;
     }
 
     return nullableFloatsBuffer;
 }
 
-export function decodeNullableDoublesLE(encodedValues: Uint8Array, pos: IntWrapper, nullabilityBuffer: BitVector): Float64Array {
-    const numValues = nullabilityBuffer.size();
-    const newOffset = pos.get() + numValues * Float64Array.BYTES_PER_ELEMENT;
-    const fb = new Float64Array(encodedValues.subarray(pos.get(), newOffset));
+export function decodeNullableDoublesLE(
+    encodedValues: Uint8Array,
+    pos: IntWrapper,
+    nullabilityBuffer: BitVector,
+    numValues: number,
+): Float64Array {
+    const currentPos = pos.get();
+    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
+    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
+    const fb = new Float64Array(newBuf);
     pos.set(newOffset);
 
-    const nullableDoubleBuffer = new Float64Array[numValues];
-    for (let i = 0; i < nullabilityBuffer.size(); i++) {
-        // TODO: or use Double.NaN -> check performance
-        nullableDoubleBuffer[i] = nullabilityBuffer.get(i) ? fb[i] : 0;
+    const numTotalValues = nullabilityBuffer.size();
+    const nullableDoubleBuffer = new Float64Array(numTotalValues);
+    let offset = 0;
+    for (let i = 0; i < numTotalValues; i++) {
+        nullableDoubleBuffer[i] = nullabilityBuffer.get(i) ? fb[offset++] : 0;
     }
 
     return nullableDoubleBuffer;
@@ -180,18 +200,22 @@ function readUtf8(buf, pos, end): string {
     return str;
 }
 
-export function getVectorTypeBooleanStream(numFeatures: number, byteLength: number, data: Uint8Array,
-                                           offset: IntWrapper): VectorType {
+export function getVectorTypeBooleanStream(
+    numFeatures: number,
+    byteLength: number,
+    data: Uint8Array,
+    offset: IntWrapper,
+): VectorType {
     const valuesPerRun = 0x83;
     // TODO: use VectorType metadata field for to test which VectorType is used
-    return (Math.ceil(numFeatures / valuesPerRun) * 2 == byteLength) &&
-    /* Test the first value byte if all bits are set to true */
-    (data[offset.get() + 1] & 0xFF) === ((bitCount(numFeatures) << 2) - 1)
+    return Math.ceil(numFeatures / valuesPerRun) * 2 == byteLength &&
+        /* Test the first value byte if all bits are set to true */
+        (data[offset.get() + 1] & 0xff) === (bitCount(numFeatures) << 2) - 1
         ? VectorType.CONST
         : VectorType.FLAT;
 }
 
 function bitCount(number): number {
     //TODO: refactor to get rid of special case handling
-    return number === 0? 1 :  Math.floor(Math.log2(number)+1);
+    return number === 0 ? 1 : Math.floor(Math.log2(number) + 1);
 }
