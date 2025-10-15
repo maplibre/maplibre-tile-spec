@@ -11,11 +11,11 @@ This package contains a JavaScript decoder for the experimental MapLibre Tile (M
 To decode a tile, you will want to load `MltDecoder`:
 
 ```js
-import decodeTile, { decodeMetadata } from '@maplibre/maplibre-tile-spec';
+import { decodeTile } from '@maplibre/maplibre-tile-spec';
 
 const data = fs.readFileSync(tilePath);
 const tile = decodeTile(data);
-
+```
 ## Contents
 
 ### Code
