@@ -34,7 +34,7 @@ public class MLTStreamObserverFile implements MLTStreamObserver {
     if (layerName == null) {
       throw new IllegalStateException("Layer name must be set before observing streams");
     }
-    if (rawMetaData == null && rawData == null) {
+    if (values == null && rawMetaData == null && rawData == null) {
       return;
     }
 
@@ -48,7 +48,7 @@ public class MLTStreamObserverFile implements MLTStreamObserver {
       final var path = basePath.resolve(keyFilename + ".bin");
       Files.write(path, rawData);
     }
-    if (values != null) {
+    if (values != null && !values.isEmpty()) {
       final var path = basePath.resolve(keyFilename + ".json");
       Files.writeString(path, new Gson().toJson(values));
     }

@@ -18,7 +18,7 @@ public class BooleanEncoder {
   public static byte[] encodeBooleanStream(
       List<Boolean> values,
       PhysicalStreamType streamType,
-      @NotNull MLTStreamObserver streamRecorder,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String streamName)
       throws IOException {
     var valueStream = new BitSet(values.size());
@@ -40,7 +40,7 @@ public class BooleanEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamRecorder.observeStream(streamName, values, valuesMetadata, encodedValueStream);
+    streamObserver.observeStream(streamName, values, valuesMetadata, encodedValueStream);
     return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
   }
 
@@ -50,7 +50,7 @@ public class BooleanEncoder {
   public static byte[] encodeBooleanStreamOptimized(
       List<Boolean> values,
       PhysicalStreamType streamType,
-      @NotNull MLTStreamObserver streamRecorder,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String streamName)
       throws IOException {
     var valueStream = new BitSet(values.size());
@@ -72,7 +72,7 @@ public class BooleanEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamRecorder.observeStream(streamName, values, valuesMetadata, encodedValueStream);
+    streamObserver.observeStream(streamName, values, valuesMetadata, encodedValueStream);
     return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
   }
 }

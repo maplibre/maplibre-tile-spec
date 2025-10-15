@@ -44,6 +44,7 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.imintel.mbtiles4j.MBTilesReadException;
@@ -930,6 +931,14 @@ public class Encode {
       outputPath = Paths.get(outputDir, baseName + ext);
     } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
       outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
+    } else {
+      final var inputFile = ObjectUtils.firstNonNull(
+      cmd.getOptionValue(INPUT_TILE_ARG),
+              cmd.getOptionValue(INPUT_MBTILES_ARG),
+              cmd.getOptionValue(INPUT_OFFLINEDB_ARG));
+      if (inputFile != null && !inputFile.isEmpty()) {
+        outputPath = Path.of(FilenameUtils.getPath(inputFile), FilenameUtils.getBaseName(inputFile));
+      }
     }
     if (outputPath != null) {
       if (forceExt) {

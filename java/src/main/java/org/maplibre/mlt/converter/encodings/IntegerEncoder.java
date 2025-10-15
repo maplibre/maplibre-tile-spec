@@ -67,7 +67,7 @@ public class IntegerEncoder {
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @NotNull MLTStreamObserver streamRecorder,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String streamName)
       throws IOException {
     var encodedValueStream = IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned);
@@ -95,7 +95,7 @@ public class IntegerEncoder {
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
     var encodedMetadata = streamMetadata.encode();
-    streamRecorder.observeStream(
+    streamObserver.observeStream(
         streamName, values, encodedMetadata, encodedValueStream.encodedValues);
     return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }
@@ -105,7 +105,7 @@ public class IntegerEncoder {
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @NotNull MLTStreamObserver streamRecorder,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String streamName)
       throws IOException {
     var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned);
@@ -133,7 +133,7 @@ public class IntegerEncoder {
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
     var encodedMetadata = streamMetadata.encode();
-    streamRecorder.observeStream(
+    streamObserver.observeStream(
         streamName, values, encodedMetadata, encodedValueStream.encodedValues);
     return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }

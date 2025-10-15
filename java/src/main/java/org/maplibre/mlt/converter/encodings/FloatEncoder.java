@@ -14,7 +14,7 @@ public class FloatEncoder {
   private FloatEncoder() {}
 
   public static byte[] encodeFloatStream(
-      List<Float> values, @NotNull MLTStreamObserver streamRecorder, @Nullable String streamName)
+      List<Float> values, @NotNull MLTStreamObserver streamObserver, @Nullable String streamName)
       throws IOException {
     // TODO: add encodings -> RLE, Dictionary, PDE, ALP
     float[] floatArray = new float[values.size()];
@@ -34,7 +34,7 @@ public class FloatEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamRecorder.observeStream(
+    streamObserver.observeStream(
         streamName,
         Arrays.asList(ArrayUtils.toObject(floatArray)),
         valuesMetadata,

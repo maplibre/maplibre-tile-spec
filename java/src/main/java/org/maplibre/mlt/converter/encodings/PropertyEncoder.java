@@ -24,7 +24,7 @@ public class PropertyEncoder {
       boolean useAdvancedEncodings,
       boolean coercePropertyValues,
       List<ColumnMapping> columnMappings,
-      @NotNull MLTStreamObserver streamRecorder)
+      @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     /*
      * TODOs: - detect if column is nullable to get rid of the present stream - test boolean rle
@@ -56,7 +56,7 @@ public class PropertyEncoder {
                 physicalLevelTechnique,
                 useAdvancedEncodings,
                 coercePropertyValues,
-                streamRecorder);
+                streamObserver);
         featureScopedPropertyColumns =
             CollectionUtils.concatByteArrays(
                 featureScopedPropertyColumns, encodedScalarPropertyColumn);
@@ -123,7 +123,7 @@ public class PropertyEncoder {
                 sharedDictionary,
                 physicalLevelTechnique,
                 useAdvancedEncodings,
-                streamRecorder,
+                streamObserver,
                 columnMetadata.getName());
         // TODO: fix -> ony quick and dirty fix
         final var numStreams = nestedColumns.getLeft() == 0 ? 0 : 1;
@@ -210,14 +210,14 @@ public class PropertyEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useAdvancedEncodings,
       boolean coercePropertyValues,
-      @NotNull MLTStreamObserver streamRecorder)
+      @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     final var scalarType = columnMetadata.getScalarType().getPhysicalType();
     switch (scalarType) {
       case BOOLEAN:
         {
           // no stream count
-          return encodeBooleanColumn(features, columnMetadata, streamRecorder);
+          return encodeBooleanColumn(features, columnMetadata, streamObserver);
         }
       case INT_32:
       case UINT_32:
@@ -225,20 +225,20 @@ public class PropertyEncoder {
           final var signed = (scalarType == MltTilesetMetadata.ScalarType.INT_32);
           // no stream count
           return encodeInt32Column(
-              features, columnMetadata, isID, physicalLevelTechnique, signed, streamRecorder);
+              features, columnMetadata, isID, physicalLevelTechnique, signed, streamObserver);
         }
       case INT_64:
       case UINT_64:
         {
           final var signed = (scalarType == MltTilesetMetadata.ScalarType.INT_64);
           // no stream count
-          return encodeInt64Column(features, columnMetadata, isID, signed, streamRecorder);
+          return encodeInt64Column(features, columnMetadata, isID, signed, streamObserver);
         }
       case FLOAT:
       case DOUBLE:
         {
           // no stream count
-          return encodeFloatColumn(features, columnMetadata, streamRecorder);
+          return encodeFloatColumn(features, columnMetadata, streamObserver);
         }
       case STRING:
         {
@@ -257,6 +257,10 @@ public class PropertyEncoder {
           final var stringValues =
               rawStringValues.stream().filter(Objects::nonNull).collect(Collectors.toList());
 
+          if (streamObserver.isActive()) {
+            streamObserver.observeStream("prop_" + columnMetadata.getName() + "_strings", rawStringValues, null, null);
+          }
+
           final byte[] presentStream;
           if (columnMetadata.getNullable()) {
             final var presentValues = rawStringValues.stream().map(Objects::nonNull).toList();
@@ -264,7 +268,7 @@ public class PropertyEncoder {
                 BooleanEncoder.encodeBooleanStream(
                     presentValues,
                     PhysicalStreamType.PRESENT,
-                    streamRecorder,
+                    streamObserver,
                     "prop_" + columnMetadata.getName() + "_present");
           } else {
             presentStream = new byte[0];
@@ -275,7 +279,7 @@ public class PropertyEncoder {
                   stringValues,
                   physicalLevelTechnique,
                   useAdvancedEncodings,
-                  streamRecorder,
+                  streamObserver,
                   "prop_" + columnMetadata.getName());
 
           /* Plus 1 for present stream */
@@ -293,7 +297,7 @@ public class PropertyEncoder {
   private static byte[] encodeBooleanColumn(
       List<Feature> features,
       MltTilesetMetadata.Column metadata,
-      @NotNull MLTStreamObserver streamRecorder)
+      @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     final var fieldName = metadata.getName();
     final var presentStream = metadata.getNullable() ? new BitSet(features.size()) : null;
@@ -341,13 +345,13 @@ public class PropertyEncoder {
             .encode();
 
     if (presentStream != null) {
-      streamRecorder.observeStream(
+      streamObserver.observeStream(
           "prop_" + fieldName + "_present",
           bitValues(presentStream),
           encodedPresentStreamMetadata,
           encodedPresentStream);
     }
-    streamRecorder.observeStream(
+    streamObserver.observeStream(
         "prop_" + fieldName, bitValues(dataStream), encodedDataStreamMetadata, encodedDataStream);
 
     return Bytes.concat(
@@ -360,7 +364,7 @@ public class PropertyEncoder {
   private static byte[] encodeFloatColumn(
       List<Feature> features,
       MltTilesetMetadata.Column metadata,
-      @NotNull MLTStreamObserver streamRecorder)
+      @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     final var fieldName = metadata.getName();
     final var values = new ArrayList<Float>();
@@ -382,11 +386,11 @@ public class PropertyEncoder {
             ? BooleanEncoder.encodeBooleanStream(
                 presentValues,
                 PhysicalStreamType.PRESENT,
-                streamRecorder,
+                streamObserver,
                 "prop_" + fieldName + "_present")
             : new byte[0];
     final var encodedDataStream =
-        FloatEncoder.encodeFloatStream(values, streamRecorder, "prop_" + fieldName);
+        FloatEncoder.encodeFloatStream(values, streamObserver, "prop_" + fieldName);
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
@@ -396,7 +400,7 @@ public class PropertyEncoder {
       boolean isID,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
-      @NotNull MLTStreamObserver streamRecorder)
+      @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     final var fieldName = metadata.getName();
     final var values = new ArrayList<Integer>();
@@ -420,7 +424,7 @@ public class PropertyEncoder {
             ? BooleanEncoder.encodeBooleanStream(
                 presentValues,
                 PhysicalStreamType.PRESENT,
-                streamRecorder,
+                streamObserver,
                 "prop_" + fieldName + "_present")
             : new byte[0];
     var encodedDataStream =
@@ -430,7 +434,7 @@ public class PropertyEncoder {
             isSigned,
             PhysicalStreamType.DATA,
             null,
-            streamRecorder,
+            streamObserver,
             "prop_" + fieldName);
 
     return Bytes.concat(encodedPresentStream, encodedDataStream);
@@ -441,7 +445,7 @@ public class PropertyEncoder {
       MltTilesetMetadata.Column metadata,
       boolean isID,
       boolean isSigned,
-      @NotNull MLTStreamObserver streamRecorder)
+      @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     final var fieldName = metadata.getName();
     final var values = new ArrayList<Long>();
@@ -464,12 +468,12 @@ public class PropertyEncoder {
             ? BooleanEncoder.encodeBooleanStream(
                 presentValues,
                 PhysicalStreamType.PRESENT,
-                streamRecorder,
+                streamObserver,
                 "prop_" + fieldName + "_present")
             : new byte[0];
     var encodedDataStream =
         IntegerEncoder.encodeLongStream(
-            values, isSigned, PhysicalStreamType.DATA, null, streamRecorder, "prop_" + fieldName);
+            values, isSigned, PhysicalStreamType.DATA, null, streamObserver, "prop_" + fieldName);
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
