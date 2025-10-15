@@ -34,14 +34,13 @@ export function decodePropertyColumn(
     numFeatures: number,
     propertyColumnNames?: Set<string>,
 ): Vector | Vector[] {
-    const column = columnMetadata.type.value;
-    if (column instanceof ScalarColumn) {
+    if (columnMetadata.type.case === "scalarType") {
         if (propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)) {
             skipColumn(numStreams, data, offset);
             return null;
         }
 
-        return decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, column, columnMetadata);
+        return decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, columnMetadata.type.value, columnMetadata);
     }
 
     if (numStreams != 1) {
@@ -223,51 +222,3 @@ function decodeIntColumn(
 function isNullabilityBuffer(sizeOrNullabilityBuffer: number | BitVector): sizeOrNullabilityBuffer is BitVector {
     return sizeOrNullabilityBuffer instanceof BitVector;
 }
-
-/*export function decodePropertyColumnSequential(data: Uint8Array, offset: IntWrapper, columnMetadata: Column, numStreams: number, numFeatures: number): Vector | Vector[] {
-    let presentStreamMetadata: StreamMetadata;
-    const column = columnMetadata.type.value;
-    if (column instanceof ScalarColumn) {
-        let nullabilityBuffer: BitVector = null;
-        let numValues = 0;
-        if (numStreams === 0) {
-            return null;
-        } else if (numStreams > 1) {
-            presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            const vectorType = getVectorTypeBooleanStream(numFeatures, presentStreamMetadata.byteLength, data, offset);
-            if (vectorType === VectorType.FLAT) {
-                numValues = presentStreamMetadata.numValues;
-                const presentVector = decodeBooleanRle(data, numValues, offset);
-                nullabilityBuffer = new BitVector(presentVector, presentStreamMetadata.numValues);
-            } else {
-                offset.add(presentStreamMetadata.byteLength);
-            }
-        }
-
-        const scalarType = column.type.value as ScalarType;
-        switch (scalarType) {
-            case ScalarType.BOOLEAN:
-                return decodeBooleanColumn(data, offset, columnMetadata, numFeatures, null);
-            case ScalarType.UINT_32:
-            case ScalarType.INT_32:
-                return decodeIntColumn(data, offset, columnMetadata, column, null);
-            case ScalarType.UINT_64:
-            case ScalarType.INT_64:
-                return decodeLongColumn(data, offset, columnMetadata, null, column);
-            case ScalarType.FLOAT:
-                return decodeFloatColumn(data, offset, columnMetadata, null, numFeatures);
-            case ScalarType.DOUBLE:
-                return decodeDoubleColumn(data, offset, columnMetadata, null, numFeatures);
-            case ScalarType.STRING:
-                return StringDecoder.decode(columnMetadata.name, data, offset, numStreams - 1, null);
-            default:
-                throw new Error(`The specified data type for the field is currently not supported: ${column}`);
-        }
-    }
-
-    if (numStreams === 1) {
-        throw new Error("Present stream currently not supported for Structs.");
-    }
-
-    return StringDecoder.decodeSharedDictionarySequential(data, offset, columnMetadata);
-}*/

@@ -104,7 +104,7 @@ export default function decodeTile(
 
                 geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
             } else {
-                if (numStreams === 0 && columnMetadata.type.value instanceof ScalarColumn) {
+                if (numStreams === 0 && columnMetadata.type.case === "scalarType") {
                     continue;
                 }
 
