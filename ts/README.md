@@ -6,7 +6,7 @@ This package contains a JavaScript decoder for the experimental MapLibre Tile (M
 
 `npm install @maplibre/maplibre-tile-spec`
 
-## Quickstart 
+## Quickstart
 
 To decode a tile, you will want to load `MltDecoder`:
 
