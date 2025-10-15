@@ -172,6 +172,10 @@ public class GeometryEncoder {
       }
     }
 
+    if (vertexBuffer.isEmpty()) {
+      throw new IllegalArgumentException("The geometry column contains no vertices");
+    }
+
     // TODO: get rid of that separate calculation
     var minVertexValue =
         Collections.min(
@@ -620,6 +624,10 @@ public class GeometryEncoder {
           throw new IllegalArgumentException(
               "Specified geometry type is not (yet) supported: " + geometryType);
       }
+    }
+
+    if (vertexBuffer.isEmpty()) {
+      throw new IllegalArgumentException("The geometry column contains no vertices");
     }
 
     // TODO: get rid of that separate calculation
