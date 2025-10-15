@@ -27,7 +27,7 @@
     "test:esm": "node --experimental-vm-modules ./node_modules/.bin/jest",
     "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
     "format": "prettier --write \"**/*.ts\"",
-    "generate": "npx buf generate ..\\spec\\schema\\mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path='src/metadata/tileset'; fs.renameSync(path+'/mlt_tileset_metadata_pb.ts', path+'/tilesetMetadata.g.ts')\""
+    "generate": "npx buf generate ../spec/schema/mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path=require('path'); const dir=path.join('src','metadata','tileset'); fs.renameSync(path.join(dir,'mlt_tileset_metadata_pb.ts'), path.join(dir,'tilesetMetadata.g.ts'))\""
   },
   "repository": {
     "type": "git",
