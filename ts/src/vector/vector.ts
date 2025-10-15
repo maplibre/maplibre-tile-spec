@@ -22,7 +22,7 @@ export default abstract class Vector<T extends ArrayBuffer = ArrayBuffer, K = un
     }
 
     has(index: number): boolean{
-        return this.nullabilityBuffer?.get(index) ?? false
+        return (this.nullabilityBuffer && this.nullabilityBuffer.get(index)) || !this.nullabilityBuffer;
     }
 
     get name(): string {
