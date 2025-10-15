@@ -145,13 +145,10 @@ mod tests {
 
     #[test]
     fn test_decode() {
-        let raw = fs::read("../../ts/test/data/omt/unoptimized/mlt/plain/0_0_0.mlt")
-            .expect("Failed to read file");
+        let raw = fs::read("../../test/expected/omt/2_2_2.mlt").expect("Failed to read file");
         let mut mlt = Decoder::new(raw, None);
-        let metadata = read_metadata(Path::new(
-            "../../ts/test/data/omt/unoptimized/mlt/plain/tileset.pbf",
-        ))
-        .expect("Failed to read metadata");
+        let metadata = read_metadata(Path::new("../../test/expected/omt/2_2_2.mlt.meta.pbf"))
+            .expect("Failed to read metadata");
 
         // Write metadata to a txt file
         let metadata_str = format!("{metadata:#?}");
