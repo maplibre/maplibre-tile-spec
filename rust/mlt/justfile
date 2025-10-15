@@ -92,7 +92,7 @@ gen-snippets:  (cargo-install 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
     ./gradlew cli
-    fd . ../test/fixtures -e pbf -x java -jar build/libs/encode.jar --mvt {} \
+    fd . ../test/fixtures -e pbf -x java -jar mlt-cli/build/libs/encode.jar --mvt {} \
         --mlt "$(tmp='{.}'; echo ${tmp/\/fixtures\///expected/}).mvt" \
         --rawstreams --tessellate --outlines ALL || echo "### Some snippets failed to generate ###"
 
@@ -102,7 +102,7 @@ gen-tests:  (cargo-install 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
     ./gradlew cli
-    fd . ../test/fixtures -e pbf -x bash -c 'java -jar build/libs/encode.jar --mvt {} \
+    fd . ../test/fixtures -e pbf -x bash -c 'java -jar mlt-cli/build/libs/encode.jar --mvt {} \
         --mlt "$(tmp={.}; echo ${tmp/fixtures/expected/tag0x01/}).mlt" \
         --outlines "\*" --tessellate --coerce-mismatch --verbose || echo "### Some snippets failed to generate ###"'
 
