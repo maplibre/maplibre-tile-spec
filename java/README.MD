@@ -4,6 +4,15 @@
 
 A Java library for encoding and decoding MapLibre Tile (MLT) format, providing efficient compression and fast access to vector tile data.
 
+## Project Structure
+
+This is a multi-project Gradle build with two main components:
+
+- **`mlt-core`** - The core library containing the MLT encoding/decoding functionality
+- **`mlt-cli`** - Command-line tools for converting between MVT and MLT formats
+
+The core library is published to Maven Central, while the CLI tools are built locally for development use.
+
 ## Installation
 
 ### Gradle (`build.gradle`)
@@ -215,12 +224,22 @@ To build command line tools:
 ./gradlew cli
 ```
 
+This will create two executable JAR files in `mlt-cli/build/libs/`:
+- `encode.jar` - Convert MVT files to MLT format
+- `decode.jar` - Decode MLT files
+
 Example of converting MVT to MLT:
 
 ```console
-java -jar build/libs/encode.jar --mvt ../test/fixtures/simple/point-boolean.pbf --mlt /tmp/point-boolean.mlt --tessellate --outlines ALL  --embedmetadata --verbose
+java -jar mlt-cli/build/libs/encode.jar --mvt ../test/fixtures/simple/point-boolean.pbf --mlt /tmp/point-boolean.mlt --tessellate --outlines ALL --verbose
 
-java -jar build/libs/encode.jar --mbtiles /Users/timsylvester/src/ml/ml-tile-spec/test/omt-ref.mbtiles --mlt /tmp/omt-basic-mlt.mbtiles --tessellate --outlines ALL --compress=deflate --verbose
+java -jar mlt-cli/build/libs/encode.jar --mbtiles /path/to/input.mbtiles --mlt /tmp/output.mbtiles --tessellate --outlines ALL --compress=deflate --verbose
+```
+
+Example of decoding MLT files:
+
+```console
+java -jar mlt-cli/build/libs/decode.jar -mlt /tmp/point-boolean.mlt
 ```
 
 ## Contributing
