@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import me.lemire.integercompression.IntWrapper;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.tuple.Triple;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
@@ -86,7 +87,7 @@ public class StringDecoder {
     }
 
     List<String> dictionary = null;
-    if (symbolTableStream != null && dictionaryLengthStream != null) {
+    if (symbolLengthStream != null && symbolTableStream != null && dictionaryLengthStream != null) {
       @SuppressWarnings("deprecation")
       var utf8Values =
           FsstEncoder.decode(
@@ -96,6 +97,8 @@ public class StringDecoder {
       dictionary = decodeDictionary(dictionaryLengthStream, utf8Values);
     } else if (dictionaryLengthStream != null) {
       dictionary = decodeDictionary(dictionaryLengthStream, dictionaryStream);
+    } else {
+      throw new NotImplementedException();
     }
 
     var presentStreams = new HashMap<String, BitSet>();

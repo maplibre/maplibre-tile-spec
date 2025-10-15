@@ -7,14 +7,14 @@ import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class StreamMetadata {
-  private PhysicalStreamType physicalStreamType;
-  private LogicalStreamType logicalStreamType;
-  private LogicalLevelTechnique logicalLevelTechnique1;
-  private LogicalLevelTechnique logicalLevelTechnique2;
-  private PhysicalLevelTechnique physicalLevelTechnique;
+  private final PhysicalStreamType physicalStreamType;
+  private final LogicalStreamType logicalStreamType;
+  private final LogicalLevelTechnique logicalLevelTechnique1;
+  private final LogicalLevelTechnique logicalLevelTechnique2;
+  private final PhysicalLevelTechnique physicalLevelTechnique;
   /* After logical Level technique was applied -> when rle is used it is the length of the runs and values array */
-  private int numValues;
-  private int byteLength;
+  private final int numValues;
+  private final int byteLength;
 
   // TODO: refactor -> use builder pattern
   public StreamMetadata(
@@ -65,18 +65,13 @@ public class StreamMetadata {
   public static StreamMetadata decode(byte[] tile, IntWrapper offset) throws IOException {
     var streamType = tile[offset.get()];
     var physicalStreamType = PhysicalStreamType.values()[streamType >> 4];
-    LogicalStreamType logicalStreamType = null;
-    switch (physicalStreamType) {
-      case DATA:
-        logicalStreamType = new LogicalStreamType(DictionaryType.values()[streamType & 0xf]);
-        break;
-      case OFFSET:
-        logicalStreamType = new LogicalStreamType(OffsetType.values()[streamType & 0xf]);
-        break;
-      case LENGTH:
-        logicalStreamType = new LogicalStreamType(LengthType.values()[streamType & 0xf]);
-        break;
-    }
+    LogicalStreamType logicalStreamType =
+        switch (physicalStreamType) {
+          case DATA -> new LogicalStreamType(DictionaryType.values()[streamType & 0xf]);
+          case OFFSET -> new LogicalStreamType(OffsetType.values()[streamType & 0xf]);
+          case LENGTH -> new LogicalStreamType(LengthType.values()[streamType & 0xf]);
+          default -> null;
+        };
     offset.increment();
 
     var encodingsHeader = tile[offset.get()] & 0xFF;

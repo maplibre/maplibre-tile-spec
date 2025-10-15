@@ -46,7 +46,6 @@ import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
-import org.apache.commons.lang3.tuple.Triple;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
@@ -55,6 +54,9 @@ import org.imintel.mbtiles4j.Tile;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MLTStreamRecorder;
+import org.maplibre.mlt.converter.MLTStreamRecorderFile;
+import org.maplibre.mlt.converter.MLTStreamRecorderNone;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
@@ -206,13 +208,21 @@ public class Encode {
             enableElideOnTypeMismatch);
     final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
 
-    HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
+    MLTStreamRecorder streamRecorder = new MLTStreamRecorderNone();
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
-      rawStreams = new HashMap<>();
+      final var fileName = MLTStreamRecorderFile.sanitizeFilename(inputTileName);
+      final var streamPath = getOutputPath(cmd, fileName, null, true);
+      if (streamPath != null) {
+        streamRecorder = new MLTStreamRecorderFile(streamPath);
+        Files.createDirectories(streamPath);
+        if (verbose) {
+          System.err.println("Writing raw streams to " + streamPath);
+        }
+      }
     }
     var mlTile =
         MltConverter.convertMvt(
-            decodedMvTile, metadata, conversionConfig, tessellateSource, rawStreams);
+            decodedMvTile, metadata, conversionConfig, tessellateSource, streamRecorder);
     if (willTime) {
       timer.stop("encoding");
     }
@@ -236,39 +246,6 @@ public class Encode {
             System.err.println("Writing tileset metadata to " + metadataPath);
           }
           Files.writeString(metadataPath, metadataJSON);
-        }
-
-        if (rawStreams != null) {
-          for (var entry : rawStreams.entrySet()) {
-            final var streamPath = getOutputPath(cmd, sanitizeFilename(inputTileName), null, true);
-            if (streamPath != null) {
-              createDir(streamPath);
-
-              final var keyFilename = sanitizeFilename(entry.getKey());
-              if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
-                final var path = streamPath.resolve(keyFilename + ".meta.bin");
-                if (verbose) {
-                  System.err.println(
-                      "Writing raw stream '" + entry.getKey() + "' metadata to " + path);
-                }
-                Files.write(path, entry.getValue().getLeft());
-              }
-              if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
-                final var path = streamPath.resolve(keyFilename + ".bin");
-                if (verbose) {
-                  System.err.println("Writing raw stream '" + entry.getKey() + "' data to " + path);
-                }
-                Files.write(path, entry.getValue().getMiddle());
-              }
-              if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
-                final var path = streamPath.resolve(keyFilename + ".json");
-                if (verbose) {
-                  System.err.println("Writing raw stream '" + entry.getKey() + "' json to " + path);
-                }
-                Files.writeString(path, entry.getValue().getRight());
-              }
-            }
-          }
         }
       }
     }
@@ -972,21 +949,6 @@ public class Encode {
         ex.printStackTrace(System.err);
       }
     }
-  }
-
-  // https://learn.microsoft.com/en-gb/windows/win32/fileio/naming-a-file#naming-conventions
-  private static final Pattern forbiddenFilenamePattern =
-      Pattern.compile("CON|PRN|AUX|NUL|(COM|LPT)[1-9¹²³]", Pattern.CASE_INSENSITIVE);
-  private static final Pattern forbiddenCharacterPattern =
-      Pattern.compile("[<>:\"/\\\\|?*\\x00-\\x1F~.]");
-  private static final Pattern forbiddenTrailingPattern = Pattern.compile("[\\s.]$");
-
-  private static String sanitizeFilename(String name) {
-    name = forbiddenTrailingPattern.matcher(name).replaceAll("");
-    if (forbiddenFilenamePattern.matcher(name).matches()) {
-      name = "_" + name;
-    }
-    return forbiddenCharacterPattern.matcher(name).replaceAll("_");
   }
 
   private static CommandLine getCommandLine(String[] args) throws IOException {

@@ -4,7 +4,8 @@ import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.tuple.Triple;
+import org.jetbrains.annotations.NotNull;
+import org.maplibre.mlt.converter.MLTStreamRecorder;
 import org.maplibre.mlt.metadata.stream.*;
 
 public class BooleanEncoder {
@@ -17,7 +18,7 @@ public class BooleanEncoder {
   public static byte[] encodeBooleanStream(
       List<Boolean> values,
       PhysicalStreamType streamType,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamRecorder streamRecorder,
       @Nullable String streamName)
       throws IOException {
     var valueStream = new BitSet(values.size());
@@ -39,8 +40,7 @@ public class BooleanEncoder {
                 encodedValueStream.length)
             .encode();
 
-    GeometryEncoder.recordStream(
-        streamName, values, valuesMetadata, encodedValueStream, rawStreamData);
+    streamRecorder.recordStream(streamName, values, valuesMetadata, encodedValueStream);
     return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
   }
 
@@ -50,7 +50,7 @@ public class BooleanEncoder {
   public static byte[] encodeBooleanStreamOptimized(
       List<Boolean> values,
       PhysicalStreamType streamType,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamRecorder streamRecorder,
       @Nullable String streamName)
       throws IOException {
     var valueStream = new BitSet(values.size());
@@ -72,8 +72,7 @@ public class BooleanEncoder {
                 encodedValueStream.length)
             .encode();
 
-    GeometryEncoder.recordStream(
-        streamName, values, valuesMetadata, encodedValueStream, rawStreamData);
+    streamRecorder.recordStream(streamName, values, valuesMetadata, encodedValueStream);
     return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
   }
 }
