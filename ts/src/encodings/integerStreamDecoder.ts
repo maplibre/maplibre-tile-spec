@@ -90,7 +90,6 @@ export default class IntegerStreamDecoder {
 
     static decodeSequenceIntStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata): [baseValue: number, delta: number] {
         const values = IntegerStreamDecoder.decodePhysicalLevelTechnique(data, offset, streamMetadata);
-
         return decodeZigZagSequenceRle(values);
     }
 
@@ -296,19 +295,25 @@ export default class IntegerStreamDecoder {
         }
     }
 
-    static getVectorTypeIntStream(streamMetadata: StreamMetadata): VectorType {
+    static getVectorType(streamMetadata: StreamMetadata, sizeOrNullabilityBuffer: number | BitVector): VectorType {
         const  logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
         if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
-            return (streamMetadata as RleEncodedStreamMetadata).runs == 1
+            return (streamMetadata as RleEncodedStreamMetadata).runs === 1
                 ? VectorType.CONST
                 : VectorType.FLAT;
         }
 
+        const numFeatures = sizeOrNullabilityBuffer instanceof BitVector? sizeOrNullabilityBuffer.size() :
+            sizeOrNullabilityBuffer;
+        const rleMetadata  = streamMetadata as RleEncodedStreamMetadata;
+        const runs = rleMetadata.runs;
+
         if (logicalLevelTechnique1 === LogicalLevelTechnique.DELTA
             && streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
             /* If base value equals delta value then one run else two runs */
-            && ((streamMetadata as RleEncodedStreamMetadata).runs === 1
-            || (streamMetadata as RleEncodedStreamMetadata).runs === 2)) {
+            && (runs === 1 || runs === 2)
+            /* No null values allowed in a sequence vector */
+            && rleMetadata.numValues === numFeatures) {
             return VectorType.SEQUENCE;
         }
 

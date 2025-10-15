@@ -36,14 +36,14 @@ describe("StringFlatVector", () => {
         it("should return correct indices for a given predicate", () => {
             const value = values[0];
             const result = stringFlatVector.filter(value);
-            expect(result).toEqual([0, 3]);
+            expect(result.selectionValues()).toEqual([0, 3]);
         });
     });
 
     describe("filterIn", () => {
         it("should return correct indices for a given predicate", () => {
             const result = stringFlatVector.match([values[0], values[2]]);
-            expect(result).toEqual([0, 2, 3]);
+            expect(result.selectionValues()).toEqual([0, 2, 3]);
         });
     });
 });
