@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as Path from "path";
 import decodeTile from "../../src/mltDecoder";
-import {TilesetMetadataG} from "../../src/metadata/tileset/tilesetMetadata.g";
+import {TilesetMetadata} from "../../src/metadata/tileset/tilesetMetadata.g";
 import {VectorTile} from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import * as path from "node:path";
@@ -167,7 +167,7 @@ function getTileData(tileId: string, mltSearchPath: string, mvtSearchPath: strin
     const encodedMlt = fs.readFileSync(mltFilename);
     const buf = new Pbf(encodedMvt)
     const decodedMvt = new VectorTile(buf);
-    const metadata = TilesetMetadataG.fromBinary(tilesetMetadata);
+    const metadata = TilesetMetadata.fromBinary(tilesetMetadata);
     return {tilesetMetadata: metadata, encodedMlt, decodedMvt};
 }
 
@@ -190,7 +190,7 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isPreTessellated:
         const buf = new Pbf(encodedMvt)
         const decodedMvt = new VectorTile(buf);
 
-        const metadata = TilesetMetadataG.fromBinary(tilesetMetadata);
+        const metadata = TilesetMetadata.fromBinary(tilesetMetadata);
         const decodedMlt = decodeTile(encodedMlt, metadata, undefined,
             undefined, idWithinMaxSafeInteger);
 
