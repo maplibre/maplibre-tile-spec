@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.MLTStreamRecorder;
+import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.metadata.stream.*;
 
 public class FloatEncoder {
@@ -14,7 +14,7 @@ public class FloatEncoder {
   private FloatEncoder() {}
 
   public static byte[] encodeFloatStream(
-      List<Float> values, @NotNull MLTStreamRecorder streamRecorder, @Nullable String streamName)
+      List<Float> values, @NotNull MLTStreamObserver streamRecorder, @Nullable String streamName)
       throws IOException {
     // TODO: add encodings -> RLE, Dictionary, PDE, ALP
     float[] floatArray = new float[values.size()];
@@ -34,7 +34,7 @@ public class FloatEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamRecorder.recordStream(
+    streamRecorder.observeStream(
         streamName,
         Arrays.asList(ArrayUtils.toObject(floatArray)),
         valuesMetadata,

@@ -6,7 +6,7 @@ import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
-import org.maplibre.mlt.converter.MLTStreamRecorderNone;
+import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.encodings.*;
 import org.maplibre.mlt.metadata.stream.*;
 
@@ -43,7 +43,7 @@ public class IntegerDecoderTest {
         isSigned,
         streamType,
         logicalStreamType,
-        new MLTStreamRecorderNone(),
+        new MLTStreamObserverDefault(),
         null);
   }
 
@@ -158,7 +158,7 @@ public class IntegerDecoderTest {
       @SuppressWarnings("SameParameterValue") LogicalStreamType logicalStreamType)
       throws IOException {
     return IntegerEncoder.encodeLongStream(
-        values, isSigned, streamType, logicalStreamType, new MLTStreamRecorderNone(), null);
+        values, isSigned, streamType, logicalStreamType, new MLTStreamObserverDefault(), null);
   }
 
   @Test

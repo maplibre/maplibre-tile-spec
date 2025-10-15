@@ -388,15 +388,27 @@ public class MltConverter {
       ConversionConfig config,
       @Nullable URI tessellateSource)
       throws IOException {
-    return convertMvt(mvt, tilesetMetadata, config, tessellateSource, new MLTStreamRecorderNone());
+    return convertMvt(
+        mvt, tilesetMetadata, config, tessellateSource, new MLTStreamObserverDefault());
   }
 
+  /*
+   * Converts a MVT file to an MLT file.
+   *
+   * @param mvt The decoded MVT tile to convert
+   * @param config Settings for the conversion
+   * @param tilesetMetadata Metadata of the tile
+   * @param tessellateSource Optional URI of a tessellation service to use if polygon pre-tessellation is enabled
+   * @param streamRecorder Recorder for observing streams during conversion
+   * @return Converted MapLibreTile
+   * @throws IOException
+   */
   public static byte[] convertMvt(
       MapboxVectorTile mvt,
       MltTilesetMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
       @Nullable URI tessellateSource,
-      @NotNull MLTStreamRecorder streamRecorder)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
 
     // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
@@ -530,7 +542,7 @@ public class MltConverter {
       MltTilesetMetadata.FeatureTableSchema featureTableMetadata,
       List<Feature> sortedFeatures,
       FeatureTableOptimizations featureTableOptimizations,
-      @NotNull MLTStreamRecorder streamRecorder)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
     final var propertyColumns = filterPropertyColumns(featureTableMetadata);
     final List<ColumnMapping> columnMappings =
@@ -555,7 +567,7 @@ public class MltConverter {
           PhysicalLevelTechnique physicalLevelTechnique,
           boolean encodePolygonOutlines,
           @Nullable URI tessellateSource,
-          @NotNull MLTStreamRecorder streamRecorder)
+          @NotNull MLTStreamObserver streamRecorder)
           throws IOException {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:

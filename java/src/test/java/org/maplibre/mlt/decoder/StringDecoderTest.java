@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.TestSettings;
-import org.maplibre.mlt.converter.MLTStreamRecorderNone;
+import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.StringEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
@@ -27,7 +27,7 @@ public class StringDecoderTest {
       boolean useFsstEncoding)
       throws IOException {
     return StringEncoder.encodeSharedDictionary(
-        values, physicalLevelTechnique, useFsstEncoding, new MLTStreamRecorderNone(), null);
+        values, physicalLevelTechnique, useFsstEncoding, new MLTStreamObserverDefault(), null);
   }
 
   @Test

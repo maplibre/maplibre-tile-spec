@@ -22,7 +22,7 @@ import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.converter.CollectionUtils;
-import org.maplibre.mlt.converter.MLTStreamRecorder;
+import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.geometry.*;
 import org.maplibre.mlt.converter.tessellation.TessellationUtils;
 import org.maplibre.mlt.metadata.stream.*;
@@ -43,7 +43,7 @@ public class GeometryEncoder {
       boolean useMortonEncoding,
       boolean encodePolygonOutlines,
       @Nullable URI tessellateSource,
-      @NotNull MLTStreamRecorder streamRecorder)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
     var geometryTypes = new ArrayList<Integer>();
     var numGeometries = new ArrayList<Integer>();
@@ -422,7 +422,7 @@ public class GeometryEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       ArrayList<Integer> numTriangles,
       ArrayList<Integer> indexBuffer,
-      @NotNull MLTStreamRecorder streamRecorder)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
     var encodedNumTrianglesBuffer =
         IntegerEncoder.encodeIntStream(
@@ -453,7 +453,7 @@ public class GeometryEncoder {
       ArrayList<Integer> numRings,
       ArrayList<Integer> numTriangles,
       ArrayList<Integer> indexBuffer,
-      @NotNull MLTStreamRecorder streamRecorder)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
     var encodedNumGeometries =
         IntegerEncoder.encodeIntStream(
@@ -524,7 +524,7 @@ public class GeometryEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       SortSettings sortSettings,
       boolean useMortonEncoding,
-      @NotNull MLTStreamRecorder streamRecorder)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
     var geometryTypes = new ArrayList<Integer>();
     var numGeometries = new ArrayList<Integer>();
@@ -989,7 +989,7 @@ public class GeometryEncoder {
       List<Integer> values,
       Collection<Vertex> vertices,
       PhysicalLevelTechnique physicalLevelTechnique,
-      @NotNull MLTStreamRecorder streamRecorder)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
     var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
@@ -1009,7 +1009,7 @@ public class GeometryEncoder {
 
     if (streamRecorder.isActive()) {
       final var rawValues = vertices.stream().flatMap(v -> Stream.of(v.x(), v.y())).toList();
-      streamRecorder.recordStream("geom_vertex_buffer", rawValues, encodedMetadata, encodedValues);
+      streamRecorder.observeStream("geom_vertex_buffer", rawValues, encodedMetadata, encodedValues);
     }
     return ArrayUtils.addAll(encodedMetadata, encodedValues);
   }

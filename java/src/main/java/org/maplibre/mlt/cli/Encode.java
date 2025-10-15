@@ -54,9 +54,9 @@ import org.imintel.mbtiles4j.Tile;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
-import org.maplibre.mlt.converter.MLTStreamRecorder;
-import org.maplibre.mlt.converter.MLTStreamRecorderFile;
-import org.maplibre.mlt.converter.MLTStreamRecorderNone;
+import org.maplibre.mlt.converter.MLTStreamObserver;
+import org.maplibre.mlt.converter.MLTStreamObserverDefault;
+import org.maplibre.mlt.converter.MLTStreamObserverFile;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
@@ -208,12 +208,12 @@ public class Encode {
             enableElideOnTypeMismatch);
     final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
 
-    MLTStreamRecorder streamRecorder = new MLTStreamRecorderNone();
+    MLTStreamObserver streamObserver = new MLTStreamObserverDefault();
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
-      final var fileName = MLTStreamRecorderFile.sanitizeFilename(inputTileName);
+      final var fileName = MLTStreamObserverFile.sanitizeFilename(inputTileName);
       final var streamPath = getOutputPath(cmd, fileName, null, true);
       if (streamPath != null) {
-        streamRecorder = new MLTStreamRecorderFile(streamPath);
+        streamObserver = new MLTStreamObserverFile(streamPath);
         Files.createDirectories(streamPath);
         if (verbose) {
           System.err.println("Writing raw streams to " + streamPath);
@@ -222,7 +222,7 @@ public class Encode {
     }
     var mlTile =
         MltConverter.convertMvt(
-            decodedMvTile, metadata, conversionConfig, tessellateSource, streamRecorder);
+            decodedMvTile, metadata, conversionConfig, tessellateSource, streamObserver);
     if (willTime) {
       timer.stop("encoding");
     }

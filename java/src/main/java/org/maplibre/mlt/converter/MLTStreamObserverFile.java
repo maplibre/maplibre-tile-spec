@@ -8,8 +8,12 @@ import java.util.Collection;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 
-public class MLTStreamRecorderFile implements MLTStreamRecorder {
-  public MLTStreamRecorderFile(@NotNull Path basePath) {
+/**
+ * An implementation of the MLTStreamObserver interface that writes raw stream data to files in a
+ * specified directory.
+ */
+public class MLTStreamObserverFile implements MLTStreamObserver {
+  public MLTStreamObserverFile(@NotNull Path basePath) {
     this.basePath = basePath;
   }
 
@@ -24,11 +28,11 @@ public class MLTStreamRecorderFile implements MLTStreamRecorder {
   }
 
   @Override
-  public <T> void recordStream(
+  public <T> void observeStream(
       String streamName, Collection<T> values, byte[] rawMetaData, byte[] rawData)
       throws IOException {
     if (layerName == null) {
-      throw new IllegalStateException("Layer name must be set before recording streams");
+      throw new IllegalStateException("Layer name must be set before observing streams");
     }
     if (rawMetaData == null && rawData == null) {
       return;
@@ -60,11 +64,6 @@ public class MLTStreamRecorderFile implements MLTStreamRecorder {
 
   private String layerName;
   private final Path basePath;
-
-  //    private record StreamKey(String layerName, String streamName) {}
-  //    private record StreamValue<T>(Collection<T> values, byte[] rawMetaData, byte[] rawData) {}
-  //    @Nullable
-  //    Map<StreamKey, StreamValue> streamRecorder;
 
   // https://learn.microsoft.com/en-gb/windows/win32/fileio/naming-a-file#naming-conventions
   private static final Pattern forbiddenFilenamePattern =

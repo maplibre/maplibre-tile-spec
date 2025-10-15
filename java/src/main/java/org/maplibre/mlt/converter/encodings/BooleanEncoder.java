@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.MLTStreamRecorder;
+import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.metadata.stream.*;
 
 public class BooleanEncoder {
@@ -18,7 +18,7 @@ public class BooleanEncoder {
   public static byte[] encodeBooleanStream(
       List<Boolean> values,
       PhysicalStreamType streamType,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String streamName)
       throws IOException {
     var valueStream = new BitSet(values.size());
@@ -40,7 +40,7 @@ public class BooleanEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamRecorder.recordStream(streamName, values, valuesMetadata, encodedValueStream);
+    streamRecorder.observeStream(streamName, values, valuesMetadata, encodedValueStream);
     return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
   }
 
@@ -50,7 +50,7 @@ public class BooleanEncoder {
   public static byte[] encodeBooleanStreamOptimized(
       List<Boolean> values,
       PhysicalStreamType streamType,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String streamName)
       throws IOException {
     var valueStream = new BitSet(values.size());
@@ -72,7 +72,7 @@ public class BooleanEncoder {
                 encodedValueStream.length)
             .encode();
 
-    streamRecorder.recordStream(streamName, values, valuesMetadata, encodedValueStream);
+    streamRecorder.observeStream(streamName, values, valuesMetadata, encodedValueStream);
     return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
   }
 }

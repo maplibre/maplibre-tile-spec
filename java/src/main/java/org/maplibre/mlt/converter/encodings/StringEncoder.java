@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
-import org.maplibre.mlt.converter.MLTStreamRecorder;
+import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.*;
 
@@ -22,7 +22,7 @@ public class StringEncoder {
       List<List<String>> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String fieldName)
       throws IOException {
     /*
@@ -128,7 +128,7 @@ public class StringEncoder {
       List<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String fieldName)
       throws IOException {
     /*
@@ -162,7 +162,7 @@ public class StringEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean encodeDataStream,
       boolean isSharedDictionary,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       String fieldName)
       throws IOException {
     var dataStream = new ArrayList<Integer>(values.size());
@@ -204,7 +204,7 @@ public class StringEncoder {
       List<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       @SuppressWarnings("SameParameterValue") boolean isSharedDictionary,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String fieldName)
       throws IOException {
     var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
@@ -261,7 +261,7 @@ public class StringEncoder {
                 compressedCorpus.length)
             .encode();
 
-    streamRecorder.recordStream(
+    streamRecorder.observeStream(
         fieldName + "_corpus", values, compressedCorpusStreamMetadata, compressedCorpus);
 
     // TODO: how to name the streams and how to order? -> symbol_table, length, data, length
@@ -280,7 +280,7 @@ public class StringEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean encodeOffsetStream,
       boolean isSharedDictionary,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       String fieldName)
       throws IOException {
     var offsetStream = new ArrayList<Integer>(values.size());
@@ -323,7 +323,7 @@ public class StringEncoder {
                 dictionaryStream.length)
             .encode();
 
-    streamRecorder.recordStream(
+    streamRecorder.observeStream(
         fieldName + "_dict", dictionary, encodedDictionaryStreamMetadata, dictionaryStream);
     if (!encodeOffsetStream) {
       return CollectionUtils.concatByteArrays(
@@ -350,7 +350,7 @@ public class StringEncoder {
   public static byte[] encodePlain(
       List<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String fieldName)
       throws IOException {
     var lengthStream = new ArrayList<Integer>(values.size());
@@ -382,7 +382,7 @@ public class StringEncoder {
                 dataStream.length)
             .encode();
 
-    streamRecorder.recordStream(fieldName + "_data", values, dataStreamMetadata, dataStream);
+    streamRecorder.observeStream(fieldName + "_data", values, dataStreamMetadata, dataStream);
 
     return CollectionUtils.concatByteArrays(encodedLengthStream, dataStreamMetadata, dataStream);
   }

@@ -8,7 +8,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.MLTStreamRecorder;
+import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.metadata.stream.*;
 
 /*
@@ -67,7 +67,7 @@ public class IntegerEncoder {
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String streamName)
       throws IOException {
     var encodedValueStream = IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned);
@@ -95,7 +95,7 @@ public class IntegerEncoder {
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
     var encodedMetadata = streamMetadata.encode();
-    streamRecorder.recordStream(
+    streamRecorder.observeStream(
         streamName, values, encodedMetadata, encodedValueStream.encodedValues);
     return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }
@@ -105,7 +105,7 @@ public class IntegerEncoder {
       boolean isSigned,
       PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @NotNull MLTStreamRecorder streamRecorder,
+      @NotNull MLTStreamObserver streamRecorder,
       @Nullable String streamName)
       throws IOException {
     var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned);
@@ -133,7 +133,7 @@ public class IntegerEncoder {
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
     var encodedMetadata = streamMetadata.encode();
-    streamRecorder.recordStream(
+    streamRecorder.observeStream(
         streamName, values, encodedMetadata, encodedValueStream.encodedValues);
     return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }

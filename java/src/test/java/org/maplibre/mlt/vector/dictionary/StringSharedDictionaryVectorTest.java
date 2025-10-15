@@ -7,7 +7,7 @@ import java.util.List;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
-import org.maplibre.mlt.converter.MLTStreamRecorderNone;
+import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.encodings.StringEncoder;
 import org.maplibre.mlt.decoder.vectorized.VectorizedStringDecoder;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
@@ -21,7 +21,7 @@ public class StringSharedDictionaryVectorTest {
       boolean useFsstEncoding)
       throws IOException {
     return StringEncoder.encodeSharedDictionary(
-        values, physicalLevelTechnique, useFsstEncoding, new MLTStreamRecorderNone(), null);
+        values, physicalLevelTechnique, useFsstEncoding, new MLTStreamObserverDefault(), null);
   }
 
   @Test

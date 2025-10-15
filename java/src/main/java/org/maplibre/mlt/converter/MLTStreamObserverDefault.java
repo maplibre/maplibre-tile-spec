@@ -2,8 +2,9 @@ package org.maplibre.mlt.converter;
 
 import java.util.Collection;
 
-public class MLTStreamRecorderNone implements MLTStreamRecorder {
-  public MLTStreamRecorderNone() {}
+/** A no-operation implementation of the MLTStreamObserver interface. */
+public class MLTStreamObserverDefault implements MLTStreamObserver {
+  public MLTStreamObserverDefault() {}
 
   @Override
   public void setLayerName(String layerName) {}
@@ -14,6 +15,6 @@ public class MLTStreamRecorderNone implements MLTStreamRecorder {
   }
 
   @Override
-  public <T> void recordStream(
+  public <T> void observeStream(
       String streamName, Collection<T> values, byte[] rawMetaData, byte[] rawData) {}
 }
