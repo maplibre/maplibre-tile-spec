@@ -69,12 +69,12 @@
     "typescript": "5.5.4",
     "varint": "^6.0.0",
     "webpack": "^5.96.1",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "bytebuffer": "^5.0.1",
+    "codegen": "^0.1.0"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^1.10.0",
-    "bitset": "^5.1.1",
-    "bytebuffer": "^5.0.1",
-    "codegen": "^0.1.0"
+    "bitset": "^5.1.1"
   }
 }
