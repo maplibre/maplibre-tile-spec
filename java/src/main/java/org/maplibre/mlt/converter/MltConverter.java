@@ -81,13 +81,12 @@ public class MltConverter {
           MltTilesetMetadata.FeatureTableSchema.newBuilder().setName(layer.name());
 
       // If present, `id` must be the first column
-      if (columnSchemas.containsKey(PropertyEncoder.ID_COLUMN_NAME)) {
+      if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
         throw new RuntimeException("Unexpected ID Column");
       }
       if (isIdPresent) {
         featureTableSchemaBuilder.addColumns(
             MltTilesetMetadata.Column.newBuilder()
-                .setName(PropertyEncoder.ID_COLUMN_NAME)
                 .setNullable(false)
                 .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
                 .setScalarType(
@@ -100,10 +99,7 @@ public class MltConverter {
 
       // The `geometry` column is mandatory and has to be the first column after `ID`
       featureTableSchemaBuilder.addColumns(
-          createComplexColumnScheme(
-              PropertyEncoder.GEOMETRY_COLUMN_NAME,
-              false,
-              MltTilesetMetadata.ComplexType.GEOMETRY));
+          createComplexColumnScheme(null, false, MltTilesetMetadata.ComplexType.GEOMETRY));
 
       columnSchemas.values().forEach(featureTableSchemaBuilder::addColumns);
       tilesetBuilder.addFeatureTables(featureTableSchemaBuilder.build());
@@ -438,6 +434,10 @@ public class MltConverter {
       }
 
       final var mvtFeatures = mvtLayer.features();
+      if (mvtFeatures.isEmpty()) {
+        continue;
+      }
+
       final var featureTableOptimizations =
           config.getOptimizations() == null
               ? null
@@ -469,7 +469,7 @@ public class MltConverter {
       if (config.getIncludeIds()) {
         final var idMetadata =
             layerMetadata.getColumnsList().stream()
-                .filter(f -> f.getName().equals(PropertyEncoder.ID_COLUMN_NAME))
+                .filter(MltTypeMap.Tag0x01::isID)
                 .findFirst()
                 .orElseThrow();
 
@@ -490,6 +490,7 @@ public class MltConverter {
         featureTableBodyBuffer =
             PropertyEncoder.encodeScalarPropertyColumn(
                 scalarColumnMetadata,
+                true,
                 sortedFeatures,
                 physicalLevelTechnique,
                 config.getUseAdvancedEncodingSchemes(),
@@ -565,6 +566,10 @@ public class MltConverter {
      * based on the latest academic results in the future, the compression ratio can be further improved
      * */
 
+    if (mvtFeatures.isEmpty()) {
+      throw new IllegalArgumentException("No features to encode");
+    }
+
     var isColumnSortable =
         config.getIncludeIds()
             && featureTableOptimizations != null
@@ -575,6 +580,10 @@ public class MltConverter {
 
     var ids = sortedFeatures.stream().map(Feature::id).collect(Collectors.toList());
     var geometries = sortedFeatures.stream().map(Feature::geometry).collect(Collectors.toList());
+
+    if (geometries.isEmpty()) {
+      throw new IllegalArgumentException("No geometries to encode");
+    }
 
     /* Only sort geometries if ids can be reassigned since sorting the id column turned out
      * to be more efficient in the tests */
@@ -619,10 +628,7 @@ public class MltConverter {
   private static List<MltTilesetMetadata.Column> filterPropertyColumns(
       MltTilesetMetadata.FeatureTableSchema featureTableMetadata) {
     return featureTableMetadata.getColumnsList().stream()
-        .filter(
-            f ->
-                !f.getName().equals(PropertyEncoder.ID_COLUMN_NAME)
-                    && !f.getName().equals(PropertyEncoder.GEOMETRY_COLUMN_NAME))
+        .filter(f -> !MltTypeMap.Tag0x01.isID(f) && !MltTypeMap.Tag0x01.isGeometry(f))
         .collect(Collectors.toList());
   }
 
@@ -691,16 +697,20 @@ public class MltConverter {
   }
 
   private static MltTilesetMetadata.Column createComplexColumnScheme(
-      @SuppressWarnings("SameParameterValue") String columnName,
+      @SuppressWarnings("SameParameterValue") @Nullable String columnName,
       @SuppressWarnings("SameParameterValue") boolean nullable,
       @SuppressWarnings("SameParameterValue") MltTilesetMetadata.ComplexType type) {
-    var complexColumn = MltTilesetMetadata.ComplexColumn.newBuilder().setPhysicalType(type).build();
-    return MltTilesetMetadata.Column.newBuilder()
-        .setName(columnName)
-        .setNullable(nullable)
-        .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
-        .setComplexType(complexColumn)
-        .build();
+    final var complexColumn =
+        MltTilesetMetadata.ComplexColumn.newBuilder().setPhysicalType(type).build();
+    final var builder =
+        MltTilesetMetadata.Column.newBuilder()
+            .setNullable(nullable)
+            .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
+            .setComplexType(complexColumn);
+    if (columnName != null) {
+      builder.setName(columnName);
+    }
+    return builder.build();
   }
 
   private static MltTilesetMetadata.ComplexColumn.Builder createComplexColumnBuilder(

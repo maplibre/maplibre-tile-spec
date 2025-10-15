@@ -20,7 +20,7 @@ inline std::size_t IntegerDecoder::getIntArrayBufferSize(const std::size_t count
     switch (streamMetadata.getLogicalLevelTechnique1()) {
         case LogicalLevelTechnique::DELTA:
             if (streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) {
-                if (streamMetadata.getMetadataType() != metadata::stream::LogicalLevelTechnique::RLE) {
+                if (streamMetadata.getMetadataType() != LogicalLevelTechnique::RLE) {
                     return 0;
                 }
                 const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
@@ -30,7 +30,7 @@ inline std::size_t IntegerDecoder::getIntArrayBufferSize(const std::size_t count
         case LogicalLevelTechnique::COMPONENTWISE_DELTA:
             return count;
         case LogicalLevelTechnique::RLE: {
-            if (streamMetadata.getMetadataType() != metadata::stream::LogicalLevelTechnique::RLE) {
+            if (streamMetadata.getMetadataType() != LogicalLevelTechnique::RLE) {
                 return 0;
             }
             const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
@@ -64,7 +64,7 @@ void IntegerDecoder::decodeIntArray(const T* values,
         }
         case LogicalLevelTechnique::DELTA:
             if (streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) {
-                if (streamMetadata.getMetadataType() != metadata::stream::LogicalLevelTechnique::RLE) {
+                if (streamMetadata.getMetadataType() != LogicalLevelTechnique::RLE) {
                     throw std::runtime_error("invalid RLE metadata");
                 }
                 const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
@@ -85,7 +85,7 @@ void IntegerDecoder::decodeIntArray(const T* values,
             }
             throw std::runtime_error("Logical level technique COMPONENTWISE_DELTA not implemented for 64-bit values");
         case LogicalLevelTechnique::RLE: {
-            if (streamMetadata.getMetadataType() != metadata::stream::LogicalLevelTechnique::RLE) {
+            if (streamMetadata.getMetadataType() != LogicalLevelTechnique::RLE) {
                 throw std::runtime_error("invalid RLE metadata");
             }
             const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
@@ -100,7 +100,7 @@ void IntegerDecoder::decodeIntArray(const T* values,
         }
         case LogicalLevelTechnique::MORTON: {
             // TODO: zig-zag decode when morton second logical level technique
-            if (streamMetadata.getMetadataType() != metadata::stream::LogicalLevelTechnique::MORTON) {
+            if (streamMetadata.getMetadataType() != LogicalLevelTechnique::MORTON) {
                 throw std::runtime_error("invalid RLE metadata");
             }
             const auto& mortonMetadata = static_cast<const MortonEncodedStreamMetadata&>(streamMetadata);
