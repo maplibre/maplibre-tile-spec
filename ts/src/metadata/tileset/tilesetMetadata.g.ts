@@ -222,7 +222,7 @@ proto3.util.setEnumType(LogicalComplexType, "mlt.LogicalComplexType", [
 /**
  * @generated from message mlt.TileSetMetadata
  */
-export class TileSetMetadata extends Message<TileSetMetadata> {
+export class TilesetMetadataG extends Message<TilesetMetadataG> {
     /**
      * @generated from field: int32 version = 1;
      */
@@ -272,7 +272,7 @@ export class TileSetMetadata extends Message<TileSetMetadata> {
      */
     center: number[] = [];
 
-    constructor(data?: PartialMessage<TileSetMetadata>) {
+    constructor(data?: PartialMessage<TilesetMetadataG>) {
         super();
         proto3.util.initPartial(data, this);
     }
@@ -291,23 +291,23 @@ export class TileSetMetadata extends Message<TileSetMetadata> {
         { no: 9, name: "center", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, repeated: true },
     ]);
 
-    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TileSetMetadata {
-        return new TileSetMetadata().fromBinary(bytes, options);
+    static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TilesetMetadataG {
+        return new TilesetMetadataG().fromBinary(bytes, options);
     }
 
-    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): TileSetMetadata {
-        return new TileSetMetadata().fromJson(jsonValue, options);
+    static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): TilesetMetadataG {
+        return new TilesetMetadataG().fromJson(jsonValue, options);
     }
 
-    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): TileSetMetadata {
-        return new TileSetMetadata().fromJsonString(jsonString, options);
+    static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): TilesetMetadataG {
+        return new TilesetMetadataG().fromJsonString(jsonString, options);
     }
 
     static equals(
-        a: TileSetMetadata | PlainMessage<TileSetMetadata> | undefined,
-        b: TileSetMetadata | PlainMessage<TileSetMetadata> | undefined,
+        a: TilesetMetadataG | PlainMessage<TilesetMetadataG> | undefined,
+        b: TilesetMetadataG | PlainMessage<TilesetMetadataG> | undefined,
     ): boolean {
-        return proto3.util.equals(TileSetMetadata, a, b);
+        return proto3.util.equals(TilesetMetadataG, a, b);
     }
 }
 

@@ -1,5 +1,5 @@
 export { default as decodeTile } from "./mltDecoder";
-export { TileSetMetadata } from "./metadata/tileset/tilesetMetadata";
+export { TilesetMetadataG } from "./metadata/tileset/tilesetMetadata.g";
 export { default as FeatureTable } from "./vector/featureTable";
 export { default as filter } from "./processing/filter";
 export { GeometryVector } from "./vector/geometry/geometryVector";

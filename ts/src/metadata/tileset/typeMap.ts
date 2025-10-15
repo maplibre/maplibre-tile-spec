@@ -6,7 +6,7 @@ import {
     LogicalScalarType,
     ScalarColumn,
     ScalarType,
-} from "./tilesetMetadata";
+} from "./tilesetMetadata.g";
 
 /**
  * The type code is a single varint32 that encodes:

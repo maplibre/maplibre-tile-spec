@@ -1,5 +1,5 @@
 import FeatureTable from "./vector/featureTable";
-import { Column, ScalarColumn, ScalarType } from "./metadata/tileset/tilesetMetadata";
+import { Column, ScalarColumn, ScalarType } from "./metadata/tileset/tilesetMetadata.g";
 import IntWrapper from "./encodings/intWrapper";
 import { StreamMetadataDecoder } from "./metadata/tile/streamMetadataDecoder";
 import { RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamMetadata";

@@ -1,5 +1,5 @@
 import IntWrapper from "./intWrapper";
-import { Column, ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { Column, ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata.g";
 import Vector from "../vector/vector";
 import BitVector from "../vector/flat/bitVector";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";

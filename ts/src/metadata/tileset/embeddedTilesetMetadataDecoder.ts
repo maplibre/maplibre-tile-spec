@@ -11,8 +11,8 @@ import {
     LogicalScalarType,
     ScalarField,
     ScalarType,
-    TileSetMetadata,
-} from "./tilesetMetadata";
+    TilesetMetadataG,
+} from "./tilesetMetadata.g";
 import { TypeMap } from "./typeMap";
 
 const enum FieldOptions {
@@ -123,8 +123,8 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
  * @param bytes The byte array containing the metadata
  * @param offset The current offset in the byte array (will be advanced)
  */
-export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrapper): [TileSetMetadata, number] {
-    const meta = new TileSetMetadata();
+export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrapper): [TilesetMetadataG, number] {
+    const meta = new TilesetMetadataG();
     meta.featureTables = [];
 
     const table = new FeatureTableSchema();
