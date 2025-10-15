@@ -434,6 +434,10 @@ public class MltConverter {
       }
 
       final var mvtFeatures = mvtLayer.features();
+      if (mvtFeatures.isEmpty()) {
+        continue;
+      }
+
       final var featureTableOptimizations =
           config.getOptimizations() == null
               ? null
@@ -562,6 +566,10 @@ public class MltConverter {
      * based on the latest academic results in the future, the compression ratio can be further improved
      * */
 
+    if (mvtFeatures.isEmpty()) {
+      throw new IllegalArgumentException("No features to encode");
+    }
+
     var isColumnSortable =
         config.getIncludeIds()
             && featureTableOptimizations != null
@@ -572,6 +580,10 @@ public class MltConverter {
 
     var ids = sortedFeatures.stream().map(Feature::id).collect(Collectors.toList());
     var geometries = sortedFeatures.stream().map(Feature::geometry).collect(Collectors.toList());
+
+    if (geometries.isEmpty()) {
+      throw new IllegalArgumentException("No geometries to encode");
+    }
 
     /* Only sort geometries if ids can be reassigned since sorting the id column turned out
      * to be more efficient in the tests */
