@@ -222,43 +222,4 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
 
         return -1;
     }
-
-    /*filterSelected2(testValue: string, vector2: StringDictionaryVector, testValue2: string): number[] {
-        const selectionVector = [];
-        const testValueUtf8 = this.textEncoder.encode(testValue);
-        const testValueDictionaryIndex = this.findDictionaryIndex(testValueUtf8);
-        const testValue2Utf8 = this.textEncoder.encode(testValue2);
-        const testValue2DictionaryIndex = vector2.findDictionaryIndex(testValue2Utf8);
-
-        if(testValueDictionaryIndex === -1 || testValue2DictionaryIndex === -1){
-            return [];
-        }
-
-        for(let i = 0; i < this.indexBuffer.length; i++){
-            if(this.nullabilityBuffer.get(i) && this.indexBuffer[i]  === testValueDictionaryIndex &&
-                vector2.nullabilityBuffer.get(i) && vector2.indexBuffer[i] === testValue2DictionaryIndex){
-                selectionVector.push(i);
-            }
-        }
-
-        return selectionVector;
-    }*/
-
-    /*filter(index: number, testValue: string): number[] {
-        const selectionVector = [];
-        const testValueUtf8 = this.textEncoder.encode(testValue);
-        const testValueDictionaryIndex = this.findDictionaryIndex(testValueUtf8);
-
-        if(testValueDictionaryIndex === -1){
-            return [];
-        }
-
-        for(let i = 0; i < this.indexBuffer.length; i++){
-            if(this.nullabilityBuffer.get(i) && this.indexBuffer[i]  === testValueDictionaryIndex){
-                selectionVector.push(i);
-            }
-        }
-
-        return selectionVector;
-    }*/
 }
