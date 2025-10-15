@@ -27,7 +27,7 @@ import org.maplibre.mlt.decoder.MltDecoder;
  * */
 public class CompressionBenchmarks {
   private static final String BING_MAPS_PATH = "../test/benchmarks/bing";
-  private static final String OMT_PATH = "../test/benchmarks/omt";
+  private static final String OMT_PATH = "../../test/fixtures/omt";
   public static final String PLACEHOLDER_FILE = ".gitkeep";
 
   @Test
