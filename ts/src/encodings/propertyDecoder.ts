@@ -208,7 +208,6 @@ function decodeIntColumn(
         return new IntFlatVector(column.name, dataStream, sizeOrNullabilityBuffer);
     } else if (vectorType === VectorType.SEQUENCE) {
         const id = IntegerStreamDecoder.decodeSequenceIntStream(data, offset, dataStreamMetadata);
-        (dataStreamMetadata as RleEncodedStreamMetadata).numValues;
         return new IntSequenceVector(
             column.name,
             id[0],
