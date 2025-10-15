@@ -932,12 +932,14 @@ public class Encode {
     } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
       outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
     } else {
-      final var inputFile = ObjectUtils.firstNonNull(
-      cmd.getOptionValue(INPUT_TILE_ARG),
+      final var inputFile =
+          ObjectUtils.firstNonNull(
+              cmd.getOptionValue(INPUT_TILE_ARG),
               cmd.getOptionValue(INPUT_MBTILES_ARG),
               cmd.getOptionValue(INPUT_OFFLINEDB_ARG));
       if (inputFile != null && !inputFile.isEmpty()) {
-        outputPath = Path.of(FilenameUtils.getPath(inputFile), FilenameUtils.getBaseName(inputFile));
+        outputPath =
+            Path.of(FilenameUtils.getPath(inputFile), FilenameUtils.getBaseName(inputFile));
       }
     }
     if (outputPath != null) {

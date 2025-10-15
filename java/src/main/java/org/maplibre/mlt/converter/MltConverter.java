@@ -494,7 +494,7 @@ public class MltConverter {
                 : MltTilesetMetadata.ScalarType.UINT_32;
         final var scalarColumnMetadata =
             MltTilesetMetadata.Column.newBuilder()
-                .setName("id")  // Name is used only for stream capture
+                .setName("id") // Name is used only for stream capture
                 .setNullable(idMetadata.getNullable())
                 .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
                 .setScalarType(

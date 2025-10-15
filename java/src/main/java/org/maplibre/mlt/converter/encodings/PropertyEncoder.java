@@ -258,7 +258,8 @@ public class PropertyEncoder {
               rawStringValues.stream().filter(Objects::nonNull).collect(Collectors.toList());
 
           if (streamObserver.isActive()) {
-            streamObserver.observeStream("prop_" + columnMetadata.getName() + "_strings", rawStringValues, null, null);
+            streamObserver.observeStream(
+                "prop_" + columnMetadata.getName() + "_strings", rawStringValues, null, null);
           }
 
           final byte[] presentStream;
