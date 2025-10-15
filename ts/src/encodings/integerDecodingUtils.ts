@@ -453,7 +453,7 @@ export function decodeNullableZigZagDeltaInt64(bitVector: BitVector, data: BigIn
     return decodedData;
 }
 
-/* Transform data to allow random access ------------------------------------------------------------------------ */
+/* Transform data to allow util access ------------------------------------------------------------------------ */
 
 export function zigZagDeltaOfDeltaDecoding(data: Int32Array): Int32Array {
     const decodedData = new Int32Array(data.length + 1);

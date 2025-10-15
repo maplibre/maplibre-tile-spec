@@ -6,19 +6,16 @@ This package contains a JavaScript decoder for the experimental MapLibre Tile (M
 
 `npm install @maplibre/maplibre-tile-spec`
 
-## Quick Start
+## Quickstart
 
-To decode a tile, you will want to load `MltDecoder` and `TileSetMetadata`:
+To decode a tile, you will want to load `MltDecoder`:
 
 ```js
-import decodeTile, { decodeMetadata } from '@maplibre/maplibre-tile-spec';
+import { decodeTile } from '@maplibre/maplibre-tile-spec';
 
 const data = fs.readFileSync(tilePath);
-const metadata = fs.readFileSync(metadataPath);
-const tilesetMetadata = decodeMetadata(metadata);
-const tile = decodeTile(data, tilesetMetadata);
+const tile = decodeTile(data);
 ```
-
 ## Contents
 
 ### Code
@@ -28,7 +25,4 @@ Code is in `src/`.
 ### Tests
 
 Tests are in `test/unit/`. Run tests by running `npm run test`.
-
-### Benchmarks
-
-Benchmarks are in `bench/`. Run benchmarks by running `npm run bench`.
+currently not integrated

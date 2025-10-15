@@ -14,8 +14,8 @@ export class StreamMetadataDecoder {
 
         if (
             (LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique1 ||
-                LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique2) &&
-            PhysicalLevelTechnique.NONE !== streamMetadata.physicalLevelTechnique
+                LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique2)
+            && PhysicalLevelTechnique.NONE !== streamMetadata.physicalLevelTechnique
         ) {
             return RleEncodedStreamMetadata.decodePartial(streamMetadata, tile, offset);
         }

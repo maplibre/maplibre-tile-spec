@@ -1,9 +1,14 @@
-import {ConstVector} from "./constVector";
 import BitVector from "../flat/bitVector";
 import {SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import Vector from "../vector";
+import {
+    createNullableSelectionVector,
+    createSelectionVector,
+    updateNullableSelectionVector
+} from "../filter/selectionVectorUtils";
 
-export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
+export class LongConstVector extends Vector<BigInt64Array, bigint>{
 
     public constructor (name: string, value: bigint, sizeOrNullabilityBuffer : number | BitVector) {
         super(name, BigInt64Array.of(value), sizeOrNullabilityBuffer);
@@ -15,7 +20,7 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
             return new FlatSelectionVector([]);
         }
 
-        return this.createSelectionVector();
+        return createNullableSelectionVector(this.size, this.nullabilityBuffer);
     }
 
     match(values: bigint[]): SelectionVector {
@@ -24,7 +29,7 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
             return new FlatSelectionVector([]);
         }
 
-        return this.createSelectionVector();
+        return createNullableSelectionVector(this.size, this.nullabilityBuffer);
     }
 
     filterSelected(value: bigint, selectionVector: SelectionVector): void {
@@ -34,7 +39,7 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
             return;
         }
 
-        this.updateSelectionVector(selectionVector);
+        updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
     }
 
     matchSelected(values: bigint[], selectionVector: SelectionVector): void {
@@ -44,7 +49,7 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
             return;
         }
 
-        this.updateSelectionVector(selectionVector);
+        updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
     }
 
     protected getValueFromBuffer(index: number): bigint{
@@ -52,18 +57,13 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
     }
 
     greaterThanOrEqualTo(value: bigint): SelectionVector {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue >= value){
-            return this.createSelectionVector();
-        }
-
-        return new FlatSelectionVector([]);
+        return this.dataBuffer[0] >= value? createNullableSelectionVector(this.size, this.nullabilityBuffer) :
+            new FlatSelectionVector([]);
     }
 
     greaterThanOrEqualToSelected(value: bigint, selectionVector: SelectionVector): void {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue >= value){
-            this.updateSelectionVector(selectionVector);
+        if(this.dataBuffer[0] >= value){
+            updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
             return;
         }
 
@@ -71,18 +71,13 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
     }
 
     smallerThanOrEqualTo(value: bigint): SelectionVector {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue <= value){
-            return this.createSelectionVector();
-        }
-
-        return new FlatSelectionVector([]);
+        return this.dataBuffer[0] <= value? createNullableSelectionVector(this.size, this.nullabilityBuffer) :
+            new FlatSelectionVector([]);
     }
 
     smallerThanOrEqualToSelected(value: bigint, selectionVector: SelectionVector): void {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue <= value){
-            this.updateSelectionVector(selectionVector);
+        if(this.dataBuffer[0] <= value){
+            updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
             return;
         }
 
@@ -90,18 +85,12 @@ export class LongConstVector extends ConstVector<BigInt64Array, bigint> {
     }
 
     filterNotEqual(value: bigint): SelectionVector {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue != value){
-            return this.createSelectionVector();
-        }
-
-        return new FlatSelectionVector([]);
+        return this.dataBuffer[0] !== value? createSelectionVector(this.size):
+            new FlatSelectionVector([]);
     }
 
     filterNotEqualSelected(value: bigint, selectionVector: SelectionVector): void {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue != value){
-            this.updateSelectionVector(selectionVector);
+        if(this.dataBuffer[0] !== value){
             return;
         }
 
