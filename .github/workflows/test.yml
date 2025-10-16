@@ -11,17 +11,6 @@ defaults:
     shell: bash
 
 jobs:
-  js-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/mlt-setup-node
-      - run: |
-          cd ts
-          npm ci
-          npm run build
-          npm run lint
-
   test-js:
     runs-on: ubuntu-latest
     steps:
@@ -32,6 +21,7 @@ jobs:
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just -v lint-js
       - run: just -v test-js
+      - run: just -v build-js
 
   bench-js:
     runs-on: ${{ matrix.os }}
