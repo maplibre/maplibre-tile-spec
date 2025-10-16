@@ -1,7 +1,8 @@
-import {type GeometryVector, VertexBufferType, type MortonSettings, type Geometry} from './geometryVector';
+import {type GeometryVector, type MortonSettings, type Geometry} from './geometryVector';
 import ZOrderCurve from "./zOrderCurve";
 import Point from "./point";
 import {GEOMETRY_TYPE} from "./geometryType";
+import {VertexBufferType} from './vertexBufferType';
 
 
 class MvtGeometryFactory {
