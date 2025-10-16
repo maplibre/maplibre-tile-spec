@@ -2,7 +2,7 @@ import BitVector from "./flat/bitVector";
 import {SelectionVector} from "./filter/selectionVector";
 import {FlatSelectionVector} from "./filter/flatSelectionVector";
 
-export default abstract class Vector<T extends ArrayBuffer = ArrayBuffer, K = unknown> {
+export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView, K = unknown> {
     protected nullabilityBuffer: BitVector | null;
     protected _size: number;
 
