@@ -69,8 +69,8 @@ lint: lint-java lint-js lint-rust
 lint-java:
     cd java && ./gradlew spotlessJavaCheck
 
-# Run linting for TypeScript
-lint-ts:
+# Run linting for JavaScript
+lint-js:
     cd ts && npm run lint
 
 # Run linting for Rust
