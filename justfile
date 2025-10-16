@@ -172,6 +172,7 @@ generate-one-expected-mlt file:
         --outlines ALL \
         --tessellate \
         --coerce-mismatch \
+        --rawstreams \
         --verbose
 
 # Extract version from a tag by removing language prefix and 'v' prefix
