@@ -11,6 +11,17 @@ defaults:
     shell: bash
 
 jobs:
+  js-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/mlt-setup-node
+      - run: |
+          cd ts
+          npm ci
+          npm run build
+          npm run lint
+
   test-js:
     runs-on: ubuntu-latest
     steps:
