@@ -1,4 +1,4 @@
-import {IntegerCODEC, SkippableIntegerCODEC} from "./codec";
+import {type IntegerCODEC, type SkippableIntegerCODEC} from "./codec";
 //
 // function toNum(low: number, high: number, isSigned: boolean): number {
 //     return isSigned ? high * 0x100000000 + (low >>> 0) : ((high >>> 0) * 0x100000000) + (low >>> 0);

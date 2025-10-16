@@ -1,16 +1,16 @@
-import IntWrapper from "../../encodings/intWrapper";
+import type IntWrapper from "../../encodings/intWrapper";
 import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
 import {
-    Column,
-    ComplexColumn,
+    type Column,
+    type ComplexColumn,
     ComplexField,
-    ComplexType,
+    type ComplexType,
     FeatureTableSchema,
     Field,
-    LogicalComplexType,
-    LogicalScalarType,
+    type LogicalComplexType,
+    type LogicalScalarType,
     ScalarField,
-    ScalarType,
+    type ScalarType,
     TileSetMetadata,
 } from "./tilesetMetadata.g";
 import { TypeMap } from "./typeMap";

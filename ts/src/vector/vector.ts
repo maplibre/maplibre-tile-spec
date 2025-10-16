@@ -1,5 +1,5 @@
-import BitVector from "./flat/bitVector";
-import {SelectionVector} from "./filter/selectionVector";
+import type BitVector from "./flat/bitVector";
+import {type SelectionVector} from "./filter/selectionVector";
 import {FlatSelectionVector} from "./filter/flatSelectionVector";
 
 export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView, K = unknown> {

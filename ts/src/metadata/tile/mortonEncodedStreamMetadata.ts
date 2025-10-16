@@ -1,9 +1,9 @@
 import { StreamMetadata } from './streamMetadata';
-import { PhysicalStreamType } from './physicalStreamType';
-import { LogicalStreamType } from './logicalStreamType';
-import { LogicalLevelTechnique } from './logicalLevelTechnique';
-import { PhysicalLevelTechnique } from './physicalLevelTechnique';
-import IntWrapper from "../../encodings/intWrapper";
+import { type PhysicalStreamType } from './physicalStreamType';
+import { type LogicalStreamType } from './logicalStreamType';
+import { type LogicalLevelTechnique } from './logicalLevelTechnique';
+import { type PhysicalLevelTechnique } from './physicalLevelTechnique';
+import type IntWrapper from "../../encodings/intWrapper";
 import {decodeVarintInt32} from "../../encodings/integerDecodingUtils";
 
 export class MortonEncodedStreamMetadata extends StreamMetadata {

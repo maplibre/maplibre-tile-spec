@@ -1,8 +1,8 @@
-import {SelectionVector} from "../filter/selectionVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 import {GpuVector} from "./gpuVector";
-import {SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
-import TopologyVector from "./topologyVector";
+import {type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
+import type TopologyVector from "./topologyVector";
 
 
 //TODO: extend from GeometryVector -> make topology vector optional

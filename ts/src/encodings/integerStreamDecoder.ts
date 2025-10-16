@@ -1,6 +1,6 @@
-import {StreamMetadata} from "../metadata/tile/streamMetadata";
+import {type StreamMetadata} from "../metadata/tile/streamMetadata";
 import {PhysicalLevelTechnique} from "../metadata/tile/physicalLevelTechnique";
-import IntWrapper from "./intWrapper";
+import type IntWrapper from "./intWrapper";
 import {
     decodeComponentwiseDeltaVec2,
     decodeComponentwiseDeltaVec2Scaled,
@@ -37,10 +37,10 @@ import {
     zigZagRleDeltaDecoding
 } from "./integerDecodingUtils";
 import {LogicalLevelTechnique} from "../metadata/tile/logicalLevelTechnique";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
+import {type RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
 import BitVector from "../vector/flat/bitVector";
 import {VectorType} from "../vector/vectorType";
-import GeometryScaling from "./geometryScaling";
+import type GeometryScaling from "./geometryScaling";
 
 
 export default class IntegerStreamDecoder {

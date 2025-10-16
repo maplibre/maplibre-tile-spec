@@ -11,7 +11,7 @@ import ByteBuffer from 'bytebuffer';
 
 import { fastunpack } from './bitpacking';
 import { arraycopy, greatestMultiple } from './util';
-import {IntegerCODEC, SkippableIntegerCODEC} from "./codec";
+import {type IntegerCODEC, type SkippableIntegerCODEC} from "./codec";
 
 export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
     static readonly OVERHEAD_OF_EACH_EXCEPT = 8;

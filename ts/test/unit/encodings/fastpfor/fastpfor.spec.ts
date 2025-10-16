@@ -38,25 +38,25 @@ const testFastPforDecompress = (input: Uint32Array, expectedOutput: Uint32Array 
 }
 
 describe("FastPFor", () => {
-    it("should decompress bin test data", async () => {
+    it("should decompress bin test data", () => {
         const expected = decodeVarintInt32(new Uint8Array(varintTestData), new IntWrapper(0), 250_000);
         const a = new Uint32Array(fastPforTestData);
         testFastPforDecompress(a, expected);
     });
 
-    it("should decompress test data #1", async () => {
+    it("should decompress test data #1", () => {
         testFastPforDecompress(compressed1, uncompressed1);
     });
 
-    it("should decompress test data #2", async () => {
+    it("should decompress test data #2", () => {
         testFastPforDecompress(compressed2, uncompressed2);
     });
 
-    it("should decompress sequential data", async () => {
+    it("should decompress sequential data", () => {
         testFastPforDecompress(compressed3, uncompressed3);
     });
 
-    it("should decompress all zeroes", async () => {
+    it("should decompress all zeroes", () => {
         testFastPforDecompress(compressed4, uncompressed4);
     });
 

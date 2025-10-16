@@ -91,10 +91,10 @@ export class TypeMap {
         }
 
         if (column.type.case === "scalarType") {
-            const scalarCol = column.type.value as ScalarColumn;
+            const scalarCol = column.type.value;
 
             if (scalarCol.type.case === "physicalType") {
-                const physicalType = scalarCol.type.value as ScalarType;
+                const physicalType = scalarCol.type.value;
                 switch (physicalType) {
                     case ScalarType.BOOLEAN:
                     case ScalarType.INT_8:
@@ -115,10 +115,10 @@ export class TypeMap {
                 return false;
             }
         } else if (column.type.case === "complexType") {
-            const complexCol = column.type.value as ComplexColumn;
+            const complexCol = column.type.value;
 
             if (complexCol.type.case === "physicalType") {
-                const physicalType = complexCol.type.value as ComplexType;
+                const physicalType = complexCol.type.value;
                 switch (physicalType) {
                     case ComplexType.GEOMETRY:
                     case ComplexType.STRUCT:

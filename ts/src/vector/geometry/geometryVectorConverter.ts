@@ -1,4 +1,4 @@
-import {GeometryVector, VertexBufferType, MortonSettings, Geometry} from './geometryVector';
+import {type GeometryVector, VertexBufferType, type MortonSettings, type Geometry} from './geometryVector';
 import ZOrderCurve from "./zOrderCurve";
 import Point from "./point";
 import {GEOMETRY_TYPE} from "./geometryType";

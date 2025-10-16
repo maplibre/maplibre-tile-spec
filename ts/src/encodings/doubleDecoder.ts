@@ -1,5 +1,5 @@
-import IntWrapper from './intWrapper';
-import { StreamMetadata } from '../metadata/tile/streamMetadata';
+import type IntWrapper from './intWrapper';
+import { type StreamMetadata } from '../metadata/tile/streamMetadata';
 import {decodeDoublesLE, decodeFloatsLE} from "./decodingUtils";
 
 export function decodeFloatStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata): Float32Array {

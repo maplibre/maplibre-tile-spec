@@ -1,4 +1,4 @@
-import BitVector from "./flat/bitVector";
+import type BitVector from "./flat/bitVector";
 import Vector from "./vector";
 
 export abstract class FixedSizeVector<T extends ArrayBufferView, K> extends Vector<T, K>{

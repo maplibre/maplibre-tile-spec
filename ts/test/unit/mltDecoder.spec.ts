@@ -5,7 +5,7 @@ import {TilesetMetadata} from "../../src/metadata/tileset/tilesetMetadata.g";
 import {VectorTile} from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import * as path from "node:path";
-import {FeatureTable, GpuVector} from "../../src";
+import {type FeatureTable, GpuVector} from "../../src";
 import {classifyRings} from "@maplibre/maplibre-gl-style-spec";
 //TODO: refactor to use npm package
 import earcut from "../utils/earcut";
@@ -54,53 +54,52 @@ const userSessionOvertureMvtDir = "./test/data/overture/mvt";
 
 describe("decodeTile", () => {
     it("should decode a user session based dictionary of plain encoded Overture Maps schema based tiles " +
-        "with global tileset metadata", async () => {
+        "with global tileset metadata", () => {
         testTiles(userSessionOverturePlainMltDir, userSessionOvertureMvtDir, false, false,
             false);
     });
 
     it("should decode a user session based dictionary of plain encoded Swisstopo schema based tiles " +
-        "with global tileset metadata", async () => {
+        "with global tileset metadata", () => {
         testTiles(userSessionSwisstopoPlainMltDir, userSessionSwisstopoMvtDir, false);
     });
 
     it("should decode a user session based dictionary of unoptimized plain encoded OMT schema based tiles " +
-        "with global tileset metadata", async () => {
+        "with global tileset metadata", () => {
         testTiles(userSessionOmtUnoptimizedPlainMltDir, userSessionOmtUnoptimizedMvtDir, false);
     });
 
     it("should decode a user session based dictionary of optimized plain encoded OMT schema based tiles " +
-        "with global tileset metadata", async () => {
+        "with global tileset metadata", () => {
         testTiles(userSessionOmtOptimizedPlainMltDir, userSessionOmtOptimizedMvtDir, false);
     });
 
     it("should decode dictionary of unoptimized plain encoded OMT schema based tiles with global tileset " +
-        "metadata", async () => {
+        "metadata", () => {
         testTiles(omtUnoptimizedPlainMltDir, omtUnoptimizedMvtDir, false);
     });
 
-    it("should decode dictionary of optimized plain encoded OMT schema based tiles with global tileset metadata",
-        async () => {
+    it("should decode dictionary of optimized plain encoded OMT schema based tiles with global tileset metadata", () => {
         testTiles(omtOptimizedPlainMltDir, omtOptimizedMvtDir, false);
     });
 
     it("should decode dictionary of unoptimized plain morton encoded OMT schema based tiles with global tileset " +
-        "metadata", async () => {
+        "metadata", () => {
         testTiles(omtUnoptimizedPlainMortonMltDir, omtUnoptimizedMvtDir, false);
     });
 
     it("should decode dictionary of optimized plain morton encoded OMT schema based tiles with global tileset " +
-        "metadata", async () => {
+        "metadata", () => {
             testTiles(omtOptimizedPlainMortonMltDir, omtOptimizedMvtDir, false);
     });
 
     it("should decode dictionary of unoptimized pre-tessellated OMT schema based tiles with global tileset " +
-        "metadata", async () => {
+        "metadata", () => {
         testTiles(omtUnoptimizedPretessellatedMltDir, omtUnoptimizedMvtDir, true);
     });
 
     it("should decode dictionary of optimized pre-tessellated OMT schema based tiles with global tileset " +
-        "metadata", async () => {
+        "metadata", () => {
         testTiles(omtOptimizedPretessellatedMltDir, omtOptimizedMvtDir, true);
     });
 
@@ -293,7 +292,7 @@ function comparePreTessellatedTile(mlt: FeatureTable[], mvt: VectorTile){
     for(const featureTable of mlt){
         const layer = mvt.layers[featureTable.name];
         const gpuVector = featureTable.geometryVector instanceof GpuVector?
-            featureTable.geometryVector as GpuVector : null;
+            featureTable.geometryVector : null;
 
         //console.info(featureTable.name);
 

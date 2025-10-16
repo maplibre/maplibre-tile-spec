@@ -16,7 +16,6 @@
   "scripts": {
     "prepare": "npm run generate",
     "build": "tsc",
-    "bundle": "webpack",
     "test": "jest",
     "benchmark:decoding": "node dist/benchmark/transcoding/transcodingUserSession.js",
     "benchmark:filtering": "node dist/benchmark/data-access/filteringUserSession.js",
@@ -24,10 +23,9 @@
     "serve:data": "http-server ../test/data --cors",
     "serve:data2": "node test/server/dataServer.js ../../../test/data",
     "serve:gzip": "http-server ../test/data -g --cors",
-    "test:esm": "node --experimental-vm-modules ./node_modules/.bin/jest",
-    "lint": "eslint --max-warnings=0 --fix --ext .ts src bench test",
+    "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
-    "generate": "npx buf generate ../spec/schema/mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path=require('path'); const dir=path.join('src','metadata','tileset'); fs.renameSync(path.join(dir,'mlt_tileset_metadata_pb.ts'), path.join(dir,'tilesetMetadata.g.ts'))\""
+    "generate": "buf generate ../spec/schema/mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path=require('path'); const dir=path.join('src','metadata','tileset'); fs.renameSync(path.join(dir,'mlt_tileset_metadata_pb.ts'), path.join(dir,'tilesetMetadata.g.ts'))\""
   },
   "repository": {
     "type": "git",
@@ -47,8 +45,6 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.7.2",
     "@types/varint": "^6.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.46.1",
-    "@typescript-eslint/parser": "^8.46.1",
     "benchmark": "^2.1.4",
     "body-parser": "^2.2.0",
     "bytebuffer": "^5.0.1",
@@ -70,9 +66,8 @@
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "varint": "^6.0.0",
-    "webpack": "^5.102.1",
-    "webpack-cli": "^6.0.1"
+    "typescript-eslint": "^8.46.1",
+    "varint": "^6.0.0"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.9.0",
