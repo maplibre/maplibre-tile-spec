@@ -1,10 +1,12 @@
+use std::fmt::Debug;
+
 use borrowme::borrowme;
 
 use crate::MltError;
-use crate::utils::SetOptionOnce;
-use crate::v0x01::{
-    DictionaryType, GeometryType, LengthType, OffsetType, Parsable, PhysicalStreamType, Stream,
-    impl_decodable,
+use crate::decodable::{FromRaw, impl_decodable};
+use crate::utils::{OptSeq, SetOptionOnce};
+use crate::v01::{
+    DictionaryType, GeometryType, LengthType, OffsetType, PhysicalStreamType, Stream,
 };
 
 /// Unparsed geometry data as read directly from the tile
@@ -15,15 +17,6 @@ pub enum Geometry<'a> {
     Decoded(DecodedGeometry),
 }
 
-impl<'a> Geometry<'a> {
-    #[must_use]
-    pub fn raw(meta: Stream<'a>, items: Vec<Stream<'a>>) -> Self {
-        Self::Raw(RawGeometry { meta, items })
-    }
-}
-
-impl_decodable!(Geometry<'a>, RawGeometry<'a>, DecodedGeometry);
-
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct RawGeometry<'a> {
@@ -31,7 +24,7 @@ pub struct RawGeometry<'a> {
     items: Vec<Stream<'a>>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct DecodedGeometry {
     // pub vector_type: VectorType,
     // pub vertex_buffer_type: VertexBufferType,
@@ -45,10 +38,53 @@ pub struct DecodedGeometry {
     pub vertices: Option<Vec<i32>>,
 }
 
-impl<'a> Parsable<'a> for DecodedGeometry {
+impl_decodable!(Geometry<'a>, RawGeometry<'a>, DecodedGeometry);
+
+impl<'a> From<RawGeometry<'a>> for Geometry<'a> {
+    fn from(value: RawGeometry<'a>) -> Self {
+        Self::Raw(value)
+    }
+}
+
+impl<'a> Geometry<'a> {
+    #[must_use]
+    pub fn raw(meta: Stream<'a>, items: Vec<Stream<'a>>) -> Self {
+        Self::Raw(RawGeometry { meta, items })
+    }
+
+    #[inline]
+    pub fn decode(self) -> Result<DecodedGeometry, MltError> {
+        Ok(match self {
+            Self::Raw(v) => DecodedGeometry::from_raw(v)?,
+            Self::Decoded(v) => v,
+        })
+    }
+}
+
+impl Debug for DecodedGeometry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DecodedGeometry")
+            // .field("vector_type", &self.vector_type)
+            // .field("vertex_buffer_type", &self.vertex_buffer_type)
+            .field("vector_types", &self.vector_types)
+            .field(
+                "geometry_offsets",
+                &OptSeq(self.geometry_offsets.as_deref()),
+            )
+            .field("part_offsets", &OptSeq(self.part_offsets.as_deref()))
+            .field("ring_offsets", &OptSeq(self.ring_offsets.as_deref()))
+            .field("vertex_offsets", &OptSeq(self.vertex_offsets.as_deref()))
+            .field("index_buffer", &OptSeq(self.index_buffer.as_deref()))
+            .field("triangles", &OptSeq(self.triangles.as_deref()))
+            .field("vertices", &OptSeq(self.vertices.as_deref()))
+            .finish()
+    }
+}
+
+impl<'a> FromRaw<'a> for DecodedGeometry {
     type Input = RawGeometry<'a>;
 
-    fn parse(RawGeometry { meta, items }: RawGeometry<'a>) -> Result<Self, MltError> {
+    fn from_raw(RawGeometry { meta, items }: RawGeometry<'a>) -> Result<Self, MltError> {
         // let vector_type = Self::get_vector_type_int_stream(&meta);
         let vector_types = decode_geometry_types(meta)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;

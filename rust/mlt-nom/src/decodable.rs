@@ -1,8 +1,9 @@
 use crate::MltError;
 
+/// Trait for enums that can be in either raw or decoded form
 pub trait Decodable<'a>: Sized {
     type RawType;
-    type DecodedType: Parsable<'a, Input = Self::RawType>;
+    type DecodedType: FromRaw<'a, Input = Self::RawType>;
 
     /// Check if the data is still in raw form
     fn is_raw(&self) -> bool;
@@ -13,26 +14,32 @@ pub trait Decodable<'a>: Sized {
     /// Borrow the decoded data if available
     fn borrow_decoded(&self) -> Option<&Self::DecodedType>;
 
-    fn decode(&mut self) -> Result<&Self::DecodedType, MltError> {
+    fn materialize(&mut self) -> Result<&Self::DecodedType, MltError> {
         if self.is_raw() {
             // Temporarily replace self with a default value to take ownership of the raw data
             let raw = self.take_raw().expect("Expected raw data");
-            *self = Self::new_decoded(Self::DecodedType::parse(raw)?);
+            *self = Self::new_decoded(Self::DecodedType::from_raw(raw)?);
         }
         Ok(self.borrow_decoded().expect("Expected decoded data"))
     }
+
+    fn ensure_decoded(&mut self) -> Result<(), MltError> {
+        self.materialize()?;
+        Ok(())
+    }
 }
 
-pub trait Parsable<'a>: Sized {
+/// Trait for types that can be constructed from raw data
+pub trait FromRaw<'a>: Sized {
     type Input: 'a;
-    fn parse(input: Self::Input) -> Result<Self, MltError>;
+    fn from_raw(input: Self::Input) -> Result<Self, MltError>;
 }
 
 /// Macro to implement the Decodable trait for enum types with Raw and Decoded variants
 /// This macro is internal to the crate and not exposed to external users
 macro_rules! impl_decodable {
     ($enum_type:ty, $raw_type:ty, $decoded_type:ty) => {
-        impl<'a> $crate::v0x01::Decodable<'a> for $enum_type {
+        impl<'a> $crate::Decodable<'a> for $enum_type {
             type RawType = $raw_type;
             type DecodedType = $decoded_type;
 

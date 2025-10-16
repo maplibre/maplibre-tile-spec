@@ -2,10 +2,25 @@
 #![allow(unused_assignments)]
 #![allow(unused_variables)]
 
+mod decodable;
 mod errors;
-mod parser;
+mod layer;
+mod unknown;
 mod utils;
-pub mod v0x01;
+pub mod v01;
 
+pub use decodable::*;
 pub use errors::{MltError, MltRefResult};
-pub use parser::parse_binary_stream;
+
+use crate::layer::{Layer, RawLayer};
+
+/// Parse a sequence of binary layers
+pub fn parse_binary_stream(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {
+    let mut result = Vec::new();
+    while !input.is_empty() {
+        let layer;
+        (input, layer) = RawLayer::parse(input)?;
+        result.push(layer.into());
+    }
+    Ok(result)
+}

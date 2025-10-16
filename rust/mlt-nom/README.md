@@ -18,7 +18,7 @@ Structure of the data if the `tag` above is 0x01. We should focus this tag on MV
     - TODO...
 
 ## Code Structure
-Given the raw input bytes, the parser quickly runs over the input slice and only stores references to the streams and their metadata. Later, decoding can be done on-demand, either for all columns, or just for the specific ones. This example is for `Id`, but the same idea applies to `Geometry`, `Property`, and `FeatureTable` entities.
+Given the raw input bytes, the parser quickly runs over the input slice and only stores references to the streams and their metadata. Later, decoding can be done on-demand, either for all columns, or just for the specific ones. This example is for `Id`, but the same idea applies to `Geometry`, `Property`, `v01::Layer`, and root `Layer` entities.
 
 * **`RawId` struct** contains references into the original input data. The values are not decoded, just some metadata is parsed. Most data is stored as `Stream<'a>` instances, which hold references to parts of the original input and tie to input lifetime.
 * **`OwnedRawId` struct** is auto-generated with the [borrowme crate](https://docs.rs/borrowme/latest/borrowme/) - it has the same fields as the `RawId` struct, but owns its data. This is useful when you want to store a `RawId` struct beyond the lifetime of the original input slice, or when you want to modify it or store the result of the encoding before storing it into a file.
