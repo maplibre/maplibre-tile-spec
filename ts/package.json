@@ -17,8 +17,6 @@
     "prepare": "npm run generate",
     "build": "tsc",
     "test": "jest",
-    "benchmark:decoding": "node dist/benchmark/transcoding/transcodingUserSession.js",
-    "benchmark:filtering": "node dist/benchmark/data-access/filteringUserSession.js",
     "serve": "http-server .",
     "serve:data": "http-server ../test/data --cors",
     "serve:data2": "node test/server/dataServer.js ../../../test/data",
