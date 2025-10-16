@@ -4,18 +4,13 @@ import {type SelectionVector} from "../filter/selectionVector";
 import ZOrderCurve from "./zOrderCurve";
 import type Point from "./point";
 import {type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
+import {type VertexBufferType} from "./vertexBufferType";
 
 export type Geometry = Array<Array<Point>>;
 
 export interface MortonSettings {
     numBits: number;
     coordinateShift: number;
-}
-
-export enum VertexBufferType {
-    MORTON,
-    VEC_2,
-    VEC_3
 }
 
 export abstract class GeometryVector implements Iterable<Geometry> {

@@ -1,8 +1,9 @@
-import {GeometryVector, type MortonSettings, VertexBufferType} from "./geometryVector";
+import {GeometryVector, type MortonSettings} from "./geometryVector";
 import type TopologyVector from "../../vector/geometry/topologyVector";
 import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 import {GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
+import {VertexBufferType} from "./vertexBufferType";
 
 
 export class FlatGeometryVector extends GeometryVector{
