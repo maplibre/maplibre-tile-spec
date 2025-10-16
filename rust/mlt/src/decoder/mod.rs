@@ -44,7 +44,7 @@ mod tests {
             .collect::<Vec<_>>()
     }
 
-    #[ignore] // not updated for tag0x01 yet
+    #[ignore = "not updated for tag0x01 yet"]
     #[test]
     fn test_parse_meta_fixtures() {
         let count = AtomicUsize::new(0);
