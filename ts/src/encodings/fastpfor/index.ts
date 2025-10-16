@@ -1,4 +1,4 @@
-import {SkippableIntegerCODEC} from "./codec";
+import {type SkippableIntegerCODEC} from "./codec";
 import {FastPFOR} from "./fastpfor";
 import {VarInt} from "./varint";
 

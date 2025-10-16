@@ -1,7 +1,7 @@
 import {VariableSizeVector} from "../variableSizeVector";
-import BitVector from "../flat/bitVector";
+import type BitVector from "../flat/bitVector";
 import {decodeString} from "../../encodings/decodingUtils";
-import {SelectionVector} from "../filter/selectionVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 import {createSelectionVector} from "../filter/selectionVectorUtils";
 

@@ -1,7 +1,7 @@
-import {Geometry, GeometryVector} from "./geometry/geometryVector";
-import Vector from "./vector";
-import {IntVector} from "./intVector";
-import {GpuVector} from "./geometry/gpuVector";
+import {type Geometry, type GeometryVector} from "./geometry/geometryVector";
+import type Vector from "./vector";
+import {type IntVector} from "./intVector";
+import {type GpuVector} from "./geometry/gpuVector";
 import {IntFlatVector} from "./flat/intFlatVector";
 import {DoubleFlatVector} from "./flat/doubleFlatVector";
 import {IntSequenceVector} from "./sequence/intSequenceVector";

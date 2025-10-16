@@ -1,6 +1,6 @@
-import {decodeTileAndMetadata, FeatureTable, filter} from "../../../src";
+import {decodeTileAndMetadata, type FeatureTable, filter} from "../../../src";
 import fs from "fs";
-import {ExpressionSpecification} from "@maplibre/maplibre-gl-style-spec";
+import {type ExpressionSpecification} from "@maplibre/maplibre-gl-style-spec";
 import Path from "path";
 import {VectorTile} from "@mapbox/vector-tile";
 import Pbf from "pbf";

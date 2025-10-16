@@ -1,4 +1,4 @@
-import BitVector from "./flat/bitVector";
+import type BitVector from "./flat/bitVector";
 import Vector from "./vector";
 
 

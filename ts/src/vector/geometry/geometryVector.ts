@@ -1,9 +1,9 @@
-import TopologyVector from "../../vector/geometry/topologyVector";
+import type TopologyVector from "../../vector/geometry/topologyVector";
 import {convertGeometryVector} from "./geometryVectorConverter";
-import {SelectionVector} from "../filter/selectionVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import ZOrderCurve from "./zOrderCurve";
-import Point from "./point";
-import {SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
+import type Point from "./point";
+import {type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
 
 export type Geometry = Array<Array<Point>>;
 

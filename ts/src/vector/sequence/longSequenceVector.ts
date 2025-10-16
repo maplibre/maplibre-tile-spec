@@ -1,5 +1,5 @@
 import {SequenceVector} from "./sequenceVector";
-import {SelectionVector} from "../filter/selectionVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 
 export class LongSequenceVector extends SequenceVector<BigInt64Array, bigint> {

@@ -1,7 +1,7 @@
-import IntWrapper from "./intWrapper";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
-import BitVector from "../vector/flat/bitVector";
-import {StreamMetadata} from "../mltMetadata";
+import type IntWrapper from "./intWrapper";
+import {type RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
+import type BitVector from "../vector/flat/bitVector";
+import {type StreamMetadata} from "../mltMetadata";
 
 
 /* Null suppression (physical level) techniques ------------------------------------------------------------------*/

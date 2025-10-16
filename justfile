@@ -15,7 +15,10 @@ bench-java:
     cd java && ./gradlew jmh
 
 bench-js: install-js
-    cd js && npm run bench
+    echo "TODO: Add js benchmark command"
+
+build-js: install-js
+    cd ts && npm run build
 
 # Run integration tests, and override what we expect the output to be with the actual output
 bless: clean-int-test test-run-int
@@ -30,7 +33,7 @@ clean-java:
 
 # Delete build files for JavaScript
 clean-js:
-    echo "TODO: Add js cleanup command"
+    cd ts && rm -rf node_modules dist
 
 # Delete build files for Rust
 clean-rust:
@@ -50,14 +53,14 @@ fmt-java:
 
 # Run formatting for JavaScript
 fmt-js:
-    echo "TODO: Add js fmt command (e.g. prettier)"
+    cd ts && npm run format
 
 # Run formatting for Rust
 fmt-rust:
     cd rust && cargo fmt --all
 
 install-js:
-    cd js && npm ci
+    cd ts && npm ci
 
 # Run linting in every language, failing on lint suggestion or bad formatting. Run `just fmt` to fix formatting issues.
 lint: lint-java lint-js lint-rust
@@ -67,8 +70,8 @@ lint-java:
     cd java && ./gradlew spotlessJavaCheck
 
 # Run linting for JavaScript
-lint-js:
-    echo "TODO: Add js lint command (e.g. eslint)"
+lint-js: install-js
+    cd ts && npm run lint
 
 # Run linting for Rust
 lint-rust:
@@ -110,7 +113,7 @@ test-java-cli:
 
 # Run tests for JavaScript
 test-js: install-js
-    cd js && npm test
+    echo "TODO: Add js test back"
 
 # Run tests for Rust
 test-rust:

@@ -1,6 +1,6 @@
-import { DictionaryType } from './dictionaryType';
-import { OffsetType } from './offsetType';
-import { LengthType } from './lengthType';
+import { type DictionaryType } from './dictionaryType';
+import { type OffsetType } from './offsetType';
+import { type LengthType } from './lengthType';
 
 export class LogicalStreamType {
 

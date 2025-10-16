@@ -1,16 +1,9 @@
 import {FixedSizeVector} from "../fixedSizeVector";
-import BitVector from "./bitVector";
-import {SelectionVector} from "../filter/selectionVector";
+import type BitVector from "./bitVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 
 export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
-
-    constructor(
-        name: string,
-        dataBuffer: BigInt64Array,
-        sizeOrNullabilityBuffer : number | BitVector){
-        super(name, dataBuffer, sizeOrNullabilityBuffer);
-    }
 
     protected getValueFromBuffer(index: number): bigint {
         return this.dataBuffer[index];

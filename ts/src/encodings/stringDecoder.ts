@@ -1,14 +1,14 @@
 import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
 import {StringFlatVector} from "../vector/flat/stringFlatVector";
 import {StringDictionaryVector} from "../vector/dictionary/stringDictionaryVector";
-import IntWrapper from "./intWrapper";
+import type IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import Vector from "../vector/vector";
+import type Vector from "../vector/vector";
 import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
 import {DictionaryType} from "../metadata/tile/dictionaryType";
 import {LengthType} from "../metadata/tile/lengthType";
 import IntegerStreamDecoder from "./integerStreamDecoder";
-import {Column, ComplexColumn, ComplexField, ScalarField, ScalarType} from "../metadata/tileset/tilesetMetadata.g";
+import {type Column, type ComplexColumn, ComplexField, ScalarField, ScalarType} from "../metadata/tileset/tilesetMetadata.g";
 import {decodeVarintInt32} from "./integerDecodingUtils";
 import {decodeBooleanRle, skipColumn} from "./decodingUtils";
 import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";

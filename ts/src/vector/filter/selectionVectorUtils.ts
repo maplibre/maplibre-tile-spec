@@ -1,6 +1,6 @@
-import { SelectionVector } from "./selectionVector";
+import { type SelectionVector } from "./selectionVector";
 import { FlatSelectionVector } from "./flatSelectionVector";
-import BitVector from "../flat/bitVector";
+import type BitVector from "../flat/bitVector";
 
 export function createSelectionVector(size: number) {
     const selectionVector = new Array(size);

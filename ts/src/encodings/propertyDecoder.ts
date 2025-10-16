@@ -1,6 +1,6 @@
-import IntWrapper from "./intWrapper";
-import { Column, ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata.g";
-import Vector from "../vector/vector";
+import type IntWrapper from "./intWrapper";
+import { type Column, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata.g";
+import type Vector from "../vector/vector";
 import BitVector from "../vector/flat/bitVector";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
 import { VectorType } from "../vector/vectorType";
@@ -23,7 +23,7 @@ import {
 import IntegerStreamDecoder from "./integerStreamDecoder";
 import { StringDecoder } from "./stringDecoder";
 import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
-import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
 import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
 
 export function decodePropertyColumn(

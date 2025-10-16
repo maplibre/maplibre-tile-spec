@@ -1,19 +1,11 @@
 import {FixedSizeVector} from "../fixedSizeVector";
-import BitVector from "./bitVector";
-import {SelectionVector} from "../filter/selectionVector";
+import type BitVector from "./bitVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 import {IntVector} from "../intVector";
 
 
 export class DoubleFlatVector extends FixedSizeVector<Float64Array, number> {
-
-    constructor(
-        name: string,
-        dataBuffer: Float64Array,
-        sizeOrNullabilityBuffer : number | BitVector
-    ) {
-        super(name, dataBuffer, sizeOrNullabilityBuffer);
-    }
 
     protected getValueFromBuffer(index: number): number {
         return this.dataBuffer[index];

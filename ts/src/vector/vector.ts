@@ -1,12 +1,12 @@
-import BitVector from "./flat/bitVector";
-import {SelectionVector} from "./filter/selectionVector";
+import type BitVector from "./flat/bitVector";
+import {type SelectionVector} from "./filter/selectionVector";
 import {FlatSelectionVector} from "./filter/flatSelectionVector";
 
 export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView, K = unknown> {
     protected nullabilityBuffer: BitVector | null;
     protected _size: number;
 
-    protected constructor(private readonly _name: string, protected readonly dataBuffer: T, sizeOrNullabilityBuffer : number | BitVector) {
+    constructor(private readonly _name: string, protected readonly dataBuffer: T, sizeOrNullabilityBuffer : number | BitVector) {
         if(typeof sizeOrNullabilityBuffer === "number"){
             this._size = sizeOrNullabilityBuffer;
         }
