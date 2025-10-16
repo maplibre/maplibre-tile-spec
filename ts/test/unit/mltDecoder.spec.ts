@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as Path from "path";
 import decodeTile from "../../src/mltDecoder";
-import {TilesetMetadata} from "../../src/metadata/tileset/tilesetMetadata.g";
+import {TileSetMetadata} from "../../src/metadata/tileset/tilesetMetadata.g";
 import {VectorTile} from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import * as path from "node:path";
