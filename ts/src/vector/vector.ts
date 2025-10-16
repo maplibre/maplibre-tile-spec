@@ -6,7 +6,7 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
     protected nullabilityBuffer: BitVector | null;
     protected _size: number;
 
-    protected constructor(private readonly _name: string, protected readonly dataBuffer: T, sizeOrNullabilityBuffer : number | BitVector) {
+    constructor(private readonly _name: string, protected readonly dataBuffer: T, sizeOrNullabilityBuffer : number | BitVector) {
         if(typeof sizeOrNullabilityBuffer === "number"){
             this._size = sizeOrNullabilityBuffer;
         }
