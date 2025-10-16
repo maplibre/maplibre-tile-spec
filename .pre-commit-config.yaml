@@ -46,7 +46,7 @@ repos:
     hooks:
       - id: actionlint
         additional_dependencies: [ shellcheck-py ]
-        exclude: '.github/workflows/rust.yml'
+        exclude: '\.github/workflows/rust(-legacy)?\.yml'
 
   - repo: local
     hooks:
