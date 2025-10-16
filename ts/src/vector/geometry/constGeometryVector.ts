@@ -1,12 +1,11 @@
-import {GeometryVector, type MortonSettings} from "./geometryVector";
+import { GeometryVector, type MortonSettings } from "./geometryVector";
 import type TopologyVector from "../../vector/geometry/topologyVector";
-import {type SelectionVector} from "../filter/selectionVector";
-import {FlatSelectionVector} from "../filter/flatSelectionVector";
-import {GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
-import {VertexBufferType} from "./vertexBufferType";
+import { type SelectionVector } from "../filter/selectionVector";
+import { FlatSelectionVector } from "../filter/flatSelectionVector";
+import { GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
+import { VertexBufferType } from "./vertexBufferType";
 
-
-export class ConstGeometryVector extends GeometryVector{
+export class ConstGeometryVector extends GeometryVector {
     constructor(
         private readonly _numGeometries: number,
         private readonly _geometryType: number,
@@ -14,7 +13,7 @@ export class ConstGeometryVector extends GeometryVector{
         topologyVector: TopologyVector,
         vertexOffsets: Int32Array,
         vertexBuffer: Int32Array,
-        mortonSettings?: MortonSettings
+        mortonSettings?: MortonSettings,
     ) {
         super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
     }
@@ -25,7 +24,7 @@ export class ConstGeometryVector extends GeometryVector{
         topologyVector: TopologyVector,
         vertexOffsets: Int32Array,
         vertexBuffer: Int32Array,
-        mortonInfo: MortonSettings
+        mortonInfo: MortonSettings,
     ): ConstGeometryVector {
         return new ConstGeometryVector(
             numGeometries,
@@ -34,7 +33,7 @@ export class ConstGeometryVector extends GeometryVector{
             topologyVector,
             vertexOffsets,
             vertexBuffer,
-            mortonInfo
+            mortonInfo,
         );
     }
 
@@ -43,7 +42,7 @@ export class ConstGeometryVector extends GeometryVector{
         geometryType: number,
         topologyVector: TopologyVector,
         vertexOffsets: Int32Array,
-        vertexBuffer: Int32Array
+        vertexBuffer: Int32Array,
     ): ConstGeometryVector {
         return new ConstGeometryVector(
             numGeometries,
@@ -70,26 +69,25 @@ export class ConstGeometryVector extends GeometryVector{
     //TODO: refactor -> quick and dirty -> let a multi part geometry be equal to a single part geometry
     //to produce the same results as with MVT and the existing styles
     filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector {
-        if(geometryType !== this._geometryType && (geometryType + 3) !== this._geometryType){
+        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
             return new FlatSelectionVector([]);
         }
 
         //TODO: use ConstSelectionVector
         const selectionVector = new Array(this.numGeometries);
-        for(let i = 0; i < this.numGeometries; i++){
+        for (let i = 0; i < this.numGeometries; i++) {
             selectionVector[i] = i;
         }
         return new FlatSelectionVector(selectionVector);
     }
 
-    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
-        if(geometryType !== this._geometryType && (geometryType + 3) !== this._geometryType){
+    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector) {
+        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
             selectionVector.setLimit(0);
         }
     }
 
-    containsSingleGeometryType(): boolean{
+    containsSingleGeometryType(): boolean {
         return true;
     }
-
 }

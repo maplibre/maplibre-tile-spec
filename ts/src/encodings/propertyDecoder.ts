@@ -40,7 +40,14 @@ export function decodePropertyColumn(
             return null;
         }
 
-        return decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, columnMetadata.type.value, columnMetadata);
+        return decodeScalarPropertyColumn(
+            numStreams,
+            data,
+            offset,
+            numFeatures,
+            columnMetadata.type.value,
+            columnMetadata,
+        );
     }
 
     if (numStreams != 1) {

@@ -13,5 +13,5 @@ export enum PhysicalLevelTechnique {
     /**
      * Adaptive Lossless floating-Point Compression
      */
-    ALP = "ALP"
+    ALP = "ALP",
 }

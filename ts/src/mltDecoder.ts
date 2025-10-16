@@ -21,7 +21,7 @@ import { decodeBooleanRle } from "./encodings/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
 import { TypeMap } from "./metadata/tileset/typeMap";
-import {type StreamMetadata} from "./metadata/tile/streamMetadata";
+import { type StreamMetadata } from "./metadata/tile/streamMetadata";
 
 const ID_COLUMN_NAME = "id";
 const GEOMETRY_COLUMN_NAME = "geometry";
