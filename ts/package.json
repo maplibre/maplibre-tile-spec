@@ -48,7 +48,6 @@
     "benchmark": "^2.1.4",
     "body-parser": "^2.2.0",
     "bytebuffer": "^5.0.1",
-    "clean-webpack-plugin": "^4.0.0",
     "codegen": "^0.1.0",
     "cors": "^2.8.5",
     "earcut": "^3.0.2",
