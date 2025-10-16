@@ -1,10 +1,9 @@
-import {decodeTileAndMetadata, type FeatureTable, filter} from "../../../src";
+import { decodeTileAndMetadata, type FeatureTable, filter } from "../../../src";
 import fs from "fs";
-import {type ExpressionSpecification} from "@maplibre/maplibre-gl-style-spec";
+import { type ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
 import Path from "path";
-import {VectorTile} from "@mapbox/vector-tile";
+import { VectorTile } from "@mapbox/vector-tile";
 import Pbf from "pbf";
-
 
 const omtOptimizedPretessellatedMltDir = "./test/data/omt/optimized/mlt/pre-tessellated";
 const omtOptimizedMvtDir = "./test/data/omt/optimized/mvt";
@@ -19,7 +18,7 @@ const tileIds = new Map<number, string>([
 const decodedMltTiles = new Map<number, FeatureTable[]>();
 const decodedMvtTiles = new Map<number, VectorTile>();
 
-for(const [zoom, tileId] of tileIds){
+for (const [zoom, tileId] of tileIds) {
     const encodedMlt = fs.readFileSync(Path.join(omtOptimizedPretessellatedMltDir, `${tileId}.mlt`));
     const decodedMlt = decodeTileAndMetadata(encodedMlt, mltMetadata);
     decodedMltTiles.set(zoom, decodedMlt);
@@ -29,35 +28,30 @@ for(const [zoom, tileId] of tileIds){
     decodedMvtTiles.set(zoom, decodedMvt);
 }
 
-
 describe("filter", () => {
     describe("based on a comparison expression", () => {
         it("with  equal instruction should return valid SelectionVector", () => {
             const zoom = 0;
             const sourceLayerName = "landcover";
-            const layerFilter: ExpressionSpecification = [
-                "==",
-                "subclass",
-                "glacier"
-            ];
-            const featureTable = decodedMltTiles.get(zoom).filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const layerFilter: ExpressionSpecification = ["==", "subclass", "glacier"];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature => feature.properties[mvtFilter[1]] === mvtFilter[2];
+            const mvtFilter = (feature) => feature.properties[mvtFilter[1]] === mvtFilter[2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
             expect(selectionVector.selectionValues()).toEqual(expectedSelectionVector);
         });
 
         it("with  geometry equal instruction should return valid SelectionVector", () => {
-            const layerFilter: ExpressionSpecification =   [
-                "==",
-                "$type",
-                "Polygon"
-            ];
+            const layerFilter: ExpressionSpecification = ["==", "$type", "Polygon"];
             const sourceLayerName = "water";
-            const featureTable = decodedMltTiles.get(3).filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const featureTable = decodedMltTiles
+                .get(3)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
             const expectedSelectionVectorSize = 62;
             const expectedSelectionVector = [...Array(expectedSelectionVectorSize).keys()];
 
@@ -72,26 +66,16 @@ describe("filter", () => {
         it("with equal and unequal comparison instructions should return valid SelectionVector", () => {
             const zoom = 0;
             const sourceLayerName = "boundary";
-            const layerFilter: ExpressionSpecification =  [
-                "all",
-                [
-                    "!=",
-                    "maritime",
-                    1
-                ],
-                [
-                    "==",
-                    "disputed",
-                    1
-                ]
-            ];
-            const featureTable = decodedMltTiles.get(zoom).
-                filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const layerFilter: ExpressionSpecification = ["all", ["!=", "maritime", 1], ["==", "disputed", 1]];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature => feature.properties[layerFilter[1][1]] !== layerFilter[1][2]
-                && feature.properties[layerFilter[2][1]] === layerFilter[2][2];
+            const mvtFilter = (feature) =>
+                feature.properties[layerFilter[1][1]] !== layerFilter[1][2] &&
+                feature.properties[layerFilter[2][1]] === layerFilter[2][2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
             expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector);
@@ -100,26 +84,20 @@ describe("filter", () => {
         it("with unequal comparison instructions should return valid SelectionVector", () => {
             const zoom = 1;
             const sourceLayerName = "water";
-            const layerFilter: ExpressionSpecification =  [
+            const layerFilter: ExpressionSpecification = [
                 "all",
-                [
-                    "!=",
-                    "intermittent",
-                    1
-                ],
-                [
-                    "!=",
-                    "brunnel",
-                    "tunnel"
-                ]
+                ["!=", "intermittent", 1],
+                ["!=", "brunnel", "tunnel"],
             ];
-            const featureTable = decodedMltTiles.get(zoom).
-                filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature => feature.properties[layerFilter[1][1]] !== layerFilter[1][2]
-                && feature.properties[layerFilter[2][1]] !== layerFilter[2][2];
+            const mvtFilter = (feature) =>
+                feature.properties[layerFilter[1][1]] !== layerFilter[1][2] &&
+                feature.properties[layerFilter[2][1]] !== layerFilter[2][2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
             expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector);
@@ -130,29 +108,20 @@ describe("filter", () => {
             const sourceLayerName = "boundary";
             const layerFilter: ExpressionSpecification = [
                 "all",
-                [
-                    ">=",
-                    "admin:level",
-                    3
-                ],
-                [
-                    "<=",
-                    "admin:level",
-                    8
-                ],
-                [
-                    "!=",
-                    "maritime",
-                    1
-                ]
+                [">=", "admin:level", 3],
+                ["<=", "admin:level", 8],
+                ["!=", "maritime", 1],
             ];
-            const featureTable = decodedMltTiles.get(zoom).filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature => feature.properties[layerFilter[1][1].replace(":", "_")] >= layerFilter[1][2]
-                && feature.properties[layerFilter[2][1].replace(":", "_")] <= layerFilter[2][2]
-                && feature.properties[layerFilter[3][1]] != layerFilter[3][2];
+            const mvtFilter = (feature) =>
+                feature.properties[layerFilter[1][1].replace(":", "_")] >= layerFilter[1][2] &&
+                feature.properties[layerFilter[2][1].replace(":", "_")] <= layerFilter[2][2] &&
+                feature.properties[layerFilter[3][1]] != layerFilter[3][2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
             expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector);
@@ -161,31 +130,22 @@ describe("filter", () => {
         it("with equal and unequal comparison instructions should return valid SelectionVector", () => {
             const zoom = 1;
             const sourceLayerName = "boundary";
-            const layerFilter: ExpressionSpecification =  ["all",
-                [
-                    "==",
-                    "admin_level",
-                    2
-                ],
-                [
-                    "!=",
-                    "maritime",
-                    1
-                ],
-                [
-                    "!=",
-                    "disputed",
-                    1
-                ]
+            const layerFilter: ExpressionSpecification = [
+                "all",
+                ["==", "admin_level", 2],
+                ["!=", "maritime", 1],
+                ["!=", "disputed", 1],
             ];
-            const featureTable = decodedMltTiles.get(zoom).filter(featureTable =>
-                featureTable.name === sourceLayerName)[0];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature => feature.properties[layerFilter[1][1].replace(":", "_")] === layerFilter[1][2]
-                && feature.properties[layerFilter[2][1]] !== layerFilter[2][2]
-                && feature.properties[layerFilter[3][1]] !== layerFilter[3][2];
+            const mvtFilter = (feature) =>
+                feature.properties[layerFilter[1][1].replace(":", "_")] === layerFilter[1][2] &&
+                feature.properties[layerFilter[2][1]] !== layerFilter[2][2] &&
+                feature.properties[layerFilter[3][1]] !== layerFilter[3][2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
             expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector);
@@ -194,60 +154,44 @@ describe("filter", () => {
         it("with two unequal comparison instructions should return valid SelectionVector", () => {
             const zoom = 1;
             const sourceLayerName = "water";
-            const layerFilter: ExpressionSpecification =  [
+            const layerFilter: ExpressionSpecification = [
                 "all",
-                [
-                    "!=",
-                    "intermittent",
-                        1
-                ],
-                [
-                    "!=",
-                    "brunnel",
-                    "tunnel"
-                ]
+                ["!=", "intermittent", 1],
+                ["!=", "brunnel", "tunnel"],
             ];
-            const featureTable = decodedMltTiles.get(zoom).filter(featureTable =>
-                featureTable.name === sourceLayerName)[0];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature => feature.properties[layerFilter[1][1]] !== layerFilter[1][2]
-                && feature.properties[layerFilter[2][1]] !== layerFilter[2][2];
+            const mvtFilter = (feature) =>
+                feature.properties[layerFilter[1][1]] !== layerFilter[1][2] &&
+                feature.properties[layerFilter[2][1]] !== layerFilter[2][2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
             expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector);
-    });
+        });
 
         it("with one equal and two unequal comparison instructions should return valid SelectionVector", () => {
             const zoom = 0;
             const sourceLayerName = "boundary";
-            const layerFilter: ExpressionSpecification =  [
+            const layerFilter: ExpressionSpecification = [
                 "all",
-                [
-                    "==",
-                    "admin_level",
-                    2
-                ],
-                [
-                    "!=",
-                    "maritime",
-                    1
-                ],
-                [
-                    "!=",
-                    "disputed",
-                    1
-                ]
+                ["==", "admin_level", 2],
+                ["!=", "maritime", 1],
+                ["!=", "disputed", 1],
             ];
-            const featureTable = decodedMltTiles.get(zoom).
-                filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature => feature.properties[layerFilter[1][1].replace(":", "_")] === layerFilter[1][2]
-                && feature.properties[layerFilter[2][1]] !== layerFilter[2][2]
-                && feature.properties[layerFilter[3][1]] !== layerFilter[3][2];
+            const mvtFilter = (feature) =>
+                feature.properties[layerFilter[1][1].replace(":", "_")] === layerFilter[1][2] &&
+                feature.properties[layerFilter[2][1]] !== layerFilter[2][2] &&
+                feature.properties[layerFilter[3][1]] !== layerFilter[3][2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
             expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector);
@@ -258,34 +202,18 @@ describe("filter", () => {
             const sourceLayerName = "transportation";
             const layerFilter: ExpressionSpecification = [
                 "all",
-                [
-                    "==",
-                    "$type",
-                    "LineString"
-                ],
-                [
-                    "!in",
-                    "brunnel",
-                    "bridge",
-                    "tunnel"
-                ],
-                [
-                    "in",
-                    "class",
-                    "primary"
-                ],
-                [
-                    "!=",
-                    "ramp",
-                    1
-                ]
+                ["==", "$type", "LineString"],
+                ["!in", "brunnel", "bridge", "tunnel"],
+                ["in", "class", "primary"],
+                ["!=", "ramp", 1],
             ] as any;
-            const featureTable = decodedMltTiles.get(zoom).
-                filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature =>
+            const mvtFilter = (feature) =>
                 feature.type === 2 &&
                 !["bridge", "tunnel"].includes(feature.properties[layerFilter[2][1]]) &&
                 feature.properties[layerFilter[3][1]] === layerFilter[3][2] &&
@@ -298,14 +226,18 @@ describe("filter", () => {
         it("with transportation layer equal and geometry type filter", () => {
             const zoom = 6;
             const sourceLayerName = "transportation";
-            const layerFilter: ExpressionSpecification =
-                ["all", ["==", "$type", "LineString"], ["==", "class", "motorway"]] as any;
-            const featureTable = decodedMltTiles.get(zoom).
-                filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const layerFilter: ExpressionSpecification = [
+                "all",
+                ["==", "$type", "LineString"],
+                ["==", "class", "motorway"],
+            ] as any;
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature =>
+            const mvtFilter = (feature) =>
                 feature.type === 2 && feature.properties[layerFilter[2][1]] === layerFilter[2][2];
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
@@ -315,18 +247,22 @@ describe("filter", () => {
         it("with transportation layer filter geometry and match filter", () => {
             const zoom = 6;
             const sourceLayerName = "transportation";
-            const layerFilter: ExpressionSpecification =
-                ["all", ["==", "$type", "LineString"], ["in", "class", "trunk", "primary"]] as any;
-            const featureTable = decodedMltTiles.get(zoom).
-                filter(featureTable => featureTable.name === sourceLayerName)[0];
+            const layerFilter: ExpressionSpecification = [
+                "all",
+                ["==", "$type", "LineString"],
+                ["in", "class", "trunk", "primary"],
+            ] as any;
+            const featureTable = decodedMltTiles
+                .get(zoom)
+                .filter((featureTable) => featureTable.name === sourceLayerName)[0];
 
             const selectionVector = filter(featureTable, layerFilter);
 
-            const mvtFilter = feature =>
+            const mvtFilter = (feature) =>
                 feature.type === 2 && ["trunk", "primary"].includes(feature.properties[layerFilter[2][1]]);
             const expectedSelectionVector = filterMvtLayer(zoom, sourceLayerName, mvtFilter);
             expect(selectionVector.limit).toEqual(expectedSelectionVector.length);
-            expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector)
+            expect(selectionVector.selectionValues().slice(0, selectionVector.limit)).toEqual(expectedSelectionVector);
         });
     });
 });
@@ -334,10 +270,10 @@ describe("filter", () => {
 function filterMvtLayer(zoom: number, sourceLayerName: string, filter: (feature) => boolean) {
     const selectionVector = [];
     const mvt = decodedMvtTiles.get(zoom);
-    const layer = mvt.layers[sourceLayerName]
+    const layer = mvt.layers[sourceLayerName];
     for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
-        if(filter(feature)){
+        if (filter(feature)) {
             selectionVector.push(i);
         }
     }

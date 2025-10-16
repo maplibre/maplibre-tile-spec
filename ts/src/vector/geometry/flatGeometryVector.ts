@@ -1,12 +1,11 @@
-import {GeometryVector, type MortonSettings} from "./geometryVector";
+import { GeometryVector, type MortonSettings } from "./geometryVector";
 import type TopologyVector from "../../vector/geometry/topologyVector";
-import {type SelectionVector} from "../filter/selectionVector";
-import {FlatSelectionVector} from "../filter/flatSelectionVector";
-import {GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
-import {VertexBufferType} from "./vertexBufferType";
+import { type SelectionVector } from "../filter/selectionVector";
+import { FlatSelectionVector } from "../filter/flatSelectionVector";
+import { GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
+import { VertexBufferType } from "./vertexBufferType";
 
-
-export class FlatGeometryVector extends GeometryVector{
+export class FlatGeometryVector extends GeometryVector {
     constructor(
         vertexBufferType: VertexBufferType,
         //TODO: refactor -> use UInt8Array
@@ -14,7 +13,7 @@ export class FlatGeometryVector extends GeometryVector{
         topologyVector: TopologyVector,
         vertexOffsets: Int32Array,
         vertexBuffer: Int32Array,
-        mortonSettings?: MortonSettings
+        mortonSettings?: MortonSettings,
     ) {
         super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
     }
@@ -24,7 +23,7 @@ export class FlatGeometryVector extends GeometryVector{
         topologyVector: TopologyVector,
         vertexOffsets: Int32Array,
         vertexBuffer: Int32Array,
-        mortonInfo: MortonSettings
+        mortonInfo: MortonSettings,
     ): FlatGeometryVector {
         //TODO: refactor to use unsigned integers
         return new FlatGeometryVector(
@@ -33,7 +32,7 @@ export class FlatGeometryVector extends GeometryVector{
             topologyVector,
             vertexOffsets,
             vertexBuffer,
-            mortonInfo
+            mortonInfo,
         );
     }
 
@@ -41,7 +40,7 @@ export class FlatGeometryVector extends GeometryVector{
         geometryTypes: Int32Array,
         topologyVector: TopologyVector,
         vertexOffsets: Int32Array,
-        vertexBuffer: Int32Array
+        vertexBuffer: Int32Array,
     ): FlatGeometryVector {
         return new FlatGeometryVector(
             VertexBufferType.VEC_2,
@@ -62,10 +61,7 @@ export class FlatGeometryVector extends GeometryVector{
 
     containsPolygonGeometry(): boolean {
         for (let i = 0; i < this.numGeometries; i++) {
-            if (
-                this.geometryType(i) === GEOMETRY_TYPE.POLYGON ||
-                this.geometryType(i) === GEOMETRY_TYPE.MULTIPOLYGON
-            ) {
+            if (this.geometryType(i) === GEOMETRY_TYPE.POLYGON || this.geometryType(i) === GEOMETRY_TYPE.MULTIPOLYGON) {
                 return true;
             }
         }
@@ -74,23 +70,23 @@ export class FlatGeometryVector extends GeometryVector{
 
     //TODO: refactor -> quick and dirty -> let a multi part geometry be equal to a single part geometry
     //to produce the same results as with MVT and the existing styles
-    filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector{
+    filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector {
         const selectionVector = [];
-        for(let i = 0; i < this.numGeometries; i++){
-            if(this.geometryType(i) === geometryType || this.geometryType(i) === (geometryType + 3)){
+        for (let i = 0; i < this.numGeometries; i++) {
+            if (this.geometryType(i) === geometryType || this.geometryType(i) === geometryType + 3) {
                 selectionVector.push(i);
             }
         }
         return new FlatSelectionVector(selectionVector);
     }
 
-    filterSelected(predicateGeometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
+    filterSelected(predicateGeometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector) {
         let limit = 0;
         const vector = selectionVector.selectionValues();
-        for(let i = 0; i < selectionVector.limit; i++){
+        for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             const geometryType = this.geometryType(index);
-            if(predicateGeometryType === geometryType || (predicateGeometryType + 3) ===  geometryType){
+            if (predicateGeometryType === geometryType || predicateGeometryType + 3 === geometryType) {
                 vector[limit++] = index;
             }
         }
@@ -98,8 +94,7 @@ export class FlatGeometryVector extends GeometryVector{
         selectionVector.setLimit(limit);
     }
 
-    containsSingleGeometryType(): boolean{
+    containsSingleGeometryType(): boolean {
         return false;
     }
-
 }

@@ -1,4 +1,4 @@
-import {StringDictionaryVector} from "../../../../src/vector/dictionary/stringDictionaryVector";
+import { StringDictionaryVector } from "../../../../src/vector/dictionary/stringDictionaryVector";
 
 describe("StringDictionaryVector", () => {
     let values: string[];
@@ -18,7 +18,7 @@ describe("StringDictionaryVector", () => {
         offsetBuffer = new Int32Array(values.length + 1);
         offsetBuffer[0] = 0;
         let i = 1;
-        for(const value of dictionary){
+        for (const value of dictionary) {
             const data = encoder.encode(value);
             dataBuffer.set(data, offset);
             offset += data.length;
@@ -49,5 +49,4 @@ describe("StringDictionaryVector", () => {
             expect(result.selectionValues()).toEqual([0, 2, 3]);
         });
     });
-
 });

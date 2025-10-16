@@ -2,32 +2,30 @@ import varint from "varint";
 import {
     decodeVarintInt32,
     decodeVarintFloat64,
-    decodeZigZagFloat64
+    decodeZigZagFloat64,
 } from "../../../src/encodings/integerDecodingUtils";
 import IntWrapper from "../../../src/encodings/intWrapper";
-import {zigZagEncode64} from "bytebuffer";
+import { zigZagEncode64 } from "bytebuffer";
 
 const numValues = 200_000;
 const randomValues = new Int32Array(numValues);
 const maxValue = 2 ** 30;
-for(let i = 0; i < randomValues.length; i++) {
+for (let i = 0; i < randomValues.length; i++) {
     randomValues[i] = Math.floor(Math.random() * maxValue);
 }
 const randomVarintValues = varintEncode(randomValues);
 
-
 describe("IntegerDecodingUtils", () => {
     describe("decodeVarint", () => {
         it("should return valid decoded values", () => {
-            const actualValues = decodeVarintInt32(randomVarintValues, new IntWrapper(0),
-                randomValues.length);
+            const actualValues = decodeVarintInt32(randomVarintValues, new IntWrapper(0), randomValues.length);
 
             expect(actualValues).toEqual(randomValues);
         });
     });
     describe("decodeVarintLongToFloat64", () => {
         it("should return valid decoded values", () => {
-            const value = 2** 40;
+            const value = 2 ** 40;
             const varintEncoded = varintEncodeNum(value);
 
             const actualValues = decodeVarintFloat64(varintEncoded, 1, new IntWrapper(0));
@@ -37,7 +35,7 @@ describe("IntegerDecodingUtils", () => {
     });
     describe("decodeZigZagFloat64", () => {
         it("should return valid decoded values for zigZag Varint decoding", () => {
-            const value = 2** 35;
+            const value = 2 ** 35;
             const zigZagValue = value * 2;
             const varintEncoded = varintEncodeNum(zigZagValue);
 
@@ -59,9 +57,9 @@ describe("IntegerDecodingUtils", () => {
     });
 });
 
-function varintEncode(values: Int32Array){
+function varintEncode(values: Int32Array) {
     const varintValues = [];
-    for(let i = 0; i < values.length; i++){
+    for (let i = 0; i < values.length; i++) {
         const v = varint.encode(values[i]);
         varintValues.push(...v);
     }
@@ -69,7 +67,7 @@ function varintEncode(values: Int32Array){
     return new Uint8Array(varintValues);
 }
 
-function varintEncodeNum(value: number){
+function varintEncodeNum(value: number) {
     const v = varint.encode(value);
     return new Uint8Array(v);
 }

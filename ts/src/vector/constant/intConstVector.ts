@@ -1,23 +1,22 @@
 import type BitVector from "../flat/bitVector";
-import {type SelectionVector} from "../filter/selectionVector";
-import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import { type SelectionVector } from "../filter/selectionVector";
+import { FlatSelectionVector } from "../filter/flatSelectionVector";
 import Vector from "../vector";
 import {
     createSelectionVector,
     createNullableSelectionVector,
-    updateNullableSelectionVector
+    updateNullableSelectionVector,
 } from "../filter/selectionVectorUtils";
 
 export class IntConstVector extends Vector<Int32Array, number> {
-
-    public constructor (name: string, value: number,  sizeOrNullabilityBuffer : number | BitVector) {
+    public constructor(name: string, value: number, sizeOrNullabilityBuffer: number | BitVector) {
         super(name, Int32Array.of(value), sizeOrNullabilityBuffer);
     }
 
     filter(value: number): SelectionVector {
         //TODO: create also different SelectionVectors -> Const, Sequence and Flat
         const vectorValue = this.dataBuffer[0];
-        if(vectorValue !== value){
+        if (vectorValue !== value) {
             return new FlatSelectionVector([]);
         }
 
@@ -26,7 +25,7 @@ export class IntConstVector extends Vector<Int32Array, number> {
 
     match(values: number[]): SelectionVector {
         const vectorValue = this.dataBuffer[0];
-        if(!values.includes(vectorValue)){
+        if (!values.includes(vectorValue)) {
             return new FlatSelectionVector([]);
         }
 
@@ -35,7 +34,7 @@ export class IntConstVector extends Vector<Int32Array, number> {
 
     filterSelected(value: number, selectionVector: SelectionVector): void {
         const vectorValue = this.dataBuffer[0];
-        if(vectorValue !== value){
+        if (vectorValue !== value) {
             selectionVector.setLimit(0);
             return;
         }
@@ -45,7 +44,7 @@ export class IntConstVector extends Vector<Int32Array, number> {
 
     matchSelected(values: number[], selectionVector: SelectionVector): void {
         const vectorValue = this.dataBuffer[0];
-        if(!values.includes(vectorValue)){
+        if (!values.includes(vectorValue)) {
             selectionVector.setLimit(0);
             return;
         }
@@ -59,12 +58,13 @@ export class IntConstVector extends Vector<Int32Array, number> {
 
     greaterThanOrEqualTo(testValue: number): SelectionVector {
         //TODO: handle bitVector?
-        return this.dataBuffer[0] >= testValue? createNullableSelectionVector(this.size, this.nullabilityBuffer) :
-            new FlatSelectionVector([]);
+        return this.dataBuffer[0] >= testValue
+            ? createNullableSelectionVector(this.size, this.nullabilityBuffer)
+            : new FlatSelectionVector([]);
     }
 
     greaterThanOrEqualToSelected(value: number, selectionVector: SelectionVector): void {
-        if(this.dataBuffer[0] >= value){
+        if (this.dataBuffer[0] >= value) {
             updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
             return;
         }
@@ -73,12 +73,13 @@ export class IntConstVector extends Vector<Int32Array, number> {
     }
 
     smallerThanOrEqualTo(value: number): SelectionVector {
-        return this.dataBuffer[0] <= value? createNullableSelectionVector(this.size, this.nullabilityBuffer) :
-            new FlatSelectionVector([]);
+        return this.dataBuffer[0] <= value
+            ? createNullableSelectionVector(this.size, this.nullabilityBuffer)
+            : new FlatSelectionVector([]);
     }
 
     smallerThanOrEqualToSelected(value: number, selectionVector: SelectionVector): void {
-        if(this.dataBuffer[0] <= value){
+        if (this.dataBuffer[0] <= value) {
             updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
             return;
         }
@@ -87,12 +88,11 @@ export class IntConstVector extends Vector<Int32Array, number> {
     }
 
     filterNotEqual(value: number): SelectionVector {
-        return this.dataBuffer[0] !== value? createSelectionVector(this.size):
-            new FlatSelectionVector([]);
+        return this.dataBuffer[0] !== value ? createSelectionVector(this.size) : new FlatSelectionVector([]);
     }
 
     filterNotEqualSelected(value: number, selectionVector: SelectionVector): void {
-        if(this.dataBuffer[0] !== value){
+        if (this.dataBuffer[0] !== value) {
             return;
         }
 
@@ -106,5 +106,4 @@ export class IntConstVector extends Vector<Int32Array, number> {
     noneMatchSelected(values: number[], selectionVector: SelectionVector): void {
         throw new Error("Not implemented yet.");
     }
-
 }

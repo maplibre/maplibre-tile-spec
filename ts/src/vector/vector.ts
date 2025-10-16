@@ -1,27 +1,29 @@
 import type BitVector from "./flat/bitVector";
-import {type SelectionVector} from "./filter/selectionVector";
-import {FlatSelectionVector} from "./filter/flatSelectionVector";
+import { type SelectionVector } from "./filter/selectionVector";
+import { FlatSelectionVector } from "./filter/flatSelectionVector";
 
 export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView, K = unknown> {
     protected nullabilityBuffer: BitVector | null;
     protected _size: number;
 
-    constructor(private readonly _name: string, protected readonly dataBuffer: T, sizeOrNullabilityBuffer : number | BitVector) {
-        if(typeof sizeOrNullabilityBuffer === "number"){
+    constructor(
+        private readonly _name: string,
+        protected readonly dataBuffer: T,
+        sizeOrNullabilityBuffer: number | BitVector,
+    ) {
+        if (typeof sizeOrNullabilityBuffer === "number") {
             this._size = sizeOrNullabilityBuffer;
-        }
-        else{
+        } else {
             this.nullabilityBuffer = sizeOrNullabilityBuffer;
             this._size = sizeOrNullabilityBuffer.size();
         }
     }
 
     getValue(index: number): K | null {
-        return (this.nullabilityBuffer && !this.nullabilityBuffer.get(index))? null :
-            this.getValueFromBuffer(index);
+        return this.nullabilityBuffer && !this.nullabilityBuffer.get(index) ? null : this.getValueFromBuffer(index);
     }
 
-    has(index: number): boolean{
+    has(index: number): boolean {
         return (this.nullabilityBuffer && this.nullabilityBuffer.get(index)) || !this.nullabilityBuffer;
     }
 

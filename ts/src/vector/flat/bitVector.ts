@@ -18,7 +18,7 @@ export default class BitVector {
         return ((b >> bitIndex) & 1) === 1;
     }
 
-    set(index: number, value: boolean): void{
+    set(index: number, value: boolean): void {
         //TODO: refactor -> improve quick and dirty solution
         const byteIndex = Math.floor(index / 8);
         const bitIndex = index % 8;
