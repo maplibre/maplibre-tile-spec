@@ -10,14 +10,21 @@ categories.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-borrowme = "0.0.15"
-integer-encoding = "4.0.2"
-nom = "8.0.0"
-num_enum = "0.7.4"
+#galileo-mvt = "0.2.1"
+#mlt = { path = "../mlt" }
+#mvt = "0.10.3"
 #mvt-reader = "2.1.0"
-galileo-mvt = "0.2.1"
-mvt = "0.10.3"
-walkdir = "2.5.0"
+borrowme = "0.0.15"
+hex = "0.4.3"
+integer-encoding = "4.0.2"
+num-traits = "0.2.19"
+num_enum = "0.7.4"
+thiserror = "2.0.11"
+zigzag = "0.1.0"
+
+[dev-dependencies]
+insta = "1.43.2"
+test_each_file = "0.3.5"
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -28,3 +35,4 @@ cargo = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 missing_errors_doc = "allow"
 multiple_crate_versions = "allow"
+missing_panics_doc = "allow"
