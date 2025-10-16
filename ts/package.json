@@ -1,7 +1,7 @@
 {
   "name": "@maplibre/mlt",
   "version": "0.0.1-alpha.7",
-  "main": "dist/mlt.js",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "/dist"
@@ -66,7 +66,7 @@
     "varint": "^6.0.0"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.9.0",
+    "@bufbuild/protobuf": "^1.10.0",
     "bitset": "^5.2.3"
   }
 }
