@@ -70,7 +70,7 @@ lint-java:
     cd java && ./gradlew spotlessJavaCheck
 
 # Run linting for JavaScript
-lint-js:
+lint-js: install-js
     cd ts && npm run lint
 
 # Run linting for Rust
