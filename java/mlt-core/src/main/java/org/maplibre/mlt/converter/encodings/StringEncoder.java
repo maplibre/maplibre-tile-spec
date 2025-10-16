@@ -66,7 +66,7 @@ public class StringEncoder {
 
     var encodedSharedDictionary =
         encodeDictionary(
-            dictionary, physicalLevelTechnique, false, true, streamObserver, fieldName + "_dict");
+            dictionary, physicalLevelTechnique, false, true, streamObserver, fieldName);
 
     byte[] encodedSharedFsstDictionary = null;
     if (useFsstEncoding) {
@@ -81,6 +81,7 @@ public class StringEncoder {
             ? encodedSharedFsstDictionary
             : encodedSharedDictionary;
 
+    final var width = (int) Math.ceil(Math.log10(dataStreams.size() - 1));
     for (var i = 0; i < dataStreams.size(); i++) {
       var presentStream = presentStreams.get(i);
       var dataStream = dataStreams.get(i);
@@ -93,12 +94,13 @@ public class StringEncoder {
       }
 
       final var encodedFieldMetadata = EncodingUtils.encodeVarints(new int[] {2}, false, false);
+      final var fieldNumber = String.format("%0" + width + "d", i);
       final var encodedPresentStream =
           BooleanEncoder.encodeBooleanStream(
               presentStream,
               PhysicalStreamType.PRESENT,
               streamObserver,
-              fieldName + "_present_" + i);
+              fieldName + "_child" + fieldNumber + "_present");
 
       final var encodedDataStream =
           IntegerEncoder.encodeIntStream(
@@ -108,7 +110,7 @@ public class StringEncoder {
               PhysicalStreamType.OFFSET,
               new LogicalStreamType(OffsetType.STRING),
               streamObserver,
-              fieldName + "_" + i);
+              fieldName + "_child" + fieldNumber + "_offset");
       sharedDictionary =
           CollectionUtils.concatByteArrays(
               sharedDictionary, encodedFieldMetadata, encodedPresentStream, encodedDataStream);

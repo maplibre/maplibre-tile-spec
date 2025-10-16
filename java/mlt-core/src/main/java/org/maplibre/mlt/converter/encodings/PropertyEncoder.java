@@ -124,7 +124,7 @@ public class PropertyEncoder {
                 physicalLevelTechnique,
                 useAdvancedEncodings,
                 streamObserver,
-                columnMetadata.getName());
+                "prop_" + columnMetadata.getName());
         // TODO: fix -> ony quick and dirty fix
         final var numStreams = nestedColumns.getLeft() == 0 ? 0 : 1;
         /* Set number of streams to zero if no columns are present in this tile */
