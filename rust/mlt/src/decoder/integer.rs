@@ -31,7 +31,7 @@ pub fn decode_long_stream(
 
 /// `decode_int_stream` can handle multiple decoding techniques,
 /// some of which do represent signed integers (like varint with [`ZigZag`])
-/// so returning Vec<i32>
+/// so returning `Vec<i32>`
 pub fn decode_int_stream(
     tile: &mut TrackedBytes,
     metadata: &StreamMetadata,
