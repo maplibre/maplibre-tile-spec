@@ -6,10 +6,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.StringEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
@@ -18,6 +20,15 @@ import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class StringDecoderTest {
+
+  public static Pair<Integer, byte[]> encodeSharedDictionary(
+      List<List<String>> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean useFsstEncoding)
+      throws IOException {
+    return StringEncoder.encodeSharedDictionary(
+        values, physicalLevelTechnique, useFsstEncoding, new MLTStreamObserverDefault(), null);
+  }
 
   @Test
   @Disabled
@@ -37,8 +48,7 @@ public class StringDecoderTest {
             "TestTestTestTestTestTes9",
             "TestTestTestTestTestTest10");
     var values = List.of(values1, values2);
-    var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
+    var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
     var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
@@ -64,8 +74,7 @@ public class StringDecoderTest {
     var values1 = List.of("Test", "Test2", "Test4", "Test2", "Test");
     var values2 = List.of("Test1", "Test2", "Test1", "Test5", "Test");
     var values = List.of(values1, values2);
-    var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
+    var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var test =
         MltTilesetMetadata.Field.newBuilder()
@@ -109,8 +118,7 @@ public class StringDecoderTest {
         Arrays.asList(
             null, "Test1", "Test2", "Test1", null, null, "Test5", null, "Test", null, null);
     var values = List.of(values1, values2);
-    var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
+    var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var test =
         MltTilesetMetadata.Field.newBuilder()
@@ -189,8 +197,7 @@ public class StringDecoderTest {
             null,
             "TestTestTestTestTestTest10");
     var values = List.of(values1, values2);
-    var encodedValues =
-        StringEncoder.encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
+    var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
     var test =
         MltTilesetMetadata.Field.newBuilder()
@@ -264,8 +271,7 @@ public class StringDecoderTest {
     }
 
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(
-            List.of(values), PhysicalLevelTechnique.FAST_PFOR, false);
+        encodeSharedDictionary(List.of(values), PhysicalLevelTechnique.FAST_PFOR, false);
 
     var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
@@ -315,7 +321,7 @@ public class StringDecoderTest {
     }
 
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
+        encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
@@ -376,7 +382,7 @@ public class StringDecoderTest {
     }
 
     var encodedValues =
-        StringEncoder.encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
+        encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
