@@ -1,9 +1,14 @@
-import {ConstVector} from "./constVector";
-import BitVector from "../flat/bitVector";
-import {SelectionVector} from "../filter/selectionVector";
+import type BitVector from "../flat/bitVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import Vector from "../vector";
+import {
+    createSelectionVector,
+    createNullableSelectionVector,
+    updateNullableSelectionVector
+} from "../filter/selectionVectorUtils";
 
-export class IntConstVector extends ConstVector<Int32Array, number> {
+export class IntConstVector extends Vector<Int32Array, number> {
 
     public constructor (name: string, value: number,  sizeOrNullabilityBuffer : number | BitVector) {
         super(name, Int32Array.of(value), sizeOrNullabilityBuffer);
@@ -16,7 +21,7 @@ export class IntConstVector extends ConstVector<Int32Array, number> {
             return new FlatSelectionVector([]);
         }
 
-        return this.createSelectionVector();
+        return createNullableSelectionVector(this.size, this.nullabilityBuffer);
     }
 
     match(values: number[]): SelectionVector {
@@ -25,7 +30,7 @@ export class IntConstVector extends ConstVector<Int32Array, number> {
             return new FlatSelectionVector([]);
         }
 
-        return this.createSelectionVector();
+        return createNullableSelectionVector(this.size, this.nullabilityBuffer);
     }
 
     filterSelected(value: number, selectionVector: SelectionVector): void {
@@ -35,7 +40,7 @@ export class IntConstVector extends ConstVector<Int32Array, number> {
             return;
         }
 
-        this.updateSelectionVector(selectionVector);
+        updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
     }
 
     matchSelected(values: number[], selectionVector: SelectionVector): void {
@@ -45,7 +50,7 @@ export class IntConstVector extends ConstVector<Int32Array, number> {
             return;
         }
 
-        this.updateSelectionVector(selectionVector);
+        updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
     }
 
     protected getValueFromBuffer(index: number): number {
@@ -54,19 +59,13 @@ export class IntConstVector extends ConstVector<Int32Array, number> {
 
     greaterThanOrEqualTo(testValue: number): SelectionVector {
         //TODO: handle bitVector?
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue >= testValue){
-            return this.createSelectionVector();
-        }
-
-        return new FlatSelectionVector([]);
-
+        return this.dataBuffer[0] >= testValue? createNullableSelectionVector(this.size, this.nullabilityBuffer) :
+            new FlatSelectionVector([]);
     }
 
     greaterThanOrEqualToSelected(value: number, selectionVector: SelectionVector): void {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue >= value){
-            this.updateSelectionVector(selectionVector);
+        if(this.dataBuffer[0] >= value){
+            updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
             return;
         }
 
@@ -74,36 +73,26 @@ export class IntConstVector extends ConstVector<Int32Array, number> {
     }
 
     smallerThanOrEqualTo(value: number): SelectionVector {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue <= value){
-            return this.createSelectionVector();
-        }
-
-        return new FlatSelectionVector([]);
+        return this.dataBuffer[0] <= value? createNullableSelectionVector(this.size, this.nullabilityBuffer) :
+            new FlatSelectionVector([]);
     }
 
     smallerThanOrEqualToSelected(value: number, selectionVector: SelectionVector): void {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue <= value){
-            this.updateSelectionVector(selectionVector);
+        if(this.dataBuffer[0] <= value){
+            updateNullableSelectionVector(selectionVector, this.nullabilityBuffer);
+            return;
         }
 
         selectionVector.setLimit(0);
     }
 
     filterNotEqual(value: number): SelectionVector {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue !== value){
-            return this.createSelectionVector();
-        }
-
-        return new FlatSelectionVector([]);
+        return this.dataBuffer[0] !== value? createSelectionVector(this.size):
+            new FlatSelectionVector([]);
     }
 
     filterNotEqualSelected(value: number, selectionVector: SelectionVector): void {
-        const vectorValue = this.dataBuffer[0];
-        if(vectorValue !== value){
-            this.updateSelectionVector(selectionVector);
+        if(this.dataBuffer[0] !== value){
             return;
         }
 

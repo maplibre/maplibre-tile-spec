@@ -1,7 +1,7 @@
-import IntWrapper from "./intWrapper";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
-import BitVector from "../vector/flat/bitVector";
-import {StreamMetadata} from "../mltMetadata";
+import type IntWrapper from "./intWrapper";
+import {type RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
+import type BitVector from "../vector/flat/bitVector";
+import {type StreamMetadata} from "../mltMetadata";
 
 
 /* Null suppression (physical level) techniques ------------------------------------------------------------------*/
@@ -453,7 +453,7 @@ export function decodeNullableZigZagDeltaInt64(bitVector: BitVector, data: BigIn
     return decodedData;
 }
 
-/* Transform data to allow random access ------------------------------------------------------------------------ */
+/* Transform data to allow util access ------------------------------------------------------------------------ */
 
 export function zigZagDeltaOfDeltaDecoding(data: Int32Array): Int32Array {
     const decodedData = new Int32Array(data.length + 1);

@@ -1,136 +1,0 @@
-¡
-
-water_name
-id" 
-geometry* 
-class" 	
-intermittent" 
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	<
-housenumber
-id" 
-geometry* 
-housenumber" 	F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	°
-waterway
-id" 
-geometry* 
-class" 	
-intermittent" 
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-brunnel" 	2
-landuse
-id" 
-geometry* 
-class" 	‹
-place
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:en" 	
-name:ja" 	
-name:ru" 	
-name:sr" 	
-name:el" 	
-name:de" 	
-name:fr" 	Ç
-poi
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-subclass" 	
-agg_stop" 
-name:fr" 	
-name:ru" 	
-level" 
-name:de" 	
-name:en" 	
-name:nonlatin" 	
-layer" 
-indoor" 
-name:sr" 	
-name:zh" 	
-name:ja" 	
-name:es" 	
-name:eu" 	
-name:ar" 	
-name:it" 	
-name:tr" 	W
-water
-id" 
-geometry* 
-class" 	
-intermittent" 
-brunnel" 	ˆ
-transportation_name
-id" 
-geometry* 
-brunnel" 	
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-subclass" 	
-indoor" 
-network" 	
-ref" 	
-
-ref_length" 
-layer" ?
-aeroway
-id" 
-geometry* 
-class" 	
-ref" 	f
-building
-id" 
-geometry* 
-render_height" 
-render_min_height" 
-colour" 	ø
-transportation
-id" 
-geometry* 
-brunnel" 	
-class" 	
-layer" 
-oneway" 
-ramp" 
-subclass" 	
-level" 
-surface" 	
-service" 	
-indoor" 
-foot" 	
-bicycle" 	
-horse" 	

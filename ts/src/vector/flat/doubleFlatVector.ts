@@ -1,18 +1,11 @@
 import {FixedSizeVector} from "../fixedSizeVector";
-import BitVector from "./bitVector";
-import {SelectionVector} from "../filter/selectionVector";
+import type BitVector from "./bitVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import {IntVector} from "../intVector";
 
 
-export class DoubleFlatVector extends FixedSizeVector<Float64Array, number>{
-
-    constructor(
-        name: string,
-        dataBuffer: Float64Array,
-        sizeOrNullabilityBuffer : number | BitVector
-    ) {
-        super(name, dataBuffer, sizeOrNullabilityBuffer);
-    }
+export class DoubleFlatVector extends FixedSizeVector<Float64Array, number> {
 
     protected getValueFromBuffer(index: number): number {
         return this.dataBuffer[index];
@@ -47,7 +40,7 @@ export class DoubleFlatVector extends FixedSizeVector<Float64Array, number>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[index] === testValue) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] === testValue) {
                 vector[limit++] = index;
             }
         }
@@ -60,7 +53,7 @@ export class DoubleFlatVector extends FixedSizeVector<Float64Array, number>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && testValues.includes(this.dataBuffer[index])) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && testValues.includes(this.dataBuffer[index])) {
                 vector[limit++] = index;
             }
         }
@@ -84,7 +77,7 @@ export class DoubleFlatVector extends FixedSizeVector<Float64Array, number>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[index] >= testValue) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] >= testValue) {
                 vector[limit++] = index;
             }
         }
@@ -108,7 +101,7 @@ export class DoubleFlatVector extends FixedSizeVector<Float64Array, number>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[index] <= testValue) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] <= testValue) {
                 vector[limit++] = index;
             }
         }

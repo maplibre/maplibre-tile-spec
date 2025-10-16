@@ -8,10 +8,12 @@
 #include <mlt/geometry.hpp>
 #include <mlt/geometry_vector.hpp>
 #include <mlt/layer.hpp>
+#include <mlt/metadata/type_map.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/properties.hpp>
 #include <mlt/tile.hpp>
+#include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/rle.hpp>
 #include <mlt/util/stl.hpp>
@@ -25,22 +27,12 @@ namespace mlt {
 using namespace decoder;
 using namespace util::decoding;
 
-namespace {
-constexpr std::string_view ID_COLUMN_NAME = "id";
-constexpr std::string_view GEOMETRY_COLUMN_NAME = "geometry";
-
-BufferStream subStream(const BufferStream& buffer, std::size_t offset, std::size_t length) {
-    const auto data = buffer.getRemainingView();
-    if (offset + length > data.size()) {
-        throw std::runtime_error("Invalid substream range");
-    }
-    return {{data.data() + offset, length}};
-}
-} // namespace
-
 struct Decoder::Impl {
     Impl(std::unique_ptr<GeometryFactory>&& geometryFactory_)
         : geometryFactory(std::move(geometryFactory_)) {}
+
+    Layer parseBasicMVTEquivalent(BufferStream&);
+    std::vector<Feature> makeFeatures(const std::vector<Feature::id_t>&, std::vector<std::unique_ptr<Geometry>>&&);
 
     IntegerDecoder integerDecoder;
     StringDecoder stringDecoder{integerDecoder};
@@ -49,156 +41,57 @@ struct Decoder::Impl {
     std::unique_ptr<GeometryFactory> geometryFactory;
 };
 
-Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory)
-    : impl{std::make_unique<Impl>(std::move(geometryFactory))} {}
+Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
+    using metadata::stream::StreamMetadata;
+    using metadata::type_map::Tag0x01;
 
-Decoder::~Decoder() noexcept = default;
+    const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData);
 
-MapLibreTile Decoder::decode(DataView tileData_, const TileMetadata& tileMetadata) {
-    auto tileData = BufferStream{tileData_};
-    return decode(tileData, tileMetadata);
-}
+    std::vector<Feature::id_t> ids;
+    std::unique_ptr<geometry::GeometryVector> geometryVector;
+    PropertyVecMap properties;
 
-MapLibreTile Decoder::decode(BufferStream& tileData, const TileMetadata& tileMetadata) {
-    return {decodeLayers(tileData, tileMetadata)};
-}
+    for (const auto& columnMetadata : layerMetadata.columns) {
+        const auto numStreams = Tag0x01::hasStreamCount(columnMetadata) ? decodeVarint<std::uint32_t>(tileData) : 1;
+        if (columnMetadata.isID()) {
+            if (columnMetadata.nullable) {
+                const auto presentStreamMetadata = StreamMetadata::decode(tileData);
+                // data ignored, don't decode it
+                tileData.consume(presentStreamMetadata->getByteLength());
+            }
 
-std::vector<Layer> Decoder::decodeLayers(BufferStream& tileData, const TileMetadata& tileMetadata) {
-    using namespace metadata;
-    using namespace metadata::stream;
-    using namespace metadata::tileset;
-    using namespace util::decoding;
+            const auto idDataStreamMetadata = StreamMetadata::decode(tileData);
 
-    std::vector<Layer> layers;
-    // layers.reserve(...);
-
-    while (tileData.available()) {
-        std::vector<Feature::id_t> ids;
-        std::unique_ptr<geometry::GeometryVector> geometryVector;
-        PropertyVecMap properties;
-
-        const auto version = tileData.read();
-        const auto featureTableId = decodeVarint<std::uint32_t>(tileData);
-        const auto featureTableBodySize = decodeVarint<std::uint32_t>(tileData);
-        const auto [tileExtent, maxTileExtent, numFeatures] = decodeVarints<std::uint32_t, 3>(tileData);
-
-        if (tileExtent == 0) {
-            throw std::runtime_error("invalid tile extent");
-        }
-        if (tileMetadata.featureTables.size() <= featureTableId) {
-            throw std::runtime_error("invalid table id");
-        }
-        const auto& tableMetadata = tileMetadata.featureTables[featureTableId];
-
-        for (const auto& columnMetadata : tableMetadata.columns) {
-            const auto& columnName = columnMetadata.name;
-            const auto numStreams = decodeVarint<std::uint32_t>(tileData);
-
-            // TODO: add decoding of vector type to be compliant with the spec
-            // TODO: compare based on ids
-
-            if (columnName == ID_COLUMN_NAME) {
-                if (numStreams == 2) {
-                    const auto presentStreamMetadata = StreamMetadata::decode(tileData);
-                    // data ignored, don't decode it
-                    tileData.consume(presentStreamMetadata->getByteLength());
-                } else {
-                    throw std::runtime_error("Unsupported number of streams for ID column: " +
-                                             std::to_string(numStreams));
-                }
-
-                const auto idDataStreamMetadata = StreamMetadata::decode(tileData);
-                if (!std::holds_alternative<ScalarColumn>(columnMetadata.type) ||
-                    !std::holds_alternative<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type)) {
-                    throw std::runtime_error("id column must be scalar and physical");
-                }
-                ids.resize(idDataStreamMetadata->getNumValues());
-                const auto idDataType = std::get<ScalarType>(std::get<ScalarColumn>(columnMetadata.type).type);
-                switch (idDataType) {
-                    case metadata::tileset::schema::ScalarType::INT_32:
-                    case metadata::tileset::schema::ScalarType::UINT_32:
-                        impl->integerDecoder.decodeIntStream<std::uint32_t, std::uint64_t>(
-                            tileData, ids, *idDataStreamMetadata);
-                        break;
-                    case metadata::tileset::schema::ScalarType::INT_64:
-                    case metadata::tileset::schema::ScalarType::UINT_64:
-                        impl->integerDecoder.decodeIntStream<std::uint64_t>(tileData, ids, *idDataStreamMetadata);
-                        break;
-                    default:
-                        throw std::runtime_error("unsupported id data type");
-                }
-            } else if (columnName == GEOMETRY_COLUMN_NAME) {
-                geometryVector = impl->geometryDecoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
+            ids.resize(idDataStreamMetadata->getNumValues());
+            if (columnMetadata.getScalarType().hasLongID) {
+                integerDecoder.decodeIntStream<std::uint64_t>(tileData, ids, *idDataStreamMetadata);
             } else {
-                auto property = impl->propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
-                if (property) {
-                    properties.emplace(columnMetadata.name, std::move(*property));
-                }
+                integerDecoder.decodeIntStream<std::uint32_t, std::uint64_t>(tileData, ids, *idDataStreamMetadata);
+            }
+        } else if (columnMetadata.isGeometry()) {
+            geometryVector = geometryDecoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
+        } else {
+            auto property = propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
+            if (property) {
+                properties.emplace(columnMetadata.name, std::move(*property));
             }
         }
-
-        layers.emplace_back(tableMetadata.name,
-                            version,
-                            tileExtent,
-                            std::move(geometryVector),
-                            makeFeatures(ids, geometryVector->getGeometries(*impl->geometryFactory)),
-                            std::move(properties));
-    }
-    return layers;
-}
-
-MapLibreTile Decoder::decodeTile(DataView tileData) {
-    BufferStream buffer{tileData};
-    std::vector<Layer> tileLayers;
-    while (buffer.available()) {
-        // Read the metadata size
-        const auto metadataSize = decodeVarint<std::uint32_t>(buffer);
-        if (metadataSize >= buffer.getRemaining()) {
-            throw std::runtime_error("Invalid tile size");
-        }
-
-        const auto tileDataSize = decodeVarint<std::uint32_t>(buffer);
-        if (metadataSize + tileDataSize > buffer.getRemaining()) {
-            throw std::runtime_error("Invalid tile size");
-        }
-
-        // Create a temporary buffer for just the metadata, as it reads to the end of the buffer.
-        auto metadataBuffer = subStream(buffer, 0, metadataSize);
-        auto metadata = mlt::metadata::tileset::decodeTileMetadata(metadataBuffer);
-        buffer.consume(metadataSize);
-
-        // Create another temporary buffer for just the tile data
-        auto tileBuffer = subStream(buffer, 0, tileDataSize);
-        auto layers = decodeLayers(tileBuffer, metadata);
-        buffer.consume(tileDataSize);
-
-        tileLayers.insert(
-            tileLayers.end(), std::make_move_iterator(layers.begin()), std::make_move_iterator(layers.end()));
-    }
-    return {std::move(tileLayers)};
-}
-
-metadata::tileset::TileMetadata Decoder::decodeTileMetadata(BufferStream& buffer) {
-    // Read the metadata size
-    const auto metadataSize = decodeVarint<std::uint32_t>(buffer);
-    const auto headerSize = getVarintSize(metadataSize);
-    if (metadataSize >= buffer.getRemaining()) {
-        throw std::runtime_error("Invalid tile size");
     }
 
-    // Create a temporary buffer for just the metadata, as it reads to the end of the buffer.
-    const auto data = buffer.getRemainingView();
-    BufferStream metadataBuffer{{static_cast<const char*>(data.data()), metadataSize}};
-    auto metadata = mlt::metadata::tileset::decodeTileMetadata(metadataBuffer);
+    // Check framing, we expect to use all the data in the buffer provided.
+    if (tileData.available() > 0) {
+        throw std::runtime_error(std::to_string(tileData.available()) + " bytes trailing layer " + layerMetadata.name);
+    }
 
-    // Update the original buffer position to the beginning of the tile data
-    buffer.consume(metadataSize);
-
-    return metadata;
+    return {layerMetadata.name,
+            layerMetadata.extent,
+            std::move(geometryVector),
+            makeFeatures(ids, geometryVector->getGeometries(*geometryFactory)),
+            std::move(properties)};
 }
 
-std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids,
-                                           std::vector<std::unique_ptr<Geometry>>&& geometries) {
+std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<Feature::id_t>& ids,
+                                                 std::vector<std::unique_ptr<Geometry>>&& geometries) {
     const auto featureCount = ids.size();
     if (geometries.size() < featureCount) {
         throw std::runtime_error("Invalid geometry count");
@@ -207,6 +100,37 @@ std::vector<Feature> Decoder::makeFeatures(const std::vector<Feature::id_t>& ids
     return util::generateVector<Feature>(featureCount, [&](const auto i) {
         return Feature{ids[i], std::move(geometries[i]), static_cast<std::uint32_t>(i)};
     });
+}
+
+Decoder::Decoder()
+    : Decoder(std::make_unique<GeometryFactory>()) {}
+
+Decoder::Decoder(std::unique_ptr<GeometryFactory>&& geometryFactory)
+    : impl{std::make_unique<Impl>(std::move(geometryFactory))} {}
+
+Decoder::~Decoder() noexcept = default;
+
+MapLibreTile Decoder::decode(BufferStream tileData) {
+    std::vector<Layer> layers;
+    while (tileData.available()) {
+        const auto layerLength = decodeVarint<std::uint32_t>(tileData);
+
+        // Create a new BufferStream for this layer and advance past it in the main stream
+        auto layerStream = tileData.getSubStream(0, layerLength);
+        tileData.consume(layerLength);
+
+        const auto layerTag = decodeVarint<std::uint32_t>(layerStream);
+        if (layerTag == 1) {
+            layers.push_back(impl->parseBasicMVTEquivalent(layerStream));
+        } else {
+            // Skipping unknown layer
+        }
+    }
+    return {std::move(layers)};
+}
+
+MapLibreTile Decoder::decode(DataView tileData) {
+    return decode(BufferStream{tileData});
 }
 
 } // namespace mlt

@@ -20,8 +20,16 @@ struct BufferStream : public util::noncopyable {
     auto getSize() const noexcept { return data.size(); }
     auto getOffset() const noexcept { return offset; }
     auto getRemaining() const noexcept { return data.size() - offset; }
-    DataView getRemainingView() const { return {getReadPosition<DataView::value_type>(), getRemaining()}; }
     bool available(std::size_t size = 1) const noexcept { return size <= getRemaining(); }
+
+    /// Get another DataView representing a portion of the remaining data
+    BufferStream getSubStream(std::size_t offset, std::size_t length) const {
+        const auto remaining = getRemaining();
+        if (offset + length > remaining) {
+            throw std::runtime_error("Substream exceeds buffer size");
+        }
+        return {{getReadPosition<DataView::value_type>() + offset, length}};
+    }
 
     void reset() { offset = 0; }
     void reset(DataView data_) {

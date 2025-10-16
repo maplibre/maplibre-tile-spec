@@ -21,6 +21,7 @@ jobs:
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just -v lint-js
       - run: just -v test-js
+      - run: just -v build-js
 
   bench-js:
     runs-on: ${{ matrix.os }}
@@ -51,6 +52,8 @@ jobs:
         run: just -v lint-java
       - run: just -v test-java
       - run: just -v test-java-cli
+      - name: Test Maven local publishing
+        run: cd java && ./gradlew publishMavenPublicationToMavenLocal
 
   # This final step is needed to mark the entire workflow as successful
   done:

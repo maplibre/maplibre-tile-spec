@@ -1,10 +1,14 @@
-import {Geometry, GeometryVector} from "./geometry/geometryVector";
-import Vector from "./vector";
-import {IntVector} from "./intVector";
-import {GpuVector} from "./geometry/gpuVector";
+import {type Geometry, type GeometryVector} from "./geometry/geometryVector";
+import type Vector from "./vector";
+import {type IntVector} from "./intVector";
+import {type GpuVector} from "./geometry/gpuVector";
+import {IntFlatVector} from "./flat/intFlatVector";
+import {DoubleFlatVector} from "./flat/doubleFlatVector";
+import {IntSequenceVector} from "./sequence/intSequenceVector";
+import {IntConstVector} from "./constant/intConstVector";
 
 export interface Feature {
-    id: number;
+    id: number | bigint;
     geometry: Geometry;
     properties: { [key: string]: unknown };
 }
@@ -50,7 +54,11 @@ export default class FeatureTable implements Iterable<Feature> {
         let index = 0;
 
         while (index < this.numFeatures) {
-            const id = this.idVector? Number(this.idVector.getValue(index)) : undefined;
+            let id;
+            if(this.idVector){
+                id = this.containsMaxSaveIntegerValues(this.idVector)? Number(this.idVector.getValue(index)) :
+                    this.idVector.getValue(index)
+            }
 
             const geometry = geometryIterator?.next().value;
 
@@ -79,5 +87,11 @@ export default class FeatureTable implements Iterable<Feature> {
     get extent(): number{
         return this._extent;
     }
+
+    private containsMaxSaveIntegerValues(intVector: IntVector){
+        return intVector instanceof IntFlatVector || intVector instanceof IntConstVector
+            && intVector instanceof IntSequenceVector || intVector instanceof DoubleFlatVector;
+    }
+
 
 }

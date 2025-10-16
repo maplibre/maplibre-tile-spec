@@ -3,7 +3,7 @@ import { LogicalLevelTechnique } from './logicalLevelTechnique';
 import { PhysicalLevelTechnique } from './physicalLevelTechnique';
 import { MortonEncodedStreamMetadata } from './mortonEncodedStreamMetadata';
 import { RleEncodedStreamMetadata } from './rleEncodedStreamMetadata';
-import IntWrapper from "../../encodings/intWrapper";
+import type IntWrapper from "../../encodings/intWrapper";
 
 export class StreamMetadataDecoder {
     public static decode(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
@@ -14,8 +14,8 @@ export class StreamMetadataDecoder {
 
         if (
             (LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique1 ||
-                LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique2) &&
-            PhysicalLevelTechnique.NONE !== streamMetadata.physicalLevelTechnique
+                LogicalLevelTechnique.RLE === streamMetadata.logicalLevelTechnique2)
+            && PhysicalLevelTechnique.NONE !== streamMetadata.physicalLevelTechnique
         ) {
             return RleEncodedStreamMetadata.decodePartial(streamMetadata, tile, offset);
         }

@@ -1,4 +1,4 @@
-import {SelectionVector} from "./selectionVector";
+import {type SelectionVector} from "./selectionVector";
 
 
 export class FlatSelectionVector implements SelectionVector{

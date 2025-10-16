@@ -1,8 +1,9 @@
-import {GeometryVector, MortonSettings, VertexBufferType} from "./geometryVector";
-import TopologyVector from "../../vector/geometry/topologyVector";
-import {SelectionVector} from "../filter/selectionVector";
+import {GeometryVector, type MortonSettings} from "./geometryVector";
+import type TopologyVector from "../../vector/geometry/topologyVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
-import {GEOMETRY_TYPE, SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
+import {GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
+import {VertexBufferType} from "./vertexBufferType";
 
 
 export class FlatGeometryVector extends GeometryVector{
@@ -83,12 +84,13 @@ export class FlatGeometryVector extends GeometryVector{
         return new FlatSelectionVector(selectionVector);
     }
 
-    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
+    filterSelected(predicateGeometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector){
         let limit = 0;
         const vector = selectionVector.selectionValues();
         for(let i = 0; i < selectionVector.limit; i++){
-            const index = selectionVector[i];
-            if(this.geometryType(index) === geometryType || this.geometryType(index) === (geometryType + 3)){
+            const index = vector[i];
+            const geometryType = this.geometryType(index);
+            if(predicateGeometryType === geometryType || (predicateGeometryType + 3) ===  geometryType){
                 vector[limit++] = index;
             }
         }

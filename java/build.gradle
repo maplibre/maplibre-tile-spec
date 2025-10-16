@@ -1,7 +1,6 @@
 plugins {
     id 'java-library'
-    id('com.diffplug.spotless') version '6.25.0'
-    id 'me.champeau.jmh' version '0.7.2'
+    id('com.diffplug.spotless') version '8.0.0'
     id 'jacoco'
 }
 
@@ -12,35 +11,11 @@ repositories {
     }
 }
 
-group 'org.maplibre.mlt'
-version '1.0-SNAPSHOT'
-
 dependencies {
-    implementation 'com.carrotsearch:hppc:0.10.0'
-    implementation 'com.github.davidmoten:hilbert-curve:0.2.3'
-    implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.google.guava:guava:33.5.0-jre'
-    implementation 'com.google.protobuf:protobuf-java:4.32.1'
-    implementation 'commons-cli:commons-cli:1.10.0'
-    implementation 'io.github.earcut4j:earcut4j:2.2.2'
-    implementation 'io.github.sebasbaumh:mapbox-vector-tile-java:25.1.0'
-    implementation 'me.lemire.integercompression:JavaFastPFOR:0.2.1'
-    implementation 'no.ecc.vectortile:java-vector-tile:1.3.23'
-    implementation 'org.apache.commons:commons-compress:1.28.0'
-    implementation 'org.apache.orc:orc-core:1.8.1'
-    implementation 'org.imintel:mbtiles4j:1.0.6'
-    implementation 'org.locationtech.jts:jts-core:1.20.0'
-    implementation 'org.slf4j:slf4j-simple:2.0.17'
-    implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
-    implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
-    implementation 'org.jetbrains:annotations:15.0'
-
+    // Root project dependencies for common tasks
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.3'
-    testImplementation 'org.openjdk.jmh:jmh-core:1.37 '
-    testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
-    testImplementation 'org.xerial:sqlite-jdbc:3.50.3.0'
 }
 
 test {
@@ -63,6 +38,7 @@ java {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
+
 
 spotless {
     java {
@@ -91,39 +67,6 @@ gradle.projectsEvaluated {
             options.compilerArgs << "-Xlint:all"
         }
     }
-}
-
-//compileJava.dependsOn compileWrapper
-
-["encode", "decode", "meta"].each { name ->
-    task "$name"(type: Jar, dependsOn: compileJava) {
-        archiveFileName = name + ".jar"
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-        manifest.from jar.manifest
-        with jar
-    }
-}
-
-encode.manifest.attributes 'Implementation-Title': 'encode an mlt from an mvt',
-        'Main-Class': 'org.maplibre.mlt.cli.Encode'
-decode.manifest.attributes 'Implementation-Title': 'decode an mlt',
-        'Main-Class': 'org.maplibre.mlt.cli.Decode'
-meta.manifest.attributes 'Implementation-Title': 'generate a mltmetadata.pbf file from an mvt',
-        'Main-Class': 'org.maplibre.mlt.cli.Meta'
-
-tasks.register('cli') {
-    // Uncomment the following line to clear out the jars before rebuilding
-    delete "${layout.buildDirectory}/libs"
-    dependsOn encode
-    dependsOn decode
-    dependsOn meta
-}
-
-tasks.withType(JavaCompile).configureEach {
-}
-
-tasks.withType(JavaExec).configureEach {
 }
 
 tasks.withType(Test).configureEach {

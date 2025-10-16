@@ -1,27 +1,27 @@
-import {GeometryVector, MortonSettings} from "../vector/geometry/geometryVector";
+import {type GeometryVector, type MortonSettings} from "../vector/geometry/geometryVector";
 import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
-import IntWrapper from "./intWrapper";
+import type IntWrapper from "./intWrapper";
 import IntegerStreamDecoder from "./integerStreamDecoder";
 import {VectorType} from "../vector/vectorType";
 import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
 import {LengthType} from "../metadata/tile/lengthType";
 import {DictionaryType} from "../metadata/tile/dictionaryType";
-import {MortonEncodedStreamMetadata} from "../metadata/tile/mortonEncodedStreamMetadata";
+import {type MortonEncodedStreamMetadata} from "../metadata/tile/mortonEncodedStreamMetadata";
 import TopologyVector from "../vector/geometry/topologyVector";
 import {ConstGeometryVector} from "../vector/geometry/constGeometryVector";
 import {FlatGeometryVector} from "../vector/geometry/flatGeometryVector";
 import {OffsetType} from "../metadata/tile/offsetType";
 import {ConstGpuVector} from "../vector/geometry/constGpuVector";
-import {GpuVector} from "../vector/geometry/gpuVector";
+import {type GpuVector} from "../vector/geometry/gpuVector";
 import {FlatGpuVector} from "../vector/geometry/flatGpuVector";
-import GeometryScaling from "./geometryScaling";
+import type GeometryScaling from "./geometryScaling";
 
 
 // TODO: get rid of numFeatures parameter
 export function decodeGeometryColumn(tile: Uint8Array, numStreams: number, offset: IntWrapper, numFeatures: number,
                                      scalingData?: GeometryScaling): GeometryVector | GpuVector  {
     const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
-    const geometryTypesVectorType = IntegerStreamDecoder.getVectorTypeIntStream(geometryTypeMetadata);
+    const geometryTypesVectorType = IntegerStreamDecoder.getVectorType(geometryTypeMetadata, numFeatures);
 
     let geometryOffsets: Int32Array = null;
     let partOffsets: Int32Array = null;
@@ -194,7 +194,7 @@ export function decodeGeometryColumn(tile: Uint8Array, numStreams: number, offse
     }
 
     // TODO: refactor the following instructions -> decode in one pass for performance reasons
-    /* Calculate the offsets from the length buffer for random access */
+    /* Calculate the offsets from the length buffer for util access */
     if (geometryOffsets !== null) {
         geometryOffsets = decodeRootLengthStream(geometryTypeVector, geometryOffsets, 2);
         if (partOffsets !== null && ringOffsets !== null) {
@@ -480,7 +480,7 @@ function decodeLevel2LengthStream(geometryTypes: Int32Array, rootOffsetBuffer: I
     }
 
     // TODO: refactor the following instructions -> decode in one pass for performance reasons
-    /!* Calculate the offsets from the length buffer for random access *!/
+    /!* Calculate the offsets from the length buffer for util access *!/
     /!*if (numGeometries != null) {
         numGeometries = decodeRootLengthStream(geometryTypeVector, numGeometries, 2);
         if (numParts != null && numRings != null) {

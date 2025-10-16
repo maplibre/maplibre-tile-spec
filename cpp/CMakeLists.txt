@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.25)
 project(mlt-cpp LANGUAGES CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
@@ -122,7 +122,7 @@ list(APPEND MLT_SRC_FILES
 )
 
 if(MLT_WITH_JSON)
-    list(APPEND MLT_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/geojson.hpp)
+    list(APPEND MLT_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/json.hpp)
 endif(MLT_WITH_JSON)
 
 target_sources(mlt-cpp PRIVATE
@@ -131,7 +131,7 @@ target_sources(mlt-cpp PRIVATE
 )
 
 # SIMD Everywhere (needed on ARM)
-target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/../vendor/simde")
+target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
 if(MLT_WITH_FASTPFOR)
     # FastPFor
@@ -140,44 +140,34 @@ if(MLT_WITH_FASTPFOR)
     # SUPPORT_NEON results in trying to link simde (`-lsimde`) but it's a header-only library
     set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
 
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
-    else()
-        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL)
-        target_compile_options(FastPFOR PUBLIC "-Wno-cast-align")
+    add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        target_compile_options(FastPFOR PRIVATE -Wshorten-64-to-32 -Wno-error=shorten-64-to-32)
     endif()
 
     target_link_libraries(mlt-cpp FastPFOR)
-    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/fastpfor/headers")
+    target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
     target_compile_definitions(mlt-cpp PUBLIC MLT_ENABLE_FASTPFOR=1)
     list(APPEND MLT_EXPORT_TARGETS FastPFOR)
 endif(MLT_WITH_FASTPFOR)
 
 # FSST
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5" CACHE STRING "" FORCE)
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fsst" "${CMAKE_CURRENT_BINARY_DIR}/fsst" EXCLUDE_FROM_ALL SYSTEM)
-else()
-    add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/fsst" "${CMAKE_CURRENT_BINARY_DIR}/fsst" EXCLUDE_FROM_ALL)
-endif()
+add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fsst" "${CMAKE_CURRENT_BINARY_DIR}/fsst" EXCLUDE_FROM_ALL SYSTEM)
 
-target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/../vendor/fsst")
+target_include_directories(mlt-cpp PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
 
 # json
 if(MLT_WITH_JSON)
-    message(STATUS "[MLT] Including GeoJSON support")
+    message(STATUS "[MLT] Including JSON support")
 
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.25")
-        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/json" "${CMAKE_CURRENT_BINARY_DIR}/json" EXCLUDE_FROM_ALL SYSTEM)
-    else()
-        add_subdirectory("${PROJECT_SOURCE_DIR}/../vendor/json" "${CMAKE_CURRENT_BINARY_DIR}/json" EXCLUDE_FROM_ALL)
-    endif()
+    add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/json" "${CMAKE_CURRENT_BINARY_DIR}/json" EXCLUDE_FROM_ALL SYSTEM)
 
-    set(json_SOURCE_DIR "${PROJECT_SOURCE_DIR}/../vendor/json")
+    set(json_SOURCE_DIR "${PROJECT_SOURCE_DIR}/vendor/json")
     target_include_directories(mlt-cpp PUBLIC "${json_SOURCE_DIR}/include")
     target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_JSON=1)
 else()
-    message(STATUS "[MLT] No GeoJSON support")
+    message(STATUS "[MLT] No JSON support")
 endif(MLT_WITH_JSON)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)

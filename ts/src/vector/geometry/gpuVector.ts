@@ -1,7 +1,7 @@
-import {SelectionVector} from "../filter/selectionVector";
-import {SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
-import {Geometry} from "./geometryVector";
-import TopologyVector from "./topologyVector";
+import {type SelectionVector} from "../filter/selectionVector";
+import {type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
+import {type Geometry} from "./geometryVector";
+import type TopologyVector from "./topologyVector";
 
 
 export abstract class GpuVector implements Iterable<Geometry> {

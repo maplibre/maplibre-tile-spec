@@ -1,6 +1,6 @@
-import BitVector from "./bitVector";
+import type BitVector from "./bitVector";
 import Vector from "../vector";
-import {SelectionVector} from "../filter/selectionVector";
+import {type SelectionVector} from "../filter/selectionVector";
 
 export class BooleanFlatVector extends Vector<Uint8Array, boolean> {
     private readonly dataVector: BitVector;

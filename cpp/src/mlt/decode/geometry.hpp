@@ -60,7 +60,7 @@ public:
         using namespace metadata::stream;
         using namespace metadata::tileset;
 
-        std::vector<metadata::tileset::GeometryType> geometryTypes;
+        std::vector<GeometryType> geometryTypes;
         std::vector<std::uint32_t> geometryOffsets;
         std::vector<std::uint32_t> partOffsets;
         std::vector<std::uint32_t> ringOffsets;
@@ -171,11 +171,12 @@ public:
                             break;
                         case DictionaryType::MORTON: {
                             assert(geomStreamMetadata->getMetadataType() == LogicalLevelTechnique::MORTON);
-                            const auto& mortonStreamMetadata = static_cast<MortonEncodedStreamMetadata&>(
+                            const auto& mortonStreamMetadata = static_cast<const MortonEncodedStreamMetadata&>(
                                 *geomStreamMetadata);
-                            mortonSettings = geometry::MortonSettings{
-                                .numBits = mortonStreamMetadata.getNumBits(),
-                                .coordinateShift = mortonStreamMetadata.getCoordinateShift()};
+                            // TODO: This results in double-morton-decoding, need to align with TypeScript
+                            // implementation. mortonSettings = geometry::MortonSettings{
+                            //    .numBits = mortonStreamMetadata.getNumBits(),
+                            //    .coordinateShift = mortonStreamMetadata.getCoordinateShift()};
                             intDecoder.decodeMortonStream<std::uint32_t, std::int32_t>(
                                 tileData, vertices, mortonStreamMetadata);
                             break;

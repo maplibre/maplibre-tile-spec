@@ -1,8 +1,8 @@
 import {VariableSizeVector} from "../variableSizeVector";
-import BitVector from "../flat/bitVector";
+import type BitVector from "../flat/bitVector";
 import {decodeFsst} from "../../encodings/fsstDecoder";
 import {decodeString} from "../../encodings/decodingUtils";
-import {SelectionVector} from "../filter/selectionVector";
+import {type SelectionVector} from "../filter/selectionVector";
 
 
 export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, string> {

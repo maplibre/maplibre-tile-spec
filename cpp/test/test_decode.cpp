@@ -16,7 +16,7 @@ using namespace std::string_literals;
 using namespace std::string_view_literals;
 
 #if MLT_WITH_JSON
-#include <mlt/geojson.hpp>
+#include <mlt/json.hpp>
 #include <mlt/util/json_diff.hpp>
 #endif
 
@@ -56,7 +56,7 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
     return false;
 }
 
-const auto basePath = "../test/cpp/expected"s;
+const auto basePath = "../test/expected/tag0x01"s;
 
 #if MLT_WITH_JSON
 auto dump(const nlohmann::json& json) {
@@ -70,7 +70,7 @@ std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::str
         return {std::nullopt, "Failed to read tile data"};
     }
 
-    auto tile = mlt::Decoder().decodeTile({(tileData.data()), tileData.size()});
+    auto tile = mlt::Decoder().decode({(tileData.data()), tileData.size()});
 
 #if MLT_WITH_JSON
     // Load the GeoJSON file, if present
@@ -81,7 +81,7 @@ std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::str
             jsonBuffer, nullptr, /*allow_exceptions=*/false, /*ignore_comments=*/true);
 
         // Convert the tile we loaded to GeoJSON
-        const auto actualJSON = mlt::geojson::toGeoJSON(tile, {.x = 3, .y = 5, .z = 7});
+        const auto actualJSON = mlt::json::toJSON(tile, {.x = 3, .y = 5, .z = 7}, true);
 
         // Compare the two
         const auto diffJSON = mlt::util::diff(expectedJSON, actualJSON, {});
@@ -109,7 +109,6 @@ TEST(Decode, SimplePointBoolean) {
     const auto* mltLayer = tile->getLayer("layer");
     EXPECT_TRUE(mltLayer);
     EXPECT_EQ(mltLayer->getName(), "layer");
-    EXPECT_EQ(mltLayer->getVersion(), 1); // TODO: doesn't match JS version
     EXPECT_EQ(mltLayer->getExtent(), 4096);
     EXPECT_EQ(mltLayer->getFeatures().size(), 1);
 

@@ -1,128 +1,0 @@
-²
-
-water_name
-id" 
-geometry* 
-class" 	
-intermittent" 
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-name:en" 	<
-housenumber
-id" 
-geometry* 
-housenumber" 	F
-	landcover
-id" 
-geometry* 
-class" 	
-subclass" 	2
-landuse
-id" 
-geometry* 
-class" 	‹
-place
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-name:fr" 	
-name:ja" 	
-name:ru" 	
-name:el" 	
-name:en" 	
-name:sr" 	
-name:ar" 	à
-poi
-id" 
-geometry* 
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-rank" 
-subclass" 	
-agg_stop" 
-name:ru" 	
-name:fr" 	
-name:en" 	
-level" 
-name:be" 	
-name:es" 	
-name:eu" 	
-name:fi" 	
-name:he" 	
-name:ja" 	
-name:sv" 	
-name:uk" 	
-name:zh" 	
-layer" 
-name:lt" 	
-name:pl" 	
-indoor" 
-name:ar" 	
-name:nonlatin" 	
-name:ro" 	
-name:pt" 	
-name:da" 	
-name:ko" 	
-name:cs" 	
-name:de" 	F
-water
-id" 
-geometry* 
-class" 	
-intermittent" 
-transportation_name
-id" 
-geometry* 
-brunnel" 	
-class" 	
-name" 	
-
-name:latin" 	
-name_de" 	
-name_en" 	
-name_int" 	
-subclass" 	
-network" 	
-ref" 	
-
-ref_length" 
-name:nonlatin" 	
-layer" f
-building
-id" 
-geometry* 
-render_height" 
-render_min_height" 
-colour" 	ø
-transportation
-id" 
-geometry* 
-brunnel" 	
-class" 	
-layer" 
-oneway" 
-ramp" 
-subclass" 	
-service" 	
-surface" 	
-indoor" 
-level" 
-bicycle" 	
-foot" 	
-horse" 	

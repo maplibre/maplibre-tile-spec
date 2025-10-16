@@ -1,6 +1,6 @@
-import {decodeTileAndMetadata, FeatureTable, filter} from "../../../src";
+import {decodeTileAndMetadata, type FeatureTable, filter} from "../../../src";
 import fs from "fs";
-import {ExpressionSpecification} from "@maplibre/maplibre-gl-style-spec";
+import {type ExpressionSpecification} from "@maplibre/maplibre-gl-style-spec";
 import Path from "path";
 import {VectorTile} from "@mapbox/vector-tile";
 import Pbf from "pbf";
@@ -11,10 +11,10 @@ const omtOptimizedMvtDir = "./test/data/omt/optimized/mvt";
 const mltMetadata = fs.readFileSync(Path.join(omtOptimizedPretessellatedMltDir, "tileset.pbf"));
 const tileIds = new Map<number, string>([
     [0, "0_0_0"],
-    [1, "1_0_0"],
+    [1, "1_1_0"],
     [2, "2_2_1"],
     [3, "3_4_2"],
-    [6, "6_32_21"],
+    [6, "6_34_21"],
 ]);
 const decodedMltTiles = new Map<number, FeatureTable[]>();
 const decodedMvtTiles = new Map<number, VectorTile>();
@@ -164,7 +164,7 @@ describe("filter", () => {
             const layerFilter: ExpressionSpecification =  ["all",
                 [
                     "==",
-                    "admin:level",
+                    "admin_level",
                     2
                 ],
                 [
@@ -226,7 +226,7 @@ describe("filter", () => {
                 "all",
                 [
                     "==",
-                    "admin:level",
+                    "admin_level",
                     2
                 ],
                 [

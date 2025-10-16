@@ -5,7 +5,8 @@ use bytes::Buf;
 use zigzag::ZigZag;
 
 use crate::data::MapLibreTile;
-use crate::decoder::helpers::{decode_boolean_rle, get_data_type_from_column};
+use crate::decoder::boolean::decode_boolean_rle;
+use crate::decoder::helpers::get_data_type_from_column;
 use crate::decoder::tracked_bytes::TrackedBytes;
 use crate::encoder::geometry::GeometryScaling;
 use crate::metadata::proto_tileset::{Column, ScalarType, TileSetMetadata};
@@ -143,14 +144,12 @@ mod tests {
     use crate::metadata::tileset::read_metadata;
 
     #[test]
+    #[ignore = "tile format has changed, the decode function is no longer valid. See mlt-nom crate for updated parsing."]
     fn test_decode() {
-        let raw = fs::read("../../ts/test/data/omt/unoptimized/mlt/plain/0_0_0.mlt")
-            .expect("Failed to read file");
+        let raw = fs::read("../../test/expected/omt/2_2_2.mlt").expect("Failed to read file");
         let mut mlt = Decoder::new(raw, None);
-        let metadata = read_metadata(Path::new(
-            "../../ts/test/data/omt/unoptimized/mlt/plain/tileset.pbf",
-        ))
-        .expect("Failed to read metadata");
+        let metadata = read_metadata(Path::new("../../test/expected/omt/2_2_2.mlt.meta.pbf"))
+            .expect("Failed to read metadata");
 
         // Write metadata to a txt file
         let metadata_str = format!("{metadata:#?}");

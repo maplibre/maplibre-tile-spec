@@ -12,7 +12,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [macos-14, ubuntu-24.04]
+        os: [macos-15, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
 
     defaults:
@@ -28,7 +28,7 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
-            !vendor/fsst/paper/*
+            !cpp/vendor/fsst/paper/*
 
       - name: Configure with CMake
         run: cmake -B build -S .
@@ -38,6 +38,9 @@ jobs:
 
       - name: Run C++ tests
         run: build/test/mlt-cpp-test
+
+      - name: sanity test for mlt-cpp-json tool
+        run: build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
 
       - name: Build with Bazel
         run: bazel build //cpp:mlt_cpp

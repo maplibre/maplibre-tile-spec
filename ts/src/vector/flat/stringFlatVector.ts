@@ -1,7 +1,7 @@
 import {VariableSizeVector} from "../variableSizeVector";
-import BitVector from "./bitVector";
+import type BitVector from "./bitVector";
 import {decodeString} from "../../encodings/decodingUtils";
-import {SelectionVector} from "../filter/selectionVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 
 
@@ -26,7 +26,7 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string>{
         for(let i = 0; i < this.size - 1; i++){
             const length = this.offsetBuffer[i+1] - this.offsetBuffer[i];
             //TODO: get rid of every
-            if (this.nullabilityBuffer.get(i) && length === predicateUtf8.length &&
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && length === predicateUtf8.length &&
                 this.dataBuffer.subarray(this.offsetBuffer[i], this.offsetBuffer[i+1]).
                     every((val, idx) => val === predicateUtf8[idx])
             ){

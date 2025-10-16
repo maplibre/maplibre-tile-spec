@@ -1,16 +1,9 @@
 import {FixedSizeVector} from "../fixedSizeVector";
-import BitVector from "./bitVector";
-import {SelectionVector} from "../filter/selectionVector";
+import type BitVector from "./bitVector";
+import {type SelectionVector} from "../filter/selectionVector";
 import {FlatSelectionVector} from "../filter/flatSelectionVector";
 
-export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
-
-    constructor(
-        name: string,
-        dataBuffer: BigInt64Array,
-        sizeOrNullabilityBuffer : number | BitVector){
-        super(name, dataBuffer, sizeOrNullabilityBuffer);
-    }
+export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
 
     protected getValueFromBuffer(index: number): bigint {
         return this.dataBuffer[index];
@@ -46,7 +39,7 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[index] === testValue) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] === testValue) {
                 vector[limit++] = index;
             }
         }
@@ -59,7 +52,7 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && testValues.includes(this.dataBuffer[index])) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && testValues.includes(this.dataBuffer[index])) {
                 vector[limit++] = index;
             }
         }
@@ -83,7 +76,7 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[index] >= testValue) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] >= testValue) {
                 vector[limit++] = index;
             }
         }
@@ -107,7 +100,7 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[index] <= testValue) {
+            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] <= testValue) {
                 vector[limit++] = index;
             }
         }
@@ -118,7 +111,7 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
     filterNotEqual(value: bigint): SelectionVector {
         const selectionVector = [];
         for (let i = 0; i < this.dataBuffer.length; i++) {
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[i] !== value) {
+            if ((this.nullabilityBuffer && !this.nullabilityBuffer.get(i)) || this.dataBuffer[i] !== value) {
                 selectionVector.push(i);
             }
         }
@@ -131,7 +124,7 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint>{
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[index] !== testValue) {
+            if ((this.nullabilityBuffer && !this.nullabilityBuffer.get(i)) || this.dataBuffer[index] !== testValue) {
                 vector[limit++] = index;
             }
         }

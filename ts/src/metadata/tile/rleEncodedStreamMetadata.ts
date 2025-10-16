@@ -1,13 +1,18 @@
 import { StreamMetadata } from './streamMetadata';
-import { PhysicalStreamType } from './physicalStreamType';
-import { LogicalStreamType } from './logicalStreamType';
-import { LogicalLevelTechnique } from './logicalLevelTechnique';
-import { PhysicalLevelTechnique } from './physicalLevelTechnique';
-import IntWrapper from "../../encodings/intWrapper";
+import { type PhysicalStreamType } from './physicalStreamType';
+import { type LogicalStreamType } from './logicalStreamType';
+import { type LogicalLevelTechnique } from './logicalLevelTechnique';
+import { type PhysicalLevelTechnique } from './physicalLevelTechnique';
+import type IntWrapper from "../../encodings/intWrapper";
 import {decodeVarintInt32} from "../../encodings/integerDecodingUtils";
 
 export class RleEncodedStreamMetadata extends StreamMetadata {
 
+    /**
+     * @param numValues After LogicalLevelTechnique was applied -> numRuns + numValues
+     * @param _runs Length of the runs array
+     * @param _numRleValues Used for pre-allocating the arrays on the client for faster decoding
+     */
     constructor(
         physicalStreamType: PhysicalStreamType,
         logicalStreamType: LogicalStreamType,

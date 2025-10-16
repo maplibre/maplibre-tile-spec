@@ -6,7 +6,7 @@ A C++ implementation of the MapLibre Tile (MLT) vector tile format.
 
 Decoder only, partial support for encodings.
 
-CMake only build support.
+CMake and Bazel build support.
 
 ## Build
 
@@ -14,6 +14,12 @@ CMake only build support.
 git submodule update --init --recursive
 cmake -GNinja -Bbuild -S.
 cmake --build build --target mlt-cpp-test mlt-cpp-json
+```
+
+## Test
+
+```
+build/test/mlt-cpp-test
 ```
 
 ## Use
@@ -45,5 +51,5 @@ const auto tile2 = decoder.decodeTile({tileData.data(), tileData.size()});
 A simple application which dumps a tile/metadata file pair to JSON format.
 
 ```bash
-build/tool/mlt-cpp-json ../test/expected/bing/4-12-6.mlt
+build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt
 ```

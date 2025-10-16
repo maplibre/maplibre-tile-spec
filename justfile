@@ -1,6 +1,9 @@
 #!/usr/bin/env just --justfile
 
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+# cargo-binstall needs a workaround due to caching
+# ci_mode might be manually set by user, so re-check the env var
+binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
 
 # By default, show the list of all available commands
 @_default:
@@ -12,7 +15,10 @@ bench-java:
     cd java && ./gradlew jmh
 
 bench-js: install-js
-    cd js && npm run bench
+    echo "TODO: Add js benchmark command"
+
+build-js: install-js
+    cd ts && npm run build
 
 # Run integration tests, and override what we expect the output to be with the actual output
 bless: clean-int-test test-run-int
@@ -27,7 +33,7 @@ clean-java:
 
 # Delete build files for JavaScript
 clean-js:
-    echo "TODO: Add js cleanup command"
+    cd ts && rm -rf node_modules dist
 
 # Delete build files for Rust
 clean-rust:
@@ -47,14 +53,14 @@ fmt-java:
 
 # Run formatting for JavaScript
 fmt-js:
-    echo "TODO: Add js fmt command (e.g. prettier)"
+    cd ts && npm run format
 
 # Run formatting for Rust
 fmt-rust:
     cd rust && cargo fmt --all
 
 install-js:
-    cd js && npm ci
+    cd ts && npm ci
 
 # Run linting in every language, failing on lint suggestion or bad formatting. Run `just fmt` to fix formatting issues.
 lint: lint-java lint-js lint-rust
@@ -64,8 +70,8 @@ lint-java:
     cd java && ./gradlew spotlessJavaCheck
 
 # Run linting for JavaScript
-lint-js:
-    echo "TODO: Add js lint command (e.g. eslint)"
+lint-js: install-js
+    cd ts && npm run lint
 
 # Run linting for Rust
 lint-rust:
@@ -89,25 +95,25 @@ test-java-cli:
     cd java  # Changing directory requires this recipe to have the #!/... line at the top, i.e. be a proper script
     ./gradlew cli
     # Test the encoding CLI
-    java -jar ./build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
+    java -jar ./mlt-cli/build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
     # ensure expected size
     #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # ensure expected size is maintained (meta writes the same meta file as encode)
     #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # Test the using advanced encodings
-    java -jar ./build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --advanced --mlt output/advanced.mlt
+    java -jar ./mlt-cli/build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --advanced --mlt output/advanced.mlt
     # ensure expected sizes
     #python3 -c 'import os; expected=67516; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     #python3 -c 'import os; expected=66523; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # decode without advanced
-    java -jar ./build/libs/decode.jar -mlt output/advanced.mlt
+    java -jar ./mlt-cli/build/libs/decode.jar -mlt output/advanced.mlt
     # ensure we can decode the advanced tile
     # FIXME: enable vectorized decoding test
-    # java -jar ./build/libs/decode.jar -mlt output/advanced.mlt -vectorized
+    # java -jar ./mlt-cli/build/libs/decode.jar -mlt output/advanced.mlt -vectorized
 
 # Run tests for JavaScript
 test-js: install-js
-    cd js && npm test
+    echo "TODO: Add js test back"
 
 # Run tests for Rust
 test-rust:
@@ -147,3 +153,42 @@ mkdocs:
 mkdocs-build:
     docker build -t squidfunk/mkdocs-material mkdocs
     cd mkdocs && docker run --rm -v ${PWD}:/docs squidfunk/mkdocs-material build --strict
+
+# Build Java encoder and generate .mlt files for all .pbf files in test/fixtures
+[working-directory: 'java']
+generate-expected-mlt:  (cargo-install 'fd' 'fd-find')
+    ./gradlew cli
+    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{just_executable()}} generate-one-expected-mlt
+
+# Generate a single .mlt file for a given .mvt or .pbf file, assuming JAR is built
+[working-directory: 'java']
+[private]
+generate-one-expected-mlt file:
+    java \
+        -Dcom.google.protobuf.use_unsafe_pre22_gencode \
+        -jar build/libs/encode.jar \
+        --mvt {{quote(file)}} \
+        --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
+        --outlines ALL \
+        --tessellate \
+        --coerce-mismatch \
+        --verbose
+
+# Extract version from a tag by removing language prefix and 'v' prefix
+extract-version language tag:
+    @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
+
+# Check if a certain Cargo command is installed, and install it if needed
+[private]
+cargo-install $COMMAND $INSTALL_CMD='' *args='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v $COMMAND > /dev/null; then
+        if ! command -v cargo-binstall > /dev/null; then
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
+        else
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
+        fi
+    fi

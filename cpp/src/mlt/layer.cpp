@@ -4,13 +4,11 @@
 namespace mlt {
 
 Layer::Layer(std::string name_,
-             int version_,
              extent_t extent_,
              std::unique_ptr<geometry::GeometryVector>&& geometryVector_,
              std::vector<Feature> features_,
              PropertyVecMap properties_) noexcept
     : name(std::move(name_)),
-      version(version_),
       extent(extent_),
       geometryVector(std::move(geometryVector_)),
       features(std::move(features_)),

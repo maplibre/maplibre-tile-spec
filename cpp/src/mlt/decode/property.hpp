@@ -29,12 +29,6 @@ public:
                                                           std::uint32_t numStreams) {
         using namespace metadata::tileset;
         if (std::holds_alternative<ScalarColumn>(column.type)) {
-            // TODO
-            // if(propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)){
-            //    skipColumn(numStreams, data, offset);
-            //    return std::nullopt;
-            //}
-
             return decodeScalarPropertyColumn(tileData, column, numStreams);
         }
 
@@ -71,10 +65,7 @@ protected:
         PackedBitset presentStream;
         std::uint32_t presentValueCount = 0;
 
-        if ((numStreams > 1) != column.nullable) {
-            throw std::runtime_error("Invalid stream count");
-        }
-        if (numStreams > 1) {
+        if (column.nullable) {
             const auto presentStreamMetadata = StreamMetadata::decode(tileData);
             presentValueCount = presentStreamMetadata->getNumValues();
             rle::decodeBoolean(tileData, presentStream, *presentStreamMetadata, /*consume=*/true);
@@ -84,10 +75,10 @@ protected:
         }
 
         const auto scalarColumn = std::get<ScalarColumn>(column.type);
-        if (!std::holds_alternative<ScalarType>(scalarColumn.type)) {
-            throw std::runtime_error("property column ('" + column.name + "') must be scalar and physical");
+        if (!scalarColumn.hasPhysicalType()) {
+            throw std::runtime_error("property column ('" + column.name + "') must be scalar");
         }
-        const auto scalarType = std::get<ScalarType>(scalarColumn.type);
+        const auto scalarType = scalarColumn.getPhysicalType();
 
         // Everything but string has stream metadata.
         std::unique_ptr<StreamMetadata> streamMetadata;
@@ -182,6 +173,7 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
+            case ScalarType::DOUBLE: // doubles currently written as floats
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
                 floatBuffer.reserve(streamMetadata->getNumValues());
@@ -191,17 +183,9 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
-            case ScalarType::DOUBLE: {
-                std::vector<double> doubleBuffer;
-                doubleBuffer.reserve(streamMetadata->getNumValues());
-                decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
-
-                PropertyVec result{std::move(doubleBuffer)};
-                checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
-            }
             case ScalarType::STRING: {
                 const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
+                // FIXME? why numStreams - 1? what if its not optional
                 auto strings = stringDecoder.decode(tileData, numStreams - 1, static_cast<std::uint32_t>(stringCount));
 
                 PropertyVec result{std::move(strings)};

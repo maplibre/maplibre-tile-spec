@@ -5,7 +5,7 @@ import { PhysicalLevelTechnique } from './physicalLevelTechnique';
 import { DictionaryType } from './dictionaryType';
 import { OffsetType } from './offsetType';
 import { LengthType } from './lengthType';
-import IntWrapper from "../../encodings/intWrapper";
+import type IntWrapper from "../../encodings/intWrapper";
 import {decodeVarintInt32} from "../../encodings/integerDecodingUtils";
 
 export class StreamMetadata {
