@@ -21,6 +21,7 @@ jobs:
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just -v lint-js
       - run: just -v test-js
+      - run: just -v build-js
 
   bench-js:
     runs-on: ${{ matrix.os }}
