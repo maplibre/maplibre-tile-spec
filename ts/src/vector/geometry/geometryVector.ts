@@ -47,7 +47,8 @@ export abstract class GeometryVector implements Iterable<Geometry> {
         let index = 0;
 
         while (index < this.numGeometries) {
-            yield { coordinates: geometries[index++], type: this.geometryType(index) };
+            yield { coordinates: geometries[index], type: this.geometryType(index) };
+            index++;
         }
     }
 
