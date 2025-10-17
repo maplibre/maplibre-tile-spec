@@ -6,7 +6,7 @@ use crate::MltError::ParsingColumnType;
 use crate::{MltError, MltRefResult, utils};
 
 #[borrowme]
-#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LogicalTechnique {
     None = 0,
@@ -24,7 +24,7 @@ impl LogicalTechnique {
 }
 
 #[borrowme]
-#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum PhysicalDecoder {
     None = 0,
@@ -45,7 +45,7 @@ impl PhysicalDecoder {
 }
 
 #[borrowme]
-#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum DictionaryType {
     None = 0,
@@ -57,7 +57,7 @@ pub enum DictionaryType {
 }
 
 #[borrowme]
-#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LengthType {
     VarBinary = 0,
@@ -70,7 +70,7 @@ pub enum LengthType {
 }
 
 #[borrowme]
-#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OffsetType {
     Vertex = 0,
@@ -80,7 +80,7 @@ pub enum OffsetType {
 }
 
 /// Column type enumeration
-#[derive(Debug, PartialEq, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum ColumnType {
     Id = 0,

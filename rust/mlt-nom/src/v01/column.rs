@@ -1,6 +1,6 @@
 use borrowme::borrowme;
 
-use crate::v0x01::ColumnType;
+use crate::v01::ColumnType;
 use crate::{MltRefResult, utils};
 
 /// Column definition

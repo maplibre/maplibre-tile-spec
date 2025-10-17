@@ -1,9 +1,8 @@
-benchmark/
-benchmarks/**/*.mvt
-benchmarks/**/*.pbf
-data/
-expected/**/*.mlt.geojson
-fixtures/**/*.bin
-fixtures/**/*.json
-fixtures/**/*.mvt
 output/
+
+# Ignore generated stream files.
+expected/*/*/*.bin
+expected/*/*/*.json
+
+# The per-tile directories also need to be hidden
+expected/*/*/*/*

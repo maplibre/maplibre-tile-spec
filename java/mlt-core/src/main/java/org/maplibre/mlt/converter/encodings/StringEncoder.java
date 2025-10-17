@@ -6,11 +6,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.*;
 
@@ -18,22 +18,11 @@ public class StringEncoder {
 
   private StringEncoder() {}
 
-  /**
-   * @param values Values to convert. If the value is not present null has to be added to the list
-   */
-  public static Pair<Integer, byte[]> encodeSharedDictionary(
-      List<List<String>> values,
-      PhysicalLevelTechnique physicalLevelTechnique,
-      boolean useFsstEncoding)
-      throws IOException {
-    return encodeSharedDictionary(values, physicalLevelTechnique, useFsstEncoding, null, null);
-  }
-
   public static Pair<Integer, byte[]> encodeSharedDictionary(
       List<List<String>> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String fieldName)
       throws IOException {
     /*
@@ -77,13 +66,13 @@ public class StringEncoder {
 
     var encodedSharedDictionary =
         encodeDictionary(
-            dictionary, physicalLevelTechnique, false, true, rawStreamData, fieldName + "_dict");
+            dictionary, physicalLevelTechnique, false, true, streamObserver, fieldName + "_dict");
 
     byte[] encodedSharedFsstDictionary = null;
     if (useFsstEncoding) {
       encodedSharedFsstDictionary =
           encodeFsstDictionary(
-              dictionary, physicalLevelTechnique, false, true, rawStreamData, fieldName + "_fsst");
+              dictionary, physicalLevelTechnique, false, true, streamObserver, fieldName + "_fsst");
     }
 
     var sharedDictionary =
@@ -108,7 +97,7 @@ public class StringEncoder {
           BooleanEncoder.encodeBooleanStream(
               presentStream,
               PhysicalStreamType.PRESENT,
-              rawStreamData,
+              streamObserver,
               fieldName + "_present_" + i);
 
       final var encodedDataStream =
@@ -118,7 +107,7 @@ public class StringEncoder {
               false,
               PhysicalStreamType.OFFSET,
               new LogicalStreamType(OffsetType.STRING),
-              rawStreamData,
+              streamObserver,
               fieldName + "_" + i);
       sharedDictionary =
           CollectionUtils.concatByteArrays(
@@ -136,16 +125,10 @@ public class StringEncoder {
   }
 
   public static Pair<Integer, byte[]> encode(
-      List<String> values, PhysicalLevelTechnique physicalLevelTechnique, boolean useFsstEncoding)
-      throws IOException {
-    return encode(values, physicalLevelTechnique, useFsstEncoding, null, null);
-  }
-
-  public static Pair<Integer, byte[]> encode(
       List<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String fieldName)
       throws IOException {
     /*
@@ -161,13 +144,14 @@ public class StringEncoder {
     // TODO: add plain encoding again
     // var plainEncodedColumn = encodePlain(values, physicalLevelTechnique);
     var dictionaryEncodedColumn =
-        encodeDictionary(values, physicalLevelTechnique, true, false, rawStreamData, fieldName);
+        encodeDictionary(values, physicalLevelTechnique, true, false, streamObserver, fieldName);
     if (!useFsstEncoding) {
       return Pair.of(3, dictionaryEncodedColumn);
     }
 
     var fsstEncodedDictionary =
-        encodeFsstDictionary(values, physicalLevelTechnique, true, false, rawStreamData, fieldName);
+        encodeFsstDictionary(
+            values, physicalLevelTechnique, true, false, streamObserver, fieldName);
     return dictionaryEncodedColumn.length <= fsstEncodedDictionary.length
         ? Pair.of(3, dictionaryEncodedColumn)
         : Pair.of(5, fsstEncodedDictionary);
@@ -178,7 +162,7 @@ public class StringEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean encodeDataStream,
       boolean isSharedDictionary,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamObserver streamObserver,
       String fieldName)
       throws IOException {
     var dataStream = new ArrayList<Integer>(values.size());
@@ -198,7 +182,7 @@ public class StringEncoder {
     }
 
     var symbolTable =
-        encodeFsst(dictionary, physicalLevelTechnique, false, rawStreamData, fieldName);
+        encodeFsst(dictionary, physicalLevelTechnique, false, streamObserver, fieldName);
 
     if (!encodeDataStream) {
       return symbolTable;
@@ -211,7 +195,7 @@ public class StringEncoder {
             false,
             PhysicalStreamType.OFFSET,
             new LogicalStreamType(OffsetType.STRING),
-            rawStreamData,
+            streamObserver,
             fieldName);
     return CollectionUtils.concatByteArrays(symbolTable, encodedDataStream);
   }
@@ -219,8 +203,8 @@ public class StringEncoder {
   private static byte[] encodeFsst(
       List<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean isSharedDictionary,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @SuppressWarnings("SameParameterValue") boolean isSharedDictionary,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String fieldName)
       throws IOException {
     var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
@@ -238,7 +222,7 @@ public class StringEncoder {
             false,
             PhysicalStreamType.LENGTH,
             new LogicalStreamType(LengthType.SYMBOL),
-            rawStreamData,
+            streamObserver,
             fieldName + "_symlength");
     var symbolTableMetadata =
         new StreamMetadata(
@@ -263,7 +247,7 @@ public class StringEncoder {
             false,
             PhysicalStreamType.LENGTH,
             new LogicalStreamType(LengthType.DICTIONARY),
-            rawStreamData,
+            streamObserver,
             fieldName + "_length");
     var compressedCorpusStreamMetadata =
         new StreamMetadata(
@@ -277,12 +261,8 @@ public class StringEncoder {
                 compressedCorpus.length)
             .encode();
 
-    GeometryEncoder.recordStream(
-        fieldName + "_corpus",
-        values,
-        compressedCorpusStreamMetadata,
-        compressedCorpus,
-        rawStreamData);
+    streamObserver.observeStream(
+        fieldName + "_corpus", values, compressedCorpusStreamMetadata, compressedCorpus);
 
     // TODO: how to name the streams and how to order? -> symbol_table, length, data, length
     /* SymbolLength, SymbolTable, Value Length, Compressed Corpus */
@@ -300,7 +280,7 @@ public class StringEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean encodeOffsetStream,
       boolean isSharedDictionary,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamObserver streamObserver,
       String fieldName)
       throws IOException {
     var offsetStream = new ArrayList<Integer>(values.size());
@@ -329,7 +309,7 @@ public class StringEncoder {
             false,
             PhysicalStreamType.LENGTH,
             new LogicalStreamType(LengthType.DICTIONARY),
-            rawStreamData,
+            streamObserver,
             fieldName + "_dict_length");
     var encodedDictionaryStreamMetadata =
         new StreamMetadata(
@@ -343,12 +323,8 @@ public class StringEncoder {
                 dictionaryStream.length)
             .encode();
 
-    GeometryEncoder.recordStream(
-        fieldName + "_dict",
-        dictionary,
-        encodedDictionaryStreamMetadata,
-        dictionaryStream,
-        rawStreamData);
+    streamObserver.observeStream(
+        fieldName + "_dict", dictionary, encodedDictionaryStreamMetadata, dictionaryStream);
     if (!encodeOffsetStream) {
       return CollectionUtils.concatByteArrays(
           encodedLengthStream, encodedDictionaryStreamMetadata, dictionaryStream);
@@ -361,7 +337,7 @@ public class StringEncoder {
             false,
             PhysicalStreamType.OFFSET,
             new LogicalStreamType(OffsetType.STRING),
-            rawStreamData,
+            streamObserver,
             fieldName + "_dict_offset");
     /* Length, Offset (String), Data (Dictionary -> Single) */
     return CollectionUtils.concatByteArrays(
@@ -374,7 +350,7 @@ public class StringEncoder {
   public static byte[] encodePlain(
       List<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String fieldName)
       throws IOException {
     var lengthStream = new ArrayList<Integer>(values.size());
@@ -392,7 +368,7 @@ public class StringEncoder {
             false,
             PhysicalStreamType.LENGTH,
             new LogicalStreamType(LengthType.VAR_BINARY),
-            rawStreamData,
+            streamObserver,
             fieldName + "_length");
 
     var dataStreamMetadata =
@@ -406,8 +382,7 @@ public class StringEncoder {
                 dataStream.length)
             .encode();
 
-    GeometryEncoder.recordStream(
-        fieldName + "_data", values, dataStreamMetadata, dataStream, rawStreamData);
+    streamObserver.observeStream(fieldName + "_data", values, dataStreamMetadata, dataStream);
 
     return CollectionUtils.concatByteArrays(encodedLengthStream, dataStreamMetadata, dataStream);
   }

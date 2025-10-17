@@ -25,23 +25,9 @@ import org.maplibre.mlt.decoder.MltDecoder;
 /*
  * Add the tiles which should be benchmarked to the respective directories.
  * */
-public class CompressionBenchmarks {
-  private static final String BING_MAPS_PATH = "../test/benchmarks/bing";
+public class CompressionBenchmarksTest {
   private static final String OMT_PATH = "../../test/fixtures/omt";
   public static final String PLACEHOLDER_FILE = ".gitkeep";
-
-  @Test
-  @Disabled
-  public void bingMapsCompressionBenchmarks_Unsorted() throws IOException {
-    var results = runBenchmarks(BING_MAPS_PATH, false, List.of());
-    if (results == null) {
-      return;
-    }
-
-    System.out.printf("Bing Maps unsorted tile size reduction: %s\n", results.getMiddle());
-    System.out.printf("Bing Maps  unsorted compression ratio: %s%% \n", results.getRight());
-    System.out.printf("Bing Maps unsorted max tile size reduction: %s\n", results.getLeft());
-  }
 
   @Test
   @Disabled

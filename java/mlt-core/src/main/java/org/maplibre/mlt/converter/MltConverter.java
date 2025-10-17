@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.encodings.GeometryEncoder;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
@@ -388,15 +388,27 @@ public class MltConverter {
       ConversionConfig config,
       @Nullable URI tessellateSource)
       throws IOException {
-    return convertMvt(mvt, tilesetMetadata, config, tessellateSource, null);
+    return convertMvt(
+        mvt, tilesetMetadata, config, tessellateSource, new MLTStreamObserverDefault());
   }
 
+  /*
+   * Converts a MVT file to an MLT file.
+   *
+   * @param mvt The decoded MVT tile to convert
+   * @param config Settings for the conversion
+   * @param tilesetMetadata Metadata of the tile
+   * @param tessellateSource Optional URI of a tessellation service to use if polygon pre-tessellation is enabled
+   * @param streamRecorder Recorder for observing streams during conversion
+   * @return Converted MapLibreTile
+   * @throws IOException
+   */
   public static byte[] convertMvt(
       MapboxVectorTile mvt,
       MltTilesetMetadata.TileSetMetadata tilesetMetadata,
       ConversionConfig config,
       @Nullable URI tessellateSource,
-      @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
 
     // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
@@ -419,6 +431,7 @@ public class MltConverter {
     var mapLibreTileBuffer = new byte[0];
     for (var mvtLayer : mvt.layers()) {
       final var featureTableName = mvtLayer.name();
+      streamRecorder.setLayerName(featureTableName);
 
       if (config.getLayerFilterPattern() != null) {
         final var matcher = config.getLayerFilterPattern().matcher(featureTableName);
@@ -455,7 +468,7 @@ public class MltConverter {
               physicalLevelTechnique,
               createPolygonOutline,
               tessellateSource,
-              rawStreamData);
+              streamRecorder);
       final var sortedFeatures = result.getLeft();
       final var encodedGeometryColumn = result.getRight();
       final var encodedGeometryFieldMetadata =
@@ -463,7 +476,7 @@ public class MltConverter {
 
       var encodedPropertyColumns =
           encodePropertyColumns(
-              config, layerMetadata, sortedFeatures, featureTableOptimizations, rawStreamData);
+              config, layerMetadata, sortedFeatures, featureTableOptimizations, streamRecorder);
 
       var featureTableBodyBuffer = new byte[0];
       if (config.getIncludeIds()) {
@@ -481,7 +494,7 @@ public class MltConverter {
                 : MltTilesetMetadata.ScalarType.UINT_32;
         final var scalarColumnMetadata =
             MltTilesetMetadata.Column.newBuilder()
-                .setName(idMetadata.getName())
+                .setName("id") // Name is used only for stream capture
                 .setNullable(idMetadata.getNullable())
                 .setColumnScope(MltTilesetMetadata.ColumnScope.FEATURE)
                 .setScalarType(
@@ -495,7 +508,7 @@ public class MltConverter {
                 physicalLevelTechnique,
                 config.getUseAdvancedEncodingSchemes(),
                 config.getCoercePropertyValues(),
-                rawStreamData);
+                streamRecorder);
       }
 
       featureTableBodyBuffer =
@@ -529,7 +542,7 @@ public class MltConverter {
       MltTilesetMetadata.FeatureTableSchema featureTableMetadata,
       List<Feature> sortedFeatures,
       FeatureTableOptimizations featureTableOptimizations,
-      @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
+      @NotNull MLTStreamObserver streamRecorder)
       throws IOException {
     final var propertyColumns = filterPropertyColumns(featureTableMetadata);
     final List<ColumnMapping> columnMappings =
@@ -542,7 +555,7 @@ public class MltConverter {
         config.getUseAdvancedEncodingSchemes(),
         config.getCoercePropertyValues(),
         columnMappings,
-        rawStreamData);
+        streamRecorder);
   }
 
   private static Pair<List<Feature>, GeometryEncoder.EncodedGeometryColumn>
@@ -554,7 +567,7 @@ public class MltConverter {
           PhysicalLevelTechnique physicalLevelTechnique,
           boolean encodePolygonOutlines,
           @Nullable URI tessellateSource,
-          @Nullable HashMap<String, Triple<byte[], byte[], String>> rawStreamData)
+          @NotNull MLTStreamObserver streamRecorder)
           throws IOException {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:
@@ -601,13 +614,13 @@ public class MltConverter {
                 useMortonEncoding,
                 encodePolygonOutlines,
                 tessellateSource,
-                rawStreamData)
+                streamRecorder)
             : GeometryEncoder.encodeGeometryColumn(
                 geometries,
                 physicalLevelTechnique,
                 sortSettings,
                 config.getUseMortonEncoding(),
-                rawStreamData);
+                streamRecorder);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =

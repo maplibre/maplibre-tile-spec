@@ -1,5 +1,4 @@
 mod column;
-mod decodable;
 mod enums;
 mod geometry;
 mod id;
@@ -8,7 +7,6 @@ mod root;
 mod stream;
 
 pub use column::*;
-pub use decodable::*;
 pub use enums::*;
 pub use geometry::*;
 pub use id::*;
