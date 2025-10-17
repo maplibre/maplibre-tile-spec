@@ -5,7 +5,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.tuple.Pair;
@@ -310,9 +312,10 @@ public class StringDecoderTest {
     // Force coverage of the case where the "base" mapped column doesn't appear in the first feature
     mvTile.layers().getFirst().features().getFirst().properties().remove("name");
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, List.of(columnMapping), true);
-    var fieldMetadata =
+    final var columnMapping = new ColumnMapping("name", ":", true);
+    final var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
+    final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
+    final var fieldMetadata =
         tileMetadata.getFeatureTables(tableIndex).getColumnsList().stream()
             .filter(f -> f.getName().equals("name"))
             .findFirst()

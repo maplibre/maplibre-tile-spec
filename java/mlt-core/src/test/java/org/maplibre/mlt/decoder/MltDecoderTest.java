@@ -5,6 +5,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
@@ -88,21 +90,21 @@ public class MltDecoderTest {
       String tileId,
       String tileDirectory,
       TriConsumer<byte[], MltTilesetMetadata.TileSetMetadata, MapboxVectorTile> decodeAndCompare,
-      TestUtils.Optimization optimization,
+      @SuppressWarnings("SameParameterValue") TestUtils.Optimization optimization,
       List<String> reassignableLayers,
-      boolean advancedEncodings)
+      @SuppressWarnings("SameParameterValue") boolean advancedEncodings)
       throws IOException, URISyntaxException {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = List.of(columnMapping);
+    var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
     final var isIdPresent = true;
     var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, isIdPresent);
 
     var allowSorting = optimization == TestUtils.Optimization.SORTED;
     var featureTableOptimization =
-        new FeatureTableOptimizations(allowSorting, false, columnMappings);
+        new FeatureTableOptimizations(allowSorting, false, List.of(columnMapping));
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> featureTableOptimization));
@@ -111,7 +113,7 @@ public class MltDecoderTest {
     if (optimization == TestUtils.Optimization.IDS_REASSIGNED) {
       for (var reassignableLayer : reassignableLayers) {
         optimizations.put(
-            reassignableLayer, new FeatureTableOptimizations(false, true, columnMappings));
+            reassignableLayer, new FeatureTableOptimizations(false, true, List.of(columnMapping)));
       }
     }
 

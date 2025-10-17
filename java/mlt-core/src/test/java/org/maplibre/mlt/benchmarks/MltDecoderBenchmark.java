@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -156,13 +157,13 @@ public class MltDecoderBenchmark {
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = List.of(columnMapping);
+    var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
     var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = true;
     var allowSorting = false;
     var optimization =
-        new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
+        new FeatureTableOptimizations(allowSorting, allowIdRegeneration, List.of(columnMapping));
     // TODO: fix -> either add columMappings per layer or global like when creating the scheme
     var optimizations =
         Map.of(
