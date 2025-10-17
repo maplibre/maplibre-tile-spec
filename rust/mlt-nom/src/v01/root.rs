@@ -4,27 +4,15 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter;
 
-use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::SetOptionOnce;
 use crate::v01::{
-    Column, ColumnType, DecodedGeometry, DecodedId, DecodedProperty, Geometry, Id, OwnedId,
-    Property, RawIdValue, RawPropValue, Stream,
+    Column, ColumnType, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream,
 };
-use crate::{MltError, MltRefResult, utils};
-
-/// feature table capable of storing references or own data, similar to `Cow`
-/// Note that in many cases full decoding is not needed - individual columns can be decoded
-/// inside a raw feature table.
-#[borrowme]
-#[derive(Debug, PartialEq)]
-pub enum Layer01<'a> {
-    Raw(RawLayer01<'a>),
-    Decoded(DecodedLayer01),
-}
+use crate::{Decodable, MltError, MltRefResult, utils};
 
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct RawLayer01<'a> {
+pub struct Layer01<'a> {
     pub name: &'a str,
     pub extent: u32,
     pub id: Id<'a>,
@@ -32,65 +20,9 @@ pub struct RawLayer01<'a> {
     pub properties: Vec<Property<'a>>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct DecodedLayer01 {
-    pub name: String,
-    pub extent: u32,
-    pub id: DecodedId,
-    pub geometry: DecodedGeometry,
-    pub properties: Vec<DecodedProperty>,
-}
-
-impl_decodable!(Layer01<'a>, RawLayer01<'a>, DecodedLayer01);
-
-impl<'a> From<RawLayer01<'a>> for Layer01<'a> {
-    fn from(value: RawLayer01<'a>) -> Self {
-        Self::Raw(value)
-    }
-}
-
-impl<'a> Layer01<'a> {
-    #[inline]
-    pub fn decode(self) -> Result<DecodedLayer01, MltError> {
-        Ok(match self {
-            Self::Raw(v) => DecodedLayer01::from_raw(v)?,
-            Self::Decoded(v) => v,
-        })
-    }
-}
-
-impl<'a> FromRaw<'a> for DecodedLayer01 {
-    type Input = RawLayer01<'a>;
-
-    fn from_raw(raw: RawLayer01<'a>) -> Result<Self, MltError> {
-        // For now, just convert the raw data to owned data
-        // In the future, this could do more sophisticated decoding
-        Ok(DecodedLayer01 {
-            name: raw.name.to_string(),
-            extent: raw.extent,
-            id: DecodedId::default(), // TODO: implement proper ID decoding
-            geometry: raw.geometry.decode()?,
-            properties: raw
-                .properties
-                .into_iter()
-                .map(|_| DecodedProperty())
-                .collect(), // TODO: implement proper property decoding
-        })
-    }
-}
-
-fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stream<'_>>> {
-    if typ.is_optional() {
-        let (input, optional) = Stream::parse_bool(input)?;
-        Ok((input, Some(optional)))
-    } else {
-        Ok((input, None))
-    }
-}
-
-impl RawLayer01<'_> {
+impl Layer01<'_> {
     /// Parse `v01::Layer` metadata
-    pub fn parse(input: &[u8]) -> Result<RawLayer01<'_>, MltError> {
+    pub fn parse(input: &[u8]) -> Result<Layer01<'_>, MltError> {
         let (input, layer_name) = utils::parse_string(input)?;
         let (input, extent) = utils::parse_varint::<u32>(input)?;
         let (input, column_count) = utils::parse_varint::<usize>(input)?;
@@ -113,12 +45,12 @@ impl RawLayer01<'_> {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::raw(optional, RawIdValue::Id(value)))?;
+                    id_stream.set_once(Id::raw(optional, RawIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::raw(optional, RawIdValue::LongId(value)))?;
+                    id_stream.set_once(Id::raw(optional, RawIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     let value_vec;
@@ -187,7 +119,7 @@ impl RawLayer01<'_> {
             }
         }
         if input.is_empty() {
-            Ok(RawLayer01 {
+            Ok(Layer01 {
                 name: layer_name,
                 extent,
                 id: id_stream.unwrap_or_default(),
@@ -197,6 +129,24 @@ impl RawLayer01<'_> {
         } else {
             Err(MltError::TrailingLayerData(input.len()))
         }
+    }
+
+    pub fn decode_all(&mut self) -> Result<(), MltError> {
+        self.id.ensure_decoded()?;
+        self.geometry.ensure_decoded()?;
+        for prop in &mut self.properties {
+            prop.ensure_decoded()?;
+        }
+        Ok(())
+    }
+}
+
+fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stream<'_>>> {
+    if typ.is_optional() {
+        let (input, optional) = Stream::parse_bool(input)?;
+        Ok((input, Some(optional)))
+    } else {
+        Ok((input, None))
     }
 }
 
@@ -230,7 +180,7 @@ fn parse_columns_meta(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-impl OwnedRawLayer01 {
+impl OwnedLayer01 {
     /// Write Layer's binary representation to a Write stream without allocating a Vec
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_varint(self.name.len() as u64)?;

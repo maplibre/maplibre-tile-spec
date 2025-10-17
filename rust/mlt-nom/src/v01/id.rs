@@ -25,8 +25,8 @@ pub struct RawId<'a> {
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum RawIdValue<'a> {
-    Id(Stream<'a>),
-    LongId(Stream<'a>),
+    Id32(Stream<'a>),
+    Id64(Stream<'a>),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -60,6 +60,15 @@ impl<'a> FromRaw<'a> for DecodedId {
     type Input = RawId<'a>;
 
     fn from_raw(RawId { optional, value }: RawId<'_>) -> Result<Self, MltError> {
-        todo!()
+        let value = match value {
+            RawIdValue::Id32(stream) => {
+                todo!("decode 32 bit Id from stream")
+            }
+            RawIdValue::Id64(stream) => {
+                todo!("decode 64 bit LongId from stream")
+            }
+        };
+
+        // Ok(DecodedId(Some(value)))
     }
 }
