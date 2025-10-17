@@ -71,106 +71,123 @@ import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 public class Encode {
   public static void main(String[] args) {
     try {
-      var cmd = getCommandLine(args);
+      final var cmd = getCommandLine(args);
       if (cmd == null) {
         System.exit(1);
       }
-
-      final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
-      final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
-      final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
-      final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
-      final var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
-      final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
-      final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
-      final var tessellatePolygons =
-          (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
-      final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
-      final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
-      final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
-      final var verbose = cmd.hasOption(VERBOSE_OPTION);
-      final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
-      final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
-      final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
-
-      // No ColumnMapping as support is still buggy:
-      // https://github.com/maplibre/maplibre-tile-spec/issues/59
-      final List<ColumnMapping> columnMappings = List.of();
-
-      var optimizations = new HashMap<String, FeatureTableOptimizations>();
-      // TODO: Load layer -> optimizations map
-      // each layer:
-      //  new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
-
-      var conversionConfig =
-          new ConversionConfig(
-              includeIds,
-              useAdvancedEncodingSchemes,
-              enableCoerceOnTypeMismatch,
-              optimizations,
-              tessellatePolygons,
-              useMortonEncoding,
-              (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
-              filterPattern,
-              filterInvert);
-
-      if (verbose && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
-        System.err.println(
-            "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
-      }
-
-      if (cmd.hasOption(INPUT_TILE_ARG)) {
-        // Converting one tile
-        encodeTile(
-            tileFileName,
-            cmd,
-            columnMappings,
-            conversionConfig,
-            tessellateURI,
-            enableElideOnTypeMismatch,
-            verbose);
-      } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
-        // Converting all the tiles in an MBTiles file
-        var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
-        var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
-        encodeMBTiles(
-            inputPath,
-            outputPath,
-            columnMappings,
-            conversionConfig,
-            tessellateURI,
-            compressionType,
-            enableElideOnTypeMismatch,
-            verbose);
-      } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
-        var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
-        var ext = FilenameUtils.getExtension(inputPath);
-        if (!ext.isEmpty()) {
-          ext = "." + ext;
-        }
-        var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
-        encodeOfflineDB(
-            Path.of(inputPath),
-            outputPath,
-            columnMappings,
-            conversionConfig,
-            tessellateURI,
-            compressionType,
-            enableElideOnTypeMismatch,
-            verbose);
-      }
-      if (verbose && totalCompressedInput > 0) {
-        System.err.printf(
-            "Compressed %d bytes to %d bytes (%.1f%%)%n",
-            totalCompressedInput,
-            totalCompressedOutput,
-            100 * (double) totalCompressedOutput / totalCompressedInput);
-      }
+      run(cmd);
     } catch (Exception e) {
       System.err.println("Failed:");
       e.printStackTrace(System.err);
       System.exit(1);
     }
+  }
+
+  private static void run(CommandLine cmd)
+      throws URISyntaxException, IOException, ClassNotFoundException {
+    final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
+    final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
+    final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
+    final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
+    final var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
+    final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
+    final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
+    final var tessellatePolygons =
+        (tessellateSource != null) || cmd.hasOption(PRE_TESSELLATE_OPTION);
+    final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
+    final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
+    final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
+    final var verbose = cmd.hasOption(VERBOSE_OPTION);
+    final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
+    final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
+    final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
+    final var columnMappings = getColumnMappings(cmd);
+
+    var optimizations = new HashMap<String, FeatureTableOptimizations>();
+    // TODO: Load layer -> optimizations map
+    // each layer:
+    //  new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
+
+    var conversionConfig =
+        new ConversionConfig(
+            includeIds,
+            useAdvancedEncodingSchemes,
+            enableCoerceOnTypeMismatch,
+            optimizations,
+            tessellatePolygons,
+            useMortonEncoding,
+            (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
+            filterPattern,
+            filterInvert);
+
+    if (verbose && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
+      System.err.println(
+          "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
+    }
+
+    if (cmd.hasOption(INPUT_TILE_ARG)) {
+      // Converting one tile
+      encodeTile(
+          tileFileName,
+          cmd,
+          columnMappings,
+          conversionConfig,
+          tessellateURI,
+          enableElideOnTypeMismatch,
+          verbose);
+    } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
+      // Converting all the tiles in an MBTiles file
+      var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
+      var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
+      encodeMBTiles(
+          inputPath,
+          outputPath,
+          columnMappings,
+          conversionConfig,
+          tessellateURI,
+          compressionType,
+          enableElideOnTypeMismatch,
+          verbose);
+    } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
+      var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
+      var ext = FilenameUtils.getExtension(inputPath);
+      if (!ext.isEmpty()) {
+        ext = "." + ext;
+      }
+      var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
+      encodeOfflineDB(
+          Path.of(inputPath),
+          outputPath,
+          columnMappings,
+          conversionConfig,
+          tessellateURI,
+          compressionType,
+          enableElideOnTypeMismatch,
+          verbose);
+    }
+    if (verbose && totalCompressedInput > 0) {
+      System.err.printf(
+          "Compressed %d bytes to %d bytes (%.1f%%)%n",
+          totalCompressedInput,
+          totalCompressedOutput,
+          100 * (double) totalCompressedOutput / totalCompressedInput);
+    }
+  }
+
+  private static List<ColumnMapping> getColumnMappings(CommandLine cmd) {
+    final var strings = cmd.getOptionValues(COLUMN_MAPPING_OPTION);
+    if (strings == null || strings.length < 1) {
+      return List.of();
+    }
+    return Arrays.stream(strings)
+        .filter(arg -> arg.length() > 1)
+        .map(
+            arg -> {
+              final var prefix = arg.subSequence(0, arg.length() - 1).toString();
+              final var delimiter = String.valueOf(arg.charAt(arg.length() - 1));
+              return new ColumnMapping(prefix, delimiter, true);
+            })
+        .toList();
   }
 
   ///  Convert a single tile from an individual file
@@ -208,6 +225,9 @@ public class Encode {
             conversionConfig.getCoercePropertyValues(),
             enableElideOnTypeMismatch);
     final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
+
+    conversionConfig =
+        applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
 
     MLTStreamObserver streamObserver = new MLTStreamObserverDefault();
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
@@ -275,6 +295,35 @@ public class Encode {
         compare(decodedTile, decodedMvTile, compareGeom, compareProp);
       }
     }
+  }
+
+  private static ConversionConfig applyColumnMappingsToConversionConfig(
+      List<ColumnMapping> columnMappings,
+      ConversionConfig conversionConfig,
+      MltTilesetMetadata.TileSetMetadata metadata) {
+    // If there are no column mappings, or the config already has optimizations, don't modify it
+    if (columnMappings.isEmpty() || !conversionConfig.getOptimizations().isEmpty()) {
+      return conversionConfig;
+    }
+
+    // re-create the config with the column mappings applied to all feature tables
+    // TODO: Allow per-layer settings, and access to the other options
+    final var commonOptimization = new FeatureTableOptimizations(false, false, columnMappings);
+    final var optimizationMap =
+        metadata.getFeatureTablesList().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    MltTilesetMetadata.FeatureTableSchema::getName, ignored -> commonOptimization));
+    return new ConversionConfig(
+        conversionConfig.getIncludeIds(),
+        conversionConfig.getUseAdvancedEncodingSchemes(),
+        conversionConfig.getCoercePropertyValues(),
+        optimizationMap,
+        conversionConfig.getPreTessellatePolygons(),
+        conversionConfig.getUseMortonEncoding(),
+        conversionConfig.getOutlineFeatureTableNames(),
+        conversionConfig.getLayerFilterPattern(),
+        conversionConfig.getLayerFilterInvert());
   }
 
   /// Encode the entire contents of an MBTile file of MVT tiles
@@ -609,6 +658,8 @@ public class Encode {
               isIdPresent,
               coercePropertyValues,
               enableElideOnMismatch);
+      conversionConfig =
+          applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
       var tileData =
           MltConverter.convertMvt(decodedMvTile, metadata, conversionConfig, tessellateSource);
 
@@ -888,6 +939,7 @@ public class Encode {
   private static final String ALLOW_COERCE_OPTION = "coerce-mismatch";
   private static final String ALLOW_ELISION_OPTION = "elide-mismatch";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
+  private static final String COLUMN_MAPPING_OPTION = "colmap";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
   private static final String TESSELLATE_URL_OPTION = "tessellateurl";
@@ -1032,6 +1084,7 @@ public class Encode {
           Option.builder()
               .longOpt(INCLUDE_METADATA_OPTION)
               .hasArg(false)
+              .deprecated()
               .desc(
                   "Write tile metadata alongside the output tile (adding '.meta'). "
                       + "Only applies with --"
@@ -1070,6 +1123,15 @@ public class Encode {
               .longOpt(ADVANCED_ENCODING_OPTION)
               .hasArg(false)
               .desc("Enable advanced encodings (FSST & FastPFOR).")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COLUMN_MAPPING_OPTION)
+              .hasArg(true)
+              .optionalArg(false)
+              .argName("map")
+              .desc("Enable column mapping, in the form of '<name><separator>', e.g. 'name:'")
               .required(false)
               .get());
       options.addOption(
