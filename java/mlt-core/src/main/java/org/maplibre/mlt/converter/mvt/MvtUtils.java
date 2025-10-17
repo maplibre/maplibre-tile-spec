@@ -102,12 +102,12 @@ public class MvtUtils {
           if (!columnMappings.isEmpty()) {
             final var columnMapping =
                 columnMappings.stream()
-                    .filter(m -> key.startsWith(m.mvtPropertyPrefix()))
+                    .filter(m -> key.startsWith(m.getMvtPropertyPrefix()))
                     .findFirst();
             if (columnMapping.isPresent()) {
               final var transformedKey =
                   key.replaceAll(
-                      columnMapping.get().mvtDelimiterSign(), Settings.MLT_CHILD_FIELD_SEPARATOR);
+                      columnMapping.get().getMvtDelimiter(), Settings.MLT_CHILD_FIELD_SEPARATOR);
               transformedProperties.put(transformedKey, v);
               return;
             }
