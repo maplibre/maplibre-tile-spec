@@ -6,3 +6,6 @@ export { GpuVector } from "./vector/geometry/gpuVector";
 export { SelectionVector } from "./vector/filter/selectionVector";
 export { default as Point } from "./vector/geometry/point";
 export { default as GeometryScaling } from "./encodings/geometryScaling";
+export { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
+export type { Geometry } from "./vector/geometry/geometryVector";
+export type { Feature } from "./vector/featureTable";

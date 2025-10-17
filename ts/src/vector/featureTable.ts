@@ -1,7 +1,6 @@
 import { type Geometry, type GeometryVector } from "./geometry/geometryVector";
 import type Vector from "./vector";
 import { type IntVector } from "./intVector";
-import { type GpuVector } from "./geometry/gpuVector";
 import { IntFlatVector } from "./flat/intFlatVector";
 import { DoubleFlatVector } from "./flat/doubleFlatVector";
 import { IntSequenceVector } from "./sequence/intSequenceVector";
@@ -18,7 +17,7 @@ export default class FeatureTable implements Iterable<Feature> {
 
     constructor(
         private readonly _name: string,
-        private readonly _geometryVector: GeometryVector | GpuVector,
+        private readonly _geometryVector: GeometryVector,
         private readonly _idVector?: IntVector,
         private readonly _propertyVectors?: Vector[],
         private readonly _extent = 4096,
@@ -32,7 +31,7 @@ export default class FeatureTable implements Iterable<Feature> {
         return this._idVector;
     }
 
-    get geometryVector(): GeometryVector | GpuVector {
+    get geometryVector(): GeometryVector {
         return this._geometryVector;
     }
 

@@ -3,10 +3,15 @@ import { convertGeometryVector } from "./geometryVectorConverter";
 import { type SelectionVector } from "../filter/selectionVector";
 import ZOrderCurve from "./zOrderCurve";
 import type Point from "./point";
-import { type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
+import { type GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
 import { type VertexBufferType } from "./vertexBufferType";
 
-export type Geometry = Array<Array<Point>>;
+export type CoordinatesArray = Array<Array<Point>>;
+
+export type Geometry = {
+    coordinates: CoordinatesArray;
+    type: GEOMETRY_TYPE;
+};
 
 export interface MortonSettings {
     numBits: number;
@@ -42,7 +47,8 @@ export abstract class GeometryVector implements Iterable<Geometry> {
         let index = 0;
 
         while (index < this.numGeometries) {
-            yield geometries[index++];
+            yield { coordinates: geometries[index], type: this.geometryType(index) };
+            index++;
         }
     }
 
@@ -76,7 +82,7 @@ export abstract class GeometryVector implements Iterable<Geometry> {
         return [x, y];
     }
 
-    getGeometries(): Geometry[] {
+    getGeometries(): CoordinatesArray[] {
         return convertGeometryVector(this);
     }
 
