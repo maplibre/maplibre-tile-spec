@@ -5,7 +5,7 @@ use hex::ToHex as _;
 
 use crate::MltError::ParsingPhysicalStreamType;
 use crate::utils::{all, decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta, take};
-use crate::v0x01::{DictionaryType, LengthType, OffsetType, PhysicalDecoder};
+use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalDecoder};
 use crate::{MltError, MltRefResult, utils};
 
 #[borrowme]
@@ -43,7 +43,7 @@ impl<'a> Stream<'a> {
     /// If `is_bool` is true, compute RLE parameters for boolean streams
     /// automatically instead of reading them from the input.
     fn parse_internal(input: &'a [u8], is_bool: bool) -> MltRefResult<'a, Self> {
-        use crate::v0x01::{LogicalTechnique as LT, PhysicalDecoder as PT};
+        use crate::v01::{LogicalTechnique as LT, PhysicalDecoder as PT};
 
         let (input, val) = utils::parse_u8(input)?;
         let physical_type = PhysicalStreamType::parse(val)?;
@@ -162,7 +162,7 @@ impl<'a> Stream<'a> {
     // }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PhysicalStreamType {
     Present,
     Data(DictionaryType),
@@ -189,7 +189,7 @@ impl PhysicalStreamType {
 }
 
 /// MVT-compatible feature table data
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StreamMeta {
     pub physical_type: PhysicalStreamType,
     pub num_values: u32,
@@ -304,19 +304,19 @@ impl LogicalValue {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RleMeta {
     pub runs: u32,
     pub num_rle_values: u32,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MortonMeta {
     pub num_bits: u32,
     pub coordinate_shift: u32,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LogicalDecoder {
     None,
     Delta,

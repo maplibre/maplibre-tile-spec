@@ -4,47 +4,27 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter;
 
+use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::SetOptionOnce;
-use crate::v0x01::{
+use crate::v01::{
     Column, ColumnType, DecodedGeometry, DecodedId, DecodedProperty, Geometry, Id, OwnedId,
-    Parsable, Property, RawIdValue, RawPropValue, Stream, impl_decodable,
+    Property, RawIdValue, RawPropValue, Stream,
 };
 use crate::{MltError, MltRefResult, utils};
 
-/// feature table data capable of storing references or owned data, similar to `Cow`
+/// feature table capable of storing references or own data, similar to `Cow`
 /// Note that in many cases full decoding is not needed - individual columns can be decoded
 /// inside a raw feature table.
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub enum FeatureTable<'a> {
-    Raw(RawFeatureTable<'a>),
-    Decoded(DecodedFeatureTable),
+pub enum Layer01<'a> {
+    Raw(RawLayer01<'a>),
+    Decoded(DecodedLayer01),
 }
-
-impl<'a> FeatureTable<'a> {
-    #[must_use]
-    pub fn raw(
-        name: &'a str,
-        extent: u32,
-        id: Id<'a>,
-        geometry: Geometry<'a>,
-        properties: Vec<Property<'a>>,
-    ) -> Self {
-        Self::Raw(RawFeatureTable {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-        })
-    }
-}
-
-impl_decodable!(FeatureTable<'a>, RawFeatureTable<'a>, DecodedFeatureTable);
 
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct RawFeatureTable<'a> {
+pub struct RawLayer01<'a> {
     pub name: &'a str,
     pub extent: u32,
     pub id: Id<'a>,
@@ -52,8 +32,8 @@ pub struct RawFeatureTable<'a> {
     pub properties: Vec<Property<'a>>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct DecodedFeatureTable {
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DecodedLayer01 {
     pub name: String,
     pub extent: u32,
     pub id: DecodedId,
@@ -61,17 +41,35 @@ pub struct DecodedFeatureTable {
     pub properties: Vec<DecodedProperty>,
 }
 
-impl<'a> Parsable<'a> for DecodedFeatureTable {
-    type Input = RawFeatureTable<'a>;
+impl_decodable!(Layer01<'a>, RawLayer01<'a>, DecodedLayer01);
 
-    fn parse(raw: RawFeatureTable<'a>) -> Result<Self, MltError> {
+impl<'a> From<RawLayer01<'a>> for Layer01<'a> {
+    fn from(value: RawLayer01<'a>) -> Self {
+        Self::Raw(value)
+    }
+}
+
+impl<'a> Layer01<'a> {
+    #[inline]
+    pub fn decode(self) -> Result<DecodedLayer01, MltError> {
+        Ok(match self {
+            Self::Raw(v) => DecodedLayer01::from_raw(v)?,
+            Self::Decoded(v) => v,
+        })
+    }
+}
+
+impl<'a> FromRaw<'a> for DecodedLayer01 {
+    type Input = RawLayer01<'a>;
+
+    fn from_raw(raw: RawLayer01<'a>) -> Result<Self, MltError> {
         // For now, just convert the raw data to owned data
         // In the future, this could do more sophisticated decoding
-        Ok(DecodedFeatureTable {
+        Ok(DecodedLayer01 {
             name: raw.name.to_string(),
             extent: raw.extent,
             id: DecodedId::default(), // TODO: implement proper ID decoding
-            geometry: DecodedGeometry::default(), // TODO: implement proper geometry decoding
+            geometry: raw.geometry.decode()?,
             properties: raw
                 .properties
                 .into_iter()
@@ -90,9 +88,9 @@ fn parse_optional(typ: ColumnType, input: &[u8]) -> MltRefResult<'_, Option<Stre
     }
 }
 
-impl RawFeatureTable<'_> {
-    /// Parse `FeatureTable` V1 metadata
-    pub fn parse(input: &[u8]) -> Result<RawFeatureTable<'_>, MltError> {
+impl RawLayer01<'_> {
+    /// Parse `v01::Layer` metadata
+    pub fn parse(input: &[u8]) -> Result<RawLayer01<'_>, MltError> {
         let (input, layer_name) = utils::parse_string(input)?;
         let (input, extent) = utils::parse_varint::<u32>(input)?;
         let (input, column_count) = utils::parse_varint::<usize>(input)?;
@@ -189,7 +187,7 @@ impl RawFeatureTable<'_> {
             }
         }
         if input.is_empty() {
-            Ok(RawFeatureTable {
+            Ok(RawLayer01 {
                 name: layer_name,
                 extent,
                 id: id_stream.unwrap_or_default(),
@@ -232,7 +230,7 @@ fn parse_columns_meta(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-impl OwnedRawFeatureTable {
+impl OwnedRawLayer01 {
     /// Write Layer's binary representation to a Write stream without allocating a Vec
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_varint(self.name.len() as u64)?;

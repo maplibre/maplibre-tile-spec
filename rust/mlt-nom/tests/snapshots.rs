@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use insta::{assert_debug_snapshot, with_settings};
-use mlt_nom::parse_binary_stream;
+use mlt_nom::{Decodable, parse_binary_stream};
 use test_each_file::test_each_path;
 
 /// Parse a single MLT file and assert a snapshot of the result.
@@ -13,8 +13,15 @@ fn parse_one_file(path: impl AsRef<Path>) {
     let file_name = path.file_stem().unwrap().to_string_lossy().to_string();
     let buffer = fs::read(path).unwrap();
     match parse_binary_stream(&buffer) {
-        Ok(value) => {
-            assert_debug_snapshot!(file_name, value);
+        Ok(mut value) => {
+            assert_debug_snapshot!(file_name.as_str(), value);
+            for v in &mut value {
+                if let Err(_e) = v.ensure_decoded() {
+                    // assert_debug_snapshot!(format!("{file_name}___bad-decode"), _e);
+                    return;
+                }
+            }
+            // assert_debug_snapshot!(format!("{file_name}-decoded"), value);
         }
         Err(e) => {
             let filesize = buffer.len();
@@ -42,7 +49,7 @@ fn test(path: &Path) {
 }
 
 #[test]
-#[ignore = "For manual testing of a single file"]
+#[ignore = "used for manual testing of a single file"]
 fn test_plain() {
     // let path = "../../test/expected/tag0x01/simple/line-boolean.mlt";
     let path = "../../test/expected/tag0x01/omt/11_1062_1368.mlt";

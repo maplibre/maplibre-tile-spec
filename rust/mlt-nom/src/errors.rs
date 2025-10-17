@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use num_enum::TryFromPrimitiveError;
 
-use crate::v0x01::{GeometryType, LogicalTechnique};
+use crate::v01::{GeometryType, LogicalTechnique};
 
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
@@ -150,8 +150,6 @@ pub enum MltError {
     // Domain-specific lookups (IDs, header vectors)
     #[error("missing infos[{0}]")]
     MissingInfo(usize),
-    #[error("feature table not found: id={0}")]
-    FeatureTableNotFound(u32),
 
     // Other errors
     #[error("not implemented: {0}")]
