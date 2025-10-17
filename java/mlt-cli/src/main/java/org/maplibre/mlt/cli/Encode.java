@@ -1195,9 +1195,10 @@ public class Encode {
               .argName("columns")
               .valueSeparator(',')
               .desc(
-                  "Automatic column mapping for the specified layers (Not implemented)\n"
-                      + "  Layer specifications may be regular expressions if surrounded by '/'."
-                      + "  An empty set of layers applies to all layers.")
+"""
+Automatic column mapping for the specified layers (Not implemented)
+  Layer specifications may be regular expressions if surrounded by '/'.
+  An empty set of layers applies to all layers.""")
               .required(false)
               .get());
       options.addOption(
@@ -1207,9 +1208,10 @@ public class Encode {
               .optionalArg(false)
               .argName("map")
               .desc(
-                  "Add a separator-based column mapping:\n"
-                      + "  '[<layer>,...]<name><separator>'"
-                      + "  e.g. '[][:]name' combines 'name' and 'name:de' on all layers.")
+"""
+Add a separator-based column mapping:
+  '[<layer>,...]<name><separator>'
+  e.g. '[][:]name' combines 'name' and 'name:de' on all layers.""")
               .required(false)
               .get());
       options.addOption(
@@ -1219,9 +1221,10 @@ public class Encode {
               .optionalArg(false)
               .argName("map")
               .desc(
-                  "Add an explicit column mapping on the specified layers:"
-                      + "  '[<layer>,...]<name>,...'"
-                      + "  e.g. '[]name,name:de' combines 'name' and 'name:de' on all layers.")
+"""
+Add an explicit column mapping on the specified layers:
+  '[<layer>,...]<name>,...'
+  e.g. '[]name,name:de' combines 'name' and 'name:de' on all layers.""")
               .required(false)
               .get());
       options.addOption(
