@@ -67,7 +67,8 @@ impl ColumnType {
         Ok((input, value))
     }
 
-    /// Check if the column type is expected to have a name in the tile data
+    /// Returns true if the column definition includes a name field in the serialized format.
+    /// Note: ID and Geometry columns use implicit naming and do not include a name field.
     #[must_use]
     pub fn has_name(self) -> bool {
         #[allow(clippy::enum_glob_use)]
