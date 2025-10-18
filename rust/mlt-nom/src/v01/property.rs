@@ -4,6 +4,7 @@ use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::v01::Stream;
 
+/// Property representation, either raw or decoded
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum Property<'a> {
@@ -11,6 +12,7 @@ pub enum Property<'a> {
     Decoded(DecodedProperty),
 }
 
+/// Unparsed property data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct RawProperty<'a> {
@@ -19,7 +21,7 @@ pub struct RawProperty<'a> {
     value: RawPropValue<'a>,
 }
 
-/// Column type enumeration
+/// A sequence of encoded (raw) property values of various types
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum RawPropValue<'a> {
@@ -36,13 +38,14 @@ pub enum RawPropValue<'a> {
     Struct(Stream<'a>),
 }
 
+/// Decoded property values as a name and a vector of optional typed values
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DecodedProperty {
     name: String,
     values: PropValue,
 }
 
-/// Column type enumeration
+/// Decoded property value types
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum PropValue {
     Bool(Vec<Option<bool>>),

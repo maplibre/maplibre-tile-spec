@@ -4,7 +4,7 @@ use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::v01::Stream;
 
-/// Unparsed ID data as read directly from the tile
+/// ID column representation, either raw or decoded, or none if there are no IDs
 #[borrowme]
 #[derive(Debug, Default, PartialEq)]
 pub enum Id<'a> {
@@ -14,6 +14,7 @@ pub enum Id<'a> {
     Decoded(DecodedId),
 }
 
+/// Unparsed ID data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct RawId<'a> {
@@ -21,7 +22,7 @@ pub struct RawId<'a> {
     value: RawIdValue<'a>,
 }
 
-/// Column type enumeration
+/// A sequence of encoded (raw) ID values, either 32-bit or 64-bit unsigned integers
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum RawIdValue<'a> {
@@ -29,6 +30,7 @@ pub enum RawIdValue<'a> {
     Id64(Stream<'a>),
 }
 
+/// Decoded ID values as a vector of optional 64-bit unsigned integers
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DecodedId(Option<Vec<Option<u64>>>);
 
