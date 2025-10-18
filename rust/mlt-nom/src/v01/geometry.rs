@@ -126,6 +126,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                 }
             }
         }
+
         if index_buffer.is_some() && part_offsets.is_none() {
             // Case when the indices of a Polygon outline are not encoded in the data so no
             // topology data are present in the tile
@@ -141,6 +142,26 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                 &offsets,
                 GeometryType::Polygon,
             ));
+            if let Some(_part_offsets) = part_offsets.take() {
+                if let Some(_ring_offsets) = ring_offsets.take() {
+                    // auto partOffsetsCopy = partOffsets;
+                    // decodeLevel1LengthStream(geometryTypes,
+                    //                          geometryOffsets,
+                    //                          partOffsetsCopy,
+                    //                          /*isLineStringPresent=*/false,
+                    //                          partOffsets);
+                    // auto ringOffsetsCopy = ringOffsets;
+                    // decodeLevel2LengthStream(geometryTypes, geometryOffsets, partOffsets, ringOffsetsCopy, ringOffsets);
+                    todo!(
+                        "geometry_offsets with part_offsets and ring_offsets case is not implemented"
+                    );
+                } else {
+                    // auto partOffsetsCopy = partOffsets;
+                    // decodeLevel1WithoutRingBufferLengthStream(
+                    //     geometryTypes, geometryOffsets, partOffsetsCopy, partOffsets);
+                    todo!("geometry_offsets with part_offsets case is not implemented");
+                }
+            }
         } else if let Some(offsets) = part_offsets.take() {
             if let Some(_ring_offsets) = ring_offsets {
                 part_offsets = Some(decode_root_length_stream(
@@ -161,6 +182,20 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                     GeometryType::Point,
                 ));
             }
+        }
+
+        if let Some(index_buffer) = index_buffer {
+            // Case when the indices of a Polygon outline are encoded in the tile
+
+            /* return
+               std::make_unique<geometry::FlatGpuVector>(
+               std::move(geometryTypes),
+               std::move(triangles),
+               std::move(indexBuffer),
+               std::move(vertices),
+               geometry::TopologyVector(std::move(geometryOffsets), std::move(partOffsets), std::move(ringOffsets));
+            */
+            todo!("index_buffer.is_some() case is not implemented");
         }
 
         Ok(DecodedGeometry {

@@ -37,7 +37,27 @@ pub enum RawPropValue<'a> {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct DecodedProperty();
+pub struct DecodedProperty {
+    name: String,
+    values: PropValue,
+}
+
+/// Column type enumeration
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum PropValue {
+    Bool(Vec<Option<bool>>),
+    I8(Vec<Option<i8>>),
+    U8(Vec<Option<u8>>),
+    I32(Vec<Option<i32>>),
+    U32(Vec<Option<u32>>),
+    I64(Vec<Option<i64>>),
+    U64(Vec<Option<u64>>),
+    F32(Vec<Option<f32>>),
+    F64(Vec<Option<f64>>),
+    Str(Vec<Option<String>>),
+    #[default]
+    Struct,
+}
 
 impl_decodable!(Property<'a>, RawProperty<'a>, DecodedProperty);
 
@@ -69,7 +89,22 @@ impl<'a> Property<'a> {
 impl<'a> FromRaw<'a> for DecodedProperty {
     type Input = RawProperty<'a>;
 
-    fn from_raw(RawProperty { .. }: RawProperty<'_>) -> Result<Self, MltError> {
-        todo!()
+    fn from_raw(v: RawProperty<'_>) -> Result<Self, MltError> {
+        Ok(DecodedProperty {
+            name: v.name.to_string(),
+            values: match v.value {
+                RawPropValue::Bool(_) => PropValue::Bool(Vec::new()),
+                RawPropValue::I8(_) => PropValue::I8(Vec::new()),
+                RawPropValue::U8(_) => PropValue::U8(Vec::new()),
+                RawPropValue::I32(_) => PropValue::I32(Vec::new()),
+                RawPropValue::U32(_) => PropValue::U32(Vec::new()),
+                RawPropValue::I64(_) => PropValue::I64(Vec::new()),
+                RawPropValue::U64(_) => PropValue::U64(Vec::new()),
+                RawPropValue::F32(_) => PropValue::F32(Vec::new()),
+                RawPropValue::F64(_) => PropValue::F64(Vec::new()),
+                RawPropValue::Str(_) => PropValue::Str(Vec::new()),
+                RawPropValue::Struct(_) => PropValue::Struct,
+            },
+        })
     }
 }
