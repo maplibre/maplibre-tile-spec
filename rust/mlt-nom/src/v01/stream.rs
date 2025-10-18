@@ -72,7 +72,7 @@ pub enum LengthType {
     Dictionary = 6,
 }
 
-/// How should the stream be interpreted at the logical level (second pass of decoding
+/// How should the stream be interpreted at the logical level (second pass of decoding)
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LogicalDecoder {
     None,
