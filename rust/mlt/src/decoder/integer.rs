@@ -17,10 +17,6 @@ use crate::metadata::stream_encoding::{
 };
 use crate::{MltError, MltResult};
 
-/// a placeholder for future implementation
-/// For some reason, the Java code has a method that decodes long streams,
-/// but it has different logic than the integer stream decoding.
-/// It is not clear what the purpose of this method is, so it is left unimplemented
 pub fn decode_long_stream(
     _tile: &mut TrackedBytes,
     _metadata: &StreamMetadata,
@@ -139,17 +135,30 @@ fn le_bytes_to_u32s(tile: &mut TrackedBytes, num_bytes: usize) -> MltResult<Vec<
         });
     }
 
-    let num_bytes = num_bytes / 4;
-    let encoded_u32s = (0..num_bytes)
-        .map(|_| {
-            let b1 = tile.get_u8();
-            let b2 = tile.get_u8();
-            let b3 = tile.get_u8();
-            let b4 = tile.get_u8();
-            u32::from_le_bytes([b1, b2, b3, b4])
-        })
-        .collect();
+    let num_ints = num_bytes / 4;
+    let encoded_u32s = (0..num_ints).map(|_| tile.get_u32_le()).collect();
     Ok(encoded_u32s)
+}
+
+/// Convert a byte stream (little-endian, LE) to a vector of u64 integers.
+fn le_bytes_to_u64s(tile: &mut TrackedBytes, num_bytes: usize) -> MltResult<Vec<u64>> {
+    if !num_bytes.is_multiple_of(8) {
+        return Err(MltError::InvalidByteMultiple {
+            ctx: "bytes-to-be-encoded-u64 stream",
+            multiple_of: 8,
+            got: num_bytes,
+        });
+    }
+    if tile.remaining() < num_bytes {
+        return Err(MltError::BufferUnderflow {
+            needed: num_bytes,
+            remaining: tile.remaining(),
+        });
+    }
+
+    let num_ints = num_bytes / 8;
+    let encoded_u64s = (0..num_ints).map(|_| tile.get_u64_le()).collect();
+    Ok(encoded_u64s)
 }
 
 /// Decode RLE (Run-Length Encoding) data
