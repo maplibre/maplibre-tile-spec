@@ -9,6 +9,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
@@ -115,17 +117,18 @@ public class CompressionBenchmarksTest {
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = List.of(columnMapping);
+    var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
     final var isIdPresent = true;
     var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, isIdPresent);
 
-    var optimization = new FeatureTableOptimizations(allowSorting, false, columnMappings);
+    var optimization = new FeatureTableOptimizations(allowSorting, false, List.of(columnMapping));
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
     for (var reassignableLayer : reassignableLayers) {
       optimizations.put(
-          reassignableLayer, new FeatureTableOptimizations(allowSorting, true, columnMappings));
+          reassignableLayer,
+          new FeatureTableOptimizations(allowSorting, true, List.of(columnMapping)));
     }
 
     var mlTile =

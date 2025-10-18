@@ -5,10 +5,17 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.MLTStreamObserverDefault;
@@ -251,60 +258,70 @@ public class StringDecoderTest {
     Assert.equals(values2, v.get(":Test2"));
   }
 
-  @Test
-  @Disabled
-  public void decodeSharedDictionary_Mvt() throws IOException {
-    var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
-    var mvTile = MvtUtils.decodeMvt(mvtFilePath);
+  /// Helper method to filter and cast stream elements
+  private static <Target extends Base, Base> Function<Base, Stream<Target>> ofType(
+      Class<Target> targetType) {
+    return value ->
+        targetType.isInstance(value) ? Stream.of(targetType.cast(value)) : Stream.empty();
+  }
 
-    var layer = mvTile.layers().getFirst();
-    var values = new ArrayList<String>();
-    for (var feature : layer.features()) {
-      var strProperties = new ArrayList<String>();
-      for (var prop : feature.properties().values()) {
-        if (prop instanceof String) {
-          strProperties.add((String) prop);
-        }
-      }
-      values.addAll(strProperties);
-    }
-
-    var encodedValues =
-        encodeSharedDictionary(List.of(values), PhysicalLevelTechnique.FAST_PFOR, false);
-
-    var tileMetadata =
+  @ParameterizedTest
+  @EnumSource(
+      value = PhysicalLevelTechnique.class,
+      names = {"VARINT", "FAST_PFOR"})
+  public void decodeSharedDictionary_FastPFOR_Mvt(PhysicalLevelTechnique technique)
+      throws IOException {
+    final var tileId = String.format("%s_%s_%s", 5, 16, 21);
+    final var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
+    final var mvTile = MvtUtils.decodeMvt(mvtFilePath);
+    final var values =
+        mvTile.layers().getFirst().features().stream()
+            .flatMap(
+                feature -> feature.properties().values().stream().flatMap(ofType(String.class)))
+            .toList();
+    final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
+    final var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
-            .setName("Test")
+            .setName("TestParent")
             .setNullable(true)
-            .setScalarType(
-                MltTilesetMetadata.ScalarColumn.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING))
+            .setComplexType(
+                MltTilesetMetadata.ComplexColumn.newBuilder()
+                    .setPhysicalType(MltTilesetMetadata.ComplexType.STRUCT)
+                    .addChildren(
+                        MltTilesetMetadata.Field.newBuilder()
+                            .setName("TestChild")
+                            .setScalarField(
+                                MltTilesetMetadata.ScalarField.newBuilder()
+                                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
+                                    .build())))
             .build();
-
-    var decodedValues =
+    var decodeResult =
         StringDecoder.decodeSharedDictionary(
             encodedValues.getRight(), new IntWrapper(0), tileMetadata);
-
-    var v = decodedValues.getRight().get(":Test");
-    Assert.equals(values, v);
+    var decodedValues = decodeResult.getRight().get("TestParent:TestChild");
+    Assert.equals(values, decodedValues);
   }
 
-  @Test
-  public void decodeSharedDictionary_MvtWithNestedColumns() throws IOException {
+  @ParameterizedTest
+  @ValueSource(ints = {0, 3})
+  public void decodeSharedDictionary_MvtWithNestedColumns(int tableIndex) throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, List.of(columnMapping), true);
-    var fieldMetadata =
-        tileMetadata.getFeatureTables(0).getColumnsList().stream()
+    // Force coverage of the case where the "base" mapped column doesn't appear in the first feature
+    mvTile.layers().getFirst().features().getFirst().properties().remove("name");
+
+    final var columnMapping = new ColumnMapping("name", ":", true);
+    final var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
+    final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
+    final var fieldMetadata =
+        tileMetadata.getFeatureTables(tableIndex).getColumnsList().stream()
             .filter(f -> f.getName().equals("name"))
             .findFirst()
             .orElseThrow();
 
-    var layer = mvTile.layers().getFirst();
+    var layer = mvTile.layers().get(tableIndex);
     var sharedValues = new ArrayList<List<String>>();
     for (var column : fieldMetadata.getComplexType().getChildrenList()) {
       var values = new ArrayList<String>();
@@ -320,89 +337,26 @@ public class StringDecoderTest {
       sharedValues.add(values);
     }
 
-    var encodedValues =
+    final var encodedValues =
         encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
-
-    var decodedValues =
+    final var decodeResult =
         StringDecoder.decodeSharedDictionary(
             encodedValues.getRight(), new IntWrapper(0), fieldMetadata);
-
-    var v = decodedValues.getRight();
+    final var decodedValues = decodeResult.getRight();
 
     for (var column : fieldMetadata.getComplexType().getChildrenList()) {
       var i = 0;
       for (var feature : layer.features()) {
         if (column.getName().equals("default")) {
           var value = (String) feature.properties().get("name");
-          var actualValue = v.get("name").get(i++);
+          var actualValue = decodedValues.get("name").get(i++);
           if (value == null && actualValue == null) {
             continue;
           }
           Assert.equals(value, actualValue);
         } else {
           var value = (String) feature.properties().get("name:" + column.getName());
-          var actualValue = v.get("name:" + column.getName()).get(i++);
-          if (value == null && actualValue == null) {
-            continue;
-          }
-          Assert.equals(value, actualValue);
-        }
-      }
-    }
-  }
-
-  @Test
-  public void decodeSharedDictionary_MvtWithNestedColumns2() throws IOException {
-    var tileId = String.format("%s_%s_%s", 5, 16, 21);
-    var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
-    var mvTile = MvtUtils.decodeMvt(mvtFilePath);
-
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, List.of(columnMapping), true);
-    var fieldMetadata =
-        tileMetadata.getFeatureTables(3).getColumnsList().stream()
-            .filter(f -> f.getName().equals("name"))
-            .findFirst()
-            .orElseThrow();
-
-    var layer = mvTile.layers().get(3);
-    var sharedValues = new ArrayList<List<String>>();
-    for (var column : fieldMetadata.getComplexType().getChildrenList()) {
-      var values = new ArrayList<String>();
-      for (var feature : layer.features()) {
-        if (column.getName().equals("default")) {
-          var value = (String) feature.properties().get("name");
-          values.add(value);
-        } else {
-          var value = (String) feature.properties().get("name:" + column.getName());
-          values.add(value);
-        }
-      }
-      sharedValues.add(values);
-    }
-
-    var encodedValues =
-        encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
-
-    var decodedValues =
-        StringDecoder.decodeSharedDictionary(
-            encodedValues.getRight(), new IntWrapper(0), fieldMetadata);
-
-    var v = decodedValues.getRight();
-
-    for (var column : fieldMetadata.getComplexType().getChildrenList()) {
-      var i = 0;
-      for (var feature : layer.features()) {
-        if (column.getName().equals("default")) {
-          var value = (String) feature.properties().get("name");
-          var actualValue = v.get("name").get(i++);
-          if (value == null && actualValue == null) {
-            continue;
-          }
-          Assert.equals(value, actualValue);
-        } else {
-          var value = (String) feature.properties().get("name:" + column.getName());
-          var actualValue = v.get("name:" + column.getName()).get(i++);
+          var actualValue = decodedValues.get("name:" + column.getName()).get(i++);
           if (value == null && actualValue == null) {
             continue;
           }

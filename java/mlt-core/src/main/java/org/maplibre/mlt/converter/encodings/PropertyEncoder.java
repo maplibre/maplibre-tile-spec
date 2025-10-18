@@ -79,12 +79,12 @@ public class PropertyEncoder {
         for (var nestedFieldMetadata : columnMetadata.getComplexType().getChildrenList()) {
           if (nestedFieldMetadata.getScalarField().getPhysicalType()
               == MltTilesetMetadata.ScalarType.STRING) {
-            if (columnMapping.useSharedDictionaryEncoding()) {
+            if (columnMapping.getUseSharedDictionaryEncoding()) {
               // request all string columns in row and merge
               if (nestedFieldMetadata.getName().equals("default")) {
                 var propertyColumn =
                     features.stream()
-                        .map(f -> (String) f.properties().get(columnMapping.mvtPropertyPrefix()))
+                        .map(f -> (String) f.properties().get(columnMapping.getMvtPropertyPrefix()))
                         .collect(Collectors.toList());
                 sharedDictionary.add(propertyColumn);
               } else {
@@ -92,7 +92,7 @@ public class PropertyEncoder {
                 // This can be the case when the Tileset Metadata document is not generated per
                 // tile instead for the full tileset
                 var mvtPropertyName =
-                    columnMapping.mvtPropertyPrefix()
+                    columnMapping.getMvtPropertyPrefix()
                         + Settings.MLT_CHILD_FIELD_SEPARATOR
                         + nestedFieldMetadata.getName();
                 var propertyColumn =

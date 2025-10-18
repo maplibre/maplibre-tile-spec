@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.NotImplementedException;
@@ -197,12 +199,11 @@ public class MltDecoderTest2 {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    final List<ColumnMapping> columnMappings = List.of();
+    final Map<Pattern, List<ColumnMapping>> columnMappings = Map.of();
     var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = false;
-    var optimization =
-        new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
+    var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, List.of());
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
