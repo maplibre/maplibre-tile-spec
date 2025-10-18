@@ -1,6 +1,7 @@
 use borrowme::borrowme;
+use num_enum::TryFromPrimitive;
 
-use crate::v01::ColumnType;
+use crate::MltError::ParsingColumnType;
 use crate::{MltRefResult, utils};
 
 /// Column definition
@@ -23,5 +24,61 @@ impl Column<'_> {
             None
         };
         Ok((input, Column { typ, name }))
+    }
+}
+
+/// Column data type, as stored in the tile
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum ColumnType {
+    Id = 0,
+    OptId = 1,
+    LongId = 2,
+    OptLongId = 3,
+    Geometry = 4,
+    Bool = 10,
+    OptBool = 11,
+    I8 = 12,
+    OptI8 = 13,
+    U8 = 14,
+    OptU8 = 15,
+    I32 = 16,
+    OptI32 = 17,
+    U32 = 18,
+    OptU32 = 19,
+    I64 = 20,
+    OptI64 = 21,
+    U64 = 22,
+    OptU64 = 23,
+    F32 = 24,
+    OptF32 = 25,
+    F64 = 26,
+    OptF64 = 27,
+    Str = 28,
+    OptStr = 29,
+    Struct = 30,
+}
+
+impl ColumnType {
+    /// Parse a column type from u8
+    pub fn parse(input: &[u8]) -> MltRefResult<'_, Self> {
+        let (input, value) = utils::parse_u8(input)?;
+        let value = Self::try_from(value).or(Err(ParsingColumnType(value)))?;
+        Ok((input, value))
+    }
+
+    /// Returns true if the column definition includes a name field in the serialized format.
+    /// Note: ID and Geometry columns use implicit naming and do not include a name field.
+    #[must_use]
+    pub fn has_name(self) -> bool {
+        #[allow(clippy::enum_glob_use)]
+        use ColumnType::*;
+        !matches!(self, Id | OptId | LongId | OptLongId | Geometry)
+    }
+
+    /// Check if the column type has a presence stream
+    #[must_use]
+    pub fn is_optional(self) -> bool {
+        (self as u8) & 1 != 0
     }
 }

@@ -5,11 +5,11 @@ use borrowme::borrowme;
 use integer_encoding::VarIntWriter;
 
 use crate::utils::SetOptionOnce;
-use crate::v01::{
-    Column, ColumnType, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream,
-};
+use crate::v01::column::ColumnType;
+use crate::v01::{Column, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream};
 use crate::{Decodable, MltError, MltRefResult, utils};
 
+/// Representation of a feature table layer encoded as MLT tag `0x01`
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Layer01<'a> {
@@ -155,7 +155,7 @@ fn parse_columns_meta(
     column_count: usize,
 ) -> MltRefResult<'_, (Vec<Column<'_>>, usize)> {
     #[allow(clippy::enum_glob_use)]
-    use ColumnType::*;
+    use crate::v01::column::ColumnType::*;
 
     let mut col_info = Vec::with_capacity(column_count);
     let mut geometries = 0;

@@ -1,15 +1,14 @@
 use std::fmt::Debug;
 
 use borrowme::borrowme;
+use num_enum::TryFromPrimitive;
 
 use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::{OptSeq, SetOptionOnce};
-use crate::v01::{
-    DictionaryType, GeometryType, LengthType, OffsetType, PhysicalStreamType, Stream,
-};
+use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
 
-/// Unparsed geometry data as read directly from the tile
+/// Geometry column representation, either raw or decoded
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum Geometry<'a> {
@@ -17,6 +16,7 @@ pub enum Geometry<'a> {
     Decoded(DecodedGeometry),
 }
 
+/// Unparsed geometry data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct RawGeometry<'a> {
@@ -24,6 +24,7 @@ pub struct RawGeometry<'a> {
     items: Vec<Stream<'a>>,
 }
 
+/// Decoded geometry data
 #[derive(Clone, Default, PartialEq)]
 pub struct DecodedGeometry {
     // pub vector_type: VectorType,
@@ -37,6 +38,35 @@ pub struct DecodedGeometry {
     pub triangles: Option<Vec<u32>>,
     pub vertices: Option<Vec<i32>>,
 }
+
+/// Types of geometries supported in MLT
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, TryFromPrimitive)]
+#[repr(u8)]
+pub enum GeometryType {
+    Point,
+    LineString,
+    Polygon,
+    MultiPoint,
+    MultiLineString,
+    MultiPolygon,
+}
+
+// /// Vertex buffer type used for geometry columns
+// #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+// pub enum VertexBufferType {
+//     Morton,
+//     Vec2,
+//     Vec3,
+// }
+
+// #[derive(Debug, Clone, Copy, PartialEq)]
+// pub enum VectorType {
+//     Flat,
+//     Const,
+//     Sequence,
+//     // Dictionary,
+//     // FsstDictionary,
+// }
 
 impl_decodable!(Geometry<'a>, RawGeometry<'a>, DecodedGeometry);
 
