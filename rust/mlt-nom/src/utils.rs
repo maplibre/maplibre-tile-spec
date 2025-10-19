@@ -150,6 +150,7 @@ impl<T> SetOptionOnce<T> for Option<T> {
     }
 }
 
+/// Wrapper type for optional slices to provide a custom Debug implementation
 pub struct OptSeq<'a, T>(pub Option<&'a [T]>);
 
 impl<T: Display + Debug> Debug for OptSeq<'_, T> {

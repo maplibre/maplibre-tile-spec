@@ -2,18 +2,173 @@ use std::fmt::Debug;
 
 use borrowme::borrowme;
 use hex::ToHex as _;
+use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingPhysicalStreamType;
 use crate::utils::{all, decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta, take};
-use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalDecoder};
 use crate::{MltError, MltRefResult, utils};
 
+/// Representation of a raw stream
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Stream<'a> {
     pub meta: StreamMeta,
     pub data: StreamData<'a>,
 }
+
+/// Metadata about a raw stream
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StreamMeta {
+    pub physical_type: PhysicalStreamType,
+    pub num_values: u32,
+    pub logical_decoder: LogicalDecoder,
+    pub physical_decoder: PhysicalDecoder,
+}
+
+/// How should the stream be interpreted at the physical level (first pass of decoding)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PhysicalStreamType {
+    Present,
+    Data(DictionaryType),
+    Offset(OffsetType),
+    Length(LengthType),
+}
+
+/// Dictionary type used for a column, as stored in the tile
+#[borrowme]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum DictionaryType {
+    None = 0,
+    Single = 1,
+    Shared = 2,
+    Vertex = 3,
+    Morton = 4,
+    Fsst = 5,
+}
+
+/// Offset type used for a column, as stored in the tile
+#[borrowme]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum OffsetType {
+    Vertex = 0,
+    Index = 1,
+    String = 2,
+    Key = 3,
+}
+
+/// Length type used for a column, as stored in the tile
+#[borrowme]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum LengthType {
+    VarBinary = 0,
+    Geometries = 1,
+    Parts = 2,
+    Rings = 3,
+    Triangles = 4,
+    Symbol = 5,
+    Dictionary = 6,
+}
+
+/// How should the stream be interpreted at the logical level (second pass of decoding)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LogicalDecoder {
+    None,
+    Delta,
+    DeltaRle(RleMeta),
+    ComponentwiseDelta,
+    Rle(RleMeta),
+    Morton(MortonMeta),
+    PseudoDecimal,
+}
+
+/// Physical decoder used for a column, as stored in the tile
+#[borrowme]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum PhysicalDecoder {
+    None = 0,
+    /// Preferred, tends to produce the best compression ratio and decoding performance.
+    /// But currently limited to 32-bit integer.
+    FastPFOR = 1,
+    /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
+    /// Simple compression scheme where the decoder are easier to implement compared to `FastPfor`.
+    VarInt = 2,
+    /// Adaptive Lossless floating-Point Compression
+    Alp = 3,
+}
+
+/// Metadata for RLE decoding
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RleMeta {
+    pub runs: u32,
+    pub num_rle_values: u32,
+}
+
+/// Metadata for Morton decoding
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MortonMeta {
+    pub num_bits: u32,
+    pub coordinate_shift: u32,
+}
+
+/// Representation of a decoded value
+/// TODO: decoded stream data representation has not been finalized yet
+#[derive(Debug, PartialEq)]
+pub struct LogicalValue {
+    meta: StreamMeta,
+    data: LogicalData,
+}
+
+/// Representation of decoded stream data
+/// TODO: decoded stream data representation has not been finalized yet
+#[derive(Debug, PartialEq)]
+pub enum LogicalData {
+    VecU32(Vec<u32>),
+}
+
+/// Representation of the raw stream data, in various physical formats
+macro_rules! stream_data {
+    ($($enm:ident : $ty:ident / $owned:ident),+ $(,)?) => {
+        #[borrowme]
+        #[derive(Debug, PartialEq)]
+        pub enum StreamData<'a> {
+            $($enm($ty<'a>),)+
+        }
+
+        $(
+            #[borrowme]
+            #[derive(PartialEq)]
+            pub struct $ty<'a> {
+                #[borrowme(borrow_with = Vec::as_slice)]
+                pub data: &'a [u8],
+            }
+            impl<'a> $ty<'a> {
+                #[expect(clippy::new_ret_no_self)]
+                pub fn new(data: &'a [u8]) -> StreamData<'a> {
+                    StreamData::$enm(Self { data } )
+                }
+            }
+            impl<'a> Debug for $ty<'a> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    fmt_byte_array(self.data, f)
+                }
+            }
+            impl<'a> Debug for $owned {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    fmt_byte_array(&self.data, f)
+                }
+            }
+        )+
+    };
+}
+
+stream_data![
+    VarInt: DataVarInt / OwnedDataVarInt,
+    Raw: DataRaw / OwnedDataRaw,
+];
 
 impl<'a> Stream<'a> {
     #[must_use]
@@ -162,14 +317,6 @@ impl<'a> Stream<'a> {
     // }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PhysicalStreamType {
-    Present,
-    Data(DictionaryType),
-    Offset(OffsetType),
-    Length(LengthType),
-}
-
 impl PhysicalStreamType {
     pub fn parse(value: u8) -> Result<Self, MltError> {
         Self::from_u8(value).ok_or(ParsingPhysicalStreamType(value))
@@ -188,50 +335,6 @@ impl PhysicalStreamType {
     }
 }
 
-/// MVT-compatible feature table data
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct StreamMeta {
-    pub physical_type: PhysicalStreamType,
-    pub num_values: u32,
-    pub logical_decoder: LogicalDecoder,
-    pub physical_decoder: PhysicalDecoder,
-}
-
-macro_rules! stream_data {
-    ($($enm:ident : $ty:ident / $owned:ident),+ $(,)?) => {
-        #[borrowme]
-        #[derive(Debug, PartialEq)]
-        pub enum StreamData<'a> {
-            $($enm($ty<'a>),)+
-        }
-
-        $(
-            #[borrowme]
-            #[derive(PartialEq)]
-            pub struct $ty<'a> {
-                #[borrowme(borrow_with = Vec::as_slice)]
-                pub data: &'a [u8],
-            }
-            impl<'a> $ty<'a> {
-                #[expect(clippy::new_ret_no_self)]
-                pub fn new(data: &'a [u8]) -> StreamData<'a> {
-                    StreamData::$enm(Self { data } )
-                }
-            }
-            impl<'a> Debug for $ty<'a> {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    fmt_byte_array(self.data, f)
-                }
-            }
-            impl<'a> Debug for $owned {
-                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    fmt_byte_array(&self.data, f)
-                }
-            }
-        )+
-    };
-}
-
 fn fmt_byte_array(data: &[u8], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let vals = (&data[..8.min(data.len())]).encode_hex_upper::<String>();
     write!(
@@ -240,22 +343,6 @@ fn fmt_byte_array(data: &[u8], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Res
         if data.len() <= 8 { "" } else { "..." },
         data.len()
     )
-}
-
-stream_data![
-    VarInt: DataVarInt / OwnedDataVarInt,
-    Raw: DataRaw / OwnedDataRaw,
-];
-
-#[derive(Debug, PartialEq)]
-pub enum LogicalData {
-    VecU32(Vec<u32>),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct LogicalValue {
-    meta: StreamMeta,
-    data: LogicalData,
 }
 
 impl LogicalValue {
@@ -304,25 +391,27 @@ impl LogicalValue {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RleMeta {
-    pub runs: u32,
-    pub num_rle_values: u32,
+/// Logical encoding technique used for a column, as stored in the tile
+#[borrowme]
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum LogicalTechnique {
+    None = 0,
+    Delta = 1,
+    ComponentwiseDelta = 2,
+    Rle = 3,
+    Morton = 4,
+    PseudoDecimal = 5,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MortonMeta {
-    pub num_bits: u32,
-    pub coordinate_shift: u32,
+impl LogicalTechnique {
+    pub fn parse(value: u8) -> Result<Self, MltError> {
+        Self::try_from(value).or(Err(MltError::ParsingLogicalTechnique(value)))
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LogicalDecoder {
-    None,
-    Delta,
-    DeltaRle(RleMeta),
-    ComponentwiseDelta,
-    Rle(RleMeta),
-    Morton(MortonMeta),
-    PseudoDecimal,
+impl PhysicalDecoder {
+    pub fn parse(value: u8) -> Result<Self, MltError> {
+        Self::try_from(value).or(Err(MltError::ParsingPhysicalDecoder(value)))
+    }
 }
