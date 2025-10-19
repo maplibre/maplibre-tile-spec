@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from "vitest";
 import BitVector from "../../../../src/vector/flat/bitVector";
 import { StringFsstDictionaryVector } from "../../../../src/vector/fsst-dictionary/stringFsstDictionaryVector";
 

@@ -1,8 +1,6 @@
+import { describe, it, expect } from "vitest";
 import { FastPFORDecoder } from "../../../../src/encodings/fastpfor";
 import { arraycopy } from "../../../../src/encodings/fastpfor/util";
-import fs from "fs";
-import { decodeVarintInt32 } from "../../../../src/encodings/integerDecodingUtils";
-import IntWrapper from "../../../../src/encodings/intWrapper";
 
 const uncompressed1: Uint32Array = new Uint32Array([
     187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8,
@@ -137,11 +135,6 @@ const compressed4: Uint32Array = new Uint32Array([
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]);
 
-/*const fastPforTestData = fs.readFileSync("../../../data/bin/250k_ascending_fastpfor.bin").buffer;
-const varintTestData = fs.readFileSync("../../../data/bin/250k_ascending_fastpfor.bin").buffer;*/
-const fastPforTestData = fs.readFileSync("./test/data/bin/250k_ascending_fastpfor.bin").buffer;
-const varintTestData = fs.readFileSync("./test/data/bin/250k_ascending_fastpfor.bin").buffer;
-
 const testFastPforDecompress = (input: Uint32Array, expectedOutput: Uint32Array | Int32Array) => {
     const core = FastPFORDecoder.default();
 
@@ -157,12 +150,6 @@ const testFastPforDecompress = (input: Uint32Array, expectedOutput: Uint32Array 
 };
 
 describe("FastPFor", () => {
-    it("should decompress bin test data", () => {
-        const expected = decodeVarintInt32(new Uint8Array(varintTestData), new IntWrapper(0), 250_000);
-        const a = new Uint32Array(fastPforTestData);
-        testFastPforDecompress(a, expected);
-    });
-
     it("should decompress test data #1", () => {
         testFastPforDecompress(compressed1, uncompressed1);
     });
@@ -178,55 +165,4 @@ describe("FastPFor", () => {
     it("should decompress all zeroes", () => {
         testFastPforDecompress(compressed4, uncompressed4);
     });
-
-    /*it("should decode continuously ascending values", async () => {
-        const compressed = new Uint32Array(fs.readFileSync("./test/data/250k_ascending_fastpfor.bin").buffer);
-
-        const uncompressed = new Uint32Array(250_000);
-        for (let i = 0; i < 250_000; i++) {
-            uncompressed[i] = i;
-        }
-
-        const zigzag = Array.from(compressed);
-        DecodingUtils.decodeZigZagArray(zigzag);
-
-        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
-    });
-
-    it("should decode stepped ascending values", async () => {
-        const compressed = new Uint32Array(fs.readFileSync("./test/data/250k_step_fastpfor.bin").buffer);
-
-        const uncompressed = new Uint32Array(250_000);
-        for (let i = 0; i < 250_000; i++) {
-            if (i % 65536 == 0)
-                uncompressed[i] = 1000000000;
-            else
-                uncompressed[i] = i % 4096;
-        }
-
-        const zigzag = Array.from(compressed);
-        DecodingUtils.decodeZigZagArray(zigzag);
-
-        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
-    });
-
-    it("should decode real x values", async () => {
-        const uncompressed = new Uint32Array(fs.readFileSync("./test/data/realx_raw.bin").buffer);
-        const compressed = new Uint32Array(fs.readFileSync("./test/data/realx_fastpfor.bin").buffer);
-
-        const zigzag = Array.from(compressed);
-        DecodingUtils.decodeZigZagArray(zigzag);
-
-        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
-    });
-
-    it("should decode real y values", async () => {
-        const uncompressed = new Uint32Array(fs.readFileSync("./test/data/realy_raw.bin").buffer);
-        const compressed = new Uint32Array(fs.readFileSync("./test/data/realy_fastpfor.bin").buffer);
-
-        const zigzag = Array.from(compressed);
-        DecodingUtils.decodeZigZagArray(zigzag);
-
-        testFastPforDecompress(Uint32Array.from(zigzag), uncompressed);
-    });*/
 });

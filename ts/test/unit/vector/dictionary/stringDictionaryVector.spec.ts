@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from "vitest";
 import { StringDictionaryVector } from "../../../../src/vector/dictionary/stringDictionaryVector";
 
 describe("StringDictionaryVector", () => {

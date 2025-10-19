@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from "vitest";
 import { StringFlatVector } from "../../../../src/vector/flat/stringFlatVector";
 
 describe("StringFlatVector", () => {
