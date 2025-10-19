@@ -12,7 +12,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt-nom }
+      run: { working-directory: ./rust/mlt }
     steps:
       - uses: actions/checkout@v5
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -28,7 +28,7 @@ jobs:
     name: Test MSRV
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt-nom }
+      run: { working-directory: ./rust/mlt }
     steps:
       - uses: actions/checkout@v5
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -52,7 +52,7 @@ jobs:
     if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt-nom }
+      run: { working-directory: ./rust/mlt }
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
