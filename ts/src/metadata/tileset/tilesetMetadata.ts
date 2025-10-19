@@ -2,7 +2,7 @@
 export const ColumnScope = {
     FEATURE: 0,
     VERTEX: 1,
-};
+} as const;
 
 export const ScalarType = {
     BOOLEAN: 0,
@@ -15,21 +15,21 @@ export const ScalarType = {
     FLOAT: 7,
     DOUBLE: 8,
     STRING: 9,
-};
+} as const;
 
 export const ComplexType = {
     GEOMETRY: 0,
     STRUCT: 1,
-};
+} as const;
 
 export const LogicalScalarType = {
     ID: 0,
-};
+} as const;
 
 export const LogicalComplexType = {
     BINARY: 0,
     RANGE_MAP: 1,
-};
+} as const;
 
 export interface TileSetMetadata {
     version?: number | null;
