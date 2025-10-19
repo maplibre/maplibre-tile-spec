@@ -1,4 +1,5 @@
-import ZOrderCurve from "../../../../src/vector/geometry/zOrderCurve";
+import { describe, it, expect } from "vitest";
+import ZOrderCurve from "./zOrderCurve";
 
 describe("ZOrderCurve", () => {
     it("decode", () => {

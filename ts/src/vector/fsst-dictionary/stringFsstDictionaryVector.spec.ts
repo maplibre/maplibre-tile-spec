@@ -1,5 +1,6 @@
-import BitVector from "../../../../src/vector/flat/bitVector";
-import { StringFsstDictionaryVector } from "../../../../src/vector/fsst-dictionary/stringFsstDictionaryVector";
+import { describe, it, expect, beforeEach } from "vitest";
+import BitVector from "../flat/bitVector";
+import { StringFsstDictionaryVector } from "./stringFsstDictionaryVector";
 
 describe("StringFsstDictionaryVector", () => {
     let indexBuffer: Int32Array;

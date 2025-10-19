@@ -1,11 +1,7 @@
+import { describe, it, expect } from "vitest";
 import varint from "varint";
-import {
-    decodeVarintInt32,
-    decodeVarintFloat64,
-    decodeZigZagFloat64,
-} from "../../../src/encodings/integerDecodingUtils";
-import IntWrapper from "../../../src/encodings/intWrapper";
-import { zigZagEncode64 } from "bytebuffer";
+import { decodeVarintInt32, decodeVarintFloat64, decodeZigZagFloat64 } from "./integerDecodingUtils";
+import IntWrapper from "./intWrapper";
 
 const numValues = 200_000;
 const randomValues = new Int32Array(numValues);

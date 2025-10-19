@@ -1,4 +1,5 @@
-import { StringDictionaryVector } from "../../../../src/vector/dictionary/stringDictionaryVector";
+import { describe, it, expect, beforeEach } from "vitest";
+import { StringDictionaryVector } from "./stringDictionaryVector";
 
 describe("StringDictionaryVector", () => {
     let values: string[];

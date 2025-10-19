@@ -113,7 +113,7 @@ test-java-cli:
 
 # Run tests for JavaScript
 test-js: install-js
-    echo "TODO: Add js test back"
+    cd ts && npm run test
 
 # Run tests for Rust
 test-rust:
