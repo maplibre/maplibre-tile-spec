@@ -161,8 +161,8 @@ export class StringDecoder {
 
             if (
                 numStreams !== 2 ||
-                childField.type === "complexField" ||
-                childField.complexField.physicalType !== ScalarType.STRING
+                childField.type !== "scalarField" ||
+                childField.scalarField.physicalType !== ScalarType.STRING
             ) {
                 throw new Error("Currently only optional string fields are implemented for a struct.");
             }
