@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
 import varint from "varint";
-import {
-    decodeVarintInt32,
-    decodeVarintFloat64,
-    decodeZigZagFloat64,
-} from "./integerDecodingUtils";
+import { decodeVarintInt32, decodeVarintFloat64, decodeZigZagFloat64 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 
 const numValues = 200_000;

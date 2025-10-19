@@ -17,10 +17,6 @@
     "prepare": "npm run generate",
     "build": "tsc",
     "test": "vitest",
-    "serve": "http-server .",
-    "serve:data": "http-server ../test/data --cors",
-    "serve:data2": "node test/server/dataServer.js ../../../test/data",
-    "serve:gzip": "http-server ../test/data -g --cors",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "generate": "buf generate ../spec/schema/mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path=require('path'); const dir=path.join('src','metadata','tileset'); fs.renameSync(path.join(dir,'mlt_tileset_metadata_pb.ts'), path.join(dir,'tilesetMetadata.g.ts'))\""
