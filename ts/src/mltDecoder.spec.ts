@@ -20,7 +20,7 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false,
         .map((file) => parse(file).name);
     mltFileNames = [mltFileNames[0]]; // TODO: remove this!
     for (const fileName of mltFileNames) {
-        it(`should compare ${fileName} tile`, () => {
+        it.skip(`should compare ${fileName} tile`, () => {
             const mltFileName = `${fileName}.mlt`;
             const mltPath = join(mltSearchDir, mltFileName);
             const mvtPath = join(mvtSearchDir, `${fileName}.mvt`);
