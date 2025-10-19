@@ -9,8 +9,8 @@ import earcut from "earcut";
 import { type FeatureTable, decodeTile } from "../../src";
 
 describe("MLT Decoder - MVT comparison for OMT tiles", () => {
-    const omtMvtTileDir = "../test/fixtures/omt";
     const omtMltTileDir = "../test/expected/tag0x01/omt";
+    const omtMvtTileDir = "../test/fixtures/omt";
     testTiles(omtMltTileDir, omtMvtTileDir);
 });
 
@@ -20,7 +20,7 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false,
         .map((file) => parse(file).name);
     mltFileNames = [mltFileNames[0]]; // TODO: remove this!
     for (const fileName of mltFileNames) {
-        it("should compare tiles " + fileName, () => {
+        it(`should compare ${fileName} tile`, () => {
             const mltFileName = `${fileName}.mlt`;
             const mltPath = join(mltSearchDir, mltFileName);
             const mvtPath = join(mvtSearchDir, `${fileName}.mvt`);
