@@ -92,25 +92,14 @@ private:
 } // namespace detail
 
 /// Decode RLE bytes to a byte array
-/// @param buffer The source data
+/// @param tileData The source data
 /// @param out The target for output
 /// @param numBytes The number of bytes to write, and the size of `out`
 /// @param byteSize The number of bytes to consume from the source buffer
 /// @throws std::runtime_error The provided buffer does not contain enough data
-inline void decodeByte(BufferStream& buffer, std::uint8_t* out, std::uint32_t numBytes, std::uint32_t byteSize) {
-    detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
-    buffer.consume(byteSize);
-}
-
-/// Decode RLE bits to a byte array
-/// @param buffer The source data
-/// @param out The target for output
-/// @param numBits The number of bits to write, and the size of `out` multiplied by 8
-/// @throws std::runtime_error The provided buffer does not contain enough data
-/// @note Bit counts not divisible by 8 will be padded with zeros
-inline void decodeBoolean(BufferStream& buffer, std::uint8_t* out, std::uint32_t numBits) {
-    const auto numBytes = (numBits + 7) / 8;
-    detail::ByteRleDecoder{buffer.getData(), buffer.getSize()}.next(out, numBytes);
+inline void decodeByte(BufferStream& tileData, std::uint8_t* out, std::uint32_t numBytes, std::uint32_t byteSize) {
+    detail::ByteRleDecoder{tileData.getData(), tileData.getSize()}.next(out, numBytes);
+    tileData.consume(byteSize);
 }
 
 /// Decode RLE bits to a vector

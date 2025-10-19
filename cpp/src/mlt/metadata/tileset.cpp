@@ -10,18 +10,18 @@ namespace mlt::metadata::tileset {
 using util::decoding::decodeVarint;
 
 namespace {
-std::string decodeString(BufferStream& stream) {
+std::string decodeString(BufferStream& tileData) {
     std::string result;
-    const auto length = decodeVarint<std::uint32_t>(stream);
+    const auto length = decodeVarint<std::uint32_t>(tileData);
     if (length > 0) {
         result.resize(length);
-        stream.read(result.data(), length);
+        tileData.read(result.data(), length);
     }
     return result;
 }
 
-Column decodeColumn(BufferStream& stream) {
-    const auto typeCode = decodeVarint<std::uint32_t>(stream);
+Column decodeColumn(BufferStream& tileData) {
+    const auto typeCode = decodeVarint<std::uint32_t>(tileData);
     auto column = type_map::Tag0x01::decodeColumnType(typeCode);
     if (!column) {
         // We can't just skip this because we don't know the actual length
@@ -29,25 +29,25 @@ Column decodeColumn(BufferStream& stream) {
     }
 
     if (type_map::Tag0x01::columnTypeHasName(typeCode)) {
-        column->name = decodeString(stream);
+        column->name = decodeString(tileData);
     }
 
     if (type_map::Tag0x01::columnTypeHasChildren(typeCode)) {
         assert(column->hasComplexType());
         auto& complex = column->getComplexType();
-        const auto childCount = decodeVarint<std::uint32_t>(stream);
-        complex.children = util::generateVector<Column>(childCount, [&](auto) { return decodeColumn(stream); });
+        const auto childCount = decodeVarint<std::uint32_t>(tileData);
+        complex.children = util::generateVector<Column>(childCount, [&](auto) { return decodeColumn(tileData); });
     }
 
     return *column;
 }
 } // namespace
 
-FeatureTable decodeFeatureTable(BufferStream& stream) {
-    auto name = decodeString(stream);
-    const auto extent = decodeVarint<std::uint32_t>(stream);
-    const auto columnCount = decodeVarint<std::uint32_t>(stream);
-    auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(stream); });
+FeatureTable decodeFeatureTable(BufferStream& tileData) {
+    auto name = decodeString(tileData);
+    const auto extent = decodeVarint<std::uint32_t>(tileData);
+    const auto columnCount = decodeVarint<std::uint32_t>(tileData);
+    auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(tileData); });
     return {.name = std::move(name), .extent = extent, .columns = std::move(columns)};
 }
 
