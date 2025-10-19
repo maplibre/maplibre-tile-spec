@@ -185,25 +185,19 @@ public class MltConverter {
         return;
       } else if (columnMappings.stream()
           .anyMatch(
-              m ->
-                  mvtPropertyName.contains(
-                      m.mvtPropertyPrefix() + Settings.MLT_CHILD_FIELD_SEPARATOR))) {
+              m -> mvtPropertyName.startsWith(m.mvtPropertyPrefix() + m.mvtDelimiterSign()))) {
         final var columnMapping =
             columnMappings.stream()
                 .filter(
-                    m ->
-                        mvtPropertyName.contains(
-                            m.mvtPropertyPrefix() + Settings.MLT_CHILD_FIELD_SEPARATOR))
+                    m -> mvtPropertyName.startsWith(m.mvtPropertyPrefix() + m.mvtDelimiterSign()))
                 .findFirst()
                 .orElseThrow();
         final var columnName = columnMapping.mvtPropertyPrefix();
-
-        final var fieldNames = mvtPropertyName.split(Settings.MLT_CHILD_FIELD_SEPARATOR);
+        final var delimiter = columnMapping.mvtDelimiterSign();
+        final var fieldNames = mvtPropertyName.split(delimiter);
         /* There are cases with double nested property names like name_ja_kana */
         final var fieldName =
-            Arrays.stream(fieldNames)
-                .skip(1)
-                .collect(Collectors.joining(Settings.MLT_CHILD_FIELD_SEPARATOR));
+            Arrays.stream(fieldNames).skip(1).collect(Collectors.joining(delimiter));
         final var children = createScalarFieldScheme(fieldName, true, scalarType);
         if (complexPropertyColumnSchemas.containsKey(columnName)) {
           /* add the nested properties to the parent like the name:* properties to the name parent struct */
