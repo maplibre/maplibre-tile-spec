@@ -161,7 +161,7 @@ impl<T: Display + Debug> Debug for OptSeq<'_, T> {
                 "[{}{}; {}]",
                 v.iter()
                     .take(8)
-                    .map(|v| v.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<_>>()
                     .join(","),
                 if v.len() > 8 { ", ..." } else { "" },

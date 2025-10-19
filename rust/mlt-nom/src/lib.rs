@@ -20,7 +20,7 @@ pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {
     while !input.is_empty() {
         let layer;
         (input, layer) = Layer::parse(input)?;
-        result.push(layer.into());
+        result.push(layer);
     }
     Ok(result)
 }
