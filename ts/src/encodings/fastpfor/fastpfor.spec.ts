@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { FastPFORDecoder } from "../../../../src/encodings/fastpfor";
-import { arraycopy } from "../../../../src/encodings/fastpfor/util";
+import { FastPFORDecoder } from ".";
+import { arraycopy } from "./util";
 
 const uncompressed1: Uint32Array = new Uint32Array([
     187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8, 8, 8, 8, 8, 8, 8, 4, 187114314, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 20, 8,

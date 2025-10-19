@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { StringFlatVector } from "../../../../src/vector/flat/stringFlatVector";
+import { StringFlatVector } from "./stringFlatVector";
 
 describe("StringFlatVector", () => {
     let values: string[];

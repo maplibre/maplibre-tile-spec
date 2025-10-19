@@ -6,7 +6,7 @@ import { VectorTile } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import earcut from "earcut";
 
-import { type FeatureTable, decodeTile } from "../../src";
+import { type FeatureTable, decodeTile } from ".";
 
 describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     const omtMltTileDir = "../test/expected/tag0x01/omt";
