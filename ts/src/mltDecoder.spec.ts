@@ -18,7 +18,7 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false,
     let mltFileNames = readdirSync(mltSearchDir)
         .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
-    mltFileNames = [mltFileNames[0]]; // TODO: remove this!
+    mltFileNames = [mltFileNames[0]]; // TODO: remove this once decoder is able to handle all tiles
     for (const fileName of mltFileNames) {
         it.skip(`should compare ${fileName} tile`, () => {
             const mltFileName = `${fileName}.mlt`;
