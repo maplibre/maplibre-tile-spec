@@ -8,9 +8,9 @@ import earcut from "earcut";
 
 import { type FeatureTable, decodeTile } from ".";
 
-describe("MLT Decoder - MVT comparison for OMT tiles", () => {
-    const omtMltTileDir = "../test/expected/tag0x01/omt";
-    const omtMvtTileDir = "../test/fixtures/omt";
+describe("MLT Decoder - MVT comparison for simple tiles", () => {
+    const omtMltTileDir = "../test/expected/tag0x01/simple";
+    const omtMvtTileDir = "../test/fixtures/simple";
     testTiles(omtMltTileDir, omtMvtTileDir);
 });
 
@@ -18,9 +18,9 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false,
     let mltFileNames = readdirSync(mltSearchDir)
         .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
-    mltFileNames = [mltFileNames[0]]; // TODO: remove this once decoder is able to handle all tiles
+
     for (const fileName of mltFileNames) {
-        it.skip(`should compare ${fileName} tile`, () => {
+        it(`should compare ${fileName} tile`, () => {
             const mltFileName = `${fileName}.mlt`;
             const mltPath = join(mltSearchDir, mltFileName);
             const mvtPath = join(mvtSearchDir, `${fileName}.mvt`);
@@ -60,7 +60,7 @@ function comparePlainGeometryEncodedTile(
 
             compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger);
 
-            const mltGeometry = mltFeature.geometry;
+            const mltGeometry = mltFeature.geometry.coordinates;
             const mvtGeometry = mvtFeature.loadGeometry();
             expect(mltGeometry).toEqual(mvtGeometry);
 
