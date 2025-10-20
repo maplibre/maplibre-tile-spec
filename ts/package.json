@@ -16,7 +16,7 @@
   "scripts": {
     "prepare": "npm run generate",
     "build": "tsc",
-    "test": "vitest",
+    "test": "vitest run --coverage --coverage.reportOnFailure",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "generate": "buf generate ../spec/schema/mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path=require('path'); const dir=path.join('src','metadata','tileset'); fs.renameSync(path.join(dir,'mlt_tileset_metadata_pb.ts'), path.join(dir,'tilesetMetadata.g.ts'))\""
@@ -39,6 +39,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.7.2",
     "@types/varint": "^6.0.3",
+    "@vitest/coverage-v8": "^3.2.4",
     "benchmark": "^2.1.4",
     "body-parser": "^2.2.0",
     "bytebuffer": "^5.0.1",

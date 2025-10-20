@@ -2,7 +2,7 @@ import { expect, describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
 import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
-import { VectorTile } from "@mapbox/vector-tile";
+import { VectorTile, type VectorTileFeature, type VectorTileLayer } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import earcut from "earcut";
 
@@ -36,7 +36,7 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false,
     }
 }
 
-function removeEmptyStrings(mvtProperties) {
+function removeEmptyStrings(mvtProperties: Record<string, any>) {
     for (const key of Object.keys(mvtProperties)) {
         const value = mvtProperties[key];
         if (typeof value === "string" && !value.length) {
@@ -113,7 +113,7 @@ function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
     }
 }
 
-function getMvtFeatureById(layer, id) {
+function getMvtFeatureById(layer: VectorTileLayer, id: number | bigint): VectorTileFeature | null {
     for (let i = 0; i < layer.length; i++) {
         const mvtFeature = layer.feature(i);
         if (mvtFeature.id === id || mvtFeature.properties["id"] === id) {
@@ -124,7 +124,7 @@ function getMvtFeatureById(layer, id) {
 }
 
 /* Change bigint to number for comparison with MVT */
-function convertBigIntPropertyValues(mltProperties) {
+function convertBigIntPropertyValues(mltProperties: Record<string, any>) {
     for (const key of Object.keys(mltProperties)) {
         if (typeof mltProperties[key] === "bigint") {
             mltProperties[key] = Number(mltProperties[key]);
@@ -132,7 +132,7 @@ function convertBigIntPropertyValues(mltProperties) {
     }
 }
 
-function transformPropertyNames(properties: { [p: string]: any }) {
+function transformPropertyNames(properties: Record<string, any>) {
     const propertyNames = Object.keys(properties);
     for (let k = 0; k < propertyNames.length; k++) {
         const key = propertyNames[k];
