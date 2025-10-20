@@ -29,22 +29,14 @@
   "devDependencies": {
     "@mapbox/vector-tile": "^2.0.4",
     "@maplibre/maplibre-gl-style-spec": "^24.3.0",
-    "@types/benchmark": "^2.1.5",
     "@types/bytebuffer": "^5.0.49",
     "@types/earcut": "^3.0.0",
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.7.2",
     "@types/varint": "^6.0.3",
-    "benchmark": "^2.1.4",
-    "body-parser": "^2.2.0",
     "bytebuffer": "^5.0.1",
-    "cors": "^2.8.5",
     "earcut": "^3.0.2",
     "eslint": "^9.37.0",
-    "express": "^5.1.0",
-    "fflate": "^0.8.2",
-    "http-server": "^14.1.1",
-    "nyc": "^17.1.0",
+    "pbf": "^4.0.1",
     "prettier": "^3.6.2",
     "semver": "^7.7.3",
     "typescript": "^5.9.3",
@@ -52,7 +44,5 @@
     "varint": "^6.0.0",
     "vitest": "^3.2.4"
   },
-  "dependencies": {
-    "bitset": "^5.2.3"
-  }
+  "dependencies": {}
 }
