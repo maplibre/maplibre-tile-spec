@@ -88,6 +88,41 @@ export default class FeatureTable implements Iterable<Feature> {
         return this._extent;
     }
 
+    /**
+     * Returns all features as an array
+     */
+    getFeatures(): Feature[] {
+        const features: Feature[] = [];
+        const geometries = this.geometryVector.getGeometries();
+
+        for (let i = 0; i < this.numFeatures; i++) {
+            let id;
+            if (this.idVector) {
+                id = this.containsMaxSaveIntegerValues(this.idVector)
+                    ? Number(this.idVector.getValue(i))
+                    : this.idVector.getValue(i);
+            }
+
+            const geometry = {
+                coordinates: geometries[i],
+                type: this.geometryVector.geometryType(i),
+            };
+
+            const properties: { [key: string]: unknown } = {};
+            for (const propertyColumn of this.propertyVectors) {
+                if (!propertyColumn) continue;
+                const columnName = propertyColumn.name;
+                const propertyValue = propertyColumn.getValue(i);
+                if (propertyValue !== null) {
+                    properties[columnName] = propertyValue;
+                }
+            }
+
+            features.push({ id, geometry, properties });
+        }
+        return features;
+    }
+
     private containsMaxSaveIntegerValues(intVector: IntVector) {
         return (
             intVector instanceof IntFlatVector ||
