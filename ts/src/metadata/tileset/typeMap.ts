@@ -27,13 +27,13 @@ export class TypeMap {
             case 1:
             case 2:
             case 3: {
-                // ID columns: 0=uint32, 1=uint64, 2=nullable uint32, 3=nullable uint64
+                // ID columns encoding: bit 0 = nullable, bit 1 = longID
+                // 0: non-nullable uint32, 1: nullable uint32, 2: non-nullable uint64, 3: nullable uint64
                 const column = new Column();
-                column.nullable = typeCode > 1;
+                column.nullable = (typeCode & 1) !== 0; // Bit 0 = nullable
                 column.columnScope = ColumnScope.FEATURE;
                 const scalarCol = new ScalarColumn();
-                // Map to physical type since TS schema doesn't have LogicalScalarType.ID
-                const physicalType = (typeCode & 1) !== 0 ? ScalarType.UINT_64 : ScalarType.UINT_32;
+                const physicalType = typeCode > 1 ? ScalarType.UINT_64 : ScalarType.UINT_32; // Bit 1 = longID
                 scalarCol.type = { case: "physicalType", value: physicalType };
                 column.type = { case: "scalarType", value: scalarCol };
                 return column;
