@@ -44,9 +44,9 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
-import org.apache.commons.lang3.tuple.Triple;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
@@ -55,6 +55,9 @@ import org.imintel.mbtiles4j.Tile;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.MLTStreamObserver;
+import org.maplibre.mlt.converter.MLTStreamObserverDefault;
+import org.maplibre.mlt.converter.MLTStreamObserverFile;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
@@ -68,26 +71,33 @@ import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 public class Encode {
 
   public static void main(String[] args) {
-    try {
-      if (!run(args)) {
-        System.exit(1);
-      }
-    } catch (Exception e) {
-      System.err.println("Failed:");
-      e.printStackTrace(System.err);
+    if (!run(args)) {
       System.exit(1);
     }
   }
 
-  public static boolean run(String[] args) throws Exception {
-    var cmd = getCommandLine(args);
-    if (cmd == null) {
+  public static boolean run(String[] args) {
+    try {
+      final var cmd = getCommandLine(args);
+      if (cmd == null) {
+        return false;
+      }
+
+      if (cmd.hasOption(SERVER_ARG)) {
+        return new Server().run(Integer.parseInt(cmd.getOptionValue(SERVER_ARG, "3001")));
+      }
+      
+      run(cmd);
+      return true;
+    } catch (Exception e) {
+      System.err.println("Failed:");
+      e.printStackTrace(System.err);
       return false;
     }
+  }
 
-    if (cmd.hasOption(SERVER_ARG)) {
-      return new Server().run(Integer.parseInt(cmd.getOptionValue(SERVER_ARG, "3001")));
-    }
+  private static void run(CommandLine cmd)
+      throws URISyntaxException, IOException, ClassNotFoundException {
 
     final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
     final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
@@ -105,10 +115,7 @@ public class Encode {
     final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
     final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
-
-    // No ColumnMapping as support is still buggy:
-    // https://github.com/maplibre/maplibre-tile-spec/issues/59
-    final List<ColumnMapping> columnMappings = List.of();
+    final var columnMappings = getColumnMappings(cmd);
 
     var optimizations = new HashMap<String, FeatureTableOptimizations>();
     // TODO: Load layer -> optimizations map
@@ -179,8 +186,22 @@ public class Encode {
           totalCompressedOutput,
           100 * (double) totalCompressedOutput / totalCompressedInput);
     }
+  }
 
-    return true;
+  private static List<ColumnMapping> getColumnMappings(CommandLine cmd) {
+    final var strings = cmd.getOptionValues(COLUMN_MAPPING_OPTION);
+    if (strings == null || strings.length < 1) {
+      return List.of();
+    }
+    return Arrays.stream(strings)
+        .filter(arg -> arg.length() > 1)
+        .map(
+            arg -> {
+              final var prefix = arg.subSequence(0, arg.length() - 1).toString();
+              final var delimiter = String.valueOf(arg.charAt(arg.length() - 1));
+              return new ColumnMapping(prefix, delimiter, true);
+            })
+        .toList();
   }
 
   ///  Convert a single tile from an individual file
@@ -219,13 +240,24 @@ public class Encode {
             enableElideOnTypeMismatch);
     final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
 
-    HashMap<String, Triple<byte[], byte[], String>> rawStreams = null;
+    conversionConfig =
+        applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
+
+    MLTStreamObserver streamObserver = new MLTStreamObserverDefault();
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
-      rawStreams = new HashMap<>();
+      final var fileName = MLTStreamObserverFile.sanitizeFilename(inputTileName);
+      final var streamPath = getOutputPath(cmd, fileName, null, true);
+      if (streamPath != null) {
+        streamObserver = new MLTStreamObserverFile(streamPath);
+        Files.createDirectories(streamPath);
+        if (verbose) {
+          System.err.println("Writing raw streams to " + streamPath);
+        }
+      }
     }
     var mlTile =
         MltConverter.convertMvt(
-            decodedMvTile, metadata, conversionConfig, tessellateSource, rawStreams);
+            decodedMvTile, metadata, conversionConfig, tessellateSource, streamObserver);
     if (willTime) {
       timer.stop("encoding");
     }
@@ -249,39 +281,6 @@ public class Encode {
             System.err.println("Writing tileset metadata to " + metadataPath);
           }
           Files.writeString(metadataPath, metadataJSON);
-        }
-
-        if (rawStreams != null) {
-          for (var entry : rawStreams.entrySet()) {
-            final var streamPath = getOutputPath(cmd, sanitizeFilename(inputTileName), null, true);
-            if (streamPath != null) {
-              createDir(streamPath);
-
-              final var keyFilename = sanitizeFilename(entry.getKey());
-              if (entry.getValue().getLeft() != null && entry.getValue().getLeft().length > 0) {
-                final var path = streamPath.resolve(keyFilename + ".meta.bin");
-                if (verbose) {
-                  System.err.println(
-                      "Writing raw stream '" + entry.getKey() + "' metadata to " + path);
-                }
-                Files.write(path, entry.getValue().getLeft());
-              }
-              if (entry.getValue().getMiddle() != null && entry.getValue().getMiddle().length > 0) {
-                final var path = streamPath.resolve(keyFilename + ".bin");
-                if (verbose) {
-                  System.err.println("Writing raw stream '" + entry.getKey() + "' data to " + path);
-                }
-                Files.write(path, entry.getValue().getMiddle());
-              }
-              if (entry.getValue().getRight() != null && !entry.getValue().getRight().isEmpty()) {
-                final var path = streamPath.resolve(keyFilename + ".json");
-                if (verbose) {
-                  System.err.println("Writing raw stream '" + entry.getKey() + "' json to " + path);
-                }
-                Files.writeString(path, entry.getValue().getRight());
-              }
-            }
-          }
         }
       }
     }
@@ -310,6 +309,35 @@ public class Encode {
         compare(decodedTile, decodedMvTile, compareGeom, compareProp);
       }
     }
+  }
+
+  private static ConversionConfig applyColumnMappingsToConversionConfig(
+      List<ColumnMapping> columnMappings,
+      ConversionConfig conversionConfig,
+      MltTilesetMetadata.TileSetMetadata metadata) {
+    // If there are no column mappings, or the config already has optimizations, don't modify it
+    if (columnMappings.isEmpty() || !conversionConfig.getOptimizations().isEmpty()) {
+      return conversionConfig;
+    }
+
+    // re-create the config with the column mappings applied to all feature tables
+    // TODO: Allow per-layer settings, and access to the other options
+    final var commonOptimization = new FeatureTableOptimizations(false, false, columnMappings);
+    final var optimizationMap =
+        metadata.getFeatureTablesList().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    MltTilesetMetadata.FeatureTableSchema::getName, ignored -> commonOptimization));
+    return new ConversionConfig(
+        conversionConfig.getIncludeIds(),
+        conversionConfig.getUseAdvancedEncodingSchemes(),
+        conversionConfig.getCoercePropertyValues(),
+        optimizationMap,
+        conversionConfig.getPreTessellatePolygons(),
+        conversionConfig.getUseMortonEncoding(),
+        conversionConfig.getOutlineFeatureTableNames(),
+        conversionConfig.getLayerFilterPattern(),
+        conversionConfig.getLayerFilterInvert());
   }
 
   /// Encode the entire contents of an MBTile file of MVT tiles
@@ -644,6 +672,8 @@ public class Encode {
               isIdPresent,
               coercePropertyValues,
               enableElideOnMismatch);
+      conversionConfig =
+          applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
       var tileData =
           MltConverter.convertMvt(decodedMvTile, metadata, conversionConfig, tessellateSource);
 
@@ -923,6 +953,7 @@ public class Encode {
   private static final String ALLOW_COERCE_OPTION = "coerce-mismatch";
   private static final String ALLOW_ELISION_OPTION = "elide-mismatch";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
+  private static final String COLUMN_MAPPING_OPTION = "colmap";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
   private static final String TESSELLATE_URL_OPTION = "tessellateurl";
@@ -967,6 +998,16 @@ public class Encode {
       outputPath = Paths.get(outputDir, baseName + ext);
     } else if (cmd.hasOption(OUTPUT_FILE_ARG)) {
       outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
+    } else {
+      final var inputFile =
+          ObjectUtils.firstNonNull(
+              cmd.getOptionValue(INPUT_TILE_ARG),
+              cmd.getOptionValue(INPUT_MBTILES_ARG),
+              cmd.getOptionValue(INPUT_OFFLINEDB_ARG));
+      if (inputFile != null && !inputFile.isEmpty()) {
+        outputPath =
+            Path.of(FilenameUtils.getPath(inputFile), FilenameUtils.getBaseName(inputFile));
+      }
     }
     if (outputPath != null) {
       if (forceExt) {
@@ -986,21 +1027,6 @@ public class Encode {
         ex.printStackTrace(System.err);
       }
     }
-  }
-
-  // https://learn.microsoft.com/en-gb/windows/win32/fileio/naming-a-file#naming-conventions
-  private static final Pattern forbiddenFilenamePattern =
-      Pattern.compile("CON|PRN|AUX|NUL|(COM|LPT)[1-9¹²³]", Pattern.CASE_INSENSITIVE);
-  private static final Pattern forbiddenCharacterPattern =
-      Pattern.compile("[<>:\"/\\\\|?*\\x00-\\x1F~.]");
-  private static final Pattern forbiddenTrailingPattern = Pattern.compile("[\\s.]$");
-
-  private static String sanitizeFilename(String name) {
-    name = forbiddenTrailingPattern.matcher(name).replaceAll("");
-    if (forbiddenFilenamePattern.matcher(name).matches()) {
-      name = "_" + name;
-    }
-    return forbiddenCharacterPattern.matcher(name).replaceAll("_");
   }
 
   private static CommandLine getCommandLine(String[] args) throws IOException {
@@ -1073,6 +1099,7 @@ public class Encode {
           Option.builder()
               .longOpt(INCLUDE_METADATA_OPTION)
               .hasArg(false)
+              .deprecated()
               .desc(
                   "Write tile metadata alongside the output tile (adding '.meta'). "
                       + "Only applies with --"
@@ -1111,6 +1138,15 @@ public class Encode {
               .longOpt(ADVANCED_ENCODING_OPTION)
               .hasArg(false)
               .desc("Enable advanced encodings (FSST & FastPFOR).")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COLUMN_MAPPING_OPTION)
+              .hasArg(true)
+              .optionalArg(false)
+              .argName("map")
+              .desc("Enable column mapping, in the form of '<name><separator>', e.g. 'name:'")
               .required(false)
               .get());
       options.addOption(

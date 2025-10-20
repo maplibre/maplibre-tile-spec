@@ -241,7 +241,7 @@ public class IntegerDecoder {
 
     // TODO: merge rle and delta encoding
     var values = new ArrayList<Long>(deltaValues.size());
-    var previousValue = 0l;
+    var previousValue = 0L;
     for (var delta : deltaValues) {
       var value = delta + previousValue;
       values.add(value);
@@ -278,7 +278,7 @@ public class IntegerDecoder {
 
   private static List<Long> decodeZigZagDelta(long[] data) {
     var values = new ArrayList<Long>(data.length);
-    var previousValue = 0l;
+    var previousValue = 0L;
     for (var zigZagDelta : data) {
       var delta = DecodingUtils.decodeZigZag(zigZagDelta);
       var value = previousValue + delta;

@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt",
-  "version": "0.0.1-alpha.7",
+  "version": "0.0.1-alpha.9",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -16,11 +16,7 @@
   "scripts": {
     "prepare": "npm run generate",
     "build": "tsc",
-    "test": "jest",
-    "serve": "http-server .",
-    "serve:data": "http-server ../test/data --cors",
-    "serve:data2": "node test/server/dataServer.js ../../../test/data",
-    "serve:gzip": "http-server ../test/data -g --cors",
+    "test": "vitest",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "generate": "buf generate ../spec/schema/mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path=require('path'); const dir=path.join('src','metadata','tileset'); fs.renameSync(path.join(dir,'mlt_tileset_metadata_pb.ts'), path.join(dir,'tilesetMetadata.g.ts'))\""
@@ -53,17 +49,14 @@
     "express": "^5.1.0",
     "fflate": "^0.8.2",
     "http-server": "^14.1.1",
-    "jest": "^30.2.0",
-    "jest-matcher-deep-close-to": "^3.0.2",
     "nyc": "^17.1.0",
     "pbf": "^4.0.1",
     "prettier": "^3.6.2",
     "semver": "^7.7.3",
-    "ts-jest": "^29.4.5",
-    "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.1",
-    "varint": "^6.0.0"
+    "varint": "^6.0.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^1.10.0",

@@ -1,18 +1,15 @@
-import {type SelectionVector} from "../filter/selectionVector";
-import {type SINGLE_PART_GEOMETRY_TYPE} from "./geometryType";
-import {type Geometry} from "./geometryVector";
+import { type SelectionVector } from "../filter/selectionVector";
+import { type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
+import { type CoordinatesArray } from "./geometryVector";
 import type TopologyVector from "./topologyVector";
 
-
-export abstract class GpuVector implements Iterable<Geometry> {
-
+export abstract class GpuVector implements Iterable<CoordinatesArray> {
     protected constructor(
         private readonly _triangleOffsets: Int32Array,
         private readonly _indexBuffer: Int32Array,
         private readonly _vertexBuffer: Int32Array,
-        private readonly _topologyVector?: TopologyVector | null
-    ) {
-    }
+        private readonly _topologyVector?: TopologyVector | null,
+    ) {}
 
     abstract geometryType(index: number): number;
 
@@ -40,8 +37,8 @@ export abstract class GpuVector implements Iterable<Geometry> {
         return this._topologyVector;
     }
 
-    [Symbol.iterator](): Iterator<Geometry> {
-       /*for(let i = 1; i < this.triangleOffsets.length; i++) {
+    [Symbol.iterator](): Iterator<CoordinatesArray> {
+        /*for(let i = 1; i < this.triangleOffsets.length; i++) {
            const numTriangles = this.triangleOffsets[i] - this.triangleOffsets[i-1];
            const startIndex = this.triangleOffsets[i-1] * 3;
            const endIndex = this.triangleOffsets[i] * 3;
@@ -54,5 +51,4 @@ export abstract class GpuVector implements Iterable<Geometry> {
         //throw new Error("Iterator on a GpuVector is not implemented yet.");
         return null;
     }
-
 }

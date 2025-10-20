@@ -1,11 +1,10 @@
-import {type Geometry, type GeometryVector} from "./geometry/geometryVector";
+import { type Geometry, type GeometryVector } from "./geometry/geometryVector";
 import type Vector from "./vector";
-import {type IntVector} from "./intVector";
-import {type GpuVector} from "./geometry/gpuVector";
-import {IntFlatVector} from "./flat/intFlatVector";
-import {DoubleFlatVector} from "./flat/doubleFlatVector";
-import {IntSequenceVector} from "./sequence/intSequenceVector";
-import {IntConstVector} from "./constant/intConstVector";
+import { type IntVector } from "./intVector";
+import { IntFlatVector } from "./flat/intFlatVector";
+import { DoubleFlatVector } from "./flat/doubleFlatVector";
+import { IntSequenceVector } from "./sequence/intSequenceVector";
+import { IntConstVector } from "./constant/intConstVector";
 
 export interface Feature {
     id: number | bigint;
@@ -18,12 +17,11 @@ export default class FeatureTable implements Iterable<Feature> {
 
     constructor(
         private readonly _name: string,
-        private readonly _geometryVector: GeometryVector | GpuVector,
+        private readonly _geometryVector: GeometryVector,
         private readonly _idVector?: IntVector,
         private readonly _propertyVectors?: Vector[],
-        private readonly _extent = 4096
-    ) {
-    }
+        private readonly _extent = 4096,
+    ) {}
 
     get name(): string {
         return this._name;
@@ -33,16 +31,16 @@ export default class FeatureTable implements Iterable<Feature> {
         return this._idVector;
     }
 
-    get geometryVector(): GeometryVector | GpuVector {
-        return this._geometryVector
+    get geometryVector(): GeometryVector {
+        return this._geometryVector;
     }
 
     get propertyVectors(): Vector[] {
         return this._propertyVectors;
     }
 
-    getPropertyVector(name: string): Vector{
-        if(!this.propertyVectorsMap){
+    getPropertyVector(name: string): Vector {
+        if (!this.propertyVectorsMap) {
             this.propertyVectorsMap = new Map(this._propertyVectors.map((vector) => [vector.name, vector]));
         }
 
@@ -55,22 +53,23 @@ export default class FeatureTable implements Iterable<Feature> {
 
         while (index < this.numFeatures) {
             let id;
-            if(this.idVector){
-                id = this.containsMaxSaveIntegerValues(this.idVector)? Number(this.idVector.getValue(index)) :
-                    this.idVector.getValue(index)
+            if (this.idVector) {
+                id = this.containsMaxSaveIntegerValues(this.idVector)
+                    ? Number(this.idVector.getValue(index))
+                    : this.idVector.getValue(index);
             }
 
             const geometry = geometryIterator?.next().value;
 
             const properties: { [key: string]: unknown } = {};
             for (const propertyColumn of this.propertyVectors) {
-                if(!propertyColumn){
+                if (!propertyColumn) {
                     continue;
                 }
 
                 const columnName = propertyColumn.name;
                 const propertyValue = propertyColumn.getValue(index);
-                if (propertyValue!== null) {
+                if (propertyValue !== null) {
                     properties[columnName] = propertyValue;
                 }
             }
@@ -80,18 +79,19 @@ export default class FeatureTable implements Iterable<Feature> {
         }
     }
 
-    get numFeatures(): number{
+    get numFeatures(): number {
         return this.geometryVector.numGeometries;
     }
 
-    get extent(): number{
+    get extent(): number {
         return this._extent;
     }
 
-    private containsMaxSaveIntegerValues(intVector: IntVector){
-        return intVector instanceof IntFlatVector || intVector instanceof IntConstVector
-            && intVector instanceof IntSequenceVector || intVector instanceof DoubleFlatVector;
+    private containsMaxSaveIntegerValues(intVector: IntVector) {
+        return (
+            intVector instanceof IntFlatVector ||
+            (intVector instanceof IntConstVector && intVector instanceof IntSequenceVector) ||
+            intVector instanceof DoubleFlatVector
+        );
     }
-
-
 }

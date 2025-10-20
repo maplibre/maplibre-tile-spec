@@ -1,10 +1,9 @@
-import {FixedSizeVector} from "../fixedSizeVector";
+import { FixedSizeVector } from "../fixedSizeVector";
 import type BitVector from "./bitVector";
-import {type SelectionVector} from "../filter/selectionVector";
-import {FlatSelectionVector} from "../filter/flatSelectionVector";
+import { type SelectionVector } from "../filter/selectionVector";
+import { FlatSelectionVector } from "../filter/flatSelectionVector";
 
 export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
-
     protected getValueFromBuffer(index: number): bigint {
         return this.dataBuffer[index];
     }
@@ -23,7 +22,7 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
     match(values: bigint[]): SelectionVector {
         const selectionVector = [];
         for (let i = 0; i < this.dataBuffer.length; i++) {
-            for(let j = 0; j < values.length; j++){
+            for (let j = 0; j < values.length; j++) {
                 if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(i)) && this.dataBuffer[i] === values[j]) {
                     selectionVector.push(i);
                 }
@@ -39,7 +38,10 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && this.dataBuffer[index] === testValue) {
+            if (
+                (!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) &&
+                this.dataBuffer[index] === testValue
+            ) {
                 vector[limit++] = index;
             }
         }
@@ -52,7 +54,10 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
-            if ((!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) && testValues.includes(this.dataBuffer[index])) {
+            if (
+                (!this.nullabilityBuffer || this.nullabilityBuffer.get(index)) &&
+                testValues.includes(this.dataBuffer[index])
+            ) {
                 vector[limit++] = index;
             }
         }
@@ -139,5 +144,4 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
     noneMatchSelected(values: bigint[], selectionVector: SelectionVector): void {
         throw new Error("Not implemented yet.");
     }
-
 }

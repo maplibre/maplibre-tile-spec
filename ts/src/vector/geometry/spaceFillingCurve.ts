@@ -1,4 +1,3 @@
-
 export default abstract class SpaceFillingCurve {
     protected tileExtent: number;
     protected _numBits: number;
@@ -15,16 +14,21 @@ export default abstract class SpaceFillingCurve {
         this.maxBound = maxVertexValue;
     }
 
-    protected validateCoordinates(vertex: { x: number, y: number }): void {
+    protected validateCoordinates(vertex: { x: number; y: number }): void {
         // TODO: also check for int overflow as we are limiting the sfc ids to max int size
-        if (vertex.x < this.minBound || vertex.y < this.minBound || vertex.x > this.maxBound || vertex.y > this.maxBound) {
+        if (
+            vertex.x < this.minBound ||
+            vertex.y < this.minBound ||
+            vertex.x > this.maxBound ||
+            vertex.y > this.maxBound
+        ) {
             throw new Error("The specified tile buffer size is currently not supported.");
         }
     }
 
-    abstract encode(vertex: { x: number, y: number }): number;
+    abstract encode(vertex: { x: number; y: number }): number;
 
-    abstract decode(mortonCode: number): { x: number, y: number };
+    abstract decode(mortonCode: number): { x: number; y: number };
 
     numBits(): number {
         return this._numBits;

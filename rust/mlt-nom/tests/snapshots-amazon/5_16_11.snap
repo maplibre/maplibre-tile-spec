@@ -3,13 +3,13 @@ source: mlt-nom/tests/snapshots.rs
 ---
 [
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Marine area",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -132,13 +132,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Admin1 forest or park",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -3188,13 +3188,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Water line medium scale",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -6195,13 +6195,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Landform/label",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -9389,13 +9389,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Colormap",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -9567,13 +9567,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Road",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -9757,13 +9757,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "City small scale",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -12971,13 +12971,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Bathymetry",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -13139,13 +13139,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Marine waterbody/label",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -16107,13 +16107,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Urban area",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -16236,13 +16236,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Boundary line",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -16413,13 +16413,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Land",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -16591,13 +16591,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Coastline",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -16676,13 +16676,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Admin0 forest or park",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -19727,13 +19727,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Road tunnel",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -19922,13 +19922,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Graticule",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -22795,13 +22795,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Biome",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -22973,13 +22973,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Admin0 ribbon L5 inner",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -23146,13 +23146,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Ocean area/label",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -26092,13 +26092,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Water line medium scale/label",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -29213,13 +29213,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Admin0 point",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -32219,13 +32219,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Vegetation small scale",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -32397,13 +32397,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Graticule/label",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -35338,13 +35338,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "Admin0 ribbon L5 outer",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(

@@ -319,7 +319,7 @@ public class GeometryDecoder {
           var y = vertexBuffer[offset + 1];
           var coordinate = new Coordinate(x, y);
           geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
-        } else {
+        } else if (mortonSettings != null) {
 
           var offset = vertexOffsets[vertexOffsetsOffset++];
           var mortonCode = vertexBuffer[offset];
@@ -328,6 +328,8 @@ public class GeometryDecoder {
                   mortonCode, mortonSettings.numBits, mortonSettings.coordinateShift);
           var coordinate = new Coordinate(vertex[0], vertex[1]);
           geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
+        } else {
+          throw new NotImplementedException("Expected streams missing in geometry decoding");
         }
 
         if (geometryOffsets != null) {
@@ -339,7 +341,7 @@ public class GeometryDecoder {
         if (ringOffsets != null) {
           ringOffsetsCounter++;
         }
-      } else if (geometryType == GeometryType.MULTIPOINT.ordinal()) {
+      } else if (geometryType == GeometryType.MULTIPOINT.ordinal() && geometryOffsets != null) {
         var numPoints =
             geometryOffsets.get(geometryOffsetsCounter)
                 - geometryOffsets.get(geometryOffsetsCounter - 1);
@@ -363,7 +365,7 @@ public class GeometryDecoder {
           }
           geometries[geometryCounter++] = geometryFactory.createMultiPoint(points);
         }
-      } else if (geometryType == GeometryType.LINESTRING.ordinal()) {
+      } else if (geometryType == GeometryType.LINESTRING.ordinal() && ringOffsets != null) {
         var numVertices = 0;
         if (containsPolygon) {
           numVertices =
@@ -399,7 +401,7 @@ public class GeometryDecoder {
         if (geometryOffsets != null) {
           geometryOffsetsCounter++;
         }
-      } else if (geometryType == GeometryType.POLYGON.ordinal()) {
+      } else if (geometryType == GeometryType.POLYGON.ordinal() && ringOffsets != null) {
         var numRings = partOffsets.get(partOffsetCounter) - partOffsets.get(partOffsetCounter - 1);
         partOffsetCounter++;
         var rings = new LinearRing[numRings - 1];
@@ -465,7 +467,8 @@ public class GeometryDecoder {
         if (geometryOffsets != null) {
           geometryOffsetsCounter++;
         }
-      } else if (geometryType == GeometryType.MULTILINESTRING.ordinal()) {
+      } else if (geometryType == GeometryType.MULTILINESTRING.ordinal()
+          && geometryOffsets != null) {
         var numLineStrings =
             geometryOffsets.get(geometryOffsetsCounter)
                 - geometryOffsets.get(geometryOffsetsCounter - 1);
@@ -489,7 +492,7 @@ public class GeometryDecoder {
             vertexBufferOffset += numVertices * 2;
           }
           geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
-        } else {
+        } else if (ringOffsets != null) {
           for (var j = 0; j < numLineStrings; j++) {
             var numVertices = 0;
             if (containsPolygon) {
@@ -517,8 +520,10 @@ public class GeometryDecoder {
             vertexOffsetsOffset += numVertices;
           }
           geometries[geometryCounter++] = geometryFactory.createMultiLineString(lineStrings);
+        } else {
+          throw new NotImplementedException("Expected streams missing in geometry decoding");
         }
-      } else if (geometryType == GeometryType.MULTIPOLYGON.ordinal()) {
+      } else if (geometryType == GeometryType.MULTIPOLYGON.ordinal() && geometryOffsets != null) {
         var numPolygons =
             geometryOffsets.get(geometryOffsetsCounter)
                 - geometryOffsets.get(geometryOffsetsCounter - 1);
