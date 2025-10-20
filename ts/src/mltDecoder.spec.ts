@@ -8,17 +8,17 @@ import earcut from "earcut";
 
 import { type FeatureTable, decodeTile } from ".";
 
-describe("MLT Decoder - MVT comparison for simple tiles", () => {
-    const omtMltTileDir = "../test/expected/tag0x01/simple";
-    const omtMvtTileDir = "../test/fixtures/simple";
-    testTiles(omtMltTileDir, omtMvtTileDir);
+describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
+    const simpleMltTileDir = "../test/expected/tag0x01/simple";
+    const simpleMvtTileDir = "../test/fixtures/simple";
+    testTiles(simpleMltTileDir, simpleMvtTileDir);
 });
 
 function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false, idWithinMaxSafeInteger = true) {
     const mltFileNames = readdirSync(mltSearchDir)
         .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
-
+    //mltFileNames = [mltFileNames[0]]; // TODO: remove this once decoder is able to handle all tiles
     for (const fileName of mltFileNames) {
         it(`should compare ${fileName} tile`, () => {
             const mltFileName = `${fileName}.mlt`;
@@ -54,13 +54,16 @@ function comparePlainGeometryEncodedTile(
     for (const featureTable of mlt) {
         const layer = mvt.layers[featureTable.name];
 
-        let j = 0;
-        for (const mltFeature of featureTable) {
-            const mvtFeature = isSorted ? getMvtFeatureById(layer, mltFeature.id) : layer.feature(j++);
+        // Use getFeatures() instead of iterator (like C++ and Java implementations)
+        const mltFeatures = featureTable.getFeatures();
+
+        for (let j = 0; j < mltFeatures.length; j++) {
+            const mltFeature = mltFeatures[j];
+            const mvtFeature = isSorted ? getMvtFeatureById(layer, mltFeature.id) : layer.feature(j);
 
             compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger);
 
-            const mltGeometry = mltFeature.geometry.coordinates;
+            const mltGeometry = mltFeature.geometry?.coordinates;
             const mvtGeometry = mvtFeature.loadGeometry();
             expect(mltGeometry).toEqual(mvtGeometry);
 
