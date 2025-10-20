@@ -86,7 +86,7 @@ public class Encode {
       if (cmd.hasOption(SERVER_ARG)) {
         return new Server().run(Integer.parseInt(cmd.getOptionValue(SERVER_ARG, "3001")));
       }
-      
+
       run(cmd);
       return true;
     } catch (Exception e) {
