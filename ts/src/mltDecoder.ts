@@ -22,6 +22,9 @@ import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
 import { TypeMap } from "./metadata/tileset/typeMap";
 import { type StreamMetadata } from "./metadata/tile/streamMetadata";
+import { type GeometryVector } from "./vector/geometry/geometryVector";
+import type Vector from "./vector/vector";
+import { type GpuVector } from "./vector/geometry/gpuVector";
 
 const ID_COLUMN_NAME = "id";
 const GEOMETRY_COLUMN_NAME = "geometry";
@@ -64,9 +67,9 @@ export default function decodeTile(
         const featureTableMetadata = metadata.featureTables[0];
 
         // Decode columns from streams
-        let idVector = null;
-        let geometryVector = null;
-        const propertyVectors = [];
+        let idVector: IntVector | null = null;
+        let geometryVector: GeometryVector | GpuVector | null = null;
+        const propertyVectors: Vector[] = [];
         let numFeatures = 0;
 
         for (const columnMetadata of featureTableMetadata.columns) {

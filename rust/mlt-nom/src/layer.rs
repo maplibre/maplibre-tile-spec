@@ -35,7 +35,7 @@ impl Layer<'_> {
 
         let layer = match tag {
             // For now, we only support tag 0x01 layers, but more will be added soon
-            1 => Layer::Tag01(Layer01::parse(value)?.into()),
+            1 => Layer::Tag01(Layer01::parse(value)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
 

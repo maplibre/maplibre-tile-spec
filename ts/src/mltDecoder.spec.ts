@@ -2,25 +2,25 @@ import { expect, describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
 import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
-import { VectorTile } from "@mapbox/vector-tile";
+import { VectorTile, type VectorTileFeature, type VectorTileLayer } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import earcut from "earcut";
 
 import { type FeatureTable, decodeTile } from ".";
 
-describe("MLT Decoder - MVT comparison for OMT tiles", () => {
-    const omtMltTileDir = "../test/expected/tag0x01/omt";
-    const omtMvtTileDir = "../test/fixtures/omt";
-    testTiles(omtMltTileDir, omtMvtTileDir);
+describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
+    const simpleMltTileDir = "../test/expected/tag0x01/simple";
+    const simpleMvtTileDir = "../test/fixtures/simple";
+    testTiles(simpleMltTileDir, simpleMvtTileDir);
 });
 
 function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false, idWithinMaxSafeInteger = true) {
-    let mltFileNames = readdirSync(mltSearchDir)
+    const mltFileNames = readdirSync(mltSearchDir)
         .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
-    mltFileNames = [mltFileNames[0]]; // TODO: remove this once decoder is able to handle all tiles
+    //mltFileNames = [mltFileNames[0]]; // TODO: remove this once decoder is able to handle all tiles
     for (const fileName of mltFileNames) {
-        it.skip(`should compare ${fileName} tile`, () => {
+        it(`should compare ${fileName} tile`, () => {
             const mltFileName = `${fileName}.mlt`;
             const mltPath = join(mltSearchDir, mltFileName);
             const mvtPath = join(mvtSearchDir, `${fileName}.mvt`);
@@ -36,7 +36,7 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false,
     }
 }
 
-function removeEmptyStrings(mvtProperties) {
+function removeEmptyStrings(mvtProperties: Record<string, any>) {
     for (const key of Object.keys(mvtProperties)) {
         const value = mvtProperties[key];
         if (typeof value === "string" && !value.length) {
@@ -54,13 +54,16 @@ function comparePlainGeometryEncodedTile(
     for (const featureTable of mlt) {
         const layer = mvt.layers[featureTable.name];
 
-        let j = 0;
-        for (const mltFeature of featureTable) {
-            const mvtFeature = isSorted ? getMvtFeatureById(layer, mltFeature.id) : layer.feature(j++);
+        // Use getFeatures() instead of iterator (like C++ and Java implementations)
+        const mltFeatures = featureTable.getFeatures();
+
+        for (let j = 0; j < mltFeatures.length; j++) {
+            const mltFeature = mltFeatures[j];
+            const mvtFeature = isSorted ? getMvtFeatureById(layer, mltFeature.id) : layer.feature(j);
 
             compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger);
 
-            const mltGeometry = mltFeature.geometry;
+            const mltGeometry = mltFeature.geometry?.coordinates;
             const mvtGeometry = mvtFeature.loadGeometry();
             expect(mltGeometry).toEqual(mvtGeometry);
 
@@ -110,7 +113,7 @@ function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
     }
 }
 
-function getMvtFeatureById(layer, id) {
+function getMvtFeatureById(layer: VectorTileLayer, id: number | bigint): VectorTileFeature | null {
     for (let i = 0; i < layer.length; i++) {
         const mvtFeature = layer.feature(i);
         if (mvtFeature.id === id || mvtFeature.properties["id"] === id) {
@@ -121,7 +124,7 @@ function getMvtFeatureById(layer, id) {
 }
 
 /* Change bigint to number for comparison with MVT */
-function convertBigIntPropertyValues(mltProperties) {
+function convertBigIntPropertyValues(mltProperties: Record<string, any>) {
     for (const key of Object.keys(mltProperties)) {
         if (typeof mltProperties[key] === "bigint") {
             mltProperties[key] = Number(mltProperties[key]);
@@ -129,7 +132,7 @@ function convertBigIntPropertyValues(mltProperties) {
     }
 }
 
-function transformPropertyNames(properties: { [p: string]: any }) {
+function transformPropertyNames(properties: Record<string, any>) {
     const propertyNames = Object.keys(properties);
     for (let k = 0; k < propertyNames.length; k++) {
         const key = propertyNames[k];
