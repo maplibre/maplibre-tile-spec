@@ -7,6 +7,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
@@ -23,13 +24,15 @@ import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class MltConverter {
   public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
-      MapboxVectorTile tile, Collection<ColumnMapping> columnMappings, boolean isIdPresent) {
+      MapboxVectorTile tile,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
+      boolean isIdPresent) {
     return createTilesetMetadata(tile, columnMappings, isIdPresent, false, false);
   }
 
   public static MltTilesetMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
-      Collection<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       boolean isIdPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
@@ -112,9 +115,9 @@ public class MltConverter {
       Map.Entry<String, Object> property,
       String layerName,
       int featureIndex,
-      Collection<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas,
-      LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder> complexPropertyColumnSchemas,
+      LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder> complexColumnSchemas,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
     final var mvtPropertyName = property.getKey();
@@ -142,16 +145,13 @@ public class MltConverter {
               }
             } else if (!enableElideOnMismatch) {
               throw new RuntimeException(
-                  "Layer '"
-                      + layerName
-                      + "' Feature index "
-                      + featureIndex
-                      + " Property '"
-                      + property.getKey()
-                      + "' has different type: "
-                      + scalarType.name()
-                      + " vs. "
-                      + previousPhysicalType.name());
+                  String.format(
+                      "Layer '%s' Feature index %d Property '%s' has different type: %s / %s",
+                      layerName,
+                      featureIndex,
+                      property.getKey(),
+                      scalarType.name(),
+                      previousPhysicalType.name()));
             }
           }
         }
@@ -159,64 +159,54 @@ public class MltConverter {
       return;
     }
 
-    if (!columnMappings.isEmpty()) {
-      // TODO: refactor quick and dirty solution -> simplify that complex logic
-      if (columnMappings.stream().anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
-          && !complexPropertyColumnSchemas.containsKey(mvtPropertyName)) {
-        /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
-         * In this case the field is mapped to the name default. */
+    final var parentColumnMapping =
+        ColumnMapping.findMapping(true, columnMappings, layerName, mvtPropertyName);
+    if (parentColumnMapping != null) {
+      /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
+       * In this case the field is mapped to the name default. */
+      if (!complexColumnSchemas.containsKey(mvtPropertyName)) {
         final var childField = createScalarFieldScheme("default", true, scalarType);
         final var fieldMetadataBuilder = createComplexColumnBuilder(childField);
-        complexPropertyColumnSchemas.put(mvtPropertyName, fieldMetadataBuilder);
+        complexColumnSchemas.put(mvtPropertyName, fieldMetadataBuilder);
         return;
-      } else if (columnMappings.stream()
-              .anyMatch(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
-          && complexPropertyColumnSchemas.containsKey(mvtPropertyName)
-          && complexPropertyColumnSchemas.get(mvtPropertyName).getChildrenList().stream()
+      }
+
+      // Case where the top-level field such as name is not present in the first feature
+      if (complexColumnSchemas.containsKey(mvtPropertyName)
+          && complexColumnSchemas.get(mvtPropertyName).getChildrenList().stream()
               .noneMatch(c -> c.getName().equals("default"))) {
-        /* Case where the top-level field such as name is not present in the first feature */
         final var childField = createScalarFieldScheme("default", true, scalarType);
-        final var columnMapping =
-            columnMappings.stream()
-                .filter(m -> mvtPropertyName.equals(m.mvtPropertyPrefix()))
-                .findFirst()
-                .orElseThrow();
-        complexPropertyColumnSchemas.get(columnMapping.mvtPropertyPrefix()).addChildren(childField);
-        return;
-      } else if (columnMappings.stream()
-          .anyMatch(
-              m -> mvtPropertyName.startsWith(m.mvtPropertyPrefix() + m.mvtDelimiterSign()))) {
-        final var columnMapping =
-            columnMappings.stream()
-                .filter(
-                    m -> mvtPropertyName.startsWith(m.mvtPropertyPrefix() + m.mvtDelimiterSign()))
-                .findFirst()
-                .orElseThrow();
-        final var columnName = columnMapping.mvtPropertyPrefix();
-        final var delimiter = columnMapping.mvtDelimiterSign();
-        final var fieldNames = mvtPropertyName.split(delimiter);
-        /* There are cases with double nested property names like name_ja_kana */
-        final var fieldName =
-            Arrays.stream(fieldNames).skip(1).collect(Collectors.joining(delimiter));
-        final var children = createScalarFieldScheme(fieldName, true, scalarType);
-        if (complexPropertyColumnSchemas.containsKey(columnName)) {
-          /* add the nested properties to the parent like the name:* properties to the name parent struct */
-          if (complexPropertyColumnSchemas.get(columnName).getChildrenList().stream()
-              .noneMatch(c -> c.getName().equals(fieldName))) {
-            complexPropertyColumnSchemas.get(columnName).addChildren(children);
-          }
-        } else {
-          /* Case where there is no explicit property available which serves as the name
-           * for the top-level field. For example there is no name property only name:* */
-          final var complexColumnBuilder = createComplexColumnBuilder(children);
-          complexPropertyColumnSchemas.put(columnName, complexColumnBuilder);
-        }
+        complexColumnSchemas
+            .get(parentColumnMapping.getMvtPropertyPrefix())
+            .addChildren(childField);
         return;
       }
     }
 
-    var columnScheme = createScalarColumnScheme(mvtPropertyName, true, scalarType);
-    columnSchemas.put(mvtPropertyName, columnScheme);
+    final var childColumnMapping =
+        ColumnMapping.findMapping(false, columnMappings, layerName, mvtPropertyName);
+    if (childColumnMapping != null) {
+      final var parentName = childColumnMapping.getMvtPropertyPrefix();
+      final var childName = childColumnMapping.getChildName(mvtPropertyName);
+      final var childField = createScalarFieldScheme(childName, true, scalarType);
+      final var parentSchema = complexColumnSchemas.get(parentName);
+      if (parentSchema != null) {
+        /* add the nested properties to the parent like the name:* properties
+         * to the name parent struct if they are not already present
+         */
+        if (parentSchema.getChildrenList().stream().noneMatch(c -> c.getName().equals(childName))) {
+          complexColumnSchemas.get(parentName).addChildren(childField);
+        }
+      } else {
+        /* Case where there is no explicit property available which serves as the name
+         * for the top-level field. For example there is no name property only name:* */
+        complexColumnSchemas.put(parentName, createComplexColumnBuilder(childField));
+      }
+      return;
+    }
+
+    // no matching column mappings, create a plain scalar column
+    columnSchemas.put(mvtPropertyName, createScalarColumnScheme(mvtPropertyName, true, scalarType));
   }
 
   public static String createTilesetMetadataJSON(MltTilesetMetadata.TileSetMetadata pbMetadata) {

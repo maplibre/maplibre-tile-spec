@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.data.Feature;
@@ -47,11 +48,11 @@ public class MvtUtils {
   }
 
   public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
-    return decodeMvt(mvtTile, List.of());
+    return decodeMvt(mvtTile, Map.of());
   }
 
-  public static MapboxVectorTile decodeMvt(byte[] mvtTile, List<ColumnMapping> columnMappings)
-      throws IOException {
+  public static MapboxVectorTile decodeMvt(
+      byte[] mvtTile, Map<Pattern, List<ColumnMapping>> columnMappings) throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 
@@ -67,7 +68,12 @@ public class MvtUtils {
       for (var mvtFeature : layerFeatures) {
         var properties = new HashMap<>(mvtFeature.getAttributes());
         // TODO: quick and dirty -> implement generic
-        var transformedProperties = transformNestedPropertyNames(properties, columnMappings);
+        final var mappings =
+            columnMappings.entrySet().stream()
+                .filter(entry -> entry.getKey().matcher(layerName).matches())
+                .flatMap(entry -> entry.getValue().stream())
+                .toList();
+        var transformedProperties = transformNestedPropertyNames(properties, mappings);
 
         var feature =
             new Feature(mvtFeature.getId(), mvtFeature.getGeometry(), transformedProperties);
@@ -102,12 +108,12 @@ public class MvtUtils {
           if (!columnMappings.isEmpty()) {
             final var columnMapping =
                 columnMappings.stream()
-                    .filter(m -> key.startsWith(m.mvtPropertyPrefix()))
+                    .filter(m -> key.startsWith(m.getMvtPropertyPrefix()))
                     .findFirst();
             if (columnMapping.isPresent()) {
               final var transformedKey =
                   key.replaceAll(
-                      columnMapping.get().mvtDelimiterSign(), Settings.MLT_CHILD_FIELD_SEPARATOR);
+                      columnMapping.get().getMvtDelimiter(), Settings.MLT_CHILD_FIELD_SEPARATOR);
               transformedProperties.put(transformedKey, v);
               return;
             }
