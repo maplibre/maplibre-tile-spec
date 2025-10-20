@@ -15,7 +15,7 @@ describe("MLT Decoder - MVT comparison for simple tiles", () => {
 });
 
 function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false, idWithinMaxSafeInteger = true) {
-    let mltFileNames = readdirSync(mltSearchDir)
+    const mltFileNames = readdirSync(mltSearchDir)
         .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
 
