@@ -10,7 +10,7 @@ import { type GpuVector } from "./geometry/gpuVector";
 export interface Feature {
     id: number | bigint;
     geometry: Geometry;
-    properties: { [key: string]: unknown };
+    properties: Record<string, unknown>;
 }
 
 export default class FeatureTable implements Iterable<Feature> {
