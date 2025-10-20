@@ -1,12 +1,10 @@
 import { expect, describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
-import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 import { VectorTile, type VectorTileFeature, type VectorTileLayer } from "@mapbox/vector-tile";
 import Pbf from "pbf";
-import earcut from "earcut";
 
-import { type FeatureTable, decodeTile } from ".";
+import { type FeatureTable, type Feature, decodeTile } from ".";
 
 describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
     const simpleMltTileDir = "../test/expected/tag0x01/simple";
@@ -14,11 +12,29 @@ describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
     testTiles(simpleMltTileDir, simpleMvtTileDir);
 });
 
-function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false, idWithinMaxSafeInteger = true) {
+describe("MLT Decoder - MVT comparison for Amazon tiles", () => {
+    const amazonMltTileDir = "../test/expected/tag0x01/amazon";
+    const amazonMvtTileDir = "../test/fixtures/amazon";
+    testTiles(amazonMltTileDir, amazonMvtTileDir);
+});
+
+describe("MLT Decoder - MVT comparison for OMT tiles", () => {
+    const omtMltTileDir = "../test/expected/tag0x01/omt";
+    const omtMvtTileDir = "../test/fixtures/omt";
+    // TODO: remove ignore list when the issues with the ID of these tiles are resolved
+    testTiles(omtMltTileDir, omtMvtTileDir, [
+        "10_530_683",
+        "10_532_683",
+        "11_1062_1367",
+        "11_1064_1366",
+        "13_4267_5467",
+    ]);
+});
+
+function testTiles(mltSearchDir: string, mvtSearchDir: string, ignoreList: string[] = []) {
     const mltFileNames = readdirSync(mltSearchDir)
-        .filter((file) => parse(file).ext === ".mlt")
+        .filter((file) => parse(file).ext === ".mlt" && !ignoreList.includes(parse(file).name))
         .map((file) => parse(file).name);
-    //mltFileNames = [mltFileNames[0]]; // TODO: remove this once decoder is able to handle all tiles
     for (const fileName of mltFileNames) {
         it(`should compare ${fileName} tile`, () => {
             const mltFileName = `${fileName}.mlt`;
@@ -30,8 +46,8 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string, isSorted = false,
             const buf = new Pbf(encodedMvt);
             const decodedMvt = new VectorTile(buf);
 
-            const decodedMlt = decodeTile(encodedMlt, undefined, idWithinMaxSafeInteger);
-            comparePlainGeometryEncodedTile(decodedMlt, decodedMvt, isSorted, idWithinMaxSafeInteger);
+            const decodedMlt = decodeTile(encodedMlt, undefined, true);
+            comparePlainGeometryEncodedTile(decodedMlt, decodedMvt);
         });
     }
 }
@@ -48,8 +64,6 @@ function removeEmptyStrings(mvtProperties: Record<string, any>) {
 function comparePlainGeometryEncodedTile(
     mlt: FeatureTable[],
     mvt: VectorTile,
-    isSorted = false,
-    idWithinMaxSafeInteger = true,
 ) {
     for (const featureTable of mlt) {
         const layer = mvt.layers[featureTable.name];
@@ -59,9 +73,9 @@ function comparePlainGeometryEncodedTile(
 
         for (let j = 0; j < mltFeatures.length; j++) {
             const mltFeature = mltFeatures[j];
-            const mvtFeature = isSorted ? getMvtFeatureById(layer, mltFeature.id) : layer.feature(j);
+            const mvtFeature = layer.feature(j);
 
-            compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger);
+            compareId(mltFeature, mvtFeature, true);
 
             const mltGeometry = mltFeature.geometry?.coordinates;
             const mvtGeometry = mvtFeature.loadGeometry();
@@ -83,7 +97,7 @@ function comparePlainGeometryEncodedTile(
     }
 }
 
-function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
+function compareId(mltFeature: Feature, mvtFeature: VectorTileFeature, idWithinMaxSafeInteger: boolean) {
     if (!mvtFeature.id) {
         /* Java MVT library in the MVT converter decodes zero for undefined ids */
         expect([0, null, 0n]).toContain(mltFeature.id);
@@ -94,9 +108,9 @@ function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
             idWithinMaxSafeInteger && typeof mltFeatureId !== "bigint" ? mltFeatureId : Number(mltFeatureId);
         /*
          * The id check can fail for two known reasons:
-         * - The java-vector-tile library used in the Java converter returns negative integers  for the
+         * - The java-vector-tile library used in the Java converter returns negative integers for the
          *   unoptimized tileset in some tiles
-         * - The vector-tile-js is library is using number types for the id so there can only be stored
+         * - The vector-tile-js library is using number types for the id so there can only be stored
          *   values up to 53 bits without loss of precision
          **/
         if (mltFeatureId < 0 || mltFeatureId > Number.MAX_SAFE_INTEGER) {
@@ -111,16 +125,6 @@ function compareId(mltFeature, mvtFeature, idWithinMaxSafeInteger) {
 
         expect(actualId).toEqual(mvtFeature.id);
     }
-}
-
-function getMvtFeatureById(layer: VectorTileLayer, id: number | bigint): VectorTileFeature | null {
-    for (let i = 0; i < layer.length; i++) {
-        const mvtFeature = layer.feature(i);
-        if (mvtFeature.id === id || mvtFeature.properties["id"] === id) {
-            return mvtFeature;
-        }
-    }
-    return null;
 }
 
 /* Change bigint to number for comparison with MVT */
@@ -152,39 +156,4 @@ function transformPropertyNames(properties: Record<string, any>) {
             delete properties[newKey];
         }
     }
-}
-
-/* Polygon tessellation code from the FillBucket class of MapLibre GL JS
- *  Slightly modified to tessellate without the closing point to match the MLT approach
- * */
-function tessellatePolygon(geometry: Array<Array<{ x: number; y: number }>>) {
-    const EARCUT_MAX_RINGS = 500;
-    const polygonIndices = [];
-    const vertexBuffer = [];
-    for (const polygon of classifyRings(geometry, EARCUT_MAX_RINGS)) {
-        const flattened = [];
-        const holeIndices = [];
-        for (const ring of polygon) {
-            if (ring.length === 0) {
-                continue;
-            }
-
-            if (ring !== polygon[0]) {
-                holeIndices.push(flattened.length / 2);
-            }
-
-            flattened.push(ring[0].x);
-            flattened.push(ring[0].y);
-            for (let i = 1; i < ring.length - 1; i++) {
-                flattened.push(ring[i].x);
-                flattened.push(ring[i].y);
-            }
-        }
-
-        const indices = earcut(flattened, holeIndices);
-        polygonIndices.push(...indices);
-        vertexBuffer.push(...flattened);
-    }
-
-    return { indices: polygonIndices, vertexBuffer };
 }

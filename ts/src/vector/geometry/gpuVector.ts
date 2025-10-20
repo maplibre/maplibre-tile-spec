@@ -62,63 +62,72 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         for (let i = 0; i < this.numGeometries; i++) {
             const geometryType = this.geometryType(i);
 
-            if (geometryType === GEOMETRY_TYPE.POLYGON) {
-                // Get number of rings for this polygon
-                const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                partOffsetCounter++;
-                const rings: Point[][] = [];
+            switch (geometryType) {
+                case GEOMETRY_TYPE.POLYGON:
+                    {
+                        // Get number of rings for this polygon
+                        const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                        partOffsetCounter++;
+                        const rings: Point[][] = [];
 
-                for (let j = 0; j < numRings; j++) {
-                    // Get number of vertices in this ring
-                    const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                    ringOffsetsCounter++;
-                    const ring: Point[] = [];
+                        for (let j = 0; j < numRings; j++) {
+                            // Get number of vertices in this ring
+                            const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                            const ring: Point[] = [];
 
-                    for (let k = 0; k < numVertices; k++) {
-                        const x = this._vertexBuffer[vertexBufferOffset++];
-                        const y = this._vertexBuffer[vertexBufferOffset++];
-                        ring.push(new Point(x, y));
-                    }
-                    // Close the ring by duplicating the first vertex (MVT format requirement)
-                    if (ring.length > 0) {
-                        ring.push(ring[0]);
-                    }
-                    rings.push(ring);
-                }
-
-                geometries[i] = rings;
-                if (geometryOffsets) geometryOffsetsCounter++;
-            } else if (geometryType === GEOMETRY_TYPE.MULTIPOLYGON) {
-                // Get number of polygons in this multipolygon
-                const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                geometryOffsetsCounter++;
-                const allRings: Point[][] = [];
-
-                for (let p = 0; p < numPolygons; p++) {
-                    // Get number of rings in this polygon
-                    const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                    partOffsetCounter++;
-
-                    for (let j = 0; j < numRings; j++) {
-                        // Get number of vertices in this ring
-                        const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                        ringOffsetsCounter++;
-                        const ring: Point[] = [];
-
-                        for (let k = 0; k < numVertices; k++) {
-                            const x = this._vertexBuffer[vertexBufferOffset++];
-                            const y = this._vertexBuffer[vertexBufferOffset++];
-                            ring.push(new Point(x, y));
+                            for (let k = 0; k < numVertices; k++) {
+                                const x = this._vertexBuffer[vertexBufferOffset++];
+                                const y = this._vertexBuffer[vertexBufferOffset++];
+                                ring.push(new Point(x, y));
+                            }
+                            // Close the ring by duplicating the first vertex (MVT format requirement)
+                            if (ring.length > 0) {
+                                ring.push(ring[0]);
+                            }
+                            rings.push(ring);
                         }
-                        // Close the ring by duplicating the first vertex (MVT format requirement)
-                        if (ring.length > 0) {
-                            ring.push(ring[0]);
-                        }
-                        allRings.push(ring);
-                    }
-                }
 
-                geometries[i] = allRings;
+                        geometries[i] = rings;
+                        if (geometryOffsets) geometryOffsetsCounter++;
+                    }
+                    break;
+                case GEOMETRY_TYPE.MULTIPOLYGON:
+                    {
+                        // Get number of polygons in this multipolygon
+                        const numPolygons =
+                            geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
+                        geometryOffsetsCounter++;
+                        const allRings: Point[][] = [];
+
+                        for (let p = 0; p < numPolygons; p++) {
+                            // Get number of rings in this polygon
+                            const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
+                            partOffsetCounter++;
+
+                            for (let j = 0; j < numRings; j++) {
+                                // Get number of vertices in this ring
+                                const numVertices =
+                                    ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                                ringOffsetsCounter++;
+                                const ring: Point[] = [];
+
+                                for (let k = 0; k < numVertices; k++) {
+                                    const x = this._vertexBuffer[vertexBufferOffset++];
+                                    const y = this._vertexBuffer[vertexBufferOffset++];
+                                    ring.push(new Point(x, y));
+                                }
+                                // Close the ring by duplicating the first vertex (MVT format requirement)
+                                if (ring.length > 0) {
+                                    ring.push(ring[0]);
+                                }
+                                allRings.push(ring);
+                            }
+                        }
+
+                        geometries[i] = allRings;
+                    }
+                    break;
             }
         }
         return geometries;

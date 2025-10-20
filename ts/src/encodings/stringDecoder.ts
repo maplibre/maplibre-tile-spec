@@ -8,13 +8,7 @@ import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import IntegerStreamDecoder from "./integerStreamDecoder";
-import {
-    type Column,
-    type ComplexColumn,
-    ComplexField,
-    ScalarField,
-    ScalarType,
-} from "../metadata/tileset/tilesetMetadata.g";
+import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
 import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
@@ -142,7 +136,7 @@ export class StringDecoder {
             }
         }
 
-        const childFields = (column.type.value as ComplexColumn).children;
+        const childFields = column.complexType.children;
         const stringDictionaryVectors = [];
         let i = 0;
         for (const childField of childFields) {
@@ -167,8 +161,8 @@ export class StringDecoder {
 
             if (
                 numStreams !== 2 ||
-                childField.type.case === "complexField" ||
-                childField.type.value.type.value !== ScalarType.STRING
+                childField.type !== "scalarField" ||
+                childField.scalarField.physicalType !== ScalarType.STRING
             ) {
                 throw new Error("Currently only optional string fields are implemented for a struct.");
             }

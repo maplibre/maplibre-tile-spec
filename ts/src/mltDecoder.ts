@@ -1,5 +1,5 @@
 import FeatureTable from "./vector/featureTable";
-import { type Column, type ScalarColumn, ScalarType } from "./metadata/tileset/tilesetMetadata.g";
+import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./encodings/intWrapper";
 import { StreamMetadataDecoder } from "./metadata/tile/streamMetadataDecoder";
 import { type RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamMetadata";
@@ -107,7 +107,7 @@ export default function decodeTile(
 
                 geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
             } else {
-                if (numStreams === 0 && columnMetadata.type.case === "scalarType") {
+                if (numStreams === 0 && columnMetadata.type === "scalarType") {
                     continue;
                 }
 
@@ -152,7 +152,7 @@ function decodeIdColumn(
     sizeOrNullabilityBuffer: number | BitVector,
     idWithinMaxSafeInteger: boolean = false,
 ): IntVector {
-    const idDataType = (columnMetadata.type.value as ScalarColumn).type.value as ScalarType;
+    const idDataType = columnMetadata.scalarType.physicalType;
     const vectorType = IntegerStreamDecoder.getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer);
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
