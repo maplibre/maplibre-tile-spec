@@ -31,7 +31,7 @@
     "@maplibre/maplibre-gl-style-spec": "^24.3.0",
     "@types/bytebuffer": "^5.0.49",
     "@types/earcut": "^3.0.0",
-    "@types/node": "^24.7.2",
+    "@types/node": "^24.9.1",
     "@types/pbf": "^3.0.5",
     "@types/varint": "^6.0.3",
     "@vitest/coverage-v8": "^3.2.4",
