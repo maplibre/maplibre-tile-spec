@@ -71,22 +71,36 @@ import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
 
 public class Encode {
+
   public static void main(String[] args) {
+    if (!run(args)) {
+      System.exit(1);
+    }
+  }
+
+  public static boolean run(String[] args) {
     try {
       final var cmd = getCommandLine(args);
       if (cmd == null) {
-        System.exit(1);
+        return false;
       }
+
+      if (cmd.hasOption(SERVER_ARG)) {
+        return new Server().run(Integer.parseInt(cmd.getOptionValue(SERVER_ARG, "3001")));
+      }
+
       run(cmd);
+      return true;
     } catch (Exception e) {
       System.err.println("Failed:");
       e.printStackTrace(System.err);
-      System.exit(1);
+      return false;
     }
   }
 
   private static void run(CommandLine cmd)
       throws URISyntaxException, IOException, ClassNotFoundException {
+
     final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
     final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
     final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
@@ -1021,6 +1035,7 @@ public class Encode {
   private static final String DUMP_STREAMS_OPTION = "rawstreams";
   private static final String VERBOSE_OPTION = "verbose";
   private static final String HELP_OPTION = "help";
+  private static final String SERVER_ARG = "server";
 
   /// Resolve an output filename.
   /// If an output filename is specified directly, use it.
@@ -1374,6 +1389,15 @@ Add an explicit column mapping on the specified layers:
               .desc("Show this output.")
               .required(false)
               .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(SERVER_ARG)
+              .hasArg(true)
+              .optionalArg(true)
+              .argName("port")
+              .desc("Start encoding server")
+              .required(false)
+              .get());
 
       var cmd = new DefaultParser().parse(options, args);
 
@@ -1389,7 +1413,9 @@ Add an explicit column mapping on the specified layers:
         var ignored = Pattern.compile(filterRegex);
       }
 
-      if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
+      if (cmd.hasOption(SERVER_ARG)) {
+        return cmd;
+      } else if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
         final var autoUsage = true;
         final var header =
             "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";

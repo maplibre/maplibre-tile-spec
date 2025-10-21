@@ -1,0 +1,16 @@
+{
+  "name": "encoding-server",
+  "version": "1.0.0",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0",
+    "https": "^1.0.0",
+    "yargs": "^18.0.0"
+  }
+}
