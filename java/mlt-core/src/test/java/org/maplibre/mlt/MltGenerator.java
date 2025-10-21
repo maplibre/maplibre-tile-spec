@@ -13,6 +13,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Triple;
 import org.jetbrains.annotations.NotNull;
@@ -52,8 +53,8 @@ public class MltGenerator {
   // TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.IDS_REASSIGNED;
   // TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.SORTED;
   TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.NONE;
-  protected static final List<ColumnMapping> COLUMN_MAPPINGS =
-      List.of(new ColumnMapping("name", "_", true));
+  protected static final Map<Pattern, List<ColumnMapping>> COLUMN_MAPPINGS =
+      Map.of(Pattern.compile(".*"), List.of(new ColumnMapping("name", "_", true)));
   boolean USE_ADVANCED_ENCODINGS = false;
   boolean USE_POLYGON_TESSELLATION = false;
   boolean USE_MORTON_ENCODING = false;
@@ -174,8 +175,10 @@ public class MltGenerator {
 
   private Map<String, FeatureTableOptimizations> getOptimizations() {
     var allowSorting = OPTIMIZATION == TestUtils.Optimization.SORTED;
-    var featureTableOptimization =
-        new FeatureTableOptimizations(allowSorting, false, COLUMN_MAPPINGS);
+    // TODO: account for per-layer mappings
+    final var mappings =
+        COLUMN_MAPPINGS.entrySet().stream().flatMap(entry -> entry.getValue().stream()).toList();
+    var featureTableOptimization = new FeatureTableOptimizations(allowSorting, false, mappings);
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> featureTableOptimization));
@@ -183,8 +186,7 @@ public class MltGenerator {
     /* Only regenerate the ids for specific layers when the column is not sorted for comparison reasons */
     if (OPTIMIZATION == TestUtils.Optimization.IDS_REASSIGNED) {
       for (var reassignableLayer : ID_REASSIGNABLE_MVT_LAYERS) {
-        optimizations.put(
-            reassignableLayer, new FeatureTableOptimizations(false, true, COLUMN_MAPPINGS));
+        optimizations.put(reassignableLayer, new FeatureTableOptimizations(false, true, mappings));
       }
     }
     return optimizations;

@@ -22,6 +22,11 @@ jobs:
         run: just -v lint-js
       - run: just -v test-js
       - run: just -v build-js
+      - name: Codecov upload
+        if: '!cancelled()'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ts/coverage/coverage-final.json
 
   bench-js:
     runs-on: ${{ matrix.os }}

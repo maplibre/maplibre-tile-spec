@@ -7,4 +7,3 @@ bin/
 coverage/
 dist/
 tmp/
-ts/src/metadata/tileset/tilesetMetadata.g.ts
