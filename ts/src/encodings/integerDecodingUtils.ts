@@ -723,6 +723,55 @@ function decodeNullableZigZagRleInt64(bitVector, data: BigInt64Array, numRuns: n
 
 /* Logical Level Techniques Const and Sequence Vectors ------------------------------------------------------------- */
 
+/**
+ * Decode Delta-RLE with multiple runs by fully reconstructing values.
+ *
+ * @param data RLE encoded data: [run1, run2, ..., value1, value2, ...]
+ * @param numRuns Number of runs in the RLE encoding
+ * @param numValues Total number of values to reconstruct
+ * @returns Reconstructed values with deltas applied
+ */
+export function decodeDeltaRle(data: Int32Array, numRuns: number, numValues: number): Int32Array {
+    const result = new Int32Array(numValues);
+    let outPos = 0;
+    let previousValue = 0;
+
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = data[i];
+        const zigZagDelta = data[i + numRuns];
+        const delta = decodeZigZagValue(zigZagDelta);
+
+        for (let j = 0; j < runLength; j++) {
+            previousValue += delta;
+            result[outPos++] = previousValue;
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Decode Delta-RLE with multiple runs for 64-bit integers.
+ */
+export function decodeDeltaRleInt64(data: BigInt64Array, numRuns: number, numValues: number): BigInt64Array {
+    const result = new BigInt64Array(numValues);
+    let outPos = 0;
+    let previousValue = 0n;
+
+    for (let i = 0; i < numRuns; i++) {
+        const runLength = Number(data[i]);
+        const zigZagDelta = data[i + numRuns];
+        const delta = decodeZigZagValueInt64(zigZagDelta);
+
+        for (let j = 0; j < runLength; j++) {
+            previousValue += delta;
+            result[outPos++] = previousValue;
+        }
+    }
+
+    return result;
+}
+
 export function decodeUnsignedConstRle(data: Int32Array): number {
     return data[1];
 }
@@ -739,7 +788,9 @@ export function decodeZigZagSequenceRle(data: Int32Array): [baseValue: number, d
     }
 
     /* base value and delta value are not equal -> 2 runs and 2 values*/
-    return [decodeZigZagValue(data[2]), decodeZigZagValue(data[3])];
+    const base = decodeZigZagValue(data[2]);
+    const delta = decodeZigZagValue(data[3]);
+    return [base, delta];
 }
 
 export function decodeUnsignedConstRleInt64(data: BigInt64Array): bigint {
@@ -758,5 +809,7 @@ export function decodeZigZagSequenceRleInt64(data: BigInt64Array): [baseValue: b
     }
 
     /* base value and delta value are not equal -> 2 runs and 2 values*/
-    return [decodeZigZagValueInt64(data[2]), decodeZigZagValueInt64(data[3])];
+    const base = decodeZigZagValueInt64(data[2]);
+    const delta = decodeZigZagValueInt64(data[3]);
+    return [base, delta];
 }
