@@ -1,5 +1,5 @@
 import type IntWrapper from "./intWrapper";
-import { type Column, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata.g";
+import { type Column, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import type Vector from "../vector/vector";
 import BitVector from "../vector/flat/bitVector";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
@@ -34,7 +34,7 @@ export function decodePropertyColumn(
     numFeatures: number,
     propertyColumnNames?: Set<string>,
 ): Vector | Vector[] {
-    if (columnMetadata.type.case === "scalarType") {
+    if (columnMetadata.type === "scalarType") {
         if (propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)) {
             skipColumn(numStreams, data, offset);
             return null;
@@ -45,7 +45,7 @@ export function decodePropertyColumn(
             data,
             offset,
             numFeatures,
-            columnMetadata.type.value,
+            columnMetadata.scalarType,
             columnMetadata,
         );
     }
@@ -86,7 +86,7 @@ function decodeScalarPropertyColumn(
     }
 
     const sizeOrNullabilityBuffer = nullabilityBuffer ?? numFeatures;
-    const scalarType = column.type.value as ScalarType;
+    const scalarType = column.physicalType;
     switch (scalarType) {
         case ScalarType.UINT_32:
         case ScalarType.INT_32:
@@ -164,7 +164,7 @@ function decodeLongColumn(
 ): Vector<BigInt64Array, bigint> {
     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
     const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer);
-    const isSigned = scalarColumn.type.value === ScalarType.INT_64;
+    const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
     if (vectorType === VectorType.FLAT) {
         const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
             ? IntegerStreamDecoder.decodeNullableLongStream(
@@ -199,7 +199,7 @@ function decodeIntColumn(
 ): Vector<Int32Array, number> {
     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
     const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer);
-    const isSigned = scalarColumn.type.value === ScalarType.INT_32;
+    const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
 
     if (vectorType === VectorType.FLAT) {
         const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)

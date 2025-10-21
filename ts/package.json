@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt",
-  "version": "0.0.1-alpha.9",
+  "version": "0.0.1-alpha.10",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -14,12 +14,10 @@
     "vector"
   ],
   "scripts": {
-    "prepare": "npm run generate",
     "build": "tsc",
-    "test": "vitest",
+    "test": "vitest run --coverage --coverage.reportOnFailure",
     "lint": "eslint",
-    "format": "prettier --write \"**/*.ts\"",
-    "generate": "buf generate ../spec/schema/mlt_tileset_metadata.proto && node -e \"const fs=require('fs'); const path=require('path'); const dir=path.join('src','metadata','tileset'); fs.renameSync(path.join(dir,'mlt_tileset_metadata_pb.ts'), path.join(dir,'tilesetMetadata.g.ts'))\""
+    "format": "prettier --write \"**/*.ts\""
   },
   "repository": {
     "type": "git",
@@ -29,27 +27,17 @@
     "url": "https://github.com/maplibre/maplibre-tile-spec/issues"
   },
   "devDependencies": {
-    "@bufbuild/buf": "^1.58.0",
-    "@bufbuild/protoc-gen-es": "^1.10.0",
     "@mapbox/vector-tile": "^2.0.4",
     "@maplibre/maplibre-gl-style-spec": "^24.3.0",
-    "@types/benchmark": "^2.1.5",
     "@types/bytebuffer": "^5.0.49",
     "@types/earcut": "^3.0.0",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^24.7.2",
+    "@types/node": "^24.9.1",
+    "@types/pbf": "^3.0.5",
     "@types/varint": "^6.0.3",
-    "benchmark": "^2.1.4",
-    "body-parser": "^2.2.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "bytebuffer": "^5.0.1",
-    "codegen": "^0.1.0",
-    "cors": "^2.8.5",
     "earcut": "^3.0.2",
     "eslint": "^9.37.0",
-    "express": "^5.1.0",
-    "fflate": "^0.8.2",
-    "http-server": "^14.1.1",
-    "nyc": "^17.1.0",
     "pbf": "^4.0.1",
     "prettier": "^3.6.2",
     "semver": "^7.7.3",
@@ -57,9 +45,5 @@
     "typescript-eslint": "^8.46.1",
     "varint": "^6.0.0",
     "vitest": "^3.2.4"
-  },
-  "dependencies": {
-    "@bufbuild/protobuf": "^1.10.0",
-    "bitset": "^5.2.3"
   }
 }

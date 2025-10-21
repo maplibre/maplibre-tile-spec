@@ -1,12 +1,11 @@
 import {
-    Column,
+    type Column,
     ColumnScope,
-    ComplexColumn,
+    type ComplexColumn,
     ComplexType,
-    LogicalScalarType,
-    ScalarColumn,
+    type ScalarColumn,
     ScalarType,
-} from "./tilesetMetadata.g";
+} from "./tilesetMetadata";
 
 /**
  * The type code is a single varint32 that encodes:
@@ -28,34 +27,40 @@ export class TypeMap {
             case 2:
             case 3: {
                 // ID columns: 0=uint32, 1=uint64, 2=nullable uint32, 3=nullable uint64
-                const column = new Column();
-                column.nullable = typeCode > 1;
+                const column = {} as Column;
+                column.nullable = (typeCode & 1) !== 0; // Bit 0 = nullable;
                 column.columnScope = ColumnScope.FEATURE;
-                const scalarCol = new ScalarColumn();
+                const scalarCol = {} as ScalarColumn;
                 // Map to physical type since TS schema doesn't have LogicalScalarType.ID
-                const physicalType = (typeCode & 1) !== 0 ? ScalarType.UINT_64 : ScalarType.UINT_32;
-                scalarCol.type = { case: "physicalType", value: physicalType };
-                column.type = { case: "scalarType", value: scalarCol };
+                const physicalType = typeCode > 1 ? ScalarType.UINT_64 : ScalarType.UINT_32; // Bit 1 = longID
+                scalarCol.physicalType = physicalType;
+                scalarCol.type = "physicalType";
+                column.scalarType = scalarCol;
+                column.type = "scalarType";
                 return column;
             }
             case 4: {
                 // GEOMETRY (non-nullable, no children)
-                const column = new Column();
+                const column = {} as Column;
                 column.nullable = false;
                 column.columnScope = ColumnScope.FEATURE;
-                const complexCol = new ComplexColumn();
-                complexCol.type = { case: "physicalType", value: ComplexType.GEOMETRY };
-                column.type = { case: "complexType", value: complexCol };
+                const complexCol = {} as ComplexColumn;
+                complexCol.type = "physicalType";
+                complexCol.physicalType = ComplexType.GEOMETRY;
+                column.type = "complexType";
+                column.complexType = complexCol;
                 return column;
             }
             case 30: {
                 // STRUCT (non-nullable with children)
-                const column = new Column();
+                const column = {} as Column;
                 column.nullable = false;
                 column.columnScope = ColumnScope.FEATURE;
-                const complexCol = new ComplexColumn();
-                complexCol.type = { case: "physicalType", value: ComplexType.STRUCT };
-                column.type = { case: "complexType", value: complexCol };
+                const complexCol = {} as ComplexColumn;
+                complexCol.type = "physicalType";
+                complexCol.physicalType = ComplexType.STRUCT;
+                column.type = "complexType";
+                column.complexType = complexCol;
                 return column;
             }
             default:
@@ -90,11 +95,11 @@ export class TypeMap {
             return false;
         }
 
-        if (column.type.case === "scalarType") {
-            const scalarCol = column.type.value;
+        if (column.type === "scalarType") {
+            const scalarCol = column.scalarType;
 
-            if (scalarCol.type.case === "physicalType") {
-                const physicalType = scalarCol.type.value;
+            if (scalarCol.type === "physicalType") {
+                const physicalType = scalarCol.physicalType;
                 switch (physicalType) {
                     case ScalarType.BOOLEAN:
                     case ScalarType.INT_8:
@@ -111,14 +116,14 @@ export class TypeMap {
                     default:
                         return false;
                 }
-            } else if (scalarCol.type.case === "logicalType") {
+            } else if (scalarCol.type === "logicalType") {
                 return false;
             }
-        } else if (column.type.case === "complexType") {
-            const complexCol = column.type.value;
+        } else if (column.type === "complexType") {
+            const complexCol = column.complexType;
 
-            if (complexCol.type.case === "physicalType") {
-                const physicalType = complexCol.type.value;
+            if (complexCol.type === "physicalType") {
+                const physicalType = complexCol.physicalType;
                 switch (physicalType) {
                     case ComplexType.GEOMETRY:
                     case ComplexType.STRUCT:
@@ -139,7 +144,7 @@ export class TypeMap {
      * Even codes are non-nullable, odd codes are nullable.
      */
     private static mapScalarType(typeCode: number): Column | null {
-        let scalarType: ScalarType | null = null;
+        let scalarType: number | null = null;
 
         switch (typeCode) {
             case 10:
@@ -186,12 +191,14 @@ export class TypeMap {
                 return null;
         }
 
-        const column = new Column();
+        const column = {} as Column;
         column.nullable = (typeCode & 1) !== 0;
         column.columnScope = ColumnScope.FEATURE;
-        const scalarCol = new ScalarColumn();
-        scalarCol.type = { case: "physicalType", value: scalarType };
-        column.type = { case: "scalarType", value: scalarCol };
+        const scalarCol = {} as ScalarColumn;
+        scalarCol.type = "physicalType";
+        scalarCol.physicalType = scalarType;
+        column.type = "scalarType";
+        column.scalarType = scalarCol;
         return column;
     }
 }

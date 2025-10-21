@@ -20,6 +20,7 @@ import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +45,7 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
@@ -117,6 +119,16 @@ public class Encode {
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
     final var columnMappings = getColumnMappings(cmd);
 
+    if (verbose && !columnMappings.isEmpty()) {
+      System.err.println("Using Column Mappings:");
+      columnMappings.forEach(
+          (key, value) ->
+              System.err.println(
+                  "  "
+                      + key
+                      + " -> "
+                      + value.stream().map(Object::toString).collect(Collectors.joining(", "))));
+    }
     var optimizations = new HashMap<String, FeatureTableOptimizations>();
     // TODO: Load layer -> optimizations map
     // each layer:
@@ -188,27 +200,64 @@ public class Encode {
     }
   }
 
-  private static List<ColumnMapping> getColumnMappings(CommandLine cmd) {
-    final var strings = cmd.getOptionValues(COLUMN_MAPPING_OPTION);
-    if (strings == null || strings.length < 1) {
-      return List.of();
+  private static final Pattern colMapSeparatorPattern =
+      Pattern.compile("^(?:\\[]|\\[([^]].+)])?(.+)(.)$");
+  private static final Pattern colMapPatternPattern = Pattern.compile("^/(.*)/$");
+  private static final Pattern colMapMatchAll = Pattern.compile(".*");
+
+  private static Map<Pattern, List<ColumnMapping>> getColumnMappings(CommandLine cmd) {
+    if (cmd.hasOption(COLUMN_MAPPING_AUTO_OPTION)) {
+      throw new NotImplementedException("Auto column mappings are not implemented yet");
     }
-    return Arrays.stream(strings)
-        .filter(arg -> arg.length() > 1)
-        .map(
-            arg -> {
-              final var prefix = arg.subSequence(0, arg.length() - 1).toString();
-              final var delimiter = String.valueOf(arg.charAt(arg.length() - 1));
-              return new ColumnMapping(prefix, delimiter, true);
-            })
-        .toList();
+    if (cmd.hasOption(COLUMN_MAPPING_LIST_OPTION)) {
+      throw new NotImplementedException("Explicit column mappings are not implemented yet");
+    }
+    final HashMap<Pattern, List<ColumnMapping>> result = new HashMap<>();
+    final var strings = cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION);
+    if (strings != null) {
+      for (var item : strings) {
+        var matcher = colMapSeparatorPattern.matcher(item);
+        if (matcher.matches()) {
+          // matcher doesn't support multiple group matches, split them separately
+          final List<Pattern> parsedLayers =
+              StringUtils.isBlank(matcher.group(1))
+                  ? List.of()
+                  : Arrays.stream(matcher.group(1).split(",")).map(Encode::parsePattern).toList();
+          final var layers = parsedLayers.isEmpty() ? List.of(colMapMatchAll) : parsedLayers;
+          final var prefix = matcher.group(2);
+          final var delimiter = matcher.group(3);
+          for (var layer : layers) {
+            result.merge(
+                layer,
+                List.of(new ColumnMapping(prefix, delimiter, true)),
+                (oldList, newList) ->
+                    Stream.of(oldList, newList).flatMap(Collection::stream).toList());
+          }
+        } else {
+          System.err.println("WARNING: Invalid column mapping ignored: " + item);
+          System.err.println("Expected pattern is: " + colMapSeparatorPattern);
+        }
+      }
+    }
+    return result;
+  }
+
+  private static Pattern parsePattern(String pattern) {
+    var matcher = colMapPatternPattern.matcher(pattern);
+    if (matcher.matches()) {
+      // A regex surrounded by slashes, return the compiled pattern
+      return Pattern.compile(matcher.group(1));
+    } else {
+      // Just a regular string
+      return Pattern.compile(pattern, Pattern.LITERAL);
+    }
   }
 
   ///  Convert a single tile from an individual file
   private static void encodeTile(
       String tileFileName,
       CommandLine cmd,
-      List<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       boolean enableElideOnTypeMismatch,
@@ -311,8 +360,11 @@ public class Encode {
     }
   }
 
+  // In batch conversion, we don't have the column names yet when we set up the config, so
+  // we need to apply the mappings to an existing immutable config object using the column
+  // names from a decoded tile metadata.
   private static ConversionConfig applyColumnMappingsToConversionConfig(
-      List<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       MltTilesetMetadata.TileSetMetadata metadata) {
     // If there are no column mappings, or the config already has optimizations, don't modify it
@@ -322,12 +374,20 @@ public class Encode {
 
     // re-create the config with the column mappings applied to all feature tables
     // TODO: Allow per-layer settings, and access to the other options
-    final var commonOptimization = new FeatureTableOptimizations(false, false, columnMappings);
+    // final var commonOptimization = new FeatureTableOptimizations(false, false, columnMappings);
     final var optimizationMap =
         metadata.getFeatureTablesList().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
-                    MltTilesetMetadata.FeatureTableSchema::getName, ignored -> commonOptimization));
+                    MltTilesetMetadata.FeatureTableSchema::getName,
+                    table ->
+                        new FeatureTableOptimizations(
+                            false,
+                            false,
+                            columnMappings.entrySet().stream()
+                                .filter(entry -> entry.getKey().matcher(table.getName()).matches())
+                                .flatMap(entry -> entry.getValue().stream())
+                                .toList())));
     return new ConversionConfig(
         conversionConfig.getIncludeIds(),
         conversionConfig.getUseAdvancedEncodingSchemes(),
@@ -344,7 +404,7 @@ public class Encode {
   private static void encodeMBTiles(
       String inputMBTilesPath,
       Path outputPath,
-      List<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -461,7 +521,7 @@ public class Encode {
   private static void encodeOfflineDB(
       Path inputPath,
       Path outputPath,
-      List<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -611,7 +671,7 @@ public class Encode {
   private static void convertTile(
       Tile tile,
       MBTilesWriter mbTilesWriter,
-      List<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
@@ -654,7 +714,7 @@ public class Encode {
       int z,
       byte[] srcTileData,
       ConversionConfig conversionConfig,
-      List<ColumnMapping> columnMappings,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
       URI tessellateSource,
       String compressionType,
       MutableBoolean didCompress,
@@ -953,7 +1013,9 @@ public class Encode {
   private static final String ALLOW_COERCE_OPTION = "coerce-mismatch";
   private static final String ALLOW_ELISION_OPTION = "elide-mismatch";
   private static final String ADVANCED_ENCODING_OPTION = "advanced";
-  private static final String COLUMN_MAPPING_OPTION = "colmap";
+  private static final String COLUMN_MAPPING_AUTO_OPTION = "colmap-auto";
+  private static final String COLUMN_MAPPING_DELIM_OPTION = "colmap-delim";
+  private static final String COLUMN_MAPPING_LIST_OPTION = "colmap-list";
   private static final String NO_MORTON_OPTION = "nomorton";
   private static final String PRE_TESSELLATE_OPTION = "tessellate";
   private static final String TESSELLATE_URL_OPTION = "tessellateurl";
@@ -1142,11 +1204,42 @@ public class Encode {
               .get());
       options.addOption(
           Option.builder()
-              .longOpt(COLUMN_MAPPING_OPTION)
+              .longOpt(COLUMN_MAPPING_AUTO_OPTION)
+              .hasArg(true)
+              .optionalArg(false)
+              .argName("columns")
+              .valueSeparator(',')
+              .desc(
+"""
+Automatic column mapping for the specified layers (Not implemented)
+  Layer specifications may be regular expressions if surrounded by '/'.
+  An empty set of layers applies to all layers.""")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COLUMN_MAPPING_DELIM_OPTION)
               .hasArg(true)
               .optionalArg(false)
               .argName("map")
-              .desc("Enable column mapping, in the form of '<name><separator>', e.g. 'name:'")
+              .desc(
+"""
+Add a separator-based column mapping:
+  '[<layer>,...]<name><separator>'
+  e.g. '[][:]name' combines 'name' and 'name:de' on all layers.""")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(COLUMN_MAPPING_LIST_OPTION)
+              .hasArg(true)
+              .optionalArg(false)
+              .argName("map")
+              .desc(
+"""
+Add an explicit column mapping on the specified layers:
+  '[<layer>,...]<name>,...'
+  e.g. '[]name,name:de' combines 'name' and 'name:de' on all layers.""")
               .required(false)
               .get());
       options.addOption(
