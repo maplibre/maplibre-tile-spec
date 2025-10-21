@@ -14,7 +14,9 @@ public:
         return encodeMorton(vertex, numBits, coordinateShift);
     }
 
-    Coordinate decode(std::uint32_t mortonCode) const noexcept { return decode(mortonCode, numBits, coordinateShift); }
+    Coordinate decode(std::uint32_t mortonCode) const noexcept override {
+        return decode(mortonCode, numBits, coordinateShift);
+    }
 
     static Coordinate decode(std::uint32_t mortonCode, std::uint32_t numBits, std::int32_t coordinateShift) noexcept {
         return {static_cast<float>(decode(mortonCode, numBits) - coordinateShift),
