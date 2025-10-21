@@ -284,6 +284,15 @@ impl<'a> Stream<'a> {
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
     }
 
+    pub fn decode_physical_u32(self) -> Result<Vec<u32>, MltError> {
+        todo!("decode 32 bit integer from stream")
+    }
+
+    pub fn decode_physical_u64(self) -> Result<Vec<u64>, MltError> {
+        todo!("decode 64 bit integer from stream")
+    }
+    
+    
     // pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
     // where
     //     T: VarInt,
