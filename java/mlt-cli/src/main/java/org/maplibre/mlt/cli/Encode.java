@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -186,39 +187,62 @@ public class Encode {
     }
   }
 
+  // matches a layer discriminator, [] = all, [regex] = match a regex
+  private static final String layerPatternPrefix = "^(?:\\[]|\\[([^]].+)])?";
+  // A layer discriminator followed by prefix and delimiter.
+  // Delimiter must be one character, for now.
   private static final Pattern colMapSeparatorPattern =
-      Pattern.compile("^(?:\\[]|\\[([^]].+)])?(.+)(.)$");
+      Pattern.compile(layerPatternPrefix + "(.+)(.)$");
+  // a layer discriminator followed by a comma-separated list of columns
+  private static final Pattern colMapListPattern = Pattern.compile(layerPatternPrefix + "(.+)$");
   private static final Pattern colMapPatternPattern = Pattern.compile("^/(.*)/$");
   private static final Pattern colMapMatchAll = Pattern.compile(".*");
 
   private static Map<Pattern, List<ColumnMapping>> getColumnMappings(CommandLine cmd) {
+    final HashMap<Pattern, List<ColumnMapping>> result = new HashMap<>();
     if (cmd.hasOption(COLUMN_MAPPING_AUTO_OPTION)) {
       throw new NotImplementedException("Auto column mappings are not implemented yet");
     }
     if (cmd.hasOption(COLUMN_MAPPING_LIST_OPTION)) {
-      throw new NotImplementedException("Explicit column mappings are not implemented yet");
+      final var strings = cmd.getOptionValues(COLUMN_MAPPING_LIST_OPTION);
+      if (strings != null) {
+        for (var item : strings) {
+          var matcher = colMapListPattern.matcher(item);
+          if (matcher.matches()) {
+            // matcher doesn't support multiple group matches, split them separately
+            final var layers = parseLayerPatterns(matcher.group(1));
+            final var list = matcher.group(2);
+            final var columnNames =
+                Arrays.stream(list.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+            result.merge(
+                layers,
+                List.of(new ColumnMapping(columnNames, true)),
+                (oldList, newList) ->
+                    Stream.of(oldList, newList).flatMap(Collection::stream).toList());
+          } else {
+            System.err.println("WARNING: Invalid column mapping ignored: " + item);
+            System.err.println("Expected pattern is: " + colMapSeparatorPattern);
+          }
+        }
+      }
     }
-    final HashMap<Pattern, List<ColumnMapping>> result = new HashMap<>();
     final var strings = cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION);
     if (strings != null) {
       for (var item : strings) {
         var matcher = colMapSeparatorPattern.matcher(item);
         if (matcher.matches()) {
           // matcher doesn't support multiple group matches, split them separately
-          final List<Pattern> parsedLayers =
-              StringUtils.isBlank(matcher.group(1))
-                  ? List.of()
-                  : Arrays.stream(matcher.group(1).split(",")).map(Encode::parsePattern).toList();
-          final var layers = parsedLayers.isEmpty() ? List.of(colMapMatchAll) : parsedLayers;
+          final var layers = parseLayerPatterns(matcher.group(1));
           final var prefix = matcher.group(2);
           final var delimiter = matcher.group(3);
-          for (var layer : layers) {
-            result.merge(
-                layer,
-                List.of(new ColumnMapping(prefix, delimiter, true)),
-                (oldList, newList) ->
-                    Stream.of(oldList, newList).flatMap(Collection::stream).toList());
-          }
+          result.merge(
+              layers,
+              List.of(new ColumnMapping(prefix, delimiter, true)),
+              (oldList, newList) ->
+                  Stream.of(oldList, newList).flatMap(Collection::stream).toList());
         } else {
           System.err.println("WARNING: Invalid column mapping ignored: " + item);
           System.err.println("Expected pattern is: " + colMapSeparatorPattern);
@@ -226,6 +250,10 @@ public class Encode {
       }
     }
     return result;
+  }
+
+  private static Pattern parseLayerPatterns(String pattern) {
+    return StringUtils.isBlank(pattern) ? colMapMatchAll : parsePattern(pattern);
   }
 
   private static Pattern parsePattern(String pattern) {
@@ -324,6 +352,9 @@ public class Encode {
     }
     var needsDecoding = willDecode || willCompare || willPrintMLT;
     if (needsDecoding) {
+      if (verbose) {
+        System.err.println("Decoding converted tile...");
+      }
       if (willTime) {
         timer.restart();
       }
@@ -341,7 +372,7 @@ public class Encode {
         System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
-        compare(decodedTile, decodedMvTile, compareGeom, compareProp);
+        compare(decodedTile, decodedMvTile, compareGeom, compareProp, verbose);
       }
     }
   }
@@ -861,7 +892,11 @@ public class Encode {
   }
 
   public static void compare(
-      MapLibreTile mlTile, MapboxVectorTile mvTile, boolean compareGeom, boolean compareProp) {
+      MapLibreTile mlTile,
+      MapboxVectorTile mvTile,
+      boolean compareGeom,
+      boolean compareProp,
+      boolean verbose) {
     final var mltLayers = mlTile.layers();
     final var mvtLayers = mvTile.layers().stream().filter(x -> !x.features().isEmpty()).toList();
     if (mltLayers.size() != mvtLayers.size()) {
@@ -944,15 +979,19 @@ public class Encode {
                   .collect(Collectors.toUnmodifiableSet());
           // compare keys
           if (!mvtPropertyKeys.equals(nonNullMLTKeys)) {
+            final var mvtKeys = getAsymmetricSetDiff(mvtPropertyKeys, nonNullMLTKeys);
+            final var mvtKeyStr = mvtKeys.isEmpty() ? "(none)" : String.join(",", mvtKeys);
+            final var mltKeys = getAsymmetricSetDiff(nonNullMLTKeys, mvtPropertyKeys);
+            final var mltKeyStr = mltKeys.isEmpty() ? "(none)" : String.join(",", mltKeys);
             throw new RuntimeException(
                 "Property keys in MLT and MVT feature index "
                     + j
                     + " in layer '"
                     + mvtLayer.name()
-                    + "' do not match:\nMVT:\n"
-                    + String.join(",", mvtPropertyKeys)
-                    + "\nMLT:\n"
-                    + String.join(",", nonNullMLTKeys));
+                    + "' do not match:\nOnly in MVT: "
+                    + mvtKeyStr
+                    + "\nOnly in MLT: "
+                    + mltKeyStr);
           }
           // compare values
           final var unequalKeys =
@@ -984,6 +1023,16 @@ public class Encode {
         }
       }
     }
+    if (verbose) {
+      System.err.println("Tiles match");
+    }
+  }
+
+  /// Returns the values that are in set a but not in set b
+  private static <T> Set<T> getAsymmetricSetDiff(Set<T> a, Set<T> b) {
+    Set<T> diff = new HashSet<>(a);
+    diff.removeAll(b);
+    return diff;
   }
 
   private static final String INPUT_TILE_ARG = "mvt";

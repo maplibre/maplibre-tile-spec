@@ -107,13 +107,11 @@ public class MvtUtils {
 
           if (!columnMappings.isEmpty()) {
             final var columnMapping =
-                columnMappings.stream()
-                    .filter(m -> key.startsWith(m.getMvtPropertyPrefix()))
-                    .findFirst();
+                columnMappings.stream().filter(m -> key.startsWith(m.getPrefix())).findFirst();
             if (columnMapping.isPresent()) {
               final var transformedKey =
                   key.replaceAll(
-                      columnMapping.get().getMvtDelimiter(), Settings.MLT_CHILD_FIELD_SEPARATOR);
+                      columnMapping.get().getDelimiter(), Settings.MLT_CHILD_FIELD_SEPARATOR);
               transformedProperties.put(transformedKey, v);
               return;
             }

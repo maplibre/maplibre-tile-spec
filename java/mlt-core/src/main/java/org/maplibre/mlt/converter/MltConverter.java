@@ -9,7 +9,9 @@ import java.net.URI;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
@@ -44,7 +46,7 @@ public class MltConverter {
 
     for (var layer : tile.layers()) {
       final LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas = new LinkedHashMap<>();
-      final LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder>
+      final LinkedHashMap<ColumnMapping, MltTilesetMetadata.ComplexColumn.Builder>
           complexPropertyColumnSchemas = new LinkedHashMap<>();
 
       var hasLongId = false;
@@ -73,11 +75,17 @@ public class MltConverter {
       }
 
       for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
-        columnSchemas.put(
-            complexPropertyColumnScheme.getKey(),
-            createColumn(
-                complexPropertyColumnScheme.getKey(),
-                complexPropertyColumnScheme.getValue().build()));
+        final var schema = complexPropertyColumnScheme.getValue();
+        final var parentName = resolveComplexColumnMapping(schema);
+
+        // Each complex column scheme needs to have a unique entry name in the column map, but there
+        // is no specific column to which it maps.  For now, just ensure that the value is unique.
+        final var column = createColumn(parentName, schema.build());
+        IntStream.iterate(0, i -> i + 1)
+            .mapToObj(i -> parentName + i)
+            .filter(name -> !columnSchemas.containsKey(name))
+            .findFirst()
+            .ifPresent(name -> columnSchemas.put(name, column));
       }
 
       var featureTableSchemaBuilder =
@@ -117,7 +125,7 @@ public class MltConverter {
       int featureIndex,
       Map<Pattern, List<ColumnMapping>> columnMappings,
       LinkedHashMap<String, MltTilesetMetadata.Column> columnSchemas,
-      LinkedHashMap<String, MltTilesetMetadata.ComplexColumn.Builder> complexColumnSchemas,
+      LinkedHashMap<ColumnMapping, MltTilesetMetadata.ComplexColumn.Builder> complexColumnSchemas,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
     final var mvtPropertyName = property.getKey();
@@ -159,54 +167,43 @@ public class MltConverter {
       return;
     }
 
-    final var parentColumnMapping =
-        ColumnMapping.findMapping(true, columnMappings, layerName, mvtPropertyName);
-    if (parentColumnMapping != null) {
-      /* case where the top-level field is present like name (name:de, name:us, ...) and has a value.
-       * In this case the field is mapped to the name default. */
-      if (!complexColumnSchemas.containsKey(mvtPropertyName)) {
-        final var childField = createScalarFieldScheme("default", true, scalarType);
-        final var fieldMetadataBuilder = createComplexColumnBuilder(childField);
-        complexColumnSchemas.put(mvtPropertyName, fieldMetadataBuilder);
-        return;
+    final var columnMapping = ColumnMapping.findMapping(columnMappings, layerName, mvtPropertyName);
+    if (columnMapping != null) {
+      // A mapping exists for this property.
+      // Create the parent type and add a child type entry.
+      final var parentColumn =
+          complexColumnSchemas.computeIfAbsent(columnMapping, k -> createComplexColumnBuilder());
+
+      if (parentColumn.getChildrenList().stream()
+          .noneMatch(c -> c.getName().equals(mvtPropertyName))) {
+        parentColumn.addChildren(createScalarFieldScheme(mvtPropertyName, true, scalarType));
       }
 
-      // Case where the top-level field such as name is not present in the first feature
-      if (complexColumnSchemas.containsKey(mvtPropertyName)
-          && complexColumnSchemas.get(mvtPropertyName).getChildrenList().stream()
-              .noneMatch(c -> c.getName().equals("default"))) {
-        final var childField = createScalarFieldScheme("default", true, scalarType);
-        complexColumnSchemas
-            .get(parentColumnMapping.getMvtPropertyPrefix())
-            .addChildren(childField);
-        return;
-      }
-    }
-
-    final var childColumnMapping =
-        ColumnMapping.findMapping(false, columnMappings, layerName, mvtPropertyName);
-    if (childColumnMapping != null) {
-      final var parentName = childColumnMapping.getMvtPropertyPrefix();
-      final var childName = childColumnMapping.getChildName(mvtPropertyName);
-      final var childField = createScalarFieldScheme(childName, true, scalarType);
-      final var parentSchema = complexColumnSchemas.get(parentName);
-      if (parentSchema != null) {
-        /* add the nested properties to the parent like the name:* properties
-         * to the name parent struct if they are not already present
-         */
-        if (parentSchema.getChildrenList().stream().noneMatch(c -> c.getName().equals(childName))) {
-          complexColumnSchemas.get(parentName).addChildren(childField);
-        }
-      } else {
-        /* Case where there is no explicit property available which serves as the name
-         * for the top-level field. For example there is no name property only name:* */
-        complexColumnSchemas.put(parentName, createComplexColumnBuilder(childField));
-      }
       return;
     }
 
     // no matching column mappings, create a plain scalar column
     columnSchemas.put(mvtPropertyName, createScalarColumnScheme(mvtPropertyName, true, scalarType));
+  }
+
+  /// Resolve complex column mapping by determining common prefix and adjusting child names
+  /// @return The longest common prefix which has been removed from the child field names (which may
+  // be blank)
+  private static String resolveComplexColumnMapping(
+      MltTilesetMetadata.ComplexColumn.Builder column) {
+    final var prefix =
+        StringUtils.getCommonPrefix(
+            column.getChildrenBuilderList().stream()
+                .map(MltTilesetMetadata.Field.Builder::getName)
+                .toArray(String[]::new));
+    if (!prefix.isEmpty()) {
+      for (var child : column.getChildrenBuilderList()) {
+        final var name = child.getName();
+        assert (name.startsWith(prefix));
+        child.setName(name.substring(prefix.length()));
+      }
+    }
+    return prefix;
   }
 
   public static String createTilesetMetadataJSON(MltTilesetMetadata.TileSetMetadata pbMetadata) {
@@ -708,6 +705,11 @@ public class MltConverter {
       builder.setName(columnName);
     }
     return builder.build();
+  }
+
+  private static MltTilesetMetadata.ComplexColumn.Builder createComplexColumnBuilder() {
+    return MltTilesetMetadata.ComplexColumn.newBuilder()
+        .setPhysicalType(MltTilesetMetadata.ComplexType.STRUCT);
   }
 
   private static MltTilesetMetadata.ComplexColumn.Builder createComplexColumnBuilder(

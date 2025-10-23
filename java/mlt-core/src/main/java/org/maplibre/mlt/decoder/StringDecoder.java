@@ -6,7 +6,6 @@ import java.util.*;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.tuple.Triple;
-import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
@@ -135,11 +134,7 @@ public class StringDecoder {
         }
       }
 
-      var columnName =
-          column.getName()
-              + (childField.getName().equals("default")
-                  ? ""
-                  : (Settings.MLT_CHILD_FIELD_SEPARATOR + childField.getName()));
+      final var columnName = column.getName() + childField.getName();
       // TODO: refactor to work also when present stream is null
       numValues.put(columnName, presentStreamMetadata.numValues());
       presentStreams.put(columnName, presentStream);

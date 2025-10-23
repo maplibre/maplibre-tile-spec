@@ -18,6 +18,8 @@ public class StringEncoder {
 
   private StringEncoder() {}
 
+  /// Convert a collection of string columns into a shared dictionary encoded byte array
+  /// @return Pair of (number of streams, dictionary encoded to byte array)
   public static Pair<Integer, byte[]> encodeSharedDictionary(
       List<List<String>> values,
       PhysicalLevelTechnique physicalLevelTechnique,

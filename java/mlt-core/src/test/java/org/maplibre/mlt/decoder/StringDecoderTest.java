@@ -38,7 +38,7 @@ public class StringDecoderTest {
   }
 
   @Test
-  @Disabled
+  @Disabled("Dictionary decoding to a scalar column is not implemented yet")
   public void decodeSharedDictionary_FsstDictionaryEncoded() throws IOException {
     var values1 =
         List.of(
@@ -76,36 +76,20 @@ public class StringDecoderTest {
   }
 
   @Test
-  @Disabled
   public void decodeSharedDictionary_DictionaryEncoded() throws IOException {
-    var values1 = List.of("Test", "Test2", "Test4", "Test2", "Test");
-    var values2 = List.of("Test1", "Test2", "Test1", "Test5", "Test");
-    var values = List.of(values1, values2);
-    var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
+    final var values1 = List.of("Test", "Test2", "Test4", "Test2", "Test");
+    final var values2 = List.of("Test1", "Test2", "Test1", "Test5", "Test");
+    final var values = List.of(values1, values2);
+    final var encodedValues =
+        encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
-    var test =
-        MltTilesetMetadata.Field.newBuilder()
-            .setName("Test")
-            .setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
-                    .build());
-    var test2 =
-        MltTilesetMetadata.Field.newBuilder()
-            .setName("Test2")
-            .setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
-                    .build());
-    var tileMetadata =
+    final var test = createField("Test", MltTilesetMetadata.ScalarType.STRING);
+    final var test2 = createField("Test2", MltTilesetMetadata.ScalarType.STRING);
+    final var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
             .setName("Parent")
             .setNullable(true)
-            .setComplexType(
-                MltTilesetMetadata.ComplexColumn.newBuilder()
-                    .addChildren(test)
-                    .addChildren(test2)
-                    .build())
+            .setComplexType(createComplexColumn(test, test2))
             .build();
 
     var decodedValues =
@@ -113,76 +97,79 @@ public class StringDecoderTest {
             encodedValues.getRight(), new IntWrapper(0), tileMetadata);
 
     var v = decodedValues.getRight();
-    Assert.equals(values1, v.get(":Test"));
-    Assert.equals(values2, v.get(":Test2"));
+    Assert.equals(values1, v.get("ParentTest"));
+    Assert.equals(values2, v.get("ParentTest2"));
+  }
+
+  private MltTilesetMetadata.ScalarField createField(MltTilesetMetadata.ScalarType type) {
+    return MltTilesetMetadata.ScalarField.newBuilder().setPhysicalType(type).build();
+  }
+
+  private MltTilesetMetadata.Field createField(
+      String name, @SuppressWarnings("SameParameterValue") MltTilesetMetadata.ScalarType type) {
+    return MltTilesetMetadata.Field.newBuilder()
+        .setName(name)
+        .setScalarField(createField(type))
+        .build();
+  }
+
+  private MltTilesetMetadata.ComplexColumn createComplexColumn(MltTilesetMetadata.Field... fields) {
+    return MltTilesetMetadata.ComplexColumn.newBuilder()
+        .setPhysicalType(MltTilesetMetadata.ComplexType.STRUCT)
+        .addAllChildren(() -> Arrays.stream(fields).iterator())
+        .build();
   }
 
   @Test
-  @Disabled
   public void decodeSharedDictionary_NullValues_DictionaryEncoded() throws IOException {
-    var values1 = Arrays.asList("Test", null, "Test2", null, "Test4", "Test2", "Test");
-    var values2 =
+    final var values1 = Arrays.asList("Test", null, "Test2", null, "Test4", "Test2", "Test");
+    final var values2 =
         Arrays.asList(
             null, "Test1", "Test2", "Test1", null, null, "Test5", null, "Test", null, null);
-    var values = List.of(values1, values2);
-    var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
+    final var values = List.of(values1, values2);
+    final var encodedValues =
+        encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
-    var test =
-        MltTilesetMetadata.Field.newBuilder()
-            .setName("Test")
-            .setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
-                    .build());
-    var test2 =
-        MltTilesetMetadata.Field.newBuilder()
-            .setName("Test2")
-            .setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
-                    .build());
-    var tileMetadata =
+    final var test = createField("Test", MltTilesetMetadata.ScalarType.STRING);
+    final var test2 = createField("Test2", MltTilesetMetadata.ScalarType.STRING);
+    final var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
             .setName("Parent")
             .setNullable(true)
-            .setComplexType(
-                MltTilesetMetadata.ComplexColumn.newBuilder()
-                    .addChildren(test)
-                    .addChildren(test2)
-                    .build())
+            .setComplexType(createComplexColumn(test, test2))
             .build();
 
-    var decodedValues =
+    final var decodeResults =
         StringDecoder.decodeSharedDictionary(
             encodedValues.getRight(), new IntWrapper(0), tileMetadata);
+    final var decodedPresentValues = decodeResults.getMiddle();
+    final var decodedValues = decodeResults.getRight();
 
-    var v = decodedValues.getRight();
-
-    var actualValues1 = v.get(":Test");
-    var p1 = decodedValues.getMiddle().get(":Test");
-    var decodedV1 = new ArrayList<String>();
+    final var actualValues1 = decodedValues.get("ParentTest");
+    final var p1 = decodedPresentValues.get("ParentTest");
+    final var decodedV1 = new ArrayList<String>();
     var counter = 0;
-    for (var i = 0; i < decodedValues.getMiddle().size(); i++) {
-      var a = p1.get(i) ? actualValues1.get(counter++) : null;
-      decodedV1.add(a);
+    for (var i = 0; i < decodedPresentValues.size(); i++) {
+      decodedV1.add(p1.get(i) ? actualValues1.get(counter++) : null);
     }
-    var actualValues2 = v.get(":Test2");
-    var p2 = decodedValues.getMiddle().get(":Test2");
-    var decodedV2 = new ArrayList<String>();
-    var counter2 = 0;
-    for (var i = 0; i < decodedValues.getMiddle().size(); i++) {
-      var a = p2.get(i) ? actualValues2.get(counter2++) : null;
-      decodedV2.add(a);
-    }
+    Assert.equals(decodedV1, new ArrayList<>(Arrays.asList("Test", null)));
 
-    Assert.equals(values1, v.get(":Test"));
-    Assert.equals(values2, v.get(":Test2"));
+    final var actualValues2 = decodedValues.get("ParentTest2");
+    final var p2 = decodedPresentValues.get("ParentTest2");
+    final var decodedV2 = new ArrayList<String>();
+    var counter2 = 0;
+    for (var i = 0; i < decodedPresentValues.size(); i++) {
+      decodedV2.add(p2.get(i) ? actualValues2.get(counter2++) : null);
+    }
+    Assert.equals(decodedV2, new ArrayList<>(Arrays.asList(null, null)));
+
+    Assert.equals(values1, decodedValues.get("ParentTest"));
+    Assert.equals(values2, decodedValues.get("ParentTest2"));
   }
 
   @Test
-  @Disabled
   public void decodeSharedDictionary_NullValues_FsstDictionaryEncoded() throws IOException {
-    var values1 =
+    final var values1 =
         Arrays.asList(
             null,
             null,
@@ -194,7 +181,7 @@ public class StringDecoderTest {
             "TestTestTestTestTestTest2",
             "TestTestTestTestTestTest2",
             "TestTestTestTestTestTest4");
-    var values2 =
+    final var values2 =
         Arrays.asList(
             "TestTestTestTestTestTest6",
             null,
@@ -203,64 +190,51 @@ public class StringDecoderTest {
             "TestTestTestTestTestTes9",
             null,
             "TestTestTestTestTestTest10");
-    var values = List.of(values1, values2);
-    var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
+    final var values = List.of(values1, values2);
+    final var encodedValues =
+        encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
-    var test =
-        MltTilesetMetadata.Field.newBuilder()
-            .setName("Test")
-            .setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
-                    .build());
-    var test2 =
-        MltTilesetMetadata.Field.newBuilder()
-            .setName("Test2")
-            .setScalarField(
-                MltTilesetMetadata.ScalarField.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
-                    .build());
-    var tileMetadata =
+    final var test = createField("Test", MltTilesetMetadata.ScalarType.STRING);
+    final var test2 = createField("Test2", MltTilesetMetadata.ScalarType.STRING);
+    final var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
             .setName("Parent")
             .setNullable(true)
-            .setComplexType(
-                MltTilesetMetadata.ComplexColumn.newBuilder()
-                    .addChildren(test)
-                    .addChildren(test2)
-                    .build())
+            .setComplexType(createComplexColumn(test, test2))
             .build();
 
-    var decodedValues =
+    final var decodeResult =
         StringDecoder.decodeSharedDictionary(
             encodedValues.getRight(), new IntWrapper(0), tileMetadata);
 
-    var v = decodedValues.getRight();
+    final var decodedValues = decodeResult.getRight();
+    final var decodedPresentValues = decodeResult.getMiddle();
 
-    var actualValues1 = v.get(":Test");
-    var p1 = decodedValues.getMiddle().get(":Test");
+    var actualValues1 = decodedValues.get("ParentTest");
+    var p1 = decodedPresentValues.get("ParentTest");
     var decodedV1 = new ArrayList<String>();
     var counter = 0;
-    for (var i = 0; i < decodedValues.getMiddle().size(); i++) {
-      var a = p1.get(i) ? actualValues1.get(counter++) : null;
-      decodedV1.add(a);
+    for (var i = 0; i < decodedPresentValues.size(); i++) {
+      decodedV1.add(p1.get(i) ? actualValues1.get(counter++) : null);
     }
-    var actualValues2 = v.get(":Test2");
-    var p2 = decodedValues.getMiddle().get(":Test2");
+    Assert.equals(decodedV1, new ArrayList<>(Arrays.asList(null, null)));
+
+    var actualValues2 = decodedValues.get("ParentTest2");
+    var p2 = decodedPresentValues.get("ParentTest2");
     var decodedV2 = new ArrayList<String>();
     var counter2 = 0;
-    for (var i = 0; i < decodedValues.getMiddle().size(); i++) {
-      var a = p2.get(i) ? actualValues2.get(counter2++) : null;
-      decodedV2.add(a);
+    for (var i = 0; i < decodedPresentValues.size(); i++) {
+      decodedV2.add(p2.get(i) ? actualValues2.get(counter2++) : null);
     }
+    Assert.equals(decodedV2, new ArrayList<>(Arrays.asList("TestTestTestTestTestTest6", null)));
 
-    Assert.equals(values1, v.get(":Test"));
-    Assert.equals(values2, v.get(":Test2"));
+    Assert.equals(values1, decodedValues.get("ParentTest"));
+    Assert.equals(values2, decodedValues.get("ParentTest2"));
   }
 
   /// Helper method to filter and cast stream elements
   private static <Target extends Base, Base> Function<Base, Stream<Target>> ofType(
-      Class<Target> targetType) {
+      @SuppressWarnings("SameParameterValue") Class<Target> targetType) {
     return value ->
         targetType.isInstance(value) ? Stream.of(targetType.cast(value)) : Stream.empty();
   }
@@ -269,8 +243,7 @@ public class StringDecoderTest {
   @EnumSource(
       value = PhysicalLevelTechnique.class,
       names = {"VARINT", "FAST_PFOR"})
-  public void decodeSharedDictionary_FastPFOR_Mvt(PhysicalLevelTechnique technique)
-      throws IOException {
+  public void decodeSharedDictionary_Mvt(PhysicalLevelTechnique technique) throws IOException {
     final var tileId = String.format("%s_%s_%s", 5, 16, 21);
     final var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     final var mvTile = MvtUtils.decodeMvt(mvtFilePath);
@@ -282,18 +255,10 @@ public class StringDecoderTest {
     final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
     final var tileMetadata =
         MltTilesetMetadata.Column.newBuilder()
-            .setName("TestParent")
+            .setName("TestParent:")
             .setNullable(true)
             .setComplexType(
-                MltTilesetMetadata.ComplexColumn.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ComplexType.STRUCT)
-                    .addChildren(
-                        MltTilesetMetadata.Field.newBuilder()
-                            .setName("TestChild")
-                            .setScalarField(
-                                MltTilesetMetadata.ScalarField.newBuilder()
-                                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING)
-                                    .build())))
+                createComplexColumn(createField("TestChild", MltTilesetMetadata.ScalarType.STRING)))
             .build();
     var decodeResult =
         StringDecoder.decodeSharedDictionary(
@@ -309,7 +274,8 @@ public class StringDecoderTest {
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    // Force coverage of the case where the "base" mapped column doesn't appear in the first feature
+    // Force coverage of the case where the "base" mapped column (e.g., "name") doesn't appear in
+    // the first feature
     mvTile.layers().getFirst().features().getFirst().properties().remove("name");
 
     final var columnMapping = new ColumnMapping("name", ":", true);
@@ -326,19 +292,15 @@ public class StringDecoderTest {
     for (var column : fieldMetadata.getComplexType().getChildrenList()) {
       var values = new ArrayList<String>();
       for (var feature : layer.features()) {
-        if (column.getName().equals("default")) {
-          var value = (String) feature.properties().get("name");
-          values.add(value);
-        } else {
-          var value = (String) feature.properties().get("name:" + column.getName());
-          values.add(value);
-        }
+        values.add((String) feature.properties().get(fieldMetadata.getName() + column.getName()));
       }
       sharedValues.add(values);
     }
 
     final var encodedValues =
         encodeSharedDictionary(sharedValues, PhysicalLevelTechnique.FAST_PFOR, false);
+    Assert.isTrue(encodedValues.getLeft() > 2);
+
     final var decodeResult =
         StringDecoder.decodeSharedDictionary(
             encodedValues.getRight(), new IntWrapper(0), fieldMetadata);
@@ -347,22 +309,91 @@ public class StringDecoderTest {
     for (var column : fieldMetadata.getComplexType().getChildrenList()) {
       var i = 0;
       for (var feature : layer.features()) {
-        if (column.getName().equals("default")) {
-          var value = (String) feature.properties().get("name");
-          var actualValue = decodedValues.get("name").get(i++);
-          if (value == null && actualValue == null) {
-            continue;
-          }
-          Assert.equals(value, actualValue);
-        } else {
-          var value = (String) feature.properties().get("name:" + column.getName());
-          var actualValue = decodedValues.get("name:" + column.getName()).get(i++);
-          if (value == null && actualValue == null) {
-            continue;
-          }
-          Assert.equals(value, actualValue);
+        final var propertyName = fieldMetadata.getName() + column.getName();
+        final var expectedValue = (String) feature.properties().get(propertyName);
+        final var field = decodedValues.get(propertyName);
+        Assert.isTrue(expectedValue == null || field != null);
+        final var actualValue = field.get(i++);
+        if (expectedValue != null || actualValue != null) {
+          Assert.equals(expectedValue, actualValue);
         }
       }
     }
+  }
+
+  /// Apply multiple column mappings with the same prefix
+  @Test
+  public void decodeColumnMap_Mvt_prefix_multi() throws IOException {
+    final var tileId = String.format("%s_%s_%s", 5, 16, 21);
+    final var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
+    final var mvTile = MvtUtils.decodeMvt(mvtFilePath);
+
+    final var mapping1 = new ColumnMapping("name", ":", true);
+    final var mapping2 = new ColumnMapping("name", "_", true);
+    final var columnMappings = Map.of(Pattern.compile(".*"), List.of(mapping1, mapping2));
+
+    final var metadata =
+        MltConverter.createTilesetMetadata(mvTile, columnMappings, /*isIdPresent*/ true);
+
+    final var expected =
+        Map.of(
+            "water_name:name", 59,
+            "water_name:name_", 3,
+            "place:name", 68,
+            "place:name_", 3);
+    int found = 0;
+    for (var table : metadata.getFeatureTablesList()) {
+      for (var column : table.getColumnsList()) {
+        if (column.hasComplexType()
+            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
+          final var complex = column.getComplexType();
+          final var fieldKey = table.getName() + ":" + column.getName();
+          Assert.equals(
+              expected.get(fieldKey),
+              complex.getChildrenCount(),
+              "Unexpected number of children in " + fieldKey);
+          found++;
+        }
+      }
+    }
+    Assert.equals(4, found);
+  }
+
+  /// Apply explicit column mappings
+  @Test
+  public void decodeColumnMap_Mvt_explicit() throws IOException {
+    final var tileId = String.format("%s_%s_%s", 5, 16, 21);
+    final var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
+    final var mvTile = MvtUtils.decodeMvt(mvtFilePath);
+
+    final var columnMapping =
+        new ColumnMapping(List.of("name", "name:en", "name:latin", "name_en", "name_int"), true);
+    final var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
+
+    final var metadata =
+        MltConverter.createTilesetMetadata(mvTile, columnMappings, /*isIdPresent*/ true);
+
+    final var expected =
+        Map.of(
+            "water_name:name", 5,
+            "water_name:name_", 3,
+            "place:name", 5,
+            "place:name_", 3);
+    int found = 0;
+    for (var table : metadata.getFeatureTablesList()) {
+      for (var column : table.getColumnsList()) {
+        if (column.hasComplexType()
+            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
+          final var complex = column.getComplexType();
+          final var fieldKey = table.getName() + ":" + column.getName();
+          Assert.equals(
+              expected.get(fieldKey),
+              complex.getChildrenCount(),
+              "Unexpected number of children in " + fieldKey);
+          found++;
+        }
+      }
+    }
+    Assert.equals(4, found);
   }
 }
