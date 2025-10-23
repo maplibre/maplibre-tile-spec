@@ -4,7 +4,7 @@ import { type SelectionVector } from "../filter/selectionVector";
 import ZOrderCurve from "./zOrderCurve";
 import { type GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
 import { type VertexBufferType } from "./vertexBufferType";
-import Point from "@mapbox/point-geometry";
+import type Point from "@mapbox/point-geometry";
 
 export type CoordinatesArray = Array<Array<Point>>;
 
