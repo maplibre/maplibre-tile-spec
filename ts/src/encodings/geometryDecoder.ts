@@ -25,7 +25,7 @@ export function decodeGeometryColumn(
     scalingData?: GeometryScaling,
 ): GeometryVector | GpuVector {
     const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
-    const geometryTypesVectorType = IntegerStreamDecoder.getVectorType(geometryTypeMetadata, numFeatures);
+    const geometryTypesVectorType = IntegerStreamDecoder.getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
 
     let geometryOffsets: Int32Array = null;
     let partOffsets: Int32Array = null;

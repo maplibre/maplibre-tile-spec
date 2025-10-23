@@ -21,7 +21,7 @@ public:
 
     virtual std::uint32_t encode(const Coordinate& vertex) const = 0;
 
-    virtual Coordinate decode(int mortonCode) const = 0;
+    virtual Coordinate decode(std::uint32_t mortonCode) const = 0;
 
     std::uint32_t getNumBits() const noexcept { return numBits; }
 
