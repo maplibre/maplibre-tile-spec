@@ -21,19 +21,13 @@ describe("MLT Decoder - MVT comparison for Amazon tiles", () => {
 describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     const omtMltTileDir = "../test/expected/tag0x01/omt";
     const omtMvtTileDir = "../test/fixtures/omt";
-    // TODO: remove ignore list when the issues with the ID of these tiles are resolved
-    testTiles(omtMltTileDir, omtMvtTileDir, [
-        "10_530_683",
-        "10_532_683",
-        "11_1062_1367",
-        "11_1064_1366",
-        "13_4267_5467",
-    ]);
+    // TODO: handle case where ID is Delta-RLE encoded and sequential
+    testTiles(omtMltTileDir, omtMvtTileDir);
 });
 
-function testTiles(mltSearchDir: string, mvtSearchDir: string, ignoreList: string[] = []) {
+function testTiles(mltSearchDir: string, mvtSearchDir: string) {
     const mltFileNames = readdirSync(mltSearchDir)
-        .filter((file) => parse(file).ext === ".mlt" && !ignoreList.includes(parse(file).name))
+        .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
     for (const fileName of mltFileNames) {
         it(`should compare ${fileName} tile`, () => {
