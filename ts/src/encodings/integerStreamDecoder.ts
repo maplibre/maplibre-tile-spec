@@ -386,7 +386,12 @@ export default class IntegerStreamDecoder {
         }
     }
 
-    static getVectorType(streamMetadata: StreamMetadata, sizeOrNullabilityBuffer: number | BitVector): VectorType {
+    static getVectorType(
+        streamMetadata: StreamMetadata,
+        sizeOrNullabilityBuffer: number | BitVector,
+        data: Uint8Array,
+        offset: IntWrapper,
+    ): VectorType {
         const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
         if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
             return (streamMetadata as RleEncodedStreamMetadata).runs === 1 ? VectorType.CONST : VectorType.FLAT;
@@ -394,18 +399,39 @@ export default class IntegerStreamDecoder {
 
         const numFeatures =
             sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
-        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        const runs = rleMetadata.runs;
 
         if (
             logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
-            streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE &&
-            /* Only single run can be a sequence (constant delta) */
-            runs === 1 &&
-            /* No null values allowed in a sequence vector */
-            rleMetadata.numValues === numFeatures
+            streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
         ) {
-            return VectorType.SEQUENCE;
+            const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+            const runs = rleMetadata.runs;
+            const zigZagOne = 2;
+
+            if (rleMetadata.numRleValues !== numFeatures) {
+                return VectorType.FLAT;
+            }
+            // Single run is always a sequence
+            if (runs === 1) {
+                return VectorType.SEQUENCE;
+            }
+            // Two runs can be a sequence if both deltas are equal to 1
+            if (runs === 2) {
+                const savedOffset = offset.get();
+
+                let values: Int32Array;
+                if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+                    values = decodeVarintInt32(data, offset, 4);
+                } else {
+                    const byteOffset = offset.get();
+                    values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+                }
+                offset.set(savedOffset);
+                // Check if both deltas are encoded 1
+                if (values[2] === zigZagOne && values[3] === zigZagOne) {
+                    return VectorType.SEQUENCE;
+                }
+            }
         }
 
         return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
