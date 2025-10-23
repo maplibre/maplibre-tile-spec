@@ -1,8 +1,8 @@
+import Point from "@mapbox/point-geometry";
 import { type SelectionVector } from "../filter/selectionVector";
 import { type SINGLE_PART_GEOMETRY_TYPE, GEOMETRY_TYPE } from "./geometryType";
 import { type CoordinatesArray } from "./geometryVector";
 import type TopologyVector from "./topologyVector";
-import Point from "./point";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {
     protected constructor(
