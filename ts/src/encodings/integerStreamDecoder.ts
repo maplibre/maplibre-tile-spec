@@ -181,10 +181,7 @@ export default class IntegerStreamDecoder {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    if (rleMetadata.runs > 1) {
-                        return decodeDeltaRle(values, rleMetadata.runs, rleMetadata.numRleValues);
-                    }
-                    values = decodeUnsignedRle(values, rleMetadata.runs, rleMetadata.numRleValues);
+                    return decodeDeltaRle(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
                 decodeZigZagDelta(values);
                 return values;
@@ -222,10 +219,7 @@ export default class IntegerStreamDecoder {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    if (rleMetadata.runs > 1) {
-                        return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                    }
-                    values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                    return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
                 decodeZigZagDeltaInt64(values);
                 return values;
