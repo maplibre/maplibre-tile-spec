@@ -163,7 +163,7 @@ function decodeLongColumn(
     scalarColumn: ScalarColumn,
 ): Vector<BigInt64Array, bigint> {
     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer);
+    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
     if (vectorType === VectorType.FLAT) {
         const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
@@ -198,7 +198,7 @@ function decodeIntColumn(
     sizeOrNullabilityBuffer: number | BitVector,
 ): Vector<Int32Array, number> {
     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer);
+    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
 
     if (vectorType === VectorType.FLAT) {
