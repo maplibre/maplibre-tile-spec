@@ -25,9 +25,9 @@ describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     testTiles(omtMltTileDir, omtMvtTileDir);
 });
 
-function testTiles(mltSearchDir: string, mvtSearchDir: string, ignoreList: string[] = []) {
+function testTiles(mltSearchDir: string, mvtSearchDir: string) {
     const mltFileNames = readdirSync(mltSearchDir)
-        .filter((file) => parse(file).ext === ".mlt" && !ignoreList.includes(parse(file).name))
+        .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
     for (const fileName of mltFileNames) {
         it(`should compare ${fileName} tile`, () => {
