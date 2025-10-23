@@ -45,5 +45,8 @@
     "typescript-eslint": "^8.46.1",
     "varint": "^6.0.0",
     "vitest": "^4.0.1"
+  },
+  "dependencies": {
+    "@mapbox/point-geometry": "^1.1.0"
   }
 }
