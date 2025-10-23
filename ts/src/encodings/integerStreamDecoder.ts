@@ -4,6 +4,8 @@ import type IntWrapper from "./intWrapper";
 import {
     decodeComponentwiseDeltaVec2,
     decodeComponentwiseDeltaVec2Scaled,
+    decodeDeltaRle,
+    decodeDeltaRleInt64,
     decodeFastPfor,
     decodeNullableRle,
     decodeNullableRleInt64,
@@ -179,7 +181,7 @@ export default class IntegerStreamDecoder {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    values = decodeUnsignedRle(values, rleMetadata.runs, rleMetadata.numRleValues);
+                    return decodeDeltaRle(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
                 decodeZigZagDelta(values);
                 return values;
@@ -217,7 +219,7 @@ export default class IntegerStreamDecoder {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                    return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
                 decodeZigZagDeltaInt64(values);
                 return values;
@@ -398,8 +400,8 @@ export default class IntegerStreamDecoder {
         if (
             logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
             streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE &&
-            /* If base value equals delta value then one run else two runs */
-            (runs === 1 || runs === 2) &&
+            /* Only single run can be a sequence (constant delta) */
+            runs === 1 &&
             /* No null values allowed in a sequence vector */
             rleMetadata.numValues === numFeatures
         ) {
