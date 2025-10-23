@@ -356,7 +356,7 @@ public class StringDecoderTest {
         }
       }
     }
-    Assert.equals(4, found);
+    Assert.equals(expected.size(), found);
   }
 
   /// Apply explicit column mappings
@@ -376,9 +376,7 @@ public class StringDecoderTest {
     final var expected =
         Map.of(
             "water_name:name", 5,
-            "water_name:name_", 3,
-            "place:name", 5,
-            "place:name_", 3);
+            "place:name", 5);
     int found = 0;
     for (var table : metadata.getFeatureTablesList()) {
       for (var column : table.getColumnsList()) {
@@ -386,6 +384,7 @@ public class StringDecoderTest {
             && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
           final var complex = column.getComplexType();
           final var fieldKey = table.getName() + ":" + column.getName();
+          Assert.isTrue(expected.containsKey(fieldKey));
           Assert.equals(
               expected.get(fieldKey),
               complex.getChildrenCount(),
@@ -394,6 +393,6 @@ public class StringDecoderTest {
         }
       }
     }
-    Assert.equals(4, found);
+    Assert.equals(expected.size(), found);
   }
 }
