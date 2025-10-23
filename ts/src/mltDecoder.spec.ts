@@ -1,7 +1,7 @@
 import { expect, describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
-import { VectorTile, type VectorTileFeature, type VectorTileLayer } from "@mapbox/vector-tile";
+import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 
 import { type FeatureTable, type Feature, decodeTile } from ".";
@@ -65,9 +65,11 @@ function comparePlainGeometryEncodedTile(
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
 
-        for (let j = 0; j < mltFeatures.length; j++) {
-            const mltFeature = mltFeatures[j];
+        expect(layer.length).toEqual(mltFeatures.length);
+
+        for (let j = 0; j < layer.length; j++) {
             const mvtFeature = layer.feature(j);
+            const mltFeature = mltFeatures[j];
 
             compareId(mltFeature, mvtFeature, true);
 
