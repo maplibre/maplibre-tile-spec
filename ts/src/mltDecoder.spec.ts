@@ -21,7 +21,6 @@ describe("MLT Decoder - MVT comparison for Amazon tiles", () => {
 describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     const omtMltTileDir = "../test/expected/tag0x01/omt";
     const omtMvtTileDir = "../test/fixtures/omt";
-    // TODO: handle case where ID is Delta-RLE encoded and sequential
     testTiles(omtMltTileDir, omtMvtTileDir);
 });
 

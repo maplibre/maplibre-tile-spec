@@ -153,7 +153,7 @@ function decodeIdColumn(
     idWithinMaxSafeInteger: boolean = false,
 ): IntVector {
     const idDataType = columnMetadata.scalarType.physicalType;
-    const vectorType = IntegerStreamDecoder.getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer);
+    const vectorType = IntegerStreamDecoder.getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset);
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {
