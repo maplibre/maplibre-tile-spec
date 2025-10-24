@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import org.apache.commons.lang3.StringUtils;
 
 /*
  * In the converter it is currently possible to map a set of feature properties into a nested struct with a depth of one level.
@@ -14,11 +13,11 @@ import org.apache.commons.lang3.StringUtils;
  * This has the advantage that the dictionary (Shared Dictionary Encoding) can be shared among the nested columns.
  * */
 public class ColumnMapping {
-  public String getPrefix() {
+  public Pattern getPrefix() {
     return prefix;
   }
 
-  public String getDelimiter() {
+  public Pattern getDelimiter() {
     return delimiter;
   }
 
@@ -35,11 +34,16 @@ public class ColumnMapping {
   }
 
   /// Construct a mapping based on common prefixes and a delimiter
-  public ColumnMapping(String prefix, String delimiter, boolean useSharedDictionaryEncoding) {
+  public ColumnMapping(Pattern prefix, Pattern delimiter, boolean useSharedDictionaryEncoding) {
     this(prefix, delimiter, null, useSharedDictionaryEncoding);
-    if (StringUtils.isAnyBlank(prefix, delimiter)) {
-      throw new IllegalArgumentException("prefix and delimiter must be non-blank");
-    }
+  }
+
+  public ColumnMapping(String prefix, String delimiter, boolean useSharedDictionaryEncoding) {
+    this(
+        Pattern.compile(prefix, Pattern.LITERAL),
+        Pattern.compile(delimiter, Pattern.LITERAL),
+        null,
+        useSharedDictionaryEncoding);
   }
 
   ///  Construct a mapping based on explicit column names
@@ -48,8 +52,8 @@ public class ColumnMapping {
   }
 
   private ColumnMapping(
-      String prefix,
-      String delimiter,
+      Pattern prefix,
+      Pattern delimiter,
       Collection<String> columnNames,
       boolean useSharedDictionaryEncoding) {
     this.prefix = prefix;
@@ -63,7 +67,20 @@ public class ColumnMapping {
       return columnNames.contains(propertyName);
     } else {
       // In the prefix case, the prefix alone or a prefix+delimiter+suffix match
-      return propertyName.equals(prefix) || propertyName.startsWith(prefix + delimiter);
+      if (prefix.matcher(propertyName).matches()) {
+        return true;
+      }
+      final var prefixMatcher = prefix.matcher(propertyName);
+      if (prefixMatcher.find()) {
+        if (prefixMatcher.start() == 0) {
+          final var remainder = propertyName.substring(prefixMatcher.end());
+          final var suffixMatcher = delimiter.matcher(remainder);
+          if (suffixMatcher.find()) {
+            return suffixMatcher.start() == 0;
+          }
+        }
+      }
+      return false;
     }
   }
 
@@ -96,8 +113,8 @@ public class ColumnMapping {
     }
   }
 
-  private final String prefix;
-  private final String delimiter;
+  private final Pattern prefix;
+  private final Pattern delimiter;
   private final boolean useSharedDictionaryEncoding;
   private final Collection<String> columnNames;
 }

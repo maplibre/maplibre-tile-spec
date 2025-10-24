@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -190,8 +191,10 @@ public class Encode {
   // matches a layer discriminator, [] = all, [regex] = match a regex
   private static final String layerPatternPrefix = "^(?:\\[]|\\[([^]].+)])?";
   // A layer discriminator followed by prefix and delimiter.
-  // Delimiter must be one character, for now.
-  private static final Pattern colMapSeparatorPattern =
+  // Delimiter may be a pattern if surrounded by slashes.
+  private static final Pattern colMapSeparatorPattern1 =
+      Pattern.compile(layerPatternPrefix + "(.+)(/.+/)$");
+  private static final Pattern colMapSeparatorPattern2 =
       Pattern.compile(layerPatternPrefix + "(.+)(.)$");
   // a layer discriminator followed by a comma-separated list of columns
   private static final Pattern colMapListPattern = Pattern.compile(layerPatternPrefix + "(.+)$");
@@ -224,7 +227,7 @@ public class Encode {
                     Stream.of(oldList, newList).flatMap(Collection::stream).toList());
           } else {
             System.err.println("WARNING: Invalid column mapping ignored: " + item);
-            System.err.println("Expected pattern is: " + colMapSeparatorPattern);
+            System.err.println("Expected pattern is: " + colMapListPattern);
           }
         }
       }
@@ -232,12 +235,15 @@ public class Encode {
     final var strings = cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION);
     if (strings != null) {
       for (var item : strings) {
-        var matcher = colMapSeparatorPattern.matcher(item);
+        var matcher = colMapSeparatorPattern1.matcher(item);
+        if (!matcher.matches()) {
+          matcher = colMapSeparatorPattern2.matcher(item);
+        }
         if (matcher.matches()) {
           // matcher doesn't support multiple group matches, split them separately
           final var layers = parseLayerPatterns(matcher.group(1));
-          final var prefix = matcher.group(2);
-          final var delimiter = matcher.group(3);
+          final var prefix = parsePattern(matcher.group(2));
+          final var delimiter = parsePattern(matcher.group(3));
           result.merge(
               layers,
               List.of(new ColumnMapping(prefix, delimiter, true)),
@@ -245,7 +251,8 @@ public class Encode {
                   Stream.of(oldList, newList).flatMap(Collection::stream).toList());
         } else {
           System.err.println("WARNING: Invalid column mapping ignored: " + item);
-          System.err.println("Expected pattern is: " + colMapSeparatorPattern);
+          System.err.println(
+              "Expected pattern is: " + colMapSeparatorPattern1 + " or " + colMapSeparatorPattern2);
         }
       }
     }
@@ -257,13 +264,18 @@ public class Encode {
   }
 
   private static Pattern parsePattern(String pattern) {
-    var matcher = colMapPatternPattern.matcher(pattern);
-    if (matcher.matches()) {
-      // A regex surrounded by slashes, return the compiled pattern
-      return Pattern.compile(matcher.group(1));
-    } else {
-      // Just a regular string
-      return Pattern.compile(pattern, Pattern.LITERAL);
+    final var matcher = colMapPatternPattern.matcher(pattern);
+    try {
+      if (matcher.matches()) {
+        // A regex surrounded by slashes, return the compiled pattern
+        return Pattern.compile(matcher.group(1));
+      } else {
+        // Just a regular string
+        return Pattern.compile(pattern, Pattern.LITERAL);
+      }
+    } catch (java.util.regex.PatternSyntaxException ex) {
+      System.err.println("Invalid pattern, matching all input instead: " + ex.getMessage());
+      return colMapMatchAll;
     }
   }
 
@@ -302,6 +314,10 @@ public class Encode {
             conversionConfig.getCoercePropertyValues(),
             enableElideOnTypeMismatch);
     final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
+
+    if (verbose) {
+      printColumnMappings(metadata, System.err);
+    }
 
     conversionConfig =
         applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
@@ -445,19 +461,19 @@ public class Encode {
       try {
         // Copy metadata from the input file.
         // We can't set the format, see the coda.
-        var metadata = mbTilesReader.getMetadata();
+        final var metadata = mbTilesReader.getMetadata();
         mbTilesWriter.addMetadataEntry(metadata);
 
-        var pbMeta = MltTilesetMetadata.TileSetMetadata.newBuilder();
+        final var pbMeta = MltTilesetMetadata.TileSetMetadata.newBuilder();
         pbMeta.setName(metadata.getTilesetName());
         pbMeta.setAttribution(metadata.getAttribution());
         pbMeta.setDescription(metadata.getTilesetDescription());
-        var bounds = metadata.getTilesetBounds();
+        final var bounds = metadata.getTilesetBounds();
         pbMeta.addAllBounds(
             List.of(bounds.getLeft(), bounds.getTop(), bounds.getRight(), bounds.getBottom()));
-        var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta.build());
+        final var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta.build());
 
-        var tiles = mbTilesReader.getTiles();
+        final var tiles = mbTilesReader.getTiles();
         try {
           while (tiles.hasNext()) {
             final var tile = tiles.next();
@@ -483,8 +499,8 @@ public class Encode {
 
           // mbtiles4j doesn't support types other than png and jpg,
           // so we have to set the format metadata the hard way.
-          var dbFile = mbTilesWriter.close();
-          var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
+          final var dbFile = mbTilesWriter.close();
+          final var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
           try (var connection = DriverManager.getConnection(connectionString)) {
             if (verbose) {
               System.err.printf("Setting tile MIME type to '%s'%n", MetadataMIMEType);
@@ -749,6 +765,11 @@ public class Encode {
               isIdPresent,
               coercePropertyValues,
               enableElideOnMismatch);
+
+      if (verbose) {
+        printColumnMappings(metadata, System.err);
+      }
+
       conversionConfig =
           applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
       var tileData =
@@ -889,6 +910,25 @@ public class Encode {
     }
     // Allow for, e.g., int32 and int64 representations of the same number by comparing strings
     return a.toString().equals(b.toString());
+  }
+
+  private static void printColumnMappings(
+      MltTilesetMetadata.TileSetMetadata metadata,
+      @SuppressWarnings("SameParameterValue") PrintStream out) {
+    for (var table : metadata.getFeatureTablesList()) {
+      for (var column : table.getColumnsList()) {
+        if (column.hasComplexType()
+            && column.getComplexType().hasPhysicalType()
+            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
+          out.format(
+              "Found column mapping: %s => %s%n",
+              table.getName(),
+              column.getComplexType().getChildrenList().stream()
+                  .map(f -> column.getName() + f.getName())
+                  .collect(Collectors.joining(", ")));
+        }
+      }
+    }
   }
 
   public static void compare(
