@@ -291,8 +291,7 @@ impl<'a> Stream<'a> {
     pub fn decode_physical_u64(self) -> Result<Vec<u64>, MltError> {
         todo!("decode 64 bit integer from stream")
     }
-    
-    
+
     // pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
     // where
     //     T: VarInt,
@@ -478,16 +477,14 @@ mod tests {
     #[test]
     fn test_decode_physical_u32_generator() {
         let test_cases = generate_stream_test_cases();
-        
+
         for test_case in test_cases {
             if let Some(expected_result) = &test_case.expected_u32_result {
                 println!("Testing case: {}", test_case.name);
                 let stream = create_stream_from_test_case(&test_case);
-                
-                let result = std::panic::catch_unwind(|| {
-                    stream.decode_physical_u32()
-                });
-                
+
+                let result = std::panic::catch_unwind(|| stream.decode_physical_u32());
+
                 match result {
                     Ok(_) => panic!("Expected panic for test case: {}", test_case.name),
                     Err(_) => {
@@ -501,7 +498,7 @@ mod tests {
         }
     }
 
-    /// Individual test cases 
+    /// Individual test cases
     #[test]
     #[should_panic(expected = "not yet implemented: decode 32 bit integer from stream")]
     fn test_decode_physical_u32_simple() {
@@ -509,5 +506,4 @@ mod tests {
         let stream = create_stream_from_test_case(test_case);
         let _result = stream.decode_physical_u32();
     }
-
 }
