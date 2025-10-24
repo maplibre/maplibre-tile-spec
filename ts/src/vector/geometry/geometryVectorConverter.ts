@@ -1,8 +1,8 @@
 import { type GeometryVector, type MortonSettings, type CoordinatesArray } from "./geometryVector";
 import ZOrderCurve from "./zOrderCurve";
-import Point from "./point";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
+import Point from "@mapbox/point-geometry";
 
 class MvtGeometryFactory {
     createPoint(coordinate: Point): CoordinatesArray {
