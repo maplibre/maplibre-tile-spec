@@ -251,57 +251,74 @@ public class PropertyEncoder {
         }
       case STRING:
         {
-          /*
-           * -> Single Column
-           *   -> Plain Encoding Stream -> present, length, data
-           *   -> Dictionary Encoding Streams -> present, length, data, dictionary
-           * -> N Columns Dictionary
-           *   -> SharedDictionaryLength, SharedDictionary, present1, data1, present2, data2
-           * -> N Columns FsstDictionary
-           * */
-          final var rawStringValues =
-              features.stream()
-                  .map(f -> getStringPropertyValue(f, columnMetadata, coercePropertyValues))
-                  .toList();
-          final var stringValues =
-              rawStringValues.stream().filter(Objects::nonNull).collect(Collectors.toList());
-
-          if (streamObserver.isActive()) {
-            streamObserver.observeStream(
-                "prop_" + columnMetadata.getName() + "_strings", rawStringValues, null, null);
-          }
-
-          final byte[] presentStream;
-          if (columnMetadata.getNullable()) {
-            final var presentValues = rawStringValues.stream().map(Objects::nonNull).toList();
-            presentStream =
-                BooleanEncoder.encodeBooleanStream(
-                    presentValues,
-                    PhysicalStreamType.PRESENT,
-                    streamObserver,
-                    "prop_" + columnMetadata.getName() + "_present");
-          } else {
-            presentStream = new byte[0];
-          }
-
-          var stringColumn =
-              StringEncoder.encode(
-                  stringValues,
-                  physicalLevelTechnique,
-                  useAdvancedEncodings,
-                  streamObserver,
-                  "prop_" + columnMetadata.getName());
-
-          /* Plus 1 for present stream */
-          final var streamCount = stringColumn.getLeft() + ((presentStream.length > 0) ? 1 : 0);
-          final var encodedFieldMetadata = EncodingUtils.encodeVarint(streamCount, false);
-          return CollectionUtils.concatByteArrays(
-              encodedFieldMetadata, presentStream, stringColumn.getRight());
+          return encodeStringColumn(
+              columnMetadata,
+              features,
+              physicalLevelTechnique,
+              useAdvancedEncodings,
+              coercePropertyValues,
+              streamObserver);
         }
       default:
         throw new IllegalArgumentException(
             "The specified scalar data type is currently not supported: " + scalarType);
     }
+  }
+
+  private static byte[] encodeStringColumn(
+      MltTilesetMetadata.Column columnMetadata,
+      List<Feature> features,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean useAdvancedEncodings,
+      boolean coercePropertyValues,
+      MLTStreamObserver streamObserver)
+      throws IOException {
+    /*
+     * -> Single Column
+     *   -> Plain Encoding Stream -> present, length, data
+     *   -> Dictionary Encoding Streams -> present, length, data, dictionary
+     * -> N Columns Dictionary
+     *   -> SharedDictionaryLength, SharedDictionary, present1, data1, present2, data2
+     * -> N Columns FsstDictionary
+     * */
+    final var rawStringValues =
+        features.stream()
+            .map(f -> getStringPropertyValue(f, columnMetadata, coercePropertyValues))
+            .toList();
+    final var stringValues =
+        rawStringValues.stream().filter(Objects::nonNull).collect(Collectors.toList());
+
+    if (streamObserver.isActive()) {
+      streamObserver.observeStream(
+          "prop_" + columnMetadata.getName() + "_strings", rawStringValues, null, null);
+    }
+
+    final byte[] presentStream;
+    if (columnMetadata.getNullable()) {
+      final var presentValues = rawStringValues.stream().map(Objects::nonNull).toList();
+      presentStream =
+          BooleanEncoder.encodeBooleanStream(
+              presentValues,
+              PhysicalStreamType.PRESENT,
+              streamObserver,
+              "prop_" + columnMetadata.getName() + "_present");
+    } else {
+      presentStream = new byte[0];
+    }
+
+    var stringColumn =
+        StringEncoder.encode(
+            stringValues,
+            physicalLevelTechnique,
+            useAdvancedEncodings,
+            streamObserver,
+            "prop_" + columnMetadata.getName());
+
+    /* Plus 1 for present stream */
+    final var streamCount = stringColumn.getLeft() + ((presentStream.length > 0) ? 1 : 0);
+    final var encodedFieldMetadata = EncodingUtils.encodeVarint(streamCount, false);
+    return CollectionUtils.concatByteArrays(
+        encodedFieldMetadata, presentStream, stringColumn.getRight());
   }
 
   private static byte[] encodeBooleanColumn(

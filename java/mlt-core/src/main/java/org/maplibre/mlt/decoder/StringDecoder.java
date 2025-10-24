@@ -229,7 +229,7 @@ public class StringDecoder {
       return Triple.of(
           numValues,
           presentStream,
-          decodePlain(presentStream, dictionaryLengthStream, dataStream, numValues));
+          decodePlain(presentStream, symbolLengthStream, symbolTableStream, numValues));
     }
   }
 
@@ -242,7 +242,7 @@ public class StringDecoder {
       var present = presentStream.get(i);
       if (present) {
         var length = lengthStream.get(lengthOffset++);
-        var value = new String(utf8Values, strOffset, strOffset + length, StandardCharsets.UTF_8);
+        var value = new String(utf8Values, strOffset, length, StandardCharsets.UTF_8);
         decodedValues.add(value);
         strOffset += length;
       } else {
