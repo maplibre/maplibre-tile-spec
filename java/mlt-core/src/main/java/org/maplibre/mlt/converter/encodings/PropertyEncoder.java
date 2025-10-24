@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.MLTStreamObserver;
-import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
@@ -37,111 +36,121 @@ public class PropertyEncoder {
 
     var i = 0;
     for (var columnMetadata : propertyColumns) {
+      final byte[] encodedColumn;
       if (columnMetadata.hasScalarType()) {
-        if (MltTypeMap.Tag0x01.hasStreamCount(columnMetadata)
-            && features.stream()
-                .noneMatch(f -> f.properties().containsKey(columnMetadata.getName()))) {
-          /* Indicate a missing property column in the tile with a zero for the number of streams */
-          final var encodedFieldMetadata = EncodingUtils.encodeVarint(0, false);
-          featureScopedPropertyColumns =
-              CollectionUtils.concatByteArrays(featureScopedPropertyColumns, encodedFieldMetadata);
-          continue;
-        }
-
-        final var encodedScalarPropertyColumn =
+        encodedColumn =
             encodeScalarPropertyColumn(
-                columnMetadata,
-                false,
                 features,
-                physicalLevelTechnique,
                 useAdvancedEncodings,
                 coercePropertyValues,
-                streamObserver);
-        featureScopedPropertyColumns =
-            CollectionUtils.concatByteArrays(
-                featureScopedPropertyColumns, encodedScalarPropertyColumn);
+                streamObserver,
+                columnMetadata,
+                physicalLevelTechnique);
       } else if (MltTypeMap.Tag0x01.isStruct(columnMetadata)) {
-        if (columnMappings.isEmpty()) {
+        if (columnMappings.size() <= i) {
           throw new IllegalArgumentException(
-              "Column mappings are required for nested property column "
-                  + columnMetadata.getName());
+              "Missing column mapping nested property column " + columnMetadata.getName());
         }
-
-        // TODO: add present stream for struct column
-
-        /* We limit the nesting level to one in this implementation */
-        var sharedDictionary = new ArrayList<List<String>>();
-        var columnMapping = columnMappings.get(i++);
-
-        /* Plan -> when there is a struct filed and the useSharedDictionaryFlag is enabled
-         *  share the dictionary for all string columns which are located one after
-         * the other in the sequence */
-        for (var nestedFieldMetadata : columnMetadata.getComplexType().getChildrenList()) {
-          if (nestedFieldMetadata.getScalarField().getPhysicalType()
-              == MltTilesetMetadata.ScalarType.STRING) {
-            if (columnMapping.getUseSharedDictionaryEncoding()) {
-              // request all string columns in row and merge
-              if (nestedFieldMetadata.getName().equals("default")) {
-                var propertyColumn =
-                    features.stream()
-                        .map(f -> (String) f.properties().get(columnMapping.getMvtPropertyPrefix()))
-                        .collect(Collectors.toList());
-                sharedDictionary.add(propertyColumn);
-              } else {
-                // TODO: handle case where the nested field name is not present in the mvt layer
-                // This can be the case when the Tileset Metadata document is not generated per
-                // tile instead for the full tileset
-                var mvtPropertyName =
-                    columnMapping.getMvtPropertyPrefix()
-                        + Settings.MLT_CHILD_FIELD_SEPARATOR
-                        + nestedFieldMetadata.getName();
-                var propertyColumn =
-                    features.stream()
-                        .map(mvtFeature -> (String) mvtFeature.properties().get(mvtPropertyName))
-                        .collect(Collectors.toList());
-                sharedDictionary.add(propertyColumn);
-              }
-            } else {
-              throw new IllegalArgumentException(
-                  "Only shared dictionary encoding is currently supported for nested property columns.");
-            }
-          } else {
-            throw new IllegalArgumentException(
-                "Only fields of type String are currently supported as nested property columns.");
-          }
-        }
-
-        if (sharedDictionary.stream().allMatch(List::isEmpty)) {
-          /* Set number of streams to zero if no columns are present in this tile */
-          final var encodedFieldMetadata = EncodingUtils.encodeVarint(0, false);
-          return CollectionUtils.concatByteArrays(
-              featureScopedPropertyColumns, encodedFieldMetadata);
-        }
-
-        var nestedColumns =
-            StringEncoder.encodeSharedDictionary(
-                sharedDictionary,
-                physicalLevelTechnique,
+        final var columnMapping = columnMappings.get(i++);
+        encodedColumn =
+            encodeStructPropertyColumn(
+                features,
                 useAdvancedEncodings,
                 streamObserver,
-                "prop_" + columnMetadata.getName());
-        // TODO: fix -> ony quick and dirty fix
-        final var numStreams = nestedColumns.getLeft() == 0 ? 0 : 1;
-        /* Set number of streams to zero if no columns are present in this tile */
-        final var encodedFieldMetadata = EncodingUtils.encodeVarint(numStreams, false);
-
-        // TODO: add present stream and present stream metadata for struct column in addition
-        // to the FieldMetadata to be compliant with the specification
-        featureScopedPropertyColumns =
-            CollectionUtils.concatByteArrays(
-                featureScopedPropertyColumns, encodedFieldMetadata, nestedColumns.getRight());
+                columnMetadata,
+                columnMapping,
+                physicalLevelTechnique);
       } else {
         throw new IllegalArgumentException(
             "The specified data type for the field is currently not supported: " + columnMetadata);
       }
+
+      featureScopedPropertyColumns =
+          CollectionUtils.concatByteArrays(featureScopedPropertyColumns, encodedColumn);
     }
 
     return featureScopedPropertyColumns;
+  }
+
+  private static byte[] encodeStructPropertyColumn(
+      List<Feature> features,
+      boolean useAdvancedEncodings,
+      MLTStreamObserver streamObserver,
+      MltTilesetMetadata.Column columnMetadata,
+      ColumnMapping columnMapping,
+      PhysicalLevelTechnique physicalLevelTechnique)
+      throws IOException {
+    // TODO: add present stream for struct column
+
+    /* We limit the nesting level to one in this implementation */
+    final var rootName = columnMetadata.getName();
+    final var sharedDictionary = new ArrayList<List<String>>();
+
+    if (!columnMapping.getUseSharedDictionaryEncoding()) {
+      throw new IllegalArgumentException(
+          "Only shared dictionary encoding is currently supported for nested property columns");
+    }
+
+    /* Plan -> when there is a struct filed and the useSharedDictionaryFlag is enabled
+     *  share the dictionary for all string columns which are located one after
+     * the other in the sequence */
+    final var complexType = columnMetadata.getComplexType();
+    for (var nestedFieldMetadata : complexType.getChildrenList()) {
+      final var scalarType = nestedFieldMetadata.getScalarField().getPhysicalType();
+      if (scalarType != MltTilesetMetadata.ScalarType.STRING) {
+        throw new IllegalArgumentException(
+            "Only fields of type String are currently supported as nested property columns");
+      }
+
+      final var propertyName = rootName + nestedFieldMetadata.getName();
+      sharedDictionary.add(
+          features.stream()
+              .map(mvtFeature -> (String) mvtFeature.properties().get(propertyName))
+              .collect(Collectors.toList()));
+    }
+
+    if (sharedDictionary.stream().allMatch(List::isEmpty)) {
+      // Set number of streams to zero if no property values are present in this tile
+      // TODO: Can we skip the column entirely in this case?
+      return EncodingUtils.encodeVarint(0, false);
+    }
+    final var nestedColumns =
+        StringEncoder.encodeSharedDictionary(
+            sharedDictionary,
+            physicalLevelTechnique,
+            useAdvancedEncodings,
+            streamObserver,
+            "prop_" + columnMetadata.getName());
+    final var numStreams = nestedColumns.getLeft();
+    final var encodedColumns = nestedColumns.getRight();
+    assert (numStreams > 0); // encodeSharedDictionary cannot return zero streams
+    final var encodedNumStreams = EncodingUtils.encodeVarint(numStreams, false);
+    return CollectionUtils.concatByteArrays(encodedNumStreams, encodedColumns);
+  }
+
+  private static byte[] encodeScalarPropertyColumn(
+      List<Feature> features,
+      boolean useAdvancedEncodings,
+      boolean coercePropertyValues,
+      MLTStreamObserver streamObserver,
+      MltTilesetMetadata.Column columnMetadata,
+      PhysicalLevelTechnique physicalLevelTechnique)
+      throws IOException {
+    if (MltTypeMap.Tag0x01.hasStreamCount(columnMetadata)
+        && features.stream().noneMatch(f -> f.properties().containsKey(columnMetadata.getName()))) {
+      // Indicate a missing property column in the tile with a zero for the number of streams
+      // TODO: Can we skip the column entirely in this case?
+      return EncodingUtils.encodeVarint(0, false);
+    }
+
+    return encodeScalarPropertyColumn(
+        columnMetadata,
+        false,
+        features,
+        physicalLevelTechnique,
+        useAdvancedEncodings,
+        coercePropertyValues,
+        streamObserver);
   }
 
   private static Boolean getBooleanPropertyValue(

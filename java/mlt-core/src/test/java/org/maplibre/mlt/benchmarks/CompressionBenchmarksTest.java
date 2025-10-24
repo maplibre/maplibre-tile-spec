@@ -16,6 +16,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
@@ -70,9 +71,13 @@ public class CompressionBenchmarksTest {
   }
 
   private static Triple<Double, Double, Double> runBenchmarks(
-      String path, boolean allowSorting, List<String> reassignableLayers) throws IOException {
+      @SuppressWarnings("SameParameterValue") String path,
+      boolean allowSorting,
+      List<String> reassignableLayers)
+      throws IOException {
     File bingDirectory = new File(path);
     File[] files = bingDirectory.listFiles();
+    Assert.isTrue(files != null);
 
     var tileSizes = new ArrayList<Pair<Integer, Integer>>();
     var tiles =
