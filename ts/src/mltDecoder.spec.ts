@@ -64,7 +64,7 @@ function comparePlainGeometryEncodedTile(
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
 
-        expect(layer.length).toEqual(mltFeatures.length);
+        expect(layer.length).toBe(mltFeatures.length);
 
         for (let j = 0; j < layer.length; j++) {
             const mvtFeature = layer.feature(j);
