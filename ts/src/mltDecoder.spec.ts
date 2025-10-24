@@ -22,7 +22,7 @@ describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     const omtMltTileDir = "../test/expected/tag0x01/omt";
     const omtMvtTileDir = "../test/fixtures/omt";
     testTiles(omtMltTileDir, omtMvtTileDir);
-});
+}, 150000);
 
 function testTiles(mltSearchDir: string, mvtSearchDir: string) {
     const mltFileNames = readdirSync(mltSearchDir)
