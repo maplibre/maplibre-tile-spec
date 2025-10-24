@@ -15,6 +15,8 @@ add_library(mlt-cpp STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
+option(MLT_WITH_TESTS "Include Tests" ON)
+option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
 set_target_properties(
     mlt-cpp
@@ -174,7 +176,12 @@ else()
     message(STATUS "[MLT] No JSON support")
 endif(MLT_WITH_JSON)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
-add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
+if(MLT_WITH_TESTS)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
+endif(MLT_WITH_TESTS)
+
+if(MLT_WITH_TOOLS)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
+endif(MLT_WITH_TOOLS)
 
 export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)

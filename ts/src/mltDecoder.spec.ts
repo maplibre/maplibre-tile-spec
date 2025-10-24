@@ -21,7 +21,6 @@ describe("MLT Decoder - MVT comparison for Amazon tiles", () => {
 describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     const omtMltTileDir = "../test/expected/tag0x01/omt";
     const omtMvtTileDir = "../test/fixtures/omt";
-    // TODO: handle case where ID is Delta-RLE encoded and sequential
     testTiles(omtMltTileDir, omtMvtTileDir);
 });
 
@@ -65,7 +64,7 @@ function comparePlainGeometryEncodedTile(
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
 
-        expect(mltFeatures.length).toEqual(layer.length);
+        expect(layer.length).toEqual(mltFeatures.length);
 
         for (let j = 0; j < layer.length; j++) {
             const mvtFeature = layer.feature(j);
