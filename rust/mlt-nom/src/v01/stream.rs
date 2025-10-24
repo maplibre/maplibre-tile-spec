@@ -424,3 +424,90 @@ impl PhysicalDecoder {
         Self::try_from(value).or(Err(MltError::ParsingPhysicalDecoder(value)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test case for stream decoding tests
+    #[derive(Debug)]
+    struct StreamTestCase {
+        name: &'static str,
+        meta: StreamMeta,
+        data: &'static [u8],
+        expected_u32_result: Option<Vec<u32>>,
+        expected_u64_result: Option<Vec<u64>>,
+    }
+
+    /// Generator function that creates a set of test cases for stream decoding
+    fn generate_stream_test_cases() -> Vec<StreamTestCase> {
+        vec![
+            // Basic VarInt test cases
+            StreamTestCase {
+                name: "simple_varint_u32",
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                    num_values: 3,
+                    logical_decoder: LogicalDecoder::None,
+                    physical_decoder: PhysicalDecoder::VarInt,
+                },
+                data: &[0x01, 0x02, 0x03],
+                expected_u32_result: Some(vec![1, 2, 3]),
+                expected_u64_result: None,
+            },
+            StreamTestCase {
+                name: "simple_varint_u64",
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                    num_values: 4,
+                    logical_decoder: LogicalDecoder::None,
+                    physical_decoder: PhysicalDecoder::VarInt,
+                },
+                data: &[0x01, 0x02, 0x03, 0x04],
+                expected_u32_result: None,
+                expected_u64_result: Some(vec![1, 2, 3, 4]),
+            },
+        ]
+    }
+
+    fn create_stream_from_test_case(test_case: &StreamTestCase) -> Stream<'_> {
+        let data = DataVarInt::new(test_case.data);
+        Stream::new(test_case.meta, data)
+    }
+
+    #[test]
+    fn test_decode_physical_u32_generator() {
+        let test_cases = generate_stream_test_cases();
+        
+        for test_case in test_cases {
+            if let Some(expected_result) = &test_case.expected_u32_result {
+                println!("Testing case: {}", test_case.name);
+                let stream = create_stream_from_test_case(&test_case);
+                
+                let result = std::panic::catch_unwind(|| {
+                    stream.decode_physical_u32()
+                });
+                
+                match result {
+                    Ok(_) => panic!("Expected panic for test case: {}", test_case.name),
+                    Err(_) => {
+                        // Expected panic for now - when implemented, we'll check:
+                        // let decoded = stream.decode_physical_u32().unwrap();
+                        // assert_eq!(decoded, *expected_result);
+                        println!("  Expected result: {:?}", expected_result);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Individual test cases 
+    #[test]
+    #[should_panic(expected = "not yet implemented: decode 32 bit integer from stream")]
+    fn test_decode_physical_u32_simple() {
+        let test_case = &generate_stream_test_cases()[0]; // simple_varint_u32
+        let stream = create_stream_from_test_case(test_case);
+        let _result = stream.decode_physical_u32();
+    }
+
+}
