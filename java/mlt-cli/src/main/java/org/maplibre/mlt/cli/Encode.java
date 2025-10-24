@@ -1023,9 +1023,9 @@ public class Encode {
           // compare keys
           if (!mvtPropertyKeys.equals(nonNullMLTKeys)) {
             final var mvtKeys = getAsymmetricSetDiff(mvtPropertyKeys, nonNullMLTKeys);
-            final var mvtKeyStr = mvtKeys.isEmpty() ? "(none)" : String.join(",", mvtKeys);
+            final var mvtKeyStr = mvtKeys.isEmpty() ? "(none)" : String.join(", ", mvtKeys);
             final var mltKeys = getAsymmetricSetDiff(nonNullMLTKeys, mvtPropertyKeys);
-            final var mltKeyStr = mltKeys.isEmpty() ? "(none)" : String.join(",", mltKeys);
+            final var mltKeyStr = mltKeys.isEmpty() ? "(none)" : String.join(", ", mltKeys);
             throw new RuntimeException(
                 "Property keys in MLT and MVT feature index "
                     + j

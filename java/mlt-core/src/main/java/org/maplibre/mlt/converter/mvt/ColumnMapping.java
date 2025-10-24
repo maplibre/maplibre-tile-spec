@@ -67,17 +67,12 @@ public class ColumnMapping {
       return columnNames.contains(propertyName);
     } else {
       // In the prefix case, the prefix alone or a prefix+delimiter+suffix match
-      if (prefix.matcher(propertyName).matches()) {
-        return true;
-      }
       final var prefixMatcher = prefix.matcher(propertyName);
       if (prefixMatcher.find()) {
         if (prefixMatcher.start() == 0) {
           final var remainder = propertyName.substring(prefixMatcher.end());
           final var suffixMatcher = delimiter.matcher(remainder);
-          if (suffixMatcher.find()) {
-            return suffixMatcher.start() == 0;
-          }
+          return remainder.isEmpty() || (suffixMatcher.find() && suffixMatcher.start() == 0);
         }
       }
       return false;
