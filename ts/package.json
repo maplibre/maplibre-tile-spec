@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt",
-  "version": "0.0.1-alpha.11",
+  "version": "0.0.1-alpha.12",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -19,7 +19,6 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\""
   },
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/maplibre/maplibre-tile-spec.git"
