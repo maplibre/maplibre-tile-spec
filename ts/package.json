@@ -19,6 +19,7 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\""
   },
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/maplibre/maplibre-tile-spec.git"
