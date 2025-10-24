@@ -76,4 +76,11 @@ export class RleEncodedStreamMetadata extends StreamMetadata {
     get numRleValues(): number {
         return this._numRleValues;
     }
+
+    /**
+     * Override to return the decompressed count for RLE streams.
+     */
+    override getDecompressedCount(): number {
+        return this._numRleValues;
+    }
 }
