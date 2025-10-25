@@ -283,12 +283,68 @@ impl<'a> Stream<'a> {
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
     }
-
-    pub fn decode_physical_u32(self) -> Result<Vec<u32>, MltError> {
-        todo!("decode 32 bit integer from stream")
+    
+    pub fn decode_int_stream(self, is_signed: bool) -> Result<Vec<i32>, MltError> {
+        let logical_value = self.decode_physical_u32()?;
+        if is_signed {
+            logical_value.decode_i32()
+        } else {
+            logical_value.decode_u32().map(|v| v.into_iter().map(|x| x as i32).collect())
+        }
     }
 
-    pub fn decode_physical_u64(self) -> Result<Vec<u64>, MltError> {
+    fn decode_physical_u32(self) -> Result<LogicalValue, MltError> {
+        let value = match self.meta.physical_decoder {
+            PhysicalDecoder::VarInt => {
+                match self.data {
+                    StreamData::VarInt(data) => all(utils::parse_varint_vec::<u32, u32>(
+                        data.data,
+                        self.meta.num_values,
+                    )?),
+                    _ => {
+                        return Err(MltError::InvalidStreamData {
+                            expected: "VarInt",
+                            got: format!("{:?}", self.data),
+                        })
+                    }
+                }
+            }
+            PhysicalDecoder::None => {
+                match self.data {
+                    StreamData::Raw(data) => {
+                        let num_bytes = data.data.len();
+                        if num_bytes % 4 != 0 {
+                            return Err(MltError::InvalidByteLength {
+                                expected_multiple_of: 4,
+                                got: num_bytes,
+                            });
+                        }
+
+                        let mut values = Vec::with_capacity(num_bytes / 4);
+                        for chunk in data.data.chunks_exact(4) {
+                            let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                            values.push(u32::from_le_bytes(bytes));
+                        }
+                        Ok(values)
+                    }
+                    _ => {
+                        return Err(MltError::InvalidStreamData {
+                            expected: "Raw",
+                            got: format!("{:?}", self.data),
+                        })
+                    }
+                }
+            }
+            PhysicalDecoder::FastPFOR => {
+                return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"))
+            }
+            PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
+        }?;
+
+        Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
+    }
+
+    fn decode_physical_u64(self) -> Result<Vec<u64>, MltError> {
         todo!("decode 64 bit integer from stream")
     }
     
