@@ -284,6 +284,68 @@ impl<'a> Stream<'a> {
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
     }
 
+    pub fn decode_int_stream(self, is_signed: bool) -> Result<Vec<i32>, MltError> {
+        let logical_value = self.decode_physical_u32()?;
+        if is_signed {
+            logical_value.decode_i32()
+        } else {
+            logical_value
+                .decode_u32()
+                .map(|v| v.into_iter().map(|x| x as i32).collect())
+        }
+    }
+
+    fn decode_physical_u32(self) -> Result<LogicalValue, MltError> {
+        let value = match self.meta.physical_decoder {
+            PhysicalDecoder::VarInt => match self.data {
+                StreamData::VarInt(data) => all(utils::parse_varint_vec::<u32, u32>(
+                    data.data,
+                    self.meta.num_values,
+                )?),
+                _ => {
+                    return Err(MltError::InvalidStreamData {
+                        expected: "VarInt",
+                        got: format!("{:?}", self.data),
+                    });
+                }
+            },
+            PhysicalDecoder::None => match self.data {
+                StreamData::Raw(data) => {
+                    let num_bytes = data.data.len();
+                    if num_bytes % 4 != 0 {
+                        return Err(MltError::InvalidByteLength {
+                            expected_multiple_of: 4,
+                            got: num_bytes,
+                        });
+                    }
+
+                    let mut values = Vec::with_capacity(num_bytes / 4);
+                    for chunk in data.data.chunks_exact(4) {
+                        let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                        values.push(u32::from_le_bytes(bytes));
+                    }
+                    Ok(values)
+                }
+                _ => {
+                    return Err(MltError::InvalidStreamData {
+                        expected: "Raw",
+                        got: format!("{:?}", self.data),
+                    });
+                }
+            },
+            PhysicalDecoder::FastPFOR => {
+                return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"));
+            }
+            PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
+        }?;
+
+        Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
+    }
+
+    fn decode_physical_u64(self) -> Result<Vec<u64>, MltError> {
+        todo!("decode 64 bit integer from stream")
+    }
+
     // pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
     // where
     //     T: VarInt,
@@ -413,5 +475,89 @@ impl LogicalTechnique {
 impl PhysicalDecoder {
     pub fn parse(value: u8) -> Result<Self, MltError> {
         Self::try_from(value).or(Err(MltError::ParsingPhysicalDecoder(value)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test case for stream decoding tests
+    #[derive(Debug)]
+    struct StreamTestCase {
+        name: &'static str,
+        meta: StreamMeta,
+        data: &'static [u8],
+        expected_u32_result: Option<Vec<u32>>,
+        expected_u64_result: Option<Vec<u64>>,
+    }
+
+    /// Generator function that creates a set of test cases for stream decoding
+    fn generate_stream_test_cases() -> Vec<StreamTestCase> {
+        vec![
+            // Basic VarInt test cases
+            StreamTestCase {
+                name: "simple_varint_u32",
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                    num_values: 3,
+                    logical_decoder: LogicalDecoder::None,
+                    physical_decoder: PhysicalDecoder::VarInt,
+                },
+                data: &[0x01, 0x02, 0x03],
+                expected_u32_result: Some(vec![1, 2, 3]),
+                expected_u64_result: None,
+            },
+            StreamTestCase {
+                name: "simple_varint_u64",
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                    num_values: 4,
+                    logical_decoder: LogicalDecoder::None,
+                    physical_decoder: PhysicalDecoder::VarInt,
+                },
+                data: &[0x01, 0x02, 0x03, 0x04],
+                expected_u32_result: None,
+                expected_u64_result: Some(vec![1, 2, 3, 4]),
+            },
+        ]
+    }
+
+    fn create_stream_from_test_case(test_case: &StreamTestCase) -> Stream<'_> {
+        let data = DataVarInt::new(test_case.data);
+        Stream::new(test_case.meta, data)
+    }
+
+    #[test]
+    fn test_decode_physical_u32_generator() {
+        let test_cases = generate_stream_test_cases();
+
+        for test_case in test_cases {
+            if let Some(expected_result) = &test_case.expected_u32_result {
+                println!("Testing case: {}", test_case.name);
+                let stream = create_stream_from_test_case(&test_case);
+
+                let result = std::panic::catch_unwind(|| stream.decode_physical_u32());
+
+                match result {
+                    Ok(_) => panic!("Expected panic for test case: {}", test_case.name),
+                    Err(_) => {
+                        // Expected panic for now - when implemented, we'll check:
+                        // let decoded = stream.decode_physical_u32().unwrap();
+                        // assert_eq!(decoded, *expected_result);
+                        println!("  Expected result: {:?}", expected_result);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Individual test cases
+    #[test]
+    #[should_panic(expected = "not yet implemented: decode 32 bit integer from stream")]
+    fn test_decode_physical_u32_simple() {
+        let test_case = &generate_stream_test_cases()[0]; // simple_varint_u32
+        let stream = create_stream_from_test_case(test_case);
+        let _result = stream.decode_physical_u32();
     }
 }
