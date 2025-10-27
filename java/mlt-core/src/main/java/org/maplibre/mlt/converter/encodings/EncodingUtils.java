@@ -26,6 +26,17 @@ import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtils {
 
+  // https://github.com/bazelbuild/bazel/blob/6ce603d8/src/main/java/com/google/devtools/build/lib/util/VarInt.java
+  /**
+   * Maximum encoded size of 32-bit positive integers (in bytes)
+   */
+  public static final int MAX_VARINT_SIZE = 5;
+
+  /**
+   * maximum encoded size of 64-bit longs, and negative 32-bit ints (in bytes)
+   */
+  public static final int MAX_VARLONG_SIZE = 10;
+
   public static byte[] gzip(byte[] buffer) throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     GZIPOutputStream gzipOut = new GZIPOutputStream(baos);
@@ -66,7 +77,7 @@ public class EncodingUtils {
       encodedValues = encodeZigZag(encodedValues);
     }
 
-    var varintBuffer = new byte[values.length * 8];
+    var varintBuffer = new byte[values.length * MAX_VARLONG_SIZE];
     var i = 0;
     for (var value : encodedValues) {
       i = putVarInt(value, varintBuffer, i);
@@ -85,7 +96,7 @@ public class EncodingUtils {
       encodedValues = encodeZigZag(encodedValues);
     }
 
-    var varintBuffer = new byte[values.length * 8];
+    var varintBuffer = new byte[values.length * MAX_VARLONG_SIZE];
     var i = 0;
     for (var value : encodedValues) {
       i = putVarInt(value, varintBuffer, i);
@@ -113,7 +124,7 @@ public class EncodingUtils {
     if (zigZagEncode) {
       value = encodeZigZag(value);
     }
-    var varintBuffer = new byte[8];
+    var varintBuffer = new byte[MAX_VARLONG_SIZE];
     return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
   }
 
@@ -121,7 +132,7 @@ public class EncodingUtils {
     if (zigZagEncode) {
       value = encodeZigZag(value);
     }
-    var varintBuffer = new byte[8];
+    var varintBuffer = new byte[MAX_VARLONG_SIZE];
     return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
   }
 
@@ -143,7 +154,7 @@ public class EncodingUtils {
   private static int putVarInt(
       int v, byte[] sink, @SuppressWarnings("SameParameterValue") int offset) throws IOException {
     final var checkValue = v;
-    var sinkRemaining = Math.min(sink.length - offset, 5);
+    var sinkRemaining = Math.min(sink.length - offset, MAX_VARINT_SIZE);
     var sinkUsed = 0;
     do {
       // Encode next 7 bits + terminator bit
@@ -166,7 +177,7 @@ public class EncodingUtils {
 
   private static int putVarInt(long v, byte[] sink, int offset) throws IOException {
     final var checkValue = v;
-    var sinkRemaining = Math.min(sink.length - offset, 10);
+    var sinkRemaining = Math.min(sink.length - offset, MAX_VARLONG_SIZE);
     var sinkUsed = 0;
     do {
       // Encode next 7 bits + terminator bit
@@ -187,14 +198,14 @@ public class EncodingUtils {
 
   @SuppressWarnings("UnusedReturnValue")
   public static DataOutputStream putVarInt(DataOutputStream stream, int v) throws IOException {
-    final var buffer = new byte[5];
+    final var buffer = new byte[MAX_VARINT_SIZE];
     stream.write(buffer, 0, putVarInt(v, buffer, 0));
     return stream;
   }
 
   @SuppressWarnings("UnusedReturnValue")
   public static DataOutputStream putVarInt(DataOutputStream stream, long v) throws IOException {
-    final var buffer = new byte[10];
+    final var buffer = new byte[MAX_VARINT_SIZE];
     stream.write(buffer, 0, putVarInt(v, buffer, 0));
     return stream;
   }
