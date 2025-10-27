@@ -206,12 +206,16 @@ public class EncodingUtils {
     return stream;
   }
 
+  private static final int DATA_BITS_PER_ENCODED_BYTE = 7;
+
   public static int getVarIntSize(int value) {
-    return Math.max(1, ((8 * Integer.BYTES) - Integer.numberOfLeadingZeros(value) + 6) / 7);
+    final var bitsNeeded = Integer.SIZE - Integer.numberOfLeadingZeros(value);
+    return (bitsNeeded + DATA_BITS_PER_ENCODED_BYTE - 1) / DATA_BITS_PER_ENCODED_BYTE;
   }
 
   public static int getVarLongSize(long value) {
-    return Math.max(1, ((8 * Long.BYTES) - Long.numberOfLeadingZeros(value) + 6) / 7);
+    final var bitsNeeded = Long.SIZE - Long.numberOfLeadingZeros(value);
+    return (bitsNeeded + DATA_BITS_PER_ENCODED_BYTE - 1) / DATA_BITS_PER_ENCODED_BYTE;
   }
 
   @SuppressWarnings("UnusedReturnValue")
