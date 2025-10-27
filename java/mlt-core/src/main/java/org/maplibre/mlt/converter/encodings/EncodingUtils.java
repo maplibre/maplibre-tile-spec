@@ -147,8 +147,8 @@ public class EncodingUtils {
    * @param offset the offset within sink to begin writing
    * @return the updated offset after writing the varint
    */
-  private static int putVarInt(
-      int v, byte[] sink, @SuppressWarnings("SameParameterValue") int offset) throws IOException {
+  static int putVarInt(int v, byte[] sink, @SuppressWarnings("SameParameterValue") int offset)
+      throws IOException {
     final var checkValue = v;
     var sinkRemaining = Math.min(sink.length - offset, MAX_VARINT_SIZE);
     var sinkUsed = 0;
@@ -171,7 +171,7 @@ public class EncodingUtils {
     return offset + sinkUsed;
   }
 
-  private static int putVarInt(long v, byte[] sink, int offset) throws IOException {
+  static int putVarInt(long v, byte[] sink, int offset) throws IOException {
     final var checkValue = v;
     var sinkRemaining = Math.min(sink.length - offset, MAX_VARLONG_SIZE);
     var sinkUsed = 0;
@@ -204,6 +204,14 @@ public class EncodingUtils {
     final var buffer = new byte[MAX_VARLONG_SIZE];
     stream.write(buffer, 0, putVarInt(v, buffer, 0));
     return stream;
+  }
+
+  public static int getVarIntSize(int value) {
+    return Math.max(1, ((8 * Integer.BYTES) - Integer.numberOfLeadingZeros(value) + 6) / 7);
+  }
+
+  public static int getVarLongSize(long value) {
+    return Math.max(1, ((8 * Long.BYTES) - Long.numberOfLeadingZeros(value) + 6) / 7);
   }
 
   @SuppressWarnings("UnusedReturnValue")
