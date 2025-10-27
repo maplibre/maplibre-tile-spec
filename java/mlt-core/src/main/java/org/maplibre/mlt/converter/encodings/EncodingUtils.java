@@ -210,12 +210,12 @@ public class EncodingUtils {
 
   public static int getVarIntSize(int value) {
     final var bitsNeeded = Integer.SIZE - Integer.numberOfLeadingZeros(value);
-    return (bitsNeeded + DATA_BITS_PER_ENCODED_BYTE - 1) / DATA_BITS_PER_ENCODED_BYTE;
+    return Math.max(1, (bitsNeeded + DATA_BITS_PER_ENCODED_BYTE - 1) / DATA_BITS_PER_ENCODED_BYTE);
   }
 
   public static int getVarLongSize(long value) {
     final var bitsNeeded = Long.SIZE - Long.numberOfLeadingZeros(value);
-    return (bitsNeeded + DATA_BITS_PER_ENCODED_BYTE - 1) / DATA_BITS_PER_ENCODED_BYTE;
+    return Math.max(1, (bitsNeeded + DATA_BITS_PER_ENCODED_BYTE - 1) / DATA_BITS_PER_ENCODED_BYTE);
   }
 
   @SuppressWarnings("UnusedReturnValue")
