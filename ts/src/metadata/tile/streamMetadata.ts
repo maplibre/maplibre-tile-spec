@@ -86,4 +86,13 @@ export class StreamMetadata {
     get byteLength(): number {
         return this._byteLength;
     }
+
+    /**
+     * Returns the number of decompressed values.
+     * For non-RLE streams, this is the same as numValues.
+     * For RLE streams, this is overridden to return numRleValues.
+     */
+    getDecompressedCount(): number {
+        return this._numValues;
+    }
 }

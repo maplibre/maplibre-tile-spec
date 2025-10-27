@@ -19,7 +19,7 @@ import org.maplibre.mlt.converter.mvt.MvtUtils;
  * MLT in-memory representations. Can be used for simple profiling. For more proper benchmarks based
  * on JMH see `OmtDecoderBenchmark`
  */
-public class MltDecoderBenchmark {
+public class MltDecoderBenchmarkTest {
 
   @Test
   public void decodeMlTileVectorized_Z2() throws IOException {
