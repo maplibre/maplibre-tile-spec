@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { IntConstVector } from "./intConstVector";
-import { LongConstVector } from "./longConstVector";
 import BitVector from "../flat/bitVector";
 import { FlatSelectionVector } from "../filter/flatSelectionVector";
 
@@ -41,11 +40,14 @@ describe("IntConstVector", () => {
         const selection = new FlatSelectionVector([2, 3, 4, 5]);
         vec.filterSelected(42, selection);
         expect(getSelectionIndices(selection)).toEqual([2, 3, 4, 5]);
-
-        const selection2 = new FlatSelectionVector([2, 3, 4]);
-        vec.filterSelected(99, selection2);
-        expect(selection2.limit).toBe(0);
     });
+
+    it("should filter selected value mismatch", () => {
+        const vec = new IntConstVector("test", 42, 10);
+        const selection = new FlatSelectionVector([2, 3, 4]);
+        vec.filterSelected(99, selection);
+        expect(selection.limit).toBe(0);
+    })
 
     it("should match selected", () => {
         const vec = new IntConstVector("test", 42, 10);
@@ -96,39 +98,5 @@ describe("IntConstVector", () => {
         const result = vec.filter(42);
         expect(result.limit).toBe(4);
         expect(getSelectionIndices(result)).toEqual([0, 2, 4, 6]);
-    });
-});
-
-describe("LongConstVector", () => {
-    it("should return constant bigint value", () => {
-        const vec = new LongConstVector("test", 42n, 10);
-        expect(vec.getValue(0)).toBe(42n);
-        expect(vec.getValue(9)).toBe(42n);
-    });
-
-    it("should filter matching constant", () => {
-        const vec = new LongConstVector("test", 42n, 5);
-        expect(vec.filter(42n).limit).toBe(5);
-        expect(vec.filter(99n).limit).toBe(0);
-    });
-
-    it("should match values", () => {
-        const vec = new LongConstVector("test", 42n, 5);
-        expect(vec.match([10n, 42n]).limit).toBe(5);
-        expect(vec.match([10n, 99n]).limit).toBe(0);
-    });
-
-    it("should handle comparison operations", () => {
-        const vec = new LongConstVector("test", 50n, 5);
-        expect(vec.greaterThanOrEqualTo(50n).limit).toBe(5);
-        expect(vec.greaterThanOrEqualTo(51n).limit).toBe(0);
-        expect(vec.smallerThanOrEqualTo(50n).limit).toBe(5);
-        expect(vec.smallerThanOrEqualTo(49n).limit).toBe(0);
-    });
-
-    it("should filter not equal", () => {
-        const vec = new LongConstVector("test", 42n, 5);
-        expect(vec.filterNotEqual(99n).limit).toBe(5);
-        expect(vec.filterNotEqual(42n).limit).toBe(0);
     });
 });
