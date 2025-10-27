@@ -24,8 +24,8 @@ const withDuplicates = createVector([10, 20, 30, 20, 50, 10]);
 const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
 
 describe("IntFlatVector", () => {
-    describe("constructor and getValue", () => {
-        it("should create vector and get values", () => {
+    describe("getValue and has", () => {
+        it("should get values", () => {
             expect(simpleVector.size).toBe(5);
             expect(simpleVector.getValue(0)).toBe(10);
             expect(simpleVector.getValue(4)).toBe(50);

@@ -26,8 +26,8 @@ const withDuplicates = createVector([10n, 20n, 30n, 20n, 50n, 10n]);
 const withNulls = createNullableVector([10n, 20n, 30n, 40n, 50n], 0b00010111);
 
 describe("LongFlatVector", () => {
-    describe("constructor and getValue", () => {
-        it("should create vector and get values", () => {
+    describe("getValue and has", () => {
+        it("should get values", () => {
             expect(simpleVector.size).toBe(5);
             expect(simpleVector.getValue(0)).toBe(10n);
             expect(simpleVector.getValue(4)).toBe(50n);
