@@ -27,14 +27,10 @@ import org.maplibre.mlt.decoder.DecodingUtils;
 public class EncodingUtils {
 
   // https://github.com/bazelbuild/bazel/blob/6ce603d8/src/main/java/com/google/devtools/build/lib/util/VarInt.java
-  /**
-   * Maximum encoded size of 32-bit positive integers (in bytes)
-   */
+  /** Maximum encoded size of 32-bit positive integers (in bytes) */
   public static final int MAX_VARINT_SIZE = 5;
 
-  /**
-   * maximum encoded size of 64-bit longs, and negative 32-bit ints (in bytes)
-   */
+  /** maximum encoded size of 64-bit longs, and negative 32-bit ints (in bytes) */
   public static final int MAX_VARLONG_SIZE = 10;
 
   public static byte[] gzip(byte[] buffer) throws IOException {

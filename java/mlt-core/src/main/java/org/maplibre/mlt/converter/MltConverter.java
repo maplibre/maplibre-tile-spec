@@ -144,15 +144,15 @@ public class MltConverter {
         if (previousScalarType.hasPhysicalType()) {
           final var previousPhysicalType = previousScalarType.getPhysicalType();
           if (previousPhysicalType != scalarType) {
-            if (previousPhysicalType == MltTilesetMetadata.ScalarType.INT_32 &&
-            scalarType == MltTilesetMetadata.ScalarType.INT_64) {
+            if (previousPhysicalType == MltTilesetMetadata.ScalarType.INT_32
+                && scalarType == MltTilesetMetadata.ScalarType.INT_64) {
               // Allow implicit upgrade from INT_32 to INT_64
               columnSchemas.put(
                   mvtPropertyName,
                   createScalarColumnScheme(
                       mvtPropertyName, true, MltTilesetMetadata.ScalarType.INT_64));
-            } else if (previousPhysicalType == MltTilesetMetadata.ScalarType.INT_64 &&
-                    scalarType == MltTilesetMetadata.ScalarType.INT_32) {
+            } else if (previousPhysicalType == MltTilesetMetadata.ScalarType.INT_64
+                && scalarType == MltTilesetMetadata.ScalarType.INT_32) {
               // keep INT_64
             } else if (enableCoerceOnMismatch) {
               if (previousPhysicalType != MltTilesetMetadata.ScalarType.STRING) {
@@ -661,7 +661,9 @@ public class MltConverter {
     else if (propertyValue instanceof Integer) {
       return MltTilesetMetadata.ScalarType.INT_32;
     } else if (propertyValue instanceof Long) {
-      return ((long)propertyValue > Integer.MAX_VALUE) ? MltTilesetMetadata.ScalarType.INT_64 : MltTilesetMetadata.ScalarType.INT_32;
+      return ((long) propertyValue > Integer.MAX_VALUE || (long) propertyValue < Integer.MIN_VALUE)
+          ? MltTilesetMetadata.ScalarType.INT_64
+          : MltTilesetMetadata.ScalarType.INT_32;
     }
     // TODO: also handle unsigned long to avoid zigZag coding
     /*else if (propertyValue instanceof Long) {
