@@ -205,7 +205,7 @@ public class EncodingUtils {
 
   @SuppressWarnings("UnusedReturnValue")
   public static DataOutputStream putVarInt(DataOutputStream stream, long v) throws IOException {
-    final var buffer = new byte[MAX_VARINT_SIZE];
+    final var buffer = new byte[MAX_VARLONG_SIZE];
     stream.write(buffer, 0, putVarInt(v, buffer, 0));
     return stream;
   }
