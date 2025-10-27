@@ -9,13 +9,13 @@ export class IntSequenceVector extends SequenceVector<Int32Array, number> {
 
     filter(value: number): SelectionVector {
         const index = (value - this.dataBuffer[0]) / this.delta;
-        const sequenceValue = this.dataBuffer[0] + index * this.delta;
-        if (value === sequenceValue) {
-            return new FlatSelectionVector([index]);
+        if (Number.isInteger(index) && index >= 0 && index < this.size) {
+            const sequenceValue = this.dataBuffer[0] + index * this.delta;
+            if (value === sequenceValue) {
+                return new FlatSelectionVector([index]);
+            }
         }
-
-        const vector = sequenceValue ? [index] : [];
-        return new FlatSelectionVector(vector);
+        return new FlatSelectionVector([]);
     }
 
     match(values: number[]): SelectionVector {
