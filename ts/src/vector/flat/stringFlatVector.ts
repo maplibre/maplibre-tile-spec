@@ -198,20 +198,4 @@ export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
 
         selectionVector.setLimit(limit);
     }
-
-    greaterThanOrEqualTo(value: string): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    greaterThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
-    smallerThanOrEqualTo(value: string): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    smallerThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
 }

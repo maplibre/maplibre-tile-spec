@@ -2,7 +2,6 @@ import { VariableSizeVector } from "../variableSizeVector";
 import type BitVector from "../flat/bitVector";
 import { decodeFsst } from "../../encodings/fsstDecoder";
 import { decodeString } from "../../encodings/decodingUtils";
-import { type SelectionVector } from "../filter/selectionVector";
 
 export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, string> {
     private readonly textEncoder: TextEncoder;
@@ -23,28 +22,6 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
     ) {
         super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer);
         this.textEncoder = new TextEncoder();
-    }
-
-    filter(value: string): SelectionVector {
-        /*
-         * -> create utf-8 buffer from value
-         * -> convert utf-8 buffer to fsst compressed corpus
-         * -> replace utf-8 character with index of SymbolTable
-         * */
-
-        throw new Error("Not implemented yet.");
-    }
-
-    match(values: string[]): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    filterSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
-    matchSelected(values: string[], selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
     }
 
     protected getValueFromBuffer(index: number): string {
@@ -109,46 +86,4 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
 
         return lengthBuffer;
     }
-
-    filterNotEqual(value: string): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    filterNotEqualSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
-    greaterThanOrEqualTo(value: string): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    greaterThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
-    noneMatch(values: string[]): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    noneMatchSelected(values: string[], selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
-    smallerThanOrEqualTo(value: string): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    smallerThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
-    /*private getDictionaryIndex(value: string){
-        const utf8Buffer = this.textEncoder.encode(value);
-        for(let i = 0; i < utf8Buffer.length; i++){
-            const codePoint = utf8Buffer[i];
-            if(codePoint !== 255){
-                return -1;
-            }
-        }
-    }*/
 }

@@ -109,12 +109,4 @@ export class IntConstVector extends Vector<Int32Array, number> {
 
         selectionVector.setLimit(0);
     }
-
-    noneMatch(values: number[]): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    noneMatchSelected(values: number[], selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
 }

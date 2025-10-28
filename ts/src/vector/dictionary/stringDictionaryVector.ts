@@ -216,22 +216,6 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
         selectionVector.setLimit(limit);
     }
 
-    greaterThanOrEqualTo(value: string): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    greaterThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
-    smallerThanOrEqualTo(value: string): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    smallerThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
-
     private findDictionaryIndex(testValue: Uint8Array): number {
         const testValueLength = testValue.length;
 

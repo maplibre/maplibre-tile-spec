@@ -115,15 +115,4 @@ describe("LongFlatVector", () => {
             expect(getSelectionIndices(selection)).toEqual([0, 2]);
         });
     });
-
-    describe("not implemented methods", () => {
-        it("should throw for noneMatch", () => {
-            expect(() => simpleVector.noneMatch([10n])).toThrow("Not implemented yet.");
-        });
-
-        it("should throw for noneMatchSelected", () => {
-            const sel = new FlatSelectionVector([0]);
-            expect(() => simpleVector.noneMatchSelected([10n], sel)).toThrow("Not implemented yet.");
-        });
-    });
 });

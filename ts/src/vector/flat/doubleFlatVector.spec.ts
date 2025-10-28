@@ -66,10 +66,4 @@ describe("DoubleFlatVector", () => {
         expect(getSelectionIndices(nullVec.filter(40.5))).toEqual([]);
         expect(getSelectionIndices(nullVec.filter(20.5))).toEqual([1]);
     });
-
-    it("should throw for not implemented methods", () => {
-        expect(() => vec.noneMatch([10.5])).toThrow("Not implemented yet.");
-        expect(() => vec.filterNotEqual(10.5)).toThrow("Not implemented yet.");
-        expect(() => vec.filterNotEqualSelected(10.5, new FlatSelectionVector([0]))).toThrow("Not implemented yet.");
-    });
 });

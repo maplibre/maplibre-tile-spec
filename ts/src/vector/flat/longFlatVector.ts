@@ -1,5 +1,4 @@
 import { FixedSizeVector } from "../fixedSizeVector";
-import type BitVector from "./bitVector";
 import { type SelectionVector } from "../filter/selectionVector";
 import { FlatSelectionVector } from "../filter/flatSelectionVector";
 
@@ -135,13 +134,5 @@ export class LongFlatVector extends FixedSizeVector<BigInt64Array, bigint> {
         }
 
         selectionVector.setLimit(limit);
-    }
-
-    noneMatch(values: bigint[]): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    noneMatchSelected(values: bigint[], selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
     }
 }

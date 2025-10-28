@@ -82,4 +82,6 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
         selectionVector.setLimit(limit);
         return selectionVector;
     }
+
+    protected abstract getValueFromBuffer(index: number): K;
 }

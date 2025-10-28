@@ -1,5 +1,4 @@
 import { FixedSizeVector } from "../fixedSizeVector";
-import type BitVector from "./bitVector";
 import { type SelectionVector } from "../filter/selectionVector";
 import { FlatSelectionVector } from "../filter/flatSelectionVector";
 
@@ -135,13 +134,5 @@ export class IntFlatVector extends FixedSizeVector<Int32Array, number> {
         }
 
         selectionVector.setLimit(limit);
-    }
-
-    noneMatch(values: number[]): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    noneMatchSelected(values: number[], selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
     }
 }

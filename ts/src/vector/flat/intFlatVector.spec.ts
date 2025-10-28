@@ -146,15 +146,4 @@ describe("IntFlatVector", () => {
             expect(simpleVector.nullableValues().limit).toBe(0);
         });
     });
-
-    describe("not implemented methods", () => {
-        it("should throw for noneMatch", () => {
-            expect(() => simpleVector.noneMatch([10])).toThrow("Not implemented yet.");
-        });
-
-        it("should throw for noneMatchSelected", () => {
-            const sel = new FlatSelectionVector([0]);
-            expect(() => simpleVector.noneMatchSelected([10], sel)).toThrow("Not implemented yet.");
-        });
-    });
 });

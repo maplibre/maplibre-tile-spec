@@ -96,12 +96,4 @@ export class LongConstVector extends Vector<BigInt64Array, bigint> {
 
         selectionVector.setLimit(0);
     }
-
-    noneMatch(values: bigint[]): SelectionVector {
-        throw new Error("Not implemented yet.");
-    }
-
-    noneMatchSelected(values: bigint[], selectionVector: SelectionVector): void {
-        throw new Error("Not implemented yet.");
-    }
 }

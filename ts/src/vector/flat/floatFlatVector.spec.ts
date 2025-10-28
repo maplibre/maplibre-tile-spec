@@ -60,9 +60,4 @@ describe("FloatFlatVector", () => {
         expect(getSelectionIndices(nullVec.filter(4.5))).toEqual([]);
         expect(getSelectionIndices(nullVec.greaterThanOrEqualTo(3.5))).toEqual([2]);
     });
-
-    it("should throw for not implemented methods", () => {
-        expect(() => vec.noneMatch([1.5])).toThrow("Not implemented yet.");
-        expect(() => vec.filterNotEqual(1.5)).toThrow("Not implemented yet.");
-    });
 });
