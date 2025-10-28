@@ -142,7 +142,7 @@ public class Encode {
           "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
     }
 
-    if (tileFileNames.length > 0) {
+    if (tileFileNames != null && tileFileNames.length > 0) {
       if (tileFileNames.length > 1 && cmd.hasOption(OUTPUT_FILE_ARG)) {
         throw new IllegalArgumentException(
             "Multiple input files not allowed with single output file, use --" + OUTPUT_DIR_ARG);
