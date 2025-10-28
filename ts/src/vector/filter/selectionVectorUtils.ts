@@ -13,7 +13,7 @@ export function createSelectionVector(size: number) {
 export function createNullableSelectionVector(size: number, nullabilityBuffer: BitVector) {
     const selectionVector = [];
     for (let i = 0; i < size; i++) {
-        if (nullabilityBuffer && nullabilityBuffer.get(i)) {
+        if (nullabilityBuffer?.get(i)) {
             selectionVector.push(i);
         }
     }
