@@ -911,6 +911,10 @@ public class Encode {
     if (Objects.equals(a, b)) {
       return true;
     }
+    if (a instanceof Double && b instanceof Float) {
+      // We currently encode doubles as floats
+      return ((Double) a).floatValue() == (Float) b;
+    }
     // Allow for, e.g., int32 and int64 representations of the same number by comparing strings
     return a.toString().equals(b.toString());
   }
