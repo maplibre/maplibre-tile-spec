@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 
 use integer_encoding::VarInt;
 use num_traits::{AsPrimitive, PrimInt};
@@ -146,6 +146,29 @@ impl<T> SetOptionOnce<T> for Option<T> {
             Err(MltError::DuplicateValue)
         } else {
             Ok(())
+        }
+    }
+}
+
+/// Wrapper type for optional slices to provide a custom Debug implementation
+pub struct OptSeq<'a, T>(pub Option<&'a [T]>);
+
+impl<T: Display + Debug> Debug for OptSeq<'_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(v) = self.0 {
+            write!(
+                f,
+                "[{}{}; {}]",
+                v.iter()
+                    .take(8)
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(","),
+                if v.len() > 8 { ", ..." } else { "" },
+                v.len()
+            )
+        } else {
+            write!(f, "None")
         }
     }
 }

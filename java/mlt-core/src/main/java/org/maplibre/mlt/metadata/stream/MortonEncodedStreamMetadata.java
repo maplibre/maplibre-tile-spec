@@ -7,8 +7,8 @@ import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class MortonEncodedStreamMetadata extends StreamMetadata {
-  private int numBits;
-  private int coordinateShift;
+  private final int numBits;
+  private final int coordinateShift;
 
   // TODO: refactor -> use builder pattern
   public MortonEncodedStreamMetadata(

@@ -1,4 +1,4 @@
-import IntWrapper from "./intWrapper";
+import type IntWrapper from "./intWrapper";
 import { VectorType } from "../vector/vectorType";
 import BitVector from "../vector/flat/bitVector";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";

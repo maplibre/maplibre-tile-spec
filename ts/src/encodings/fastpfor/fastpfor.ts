@@ -7,11 +7,11 @@
 // eslint-disable functional/no-class
 // eslint-disable functional/prefer-readonly-type
 
-import ByteBuffer from 'bytebuffer';
+import ByteBuffer from "bytebuffer";
 
-import { fastunpack } from './bitpacking';
-import { arraycopy, greatestMultiple } from './util';
-import {IntegerCODEC, SkippableIntegerCODEC} from "./codec";
+import { fastunpack } from "./bitpacking";
+import { arraycopy, greatestMultiple } from "./util";
+import { type IntegerCODEC, type SkippableIntegerCODEC } from "./codec";
 
 export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
     static readonly OVERHEAD_OF_EACH_EXCEPT = 8;
@@ -24,22 +24,26 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
 
     dataPointers: Uint32Array = new Uint32Array(33).fill(0);
 
-
     private constructor(pagesize: number) {
         this.pageSize = pagesize;
 
-        this.byteContainer = new ByteBuffer(3 * this.pageSize
-            / FastPFOR.BLOCK_SIZE + this.pageSize, true);
+        this.byteContainer = new ByteBuffer((3 * this.pageSize) / FastPFOR.BLOCK_SIZE + this.pageSize, true);
 
         for (let k = 1; k < this.dataTobePacked.length; ++k)
-            this.dataTobePacked[k] = new Uint32Array(this.pageSize / 32 * 4).fill(0);
+            this.dataTobePacked[k] = new Uint32Array((this.pageSize / 32) * 4).fill(0);
     }
 
     public static default(): FastPFOR {
         return new FastPFOR(FastPFOR.DEFAULT_PAGE_SIZE);
     }
 
-    public headlessUncompress(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, num: number }) : void {
+    public headlessUncompress(model: {
+        input: Uint32Array;
+        inpos: number;
+        output: Uint32Array;
+        outpos: number;
+        num: number;
+    }): void {
         const mynvalue = greatestMultiple(model.num, FastPFOR.BLOCK_SIZE);
         const finalout = model.outpos.valueOf() + mynvalue;
         while (model.outpos.valueOf() != finalout) {
@@ -48,7 +52,7 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
         }
     }
 
-    public decodePage(model: { input: Uint32Array, inpos: number, output: Uint32Array, outpos: number, num: number }) {
+    public decodePage(model: { input: Uint32Array; inpos: number; output: Uint32Array; outpos: number; num: number }) {
         const initpos = model.inpos.valueOf();
         const wheremeta = model.input[model.inpos];
         model.inpos += 1;
@@ -68,29 +72,40 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
             if ((bitmap & (1 << (k - 1))) != 0) {
                 const size = model.input[inexcept++];
                 const roudedup = greatestMultiple(size + 31, 32);
-                if (this.dataTobePacked[k].length < roudedup)
-                    this.dataTobePacked[k] = new Uint32Array(roudedup);
-                if (inexcept + roudedup / 32 * k <= model.input.length) {
+                if (this.dataTobePacked[k].length < roudedup) this.dataTobePacked[k] = new Uint32Array(roudedup);
+                if (inexcept + (roudedup / 32) * k <= model.input.length) {
                     let j = 0;
                     for (; j < size; j += 32) {
-                        fastunpack({ input: model.input, inpos: inexcept, output: this.dataTobePacked[k], outpos: j, bit: k });
+                        fastunpack({
+                            input: model.input,
+                            inpos: inexcept,
+                            output: this.dataTobePacked[k],
+                            outpos: j,
+                            bit: k,
+                        });
                         inexcept += k;
                     }
                     const overflow = j - size;
-                    inexcept -= Math.floor(overflow * k / 32);
+                    inexcept -= Math.floor((overflow * k) / 32);
                 } else {
                     let j = 0;
-                    const buf: Uint32Array = new Uint32Array(roudedup / 32 * k);
+                    const buf: Uint32Array = new Uint32Array((roudedup / 32) * k);
                     const initinexcept = inexcept;
 
                     arraycopy(model.input, inexcept, buf, 0, model.input.length - inexcept);
 
                     for (; j < size; j += 32) {
-                        fastunpack({ input: buf, inpos: inexcept - initinexcept, output: this.dataTobePacked[k], outpos: j, bit: k });
+                        fastunpack({
+                            input: buf,
+                            inpos: inexcept - initinexcept,
+                            output: this.dataTobePacked[k],
+                            outpos: j,
+                            bit: k,
+                        });
                         inexcept += k;
                     }
                     const overflow = j - size;
-                    inexcept -= Math.floor(overflow * k / 32);
+                    inexcept -= Math.floor((overflow * k) / 32);
                 }
             }
         }
@@ -99,11 +114,21 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
         let tmpinpos = model.inpos.valueOf();
         this.byteContainer.flip();
 
-        for (let run = 0, run_end = model.num / FastPFOR.BLOCK_SIZE; run < run_end; ++run, tmpoutpos += FastPFOR.BLOCK_SIZE) {
+        for (
+            let run = 0, run_end = model.num / FastPFOR.BLOCK_SIZE;
+            run < run_end;
+            ++run, tmpoutpos += FastPFOR.BLOCK_SIZE
+        ) {
             const b = this.byteContainer.readByte();
-            const cexcept = this.byteContainer.readByte() & 0xFF;
+            const cexcept = this.byteContainer.readByte() & 0xff;
             for (let k = 0; k < FastPFOR.BLOCK_SIZE; k += 32) {
-                fastunpack({ input: model.input, inpos: tmpinpos, output: model.output, outpos: tmpoutpos + k, bit: b });
+                fastunpack({
+                    input: model.input,
+                    inpos: tmpinpos,
+                    output: model.output,
+                    outpos: tmpoutpos + k,
+                    bit: b,
+                });
                 tmpinpos += b;
             }
 
@@ -112,12 +137,12 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
                 const index = maxbits - b;
                 if (index == 1) {
                     for (let k = 0; k < cexcept; ++k) {
-                        const pos = this.byteContainer.readByte() & 0xFF;
+                        const pos = this.byteContainer.readByte() & 0xff;
                         model.output[pos + tmpoutpos] |= 1 << b;
                     }
                 } else {
                     for (let k = 0; k < cexcept; ++k) {
-                        const pos = this.byteContainer.readByte() & 0xFF;
+                        const pos = this.byteContainer.readByte() & 0xff;
                         const exceptValue = this.dataTobePacked[index][this.dataPointers[index]++];
                         model.output[pos + tmpoutpos] |= exceptValue << b;
                     }
@@ -128,10 +153,22 @@ export class FastPFOR implements IntegerCODEC, SkippableIntegerCODEC {
         model.inpos = inexcept;
     }
 
-    public uncompress(model: { input: Uint32Array, inpos: number, inlength: number, output: Uint32Array, outpos: number }) {
+    public uncompress(model: {
+        input: Uint32Array;
+        inpos: number;
+        inlength: number;
+        output: Uint32Array;
+        outpos: number;
+    }) {
         if (model.input.length == 0) return;
         const outlength = model.input[model.inpos];
         model.inpos++;
-        this.headlessUncompress({ input: model.input, inpos: model.inpos, output: model.output, outpos: model.outpos, num: outlength });
+        this.headlessUncompress({
+            input: model.input,
+            inpos: model.inpos,
+            output: model.output,
+            outpos: model.outpos,
+            num: outlength,
+        });
     }
 }

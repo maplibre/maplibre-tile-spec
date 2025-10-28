@@ -7,7 +7,8 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.tuple.Triple;
+import org.jetbrains.annotations.NotNull;
+import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.metadata.stream.*;
 
 /*
@@ -65,19 +66,8 @@ public class IntegerEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType)
-      throws IOException {
-    return encodeIntStream(
-        values, physicalLevelTechnique, isSigned, streamType, logicalStreamType, null, null);
-  }
-
-  public static byte[] encodeIntStream(
-      List<Integer> values,
-      PhysicalLevelTechnique physicalLevelTechnique,
-      boolean isSigned,
-      PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String streamName)
       throws IOException {
     var encodedValueStream = IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned);
@@ -105,8 +95,8 @@ public class IntegerEncoder {
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
     var encodedMetadata = streamMetadata.encode();
-    GeometryEncoder.recordStream(
-        streamName, values, encodedMetadata, encodedValueStream.encodedValues, rawStreamData);
+    streamObserver.observeStream(
+        streamName, values, encodedMetadata, encodedValueStream.encodedValues);
     return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }
 
@@ -114,17 +104,8 @@ public class IntegerEncoder {
       List<Long> values,
       boolean isSigned,
       PhysicalStreamType streamType,
-      LogicalStreamType logicalStreamType)
-      throws IOException {
-    return encodeLongStream(values, isSigned, streamType, logicalStreamType, null, null);
-  }
-
-  public static byte[] encodeLongStream(
-      List<Long> values,
-      boolean isSigned,
-      PhysicalStreamType streamType,
       LogicalStreamType logicalStreamType,
-      @Nullable Map<String, Triple<byte[], byte[], String>> rawStreamData,
+      @NotNull MLTStreamObserver streamObserver,
       @Nullable String streamName)
       throws IOException {
     var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned);
@@ -152,8 +133,8 @@ public class IntegerEncoder {
                 encodedValueStream.physicalLevelEncodedValuesLength,
                 encodedValueStream.encodedValues.length);
     var encodedMetadata = streamMetadata.encode();
-    GeometryEncoder.recordStream(
-        streamName, values, encodedMetadata, encodedValueStream.encodedValues, rawStreamData);
+    streamObserver.observeStream(
+        streamName, values, encodedMetadata, encodedValueStream.encodedValues);
     return ArrayUtils.addAll(encodedMetadata, encodedValueStream.encodedValues);
   }
 

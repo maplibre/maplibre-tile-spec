@@ -40,7 +40,7 @@ updates:
           - "*"
 
   - package-ecosystem: "npm"
-    directory: "/js"
+    directory: "/ts"
     schedule:
       interval: daily
     versioning-strategy: increase

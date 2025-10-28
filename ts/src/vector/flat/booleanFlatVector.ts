@@ -1,15 +1,11 @@
-import BitVector from "./bitVector";
+import type BitVector from "./bitVector";
 import Vector from "../vector";
-import {SelectionVector} from "../filter/selectionVector";
+import { type SelectionVector } from "../filter/selectionVector";
 
 export class BooleanFlatVector extends Vector<Uint8Array, boolean> {
     private readonly dataVector: BitVector;
 
-    constructor(
-        name: string,
-        dataVector: BitVector,
-        sizeOrNullabilityBuffer : number | BitVector
-    ) {
+    constructor(name: string, dataVector: BitVector, sizeOrNullabilityBuffer: number | BitVector) {
         super(name, dataVector.getBuffer(), sizeOrNullabilityBuffer);
         this.dataVector = dataVector;
     }
@@ -51,7 +47,7 @@ export class BooleanFlatVector extends Vector<Uint8Array, boolean> {
     }
 
     noneMatch(values: boolean[]): SelectionVector {
-        throw new Error("Not implemented yet.");;
+        throw new Error("Not implemented yet.");
     }
 
     noneMatchSelected(values: boolean[], selectionVector: SelectionVector): void {

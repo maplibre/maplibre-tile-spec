@@ -1,6 +1,6 @@
-import IntWrapper from "./intWrapper";
-import { Column, ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata.g";
-import Vector from "../vector/vector";
+import type IntWrapper from "./intWrapper";
+import { type Column, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import type Vector from "../vector/vector";
 import BitVector from "../vector/flat/bitVector";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
 import { VectorType } from "../vector/vectorType";
@@ -23,7 +23,7 @@ import {
 import IntegerStreamDecoder from "./integerStreamDecoder";
 import { StringDecoder } from "./stringDecoder";
 import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
-import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
 import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
 
 export function decodePropertyColumn(
@@ -34,14 +34,20 @@ export function decodePropertyColumn(
     numFeatures: number,
     propertyColumnNames?: Set<string>,
 ): Vector | Vector[] {
-    const column = columnMetadata.type.value;
-    if (column instanceof ScalarColumn) {
+    if (columnMetadata.type === "scalarType") {
         if (propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)) {
             skipColumn(numStreams, data, offset);
             return null;
         }
 
-        return decodeScalarPropertyColumn(numStreams, data, offset, numFeatures, column, columnMetadata);
+        return decodeScalarPropertyColumn(
+            numStreams,
+            data,
+            offset,
+            numFeatures,
+            columnMetadata.scalarType,
+            columnMetadata,
+        );
     }
 
     if (numStreams != 1) {
@@ -80,7 +86,7 @@ function decodeScalarPropertyColumn(
     }
 
     const sizeOrNullabilityBuffer = nullabilityBuffer ?? numFeatures;
-    const scalarType = column.type.value as ScalarType;
+    const scalarType = column.physicalType;
     switch (scalarType) {
         case ScalarType.UINT_32:
         case ScalarType.INT_32:
@@ -157,8 +163,8 @@ function decodeLongColumn(
     scalarColumn: ScalarColumn,
 ): Vector<BigInt64Array, bigint> {
     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer);
-    const isSigned = scalarColumn.type.value === ScalarType.INT_64;
+    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
+    const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
     if (vectorType === VectorType.FLAT) {
         const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
             ? IntegerStreamDecoder.decodeNullableLongStream(
@@ -192,8 +198,8 @@ function decodeIntColumn(
     sizeOrNullabilityBuffer: number | BitVector,
 ): Vector<Int32Array, number> {
     const dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer);
-    const isSigned = scalarColumn.type.value === ScalarType.INT_32;
+    const vectorType = IntegerStreamDecoder.getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
+    const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
 
     if (vectorType === VectorType.FLAT) {
         const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
@@ -223,51 +229,3 @@ function decodeIntColumn(
 function isNullabilityBuffer(sizeOrNullabilityBuffer: number | BitVector): sizeOrNullabilityBuffer is BitVector {
     return sizeOrNullabilityBuffer instanceof BitVector;
 }
-
-/*export function decodePropertyColumnSequential(data: Uint8Array, offset: IntWrapper, columnMetadata: Column, numStreams: number, numFeatures: number): Vector | Vector[] {
-    let presentStreamMetadata: StreamMetadata;
-    const column = columnMetadata.type.value;
-    if (column instanceof ScalarColumn) {
-        let nullabilityBuffer: BitVector = null;
-        let numValues = 0;
-        if (numStreams === 0) {
-            return null;
-        } else if (numStreams > 1) {
-            presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            const vectorType = getVectorTypeBooleanStream(numFeatures, presentStreamMetadata.byteLength, data, offset);
-            if (vectorType === VectorType.FLAT) {
-                numValues = presentStreamMetadata.numValues;
-                const presentVector = decodeBooleanRle(data, numValues, offset);
-                nullabilityBuffer = new BitVector(presentVector, presentStreamMetadata.numValues);
-            } else {
-                offset.add(presentStreamMetadata.byteLength);
-            }
-        }
-
-        const scalarType = column.type.value as ScalarType;
-        switch (scalarType) {
-            case ScalarType.BOOLEAN:
-                return decodeBooleanColumn(data, offset, columnMetadata, numFeatures, null);
-            case ScalarType.UINT_32:
-            case ScalarType.INT_32:
-                return decodeIntColumn(data, offset, columnMetadata, column, null);
-            case ScalarType.UINT_64:
-            case ScalarType.INT_64:
-                return decodeLongColumn(data, offset, columnMetadata, null, column);
-            case ScalarType.FLOAT:
-                return decodeFloatColumn(data, offset, columnMetadata, null, numFeatures);
-            case ScalarType.DOUBLE:
-                return decodeDoubleColumn(data, offset, columnMetadata, null, numFeatures);
-            case ScalarType.STRING:
-                return StringDecoder.decode(columnMetadata.name, data, offset, numStreams - 1, null);
-            default:
-                throw new Error(`The specified data type for the field is currently not supported: ${column}`);
-        }
-    }
-
-    if (numStreams === 1) {
-        throw new Error("Present stream currently not supported for Structs.");
-    }
-
-    return StringDecoder.decodeSharedDictionarySequential(data, offset, columnMetadata);
-}*/

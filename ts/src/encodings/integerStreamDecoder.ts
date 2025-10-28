@@ -1,69 +1,85 @@
-import {StreamMetadata} from "../metadata/tile/streamMetadata";
-import {PhysicalLevelTechnique} from "../metadata/tile/physicalLevelTechnique";
-import IntWrapper from "./intWrapper";
+import { type StreamMetadata } from "../metadata/tile/streamMetadata";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
+import type IntWrapper from "./intWrapper";
 import {
     decodeComponentwiseDeltaVec2,
     decodeComponentwiseDeltaVec2Scaled,
+    decodeDeltaRle,
+    decodeDeltaRleInt64,
     decodeFastPfor,
     decodeNullableRle,
     decodeNullableRleInt64,
     decodeNullableZigZagDelta,
     decodeNullableZigZagDeltaInt64,
-    decodeRle, decodeRleFloat64,
+    decodeRle,
+    decodeRleFloat64,
     decodeRleInt64,
     decodeUnsignedConstRle,
     decodeUnsignedConstRleInt64,
-    decodeUnsignedRle, decodeUnsignedRleFloat64,
+    decodeUnsignedRle,
+    decodeUnsignedRleFloat64,
     decodeUnsignedRleInt64,
     decodeVarintInt32,
-    decodeVarintInt64, decodeVarintFloat64,
+    decodeVarintInt64,
+    decodeVarintFloat64,
     decodeZigZag,
     decodeZigZagConstRle,
     decodeZigZagConstRleInt64,
-    decodeZigZagDelta, decodeZigZagDeltaFloat64,
-    decodeZigZagDeltaInt64, decodeZigZagFloat64,
+    decodeZigZagDelta,
+    decodeZigZagDeltaFloat64,
+    decodeZigZagDeltaInt64,
+    decodeZigZagFloat64,
     decodeZigZagInt64,
     decodeZigZagSequenceRle,
     decodeZigZagSequenceRleInt64,
     decodeZigZagValue,
     decodeZigZagValueInt64,
-    fastInverseDelta, inverseDelta,
+    fastInverseDelta,
+    inverseDelta,
     padWithZeros,
     padWithZerosInt64,
     padZigZagWithZeros,
     padZigZagWithZerosInt64,
     rleDeltaDecoding,
     zigZagDeltaOfDeltaDecoding,
-    zigZagRleDeltaDecoding
+    zigZagRleDeltaDecoding,
 } from "./integerDecodingUtils";
-import {LogicalLevelTechnique} from "../metadata/tile/logicalLevelTechnique";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
+import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
 import BitVector from "../vector/flat/bitVector";
-import {VectorType} from "../vector/vectorType";
-import GeometryScaling from "./geometryScaling";
-
+import { VectorType } from "../vector/vectorType";
+import type GeometryScaling from "./geometryScaling";
 
 export default class IntegerStreamDecoder {
     private constructor() {}
 
-    static decodeIntStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean,
-                           scalingData?: GeometryScaling): Int32Array {
+    static decodeIntStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+        scalingData?: GeometryScaling,
+    ): Int32Array {
         const values = IntegerStreamDecoder.decodePhysicalLevelTechnique(data, offset, streamMetadata);
         return this.decodeIntBuffer(values, streamMetadata, isSigned, scalingData);
     }
 
-    static decodeLengthStreamToOffsetBuffer(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata): Int32Array {
+    static decodeLengthStreamToOffsetBuffer(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+    ): Int32Array {
         const values = IntegerStreamDecoder.decodePhysicalLevelTechnique(data, offset, streamMetadata);
         return this.decodeLengthToOffsetBuffer(values, streamMetadata);
     }
 
-    private static decodePhysicalLevelTechnique(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata){
+    private static decodePhysicalLevelTechnique(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata) {
         const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
-        if(physicalLevelTechnique === PhysicalLevelTechnique.VARINT){
+        if (physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
             return decodeVarintInt32(data, offset, streamMetadata.numValues);
         }
 
-        if(physicalLevelTechnique === PhysicalLevelTechnique.NONE){
+        if (physicalLevelTechnique === PhysicalLevelTechnique.NONE) {
             const dataOffset = offset.get();
             const byteLength = streamMetadata.byteLength;
             offset.add(byteLength);
@@ -75,7 +91,12 @@ export default class IntegerStreamDecoder {
         throw new Error("Specified physicalLevelTechnique is not supported (yet).");
     }
 
-    static decodeConstIntStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean): number {
+    static decodeConstIntStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+    ): number {
         const values = IntegerStreamDecoder.decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
         if (values.length === 1) {
@@ -83,32 +104,53 @@ export default class IntegerStreamDecoder {
             return isSigned ? decodeZigZagValue(value) : value;
         }
 
-        return isSigned
-            ? decodeZigZagConstRle(values)
-            : decodeUnsignedConstRle(values);
+        return isSigned ? decodeZigZagConstRle(values) : decodeUnsignedConstRle(values);
     }
 
-    static decodeSequenceIntStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata): [baseValue: number, delta: number] {
+    static decodeSequenceIntStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+    ): [baseValue: number, delta: number] {
         const values = IntegerStreamDecoder.decodePhysicalLevelTechnique(data, offset, streamMetadata);
         return decodeZigZagSequenceRle(values);
     }
 
-    static decodeSequenceLongStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata): [baseValue: bigint, delta: bigint]  {
+    static decodeSequenceLongStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+    ): [baseValue: bigint, delta: bigint] {
         const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
         return decodeZigZagSequenceRleInt64(values);
     }
 
-    static decodeLongStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean): BigInt64Array {
+    static decodeLongStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+    ): BigInt64Array {
         const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
         return this.decodeLongBuffer(values, streamMetadata, isSigned);
     }
 
-    static decodeLongFloat64Stream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
+    static decodeLongFloat64Stream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+    ): Float64Array {
         const values = decodeVarintFloat64(data, streamMetadata.numValues, offset);
         return this.decodeFloat64Buffer(values, streamMetadata, isSigned);
     }
 
-    static decodeConstLongStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean): bigint {
+    static decodeConstLongStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+    ): bigint {
         const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
 
         if (values.length === 1) {
@@ -119,8 +161,12 @@ export default class IntegerStreamDecoder {
         return isSigned ? decodeZigZagConstRleInt64(values) : decodeUnsignedConstRleInt64(values);
     }
 
-    private static decodeIntBuffer(values: Int32Array, streamMetadata: StreamMetadata, isSigned: boolean,
-                                   scalingData?: GeometryScaling): Int32Array {
+    private static decodeIntBuffer(
+        values: Int32Array,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+        scalingData?: GeometryScaling,
+    ): Int32Array {
         /*
          * Currently the encoder uses only fixed combinations of encodings.
          * For performance reasons it is also used a fixed combination of the encodings on the decoding side.
@@ -130,12 +176,12 @@ export default class IntegerStreamDecoder {
          *   - Rle -> in combination with ZigZag encoding if data type is signed
          *   - Delta Rle
          *   - Componentwise Delta -> always ZigZag encoding is used
-        * */
+         * */
         switch (streamMetadata.logicalLevelTechnique1) {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    values = decodeUnsignedRle(values, rleMetadata.runs, rleMetadata.numRleValues);
+                    return decodeDeltaRle(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
                 decodeZigZagDelta(values);
                 return values;
@@ -145,7 +191,7 @@ export default class IntegerStreamDecoder {
                 fastInverseDelta(values);
                 return values;
             case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-                if(scalingData){
+                if (scalingData) {
                     decodeComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
                     return values;
                 }
@@ -158,16 +204,22 @@ export default class IntegerStreamDecoder {
                 }
                 return values;
             default:
-                throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+                throw new Error(
+                    `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+                );
         }
     }
 
-    private static decodeLongBuffer(values: BigInt64Array, streamMetadata: StreamMetadata, isSigned: boolean): BigInt64Array {
+    private static decodeLongBuffer(
+        values: BigInt64Array,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+    ): BigInt64Array {
         switch (streamMetadata.logicalLevelTechnique1) {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                    return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
                 decodeZigZagDeltaInt64(values);
                 return values;
@@ -179,11 +231,17 @@ export default class IntegerStreamDecoder {
                 }
                 return values;
             default:
-                throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+                throw new Error(
+                    `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+                );
         }
     }
 
-    private static decodeFloat64Buffer(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
+    private static decodeFloat64Buffer(
+        values: Float64Array,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+    ): Float64Array {
         switch (streamMetadata.logicalLevelTechnique1) {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -200,23 +258,34 @@ export default class IntegerStreamDecoder {
                 }
                 return values;
             default:
-                throw new Error(`The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`);
+                throw new Error(
+                    `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+                );
         }
     }
 
     private static decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMetadata): Int32Array {
-        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA && streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
+        if (
+            streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
+            streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
+        ) {
             const decodedValues = zigZagDeltaOfDeltaDecoding(values);
             return decodedValues;
         }
 
-        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.RLE && streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
+        if (
+            streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.RLE &&
+            streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
+        ) {
             const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
             const decodedValues = rleDeltaDecoding(values, rleMetadata.runs, rleMetadata.numRleValues);
             return decodedValues;
         }
 
-        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.NONE && streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE) {
+        if (
+            streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.NONE &&
+            streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
+        ) {
             //TODO: use fastInverseDelta again and check what are the performance problems in zoom 14
             //fastInverseDelta(values);
             inverseDelta(values);
@@ -226,7 +295,10 @@ export default class IntegerStreamDecoder {
             return offsets;
         }
 
-        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA && streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+        if (
+            streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
+            streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
+        ) {
             const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
             const decodedValues = zigZagRleDeltaDecoding(values, rleMetadata.runs, rleMetadata.numRleValues);
             fastInverseDelta(decodedValues);
@@ -236,20 +308,38 @@ export default class IntegerStreamDecoder {
         throw new Error("Only delta encoding is supported for transforming length to offset streams yet.");
     }
 
-    public static decodeNullableIntStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean, bitVector: BitVector): Int32Array {
-        const values = streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR
-            ? decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset)
-            : decodeVarintInt32(data, offset, streamMetadata.numValues);
+    public static decodeNullableIntStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+        bitVector: BitVector,
+    ): Int32Array {
+        const values =
+            streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR
+                ? decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset)
+                : decodeVarintInt32(data, offset, streamMetadata.numValues);
 
         return this.decodeNullableIntBuffer(values, streamMetadata, isSigned, bitVector);
     }
 
-    public static decodeNullableLongStream(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata, isSigned: boolean, bitVector: BitVector): BigInt64Array {
+    public static decodeNullableLongStream(
+        data: Uint8Array,
+        offset: IntWrapper,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+        bitVector: BitVector,
+    ): BigInt64Array {
         const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
         return this.decodeNullableLongBuffer(values, streamMetadata, isSigned, bitVector);
     }
 
-    private static decodeNullableIntBuffer(values: Int32Array, streamMetadata: StreamMetadata, isSigned: boolean, bitVector: BitVector): Int32Array {
+    private static decodeNullableIntBuffer(
+        values: Int32Array,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+        bitVector: BitVector,
+    ): Int32Array {
         switch (streamMetadata.logicalLevelTechnique1) {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -266,58 +356,84 @@ export default class IntegerStreamDecoder {
                 decodeComponentwiseDeltaVec2(values);
                 return values;
             case LogicalLevelTechnique.NONE:
-                values = isSigned
-                    ? padZigZagWithZeros(bitVector, values)
-                    : padWithZeros(bitVector, values);
+                values = isSigned ? padZigZagWithZeros(bitVector, values) : padWithZeros(bitVector, values);
                 return values;
             default:
                 throw new Error("The specified Logical level technique is not supported");
         }
     }
 
-    private static decodeNullableLongBuffer(values: BigInt64Array, streamMetadata: StreamMetadata, isSigned: boolean, bitVector: BitVector): BigInt64Array {
+    private static decodeNullableLongBuffer(
+        values: BigInt64Array,
+        streamMetadata: StreamMetadata,
+        isSigned: boolean,
+        bitVector: BitVector,
+    ): BigInt64Array {
         switch (streamMetadata.logicalLevelTechnique1) {
             case LogicalLevelTechnique.DELTA:
                 if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
                     values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
-                return  decodeNullableZigZagDeltaInt64(bitVector, values);
+                return decodeNullableZigZagDeltaInt64(bitVector, values);
             case LogicalLevelTechnique.RLE:
                 return decodeNullableRleInt64(values, streamMetadata, isSigned, bitVector);
             case LogicalLevelTechnique.NONE:
-                values = isSigned
-                    ? padZigZagWithZerosInt64(bitVector, values)
-                    : padWithZerosInt64(bitVector, values);
+                values = isSigned ? padZigZagWithZerosInt64(bitVector, values) : padWithZerosInt64(bitVector, values);
                 return values;
             default:
                 throw new Error("The specified Logical level technique is not supported");
         }
     }
 
-    static getVectorType(streamMetadata: StreamMetadata, sizeOrNullabilityBuffer: number | BitVector): VectorType {
-        const  logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
+    static getVectorType(
+        streamMetadata: StreamMetadata,
+        sizeOrNullabilityBuffer: number | BitVector,
+        data: Uint8Array,
+        offset: IntWrapper,
+    ): VectorType {
+        const logicalLevelTechnique1 = streamMetadata.logicalLevelTechnique1;
         if (logicalLevelTechnique1 === LogicalLevelTechnique.RLE) {
-            return (streamMetadata as RleEncodedStreamMetadata).runs === 1
-                ? VectorType.CONST
-                : VectorType.FLAT;
+            return (streamMetadata as RleEncodedStreamMetadata).runs === 1 ? VectorType.CONST : VectorType.FLAT;
         }
 
-        const numFeatures = sizeOrNullabilityBuffer instanceof BitVector? sizeOrNullabilityBuffer.size() :
-            sizeOrNullabilityBuffer;
-        const rleMetadata  = streamMetadata as RleEncodedStreamMetadata;
-        const runs = rleMetadata.runs;
+        const numFeatures =
+            sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
 
-        if (logicalLevelTechnique1 === LogicalLevelTechnique.DELTA
-            && streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
-            /* If base value equals delta value then one run else two runs */
-            && (runs === 1 || runs === 2)
-            /* No null values allowed in a sequence vector */
-            && rleMetadata.numValues === numFeatures) {
-            return VectorType.SEQUENCE;
+        if (
+            logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
+            streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
+        ) {
+            const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+            const runs = rleMetadata.runs;
+            const zigZagOne = 2;
+
+            if (rleMetadata.numRleValues !== numFeatures) {
+                return VectorType.FLAT;
+            }
+            // Single run is always a sequence
+            if (runs === 1) {
+                return VectorType.SEQUENCE;
+            }
+            // Two runs can be a sequence if both deltas are equal to 1
+            if (runs === 2) {
+                const savedOffset = offset.get();
+
+                let values: Int32Array;
+                if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+                    values = decodeVarintInt32(data, offset, 4);
+                } else {
+                    const byteOffset = offset.get();
+                    values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+                }
+                offset.set(savedOffset);
+                // Check if both deltas are encoded 1
+                if (values[2] === zigZagOne && values[3] === zigZagOne) {
+                    return VectorType.SEQUENCE;
+                }
+            }
         }
 
         return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
     }
-
 }
