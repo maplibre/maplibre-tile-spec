@@ -6,7 +6,7 @@
 
 namespace mlt::util::decoding::rle {
 
-void decodeBoolean(BufferStream& buffer,
+void decodeBoolean(BufferStream& tileData,
                    std::vector<uint8_t>& out,
                    const metadata::stream::StreamMetadata& metadata,
                    bool consume) {
@@ -14,14 +14,14 @@ void decodeBoolean(BufferStream& buffer,
     const auto numBytes = (bitCount + 7) / 8;
     out.resize(numBytes);
 
-    assert(metadata.getByteLength() <= buffer.getRemaining());
-    detail::ByteRleDecoder decoder{buffer.getReadPosition(),
-                                   std::min<std::size_t>(metadata.getByteLength(), buffer.getRemaining())};
+    assert(metadata.getByteLength() <= tileData.getRemaining());
+    detail::ByteRleDecoder decoder{tileData.getReadPosition(),
+                                   std::min<std::size_t>(metadata.getByteLength(), tileData.getRemaining())};
     decoder.next(out.data(), numBytes);
     assert(decoder.getBufferRemaining() == 0);
 
     if (consume) {
-        buffer.consume(metadata.getByteLength());
+        tileData.consume(metadata.getByteLength());
     }
 }
 
