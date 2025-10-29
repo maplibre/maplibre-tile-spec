@@ -89,7 +89,7 @@ public class Encode {
 
   private static void run(CommandLine cmd)
       throws URISyntaxException, IOException, ClassNotFoundException {
-    final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
+    final var tileFileNames = cmd.getOptionValues(INPUT_TILE_ARG);
     final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
     final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
     final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
@@ -142,16 +142,24 @@ public class Encode {
           "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
     }
 
-    if (cmd.hasOption(INPUT_TILE_ARG)) {
-      // Converting one tile
-      encodeTile(
-          tileFileName,
-          cmd,
-          columnMappings,
-          conversionConfig,
-          tessellateURI,
-          enableElideOnTypeMismatch,
-          verbose);
+    if (tileFileNames != null && tileFileNames.length > 0) {
+      if (tileFileNames.length > 1 && cmd.hasOption(OUTPUT_FILE_ARG)) {
+        throw new IllegalArgumentException(
+            "Multiple input files not allowed with single output file, use --" + OUTPUT_DIR_ARG);
+      }
+      for (var tileFileName : tileFileNames) {
+        if (verbose > 0) {
+          System.err.println("Converting " + tileFileName);
+        }
+        encodeTile(
+            tileFileName,
+            cmd,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            enableElideOnTypeMismatch,
+            verbose);
+      }
     } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
       // Converting all the tiles in an MBTiles file
       var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
@@ -1174,7 +1182,7 @@ public class Encode {
       options.addOption(
           Option.builder()
               .longOpt(INPUT_TILE_ARG)
-              .hasArg(true)
+              .hasArgs()
               .argName("file")
               .desc("Path to the input MVT file")
               .required(false)
