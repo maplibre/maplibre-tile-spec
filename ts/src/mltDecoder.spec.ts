@@ -8,7 +8,7 @@ import { type FeatureTable, type Feature, decodeTile } from ".";
 import path from "node:path";
 import fs from "node:fs";
 
-const ITERATOR_TILE = path.resolve(__dirname, "../../../test/expected/tag0x01/simple/multiline-boolean.mlt");
+const ITERATOR_TILE = path.resolve(__dirname, "../../test/expected/tag0x01/simple/multiline-boolean.mlt");
 
 describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
     const simpleMltTileDir = "../test/expected/tag0x01/simple";
