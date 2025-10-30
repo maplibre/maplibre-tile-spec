@@ -2,7 +2,8 @@ name: Release MLT JavaScript
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -14,15 +15,10 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          ref: main
-
-      - uses: ./.github/actions/mlt-setup-node
 
       - name: Check if version has been updated
         id: check
-        uses: EndBug/version-check@v2
+        uses: EndBug/version-check@5102328418c0130d66ca712d755c303e93368ce2
         with:
           file-name: ts/package.json
 
@@ -36,50 +32,48 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        shell: bash
+        working-directory: ts
+    permissions:
+      contents: write         # allow making a release
     steps:
-
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          ref: main
 
       - uses: ./.github/actions/mlt-setup-node
 
       - name: Get version
-        id: package-version
-        uses: martinbeentjes/npm-get-version-action@v1.3.1
-        with:
-          path: ts
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo version="$version" >> "$GITHUB_ENV"
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo prerelease=false >> "$GITHUB_ENV"
+          else
+            echo prerelease=true >> "$GITHUB_ENV"
+          fi
 
       - name: Install
-        working-directory: ts
         run: npm ci
 
-      - name: Prepare release
-        id: prepare_release
-        working-directory: ts
-        run: |
-          RELEASE_TYPE=$(node -e "console.log(require('semver').prerelease('${{ steps.package-version.outputs.current-version }}') ? 'prerelease' : 'regular')")
-          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
-
       - name: Build
-        working-directory: ts
         run: |
           npm run build
 
-      - name: Publish NPM package (regular)
-        working-directory: ts
-        if: ${{ steps.prepare_release.outputs.release_type == 'regular' }}
+      - name: Release (GitHub) - Create Draft
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        with:
+          name: js-v${{ env.version }}
+          tag_name: js-v${{ env.version }}
+          prerelease: ${{ env.prerelease }}
+          draft: true
+
+      - name: Publish npm package
         run: |
           npm publish --access=public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ORG_TOKEN }}
 
-      - name: Publish NPM package (pre-release)
-        working-directory: ts
-        if: ${{ steps.prepare_release.outputs.release_type == 'prerelease' }}
-        run: |
-          npm publish --access=public --tag next
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_ORG_TOKEN }}
+      - name: Publish GitHub release (remove draft)
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        with:
+          tag_name: js-v${{ env.version }}
+          name: js-v${{ env.version }}
+          draft: false

@@ -19,28 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/mlt-setup-node
-
-      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
-
-      - name: Configure git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin git@github.com:${{ github.repository }}.git
 
       - name: Update version, commit, and create tag
         working-directory: ts
         run: |
           npm version ${{ github.event.inputs.release_type }} --no-git-tag-version
-          VERSION=$(node -p "require('./package.json').version")
-          git add package.json package-lock.json
-          git commit -m "chore: bump MLT JS version to ${VERSION}"
-          git tag -a "js-v${VERSION}" -m "Release js-v${VERSION}"
-          git push origin HEAD:main
-          git push origin "js-v${VERSION}"
+          echo version="$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          commit-message: bump @maplibre/mlt version to ${{ env.version }}
+          branch: mlt-js-version-${{ env.version }}
+          title: bump @maplibre/mlt version to ${{ env.version }}
