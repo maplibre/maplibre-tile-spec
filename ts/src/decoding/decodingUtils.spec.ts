@@ -55,18 +55,22 @@ describe("decodingUtils", () => {
 
     describe("decodeByteRle", () => {
         it("should decode byte RLE with runs", () => {
-            const data = new Uint8Array([2, 5, 3, 10]);
+            // header=2 means numRuns=2+3=5, followed by value byte
+            const data = new Uint8Array([2, 42]);
             const offset = new IntWrapper(0);
             const result = decodeByteRle(data, 5, offset);
 
             expect(result.length).toBe(5);
-            expect(result[0]).toBe(5);
-            expect(result[1]).toBe(5);
-            expect(result[2]).toBe(10);
+            expect(result[0]).toBe(42);
+            expect(result[1]).toBe(42);
+            expect(result[2]).toBe(42);
+            expect(result[3]).toBe(42);
+            expect(result[4]).toBe(42);
         });
 
         it("should decode byte RLE with literals", () => {
-            const data = new Uint8Array([255, 3, 1, 2, 3]);
+            // header=253 means numLiterals=256-253=3, followed by 3 literal bytes
+            const data = new Uint8Array([253, 1, 2, 3]);
             const offset = new IntWrapper(0);
             const result = decodeByteRle(data, 3, offset);
 
@@ -102,7 +106,8 @@ describe("decodingUtils", () => {
             combined.set(prefix, 0);
             combined.set(textBytes, prefix.length);
 
-            const result = decodeString(combined, prefix.length, textBytes.length);
+            // decodeString takes (buffer, start, end) where end is the position after the last byte
+            const result = decodeString(combined, prefix.length, prefix.length + textBytes.length);
 
             expect(result).toBe(text);
         });
