@@ -1,5 +1,4 @@
-import type IntWrapper from "../../encodings/intWrapper";
-import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
+
 import {
     type Column,
     type ComplexField,
@@ -9,6 +8,8 @@ import {
     type TileSetMetadata,
 } from "./tilesetMetadata";
 import { TypeMap } from "./typeMap";
+import IntWrapper from "../../decoding/intWrapper";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 
 const enum FieldOptions {
     nullable = 1 << 0,

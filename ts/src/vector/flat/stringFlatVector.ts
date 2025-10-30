@@ -1,6 +1,6 @@
 import { VariableSizeVector } from "../variableSizeVector";
 import type BitVector from "./bitVector";
-import { decodeString } from "../../encodings/decodingUtils";
+import { decodeString } from "../../decoding/decodingUtils";
 
 export class StringFlatVector extends VariableSizeVector<Uint8Array, string> {
     private readonly textEncoder: TextEncoder;
