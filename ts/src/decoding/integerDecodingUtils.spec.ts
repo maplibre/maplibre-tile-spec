@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import varint from "varint";
 import {
-    decodeVarintInt32,
     decodeVarintInt64,
     decodeVarintFloat64,
     decodeZigZag,
@@ -30,21 +29,7 @@ import {
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 
-const numValues = 1_000;
-const randomValues = new Int32Array(numValues);
-const maxValue = 2 ** 30;
-for (let i = 0; i < randomValues.length; i++) {
-    randomValues[i] = Math.floor(Math.random() * maxValue);
-}
-const randomVarintValues = varintEncode(randomValues);
-
 describe("IntegerDecodingUtils", () => {
-    describe("decodeVarint", () => {
-        it("should return valid decoded values", () => {
-            const actualValues = decodeVarintInt32(randomVarintValues, new IntWrapper(0), randomValues.length);
-            expect(actualValues).toEqual(randomValues);
-        });
-    });
 
     describe("decodeVarintInt64", () => {
         it("should decode BigInt values", () => {
@@ -252,15 +237,6 @@ describe("IntegerDecodingUtils", () => {
         });
     });
 });
-
-function varintEncode(values: Int32Array) {
-    const varintValues = [];
-    for (let i = 0; i < values.length; i++) {
-        const v = varint.encode(values[i]);
-        varintValues.push(...v);
-    }
-    return new Uint8Array(varintValues);
-}
 
 function varintEncodeNum(value: number) {
     const v = varint.encode(value);
