@@ -1,4 +1,4 @@
-name: release-js-create-tag
+name: js-bump-version
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
           - prerelease
 
 jobs:
-  release-js-create-tag:
+  js-bump-version:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
