@@ -1,7 +1,7 @@
 import { VariableSizeVector } from "../variableSizeVector";
 import type BitVector from "../flat/bitVector";
-import { decodeFsst } from "../../encodings/fsstDecoder";
-import { decodeString } from "../../encodings/decodingUtils";
+import { decodeFsst } from "../../decoding/fsstDecoder";
+import { decodeString } from "../../decoding/decodingUtils";
 
 export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, string> {
     private readonly textEncoder: TextEncoder;
