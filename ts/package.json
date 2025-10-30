@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt",
-  "version": "0.0.1-alpha.12",
+  "version": "0.0.1-alpha.13",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -34,13 +34,12 @@
     "@types/node": "^24.9.2",
     "@types/pbf": "^3.0.5",
     "@types/varint": "^6.0.3",
-    "@vitest/coverage-v8": "^4.0.4",
+    "@vitest/coverage-v8": "^4.0.5",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
     "eslint": "^9.37.0",
     "pbf": "^4.0.1",
     "prettier": "^3.6.2",
-    "semver": "^7.7.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.1",
     "varint": "^6.0.0",
