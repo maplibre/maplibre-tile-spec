@@ -20,7 +20,9 @@ export class IntConstVector extends Vector<Int32Array, number> {
             return new FlatSelectionVector([]);
         }
 
-        return createNullableSelectionVector(this.size, this.nullabilityBuffer);
+        return this.nullabilityBuffer
+            ? createNullableSelectionVector(this.size, this.nullabilityBuffer)
+            : createSelectionVector(this.size);
     }
 
     match(values: number[]): SelectionVector {
@@ -29,7 +31,9 @@ export class IntConstVector extends Vector<Int32Array, number> {
             return new FlatSelectionVector([]);
         }
 
-        return createNullableSelectionVector(this.size, this.nullabilityBuffer);
+        return this.nullabilityBuffer
+            ? createNullableSelectionVector(this.size, this.nullabilityBuffer)
+            : createSelectionVector(this.size);
     }
 
     filterSelected(value: number, selectionVector: SelectionVector): void {
@@ -57,10 +61,13 @@ export class IntConstVector extends Vector<Int32Array, number> {
     }
 
     greaterThanOrEqualTo(testValue: number): SelectionVector {
-        //TODO: handle bitVector?
-        return this.dataBuffer[0] >= testValue
+        if (this.dataBuffer[0] < testValue) {
+            return new FlatSelectionVector([]);
+        }
+
+        return this.nullabilityBuffer
             ? createNullableSelectionVector(this.size, this.nullabilityBuffer)
-            : new FlatSelectionVector([]);
+            : createSelectionVector(this.size);
     }
 
     greaterThanOrEqualToSelected(value: number, selectionVector: SelectionVector): void {
@@ -73,9 +80,13 @@ export class IntConstVector extends Vector<Int32Array, number> {
     }
 
     smallerThanOrEqualTo(value: number): SelectionVector {
-        return this.dataBuffer[0] <= value
+        if (this.dataBuffer[0] > value) {
+            return new FlatSelectionVector([]);
+        }
+
+        return this.nullabilityBuffer
             ? createNullableSelectionVector(this.size, this.nullabilityBuffer)
-            : new FlatSelectionVector([]);
+            : createSelectionVector(this.size);
     }
 
     smallerThanOrEqualToSelected(value: number, selectionVector: SelectionVector): void {

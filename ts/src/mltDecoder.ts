@@ -89,7 +89,7 @@ export default function decodeTile(
                 }
 
                 const idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                numFeatures = idDataStreamMetadata.numValues;
+                numFeatures = idDataStreamMetadata.getDecompressedCount();
 
                 idVector = decodeIdColumn(
                     tile,
