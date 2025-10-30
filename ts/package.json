@@ -40,7 +40,6 @@
     "eslint": "^9.37.0",
     "pbf": "^4.0.1",
     "prettier": "^3.6.2",
-    "semver": "^7.7.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.1",
     "varint": "^6.0.0",
