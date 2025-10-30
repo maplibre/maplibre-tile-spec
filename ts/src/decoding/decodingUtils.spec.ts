@@ -5,8 +5,11 @@ import {
     decodeBooleanRle,
     decodeString,
     decodeByteRle,
+    decodeNullableFloatsLE,
+    decodeNullableDoublesLE,
 } from "./decodingUtils";
 import IntWrapper from "./intWrapper";
+import BitVector from "../vector/flat/bitVector";
 
 describe("decodingUtils", () => {
     describe("decodeFloatsLE", () => {
@@ -40,6 +43,47 @@ describe("decodingUtils", () => {
             expect(result[0]).toBeCloseTo(3.14159);
             expect(result[1]).toBeCloseTo(2.71828);
             expect(offset.get()).toBe(16);
+        });
+    });
+
+    describe("decodeNullableFloatsLE", () => {
+        it("should decode nullable float values with nullability buffer", () => {
+            const buffer = new ArrayBuffer(8);
+            const view = new Float32Array(buffer);
+            view[0] = 1.5;
+            view[1] = 2.5;
+
+            const data = new Uint8Array(buffer);
+            const offset = new IntWrapper(0);
+            const bitVectorData = new Uint8Array([0b00000101]); // bits 0 and 2 are set
+            const nullabilityBuffer = new BitVector(bitVectorData, 3);
+
+            const result = decodeNullableFloatsLE(data, offset, nullabilityBuffer, 2);
+
+            expect(result.length).toBe(3);
+            expect(result[0]).toBeCloseTo(1.5); // bit 0 is set
+            expect(result[1]).toBe(0); // bit 1 is not set (null)
+            expect(result[2]).toBeCloseTo(2.5); // bit 2 is set
+        });
+    });
+
+    describe("decodeNullableDoublesLE", () => {
+        it("should decode nullable double values with nullability buffer", () => {
+            const buffer = new ArrayBuffer(16);
+            const view = new Float64Array(buffer);
+            view[0] = 3.14159;
+            view[1] = 2.71828;
+
+            const data = new Uint8Array(buffer);
+            const offset = new IntWrapper(0);
+            const bitVectorData = new Uint8Array([0b00000011]); // bits 0 and 1 are set
+            const nullabilityBuffer = new BitVector(bitVectorData, 2);
+
+            const result = decodeNullableDoublesLE(data, offset, nullabilityBuffer, 2);
+
+            expect(result.length).toBe(2);
+            expect(result[0]).toBeCloseTo(3.14159); // bit 0 is set
+            expect(result[1]).toBeCloseTo(2.71828); // bit 1 is set
         });
     });
 
