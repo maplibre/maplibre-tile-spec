@@ -1,13 +1,13 @@
 {
-    "host": "0.0.0.0",
-    "port": 80,
-    "verbose": true,
+  "host": "0.0.0.0",
+  "port": 80,
+  "verbose": true,
 
-    "input": "mvt",
-    "noids": false,
-    "advanced": false,
-    "nomorton": false,
-    "outlines": "",
-    "timer": false,
-    "compare": false
+  "input": "mvt",
+  "noids": false,
+  "advanced": false,
+  "nomorton": false,
+  "outlines": "",
+  "timer": false,
+  "compare": false
 }
