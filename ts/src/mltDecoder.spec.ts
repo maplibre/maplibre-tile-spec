@@ -1,7 +1,7 @@
 import { expect, describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
-import { VectorTile, type VectorTileFeature, type VectorTileLayer } from "@mapbox/vector-tile";
+import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 
 import { type FeatureTable, type Feature, decodeTile } from ".";
@@ -21,19 +21,12 @@ describe("MLT Decoder - MVT comparison for Amazon tiles", () => {
 describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     const omtMltTileDir = "../test/expected/tag0x01/omt";
     const omtMvtTileDir = "../test/fixtures/omt";
-    // TODO: remove ignore list when the issues with the ID of these tiles are resolved
-    testTiles(omtMltTileDir, omtMvtTileDir, [
-        "10_530_683",
-        "10_532_683",
-        "11_1062_1367",
-        "11_1064_1366",
-        "13_4267_5467",
-    ]);
-});
+    testTiles(omtMltTileDir, omtMvtTileDir);
+}, 150000);
 
-function testTiles(mltSearchDir: string, mvtSearchDir: string, ignoreList: string[] = []) {
+function testTiles(mltSearchDir: string, mvtSearchDir: string) {
     const mltFileNames = readdirSync(mltSearchDir)
-        .filter((file) => parse(file).ext === ".mlt" && !ignoreList.includes(parse(file).name))
+        .filter((file) => parse(file).ext === ".mlt")
         .map((file) => parse(file).name);
     for (const fileName of mltFileNames) {
         it(`should compare ${fileName} tile`, () => {
@@ -71,9 +64,11 @@ function comparePlainGeometryEncodedTile(
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
 
-        for (let j = 0; j < mltFeatures.length; j++) {
-            const mltFeature = mltFeatures[j];
+        expect(mltFeatures.length).toBe(layer.length);
+
+        for (let j = 0; j < layer.length; j++) {
             const mvtFeature = layer.feature(j);
+            const mltFeature = mltFeatures[j];
 
             compareId(mltFeature, mvtFeature, true);
 

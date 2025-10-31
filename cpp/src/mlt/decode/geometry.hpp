@@ -74,9 +74,9 @@ public:
             throw std::runtime_error("geometry column missing metadata stream: " + column.name);
         }
 
-        const auto geometryTypesVectorType = getVectorTypeIntStream(*geomTypeMetadata);
+        [[maybe_unused]] const auto geometryTypesVectorType = getVectorTypeIntStream(*geomTypeMetadata);
 
-        // If all geometries in the colum have the same geometry type, we could decode them
+        // If all geometries in the column have the same geometry type, we could decode them
         // somewhat more efficiently, and return the geometry in a more GPU-friendly form.
         // if (geometryTypesVectorType == VectorType::CONST) {
         //     const auto geomType = intDecoder.decodeConstIntStream<std::uint32_t, std::uint32_t, GeometryType>(

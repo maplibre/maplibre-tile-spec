@@ -159,8 +159,8 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     throw std::runtime_error("Multi-point geometry without topology vector");
                 }
                 const auto& geometryOffsets = topologyVector->getGeometryOffsets();
-                const auto& partOffsets = topologyVector->getPartOffsets();
-                const auto& ringOffsets = topologyVector->getRingOffsets();
+                [[maybe_unused]] const auto& partOffsets = topologyVector->getPartOffsets();
+                [[maybe_unused]] const auto& ringOffsets = topologyVector->getRingOffsets();
 
                 CHECK_BUFFER(geometryOffsetsCounter, geometryOffsets);
                 const auto numPoints = geometryOffsets[geometryOffsetsCounter] -
@@ -236,7 +236,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 if (!topologyVector) {
                     throw std::runtime_error("Polygon geometry without topology vector");
                 }
-                const auto& geometryOffsets = topologyVector->getGeometryOffsets();
+                [[maybe_unused]] const auto& geometryOffsets = topologyVector->getGeometryOffsets();
                 const auto& partOffsets = topologyVector->getPartOffsets();
                 const auto& ringOffsets = topologyVector->getRingOffsets();
 

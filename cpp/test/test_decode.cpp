@@ -162,20 +162,7 @@ TEST(Decode, AllBing) {
 }
 TEST(Decode, AllOMT) {
     const std::regex metadataFilePattern{".*\\.mlt"};
-    std::set<std::string> skipFiles = {"12_2132_2734.mlt",
-                                       "7_66_84.mlt",
-                                       "4_8_10.mlt",
-                                       "11_1064_1367.mlt",
-                                       "8_134_171.mlt",
-                                       "5_16_21.mlt",
-                                       "3_4_5.mlt",
-                                       "6_32_41.mlt",
-                                       "10_532_682.mlt"};
     for (const auto& path : findFiles(basePath + "/omt", metadataFilePattern)) {
-        if (skipFiles.contains(path.filename().string())) {
-            std::cout << "Skipped: " << path.filename().string() << "\n";
-            continue;
-        }
         try {
             if (auto result = loadTile(path); result.first) {
                 std::cout << "Loaded: " << path.filename().string() << "\n";

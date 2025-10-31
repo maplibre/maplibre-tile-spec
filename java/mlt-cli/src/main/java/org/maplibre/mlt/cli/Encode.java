@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -100,8 +102,7 @@ public class Encode {
 
   private static void run(CommandLine cmd)
       throws URISyntaxException, IOException, ClassNotFoundException {
-
-    final var tileFileName = cmd.getOptionValue(INPUT_TILE_ARG);
+    final var tileFileNames = cmd.getOptionValues(INPUT_TILE_ARG);
     final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
     final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
     final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
@@ -113,13 +114,16 @@ public class Encode {
     final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
     final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
     final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
-    final var verbose = cmd.hasOption(VERBOSE_OPTION);
+    final var verbose =
+        cmd.hasOption(VERBOSE_OPTION)
+            ? Integer.parseInt(cmd.getOptionValue(VERBOSE_OPTION, "1"))
+            : 0;
     final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
     final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
     final var columnMappings = getColumnMappings(cmd);
 
-    if (verbose && !columnMappings.isEmpty()) {
+    if (verbose > 0 && !columnMappings.isEmpty()) {
       System.err.println("Using Column Mappings:");
       columnMappings.forEach(
           (key, value) ->
@@ -146,21 +150,29 @@ public class Encode {
             filterPattern,
             filterInvert);
 
-    if (verbose && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
+    if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
           "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
     }
 
-    if (cmd.hasOption(INPUT_TILE_ARG)) {
-      // Converting one tile
-      encodeTile(
-          tileFileName,
-          cmd,
-          columnMappings,
-          conversionConfig,
-          tessellateURI,
-          enableElideOnTypeMismatch,
-          verbose);
+    if (tileFileNames != null && tileFileNames.length > 0) {
+      if (tileFileNames.length > 1 && cmd.hasOption(OUTPUT_FILE_ARG)) {
+        throw new IllegalArgumentException(
+            "Multiple input files not allowed with single output file, use --" + OUTPUT_DIR_ARG);
+      }
+      for (var tileFileName : tileFileNames) {
+        if (verbose > 0) {
+          System.err.println("Converting " + tileFileName);
+        }
+        encodeTile(
+            tileFileName,
+            cmd,
+            columnMappings,
+            conversionConfig,
+            tessellateURI,
+            enableElideOnTypeMismatch,
+            verbose);
+      }
     } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
       // Converting all the tiles in an MBTiles file
       var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
@@ -191,7 +203,7 @@ public class Encode {
           enableElideOnTypeMismatch,
           verbose);
     }
-    if (verbose && totalCompressedInput > 0) {
+    if (verbose > 0 && totalCompressedInput > 0) {
       System.err.printf(
           "Compressed %d bytes to %d bytes (%.1f%%)%n",
           totalCompressedInput,
@@ -200,56 +212,94 @@ public class Encode {
     }
   }
 
-  private static final Pattern colMapSeparatorPattern =
-      Pattern.compile("^(?:\\[]|\\[([^]].+)])?(.+)(.)$");
+  // matches a layer discriminator, [] = all, [regex] = match a regex
+  private static final String layerPatternPrefix = "^(?:\\[]|\\[([^]].+)])?";
+  // A layer discriminator followed by prefix and delimiter.
+  // Delimiter may be a pattern if surrounded by slashes.
+  private static final Pattern colMapSeparatorPattern1 =
+      Pattern.compile(layerPatternPrefix + "(.+)(/.+/)$");
+  private static final Pattern colMapSeparatorPattern2 =
+      Pattern.compile(layerPatternPrefix + "(.+)(.)$");
+  // a layer discriminator followed by a comma-separated list of columns
+  private static final Pattern colMapListPattern = Pattern.compile(layerPatternPrefix + "(.+)$");
   private static final Pattern colMapPatternPattern = Pattern.compile("^/(.*)/$");
   private static final Pattern colMapMatchAll = Pattern.compile(".*");
 
   private static Map<Pattern, List<ColumnMapping>> getColumnMappings(CommandLine cmd) {
+    final HashMap<Pattern, List<ColumnMapping>> result = new HashMap<>();
     if (cmd.hasOption(COLUMN_MAPPING_AUTO_OPTION)) {
       throw new NotImplementedException("Auto column mappings are not implemented yet");
     }
     if (cmd.hasOption(COLUMN_MAPPING_LIST_OPTION)) {
-      throw new NotImplementedException("Explicit column mappings are not implemented yet");
+      final var strings = cmd.getOptionValues(COLUMN_MAPPING_LIST_OPTION);
+      if (strings != null) {
+        for (var item : strings) {
+          var matcher = colMapListPattern.matcher(item);
+          if (matcher.matches()) {
+            // matcher doesn't support multiple group matches, split them separately
+            final var layers = parseLayerPatterns(matcher.group(1));
+            final var list = matcher.group(2);
+            final var columnNames =
+                Arrays.stream(list.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+            result.merge(
+                layers,
+                List.of(new ColumnMapping(columnNames, true)),
+                (oldList, newList) ->
+                    Stream.of(oldList, newList).flatMap(Collection::stream).toList());
+          } else {
+            System.err.println("WARNING: Invalid column mapping ignored: " + item);
+            System.err.println("Expected pattern is: " + colMapListPattern);
+          }
+        }
+      }
     }
-    final HashMap<Pattern, List<ColumnMapping>> result = new HashMap<>();
     final var strings = cmd.getOptionValues(COLUMN_MAPPING_DELIM_OPTION);
     if (strings != null) {
       for (var item : strings) {
-        var matcher = colMapSeparatorPattern.matcher(item);
+        var matcher = colMapSeparatorPattern1.matcher(item);
+        if (!matcher.matches()) {
+          matcher = colMapSeparatorPattern2.matcher(item);
+        }
         if (matcher.matches()) {
           // matcher doesn't support multiple group matches, split them separately
-          final List<Pattern> parsedLayers =
-              StringUtils.isBlank(matcher.group(1))
-                  ? List.of()
-                  : Arrays.stream(matcher.group(1).split(",")).map(Encode::parsePattern).toList();
-          final var layers = parsedLayers.isEmpty() ? List.of(colMapMatchAll) : parsedLayers;
-          final var prefix = matcher.group(2);
-          final var delimiter = matcher.group(3);
-          for (var layer : layers) {
-            result.merge(
-                layer,
-                List.of(new ColumnMapping(prefix, delimiter, true)),
-                (oldList, newList) ->
-                    Stream.of(oldList, newList).flatMap(Collection::stream).toList());
-          }
+          final var layers = parseLayerPatterns(matcher.group(1));
+          final var prefix = parsePattern(matcher.group(2));
+          final var delimiter = parsePattern(matcher.group(3));
+          result.merge(
+              layers,
+              List.of(new ColumnMapping(prefix, delimiter, true)),
+              (oldList, newList) ->
+                  Stream.of(oldList, newList).flatMap(Collection::stream).toList());
         } else {
           System.err.println("WARNING: Invalid column mapping ignored: " + item);
-          System.err.println("Expected pattern is: " + colMapSeparatorPattern);
+          System.err.println(
+              "Expected pattern is: " + colMapSeparatorPattern1 + " or " + colMapSeparatorPattern2);
         }
       }
     }
     return result;
   }
 
+  private static Pattern parseLayerPatterns(String pattern) {
+    return StringUtils.isBlank(pattern) ? colMapMatchAll : parsePattern(pattern);
+  }
+
   private static Pattern parsePattern(String pattern) {
-    var matcher = colMapPatternPattern.matcher(pattern);
-    if (matcher.matches()) {
-      // A regex surrounded by slashes, return the compiled pattern
-      return Pattern.compile(matcher.group(1));
-    } else {
-      // Just a regular string
-      return Pattern.compile(pattern, Pattern.LITERAL);
+    final var matcher = colMapPatternPattern.matcher(pattern);
+    try {
+      if (matcher.matches()) {
+        // A regex surrounded by slashes, return the compiled pattern
+        return Pattern.compile(matcher.group(1));
+      } else {
+        // Just a regular string
+        return Pattern.compile(pattern, Pattern.LITERAL);
+      }
+    } catch (java.util.regex.PatternSyntaxException ex) {
+      System.err.println("Invalid pattern, matching all input instead: " + ex.getMessage());
+      return colMapMatchAll;
     }
   }
 
@@ -261,7 +311,7 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       boolean enableElideOnTypeMismatch,
-      boolean verbose)
+      int verboseLevel)
       throws IOException {
     final var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
     final var willDecode = cmd.hasOption(DECODE_OPTION);
@@ -289,6 +339,10 @@ public class Encode {
             enableElideOnTypeMismatch);
     final var metadataJSON = MltConverter.createTilesetMetadataJSON(metadata);
 
+    if (verboseLevel > 1) {
+      printColumnMappings(metadata, System.err);
+    }
+
     conversionConfig =
         applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
 
@@ -299,7 +353,7 @@ public class Encode {
       if (streamPath != null) {
         streamObserver = new MLTStreamObserverFile(streamPath);
         Files.createDirectories(streamPath);
-        if (verbose) {
+        if (verboseLevel > 1) {
           System.err.println("Writing raw streams to " + streamPath);
         }
       }
@@ -313,7 +367,7 @@ public class Encode {
 
     if (willOutput) {
       if (outputPath != null) {
-        if (verbose) {
+        if (verboseLevel > 0) {
           System.err.println("Writing converted tile to " + outputPath);
         }
 
@@ -326,7 +380,7 @@ public class Encode {
 
         if (cmd.hasOption(INCLUDE_TILESET_METADATA_OPTION)) {
           var metadataPath = outputPath.resolveSibling(outputPath.getFileName() + ".json");
-          if (verbose) {
+          if (verboseLevel > 0) {
             System.err.println("Writing tileset metadata to " + metadataPath);
           }
           Files.writeString(metadataPath, metadataJSON);
@@ -338,6 +392,9 @@ public class Encode {
     }
     var needsDecoding = willDecode || willCompare || willPrintMLT;
     if (needsDecoding) {
+      if (verboseLevel > 1) {
+        System.err.println("Decoding converted tile...");
+      }
       if (willTime) {
         timer.restart();
       }
@@ -355,7 +412,7 @@ public class Encode {
         System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
-        compare(decodedTile, decodedMvTile, compareGeom, compareProp);
+        compare(decodedTile, decodedMvTile, compareGeom, compareProp, verboseLevel);
       }
     }
   }
@@ -409,7 +466,7 @@ public class Encode {
       @Nullable URI tessellateSource,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
-      boolean verbose) {
+      int verboseLevel) {
     MBTilesReader mbTilesReader = null;
     try {
       mbTilesReader = new MBTilesReader(new File(inputMBTilesPath));
@@ -428,19 +485,19 @@ public class Encode {
       try {
         // Copy metadata from the input file.
         // We can't set the format, see the coda.
-        var metadata = mbTilesReader.getMetadata();
+        final var metadata = mbTilesReader.getMetadata();
         mbTilesWriter.addMetadataEntry(metadata);
 
-        var pbMeta = MltTilesetMetadata.TileSetMetadata.newBuilder();
+        final var pbMeta = MltTilesetMetadata.TileSetMetadata.newBuilder();
         pbMeta.setName(metadata.getTilesetName());
         pbMeta.setAttribution(metadata.getAttribution());
         pbMeta.setDescription(metadata.getTilesetDescription());
-        var bounds = metadata.getTilesetBounds();
+        final var bounds = metadata.getTilesetBounds();
         pbMeta.addAllBounds(
             List.of(bounds.getLeft(), bounds.getTop(), bounds.getRight(), bounds.getBottom()));
-        var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta.build());
+        final var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta.build());
 
-        var tiles = mbTilesReader.getTiles();
+        final var tiles = mbTilesReader.getTiles();
         try {
           while (tiles.hasNext()) {
             final var tile = tiles.next();
@@ -453,12 +510,12 @@ public class Encode {
                   tessellateSource,
                   compressionType,
                   enableCoerceOrElideMismatch,
-                  verbose);
+                  verboseLevel);
             } catch (IllegalArgumentException ex) {
               System.err.printf(
                   "WARNING: Failed to convert tile (%d:%d,%d) : %s%n",
                   tile.getZoom(), tile.getColumn(), tile.getRow(), ex.getMessage());
-              if (verbose) {
+              if (verboseLevel > 1) {
                 ex.printStackTrace(System.err);
               }
             }
@@ -466,10 +523,10 @@ public class Encode {
 
           // mbtiles4j doesn't support types other than png and jpg,
           // so we have to set the format metadata the hard way.
-          var dbFile = mbTilesWriter.close();
-          var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
+          final var dbFile = mbTilesWriter.close();
+          final var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
           try (var connection = DriverManager.getConnection(connectionString)) {
-            if (verbose) {
+            if (verboseLevel > 0) {
               System.err.printf("Setting tile MIME type to '%s'%n", MetadataMIMEType);
             }
             var sql = "UPDATE metadata SET value = ? WHERE name = ?";
@@ -481,7 +538,7 @@ public class Encode {
 
             // Put the global metadata in a custom metadata key.
             // Could also be in a custom key within the standard `json` entry...
-            if (verbose) {
+            if (verboseLevel > 1) {
               System.err.println("Adding tileset metadata JSON");
             }
             sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)";
@@ -491,7 +548,7 @@ public class Encode {
               statement.execute();
             }
 
-            if (verbose) {
+            if (verboseLevel > 1) {
               System.err.println("Optimizing database");
             }
             try (var statement = connection.prepareStatement("VACUUM")) {
@@ -507,7 +564,7 @@ public class Encode {
       }
     } catch (MBTilesReadException | IOException | MBTilesWriteException | SQLException ex) {
       System.err.println("ERROR: MBTiles conversion failed: " + ex.getMessage());
-      if (verbose) {
+      if (verboseLevel > 1) {
         ex.printStackTrace(System.err);
       }
     } finally {
@@ -526,10 +583,10 @@ public class Encode {
       @Nullable URI tessellateSource,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
-      boolean verbose)
+      int verboseLevel)
       throws ClassNotFoundException {
     // Start with a copy of the source file so we don't have to rebuild the complex schema
-    if (verbose) {
+    if (verboseLevel > 1) {
       System.err.println("Creating target file");
     }
     try {
@@ -585,7 +642,7 @@ public class Encode {
                   compressionType,
                   didCompress,
                   enableCoerceOrElideMismatch,
-                  verbose);
+                  verboseLevel);
 
           if (tileData != null) {
             updateStatement.setBytes(1, tileData);
@@ -593,7 +650,7 @@ public class Encode {
             updateStatement.setLong(3, uniqueID);
             updateStatement.execute();
 
-            if (verbose) {
+            if (verboseLevel > 0) {
               System.err.printf("Updated %d:%d,%d%n", z, x, y);
             }
           }
@@ -648,13 +705,13 @@ public class Encode {
           updateStatement.setLong(3, uniqueID);
           updateStatement.execute();
 
-          if (verbose) {
+          if (verboseLevel > 1) {
             System.err.printf("Updated source JSON format to '%s'%n", MetadataMIMEType);
           }
         }
       }
 
-      if (verbose) {
+      if (verboseLevel > 1) {
         System.err.println("Optimizing database");
       }
       try (var statement = dstConnection.prepareStatement("VACUUM")) {
@@ -662,7 +719,7 @@ public class Encode {
       }
     } catch (SQLException | IOException ex) {
       System.err.println("ERROR: Offline Database conversion failed: " + ex.getMessage());
-      if (verbose) {
+      if (verboseLevel > 1) {
         ex.printStackTrace(System.err);
       }
     }
@@ -676,13 +733,13 @@ public class Encode {
       @Nullable URI tessellateSource,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
-      boolean verbose)
+      int verboseLevel)
       throws IOException, MBTilesWriteException {
     final var x = tile.getColumn();
     final var y = tile.getRow();
     final var z = tile.getZoom();
 
-    if (verbose) {
+    if (verboseLevel > 0) {
       System.err.printf("Converting %d:%d,%d%n", z, x, y);
     }
 
@@ -700,7 +757,7 @@ public class Encode {
             compressionType,
             didCompress,
             enableCoerceOrElideMismatch,
-            verbose);
+            verboseLevel);
 
     if (tileData != null) {
       mbTilesWriter.addTile(tileData, z, x, y);
@@ -719,7 +776,7 @@ public class Encode {
       String compressionType,
       MutableBoolean didCompress,
       boolean enableElideOnMismatch,
-      boolean verbose) {
+      int verboseLevel) {
     try {
       final var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
 
@@ -732,6 +789,11 @@ public class Encode {
               isIdPresent,
               coercePropertyValues,
               enableElideOnMismatch);
+
+      if (verboseLevel > 1) {
+        printColumnMappings(metadata, System.err);
+      }
+
       conversionConfig =
           applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
       var tileData =
@@ -750,7 +812,7 @@ public class Encode {
           final int fixedThreshold = 20;
           if (outputStream.size() < tileData.length - fixedThreshold
               && outputStream.size() < tileData.length * ratioThreshold) {
-            if (verbose) {
+            if (verboseLevel > 1) {
               System.err.printf(
                   "Compressed %d:%d,%d from %d to %d bytes (%.1f%%)%n",
                   z,
@@ -765,7 +827,7 @@ public class Encode {
             didCompress.setTrue();
             tileData = outputStream.toByteArray();
           } else {
-            if (verbose) {
+            if (verboseLevel > 1) {
               System.err.printf(
                   "Compression of %d:%d,%d not effective, saving uncompressed (%d vs %d bytes)%n",
                   z, x, y, tileData.length, outputStream.size());
@@ -777,7 +839,7 @@ public class Encode {
       return tileData;
     } catch (IOException ex) {
       System.err.printf("ERROR: Failed to write tile (%d:%d,%d): %s%n", z, x, y, ex.getMessage());
-      if (verbose) {
+      if (verboseLevel > 1) {
         ex.printStackTrace(System.err);
       }
     }
@@ -874,8 +936,31 @@ public class Encode {
     return a.toString().equals(b.toString());
   }
 
+  private static void printColumnMappings(
+      MltTilesetMetadata.TileSetMetadata metadata,
+      @SuppressWarnings("SameParameterValue") PrintStream out) {
+    for (var table : metadata.getFeatureTablesList()) {
+      for (var column : table.getColumnsList()) {
+        if (column.hasComplexType()
+            && column.getComplexType().hasPhysicalType()
+            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
+          out.format(
+              "Found column mapping: %s => %s%n",
+              table.getName(),
+              column.getComplexType().getChildrenList().stream()
+                  .map(f -> column.getName() + f.getName())
+                  .collect(Collectors.joining(", ")));
+        }
+      }
+    }
+  }
+
   public static void compare(
-      MapLibreTile mlTile, MapboxVectorTile mvTile, boolean compareGeom, boolean compareProp) {
+      MapLibreTile mlTile,
+      MapboxVectorTile mvTile,
+      boolean compareGeom,
+      boolean compareProp,
+      int verboseLevel) {
     final var mltLayers = mlTile.layers();
     final var mvtLayers = mvTile.layers().stream().filter(x -> !x.features().isEmpty()).toList();
     if (mltLayers.size() != mvtLayers.size()) {
@@ -958,15 +1043,19 @@ public class Encode {
                   .collect(Collectors.toUnmodifiableSet());
           // compare keys
           if (!mvtPropertyKeys.equals(nonNullMLTKeys)) {
+            final var mvtKeys = getAsymmetricSetDiff(mvtPropertyKeys, nonNullMLTKeys);
+            final var mvtKeyStr = mvtKeys.isEmpty() ? "(none)" : String.join(", ", mvtKeys);
+            final var mltKeys = getAsymmetricSetDiff(nonNullMLTKeys, mvtPropertyKeys);
+            final var mltKeyStr = mltKeys.isEmpty() ? "(none)" : String.join(", ", mltKeys);
             throw new RuntimeException(
                 "Property keys in MLT and MVT feature index "
                     + j
                     + " in layer '"
                     + mvtLayer.name()
-                    + "' do not match:\nMVT:\n"
-                    + String.join(",", mvtPropertyKeys)
-                    + "\nMLT:\n"
-                    + String.join(",", nonNullMLTKeys));
+                    + "' do not match:\nOnly in MVT: "
+                    + mvtKeyStr
+                    + "\nOnly in MLT: "
+                    + mltKeyStr);
           }
           // compare values
           final var unequalKeys =
@@ -998,6 +1087,16 @@ public class Encode {
         }
       }
     }
+    if (verboseLevel > 0) {
+      System.err.println("Tiles match");
+    }
+  }
+
+  /// Returns the values that are in set a but not in set b
+  private static <T> Set<T> getAsymmetricSetDiff(Set<T> a, Set<T> b) {
+    Set<T> diff = new HashSet<>(a);
+    diff.removeAll(b);
+    return diff;
   }
 
   private static final String INPUT_TILE_ARG = "mvt";
@@ -1097,7 +1196,7 @@ public class Encode {
       options.addOption(
           Option.builder()
               .longOpt(INPUT_TILE_ARG)
-              .hasArg(true)
+              .hasArgs()
               .argName("file")
               .desc("Path to the input MVT file")
               .required(false)
@@ -1377,7 +1476,9 @@ Add an explicit column mapping on the specified layers:
           Option.builder()
               .option("v")
               .longOpt(VERBOSE_OPTION)
-              .hasArg(false)
+              .hasArg(true)
+              .optionalArg(true)
+              .argName("level")
               .desc("Enable verbose output.")
               .required(false)
               .get());
