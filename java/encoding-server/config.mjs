@@ -63,7 +63,7 @@ const config = yargs(process.argv.slice(2))
 
 config.cachePath = path.join(__dirname, 'cache');
 config.cliToolsPath = path.join(__dirname, '../');
-config.encoderPath = path.join(config.cliToolsPath, 'build/libs/encode.jar');
+config.encoderPath = path.join(config.cliToolsPath, 'mlt-cli/build/libs/encode.jar');
 config.encoderPort = 3001;
 
 export default config;
