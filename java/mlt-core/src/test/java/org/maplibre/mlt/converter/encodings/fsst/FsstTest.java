@@ -8,8 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -113,23 +111,23 @@ class FsstTest {
 
       final int maxAllowed = Math.max((int) (encodedJni.weight() * 1.02), encodedJni.weight() + 2);
       assertTrue(
-              encodedJava.weight() <= maxAllowed,
-              () ->
-                      """
+          encodedJava.weight() <= maxAllowed,
+          () ->
+              """
                       Input: byte[%d]
                       Encoded java >5%% larger than JNI
                       Java: %s
                       JNI: %s
                       """
-                              .formatted(input.length, encodedJava, encodedJni));
+                  .formatted(input.length, encodedJava, encodedJni));
 
       assertSymbolSortOrder(encodedJni);
       assertArrayEquals(input, JNI.decode(encodedJava));
       assertArrayEquals(input, JNI.decode(encodedJni));
       assertArrayEquals(
-              input,
-              JNI.decode(
-                      encodedJava.symbols(), encodedJava.symbolLengths(), encodedJava.compressedData()));
+          input,
+          JNI.decode(
+              encodedJava.symbols(), encodedJava.symbolLengths(), encodedJava.compressedData()));
     }
     DEBUG.encode(input);
   }

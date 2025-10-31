@@ -27,7 +27,9 @@ class FsstJni implements Fsst {
     return FsstJni.compress(data);
   }
 
-  public static boolean isLoaded() { return isLoaded; }
+  public static boolean isLoaded() {
+    return isLoaded;
+  }
 
   public static native SymbolTable compress(byte[] inputBytes);
 }
