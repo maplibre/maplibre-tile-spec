@@ -26,8 +26,9 @@ const { values: args } = parseArgs({
   args: process.argv.slice(2),
 });
 
-if (["mvt", "mlt"].includes(args.input)) {
-  console.error("--input must be mvt or mlt");
+const possibleInputs = ["mvt", "pmtiles"];
+if (possibleInputs.includes(args.input)) {
+  console.error(`--input must be one of ${possibleInputs.join(", ")}`);
   process.exit(1);
 }
 
