@@ -1,20 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
+import { type LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import IntegerStreamDecoder from "./integerStreamDecoder";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
-import { StreamMetadata } from "../metadata/tile/streamMetadata";
+import { type StreamMetadata } from "../metadata/tile/streamMetadata";
 import { LengthType } from "../metadata/tile/lengthType";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { ScalarType } from "../metadata/tile/scalarType";
-import IntWrapper from "./intWrapper";
-import { Column } from "../metadata/tileset/tilesetMetadata";
+import type IntWrapper from "./intWrapper";
+import { type Column } from "../metadata/tileset/tilesetMetadata";
 import { StringDecoder } from "./stringDecoder";
 import * as integerDecoder from "./integerDecodingUtils";
-
-// ============================================================================
-// MOCK FACTORIES
-// ============================================================================
 
 function createMockStreamMetadata(
     physicalStreamType: PhysicalStreamType,
@@ -52,10 +48,6 @@ function createMockColumn(name: string = 'testColumn', children: any[] = []): Co
         },
     } as unknown as Column;
 }
-
-// ============================================================================
-// MOCK SETUP HELPERS
-// ============================================================================
 
 function setupOffsetMock(initialValue: number = 0) {
     let offsetValue = initialValue;
@@ -98,10 +90,6 @@ function setupVarintDecodeMock(value: number | number[] = 0): void {
         return result;
     });
 }
-
-// ============================================================================
-// TESTS
-// ============================================================================
 
 describe('decodeSharedDictionary', () => {
     let mockData: Uint8Array;

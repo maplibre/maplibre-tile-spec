@@ -2,7 +2,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
 import IntegerStreamDecoder from "./integerStreamDecoder";
 import {decodePropertyColumn} from "./propertyDecoder";
-import {Column} from "../metadata/tileset/tilesetMetadata";
+import { type Column} from "../metadata/tileset/tilesetMetadata";
 import {ScalarType} from "../metadata/tile/scalarType";
 import IntWrapper from "./intWrapper";
 import {IntFlatVector} from "../vector/flat/intFlatVector";
@@ -18,7 +18,7 @@ import * as decodingUtils from './decodingUtils';
 import {BooleanFlatVector} from "../vector/flat/booleanFlatVector";
 import {FloatFlatVector} from "../vector/flat/floatFlatVector";
 import {DoubleFlatVector} from "../vector/flat/doubleFlatVector";
-import {StringFlatVector} from "../vector/flat/stringFlatVector";
+import { type StringFlatVector} from "../vector/flat/stringFlatVector";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 
 // Constants for test data
