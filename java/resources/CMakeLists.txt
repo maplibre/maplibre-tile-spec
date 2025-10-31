@@ -44,7 +44,7 @@ ExternalProject_Add(FsstDownload
     GIT_TAG bd766bc # https://github.com/springmeyer/fsst/tree/dane/cross-platform-build-fixes
     INSTALL_COMMAND ""
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix
-    CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}" "-FCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+    CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 )
 SET(LIBFSST_LIB_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/FsstDownload-build)
 SET(LIBFSST_INC_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libfsst-prefix/src/FsstDownload)
