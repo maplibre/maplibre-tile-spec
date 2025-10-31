@@ -26,6 +26,11 @@ const { values: args } = parseArgs({
   args: process.argv.slice(2),
 });
 
+if (["mvt", "mlt"].includes(args.input)) {
+  console.error("--input must be mvt or mlt");
+  process.exit(1);
+}
+
 const config = {
   ...args,
   ...configFile,
