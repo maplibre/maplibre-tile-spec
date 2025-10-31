@@ -130,7 +130,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                 PhysicalStreamType::Present => {}
                 PhysicalStreamType::Data(v) => match v {
                     DictionaryType::Vertex => {
-                        let v = stream.decode_bits_u32()?.decode_i32()?;
+                        let v = stream.decode_physical_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
                     _ => todo!("Geometry stream cannot have Data physical type: {v:?}"),
@@ -141,7 +141,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         OffsetType::Index => &mut index_buffer,
                         _ => todo!("Geometry stream cannot have Offset physical type: {v:?}"),
                     };
-                    target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
+                    target.set_once(stream.decode_physical_u32()?.decode_u32()?)?;
                 }
                 PhysicalStreamType::Length(v) => {
                     let target = match v {
@@ -152,7 +152,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         _ => todo!("Geometry stream cannot have Length physical type: {v:?}"),
                     };
                     // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamDecoder<T>
-                    target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
+                    target.set_once(stream.decode_physical_u32()?.decode_u32()?)?;
                 }
             }
         }
@@ -245,7 +245,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
 
 fn decode_geometry_types(meta: Stream) -> Result<Vec<GeometryType>, MltError> {
     // TODO: simplify this, e.g. use u8 or even GeometryType directly rather than going via Vec<u32>
-    let vector_types: Vec<u32> = meta.decode_bits_u32()?.decode_u32()?;
+    let vector_types: Vec<u32> = meta.decode_physical_u32()?.decode_u32()?;
     let vector_types: Vec<GeometryType> = vector_types
         .into_iter()
         .map::<Result<GeometryType, MltError>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
