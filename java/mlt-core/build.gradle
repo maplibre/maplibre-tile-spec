@@ -70,16 +70,16 @@ spotless {
 tasks.register('compileWrapper') {
     description = 'Builds the native FSST wrapper'
     group = 'build'
-    outputs.files layout.projectDirectory.dir('../resources/build/libfsstwrapper.so')
+    outputs.files layout.projectDirectory.dir('../resources/build/FsstWrapper.so')
 
     doLast {
-        def baseDir = file(layout.projectDirectory.dir('../resources'))
+        def baseDir = file(layout.projectDirectory.dir('..'))
         exec {
             workingDir baseDir
             if (System.properties['os.name'].toLowerCase().contains('windows')) {
-                commandLine "compile-windows.bat"
+                commandLine "resources\\compile-windows.bat"
             } else {
-                commandLine './compile'
+                commandLine './resources/compile'
             }
         }
     }

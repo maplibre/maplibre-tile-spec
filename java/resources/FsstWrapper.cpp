@@ -105,7 +105,7 @@ JNIEXPORT jobject JNICALL Java_org_maplibre_mlt_converter_encodings_fsst_FsstJni
     env->SetByteArrayRegion(compressedData, 0, compressedDataLength, (jbyte*)&result.compressedData[0]);
 
     // Create the Java SymbolTable object
-    jclass symbolTableClass = env->FindClass("com/mlt/converter/encodings/fsst/SymbolTable");
+    jclass symbolTableClass = env->FindClass("org/maplibre/mlt/converter/encodings/fsst/SymbolTable");
     jmethodID symbolTableCtor = env->GetMethodID(symbolTableClass, "<init>", "([B[I[BI)V");
     jobject javaSymbolTable = env->NewObject(
         symbolTableClass, symbolTableCtor, symbolsArray, symbolLengthsArray, compressedData, length);
