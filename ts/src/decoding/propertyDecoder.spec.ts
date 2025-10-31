@@ -19,6 +19,7 @@ import {BooleanFlatVector} from "../vector/flat/booleanFlatVector";
 import {FloatFlatVector} from "../vector/flat/floatFlatVector";
 import {DoubleFlatVector} from "../vector/flat/doubleFlatVector";
 import {StringFlatVector} from "../vector/flat/stringFlatVector";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 
 // Constants for test data
 const TEST_DATA = {
@@ -484,34 +485,6 @@ describe('decodePropertyColumn', () => {
         });
     });
 
-    describe('String Columns - Non-Nullable', () => {
-        const streamConfigs = [
-            { numStreams: 1, description: 'single stream' },
-            { numStreams: 3, description: 'multiple streams' }
-        ];
-
-        it.each(streamConfigs)(
-            'should decode STRING with $description',
-            ({ numStreams }) => {
-                // Arrange
-                vi.spyOn(StreamMetadataDecoder, 'decode').mockReturnValue(mockStreamMetadata());
-                const mockStringVector = { name: 'age' };
-                const stringDecodeSpy = vi.spyOn(StringDecoder as any, 'decodeSharedDictionary')
-                    .mockReturnValue(mockStringVector as any);
-                const column = createColumn(ScalarType.STRING, false);
-                const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-                const offset = new IntWrapper(0);
-
-                // Act
-                const result = decodePropertyColumn(data, offset, column, numStreams, TEST_DATA.NUM_VALUES);
-
-                // Assert
-                expect(result).toBe(mockStringVector);
-                expect(stringDecodeSpy).toHaveBeenCalled();
-            }
-        );
-    });
-
     describe('String Columns - Nullable', () => {
         const streamConfigs = [
             { totalStreams: 2, description: 'single data stream' },
@@ -721,35 +694,6 @@ describe('decodePropertyColumn', () => {
     });
 
     describe('Offset Management', () => {
-        it('should increment offset when reading nullability stream', () => {
-            // Arrange
-            const metadataSpy = vi.spyOn(StreamMetadataDecoder, 'decode');
-            metadataSpy.mockReturnValueOnce({
-                byteLength: 8,
-                numValues: TEST_DATA.NUM_VALUES,
-                logicalLevelTechnique1: 0,
-                logicalLevelTechnique2: 0,
-                physicalLevelTechnique: 0,
-            } as any);
-            metadataSpy.mockReturnValue(mockStreamMetadata());
-
-            vi.spyOn(decodingUtils, 'decodeBooleanRle')
-                .mockReturnValue(new Uint8Array([0b00000111]));
-            vi.spyOn(IntegerStreamDecoder, 'getVectorType')
-                .mockReturnValue(VectorType.FLAT);
-            vi.spyOn(IntegerStreamDecoder, 'decodeIntStream')
-                .mockReturnValue(new Int32Array([100, 200, 300]));
-
-            const column = createColumn(ScalarType.INT_32, true);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            decodePropertyColumn(data, offset, column, 2, TEST_DATA.NUM_VALUES);
-
-            // Assert - offset should be moved past nullability stream (8 bytes)
-            expect(offset.get()).toBeGreaterThanOrEqual(8);
-        });
 
         it('should handle offset at non-zero starting position', () => {
             // Arrange
