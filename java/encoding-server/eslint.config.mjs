@@ -1,6 +1,6 @@
-import eslint from '@eslint/js';
-import nPlugin from 'eslint-plugin-n';
-import globals from 'globals';
+import eslint from "@eslint/js";
+import nPlugin from "eslint-plugin-n";
+import globals from "globals";
 
 export default [
   eslint.configs.recommended,
@@ -14,10 +14,10 @@ export default [
       },
     },
     rules: {
-      'n/prefer-node-protocol': 'error',
+      "n/prefer-node-protocol": "error",
     },
   },
   {
-    ignores: ['node_modules/**', 'cache/**'],
+    ignores: ["node_modules/**", "cache/**"],
   },
 ];
