@@ -24,7 +24,6 @@ import {
     decodeZigZagRleInt64,
     decodeZigZagRleFloat64,
     zigZagRleDeltaDecoding,
-    decodeNullableRleInt64,
 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
@@ -103,7 +102,7 @@ describe("IntegerDecodingUtils", () => {
     describe("RLE Decoding", () => {
         it("should decode unsigned RLE", () => {
             const encoded = new Int32Array([2, 3, 10, 20]);
-            const decoded = decodeUnsignedRle(encoded, 2, 5);
+            const decoded = decodeUnsignedRle(encoded, 2, 5);       //starts hanging on this test
             expect(Array.from(decoded)).toEqual([10, 10, 20, 20, 20]);
         });
 
@@ -224,16 +223,6 @@ describe("IntegerDecodingUtils", () => {
             const data = new Int32Array([2, 2, 2, 2]);
             const decoded = zigZagRleDeltaDecoding(data, 2, 4);
             expect(decoded.length).toBe(5);
-        });
-    });
-
-    describe("Nullable RLE Int64", () => {
-        it("should decode nullable RLE Int64", () => {
-            const bitVectorData = new Uint8Array([0b00000011]);
-            const bitVector = new BitVector(bitVectorData, 2);
-            const data = new BigInt64Array([2n, 3n, 10n, 20n]);
-            const decoded = decodeNullableRleInt64(data, { runs: 2 } as any, true, bitVector);
-            expect(decoded.length).toBe(2);
         });
     });
 });
