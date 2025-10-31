@@ -8,7 +8,7 @@ import net from "node:net";
 import config from "./config.mjs";
 
 function convertRequest(convertResponse) {
-  return (req, res, next) => {
+  return (req, res) => {
     if (config.verbose) {
       console.log(req.originalUrl);
     }
@@ -76,7 +76,7 @@ function convertStyleResponse(req, data, res) {
 
     if (json.sources) {
       for (let key in json.sources) {
-        if (!json.sources.hasOwnProperty(key)) {
+        if (!Object.hasOwn(json.sources, key)) {
           continue;
         }
 
@@ -93,8 +93,8 @@ function convertStyleResponse(req, data, res) {
         }
 
         if (source.tiles) {
-          source.tiles.forEach((tile) => {
-            tile = convertURL(tile, "tile", req);
+          source.tiles = source.tiles.map((tile) => {
+            return convertURL(tile, "tile", req);
           });
         }
       }
@@ -117,7 +117,7 @@ function convertSourceResponse(req, data, res) {
 
     if (json.tiles) {
       for (let key in json.tiles) {
-        if (!json.tiles.hasOwnProperty(key)) {
+        if (!Object.hasOwn(json.tiles, key)) {
           continue;
         }
 
@@ -183,7 +183,7 @@ function convertTileResponse(filePath, res) {
       return;
     }
 
-    res.on("finish", (error) => {
+    res.on("finish", () => {
       if (!config.keep_files) {
         unlink(mltPath, (fileErr) => {
           if (fileErr && config.verbose) {
@@ -212,7 +212,7 @@ function convertTileCLI(args, callback) {
 
 function convertTileCLIServer(args, callback) {
   const command = `${args}\n`;
-  const response = "";
+  let response = "";
   const socket = new net.Socket();
 
   socket.connect(config.encoderPort, "localhost", () => {
@@ -232,7 +232,7 @@ function convertTileCLIServer(args, callback) {
   });
 }
 
-function convertTileRequest(req, res, next) {
+function convertTileRequest(req, res) {
   if (config.verbose) {
     console.log(req.originalUrl);
   }
