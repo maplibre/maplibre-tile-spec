@@ -4,7 +4,8 @@
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs",
-    "format": "prettier -w ."
+    "format": "prettier -w .",
+    "lint": "eslint ."
   },
   "author": "",
   "license": "ISC",
@@ -13,5 +14,11 @@
     "express": "^5.1.0",
     "https": "^1.0.0",
     "prettier": "^3.6.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "eslint-plugin-n": "^17.23.1",
+    "globals": "^16.4.0"
   }
 }

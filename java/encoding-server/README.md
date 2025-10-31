@@ -1,7 +1,10 @@
 # MVT to MLT Development Server
+
 This Node.js-based application serves as a **development and testing server** for converting **MVT** to **MLT** in realtime.
 The server acts as a proxy for style, source, and tile endpoints, enabling seamless on-demand transformation of vector tile data.
+
 > Most of the arguments supported by the java encoder are also available as Node.js arguments or through `config.json` file.
+
 ---
 
 ## Prerequisites

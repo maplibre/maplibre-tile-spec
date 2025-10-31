@@ -1,9 +1,9 @@
-import { get } from "https";
-import { unlink, existsSync, mkdirSync, createWriteStream } from "fs";
-import { join } from "path";
-import { randomUUID } from "crypto";
-import { exec, execSync, spawn } from "child_process";
-import net from "net";
+import { get } from "node:https";
+import { unlink, existsSync, mkdirSync, createWriteStream } from "node:fs";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { exec, execSync, spawn } from "node:child_process";
+import net from "node:net";
 
 import config from "./config.mjs";
 
