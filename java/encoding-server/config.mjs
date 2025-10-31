@@ -1,4 +1,4 @@
-import yargs from 'yargs';
+import { parseArgs } from 'node:util';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -6,59 +6,29 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const configFile = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json')));
 
-const config = yargs(process.argv.slice(2))
-  .option('host', {
-    type: 'string',
-    default: (configFile && configFile.host) ? configFile.host : '0.0.0.0'
-  })
-  .option('port', {
-    type: 'number',
-    default: (configFile && configFile.port) ? configFile.port : 80
-  })
-  .option('verbose', {
-    type: 'boolean',
-    default: (configFile && configFile.verbose) ? configFile.verbose : true
-  })
-  .option('keep_files', {
-    type: 'boolean',
-    default: (configFile && configFile.keep_files) ? configFile.keep_files : false
-  })
-  .option('noencodingserver', {
-    type: 'boolean',
-    default: (configFile && configFile.noencodingserver) ? configFile.noencodingserver : false
-  })
+const { values: args } = parseArgs({
+  options: {
+    host: { type: 'string', default: '0.0.0.0' },
+    port: { type: 'string', default: '80' },
+    verbose: { type: 'boolean', default: true },
+    keep_files: { type: 'boolean', default: false },
+    noencodingserver: { type: 'boolean', default: false },
+    input: { type: 'string', default: 'mvt' },
+    noids: { type: 'boolean', default: false },
+    advanced: { type: 'boolean', default: false },
+    nomorton: { type: 'boolean', default: false },
+    outlines: { type: 'string', default: '' },
+    timer: { type: 'boolean', default: false },
+    compare: { type: 'boolean', default: false }
+  },
+  args: process.argv.slice(2)
+});
 
-  // encoding params
-  .option('input', {
-    type: 'string',
-    choices: [ 'mvt', 'pmtiles' ],
-    default: (configFile && configFile.input) ? configFile.input : 'mvt'
-  })
-  .option('noids', {
-    type: 'boolean',
-    default: (configFile && configFile.noids) ? configFile.noids : false
-  })
-  .option('advanced', {
-    type: 'boolean',
-    default: (configFile && configFile.advanced) ? configFile.advanced : false
-  })
-  .option('nomorton', {
-    type: 'boolean',
-    default: (configFile && configFile.nomorton) ? configFile.nomorton : false
-  })
-  .option('outlines', {
-    type: 'string',
-    default: (configFile && configFile.outlines) ? configFile.outlines : ''
-  })
-  .option('timer', {
-    type: 'boolean',
-    default: (configFile && configFile.timer) ? configFile.timer : false
-  })
-  .option('compare', {
-    type: 'boolean',
-    default: (configFile && configFile.compare) ? configFile.compare : false
-  })
-  .argv;
+const config = {
+  ...args,
+  ...configFile,
+  port: Number(configFile.port ?? args.port ?? 80)
+};
 
 
 config.cachePath = path.join(__dirname, 'cache');
