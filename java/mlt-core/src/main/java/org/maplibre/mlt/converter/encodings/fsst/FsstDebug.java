@@ -23,18 +23,18 @@ class FsstDebug implements Fsst {
 
   @Override
   public SymbolTable encode(byte[] data) {
-    new LongSummaryStatistics();
-
-    long a = System.currentTimeMillis();
-    var fromJni = jni.encode(data);
-    long b = System.currentTimeMillis();
-    var fromJava = java.encode(data);
-    long c = System.currentTimeMillis();
-    jniTime.addAndGet(b - a);
-    javaTime.addAndGet(c - b);
-    jniSize.addAndGet(fromJni.weight());
-    javaSize.addAndGet(fromJava.weight());
-    (fromJava.weight() <= fromJni.weight() ? javaSmaller : jniSmaller).incrementAndGet();
+    final long a = System.currentTimeMillis();
+    final var fromJni = FsstJni.isLoaded() ? jni.encode(data) : null;
+    final long b = System.currentTimeMillis();
+    final var fromJava = java.encode(data);
+    final long c = System.currentTimeMillis();
+    if (fromJni != null) {
+      jniTime.addAndGet(b - a);
+      javaTime.addAndGet(c - b);
+      jniSize.addAndGet(fromJni.weight());
+      javaSize.addAndGet(fromJava.weight());
+      (fromJava.weight() <= fromJni.weight() ? javaSmaller : jniSmaller).incrementAndGet();
+    }
     return fromJava;
   }
 
