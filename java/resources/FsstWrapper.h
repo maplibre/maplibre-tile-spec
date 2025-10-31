@@ -13,10 +13,9 @@ extern "C" {
  * Signature: ([B)LSymbolTable;
  */
 
-extern "C"
-JNIEXPORT jobject JNICALL
+extern "C" JNIEXPORT jobject JNICALL
 Java_org_maplibre_mlt_converter_encodings_fsst_FsstJni_compress(JNIEnv*, jclass,
-                                                       jbyteArray);
+                                                                jbyteArray);
 
 #ifdef __cplusplus
 }
