@@ -97,7 +97,7 @@ gradle.projectsEvaluated {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
-    dependsOn(tasks.named('compileWrapper'))
+    //dependsOn(tasks.named('compileWrapper'))
 }
 
 tasks.register('validateSemver') {
