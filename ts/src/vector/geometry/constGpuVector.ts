@@ -1,7 +1,4 @@
-import { type SelectionVector } from "../filter/selectionVector";
-import { FlatSelectionVector } from "../filter/flatSelectionVector";
 import { GpuVector } from "./gpuVector";
-import { type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
 import type TopologyVector from "./topologyVector";
 
 //TODO: extend from GeometryVector -> make topology vector optional
@@ -63,27 +60,6 @@ export class ConstGpuVector extends GpuVector {
 
     get numGeometries(): number {
         return this._numGeometries;
-    }
-
-    //TODO: refactor -> quick and dirty -> let a multi part geometry be equal to a single part geometry
-    //to produce the same results as with MVT and the existing styles
-    filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector {
-        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
-            return new FlatSelectionVector([]);
-        }
-
-        //TODO: use ConstSelectionVector
-        const selectionVector = new Array(this.numGeometries);
-        for (let i = 0; i < this.numGeometries; i++) {
-            selectionVector[i] = i;
-        }
-        return new FlatSelectionVector(selectionVector);
-    }
-
-    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector) {
-        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
-            selectionVector.setLimit(0);
-        }
     }
 
     containsSingleGeometryType(): boolean {
