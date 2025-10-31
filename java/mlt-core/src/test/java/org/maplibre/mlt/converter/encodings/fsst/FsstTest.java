@@ -8,8 +8,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -25,25 +26,21 @@ class FsstTest {
   }
 
   @Test
-  @Disabled
   void decode_simpleString_ValidEncodedAndDecoded() {
     test("AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC");
   }
 
   @Test
-  @Disabled
   void decodeLongRepeated() {
     test("AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC".repeat(100));
   }
 
   @Test
-  @Disabled
   void empty() {
     test("");
   }
 
   @Test
-  @Disabled
   void repeatedStrings() {
     for (int i = 1; i < 1000; i++) {
       test("a".repeat(i));
@@ -51,7 +48,6 @@ class FsstTest {
   }
 
   @Test
-  @Disabled
   void allBytes() {
     byte[] toEncode = new byte[1000];
     for (int i = 0; i < toEncode.length; i++) {
@@ -61,7 +57,7 @@ class FsstTest {
   }
 
   static List<Path> tiles() throws IOException {
-    try (var stream = Files.walk(Path.of("..", "test"))) {
+    try (var stream = Files.walk(Path.of("../..", "test"))) {
       return stream
           .filter(file -> Files.isRegularFile(file) && file.toString().endsWith(".mvt"))
           .toList();
@@ -70,7 +66,6 @@ class FsstTest {
 
   @ParameterizedTest
   @MethodSource("tiles")
-  @Disabled
   void fsstEncodeTile(Path path) throws IOException {
     // stress-test FSST encoding by using it to encode raw tiles
     // ideally this would encode just the dictionaries, but it's close enough for now
@@ -108,29 +103,34 @@ class FsstTest {
 
   @SuppressWarnings("deprecation")
   private static void test(byte[] input) {
-    var encodedJava = JAVA.encode(input);
-    var encodedJni = JNI.encode(input);
-    int maxAllowed = Math.max((int) (encodedJni.weight() * 1.02), encodedJni.weight() + 2);
-    assertTrue(
-        encodedJava.weight() <= maxAllowed,
-        () ->
-            """
-            Input: byte[%d]
-            Encoded java >5%% larger than JNI
-            Java: %s
-            JNI: %s
-            """
-                .formatted(input.length, encodedJava, encodedJni));
-    assertSymbolSortOrder(encodedJni);
+    final var encodedJava = JAVA.encode(input);
+    final var encodedJni = FsstJni.isLoaded() ? JNI.encode(input) : null;
     assertSymbolSortOrder(encodedJava);
     assertArrayEquals(input, JAVA.decode(encodedJava));
-    assertArrayEquals(input, JAVA.decode(encodedJni));
-    assertArrayEquals(input, JNI.decode(encodedJava));
-    assertArrayEquals(input, JNI.decode(encodedJni));
-    assertArrayEquals(
-        input,
-        JNI.decode(
-            encodedJava.symbols(), encodedJava.symbolLengths(), encodedJava.compressedData()));
+
+    if (encodedJni != null) {
+      assertArrayEquals(input, JAVA.decode(encodedJni));
+
+      final int maxAllowed = Math.max((int) (encodedJni.weight() * 1.02), encodedJni.weight() + 2);
+      assertTrue(
+              encodedJava.weight() <= maxAllowed,
+              () ->
+                      """
+                      Input: byte[%d]
+                      Encoded java >5%% larger than JNI
+                      Java: %s
+                      JNI: %s
+                      """
+                              .formatted(input.length, encodedJava, encodedJni));
+
+      assertSymbolSortOrder(encodedJni);
+      assertArrayEquals(input, JNI.decode(encodedJava));
+      assertArrayEquals(input, JNI.decode(encodedJni));
+      assertArrayEquals(
+              input,
+              JNI.decode(
+                      encodedJava.symbols(), encodedJava.symbolLengths(), encodedJava.compressedData()));
+    }
     DEBUG.encode(input);
   }
 }

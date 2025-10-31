@@ -6,10 +6,11 @@ IF EXIST build\Release\FsstWrapper.so (
     echo "  Remove ./build to reconfigure & compiled"
 ) ELSE (
     echo "FsstWrapper.so does not exist, building now"
-    mkdir build
-    cd build
-    cmake ../Resources
-    cmake --build . --config Release
+    mkdir resources\build
+    cd resources\build
+    cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release
+    cmake --build .
+    copy FsstWrapper.so ..\..\build\FsstWrapper.so
 )
 IF %ERRORLEVEL% EQU 0 (
     echo "Compilation successful"

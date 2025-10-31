@@ -67,18 +67,23 @@ spotless {
      }
 }
 
-tasks.register('compileWrapper', Exec) {
-    workingDir = project.projectDir
-    doFirst {
-        if (System.properties['os.name'].toLowerCase().contains('windows')) {
-            executable "../resources/compile-windows.bat"
-        } else {
-            executable "./compile-wrapper.sh"
+tasks.register('compileWrapper') {
+    description = 'Builds the native FSST wrapper'
+    group = 'build'
+    outputs.files layout.projectDirectory.dir('../resources/build/libfsstwrapper.so')
+
+    doLast {
+        def baseDir = file(layout.projectDirectory.dir('../resources'))
+        exec {
+            workingDir baseDir
+            if (System.properties['os.name'].toLowerCase().contains('windows')) {
+                commandLine "compile-windows.bat"
+            } else {
+                commandLine './compile'
+            }
         }
     }
 }
-
-// compileJava.dependsOn compileWrapper // Disabled due to CMake compatibility issues
 
 gradle.projectsEvaluated {
     tasks.withType(JavaCompile).tap {
@@ -92,6 +97,7 @@ gradle.projectsEvaluated {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    dependsOn(tasks.named('compileWrapper'))
 }
 
 tasks.register('validateSemver') {
