@@ -10,7 +10,6 @@ on:
       - 'java/**'
       - 'test/**'
   workflow_dispatch:
-  workflow_dispatch:
 
 defaults:
   run:
