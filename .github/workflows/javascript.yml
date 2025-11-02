@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: taiki-e/install-action@v2
-        with: 
+        with:
           tool: just
       - uses: ./.github/actions/mlt-setup-node
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: taiki-e/install-action@v2
-        with: 
+        with:
           tool: just
       - uses: ./.github/actions/mlt-setup-node
       - name: Bench JS decoder
