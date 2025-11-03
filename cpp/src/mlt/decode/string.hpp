@@ -142,9 +142,10 @@ private:
             dictionaryOffset += length;
         }
 
+        std::size_t offsetIndex = 0;
         for (std::uint32_t i = 0; i < numValues; ++i) {
             if (presentStream.empty() || testBit(presentStream, i)) {
-                out.push_back(dictionary[offsets[i]]);
+                out.push_back(dictionary[offsets[offsetIndex++]]);
             } else {
                 // TODO: Differentiate between null and empty strings?
                 out.emplace_back();
