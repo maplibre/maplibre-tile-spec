@@ -5,10 +5,11 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector>
 #include <variant>
+#include <vector>
 
 namespace mlt {
 
