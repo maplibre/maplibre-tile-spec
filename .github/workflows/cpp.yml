@@ -11,6 +11,20 @@ on:
       - 'test/**'
 
 jobs:
+  setup-linux:
+    name: Setup Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install just
+        run: sudo apt-get update && sudo apt-get install -y just
+
+  setup-macos:
+    name: Setup MacOS
+    runs-on: macos-15
+    steps:
+      - name: Install just
+        run: brew install -y just
+
   build:
     strategy:
       matrix:
