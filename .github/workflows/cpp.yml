@@ -36,18 +36,20 @@ jobs:
         if: contains(matrix.os, 'macos')
         run: brew install just
 
-      - name: Setup
-        if: contains(matrix.os, 'ubuntu')
-        run: sudo apt-get update && sudo apt-get install -y just
+      # This seems to install an old version that doesn't work
+      #- name: Setup
+      #  if: contains(matrix.os, 'ubuntu')
+      #  run: sudo apt-get update && sudo apt-get install -y just
+
+      - name: Generate test data
+        if: contains(matrix.os, 'macos')
+        run: just generate-expected-mlt colmap
 
       - name: Configure with CMake
         run: cmake -B build -S .
 
       - name: Build the project
         run: cmake --build build --target mlt-cpp-test mlt-cpp-json
-
-      - name: Generate test data
-        run: just generate-expected-mlt colmap
 
       - name: Run C++ tests
         run: build/test/mlt-cpp-test
