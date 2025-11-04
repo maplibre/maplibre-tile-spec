@@ -36,6 +36,9 @@ jobs:
       - name: Build the project
         run: cmake --build build --target mlt-cpp-test mlt-cpp-json
 
+      - name: Generate test data
+        run: just generate-expected-mlt colmap
+
       - name: Run C++ tests
         run: build/test/mlt-cpp-test
 

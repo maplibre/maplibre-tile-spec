@@ -156,21 +156,31 @@ mkdocs-build:
 
 # Build Java encoder and generate .mlt files for all .pbf files in test/fixtures
 [working-directory: 'java']
-generate-expected-mlt:  (cargo-install 'fd' 'fd-find')
+generate-expected-mlt opts='' :  (cargo-install 'fd' 'fd-find')
     ./gradlew cli
-    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{just_executable()}} generate-one-expected-mlt
+    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{just_executable()}} generate-one-expected-mlt {} {{opts}}
 
 # Generate a single .mlt file for a given .mvt or .pbf file, assuming JAR is built
 [working-directory: 'java']
 [private]
-generate-one-expected-mlt file:
-    java \
+generate-one-expected-mlt file opts='' :
+    #!/usr/bin/env bash
+    if [[ "{{opts}}" =~ "colmap" ]]; then
+        colmap_name="--colmap-delim"
+        colmap_value="[.*]name/[:_]/'"
+    else
+        colmap_name=
+        colmap_value=
+    fi
+
+    echo java \
         -Dcom.google.protobuf.use_unsafe_pre22_gencode \
         -jar mlt-cli/build/libs/encode.jar \
         --mvt {{quote(file)}} \
         --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
         --outlines ALL \
         --tessellate \
+        $colmap_name $colmap_value \
         --coerce-mismatch \
         --verbose
 
