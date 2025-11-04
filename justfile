@@ -167,7 +167,7 @@ generate-one-expected-mlt file opts='' :
     #!/usr/bin/env bash
     if [[ "{{opts}}" =~ "colmap" ]]; then
         colmap_name="--colmap-delim"
-        colmap_value="[.*]name/[:_]/'"
+        colmap_value="[.*]name/[:_]/"
     else
         colmap_name=
         colmap_value=
@@ -180,7 +180,7 @@ generate-one-expected-mlt file opts='' :
         --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
         --outlines ALL \
         --tessellate \
-        $colmap_name $colmap_value \
+        $colmap_name "$colmap_value" \
         --coerce-mismatch \
         --verbose
 
