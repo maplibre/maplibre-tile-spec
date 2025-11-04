@@ -137,31 +137,32 @@ protected:
             case ScalarType::INT_8:
             case ScalarType::UINT_8:
                 throw std::runtime_error("8-bit integer type not implemented");
-            case ScalarType::INT_32: {
-                std::vector<std::uint32_t> intBuffer;
-                intBuffer.reserve(streamMetadata->getNumValues());
-                intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/true>(
-                    tileData, intBuffer, *streamMetadata);
-
-                PropertyVec result{std::move(intBuffer)};
-                checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
-            }
+            case ScalarType::INT_32:
             case ScalarType::UINT_32: {
-                std::vector<std::uint32_t> intBuffer;
-                intBuffer.reserve(streamMetadata->getNumValues());
-                intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t, /*isSigned=*/false>(
-                    tileData, intBuffer, *streamMetadata);
+                const bool isSigned = (scalarType == ScalarType::INT_32);
+                PropertyVec result;
+                if (isSigned) {
+                    std::vector<std::int32_t> intBuffer;
+                    intBuffer.reserve(streamMetadata->getNumValues());
+                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
+                        tileData, intBuffer, *streamMetadata, isSigned);
+                    result = {std::move(intBuffer)};
+                } else {
+                    std::vector<std::uint32_t> uintBuffer;
+                    uintBuffer.reserve(streamMetadata->getNumValues());
+                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::uint32_t>(
+                        tileData, uintBuffer, *streamMetadata, isSigned);
+                    result = {std::move(uintBuffer)};
+                }
 
-                PropertyVec result{std::move(intBuffer)};
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::INT_64: {
                 std::vector<std::uint64_t> longBuffer;
                 longBuffer.reserve(streamMetadata->getNumValues());
-                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/true>(
-                    tileData, longBuffer, *streamMetadata);
+                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t>(
+                    tileData, longBuffer, *streamMetadata, /*isSigned=*/true);
 
                 PropertyVec result{std::move(longBuffer)};
                 checkBits(presentStream, result);
@@ -170,8 +171,8 @@ protected:
             case ScalarType::UINT_64: {
                 std::vector<std::uint64_t> longBuffer;
                 longBuffer.reserve(streamMetadata->getNumValues());
-                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t, /*isSigned=*/false>(
-                    tileData, longBuffer, *streamMetadata);
+                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t>(
+                    tileData, longBuffer, *streamMetadata, /*isSigned=*/false);
 
                 PropertyVec result{std::move(longBuffer)};
                 checkBits(presentStream, result);

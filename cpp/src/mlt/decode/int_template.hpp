@@ -44,14 +44,15 @@ inline std::size_t IntegerDecoder::getIntArrayBufferSize(const std::size_t count
     }
 }
 
-template <typename T, typename TTarget, bool isSigned>
+template <typename T, typename TTarget>
     requires((std::is_integral_v<T> || std::is_enum_v<T>) && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) &&
              sizeof(T) <= sizeof(TTarget))
 void IntegerDecoder::decodeIntArray(const T* values,
                                     const std::size_t count,
                                     TTarget* out,
                                     const std::size_t outCount,
-                                    const StreamMetadata& streamMetadata) {
+                                    const StreamMetadata& streamMetadata,
+                                    const bool isSigned) {
     using namespace metadata::stream;
     using namespace util::decoding;
     switch (streamMetadata.getLogicalLevelTechnique1()) {
@@ -89,12 +90,12 @@ void IntegerDecoder::decodeIntArray(const T* values,
             }
             const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
             assert(rleMetadata.getNumRleValues() <= outCount);
-            rle::decodeInt<T, TTarget>(values, count, out, outCount, rleMetadata.getRuns(), [](T x) {
-                if constexpr (isSigned)
+            auto decoder = isSigned ? [](T x) {
                     return static_cast<TTarget>(decodeZigZag(x));
-                else
+            } : [](T x) {
                     return static_cast<TTarget>(x);
-            });
+            };
+            rle::decodeInt<T, TTarget>(values, count, out, outCount, rleMetadata.getRuns(), std::move(decoder));
             break;
         }
         case LogicalLevelTechnique::MORTON: {
@@ -120,46 +121,42 @@ void IntegerDecoder::decodeIntArray(const T* values,
     }
 }
 
-template <typename TDecode, typename TInt, typename TTarget, bool isSigned>
+template <typename TDecode, typename TInt, typename TTarget>
 void IntegerDecoder::decodeIntStream(BufferStream& tileData,
                                      std::vector<TTarget>& out,
-                                     const StreamMetadata& metadata) {
+                                     const StreamMetadata& metadata,
+                                     const bool isSigned) {
     auto* tempBuffer = getTempBuffer<TInt>(metadata.getNumValues());
-    decodeIntStream<TDecode, TInt, TTarget, isSigned>(tileData, tempBuffer, metadata.getNumValues(), out, metadata);
+    decodeIntStream<TDecode, TInt, TTarget>(tileData, tempBuffer, metadata.getNumValues(), out, metadata, isSigned);
 }
 
-template <typename TDecode, typename TInt, typename TTarget, bool isSigned>
+template <typename TDecode, typename TInt, typename TTarget>
 void IntegerDecoder::decodeIntStream(BufferStream& tileData,
                                      TInt* buffer,
                                      std::size_t bufferSize,
                                      std::vector<TTarget>& out,
-                                     const StreamMetadata& metadata) {
-    decodeStream<TDecode, TInt, isSigned>(tileData, buffer, bufferSize, metadata);
+                                     const StreamMetadata& metadata,
+                                     const bool isSigned) {
+    decodeStream<TDecode, TInt>(tileData, buffer, bufferSize, metadata);
     out.resize(getIntArrayBufferSize(bufferSize, metadata));
-    decodeIntArray<TInt, TTarget, isSigned>(buffer, bufferSize, out.data(), out.size(), metadata);
+    decodeIntArray<TInt, TTarget>(buffer, bufferSize, out.data(), out.size(), metadata, isSigned);
 }
 
-template <typename TDecode, typename TInt, typename TTarget, bool isSigned>
-TTarget IntegerDecoder::decodeConstIntStream(BufferStream& tileData, const StreamMetadata& metadata) {
+template <typename TDecode, typename TInt, typename TTarget>
+TTarget IntegerDecoder::decodeConstIntStream(BufferStream& tileData,
+                                             const StreamMetadata& metadata,
+                                             const bool isSigned) {
     TInt buffer[2] = {0};
-    decodeStream<TDecode, TInt, isSigned>(tileData, &buffer[0], countof(buffer), metadata);
+    decodeStream<TDecode, TInt>(tileData, &buffer[0], countof(buffer), metadata, isSigned);
 
     if (metadata.getNumValues() < 1 || metadata.getNumValues() > 2) {
         throw std::runtime_error("unexpected number of values in constant stream");
     }
 
     if (metadata.getNumValues() == 1) {
-        if constexpr (isSigned) {
-            return decodeZigZagValue(buffer[0]);
-        } else {
-            return buffer[0];
-        }
+        return isSigned ? decodeZigZagValue(buffer[0]) : buffer[0];
     }
-    if constexpr (isSigned) {
-        return decodeZigZagValue(buffer[1]);
-    } else {
-        return buffer[1];
-    }
+    return isSigned ? decodeZigZagValuedecodeZigZagValue(buffer[1]) : buffer[1];
 }
 
 template <typename TDecode, typename TInt, typename TTarget, bool Delta>
@@ -189,7 +186,7 @@ void IntegerDecoder::decodeMortonStream(BufferStream& tileData,
 
 #pragma region Private
 
-template <typename TDecode, typename TTarget, bool isSigned>
+template <typename TDecode, typename TTarget>
     requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>))
 void IntegerDecoder::decodeStream(BufferStream& tileData,
                                   TTarget* out,
