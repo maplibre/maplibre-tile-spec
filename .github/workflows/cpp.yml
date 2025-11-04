@@ -11,20 +11,6 @@ on:
       - 'test/**'
 
 jobs:
-  setup-linux:
-    name: Setup Linux
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install just
-        run: sudo apt-get update && sudo apt-get install -y just
-
-  setup-macos:
-    name: Setup MacOS
-    runs-on: macos-15
-    steps:
-      - name: Install just
-        run: brew install -y just
-
   build:
     strategy:
       matrix:
@@ -45,6 +31,14 @@ jobs:
           sparse-checkout: |
             /*
             !cpp/vendor/fsst/paper/*
+
+      - name: Setup
+        if: matrix.os == 'macos-15'
+        run: brew install just
+
+      - name: Setup
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y just
 
       - name: Configure with CMake
         run: cmake -B build -S .
