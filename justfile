@@ -173,7 +173,7 @@ generate-one-expected-mlt file opts='' :
         colmap_value=
     fi
 
-    echo java \
+    java \
         -Dcom.google.protobuf.use_unsafe_pre22_gencode \
         -jar mlt-cli/build/libs/encode.jar \
         --mvt {{quote(file)}} \
