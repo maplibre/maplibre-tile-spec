@@ -3,10 +3,12 @@
 #include <mlt/common.hpp>
 #include <mlt/decode/int.hpp>
 #include <mlt/metadata/stream.hpp>
+#include <mlt/metadata/tileset.hpp>
 #include <mlt/properties.hpp>
-#include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/raw.hpp>
+#include <mlt/util/varint.hpp>
 
 #include <string>
 #include <stdexcept>
@@ -45,7 +47,6 @@ public:
                 default:
                     throw std::runtime_error("Unsupported stream type");
                 case PhysicalStreamType::PRESENT:
-                    throw std::runtime_error("Present stream not supported for string columns");
                     presentValueCount = streamMetadata->getNumValues();
                     rle::decodeBoolean(tileData, presentStream, *streamMetadata, /*consume=*/true);
                     if ((*presentValueCount + 7) / 8 != presentStream.size()) {
@@ -91,6 +92,97 @@ public:
         }
     }
 
+    /// Multiple string columns sharing a dictionary
+    PropertyVecMap decodeSharedDictionary(BufferStream& tileData,
+                                          const metadata::tileset::Column& column,
+                                          std::uint32_t numStreams) {
+        using namespace metadata::stream;
+        using namespace metadata::tileset::schema;
+        using namespace util::decoding;
+
+        if (!column.hasComplexType() || !column.getComplexType().hasChildren() || numStreams < 3) {
+            throw std::runtime_error("Expected struct column for shared dictionary decoding");
+        }
+
+        std::vector<std::uint32_t> dictionaryLengthStream;
+        const auto dictionaryStream = std::make_shared<std::vector<std::uint8_t>>();
+        std::vector<std::uint32_t> symbolLengthStream;
+        std::vector<std::uint8_t> symbolTableStream;
+        PropertyVecMap results;
+
+        bool dictionaryStreamDecoded = false;
+        while (!dictionaryStreamDecoded && numStreams--) {
+            const auto streamMetadata = metadata::stream::StreamMetadata::decode(tileData);
+            switch (streamMetadata->getPhysicalStreamType()) {
+                case metadata::stream::PhysicalStreamType::LENGTH: {
+                    const bool isDict = streamMetadata->getLogicalStreamType()->getLengthType() ==
+                                        LengthType::DICTIONARY;
+                    auto& target = isDict ? dictionaryLengthStream : symbolLengthStream;
+                    intDecoder.decodeIntStream<std::uint32_t>(tileData, target, *streamMetadata);
+                    break;
+                }
+                case metadata::stream::PhysicalStreamType::DATA: {
+                    const bool isShared = streamMetadata->getLogicalStreamType()->getDictionaryType() ==
+                                          DictionaryType::SHARED;
+                    auto& targetStream = isShared ? *dictionaryStream : symbolTableStream;
+                    decodeRaw(tileData, targetStream, streamMetadata->getByteLength(), /*consume=*/true);
+                    dictionaryStreamDecoded = isShared;
+                    break;
+                }
+                default:
+                    throw std::runtime_error("Unsupported stream type");
+            }
+        }
+
+        std::vector<std::string_view> dictionaryViews;
+        if (!symbolLengthStream.empty() && !symbolTableStream.empty() && !dictionaryLengthStream.empty()) {
+            throw std::runtime_error("FSST decoding not implemented");
+        } else if (!dictionaryLengthStream.empty() && !dictionaryStream->empty()) {
+            decodeDictionary(dictionaryLengthStream, *dictionaryStream, dictionaryViews);
+        } else {
+            throw std::runtime_error("Expected streams missing in shared dictionary decoding");
+        }
+
+        for (const auto& child : column.getComplexType().children) {
+            const auto childStreams = decodeVarint<std::uint32_t>(tileData);
+            // TODO: We don't really need this stream count until the present stream is optional.
+            // We could infer it from the nullable bit in the column, but only if that applies to all children.
+            if (childStreams != 2 || !child.hasScalarType() ||
+                child.getScalarType().getPhysicalType() != ScalarType::STRING) {
+                throw std::runtime_error("Currently only optional string fields are implemented for a struct");
+            }
+
+            const auto presentStreamMetadata = metadata::stream::StreamMetadata::decode(tileData);
+            const auto presentValueCount = presentStreamMetadata->getNumValues();
+            PackedBitset presentStream;
+            rle::decodeBoolean(tileData, presentStream, *presentStreamMetadata, /*consume=*/true);
+            if ((presentValueCount + 7) / 8 != presentStream.size()) {
+                throw std::runtime_error("invalid present stream");
+            }
+
+            const auto dataStreamMetadata = metadata::stream::StreamMetadata::decode(tileData);
+            std::vector<std::uint32_t> dataReferenceStream;
+            intDecoder.decodeIntStream<std::uint32_t>(tileData, dataReferenceStream, *dataStreamMetadata);
+
+            std::vector<std::string_view> propertyValues;
+            propertyValues.reserve(dataStreamMetadata->getNumValues());
+
+            std::uint32_t counter = 0;
+            for (std::uint32_t i = 0; i < presentValueCount; ++i) {
+                if (testBit(presentStream, i)) {
+                    propertyValues.push_back(dictionaryViews[dataReferenceStream[counter++]]);
+                }
+            }
+
+            results.emplace(column.name + child.name,
+                            PresentProperties{child.getScalarType().getPhysicalType(),
+                                              StringDictViews(dictionaryStream, propertyValues),
+                                              std::move(presentStream)});
+        }
+
+        return results;
+    }
+
 private:
     IntegerDecoder& intDecoder;
 
@@ -122,6 +214,18 @@ private:
                 // TODO: Differentiate between null and empty strings?
                 out.emplace_back();
             }
+        }
+    }
+
+    static void decodeDictionary(const std::vector<std::uint32_t>& lengthStream,
+                                 const std::vector<std::uint8_t>& utf8bytes,
+                                 std::vector<std::string_view>& out) {
+        const auto* const utf8Ptr = reinterpret_cast<const char*>(utf8bytes.data());
+
+        std::size_t offset = 0;
+        for (auto length : lengthStream) {
+            out.emplace_back(utf8Ptr + offset, length);
+            offset += length;
         }
     }
 
