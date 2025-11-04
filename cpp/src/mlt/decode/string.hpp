@@ -165,7 +165,7 @@ public:
             intDecoder.decodeIntStream<std::uint32_t>(tileData, dataReferenceStream, *dataStreamMetadata);
 
             std::vector<std::string_view> propertyValues;
-            propertyValues.reserve(dataStreamMetadata->getNumValues());
+            propertyValues.reserve(presentValueCount);
 
             std::uint32_t counter = 0;
             for (std::uint32_t i = 0; i < presentValueCount; ++i) {
