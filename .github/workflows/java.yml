@@ -1,0 +1,37 @@
+name: Java CI
+
+on:
+  push:
+    paths:
+      - 'java/**'
+      - 'test/**'
+  pull_request:
+    paths:
+      - 'java/**'
+      - 'test/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test-java:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - uses: ./.github/actions/mlt-setup-java
+      - run: just -v env-info-java
+      - if: matrix.os == 'ubuntu-latest'
+        name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
+        run: just -v lint-java
+      - run: just -v test-java
+      - run: just -v test-java-cli
+      - name: Test Maven local publishing
+        run: cd java && ./gradlew publishMavenPublicationToMavenLocal

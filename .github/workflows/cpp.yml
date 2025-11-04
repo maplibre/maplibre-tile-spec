@@ -4,9 +4,11 @@ on:
   push:
     paths:
       - 'cpp/**'
+      - 'test/**'
   pull_request:
     paths:
       - 'cpp/**'
+      - 'test/**'
 
 jobs:
   build:
