@@ -110,6 +110,11 @@ public class Encode {
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
     final var columnMappings = getColumnMappings(cmd);
 
+    int maxzoom = Integer.MAX_VALUE;
+    if (cmd.hasOption("maxzoom")) {
+        maxzoom = Integer.parseInt(cmd.getOptionValue("maxzoom"));
+    }
+
     if (verbose > 0 && !columnMappings.isEmpty()) {
       System.err.println("Using Column Mappings:");
       columnMappings.forEach(
@@ -172,7 +177,8 @@ public class Encode {
           tessellateURI,
           compressionType,
           enableElideOnTypeMismatch,
-          verbose);
+          verbose,
+          maxzoom);
     } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
       var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
       var ext = FilenameUtils.getExtension(inputPath);
@@ -453,7 +459,8 @@ public class Encode {
       @Nullable URI tessellateSource,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
-      int verboseLevel) {
+      int verboseLevel,
+      int maxzoom) {
     MBTilesReader mbTilesReader = null;
     try {
       mbTilesReader = new MBTilesReader(new File(inputMBTilesPath));
@@ -488,6 +495,12 @@ public class Encode {
         try {
           while (tiles.hasNext()) {
             final var tile = tiles.next();
+            if (tile.getZoom() > maxzoom) {
+                if (verboseLevel > 0) {
+                    System.err.printf("Skipping tile %d,%d,%d: zoom > maxzoom\n", tile.getZoom(), tile.getColumn(), tile.getRow());
+                }
+                continue; // skip this tile
+            }
             try {
               convertTile(
                   tile,
@@ -1480,6 +1493,15 @@ Add an explicit column mapping on the specified layers:
               .desc("Show this output.")
               .required(false)
               .get());
+      options.addOption(
+          Option.builder()
+              .longOpt("maxzoom")
+              .hasArg(true)
+              .argName("level")
+              .desc("Maximum zoom level to encode tiles")
+              .required(false)
+              .get()
+      );
 
       var cmd = new DefaultParser().parse(options, args);
 
