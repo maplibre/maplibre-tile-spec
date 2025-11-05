@@ -147,7 +147,7 @@ TTarget IntegerDecoder::decodeConstIntStream(BufferStream& tileData,
                                              const StreamMetadata& metadata,
                                              const bool isSigned) {
     TInt buffer[2] = {0};
-    decodeStream<TDecode, TInt>(tileData, &buffer[0], countof(buffer), metadata, isSigned);
+    decodeStream<TDecode, TInt>(tileData, &buffer[0], countof(buffer), metadata);
 
     if (metadata.getNumValues() < 1 || metadata.getNumValues() > 2) {
         throw std::runtime_error("unexpected number of values in constant stream");
@@ -156,7 +156,7 @@ TTarget IntegerDecoder::decodeConstIntStream(BufferStream& tileData,
     if (metadata.getNumValues() == 1) {
         return isSigned ? decodeZigZagValue(buffer[0]) : buffer[0];
     }
-    return isSigned ? decodeZigZagValuedecodeZigZagValue(buffer[1]) : buffer[1];
+    return isSigned ? decodeZigZagValue(buffer[1]) : buffer[1];
 }
 
 template <typename TDecode, typename TInt, typename TTarget, bool Delta>
