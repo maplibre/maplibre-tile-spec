@@ -93,6 +93,11 @@ public class Encode {
       final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
       final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
 
+      int maxzoom = Integer.MAX_VALUE;
+      if (cmd.hasOption("maxzoom")) {
+        maxzoom = Integer.parseInt(cmd.getOptionValue("maxzoom"));
+      }
+
       // No ColumnMapping as support is still buggy:
       // https://github.com/maplibre/maplibre-tile-spec/issues/59
       final List<ColumnMapping> columnMappings = List.of();
@@ -141,7 +146,8 @@ public class Encode {
             tessellateURI,
             compressionType,
             enableElideOnTypeMismatch,
-            verbose);
+            verbose,
+            maxzoom);
       } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
         var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
         var ext = FilenameUtils.getExtension(inputPath);
@@ -286,7 +292,8 @@ public class Encode {
       @Nullable URI tessellateSource,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
-      boolean verbose) {
+      boolean verbose,
+      int maxzoom) {
     MBTilesReader mbTilesReader = null;
     try {
       mbTilesReader = new MBTilesReader(new File(inputMBTilesPath));
@@ -321,6 +328,14 @@ public class Encode {
         try {
           while (tiles.hasNext()) {
             final var tile = tiles.next();
+            if (tile.getZoom() > maxzoom) {
+              if (verbose) {
+                System.err.printf(
+                    "Skipping tile %d,%d,%d: zoom > maxzoom\n",
+                    tile.getZoom(), tile.getColumn(), tile.getRow());
+              }
+              continue; // skip this tile
+            }
             try {
               convertTile(
                   tile,
@@ -1217,6 +1232,14 @@ public class Encode {
               .longOpt(HELP_OPTION)
               .hasArg(false)
               .desc("Show this output.")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt("maxzoom")
+              .hasArg(true)
+              .argName("level")
+              .desc("Maximum zoom level to encode tiles")
               .required(false)
               .get());
 
