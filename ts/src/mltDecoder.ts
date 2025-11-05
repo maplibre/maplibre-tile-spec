@@ -74,7 +74,6 @@ export default function decodeTile(
 
         for (const columnMetadata of featureTableMetadata.columns) {
             const columnName = columnMetadata.name;
-            const numStreams = TypeMap.hasStreamCount(columnMetadata) ? decodeVarintInt32(tile, offset, 1)[0] : 1;
 
             if (columnName === ID_COLUMN_NAME) {
                 let nullabilityBuffer = null;
@@ -101,12 +100,26 @@ export default function decodeTile(
                     idWithinMaxSafeInteger,
                 );
             } else if (columnName === GEOMETRY_COLUMN_NAME) {
+                const numStreams = decodeVarintInt32(tile, offset, 1)[0];
+
+                // If no ID column, get numFeatures from geometry type stream metadata
+                if (numFeatures === 0) {
+                    const savedOffset = offset.get();
+                    const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
+                    numFeatures = geometryTypeMetadata.getDecompressedCount();
+                    offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
+                }
+
                 if (geometryScaling) {
                     geometryScaling.scale = geometryScaling.extent / extent;
                 }
 
                 geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
             } else {
+                // Property columns: STRING and STRUCT have stream count, others don't
+                const hasStreamCnt = TypeMap.hasStreamCount(columnMetadata);
+                const numStreams = hasStreamCnt ? decodeVarintInt32(tile, offset, 1)[0] : 1;
+
                 if (numStreams === 0 && columnMetadata.type === "scalarType") {
                     continue;
                 }
