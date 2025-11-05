@@ -112,7 +112,7 @@ public class Encode {
 
     int maxzoom = Integer.MAX_VALUE;
     if (cmd.hasOption("maxzoom")) {
-        maxzoom = Integer.parseInt(cmd.getOptionValue("maxzoom"));
+      maxzoom = Integer.parseInt(cmd.getOptionValue("maxzoom"));
     }
 
     if (verbose > 0 && !columnMappings.isEmpty()) {
@@ -496,10 +496,11 @@ public class Encode {
           while (tiles.hasNext()) {
             final var tile = tiles.next();
             if (tile.getZoom() > maxzoom) {
-                if (verboseLevel > 0) {
-                    System.err.printf("Stop encoding: zoom (%d) > maxzoom (%d)\n", tile.getZoom(), maxzoom);
-                }
-                break;
+              if (verboseLevel > 0) {
+                System.err.printf(
+                    "Stop encoding: zoom (%d) > maxzoom (%d)\n", tile.getZoom(), maxzoom);
+              }
+              break;
             }
             try {
               convertTile(
@@ -1500,8 +1501,7 @@ Add an explicit column mapping on the specified layers:
               .argName("level")
               .desc("Maximum zoom level to encode tiles")
               .required(false)
-              .get()
-      );
+              .get());
 
       var cmd = new DefaultParser().parse(options, args);
 
