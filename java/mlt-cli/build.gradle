@@ -23,14 +23,14 @@ dependencies {
 
     // Additional dependencies needed by CLI classes
     implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.google.protobuf:protobuf-java:4.32.1'
+    implementation 'com.google.protobuf:protobuf-java:4.33.0'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
-    implementation 'org.jetbrains:annotations:15.0'
+    implementation 'org.jetbrains:annotations:26.0.2-1'
     implementation 'org.locationtech.jts:jts-core:1.20.0'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.1'
 }
 
 test {
