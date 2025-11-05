@@ -497,9 +497,9 @@ public class Encode {
             final var tile = tiles.next();
             if (tile.getZoom() > maxzoom) {
                 if (verboseLevel > 0) {
-                    System.err.printf("Skipping tile %d,%d,%d: zoom > maxzoom\n", tile.getZoom(), tile.getColumn(), tile.getRow());
+                    System.err.printf("Stop encoding: zoom (%d) > maxzoom (%d)\n", tile.getZoom(), maxzoom);
                 }
-                continue; // skip this tile
+                break;
             }
             try {
               convertTile(
