@@ -3,13 +3,13 @@ source: mlt-nom/tests/snapshots.rs
 ---
 [
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "places",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -3981,13 +3981,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "landuse",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -4296,13 +4296,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "roads",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -4752,13 +4752,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "boundaries",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -5028,13 +5028,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "water",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(
@@ -7626,13 +7626,13 @@ source: mlt-nom/tests/snapshots.rs
         },
     ),
     Tag01(
-        RawFeatureTable {
+        Layer01 {
             name: "pois",
             extent: 4096,
             id: Raw(
                 RawId {
                     optional: None,
-                    value: Id(
+                    value: Id32(
                         Stream {
                             meta: StreamMeta {
                                 physical_type: Data(

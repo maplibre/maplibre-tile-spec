@@ -1,27 +1,30 @@
 import FeatureTable from "./vector/featureTable";
-import { type Column, type ScalarColumn, ScalarType } from "./metadata/tileset/tilesetMetadata.g";
-import IntWrapper from "./encodings/intWrapper";
+import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
+import IntWrapper from "./decoding/intWrapper";
 import { StreamMetadataDecoder } from "./metadata/tile/streamMetadataDecoder";
 import { type RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamMetadata";
 import { VectorType } from "./vector/vectorType";
 import { IntFlatVector } from "./vector/flat/intFlatVector";
 import BitVector from "./vector/flat/bitVector";
-import IntegerStreamDecoder from "./encodings/integerStreamDecoder";
+import IntegerStreamDecoder from "./decoding/integerStreamDecoder";
 import { IntSequenceVector } from "./vector/sequence/intSequenceVector";
 import { LongFlatVector } from "./vector/flat/longFlatVector";
 import { LongSequenceVector } from "./vector/sequence/longSequenceVector";
 import { type IntVector } from "./vector/intVector";
-import { decodeVarintInt32 } from "./encodings/integerDecodingUtils";
-import { decodeGeometryColumn } from "./encodings/geometryDecoder";
-import { decodePropertyColumn } from "./encodings/propertyDecoder";
+import { decodeVarintInt32 } from "./decoding/integerDecodingUtils";
+import { decodeGeometryColumn } from "./decoding/geometryDecoder";
+import { decodePropertyColumn } from "./decoding/propertyDecoder";
 import { IntConstVector } from "./vector/constant/intConstVector";
 import { LongConstVector } from "./vector/constant/longConstVector";
-import type GeometryScaling from "./encodings/geometryScaling";
-import { decodeBooleanRle } from "./encodings/decodingUtils";
+import type GeometryScaling from "./decoding/geometryScaling";
+import { decodeBooleanRle } from "./decoding/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
 import { TypeMap } from "./metadata/tileset/typeMap";
 import { type StreamMetadata } from "./metadata/tile/streamMetadata";
+import { type GeometryVector } from "./vector/geometry/geometryVector";
+import type Vector from "./vector/vector";
+import { type GpuVector } from "./vector/geometry/gpuVector";
 
 const ID_COLUMN_NAME = "id";
 const GEOMETRY_COLUMN_NAME = "geometry";
@@ -64,9 +67,9 @@ export default function decodeTile(
         const featureTableMetadata = metadata.featureTables[0];
 
         // Decode columns from streams
-        let idVector = null;
-        let geometryVector = null;
-        const propertyVectors = [];
+        let idVector: IntVector | null = null;
+        let geometryVector: GeometryVector | GpuVector | null = null;
+        const propertyVectors: Vector[] = [];
         let numFeatures = 0;
 
         for (const columnMetadata of featureTableMetadata.columns) {
@@ -86,7 +89,7 @@ export default function decodeTile(
                 }
 
                 const idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                numFeatures = idDataStreamMetadata.numValues;
+                numFeatures = idDataStreamMetadata.getDecompressedCount();
 
                 idVector = decodeIdColumn(
                     tile,
@@ -104,7 +107,7 @@ export default function decodeTile(
 
                 geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
             } else {
-                if (numStreams === 0 && columnMetadata.type.case === "scalarType") {
+                if (numStreams === 0 && columnMetadata.type === "scalarType") {
                     continue;
                 }
 
@@ -149,8 +152,8 @@ function decodeIdColumn(
     sizeOrNullabilityBuffer: number | BitVector,
     idWithinMaxSafeInteger: boolean = false,
 ): IntVector {
-    const idDataType = (columnMetadata.type.value as ScalarColumn).type.value as ScalarType;
-    const vectorType = IntegerStreamDecoder.getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer);
+    const idDataType = columnMetadata.scalarType.physicalType;
+    const vectorType = IntegerStreamDecoder.getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset);
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {

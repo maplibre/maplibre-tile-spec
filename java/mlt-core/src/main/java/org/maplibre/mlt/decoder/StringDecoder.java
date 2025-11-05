@@ -6,7 +6,6 @@ import java.util.*;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.tuple.Triple;
-import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
@@ -135,11 +134,7 @@ public class StringDecoder {
         }
       }
 
-      var columnName =
-          column.getName()
-              + (childField.getName().equals("default")
-                  ? ""
-                  : (Settings.MLT_CHILD_FIELD_SEPARATOR + childField.getName()));
+      final var columnName = column.getName() + childField.getName();
       // TODO: refactor to work also when present stream is null
       numValues.put(columnName, presentStreamMetadata.numValues());
       presentStreams.put(columnName, presentStream);
@@ -234,7 +229,7 @@ public class StringDecoder {
       return Triple.of(
           numValues,
           presentStream,
-          decodePlain(presentStream, dictionaryLengthStream, dataStream, numValues));
+          decodePlain(presentStream, symbolLengthStream, symbolTableStream, numValues));
     }
   }
 
@@ -247,7 +242,7 @@ public class StringDecoder {
       var present = presentStream.get(i);
       if (present) {
         var length = lengthStream.get(lengthOffset++);
-        var value = new String(utf8Values, strOffset, strOffset + length, StandardCharsets.UTF_8);
+        var value = new String(utf8Values, strOffset, length, StandardCharsets.UTF_8);
         decodedValues.add(value);
         strOffset += length;
       } else {

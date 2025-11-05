@@ -39,7 +39,13 @@ export default tseslint.config(
       }],
     },
   },
+    {
+      files: ['**/*.spec.ts'],
+      rules: {
+        '@typescript-eslint/unbound-method': 'off',
+      },
+    },
   {
-    ignores: ['dist', 'node_modules', 'coverage', '*.config.mjs', '*.config.js', '**/*.g.ts', '**/*.js', 'test']
+    ignores: ['dist', 'node_modules', 'coverage', '*.config.mjs', '*.config.js', '**/*.js']
   }
 );

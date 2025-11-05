@@ -113,7 +113,7 @@ test-java-cli:
 
 # Run tests for JavaScript
 test-js: install-js
-    echo "TODO: Add js test back"
+    cd ts && npm run test
 
 # Run tests for Rust
 test-rust:
@@ -166,7 +166,7 @@ generate-expected-mlt:  (cargo-install 'fd' 'fd-find')
 generate-one-expected-mlt file:
     java \
         -Dcom.google.protobuf.use_unsafe_pre22_gencode \
-        -jar build/libs/encode.jar \
+        -jar mlt-cli/build/libs/encode.jar \
         --mvt {{quote(file)}} \
         --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
         --outlines ALL \

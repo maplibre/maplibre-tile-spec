@@ -1,18 +1,13 @@
-import type IntWrapper from "../../encodings/intWrapper";
-import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
+import type IntWrapper from "../../decoding/intWrapper";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 import {
     type Column,
-    type ComplexColumn,
-    ComplexField,
-    type ComplexType,
-    FeatureTableSchema,
-    Field,
-    type LogicalComplexType,
-    type LogicalScalarType,
-    ScalarField,
-    type ScalarType,
-    TileSetMetadata,
-} from "./tilesetMetadata.g";
+    type ComplexField,
+    type FeatureTableSchema,
+    type Field,
+    type ScalarField,
+    type TileSetMetadata,
+} from "./tilesetMetadata";
 import { TypeMap } from "./typeMap";
 
 const enum FieldOptions {
@@ -51,16 +46,20 @@ function decodeField(src: Uint8Array, offset: IntWrapper): Field {
 
     const typeValue = decodeVarintInt32(src, offset, 1)[0] >>> 0;
 
-    const field = new Field();
+    const field = {} as Field;
     if ((fieldOptions & FieldOptions.nullable) !== 0) {
         field.nullable = true;
     }
 
     if (isComplex) {
-        const complex = new ComplexField();
-        complex.type = isLogical
-            ? { case: "logicalType", value: typeValue as unknown as LogicalComplexType }
-            : { case: "physicalType", value: typeValue as unknown as ComplexType };
+        const complex = {} as ComplexField;
+        if (isLogical) {
+            complex.type = "logicalType";
+            complex.logicalType = typeValue;
+        } else {
+            complex.type = "physicalType";
+            complex.physicalType = typeValue;
+        }
 
         if ((fieldOptions & FieldOptions.hasChildren) !== 0) {
             const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
@@ -69,13 +68,19 @@ function decodeField(src: Uint8Array, offset: IntWrapper): Field {
                 complex.children[i] = decodeField(src, offset);
             }
         }
-        field.type = { case: "complexField", value: complex };
+        field.type = "complexField";
+        field.complexField = complex;
     } else {
-        const scalar = new ScalarField();
-        scalar.type = isLogical
-            ? { case: "logicalType", value: typeValue as unknown as LogicalScalarType }
-            : { case: "physicalType", value: typeValue as unknown as ScalarType };
-        field.type = { case: "scalarField", value: scalar };
+        const scalar = {} as ScalarField;
+        if (isLogical) {
+            scalar.type = "logicalType";
+            scalar.logicalType = typeValue;
+        } else {
+            scalar.type = "physicalType";
+            scalar.physicalType = typeValue;
+        }
+        field.type = "scalarField";
+        field.scalarField = scalar;
     }
 
     return field;
@@ -106,7 +111,7 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     if (TypeMap.columnTypeHasChildren(typeCode)) {
         // Only STRUCT (typeCode 30) has children
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        const complexCol = column.type.value as ComplexColumn;
+        const complexCol = column.complexType;
         complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
             complexCol.children[i] = decodeField(src, offset);
@@ -124,10 +129,10 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
  * @param offset The current offset in the byte array (will be advanced)
  */
 export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrapper): [TileSetMetadata, number] {
-    const meta = new TileSetMetadata();
+    const meta = {} as TileSetMetadata;
     meta.featureTables = [];
 
-    const table = new FeatureTableSchema();
+    const table = {} as FeatureTableSchema;
     table.name = decodeString(bytes, offset);
     const extent = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
 

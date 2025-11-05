@@ -3,8 +3,8 @@ import { type PhysicalStreamType } from "./physicalStreamType";
 import { type LogicalStreamType } from "./logicalStreamType";
 import { type LogicalLevelTechnique } from "./logicalLevelTechnique";
 import { type PhysicalLevelTechnique } from "./physicalLevelTechnique";
-import type IntWrapper from "../../encodings/intWrapper";
-import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
+import type IntWrapper from "../../decoding/intWrapper";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 
 export class RleEncodedStreamMetadata extends StreamMetadata {
     /**
@@ -74,6 +74,13 @@ export class RleEncodedStreamMetadata extends StreamMetadata {
     }
 
     get numRleValues(): number {
+        return this._numRleValues;
+    }
+
+    /**
+     * Override to return the decompressed count for RLE streams.
+     */
+    override getDecompressedCount(): number {
         return this._numRleValues;
     }
 }

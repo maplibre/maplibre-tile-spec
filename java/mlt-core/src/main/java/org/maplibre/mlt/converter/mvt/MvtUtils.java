@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
 import no.ecc.vectortile.VectorTileDecoder;
-import org.maplibre.mlt.converter.Settings;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.springmeyer.Pbf;
@@ -47,11 +47,11 @@ public class MvtUtils {
   }
 
   public static MapboxVectorTile decodeMvt(byte[] mvtTile) throws IOException {
-    return decodeMvt(mvtTile, List.of());
+    return decodeMvt(mvtTile, Map.of());
   }
 
-  public static MapboxVectorTile decodeMvt(byte[] mvtTile, List<ColumnMapping> columnMappings)
-      throws IOException {
+  public static MapboxVectorTile decodeMvt(
+      byte[] mvtTile, Map<Pattern, List<ColumnMapping>> columnMappings) throws IOException {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 
@@ -66,11 +66,7 @@ public class MvtUtils {
       var tileExtent = 0;
       for (var mvtFeature : layerFeatures) {
         var properties = new HashMap<>(mvtFeature.getAttributes());
-        // TODO: quick and dirty -> implement generic
-        var transformedProperties = transformNestedPropertyNames(properties, columnMappings);
-
-        var feature =
-            new Feature(mvtFeature.getId(), mvtFeature.getGeometry(), transformedProperties);
+        var feature = new Feature(mvtFeature.getId(), mvtFeature.getGeometry(), properties);
         features.add(feature);
 
         var featureTileExtent = mvtFeature.getExtent();
@@ -83,38 +79,5 @@ public class MvtUtils {
     }
 
     return new MapboxVectorTile(layers);
-  }
-
-  static Map<String, Object> transformNestedPropertyNames(
-      Map<?, ?> properties, List<ColumnMapping> columnMappings) {
-    var transformedProperties = new LinkedHashMap<String, Object>();
-    properties.forEach(
-        (k, v) -> {
-          /* Currently id is not supported as a property name in a FeatureTable,
-           *  so this quick workaround is implemented */
-          // TODO: refactor -> implement proper solution
-          final var key = k.toString();
-          if (k.equals(ID_KEY)) {
-            transformedProperties.put("_" + ID_KEY, v);
-            return;
-          }
-
-          if (!columnMappings.isEmpty()) {
-            final var columnMapping =
-                columnMappings.stream()
-                    .filter(m -> key.startsWith(m.mvtPropertyPrefix()))
-                    .findFirst();
-            if (columnMapping.isPresent()) {
-              final var transformedKey =
-                  key.replaceAll(
-                      columnMapping.get().mvtDelimiterSign(), Settings.MLT_CHILD_FIELD_SEPARATOR);
-              transformedProperties.put(transformedKey, v);
-              return;
-            }
-          }
-
-          transformedProperties.put(key, v);
-        });
-    return transformedProperties;
   }
 }

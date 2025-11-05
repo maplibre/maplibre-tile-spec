@@ -1,11 +1,11 @@
 import { type Geometry, type GeometryVector } from "./geometry/geometryVector";
 import type Vector from "./vector";
 import { type IntVector } from "./intVector";
-import { type GpuVector } from "./geometry/gpuVector";
 import { IntFlatVector } from "./flat/intFlatVector";
 import { DoubleFlatVector } from "./flat/doubleFlatVector";
 import { IntSequenceVector } from "./sequence/intSequenceVector";
 import { IntConstVector } from "./constant/intConstVector";
+import { type GpuVector } from "./geometry/gpuVector";
 
 export interface Feature {
     id: number | bigint;
@@ -86,6 +86,41 @@ export default class FeatureTable implements Iterable<Feature> {
 
     get extent(): number {
         return this._extent;
+    }
+
+    /**
+     * Returns all features as an array
+     */
+    getFeatures(): Feature[] {
+        const features: Feature[] = [];
+        const geometries = this.geometryVector.getGeometries();
+
+        for (let i = 0; i < this.numFeatures; i++) {
+            let id;
+            if (this.idVector) {
+                id = this.containsMaxSaveIntegerValues(this.idVector)
+                    ? Number(this.idVector.getValue(i))
+                    : this.idVector.getValue(i);
+            }
+
+            const geometry = {
+                coordinates: geometries[i],
+                type: this.geometryVector.geometryType(i),
+            };
+
+            const properties: { [key: string]: unknown } = {};
+            for (const propertyColumn of this.propertyVectors) {
+                if (!propertyColumn) continue;
+                const columnName = propertyColumn.name;
+                const propertyValue = propertyColumn.getValue(i);
+                if (propertyValue !== null) {
+                    properties[columnName] = propertyValue;
+                }
+            }
+
+            features.push({ id, geometry, properties });
+        }
+        return features;
     }
 
     private containsMaxSaveIntegerValues(intVector: IntVector) {

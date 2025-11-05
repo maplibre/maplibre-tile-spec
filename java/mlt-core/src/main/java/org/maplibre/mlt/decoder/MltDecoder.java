@@ -94,7 +94,7 @@ public class MltDecoder {
           @SuppressWarnings("unchecked")
           var p = ((Map<String, Object>) propertyColumn);
           for (var a : p.entrySet()) {
-            if (a instanceof List<?>) {
+            if (a.getValue() instanceof List<?>) {
               @SuppressWarnings("unchecked")
               var list = (List<Object>) a.getValue();
               properties.put(a.getKey(), list);

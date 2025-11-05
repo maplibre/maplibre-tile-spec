@@ -1,38 +1,38 @@
-import { type GeometryVector, type MortonSettings, type Geometry } from "./geometryVector";
+import { type GeometryVector, type MortonSettings, type CoordinatesArray } from "./geometryVector";
 import ZOrderCurve from "./zOrderCurve";
-import Point from "./point";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
+import Point from "@mapbox/point-geometry";
 
 class MvtGeometryFactory {
-    createPoint(coordinate: Point): Geometry {
+    createPoint(coordinate: Point): CoordinatesArray {
         return [[coordinate]];
     }
 
-    createMultiPoint(points: Point[]): Geometry {
+    createMultiPoint(points: Point[]): CoordinatesArray {
         return points.map((point) => [point]);
     }
 
-    createLineString(vertices: Point[]): Geometry {
+    createLineString(vertices: Point[]): CoordinatesArray {
         return [vertices];
     }
 
-    createMultiLineString(lineStrings: Array<Array<Point>>): Geometry {
+    createMultiLineString(lineStrings: Array<Array<Point>>): CoordinatesArray {
         return lineStrings;
     }
 
-    createPolygon(shell: Point[], rings: Array<Array<Point>>): Geometry {
+    createPolygon(shell: Point[], rings: Array<Array<Point>>): CoordinatesArray {
         return [shell, ...rings];
     }
 
-    createMultiPolygon(polygons: Array<Array<Point>>[]): Geometry {
+    createMultiPolygon(polygons: Array<Array<Point>>[]): CoordinatesArray {
         //TODO: check winding order of shell and holes
         return polygons.flat();
     }
 }
 
-export function convertGeometryVector(geometryVector: GeometryVector): Geometry[] {
-    const geometries: Geometry[] = new Array(geometryVector.numGeometries);
+export function convertGeometryVector(geometryVector: GeometryVector): CoordinatesArray[] {
+    const geometries: CoordinatesArray[] = new Array(geometryVector.numGeometries);
     let partOffsetCounter = 1;
     let ringOffsetsCounter = 1;
     let geometryOffsetsCounter = 1;
@@ -137,7 +137,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Geometry[
         } else if (geometryType === GEOMETRY_TYPE.POLYGON) {
             const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
             partOffsetCounter++;
-            const rings: Geometry = new Array(numRings - 1);
+            const rings: CoordinatesArray = new Array(numRings - 1);
             let numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
             ringOffsetsCounter++;
 
@@ -198,7 +198,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Geometry[
             const numLineStrings =
                 geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
-            const lineStrings: Geometry = new Array(numLineStrings);
+            const lineStrings: CoordinatesArray = new Array(numLineStrings);
             if (!vertexOffsets || vertexOffsets.length === 0) {
                 for (let j = 0; j < numLineStrings; j++) {
                     let numVertices = 0;
@@ -250,13 +250,13 @@ export function convertGeometryVector(geometryVector: GeometryVector): Geometry[
         } else if (geometryType === GEOMETRY_TYPE.MULTIPOLYGON) {
             const numPolygons = geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
             geometryOffsetsCounter++;
-            const polygons: Geometry[] = new Array(numPolygons);
+            const polygons: CoordinatesArray[] = new Array(numPolygons);
             let numVertices = 0;
             if (!vertexOffsets || vertexOffsets.length === 0) {
                 for (let j = 0; j < numPolygons; j++) {
                     const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                     partOffsetCounter++;
-                    const rings: Geometry = new Array(numRings - 1);
+                    const rings: CoordinatesArray = new Array(numRings - 1);
                     numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                     ringOffsetsCounter++;
                     const shell = getLinearRing(vertexBuffer, vertexBufferOffset, numVertices);
@@ -275,7 +275,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Geometry[
                 for (let j = 0; j < numPolygons; j++) {
                     const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                     partOffsetCounter++;
-                    const rings: Geometry = new Array(numRings - 1);
+                    const rings: CoordinatesArray = new Array(numRings - 1);
                     numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                     ringOffsetsCounter++;
                     const shell =
