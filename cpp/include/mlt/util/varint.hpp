@@ -22,8 +22,8 @@ T decodeVarint(BufferStream&);
 // allow decoding directly to enum types
 template <typename T>
     requires(std::is_enum_v<T>)
-T decodeVarint(BufferStream& buffer) {
-    return static_cast<T>(decodeVarint<std::make_unsigned_t<std::underlying_type_t<T>>>(buffer));
+T decodeVarint(BufferStream& tileData) {
+    return static_cast<T>(decodeVarint<std::make_unsigned_t<std::underlying_type_t<T>>>(tileData));
 }
 
 template <>
