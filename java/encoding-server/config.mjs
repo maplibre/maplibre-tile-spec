@@ -19,7 +19,7 @@ const { values: args } = parseArgs({
     noids: { type: "boolean", default: false },
     advanced: { type: "boolean", default: false },
     nomorton: { type: "boolean", default: false },
-    outlines: { type: "string", default: "" },
+    outlines: { type: "string", default: "ALL" },
     timer: { type: "boolean", default: false },
     compare: { type: "boolean", default: false },
   },
@@ -27,7 +27,7 @@ const { values: args } = parseArgs({
 });
 
 const possibleInputs = ["mvt", "pmtiles"];
-if (possibleInputs.includes(args.input)) {
+if (!possibleInputs.includes(args.input)) {
   console.error(`--input must be one of ${possibleInputs.join(", ")}`);
   process.exit(1);
 }

@@ -151,7 +151,7 @@ function convertTileResponse(filePath, res) {
     (config.nomorton ? " --nomorton" : "") +
     (config.outlines ? " --outlines \\*" : "") +
     (config.timer ? " --timer" : "") +
-    (config.compare ? " --compare" : "");
+    (config.compare ? " --compare-all" : "");
 
   const callback = (error, stdout, stderr) => {
     if (config.verbose) {
