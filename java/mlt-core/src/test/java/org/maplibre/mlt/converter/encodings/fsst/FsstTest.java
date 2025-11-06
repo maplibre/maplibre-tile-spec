@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import nl.bartlouwers.fsst.SymbolTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -99,6 +100,10 @@ class FsstTest {
     }
   }
 
+  public static int weight(SymbolTable table) {
+    return table.symbols().length + table.symbolLengths().length + table.compressedData().length;
+  }
+
   @SuppressWarnings("deprecation")
   private static void test(byte[] input) {
     final var encodedJava = JAVA.encode(input);
@@ -109,9 +114,9 @@ class FsstTest {
     if (encodedJni != null) {
       assertArrayEquals(input, JAVA.decode(encodedJni));
 
-      final int maxAllowed = Math.max((int) (encodedJni.weight() * 1.02), encodedJni.weight() + 2);
+      final int maxAllowed = Math.max((int) (weight(encodedJni) * 1.02), weight(encodedJni) + 2);
       assertTrue(
-          encodedJava.weight() <= maxAllowed,
+          weight(encodedJava) <= maxAllowed,
           () ->
               """
                       Input: byte[%d]

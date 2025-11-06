@@ -1,6 +1,7 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
 import java.util.Locale;
+import nl.bartlouwers.fsst.SymbolTable;
 
 public class FsstEncoder {
   public static final Fsst INSTANCE;

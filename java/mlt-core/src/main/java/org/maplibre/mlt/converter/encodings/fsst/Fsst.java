@@ -1,6 +1,7 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
 import java.io.ByteArrayOutputStream;
+import nl.bartlouwers.fsst.SymbolTable;
 
 public interface Fsst {
   SymbolTable encode(byte[] data);

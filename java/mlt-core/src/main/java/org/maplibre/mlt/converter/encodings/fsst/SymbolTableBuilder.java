@@ -28,6 +28,7 @@ import com.carrotsearch.hppc.ByteArrayList;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.IntStream;
+import nl.bartlouwers.fsst.SymbolTable;
 import org.jetbrains.annotations.NotNull;
 
 /**

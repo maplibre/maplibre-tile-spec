@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import nl.bartlouwers.fsst.SymbolTable;
 
 class FsstDebug implements Fsst {
   private final Fsst java = new FsstJava();
@@ -21,6 +22,10 @@ class FsstDebug implements Fsst {
     Runtime.getRuntime().addShutdownHook(new Thread(FsstDebug::printStats));
   }
 
+  public static int weight(SymbolTable table) {
+    return table.symbols().length + table.symbolLengths().length + table.compressedData().length;
+  }
+
   @Override
   public SymbolTable encode(byte[] data) {
     final long a = System.currentTimeMillis();
@@ -31,9 +36,9 @@ class FsstDebug implements Fsst {
     if (fromJni != null) {
       jniTime.addAndGet(b - a);
       javaTime.addAndGet(c - b);
-      jniSize.addAndGet(fromJni.weight());
-      javaSize.addAndGet(fromJava.weight());
-      (fromJava.weight() <= fromJni.weight() ? javaSmaller : jniSmaller).incrementAndGet();
+      jniSize.addAndGet(weight(fromJni));
+      javaSize.addAndGet(weight(fromJava));
+      (weight(fromJava) <= weight(fromJni) ? javaSmaller : jniSmaller).incrementAndGet();
     }
     return fromJava;
   }

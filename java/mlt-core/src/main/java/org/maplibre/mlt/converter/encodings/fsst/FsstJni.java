@@ -1,30 +1,34 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
-import java.nio.file.FileSystems;
+import nl.bartlouwers.fsst.*;
 
 class FsstJni implements Fsst {
-  private static boolean isLoaded = false;
+  private static nl.bartlouwers.fsst.Fsst impl = null;
 
   static {
-    final String os = System.getProperty("os.name").toLowerCase();
-    String moduleDir = "../resources/build/FsstWrapper.so";
-    String modulePath =
-        FileSystems.getDefault().getPath(moduleDir).normalize().toAbsolutePath().toString();
     try {
-      System.load(modulePath);
-      isLoaded = true;
+      var impl = new FsstImpl();
+      impl.encode(new byte[] {});
+      FsstJni.impl = impl;
     } catch (UnsatisfiedLinkError e) {
-      System.out.println("Error: " + e.getMessage() + " - " + modulePath);
+      System.err.println("Failed to load native FSST: " + e.getMessage());
     }
   }
 
   public SymbolTable encode(byte[] data) {
-    return FsstJni.compress(data);
+    return impl.encode(data);
+  }
+
+  public byte[] decode(SymbolTable table) {
+    return impl.decode(table);
+  }
+
+  public byte[] decode(
+      byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {
+    return impl.decode(symbols, symbolLengths, compressedData, decompressedLength);
   }
 
   public static boolean isLoaded() {
-    return isLoaded;
+    return (impl != null);
   }
-
-  public static native SymbolTable compress(byte[] inputBytes);
 }
