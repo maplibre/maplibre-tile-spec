@@ -12,14 +12,10 @@ import {LongSequenceVector} from "../vector/sequence/longSequenceVector";
 import {IntConstVector} from "../vector/constant/intConstVector";
 import {LongConstVector} from "../vector/constant/longConstVector";
 import {VectorType} from "../vector/vectorType";
-import {StringDecoder} from "./stringDecoder";
-import BitVector from "../vector/flat/bitVector";
 import * as decodingUtils from './decodingUtils';
 import {BooleanFlatVector} from "../vector/flat/booleanFlatVector";
 import {FloatFlatVector} from "../vector/flat/floatFlatVector";
 import {DoubleFlatVector} from "../vector/flat/doubleFlatVector";
-import { type StringFlatVector} from "../vector/flat/stringFlatVector";
-import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 
 // Constants for test data
 const TEST_DATA = {
