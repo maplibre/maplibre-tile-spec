@@ -18,10 +18,10 @@ public class FsstEncoder {
   }
 
   private static Fsst getInstance() {
-      if (INSTANCE == null) {
-          useNative(false);
-      }
-      return INSTANCE;
+    if (INSTANCE == null) {
+      useNative(false);
+    }
+    return INSTANCE;
   }
 
   private FsstEncoder() {}

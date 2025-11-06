@@ -1359,7 +1359,10 @@ public class Encode {
           Option.builder()
               .longOpt(FSST_NATIVE_ENCODING_OPTION)
               .hasArg(false)
-              .desc("Enable FSST encodings of string columns (Native implementation)")
+              .desc(
+                  "Enable FSST encodings of string columns (Native implementation: "
+                      + (FsstJni.isLoaded() ? "" : "Not ")
+                      + " available)")
               .required(false)
               .get());
       options.addOption(
