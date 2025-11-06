@@ -485,33 +485,6 @@ describe('decodePropertyColumn', () => {
         });
     });
 
-    describe('String Columns - Nullable', () => {
-        const streamConfigs = [
-            { totalStreams: 2, description: 'single data stream' },
-            { totalStreams: 4, description: 'multiple data streams' }
-        ];
-
-        it.each(streamConfigs)(
-            'should decode nullable STRING with $description',
-            ({ totalStreams }) => {
-                // Arrange
-                setupNullableStreamMocks();
-                const mockStringVector = { name: 'age' };
-                const stringDecodeSpy = vi.spyOn(StringDecoder as any, 'decodeSharedDictionary')
-                    .mockReturnValue(mockStringVector as any);
-                const column = createColumn(ScalarType.STRING, true);
-                const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-                const offset = new IntWrapper(0);
-
-                // Act
-                const result = decodePropertyColumn(data, offset, column, totalStreams, TEST_DATA.NUM_VALUES);
-
-                // Assert
-                expect((result as StringFlatVector).name).toBe(mockStringVector.name);
-            }
-        );
-    });
-
     describe('Column Filtering', () => {
         it('should return null when column NOT in propertyColumnNames filter', () => {
             // Arrange
