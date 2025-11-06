@@ -165,12 +165,19 @@ public:
             intDecoder.decodeIntStream<std::uint32_t>(tileData, dataReferenceStream, *dataStreamMetadata);
 
             std::vector<std::string_view> propertyValues;
-            propertyValues.reserve(dataStreamMetadata->getNumValues());
+            propertyValues.reserve(presentValueCount);
 
             std::uint32_t counter = 0;
             for (std::uint32_t i = 0; i < presentValueCount; ++i) {
                 if (testBit(presentStream, i)) {
-                    propertyValues.push_back(dictionaryViews[dataReferenceStream[counter++]]);
+                    if (counter >= dataReferenceStream.size()) {
+                        throw std::runtime_error("StringDecoder: dataReferenceStream out of bounds");
+                    }
+                    auto dictIndex = dataReferenceStream[counter++];
+                    if (dictIndex >= dictionaryViews.size()) {
+                        throw std::runtime_error("StringDecoder: dictionaryViews index out of bounds");
+                    }
+                    propertyValues.push_back(dictionaryViews[dictIndex]);
                 }
             }
 
