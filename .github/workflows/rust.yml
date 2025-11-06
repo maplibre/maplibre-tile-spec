@@ -2,9 +2,13 @@ name: Rust CI
 
 on:
   push:
-    branches: [ main ]
+    paths:
+      - 'rust/**'
+      - 'test/**'
   pull_request:
-    branches: [ main ]
+    paths:
+      - 'rust/**'
+      - 'test/**'
   workflow_dispatch:
 
 jobs:

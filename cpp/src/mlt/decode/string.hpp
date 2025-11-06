@@ -36,14 +36,22 @@ public:
         std::vector<std::uint32_t> offsetStream;
         std::vector<std::uint32_t> lengthStream;
         std::vector<std::string_view> views;
+        PackedBitset presentStream;
+        std::optional<std::uint32_t> presentValueCount;
         views.reserve(numValues);
         for (std::uint32_t i = 0; i < numStreams; ++i) {
-            auto streamMetadata = StreamMetadata::decode(tileData);
+            const auto streamMetadata = StreamMetadata::decode(tileData);
             switch (streamMetadata->getPhysicalStreamType()) {
                 default:
                     throw std::runtime_error("Unsupported stream type");
                 case PhysicalStreamType::PRESENT:
                     throw std::runtime_error("Present stream not supported for string columns");
+                    presentValueCount = streamMetadata->getNumValues();
+                    rle::decodeBoolean(tileData, presentStream, *streamMetadata, /*consume=*/true);
+                    if ((*presentValueCount + 7) / 8 != presentStream.size()) {
+                        throw std::runtime_error("invalid present stream");
+                    }
+                    break;
                 case PhysicalStreamType::OFFSET:
                     intDecoder.decodeIntStream<std::uint32_t>(tileData, offsetStream, *streamMetadata);
                     break;
@@ -68,13 +76,17 @@ public:
             }
         }
 
+        if (presentValueCount && *presentValueCount != numValues) {
+            throw std::runtime_error("Unexpected present value count for string column");
+        }
+
         if (dictType == DictionaryType::FSST) {
             throw std::runtime_error("FSST decoding not implemented");
         } else if (dictType == DictionaryType::SINGLE) {
-            decodeDictionary(lengthStream, dataStream, offsetStream, views, numValues);
+            decodeDictionary(lengthStream, dataStream, offsetStream, presentStream, views, numValues);
             return {std::move(dataStream), std::move(views)};
         } else {
-            decodePlain(lengthStream, dataStream, views, numValues);
+            decodePlain(lengthStream, dataStream, presentStream, views, numValues);
             return {std::move(dataStream), std::move(views)};
         }
     }
@@ -83,6 +95,8 @@ private:
     IntegerDecoder& intDecoder;
 
     /// Drop the useless codepoint produced when a UTF-16 Byte-Order-Mark is included in the conversion to UTF-8
+    // https://en.wikipedia.org/wiki/Byte_order_mark#UTF-8
+    // TODO: Can we force this on the encoding side instead?
     static std::string_view view(const char* bytes, std::size_t length) {
         if (length >= 3 && std::equal(bytes, bytes + 3, "\xEF\xBB\xBF")) {
             bytes += 3;
@@ -93,18 +107,28 @@ private:
 
     static void decodePlain(const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
+                            const PackedBitset& presentStream,
                             std::vector<std::string_view>& out,
                             std::uint32_t numValues) {
+        std::size_t dataOffset = 0;
+        std::size_t lengthOffset = 0;
         for (std::uint32_t i = 0; i < numValues; ++i) {
-            const auto length = lengthStream[i];
-            const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + length);
-            out.push_back(view(bytes, length));
+            if (presentStream.empty() || testBit(presentStream, i)) {
+                const auto length = lengthStream[lengthOffset++];
+                const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + dataOffset);
+                out.push_back(view(bytes, length));
+                dataOffset += length;
+            } else {
+                // TODO: Differentiate between null and empty strings?
+                out.emplace_back();
+            }
         }
     }
 
     static void decodeDictionary(const std::vector<std::uint32_t>& lengthStream,
                                  const std::vector<std::uint8_t>& utf8bytes,
                                  const std::vector<std::uint32_t>& offsets,
+                                 const PackedBitset& presentStream,
                                  std::vector<std::string_view>& out,
                                  std::uint32_t numValues) {
         const auto* const utf8Ptr = reinterpret_cast<const char*>(utf8bytes.data());
@@ -118,8 +142,14 @@ private:
             dictionaryOffset += length;
         }
 
+        std::size_t offsetIndex = 0;
         for (std::uint32_t i = 0; i < numValues; ++i) {
-            out.push_back(dictionary[offsets[i]]);
+            if (presentStream.empty() || testBit(presentStream, i)) {
+                out.push_back(dictionary[offsets[offsetIndex++]]);
+            } else {
+                // TODO: Differentiate between null and empty strings?
+                out.emplace_back();
+            }
         }
     }
 };
