@@ -153,7 +153,19 @@ public class MltConverter {
                       mvtPropertyName, true, MltTilesetMetadata.ScalarType.INT_64));
             } else if (previousPhysicalType == MltTilesetMetadata.ScalarType.INT_64
                 && scalarType == MltTilesetMetadata.ScalarType.INT_32) {
+              // no-op
               // keep INT_64
+            } else if (previousPhysicalType == MltTilesetMetadata.ScalarType.FLOAT
+                && scalarType == MltTilesetMetadata.ScalarType.DOUBLE) {
+              // Allow implicit upgrade from FLOAT to DOUBLE
+              columnSchemas.put(
+                  mvtPropertyName,
+                  createScalarColumnScheme(
+                      mvtPropertyName, true, MltTilesetMetadata.ScalarType.DOUBLE));
+            } else if (previousPhysicalType == MltTilesetMetadata.ScalarType.DOUBLE
+                && scalarType == MltTilesetMetadata.ScalarType.FLOAT) {
+              // no-op
+              // keep DOUBLE
             } else if (enableCoerceOnMismatch) {
               if (previousPhysicalType != MltTilesetMetadata.ScalarType.STRING) {
                 columnSchemas.put(

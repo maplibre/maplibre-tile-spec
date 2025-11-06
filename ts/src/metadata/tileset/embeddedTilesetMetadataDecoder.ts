@@ -1,5 +1,5 @@
-import type IntWrapper from "../../encodings/intWrapper";
-import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
+import type IntWrapper from "../../decoding/intWrapper";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 import {
     type Column,
     type ComplexField,
