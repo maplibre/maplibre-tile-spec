@@ -22,7 +22,6 @@ public class FsstJni implements Fsst {
       isLoaded = true;
     } catch (UnsatisfiedLinkError e) {
       loadError = e;
-      System.out.println("Error: " + e.getMessage() + " - " + modulePath);
     }
   }
 
