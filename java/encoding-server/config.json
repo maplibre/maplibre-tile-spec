@@ -8,6 +8,7 @@
   "advanced": false,
   "nomorton": false,
   "outlines": "ALL",
+  "coercemismatch": true,
   "timer": false,
   "compare": false
 }

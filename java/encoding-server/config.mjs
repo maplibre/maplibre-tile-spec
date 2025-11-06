@@ -20,6 +20,7 @@ const { values: args } = parseArgs({
     advanced: { type: "boolean", default: false },
     nomorton: { type: "boolean", default: false },
     outlines: { type: "string", default: "ALL" },
+    coercemismatch: { type: "boolean", default: true },
     timer: { type: "boolean", default: false },
     compare: { type: "boolean", default: false },
   },

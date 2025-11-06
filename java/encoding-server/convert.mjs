@@ -150,6 +150,7 @@ function convertTileResponse(filePath, res) {
     (config.advanced ? " --advanced" : "") +
     (config.nomorton ? " --nomorton" : "") +
     (config.outlines ? " --outlines \\*" : "") +
+    (config.coercemismatch ? "--coerce-mismatch" : "") +
     (config.timer ? " --timer" : "") +
     (config.compare ? " --compare-all" : "");
 
