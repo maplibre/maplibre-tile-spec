@@ -150,7 +150,7 @@ public class Encode {
     }
 
     if (useFSSTNative) {
-      if (FsstJni.isLoaded() || !FsstEncoder.useNative(true)) {
+      if (!FsstJni.isLoaded() || !FsstEncoder.useNative(true)) {
         final var err = FsstJni.getLoadError();
         System.err.println(
             "Native FSST could not be loaded: "
