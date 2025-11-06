@@ -25,7 +25,6 @@ import { type StreamMetadata } from "./metadata/tile/streamMetadata";
 import { type GeometryVector } from "./vector/geometry/geometryVector";
 import type Vector from "./vector/vector";
 import { type GpuVector } from "./vector/geometry/gpuVector";
-import { gunzipSync, inflateSync } from "zlib";
 
 const ID_COLUMN_NAME = "id";
 const GEOMETRY_COLUMN_NAME = "geometry";
@@ -43,17 +42,6 @@ export default function decodeTile(
     geometryScaling?: GeometryScaling,
     idWithinMaxSafeInteger = true,
 ): FeatureTable[] {
-    // Check if tile is compressed
-    if (tile.length >= 2) {
-        if (tile[0] === 0x1f && tile[1] === 0x8b) {
-            // Gzip compressed
-            tile = gunzipSync(tile);
-        } else if (tile[0] === 0x78 && (tile[1] === 0x9c || tile[1] === 0x01 || tile[1] === 0xda || tile[1] === 0x5e)) {
-            // Zlib compressed (0x78 followed by various compression levels)
-            tile = inflateSync(tile);
-        }
-    }
-
     const offset = new IntWrapper(0);
     const featureTables: FeatureTable[] = [];
 
