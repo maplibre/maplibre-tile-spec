@@ -24,18 +24,22 @@ public:
         : intDecoder(intDecoder_),
           stringDecoder(stringDecoder_) {}
 
-    std::optional<PresentProperties> decodePropertyColumn(BufferStream& tileData,
-                                                          const metadata::tileset::Column& column,
-                                                          std::uint32_t numStreams) {
+    PropertyVecMap decodePropertyColumn(BufferStream& tileData,
+                                        const metadata::tileset::Column& column,
+                                        std::uint32_t numStreams) {
         using namespace metadata::tileset;
         if (std::holds_alternative<ScalarColumn>(column.type)) {
-            return decodeScalarPropertyColumn(tileData, column, numStreams);
+            PropertyVecMap results;
+            results.emplace(column.name, decodeScalarPropertyColumn(tileData, column, numStreams));
+            return results;
         }
 
-        // TODO
-        // return StringDecoder::decodeSharedDictionary(data, offset, columnMetadata, numFeatures, propertyColumnNames);
+        if (numStreams > 1) {
+            return stringDecoder.decodeSharedDictionary(tileData, column, numStreams);
+        }
+
         skipColumn(tileData, numStreams);
-        return std::nullopt;
+        return {};
     }
 
 protected:

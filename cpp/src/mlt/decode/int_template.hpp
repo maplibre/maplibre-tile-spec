@@ -19,13 +19,12 @@ inline std::size_t IntegerDecoder::getIntArrayBufferSize(const std::size_t count
     using namespace metadata::stream;
     switch (streamMetadata.getLogicalLevelTechnique1()) {
         case LogicalLevelTechnique::DELTA:
-            if (streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) {
-                if (streamMetadata.getMetadataType() != LogicalLevelTechnique::RLE) {
-                    return 0;
-                }
+            if (streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE &&
+                streamMetadata.getMetadataType() == LogicalLevelTechnique::RLE) {
                 const auto& rleMetadata = static_cast<const RleEncodedStreamMetadata&>(streamMetadata);
                 return rleMetadata.getNumRleValues();
             }
+            return streamMetadata.getNumValues();
         case LogicalLevelTechnique::NONE:
         case LogicalLevelTechnique::COMPONENTWISE_DELTA:
             return count;

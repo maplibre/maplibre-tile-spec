@@ -5,10 +5,11 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector>
 #include <variant>
+#include <vector>
 
 namespace mlt {
 
@@ -19,13 +20,17 @@ public:
     StringDictViews(std::vector<std::uint8_t>&& data_, std::vector<std::string_view> views_) noexcept
         : data(std::move(data_)),
           views(std::move(views_)) {}
+    StringDictViews(std::shared_ptr<std::vector<std::uint8_t>> data_, std::vector<std::string_view> views_) noexcept
+        : sharedData(std::move(data_)),
+          views(std::move(views_)) {}
     StringDictViews(StringDictViews&&) noexcept = default;
-    StringDictViews& operator=(StringDictViews&&) = delete;
+    StringDictViews& operator=(StringDictViews&&) = default;
 
     const auto& getStrings() const noexcept { return views; }
 
 private:
     std::vector<std::uint8_t> data;
+    std::shared_ptr<std::vector<std::uint8_t>> sharedData;
     std::vector<std::string_view> views;
 };
 
