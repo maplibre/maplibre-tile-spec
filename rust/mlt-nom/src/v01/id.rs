@@ -12,6 +12,7 @@ pub enum Id<'a> {
     None,
     Raw(RawId<'a>),
     Decoded(DecodedId),
+    DecodeError(String), // will be removed in the future
 }
 
 /// Unparsed ID data as read directly from the tile
@@ -54,6 +55,7 @@ impl<'a> Id<'a> {
             Self::Raw(v) => DecodedId::from_raw(v)?,
             Self::Decoded(v) => v,
             Self::None => DecodedId(None),
+            Self::DecodeError(e) => Err(MltError::DecodeError(e))?,
         })
     }
 }
