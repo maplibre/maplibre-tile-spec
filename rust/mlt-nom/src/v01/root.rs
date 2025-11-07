@@ -114,7 +114,9 @@ impl Layer01<'_> {
                     properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
                 }
                 ColumnType::Struct => {
-                    return Err(MltError::NotImplemented("Struct column type not implemented yet"));
+                    return Err(MltError::NotImplemented(
+                        "Struct column type not implemented yet",
+                    ));
                 }
             }
         }
@@ -191,9 +193,18 @@ impl OwnedLayer01 {
         writer.write_varint(column_count as u64)?;
         if has_id {
             // self.id.write_to(writer)?;
-            return Err(io::Error::new(io::ErrorKind::Unsupported, format!("{}", MltError::NotImplemented("ID write not implemented"))));
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("{}", MltError::NotImplemented("ID write not implemented")),
+            ));
         }
 
-        Err(io::Error::new(io::ErrorKind::Unsupported, format!("{}", MltError::NotImplemented("Layer write not fully implemented"))))
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!(
+                "{}",
+                MltError::NotImplemented("Layer write not fully implemented")
+            ),
+        ))
     }
 }

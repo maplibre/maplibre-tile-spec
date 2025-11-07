@@ -112,6 +112,15 @@ pub enum MltError {
         multiple_of: usize,
         got: usize,
     },
+    #[error("byte length expected multiple of {expected_multiple_of}, got {got}")]
+    InvalidByteLength {
+        expected_multiple_of: usize,
+        got: usize,
+    },
+    #[error("invalid stream data: expected {expected}, got {got}")]
+    InvalidStreamData { expected: &'static str, got: String },
+    #[error("unsupported physical decoder: {0}")]
+    UnsupportedPhysicalDecoder(&'static str),
     #[error("vec2 delta stream size expected to be non-empty and multiple of 2, got {0}")]
     InvalidPairStreamSize(usize),
     #[error("{ctx} expected exactly {expected} values, got {got}")]

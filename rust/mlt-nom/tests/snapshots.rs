@@ -26,17 +26,17 @@ fn parse_one_file(path: impl AsRef<Path>) {
     let path = path.as_ref();
     eprintln!("Parsing MLT file: {}", path.display());
     let file_name = path.file_stem().unwrap().to_string_lossy().to_string();
-    let decode_name = format!("{file_name}___decoded");
     let buffer = fs::read(path).unwrap();
     match parse_layers(&buffer) {
         Ok(mut layers) => {
-            assert_debug_snapshot!(file_name.as_str(), layers);
+            assert_debug_snapshot!(format!("{file_name}-parsed"), layers);
             for layer in &mut layers {
-                match layer.decode_all() {
-                    Ok(()) => assert_debug_snapshot!(decode_name.as_str(), layer),
-                    Err(e) => assert_debug_snapshot!(format!("{file_name}___bad-decode"), e),
+                if let Err(e) = layer.decode_all() {
+                    assert_debug_snapshot!(format!("{file_name}___bad-decode"), e);
+                    break;
                 }
             }
+            assert_debug_snapshot!(format!("{file_name}-decoded"), layers);
         }
         Err(e) => {
             let filesize = buffer.len();
@@ -62,7 +62,6 @@ fn parse_one_file(path: impl AsRef<Path>) {
 //     }
 // }
 
-
 #[test]
 #[ignore = "used for manual testing of a single file"]
 fn test_plain() {
@@ -72,7 +71,7 @@ fn test_plain() {
     // let path = "../../test/expected/tag0x01/bing/6-32-21.mlt";
 
     let path = Path::new(path);
-    let buffer = fs::read(&path).unwrap();
+    let buffer = fs::read(path).unwrap();
     parse_layers(&buffer).unwrap();
     // decode([&path]);
 }
