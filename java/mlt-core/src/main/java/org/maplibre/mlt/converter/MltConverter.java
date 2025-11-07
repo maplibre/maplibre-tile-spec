@@ -427,9 +427,7 @@ public class MltConverter {
                     }));
 
     var physicalLevelTechnique =
-        config.getUseAdvancedEncodingSchemes()
-            ? PhysicalLevelTechnique.FAST_PFOR
-            : PhysicalLevelTechnique.VARINT;
+        config.getUseFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
     var mapLibreTileBuffer = new byte[0];
     for (var mvtLayer : mvt.layers()) {
@@ -509,7 +507,7 @@ public class MltConverter {
                 true,
                 sortedFeatures,
                 physicalLevelTechnique,
-                config.getUseAdvancedEncodingSchemes(),
+                config.getUseFSST(),
                 config.getCoercePropertyValues(),
                 streamRecorder);
       }
@@ -555,7 +553,8 @@ public class MltConverter {
     return PropertyEncoder.encodePropertyColumns(
         propertyColumns,
         sortedFeatures,
-        config.getUseAdvancedEncodingSchemes(),
+        config.getUseFastPFOR(),
+        config.getUseFSST(),
         config.getCoercePropertyValues(),
         columnMappings,
         streamRecorder);

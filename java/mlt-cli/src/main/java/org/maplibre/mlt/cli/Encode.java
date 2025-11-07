@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Converter;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
@@ -63,6 +64,8 @@ import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.MLTStreamObserverFile;
 import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
+import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
@@ -88,12 +91,14 @@ public class Encode {
   }
 
   private static void run(CommandLine cmd)
-      throws URISyntaxException, IOException, ClassNotFoundException {
+      throws URISyntaxException, IOException, ClassNotFoundException, ParseException {
     final var tileFileNames = cmd.getOptionValues(INPUT_TILE_ARG);
     final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
     final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
     final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
-    final var useAdvancedEncodingSchemes = cmd.hasOption(ADVANCED_ENCODING_OPTION);
+    final var useFastPFOR = cmd.hasOption(FASTPFOR_ENCODING_OPTION);
+    final var useFSSTJava = cmd.hasOption(FSST_ENCODING_OPTION);
+    final var useFSSTNative = cmd.hasOption(FSST_NATIVE_ENCODING_OPTION);
     final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
     final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
     final var tessellatePolygons =
@@ -102,13 +107,13 @@ public class Encode {
     final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
     final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
     final var verbose =
-        cmd.hasOption(VERBOSE_OPTION)
-            ? Integer.parseInt(cmd.getOptionValue(VERBOSE_OPTION, "1"))
-            : 0;
+        cmd.hasOption(VERBOSE_OPTION) ? cmd.getParsedOptionValue(VERBOSE_OPTION, 1L).intValue() : 0;
     final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
     final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
     final var columnMappings = getColumnMappings(cmd);
+    final var minZoom = cmd.getParsedOptionValue(MIN_ZOOM_OPTION, 0L).intValue();
+    final var maxZoom = cmd.getParsedOptionValue(MAX_ZOOM_OPTION, Long.MAX_VALUE).intValue();
 
     if (verbose > 0 && !columnMappings.isEmpty()) {
       System.err.println("Using Column Mappings:");
@@ -120,6 +125,7 @@ public class Encode {
                       + " -> "
                       + value.stream().map(Object::toString).collect(Collectors.joining(", "))));
     }
+
     var optimizations = new HashMap<String, FeatureTableOptimizations>();
     // TODO: Load layer -> optimizations map
     // each layer:
@@ -128,7 +134,8 @@ public class Encode {
     var conversionConfig =
         new ConversionConfig(
             includeIds,
-            useAdvancedEncodingSchemes,
+            useFastPFOR,
+            useFSSTJava || useFSSTNative,
             enableCoerceOnTypeMismatch,
             optimizations,
             tessellatePolygons,
@@ -140,6 +147,20 @@ public class Encode {
     if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
           "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
+    }
+
+    if (useFSSTNative) {
+      if (!FsstJni.isLoaded() || !FsstEncoder.useNative(true)) {
+        final var err = FsstJni.getLoadError();
+        System.err.println(
+            "Native FSST could not be loaded: "
+                + ((err != null) ? err.getMessage() : "(no error)"));
+        if (verbose > 0 && err != null) {
+          err.printStackTrace(System.err);
+        }
+      }
+    } else if (useFSSTJava) {
+      FsstEncoder.useNative(false);
     }
 
     if (tileFileNames != null && tileFileNames.length > 0) {
@@ -171,6 +192,8 @@ public class Encode {
           conversionConfig,
           tessellateURI,
           compressionType,
+          minZoom,
+          maxZoom,
           enableElideOnTypeMismatch,
           verbose);
     } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
@@ -434,7 +457,8 @@ public class Encode {
                                 .toList())));
     return new ConversionConfig(
         conversionConfig.getIncludeIds(),
-        conversionConfig.getUseAdvancedEncodingSchemes(),
+        conversionConfig.getUseFastPFOR(),
+        conversionConfig.getUseFSST(),
         conversionConfig.getCoercePropertyValues(),
         optimizationMap,
         conversionConfig.getPreTessellatePolygons(),
@@ -452,6 +476,8 @@ public class Encode {
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
       String compressionType,
+      int minZoom,
+      int maxZoom,
       boolean enableCoerceOrElideMismatch,
       int verboseLevel) {
     MBTilesReader mbTilesReader = null;
@@ -489,6 +515,13 @@ public class Encode {
           while (tiles.hasNext()) {
             final var tile = tiles.next();
             try {
+              if (tile.getZoom() < minZoom || tile.getZoom() > maxZoom) {
+                if (verboseLevel > 1) {
+                  System.err.printf(
+                      "Skipping %d:%d,%d%n", tile.getZoom(), tile.getColumn(), tile.getRow());
+                }
+                continue;
+              }
               convertTile(
                   tile,
                   mbTilesWriter,
@@ -1097,12 +1130,16 @@ public class Encode {
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
   private static final String FILTER_LAYERS_OPTION = "filter-layers";
+  private static final String MIN_ZOOM_OPTION = "minzoom";
+  private static final String MAX_ZOOM_OPTION = "maxzoom";
   private static final String FILTER_LAYERS_INVERT_OPTION = "filter-layers-invert";
   private static final String INCLUDE_METADATA_OPTION = "metadata";
   private static final String INCLUDE_TILESET_METADATA_OPTION = "tilesetmetadata";
   private static final String ALLOW_COERCE_OPTION = "coerce-mismatch";
   private static final String ALLOW_ELISION_OPTION = "elide-mismatch";
-  private static final String ADVANCED_ENCODING_OPTION = "advanced";
+  private static final String FASTPFOR_ENCODING_OPTION = "enable-fastpfor";
+  private static final String FSST_ENCODING_OPTION = "enable-fsst";
+  private static final String FSST_NATIVE_ENCODING_OPTION = "enable-fsst-native";
   private static final String COLUMN_MAPPING_AUTO_OPTION = "colmap-auto";
   private static final String COLUMN_MAPPING_DELIM_OPTION = "colmap-delim";
   private static final String COLUMN_MAPPING_LIST_OPTION = "colmap-list";
@@ -1248,6 +1285,26 @@ public class Encode {
               .get());
       options.addOption(
           Option.builder()
+              .longOpt(MIN_ZOOM_OPTION)
+              .hasArg(true)
+              .optionalArg(false)
+              .argName("level")
+              .desc("Minimum zoom level to encode tiles.  Only applies with --" + INPUT_MBTILES_ARG)
+              .required(false)
+              .converter(Converter.NUMBER)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(MAX_ZOOM_OPTION)
+              .hasArg(true)
+              .optionalArg(false)
+              .argName("level")
+              .desc("Maximum zoom level to encode tiles.  Only applies with --" + INPUT_MBTILES_ARG)
+              .required(false)
+              .converter(Converter.NUMBER)
+              .get());
+      options.addOption(
+          Option.builder()
               .longOpt(INCLUDE_METADATA_OPTION)
               .hasArg(false)
               .deprecated()
@@ -1286,9 +1343,26 @@ public class Encode {
               .get());
       options.addOption(
           Option.builder()
-              .longOpt(ADVANCED_ENCODING_OPTION)
+              .longOpt(FASTPFOR_ENCODING_OPTION)
               .hasArg(false)
-              .desc("Enable advanced encodings (FSST & FastPFOR).")
+              .desc("Enable FastPFOR encodings of integer columns")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(FSST_ENCODING_OPTION)
+              .hasArg(false)
+              .desc("Enable FSST encodings of string columns (Java implementation)")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(FSST_NATIVE_ENCODING_OPTION)
+              .hasArg(false)
+              .desc(
+                  "Enable FSST encodings of string columns (Native implementation: "
+                      + (FsstJni.isLoaded() ? "" : "Not ")
+                      + " available)")
               .required(false)
               .get());
       options.addOption(
@@ -1471,6 +1545,7 @@ Add an explicit column mapping on the specified layers:
               .argName("level")
               .desc("Enable verbose output.")
               .required(false)
+              .converter(Converter.NUMBER)
               .get());
       options.addOption(
           Option.builder()
