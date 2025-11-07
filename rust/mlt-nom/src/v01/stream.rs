@@ -268,27 +268,30 @@ impl<'a> Stream<'a> {
         Ok((input, Stream::new(meta, stream_data)))
     }
 
-    pub fn decode_int_stream<T>(self, is_signed: bool) -> Result<Vec<T>, MltError>
+    pub fn decode_signed_int_stream<T>(self) -> Result<Vec<T>, MltError>
     where
-        T: TryFrom<i32> + TryFrom<u32>,
-        MltError: From<<T as TryFrom<i32>>::Error> + From<<T as TryFrom<u32>>::Error>,
+        T: TryFrom<i32>,
+        MltError: From<<T as TryFrom<i32>>::Error>,
     {
-        let logical_value = self.decode_bits_u32()?;
-        if is_signed {
-            logical_value.decode_i32().and_then(|v| {
-                v.into_iter()
-                    .map(T::try_from)
-                    .collect::<Result<Vec<T>, _>>()
-                    .map_err(Into::into)
-            })
-        } else {
-            logical_value.decode_u32().and_then(|v| {
-                v.into_iter()
-                    .map(T::try_from)
-                    .collect::<Result<Vec<T>, _>>()
-                    .map_err(Into::into)
-            })
-        }
+        self.decode_bits_u32()?
+            .decode_i32()?
+            .into_iter()
+            .map(T::try_from)
+            .collect::<Result<Vec<T>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub fn decode_unsigned_int_stream<T>(self) -> Result<Vec<T>, MltError>
+    where
+        T: TryFrom<u32>,
+        MltError: From<<T as TryFrom<u32>>::Error>,
+    {
+        self.decode_bits_u32()?
+            .decode_u32()?
+            .into_iter()
+            .map(T::try_from)
+            .collect::<Result<Vec<T>, _>>()
+            .map_err(Into::into)
     }
 
     pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
