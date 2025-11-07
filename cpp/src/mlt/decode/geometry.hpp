@@ -161,9 +161,8 @@ public:
                                 case PhysicalLevelTechnique::ALP:
                                     // TODO: other implementations are not clear on whether these are valid
                                 case PhysicalLevelTechnique::VARINT:
-                                    intDecoder
-                                        .decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t, /*isSigned=*/true>(
-                                            tileData, vertices, *geomStreamMetadata);
+                                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
+                                        tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
                                     break;
                                 default:
                                     throw std::runtime_error("Unsupported encoding for geometries: " + column.name);

@@ -1,23 +1,23 @@
 import FeatureTable from "./vector/featureTable";
 import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
-import IntWrapper from "./encodings/intWrapper";
+import IntWrapper from "./decoding/intWrapper";
 import { StreamMetadataDecoder } from "./metadata/tile/streamMetadataDecoder";
 import { type RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamMetadata";
 import { VectorType } from "./vector/vectorType";
 import { IntFlatVector } from "./vector/flat/intFlatVector";
 import BitVector from "./vector/flat/bitVector";
-import IntegerStreamDecoder from "./encodings/integerStreamDecoder";
+import IntegerStreamDecoder from "./decoding/integerStreamDecoder";
 import { IntSequenceVector } from "./vector/sequence/intSequenceVector";
 import { LongFlatVector } from "./vector/flat/longFlatVector";
 import { LongSequenceVector } from "./vector/sequence/longSequenceVector";
 import { type IntVector } from "./vector/intVector";
-import { decodeVarintInt32 } from "./encodings/integerDecodingUtils";
-import { decodeGeometryColumn } from "./encodings/geometryDecoder";
-import { decodePropertyColumn } from "./encodings/propertyDecoder";
+import { decodeVarintInt32 } from "./decoding/integerDecodingUtils";
+import { decodeGeometryColumn } from "./decoding/geometryDecoder";
+import { decodePropertyColumn } from "./decoding/propertyDecoder";
 import { IntConstVector } from "./vector/constant/intConstVector";
 import { LongConstVector } from "./vector/constant/longConstVector";
-import type GeometryScaling from "./encodings/geometryScaling";
-import { decodeBooleanRle } from "./encodings/decodingUtils";
+import type GeometryScaling from "./decoding/geometryScaling";
+import { decodeBooleanRle } from "./decoding/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
 import { TypeMap } from "./metadata/tileset/typeMap";
@@ -33,7 +33,7 @@ const GEOMETRY_COLUMN_NAME = "geometry";
  * Decodes a tile with embedded metadata (Tag 0x01 format).
  * This is the primary decoder function for MLT tiles.
  *
- * @param tile The tile data to decode
+ * @param tile The tile data to decode (will be decompressed if gzip-compressed)
  * @param geometryScaling Optional geometry scaling parameters
  * @param idWithinMaxSafeInteger If true, limits ID values to JavaScript safe integer range (53 bits)
  */
@@ -74,7 +74,6 @@ export default function decodeTile(
 
         for (const columnMetadata of featureTableMetadata.columns) {
             const columnName = columnMetadata.name;
-            const numStreams = TypeMap.hasStreamCount(columnMetadata) ? decodeVarintInt32(tile, offset, 1)[0] : 1;
 
             if (columnName === ID_COLUMN_NAME) {
                 let nullabilityBuffer = null;
@@ -101,12 +100,26 @@ export default function decodeTile(
                     idWithinMaxSafeInteger,
                 );
             } else if (columnName === GEOMETRY_COLUMN_NAME) {
+                const numStreams = decodeVarintInt32(tile, offset, 1)[0];
+
+                // If no ID column, get numFeatures from geometry type stream metadata
+                if (numFeatures === 0) {
+                    const savedOffset = offset.get();
+                    const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
+                    numFeatures = geometryTypeMetadata.getDecompressedCount();
+                    offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
+                }
+
                 if (geometryScaling) {
                     geometryScaling.scale = geometryScaling.extent / extent;
                 }
 
                 geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
             } else {
+                // Property columns: STRING and STRUCT have stream count, others don't
+                const hasStreamCnt = TypeMap.hasStreamCount(columnMetadata);
+                const numStreams = hasStreamCnt ? decodeVarintInt32(tile, offset, 1)[0] : 1;
+
                 if (numStreams === 0 && columnMetadata.type === "scalarType") {
                     continue;
                 }

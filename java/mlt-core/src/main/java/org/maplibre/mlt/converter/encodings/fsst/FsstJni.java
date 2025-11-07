@@ -2,16 +2,17 @@ package org.maplibre.mlt.converter.encodings.fsst;
 
 import nl.bartlouwers.fsst.*;
 
-class FsstJni implements Fsst {
+public class FsstJni implements Fsst {
   private static nl.bartlouwers.fsst.Fsst impl = null;
+  private static Error loadError;
 
   static {
     try {
       var impl = new FsstImpl();
       impl.encode(new byte[] {});
       FsstJni.impl = impl;
-    } catch (UnsatisfiedLinkError e) {
-      System.err.println("Failed to load native FSST: " + e.getMessage());
+    } catch (UnsatisfiedLinkError | ExceptionInInitializerError e) {
+      loadError = e;
     }
   }
 
@@ -30,5 +31,9 @@ class FsstJni implements Fsst {
 
   public static boolean isLoaded() {
     return (impl != null);
+  }
+
+  public static Error getLoadError() {
+    return loadError;
   }
 }

@@ -55,7 +55,8 @@ public class MltGenerator {
   TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.NONE;
   protected static final Map<Pattern, List<ColumnMapping>> COLUMN_MAPPINGS =
       Map.of(Pattern.compile(".*"), List.of(new ColumnMapping("name", "_", true)));
-  boolean USE_ADVANCED_ENCODINGS = false;
+  boolean USE_FAST_PFOR = false;
+  boolean USE_FSST = false;
   boolean USE_POLYGON_TESSELLATION = false;
   boolean USE_MORTON_ENCODING = false;
   private static final List<String> OUTLINE_POLYGON_FEATURE_TABLE_NAMES = List.of("building");
@@ -201,7 +202,8 @@ public class MltGenerator {
     var config =
         new ConversionConfig(
             /* includeIds= */ true,
-            USE_ADVANCED_ENCODINGS,
+            USE_FAST_PFOR,
+            USE_FSST,
             /* coercePropertyValues= */ false,
             optimizations,
             USE_POLYGON_TESSELLATION,
