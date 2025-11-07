@@ -1,0 +1,417 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+Tag01(
+    Layer01 {
+        name: "water",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: DecodeError(
+            "not implemented: geometry_offsets with part_offsets and ring_offsets case is not implemented",
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "display_class",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "kind",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "min_zoom",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "sort_rank",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:de",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:zh",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:fr",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:it",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:en",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:lt",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ru",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:pl",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:da",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:nl",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ar",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:bg",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:cs",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:es",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:et",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:fi",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:hi",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:hr",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:hu",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:id",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:is",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ja",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ko",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:lv",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:no",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:pt",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ro",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:sk",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:sr",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:sv",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:th",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:tr",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:uk",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:zh-Hant",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:af",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ca",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:el",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:eu",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:gl",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:he",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ms",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:sl",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:tl",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ur",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:vi",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

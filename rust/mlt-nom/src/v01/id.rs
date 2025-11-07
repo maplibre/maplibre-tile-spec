@@ -64,15 +64,13 @@ impl<'a> FromRaw<'a> for DecodedId {
     type Input = RawId<'a>;
 
     fn from_raw(RawId { optional, value }: RawId<'_>) -> Result<Self, MltError> {
-        let value = match value {
-            RawIdValue::Id32(stream) => {
-                todo!("decode 32 bit Id from stream")
+        match value {
+            RawIdValue::Id32(_stream) => {
+                return Err(MltError::NotImplemented("decode 32 bit Id from stream"));
             }
-            RawIdValue::Id64(stream) => {
-                todo!("decode 64 bit LongId from stream")
+            RawIdValue::Id64(_stream) => {
+                return Err(MltError::NotImplemented("decode 64 bit LongId from stream"));
             }
-        };
-
-        // Ok(DecodedId(Some(value)))
+        }
     }
 }

@@ -9,23 +9,26 @@ pub trait Decodable<'a>: Sized {
     fn is_raw(&self) -> bool;
     /// Create a new instance from decoded data
     fn new_decoded(raw: Self::DecodedType) -> Self;
+    /// Create a new instance from decoded data
+    fn new_error(error: String) -> Self;
     /// Temporarily replace self with a default value to take ownership of the raw data
     fn take_raw(&mut self) -> Option<Self::RawType>;
     /// Borrow the decoded data if available
     fn borrow_decoded(&self) -> Option<&Self::DecodedType>;
 
-    fn materialize(&mut self) -> Result<&Self::DecodedType, MltError> {
+    fn materialize(&mut self) -> Result<&Self, MltError> {
         if self.is_raw() {
             // Temporarily replace self with a default value to take ownership of the raw data
-            let raw = self.take_raw().expect("Expected raw data");
-            *self = Self::new_decoded(Self::DecodedType::from_raw(raw)?);
+            let Some(raw) = self.take_raw() else {
+                return Err(MltError::DecodeError("Expected raw data".to_string()))?;
+            };
+            let res = Self::DecodedType::from_raw(raw);
+            match res {
+                Ok(res) => *self = Self::new_decoded(res),
+                Err(e) => *self = Self::new_error(e.to_string()),
+            }
         }
-        Ok(self.borrow_decoded().expect("Expected decoded data"))
-    }
-
-    fn ensure_decoded(&mut self) -> Result<(), MltError> {
-        self.materialize()?;
-        Ok(())
+        Ok(self)
     }
 }
 
@@ -49,6 +52,10 @@ macro_rules! impl_decodable {
 
             fn new_decoded(raw: Self::DecodedType) -> Self {
                 Self::Decoded(raw)
+            }
+
+            fn new_error(error: String) -> Self {
+                Self::DecodeError(error)
             }
 
             fn take_raw(&mut self) -> Option<Self::RawType> {

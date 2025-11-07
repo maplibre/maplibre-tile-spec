@@ -1,0 +1,16 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+Tag01(
+    Layer01 {
+        name: "Zoo",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: DecodeError(
+            "not implemented: geometry_offsets with part_offsets and ring_offsets case is not implemented",
+        ),
+        properties: [],
+    },
+)

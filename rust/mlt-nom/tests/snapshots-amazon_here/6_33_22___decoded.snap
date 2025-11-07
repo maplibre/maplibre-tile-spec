@@ -1,0 +1,189 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+Tag01(
+    Layer01 {
+        name: "road_labels",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: Decoded(
+            DecodedGeometry {
+                vector_types: [
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                ],
+                geometry_offsets: None,
+                part_offsets: [0,15,26,31,37,46,52,57, ...; 83],
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: [2617,2777,2628,2741,2623,2696,2598,2687, ...; 1640],
+            },
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "all_networks",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "all_refs",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "all_route_types",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "all_shield_texts",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "kind",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "kind_detail",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "network",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "ref",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "shield_text",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "fclass",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

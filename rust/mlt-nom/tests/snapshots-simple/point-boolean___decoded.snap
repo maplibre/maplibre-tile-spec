@@ -1,0 +1,36 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+Tag01(
+    Layer01 {
+        name: "layer",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: Decoded(
+            DecodedGeometry {
+                vector_types: [
+                    Point,
+                ],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: [25,17; 2],
+            },
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "key",
+                    values: Bool(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

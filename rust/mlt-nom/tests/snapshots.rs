@@ -33,7 +33,7 @@ fn parse_one_file(path: impl AsRef<Path>) {
             assert_debug_snapshot!(file_name.as_str(), layers);
             for layer in &mut layers {
                 match layer.decode_all() {
-                    Ok(v) => assert_debug_snapshot!(decode_name.as_str(), v),
+                    Ok(()) => assert_debug_snapshot!(decode_name.as_str(), layer),
                     Err(e) => assert_debug_snapshot!(format!("{file_name}___bad-decode"), e),
                 }
             }

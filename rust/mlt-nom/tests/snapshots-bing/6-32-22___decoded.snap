@@ -1,0 +1,114 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+Tag01(
+    Layer01 {
+        name: "populated_place",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: Decoded(
+            DecodedGeometry {
+                vector_types: [
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                ],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: [1708,76,3676,1740,3524,3396,1388,1124, ...; 30],
+            },
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "_id",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "bkt",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "clk-as",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "has-icon",
+                    values: Bool(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "label-importance",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "max-text-width",
+                    values: F32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name-f",
+                    values: F32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "st-tag",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

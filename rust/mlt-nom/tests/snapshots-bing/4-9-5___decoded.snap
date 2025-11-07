@@ -1,0 +1,33 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+Tag01(
+    Layer01 {
+        name: "admin_division1",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: DecodeError(
+            "not implemented: geometry_offsets with part_offsets case is not implemented",
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "bkt",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "clk-as",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

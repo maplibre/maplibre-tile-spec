@@ -261,7 +261,7 @@ impl<'a> Stream<'a> {
             PT::None => DataRaw::new(data),
             PT::VarInt => DataVarInt::new(data),
             _ => {
-                panic!("Unsupported logical/physical technique combination: {physical:?}",)
+                return Err(MltError::DecodeError(format!("Unsupported logical/physical technique combination: {physical:?}")));
             }
         };
 
@@ -278,7 +278,7 @@ impl<'a> Stream<'a> {
             //     // let physical_decode = all(parse_varint_vec::<T, U>(self.data, self.num_values)?)?;
             //     // decode_componentwise_delta_vec2s(physical_decode.as_slice())
             // }
-            StreamData::Raw(_) => panic!("Unsupported physical type: {:?}", self.data),
+            StreamData::Raw(_) => return Err(MltError::DecodeError(format!("Unsupported physical type: {:?}", self.data))),
         }?;
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
@@ -364,7 +364,7 @@ impl LogicalValue {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())), //
                                                                                                  // v => panic!("Unsupported LogicalDecoder::Delta type {v:?} for u32"),
             },
-            v => panic!("Unsupported LogicalDecoder {v:?} for i32"),
+            v => Err(MltError::DecodeError(format!("Unsupported LogicalDecoder {v:?} for i32"))),
         }
     }
 
@@ -386,7 +386,7 @@ impl LogicalValue {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())), //
                                                                                                  // v => panic!("Unsupported LogicalDecoder::Delta type {v:?} for u32"),
             },
-            v => panic!("Unsupported LogicalDecoder {v:?} for u32"),
+            v => return Err(MltError::DecodeError(format!("Unsupported LogicalDecoder {v:?} for u32"))),
         }
     }
 }

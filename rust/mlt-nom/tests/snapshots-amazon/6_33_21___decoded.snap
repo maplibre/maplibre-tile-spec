@@ -1,0 +1,61 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+Tag01(
+    Layer01 {
+        name: "Graticule/label",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: Decoded(
+            DecodedGeometry {
+                vector_types: [
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                ],
+                geometry_offsets: None,
+                part_offsets: [0,2,4,6,8,10,12,14, ...; 11],
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: [3184,-64,3184,4160,3912,-64,3912,4160, ...; 40],
+            },
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "IN_WATER",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "_label_class",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "_name",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

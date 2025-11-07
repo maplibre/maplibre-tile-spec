@@ -135,13 +135,13 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
-                    _ => todo!("Geometry stream cannot have Data physical type: {v:?}"),
+                    _ => Err(MltError::NotImplemented("Geometry stream cannot have Data physical type"))?,
                 },
                 PhysicalStreamType::Offset(v) => {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
-                        _ => todo!("Geometry stream cannot have Offset physical type: {v:?}"),
+                        _ => Err(MltError::NotImplemented("Geometry stream cannot have Offset physical type"))?,
                     };
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
@@ -151,7 +151,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         LengthType::Parts => &mut part_offsets,
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
-                        _ => todo!("Geometry stream cannot have Length physical type: {v:?}"),
+                        _ => Err(MltError::NotImplemented("Geometry stream cannot have Length physical type"))?,
                     };
                     // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamDecoder<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
@@ -164,7 +164,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
             // topology data are present in the tile
             //
             // return FlatGpuVector::new(vector_types, triangles, index_buffer, vertices);
-            todo!("index_buffer.is_some() && part_offsets.is_none() case is not implemented");
+            return Err(MltError::NotImplemented("index_buffer.is_some() && part_offsets.is_none() case is not implemented"));
         }
 
         // Use decode_root_length_stream if geometry_offsets is present
@@ -184,14 +184,14 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                     //                          partOffsets);
                     // auto ringOffsetsCopy = ringOffsets;
                     // decodeLevel2LengthStream(geometryTypes, geometryOffsets, partOffsets, ringOffsetsCopy, ringOffsets);
-                    todo!(
+                    return Err(MltError::NotImplemented(
                         "geometry_offsets with part_offsets and ring_offsets case is not implemented"
-                    );
+                    ));
                 } else {
                     // auto partOffsetsCopy = partOffsets;
                     // decodeLevel1WithoutRingBufferLengthStream(
                     //     geometryTypes, geometryOffsets, partOffsetsCopy, partOffsets);
-                    todo!("geometry_offsets with part_offsets case is not implemented");
+                    return Err(MltError::NotImplemented("geometry_offsets with part_offsets case is not implemented"));
                 }
             }
         } else if let Some(offsets) = part_offsets.take() {
@@ -206,7 +206,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                 //                          ringOffsetsCopy,
                 //                          /*isLineStringPresent=*/true,
                 //                          ringOffsets);
-                todo!("part_offsets with ring_offsets case is not implemented");
+                return Err(MltError::NotImplemented("part_offsets with ring_offsets case is not implemented"));
             } else {
                 part_offsets = Some(decode_root_length_stream(
                     &vector_types,
@@ -227,7 +227,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                std::move(vertices),
                geometry::TopologyVector(std::move(geometryOffsets), std::move(partOffsets), std::move(ringOffsets));
             */
-            todo!("index_buffer.is_some() case is not implemented");
+            return Err(MltError::NotImplemented("index_buffer.is_some() case is not implemented"));
         }
 
         Ok(DecodedGeometry {
