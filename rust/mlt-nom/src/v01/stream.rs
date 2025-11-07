@@ -273,7 +273,7 @@ impl<'a> Stream<'a> {
         T: TryFrom<i32> + TryFrom<u32>,
         MltError: From<<T as TryFrom<i32>>::Error> + From<<T as TryFrom<u32>>::Error>,
     {
-        let logical_value = self.decode_physical_u32()?;
+        let logical_value = self.decode_bits_u32()?;
         if is_signed {
             logical_value.decode_i32().and_then(|v| {
                 v.into_iter()
@@ -291,7 +291,7 @@ impl<'a> Stream<'a> {
         }
     }
 
-    pub fn decode_physical_u32(self) -> Result<LogicalValue, MltError> {
+    pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.physical_decoder {
             PhysicalDecoder::VarInt => match self.data {
                 StreamData::VarInt(data) => all(utils::parse_varint_vec::<u32, u32>(
@@ -539,13 +539,13 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_physical_u32() {
+    fn test_decode_bits_u32() {
         let test_cases = generate_stream_test_cases();
 
         for test_case in test_cases {
             if let Some(expected_u32_logical_value) = &test_case.expected_u32_logical_value {
                 let stream = create_stream_from_test_case(&test_case);
-                let result = stream.decode_physical_u32();
+                let result = stream.decode_bits_u32();
                 assert!(result.is_ok(), "Should successfully decode LogicalValue");
                 let logical_value = result.unwrap();
                 assert_eq!(
