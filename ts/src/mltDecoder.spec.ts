@@ -1,10 +1,14 @@
 import { expect, describe, it } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
-import { VectorTile, type VectorTileFeature, type VectorTileLayer } from "@mapbox/vector-tile";
+import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 
 import { type FeatureTable, type Feature, decodeTile } from ".";
+import path from "node:path";
+import fs from "node:fs";
+
+const ITERATOR_TILE = path.resolve(__dirname, "../../test/expected/tag0x01/simple/multiline-boolean.mlt");
 
 describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
     const simpleMltTileDir = "../test/expected/tag0x01/simple";
@@ -22,6 +26,29 @@ describe("MLT Decoder - MVT comparison for OMT tiles", () => {
     const omtMltTileDir = "../test/expected/tag0x01/omt";
     const omtMvtTileDir = "../test/fixtures/omt";
     testTiles(omtMltTileDir, omtMvtTileDir);
+}, 150000);
+
+describe("FeatureTable", () => {
+    it("should iterate through features correctly", () => {
+        const bytes = new Uint8Array(fs.readFileSync(ITERATOR_TILE));
+        const featureTables = decodeTile(bytes);
+
+        const table = featureTables[0];
+
+        expect(table.name).toBe("layer");
+        expect(table.extent).toBe(4096);
+
+        let featureCount = 0;
+        for (const feature of table) {
+            expect(feature.geometry).toBeTruthy();
+            expect(feature.geometry.coordinates).toBeInstanceOf(Array);
+            expect(feature.geometry.coordinates.length).toBeGreaterThan(0);
+            expect(typeof feature.geometry.type).toBe("number");
+
+            featureCount++;
+        }
+        expect(featureCount).toBe(table.numFeatures);
+    });
 });
 
 function testTiles(mltSearchDir: string, mvtSearchDir: string) {
@@ -64,9 +91,11 @@ function comparePlainGeometryEncodedTile(
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
 
-        for (let j = 0; j < mltFeatures.length; j++) {
-            const mltFeature = mltFeatures[j];
+        expect(mltFeatures.length).toBe(layer.length);
+
+        for (let j = 0; j < layer.length; j++) {
             const mvtFeature = layer.feature(j);
+            const mltFeature = mltFeatures[j];
 
             compareId(mltFeature, mvtFeature, true);
 

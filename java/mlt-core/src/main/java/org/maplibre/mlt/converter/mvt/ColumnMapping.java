@@ -1,15 +1,11 @@
 package org.maplibre.mlt.converter.mvt;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.StringUtils;
 
 /*
  * In the converter it is currently possible to map a set of feature properties into a nested struct with a depth of one level.
@@ -17,109 +13,103 @@ import org.apache.commons.lang3.StringUtils;
  * This has the advantage that the dictionary (Shared Dictionary Encoding) can be shared among the nested columns.
  * */
 public class ColumnMapping {
-  public String getMvtPropertyPrefix() {
-    return mvtPropertyPrefix;
+  public Pattern getPrefix() {
+    return prefix;
   }
 
-  public String getMvtDelimiter() {
-    return mvtDelimiter;
+  public Pattern getDelimiter() {
+    return delimiter;
   }
 
   public boolean getUseSharedDictionaryEncoding() {
     return useSharedDictionaryEncoding;
   }
 
-  public Collection<String> getExplicitColumnNames() {
-    return explicitColumnNames;
+  public boolean hasColumnNames() {
+    return columnNames != null && !columnNames.isEmpty();
+  }
+
+  public Collection<String> getColumnNames() {
+    return columnNames;
   }
 
   /// Construct a mapping based on common prefixes and a delimiter
-  public ColumnMapping(
-      String mvtPropertyPrefix, String mvtDelimiter, boolean useSharedDictionaryEncoding) {
-    this(mvtPropertyPrefix, mvtDelimiter, useSharedDictionaryEncoding, null);
+  public ColumnMapping(Pattern prefix, Pattern delimiter, boolean useSharedDictionaryEncoding) {
+    this(prefix, delimiter, null, useSharedDictionaryEncoding);
+  }
+
+  public ColumnMapping(String prefix, String delimiter, boolean useSharedDictionaryEncoding) {
+    this(
+        Pattern.compile(prefix, Pattern.LITERAL),
+        Pattern.compile(delimiter, Pattern.LITERAL),
+        null,
+        useSharedDictionaryEncoding);
   }
 
   ///  Construct a mapping based on explicit column names
-  public ColumnMapping(
-      Collection<String> explicitColumnNames, boolean useSharedDictionaryEncoding) {
-    this(null, null, useSharedDictionaryEncoding, explicitColumnNames);
-    throw new NotImplementedException("Explicit column mappings are not implemented yet");
+  public ColumnMapping(Collection<String> columnNames, boolean useSharedDictionaryEncoding) {
+    this(null, null, columnNames, useSharedDictionaryEncoding);
   }
 
   private ColumnMapping(
-      String mvtPropertyPrefix,
-      String mvtDelimiter,
-      boolean useSharedDictionaryEncoding,
-      Collection<String> explicitColumnNames) {
-    if (StringUtils.isAnyBlank(mvtPropertyPrefix, mvtDelimiter)) {
-      throw new IllegalArgumentException("mvtPropertyPrefix and mvtDelimiter must be non-blank");
-    }
-    this.mvtPropertyPrefix = mvtPropertyPrefix;
-    this.mvtDelimiter = mvtDelimiter;
+      Pattern prefix,
+      Pattern delimiter,
+      Collection<String> columnNames,
+      boolean useSharedDictionaryEncoding) {
+    this.prefix = prefix;
+    this.delimiter = delimiter;
     this.useSharedDictionaryEncoding = useSharedDictionaryEncoding;
-    this.explicitColumnNames =
-        (explicitColumnNames == null) ? Collections.emptyList() : List.copyOf(explicitColumnNames);
+    this.columnNames = (columnNames == null) ? Collections.emptyList() : List.copyOf(columnNames);
   }
 
-  public boolean parentMatches(String columnName) {
-    // In the prefix case, the parent is the un-delimited/un-suffixed property
-    if (mvtPropertyPrefix != null) {
-      return columnName.equals(mvtPropertyPrefix);
+  public boolean isMatch(String propertyName) {
+    if (hasColumnNames()) {
+      return columnNames.contains(propertyName);
+    } else {
+      // In the prefix case, the prefix alone or a prefix+delimiter+suffix match
+      final var prefixMatcher = prefix.matcher(propertyName);
+      if (prefixMatcher.find()) {
+        if (prefixMatcher.start() == 0) {
+          final var remainder = propertyName.substring(prefixMatcher.end());
+          final var suffixMatcher = delimiter.matcher(remainder);
+          return remainder.isEmpty() || (suffixMatcher.find() && suffixMatcher.start() == 0);
+        }
+      }
+      return false;
     }
-    // In the explicit column names case, ...
-    return true;
-  }
-
-  public boolean childMatches(String propertyName) {
-    // In the prefix case, the child properties consist of <prefix><delimiter><suffix>
-    if (mvtPropertyPrefix != null) {
-      return propertyName.startsWith(mvtPropertyPrefix + mvtDelimiter);
-    }
-    return false;
-  }
-
-  /// Get the suffix part of the property name.
-  /// This handles cases with nested names like "name_ja_kana"
-  public String getChildName(String columnName) {
-    return Arrays.stream(columnName.split(mvtDelimiter))
-        .skip(1)
-        .collect(Collectors.joining(mvtDelimiter));
   }
 
   /// Find a matching column mapping among a collection of mappings grouped by layer name patterns
-  /// @param parentMapping true to find parent mapping, false to find child mapping
   public static ColumnMapping findMapping(
-      boolean parentMapping,
-      Map<Pattern, List<ColumnMapping>> patternMappings,
-      String layerName,
-      String propertyName) {
+      Map<Pattern, List<ColumnMapping>> patternMappings, String layerName, String propertyName) {
     return patternMappings.entrySet().stream()
         .filter(entry -> entry.getKey().matcher(layerName).matches())
-        .map(entry -> findMapping(parentMapping, entry.getValue(), propertyName))
+        .map(entry -> findMapping(entry.getValue(), propertyName))
         .filter(Objects::nonNull)
         .findFirst()
         .orElse(null);
   }
 
   /// Find a matching column mapping among a collection of mappings
-  /// @param parentMapping true to find parent mapping, false to find child mapping
   public static ColumnMapping findMapping(
-      boolean parentMapping, Collection<ColumnMapping> columnMappings, String propertyName) {
-    return columnMappings.stream()
-        .filter(m -> parentMapping ? m.parentMatches(propertyName) : m.childMatches(propertyName))
-        .findFirst()
-        .orElse(null);
+      Collection<ColumnMapping> columnMappings, String propertyName) {
+    return columnMappings.stream().filter(m -> m.isMatch(propertyName)).findFirst().orElse(null);
   }
 
   @Override
   public String toString() {
-    return String.format(
-        "{prefix=%s separator=%s dictionary=%s}",
-        mvtPropertyPrefix, mvtDelimiter, useSharedDictionaryEncoding);
+    if (hasColumnNames()) {
+      return String.format(
+          "{columns=%s dictionary=%s}",
+          String.join(", ", columnNames), useSharedDictionaryEncoding);
+    } else {
+      return String.format(
+          "{prefix=%s separator=%s dictionary=%s}", prefix, delimiter, useSharedDictionaryEncoding);
+    }
   }
 
-  private final String mvtPropertyPrefix;
-  private final String mvtDelimiter;
+  private final Pattern prefix;
+  private final Pattern delimiter;
   private final boolean useSharedDictionaryEncoding;
-  private final Collection<String> explicitColumnNames;
+  private final Collection<String> columnNames;
 }

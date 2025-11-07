@@ -5,8 +5,8 @@ import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
 import { DictionaryType } from "./dictionaryType";
 import { OffsetType } from "./offsetType";
 import { LengthType } from "./lengthType";
-import type IntWrapper from "../../encodings/intWrapper";
-import { decodeVarintInt32 } from "../../encodings/integerDecodingUtils";
+import type IntWrapper from "../../decoding/intWrapper";
+import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 
 export class StreamMetadata {
     constructor(
@@ -85,5 +85,14 @@ export class StreamMetadata {
 
     get byteLength(): number {
         return this._byteLength;
+    }
+
+    /**
+     * Returns the number of decompressed values.
+     * For non-RLE streams, this is the same as numValues.
+     * For RLE streams, this is overridden to return numRleValues.
+     */
+    getDecompressedCount(): number {
+        return this._numValues;
     }
 }
