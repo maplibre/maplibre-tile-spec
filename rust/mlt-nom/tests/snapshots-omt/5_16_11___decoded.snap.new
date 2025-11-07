@@ -1,0 +1,64 @@
+---
+source: mlt-nom/tests/snapshots.rs
+assertion_line: 36
+---
+Tag01(
+    Layer01 {
+        name: "boundary",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: Decoded(
+            DecodedGeometry {
+                vector_types: [
+                    LineString,
+                    LineString,
+                    LineString,
+                    LineString,
+                ],
+                geometry_offsets: None,
+                part_offsets: [0,5,24,29,48; 5],
+                ring_offsets: None,
+                vertex_offsets: [3,0,1,2,18,18,19,20, ...; 48],
+                index_buffer: None,
+                triangles: None,
+                vertices: [404,3220,425,3251,494,3246,378,3213, ...; 44],
+            },
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "admin_level",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "disputed",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "maritime",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "adm0_l",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

@@ -1,0 +1,214 @@
+---
+source: mlt-nom/tests/snapshots.rs
+assertion_line: 36
+---
+Tag01(
+    Layer01 {
+        name: "water_name",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 64 bit LongId from stream",
+        ),
+        geometry: Decoded(
+            DecodedGeometry {
+                vector_types: [
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                    Point,
+                ],
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: [2385,6072,6881,336,7333,-459,6659,2040, ...; 68],
+            },
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "class",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "intermittent",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ar",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:be",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:br",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ko",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:latin",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:lv",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:ru",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name_de",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name_en",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name_int",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:en",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:fr",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:cs",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:es",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:de",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:nl",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)

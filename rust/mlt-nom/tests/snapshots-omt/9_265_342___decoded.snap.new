@@ -1,0 +1,85 @@
+---
+source: mlt-nom/tests/snapshots.rs
+assertion_line: 36
+---
+Tag01(
+    Layer01 {
+        name: "water_name",
+        extent: 4096,
+        id: DecodeError(
+            "not implemented: decode 32 bit Id from stream",
+        ),
+        geometry: Decoded(
+            DecodedGeometry {
+                vector_types: [
+                    LineString,
+                ],
+                geometry_offsets: None,
+                part_offsets: [0,9; 2],
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+                vertices: [-2971,-3757,-3123,-3599,-3307,-3454,-3415,-3396, ...; 18],
+            },
+        ),
+        properties: [
+            Decoded(
+                DecodedProperty {
+                    name: "class",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "intermittent",
+                    values: I32(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name:latin",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name_de",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name_en",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+            Decoded(
+                DecodedProperty {
+                    name: "name_int",
+                    values: Str(
+                        [],
+                    ),
+                },
+            ),
+        ],
+    },
+)
