@@ -3,10 +3,12 @@ name: C++ CI
 on:
   push:
     paths:
+      - '.github/**'
       - 'cpp/**'
       - 'test/**'
   pull_request:
     paths:
+      - '.github/**'
       - 'cpp/**'
       - 'test/**'
 

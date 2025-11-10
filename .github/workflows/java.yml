@@ -3,10 +3,12 @@ name: Java CI
 on:
   push:
     paths:
+      - '.github/**'
       - 'java/**'
       - 'test/**'
   pull_request:
     paths:
+      - '.github/**'
       - 'java/**'
       - 'test/**'
   workflow_dispatch:

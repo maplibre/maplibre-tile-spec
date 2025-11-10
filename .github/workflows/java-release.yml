@@ -1,4 +1,4 @@
-name: Release to Maven Central
+name: Java - Release
 
 on:
   push:
