@@ -1,0 +1,143 @@
+#!/bin/bash
+
+# terminate when subshell is killed
+trap 'trap " " SIGINT SIGTERM SIGHUP; kill 0; exit 1' SIGINT SIGTERM SIGHUP
+
+# Build a metadata-and-tile file by concatenating the metadata size, metadata, and tile data
+bundle_meta () {
+    TILE_FILE="$1"
+    META_FILE="$2"
+    OUT_FILE="$3"
+    printf "%.8x\n" $(stat --format=%s "$META_FILE") | \
+        sed -E 's/(..)(..)(..)(..)/0: \4\3\2\1/' | \
+        xxd -r -l 4 -g 4 | \
+        cat - "$META_FILE" "$TILE_FILE" >"$OUT_FILE"
+}
+
+convert_tile () {
+    z=$1
+    x=$2
+    y=$3
+    SOURCE_PATH="$4"
+    TARGET_PATH="$5"
+
+    MVT_FILE=${z}_${x}_${y}.mvt
+    TILE_PATH="$TARGET_PATH/$z/$x"
+    mkdir -p "$TILE_PATH"
+
+    if [ ! -f "$TARGET_PATH/$z/$x/$y.mlt" ] || [ ! -f "$TARGET_PATH/$z/$x/$y.mlt.meta.pbf" ]; then
+        rm -f "$TILE_PATH/$y.mltm"
+        # Write MLT and metadata to target location
+        (cd ../java ; $ENCODE -mvt "$SOURCE_PATH/$MVT_FILE" -mlt "$TARGET_PATH/$z/$x/$y.mlt" -metadata $6 $7 $8)
+        RESULT=$?
+        if [ $RESULT -ne 0 ] ; then
+            echo "  $SOURCE_PATH/$MVT_FILE Failed: $RESULT"
+            rm -f "$TILE_PATH/$y.mlt"*
+            return $RESULT
+        fi
+    fi
+
+    if [ ! -f "$TILE_PATH/$y.mltm" ]; then
+        # Combine MLT and metadata
+        bundle_meta "$TILE_PATH/$y.mlt" "$TILE_PATH/$y.mlt.meta.pbf" "$TILE_PATH/$y.mltm"
+    fi
+
+    return 0
+}
+
+if [ -f ignore_list_basic ]; then
+    IFS=$'\r\n' command eval 'IGNORE_LIST_BASIC=($(cat ignore_list_basic))'
+fi
+if [ -f ignore_list_advanced ]; then
+    IFS=$'\r\n' command eval 'IGNORE_LIST_ADVANCED=($(cat ignore_list_advanced))'
+fi
+isIgnoreBasic () {
+    [[ " ${IGNORE_LIST_BASIC[@]} " =~ " $1 " ]] && return 0 || return 1
+}
+isIgnoreAdvanced () {
+    [[ " ${IGNORE_LIST_ADVANCED[@]} " =~ " $1 " ]] && return 0 || return 1
+}
+
+# Find OMT tile files
+FILES=$(cd fixtures/omt ; ls -1 *.mvt)
+
+ENCODE="java -jar build/libs/encode.jar"
+
+# Relative to root
+SRC_PATH=test/fixtures/omt
+BASIC_PATH=test/expected/omt/basic
+ADVANCED_PATH=test/expected/omt/advanced
+MVT_PATH=test/expected/omt/mvt
+
+echo -r \\nProcessing tiles ...
+for file in $FILES ; do
+    read z x y <<< $(echo $file | sed -E 's/([0-9]+)_([0-9]+)_([0-9]+)\.mvt/\1 \2 \3/')
+
+    echo "  $z:$x,$y ..."
+    MVT_FILE=${z}_${x}_${y}.mvt
+    mkdir -p "../$BASIC_PATH/$z/$x" "../$ADVANCED_PATH/$z/$x" "../$MVT_PATH/$z/$x"
+
+    if ! isIgnoreBasic "$z/$x/$y"; then
+        convert_tile $z $x $y "../$SRC_PATH" "../$BASIC_PATH" 
+        if [ $? -ne 0 ]; then
+            echo $z/$x/$y >> ignore_list_basic
+        fi
+    fi
+    if ! isIgnoreAdvanced "$z/$x/$y"; then
+        convert_tile $z $x $y "../$SRC_PATH" "../$ADVANCED_PATH" -advanced
+        if [ $? -ne 0 ]; then
+            echo $z/$x/$y >> ignore_list_advanced
+        fi
+    fi
+    cp "../$SRC_PATH/$file" "../$MVT_PATH/$z/$x/$y.pbf"
+done
+
+echo -e \\nBuilding metadata ...
+
+cat >"../$BASIC_PATH/metadata.json" << EOF
+{
+  "name": "omt-basic",
+  "type": "baselayer",
+  "format": "mlt",
+  "description": "description",
+  "version": "1.0",
+  "formatter": null,
+  "bounds": "-179.9999999749438,-69.99999999526695,179.9999999749438,84.99999999782301"
+}
+EOF
+
+cat >"../$ADVANCED_PATH/metadata.json" << EOF
+{
+  "name": "omt-advanced",
+  "type": "baselayer",
+  "format": "mlt",
+  "description": "description",
+  "version": "1.0",
+  "formatter": null,
+  "bounds": "-179.9999999749438,-69.99999999526695,179.9999999749438,84.99999999782301"
+}
+EOF
+
+cat >"../$MVT_PATH/metadata.json" << EOF
+{
+  "name": "omt-ref",
+  "type": "baselayer",
+  "format": "pbf",
+  "description": "description",
+  "version": "1.0",
+  "formatter": null,
+  "bounds": "-179.9999999749438,-69.99999999526695,179.9999999749438,84.99999999782301"
+}
+EOF
+
+rm -f omt-basic-mlt.mbtiles omt-advanced-mlt.mbtiles omt-ref.mbtiles
+
+echo -e \\nBuilding omt-basic-mlt.mbtiles ...
+mb-util --image_format=mltm --scheme=tms "../$BASIC_PATH" omt-basic-mlt.mbtiles
+
+echo -e \\nBuilding omt-advanced-mlt.mbtiles ...
+mb-util --image_format=mltm --scheme=tms "../$ADVANCED_PATH" omt-advanced-mlt.mbtiles
+
+echo -e \\nBuilding omt-ref.mbtiles ...
+mb-util --image_format=pbf --scheme=tms "../$MVT_PATH" omt-ref.mbtiles
+
