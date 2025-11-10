@@ -24,8 +24,6 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - run: just -v ci-test
 
   test-msrv:
@@ -40,8 +38,6 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just' }
       - uses: ./.github/actions/mlt-setup-java
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Read MSRV
         id: msrv
         run: echo "value=$(just get-msrv)" >> $GITHUB_OUTPUT
@@ -63,8 +59,6 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-llvm-cov' }
       - uses: ./.github/actions/mlt-setup-java
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Generate code coverage
         run: just -v ci-coverage
       - name: Upload coverage to Codecov
@@ -75,7 +69,7 @@ jobs:
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
-  ci-passed:
+  ci-passed-rust:
     needs: [ test, test-msrv ]
     if: always()
     runs-on: ubuntu-latest
