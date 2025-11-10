@@ -187,7 +187,7 @@ public class MltDecoderBenchmarkTest {
             optimization);
     var mlTile =
         MltConverter.convertMvt(
-            mvTile, tileMetadata, new ConversionConfig(true, true, optimizations), null);
+            mvTile, tileMetadata, new ConversionConfig(true, true, true, optimizations), null);
 
     var mltTimeElapsed = 0L;
     for (int i = 0; i <= 200; i++) {

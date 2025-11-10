@@ -1,35 +1,38 @@
 package org.maplibre.mlt.converter.encodings.fsst;
 
-import java.util.Locale;
-
 public class FsstEncoder {
-  public static final Fsst INSTANCE;
+  public static Fsst INSTANCE;
 
-  static {
-    String fsst = "jni";
-    try {
-      String env = System.getenv("FSST");
-      if (env != null) fsst = env.toLowerCase(Locale.ROOT);
-    } catch (SecurityException e) {
-      // use default value
+  public static boolean useNative(boolean value) {
+    if (value) {
+      if (!FsstJni.isLoaded()) {
+        INSTANCE = new FsstJni();
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      INSTANCE = new FsstJava();
+      return true;
     }
-    INSTANCE =
-        switch (fsst) {
-          case "java" -> new FsstJava();
-          case "debug" -> new FsstDebug();
-          default -> new FsstJava();
-        };
+  }
+
+  private static Fsst getInstance() {
+    if (INSTANCE == null) {
+      useNative(false);
+    }
+    return INSTANCE;
   }
 
   private FsstEncoder() {}
 
   public static SymbolTable encode(byte[] data) {
-    return INSTANCE.encode(data);
+    return getInstance().encode(data);
   }
 
   public static byte[] decode(
       byte[] symbols, int[] symbolLengths, byte[] compressedData, int decompressedLength) {
-    return INSTANCE.decode(symbols, symbolLengths, compressedData, decompressedLength);
+    return getInstance().decode(symbols, symbolLengths, compressedData, decompressedLength);
   }
 
   /**
@@ -37,6 +40,6 @@ public class FsstEncoder {
    */
   @Deprecated
   public static byte[] decode(byte[] symbols, int[] symbolLengths, byte[] compressedData) {
-    return INSTANCE.decode(symbols, symbolLengths, compressedData);
+    return getInstance().decode(symbols, symbolLengths, compressedData);
   }
 }

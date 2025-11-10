@@ -92,24 +92,27 @@ test-java:
 test-java-cli:
     #!/usr/bin/env bash
     set -euo pipefail
+    JAVA="java -Dcom.google.protobuf.use_unsafe_pre22_gencode"
+    ENCODE="$JAVA -jar ./mlt-cli/build/libs/encode.jar"
+    DECODE="$JAVA -jar ./mlt-cli/build/libs/decode.jar"
     cd java  # Changing directory requires this recipe to have the #!/... line at the top, i.e. be a proper script
     ./gradlew cli
     # Test the encoding CLI
-    java -jar ./mlt-cli/build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
+    $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
     # ensure expected size
     #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # ensure expected size is maintained (meta writes the same meta file as encode)
     #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # Test the using advanced encodings
-    java -jar ./mlt-cli/build/libs/encode.jar --mvt ../test/fixtures/omt/10_530_682.mvt --advanced --mlt output/advanced.mlt
+    $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --enable-fastpfor --enable-fsst --mlt output/advanced.mlt
     # ensure expected sizes
     #python3 -c 'import os; expected=67516; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     #python3 -c 'import os; expected=66523; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # decode without advanced
-    java -jar ./mlt-cli/build/libs/decode.jar -mlt output/advanced.mlt
+    $DECODE --mlt output/advanced.mlt
     # ensure we can decode the advanced tile
     # FIXME: enable vectorized decoding test
-    # java -jar ./mlt-cli/build/libs/decode.jar -mlt output/advanced.mlt -vectorized
+    # $DECODE --mlt output/advanced.mlt --vectorized
 
 # Run tests for JavaScript
 test-js: install-js
@@ -170,6 +173,7 @@ generate-one-expected-mlt file:
         --mvt {{quote(file)}} \
         --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
         --outlines ALL \
+        --colmap-delim '[.*]name/[:_]/' \
         --tessellate \
         --coerce-mismatch \
         --verbose

@@ -83,6 +83,7 @@ public class MltDecoderTest {
         },
         TestUtils.Optimization.NONE,
         List.of(),
+        true,
         true);
   }
 
@@ -92,7 +93,8 @@ public class MltDecoderTest {
       TriConsumer<byte[], MltTilesetMetadata.TileSetMetadata, MapboxVectorTile> decodeAndCompare,
       @SuppressWarnings("SameParameterValue") TestUtils.Optimization optimization,
       List<String> reassignableLayers,
-      @SuppressWarnings("SameParameterValue") boolean advancedEncodings)
+      @SuppressWarnings("SameParameterValue") boolean useFastPFOR,
+      @SuppressWarnings("SameParameterValue") boolean useFSST)
       throws IOException, URISyntaxException {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
@@ -117,7 +119,7 @@ public class MltDecoderTest {
       }
     }
 
-    var config = new ConversionConfig(true, advancedEncodings, optimizations);
+    var config = new ConversionConfig(true, useFastPFOR, useFSST, optimizations);
 
     var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
     // decodeAndCompare.apply(mlTile, tileMetadata, mvTile);

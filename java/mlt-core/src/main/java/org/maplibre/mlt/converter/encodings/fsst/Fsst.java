@@ -3,6 +3,7 @@ package org.maplibre.mlt.converter.encodings.fsst;
 import java.io.ByteArrayOutputStream;
 
 public interface Fsst {
+
   SymbolTable encode(byte[] data);
 
   default byte[] decode(SymbolTable encoded) {

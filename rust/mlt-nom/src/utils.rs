@@ -150,6 +150,30 @@ impl<T> SetOptionOnce<T> for Option<T> {
     }
 }
 
+/// Decode a slice of bytes into a vector of u32 values assuming little-endian encoding
+pub fn bytes_to_u32s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u32>> {
+    let expected_bytes = num_values as usize * 4;
+    if input.len() < expected_bytes {
+        return Err(MltError::BufferUnderflow {
+            needed: expected_bytes,
+            remaining: input.len(),
+        });
+    }
+
+    let mut values = Vec::with_capacity(num_values as usize);
+    for _ in 0..num_values {
+        let (new_input, bytes) = take(input, 4)?;
+        let value = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        values.push(value);
+        input = new_input;
+    }
+    Ok((input, values))
+}
+
+pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt]) -> Vec<T> {
+    data.iter().map(|&v| T::decode(v)).collect()
+}
+
 /// Wrapper type for optional slices to provide a custom Debug implementation
 pub struct OptSeq<'a, T>(pub Option<&'a [T]>);
 
@@ -170,5 +194,82 @@ impl<T: Display + Debug> Debug for OptSeq<'_, T> {
         } else {
             write!(f, "None")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bytes_to_u32s_valid() {
+        // Little-endian representation:
+        // [0x04, 0x03, 0x02, 0x01] -> 0x01020304
+        // [0xDD, 0xCC, 0xBB, 0xAA] -> 0xAABBCCDD
+        let bytes: [u8; 8] = [0x04, 0x03, 0x02, 0x01, 0xDD, 0xCC, 0xBB, 0xAA];
+        let res = bytes_to_u32s(&bytes, 2);
+        assert!(res.is_ok(), "Should decode valid buffer with 2 values");
+        let (remaining, u32s) = res.unwrap();
+        assert!(remaining.is_empty(), "All input should be consumed");
+        assert_eq!(
+            u32s,
+            vec![0x0102_0304, 0xAABB_CCDD],
+            "Decoded values should match"
+        );
+    }
+
+    #[test]
+    fn test_bytes_to_u32s_empty() {
+        let bytes: [u8; 0] = [];
+        let res = bytes_to_u32s(&bytes, 0);
+        assert!(res.is_ok(), "Empty slice with 0 values is valid");
+        let (remaining, u32s) = res.unwrap();
+        assert!(remaining.is_empty(), "All input should be consumed");
+        assert!(
+            u32s.is_empty(),
+            "Output should be an empty Vec for 0 values"
+        );
+    }
+
+    #[test]
+    fn test_bytes_to_u32s_buffer_underflow() {
+        // Only 4 bytes but requesting 2 values (8 bytes needed)
+        let bytes = [0x01, 0x02, 0x03, 0x04];
+        let res = bytes_to_u32s(&bytes, 2);
+        assert!(
+            res.is_err(),
+            "Should error if not enough bytes for requested values"
+        );
+    }
+
+    #[test]
+    fn test_bytes_to_u32s_partial_consumption() {
+        // 12 bytes (3 values) but only requesting 2 values
+        let bytes: [u8; 12] = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
+        ];
+        let res = bytes_to_u32s(&bytes, 2);
+        assert!(res.is_ok(), "Should decode 2 values from larger buffer");
+        let (remaining, u32s) = res.unwrap();
+        assert_eq!(remaining.len(), 4, "Should have 4 bytes remaining");
+        assert_eq!(u32s.len(), 2, "Should have exactly 2 values");
+        assert_eq!(
+            u32s,
+            vec![0x0403_0201, 0x0807_0605],
+            "Decoded values should match"
+        );
+    }
+
+    #[test]
+    fn test_decode_zigzag() {
+        let encoded_u32 = [0u32, 1, 2, 3, 4, 5, u32::MAX];
+        let expected_i32 = [0i32, -1, 1, -2, 2, -3, i32::MIN];
+        let decoded_i32 = decode_zigzag::<i32>(&encoded_u32);
+        assert_eq!(decoded_i32, expected_i32);
+
+        let encoded_u64 = [0u64, 1, 2, 3, 4, 5, u64::MAX];
+        let expected_i64 = [0i64, -1, 1, -2, 2, -3, i64::MIN];
+        let decoded_i64 = decode_zigzag::<i64>(&encoded_u64);
+        assert_eq!(decoded_i64, expected_i64);
     }
 }

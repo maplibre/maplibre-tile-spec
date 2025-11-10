@@ -2,7 +2,10 @@ package org.maplibre.mlt.converter.encodings.fsst;
 
 import java.nio.file.FileSystems;
 
-class FsstJni implements Fsst {
+public class FsstJni implements Fsst {
+
+  private static boolean isLoaded = false;
+  private static UnsatisfiedLinkError loadError;
 
   static {
     String os = System.getProperty("os.name").toLowerCase();
@@ -16,13 +19,22 @@ class FsstJni implements Fsst {
         FileSystems.getDefault().getPath(moduleDir).normalize().toAbsolutePath().toString();
     try {
       System.load(modulePath);
+      isLoaded = true;
     } catch (UnsatisfiedLinkError e) {
-      System.out.println("Error: " + e.getMessage() + " - " + modulePath);
+      loadError = e;
     }
   }
 
   public SymbolTable encode(byte[] data) {
     return FsstJni.compress(data);
+  }
+
+  public static boolean isLoaded() {
+    return isLoaded;
+  }
+
+  public static UnsatisfiedLinkError getLoadError() {
+    return loadError;
   }
 
   public static native SymbolTable compress(byte[] inputBytes);

@@ -31,39 +31,44 @@ public:
     /// @param out Output values (should be sized according to `getIntArrayBufferSize`)
     /// @param outCount Number of elements in the output buffer
     /// @param metadata Stream metadata specifying the encoding details
-    template <typename T, typename TTarget = T, bool isSigned = std::is_signed_v<T>>
+    template <typename T, typename TTarget = T>
         requires((std::is_integral_v<T> || std::is_enum_v<T>) &&
                  (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>) && sizeof(T) <= sizeof(TTarget))
-    void decodeIntArray(const T* values, std::size_t count, TTarget* out, std::size_t outCount, const StreamMetadata&);
+    void decodeIntArray(const T* values,
+                        std::size_t count,
+                        TTarget* out,
+                        std::size_t outCount,
+                        const StreamMetadata&,
+                        bool isSigned = std::is_signed_v<T>);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
     /// @param out output data, automatically resized
     /// @param metadata stream metadata specifying the encoding details
     /// @details Uses an internal buffer for intermediate values
-    template <typename TDecode,
-              typename TInt = TDecode,
-              typename TTarget = TDecode,
-              bool isSigned = std::is_signed_v<TDecode>>
-    void decodeIntStream(BufferStream& tileData, std::vector<TTarget>& out, const StreamMetadata&);
+    template <typename TDecode, typename TInt = TDecode, typename TTarget = TDecode>
+    void decodeIntStream(BufferStream& tileData,
+                         std::vector<TTarget>& out,
+                         const StreamMetadata&,
+                         bool isSigned = std::is_signed_v<TDecode>);
 
     /// Decode an integer stream into the target buffer
     /// @param tileData source data
     /// @param buffer storage for intermediate values, automatically resized
     /// @param out output data, automatically resized
     /// @param metadata stream metadata specifying the encoding details
-    template <typename TDecode,
-              typename TInt = TDecode,
-              typename TTarget = TInt,
-              bool isSigned = std::is_signed_v<TDecode>>
-    void decodeIntStream(
-        BufferStream& tileData, TInt* buffer, std::size_t bufferSize, std::vector<TTarget>& out, const StreamMetadata&);
+    template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt>
+    void decodeIntStream(BufferStream& tileData,
+                         TInt* buffer,
+                         std::size_t bufferSize,
+                         std::vector<TTarget>& out,
+                         const StreamMetadata&,
+                         bool isSigned = std::is_signed_v<TDecode>);
 
-    template <typename TDecode,
-              typename TInt = TDecode,
-              typename TTarget = TInt,
-              bool isSigned = std::is_signed_v<TDecode>>
-    TTarget decodeConstIntStream(BufferStream& tileData, const StreamMetadata&);
+    template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt>
+    TTarget decodeConstIntStream(BufferStream& tileData,
+                                 const StreamMetadata&,
+                                 bool isSigned = std::is_signed_v<TDecode>);
 
     template <typename TDecode, typename TInt = TDecode, typename TTarget = TInt, bool Delta = true>
     void decodeMortonStream(BufferStream& tileData,
@@ -93,7 +98,7 @@ private:
     /// Get the size of the buffer necessary for `decodeIntArray`
     std::size_t getIntArrayBufferSize(const std::size_t count, const StreamMetadata&);
 
-    template <typename TDecode, typename TTarget = TDecode, bool isSigned = std::is_signed_v<TDecode>>
+    template <typename TDecode, typename TTarget = TDecode>
         requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>))
     void decodeStream(BufferStream& tileData, TTarget* out, std::size_t outSize, const StreamMetadata&);
 

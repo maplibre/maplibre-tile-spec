@@ -71,10 +71,11 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
         } else if (columnMetadata.isGeometry()) {
             geometryVector = geometryDecoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
         } else {
-            auto property = propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
-            if (property) {
-                properties.emplace(columnMetadata.name, std::move(*property));
-            }
+            // Decode the property column, which may result in multiple properties (e.g. struct), and merge the results
+            auto columnProperties = propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
+            std::copy(std::make_move_iterator(columnProperties.begin()),
+                      std::make_move_iterator(columnProperties.end()),
+                      std::inserter(properties, properties.end()));
         }
     }
 

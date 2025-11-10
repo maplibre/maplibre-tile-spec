@@ -75,6 +75,9 @@ export default class IntegerStreamDecoder {
 
     private static decodePhysicalLevelTechnique(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata) {
         const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
+        if (physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR) {
+            return decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
+        }
         if (physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
             return decodeVarintInt32(data, offset, streamMetadata.numValues);
         }

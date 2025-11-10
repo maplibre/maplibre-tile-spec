@@ -20,7 +20,8 @@ public class PropertyEncoder {
   public static byte[] encodePropertyColumns(
       List<MltTilesetMetadata.Column> propertyColumns,
       List<Feature> features,
-      boolean useAdvancedEncodings,
+      boolean useFastPFOR,
+      boolean useFSST,
       boolean coercePropertyValues,
       List<ColumnMapping> columnMappings,
       @NotNull MLTStreamObserver streamObserver)
@@ -31,7 +32,7 @@ public class PropertyEncoder {
      * vector type to field metadata
      */
     var physicalLevelTechnique =
-        useAdvancedEncodings ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
+        useFastPFOR ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
     var featureScopedPropertyColumns = new byte[0];
 
     var i = 0;
@@ -41,7 +42,7 @@ public class PropertyEncoder {
         encodedColumn =
             encodeScalarPropertyColumn(
                 features,
-                useAdvancedEncodings,
+                useFSST,
                 coercePropertyValues,
                 streamObserver,
                 columnMetadata,
@@ -55,7 +56,7 @@ public class PropertyEncoder {
         encodedColumn =
             encodeStructPropertyColumn(
                 features,
-                useAdvancedEncodings,
+                useFSST,
                 streamObserver,
                 columnMetadata,
                 columnMapping,
@@ -74,7 +75,7 @@ public class PropertyEncoder {
 
   private static byte[] encodeStructPropertyColumn(
       List<Feature> features,
-      boolean useAdvancedEncodings,
+      boolean useFSST,
       MLTStreamObserver streamObserver,
       MltTilesetMetadata.Column columnMetadata,
       ColumnMapping columnMapping,
@@ -118,7 +119,7 @@ public class PropertyEncoder {
         StringEncoder.encodeSharedDictionary(
             sharedDictionary,
             physicalLevelTechnique,
-            useAdvancedEncodings,
+            useFSST,
             streamObserver,
             "prop_" + columnMetadata.getName());
     final var numStreams = nestedColumns.getLeft();
@@ -130,7 +131,7 @@ public class PropertyEncoder {
 
   private static byte[] encodeScalarPropertyColumn(
       List<Feature> features,
-      boolean useAdvancedEncodings,
+      boolean useFSST,
       boolean coercePropertyValues,
       MLTStreamObserver streamObserver,
       MltTilesetMetadata.Column columnMetadata,
@@ -148,7 +149,7 @@ public class PropertyEncoder {
         false,
         features,
         physicalLevelTechnique,
-        useAdvancedEncodings,
+        useFSST,
         coercePropertyValues,
         streamObserver);
   }
@@ -217,7 +218,7 @@ public class PropertyEncoder {
       boolean isID,
       List<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean useAdvancedEncodings,
+      boolean useFSST,
       boolean coercePropertyValues,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
@@ -255,7 +256,7 @@ public class PropertyEncoder {
               columnMetadata,
               features,
               physicalLevelTechnique,
-              useAdvancedEncodings,
+              useFSST,
               coercePropertyValues,
               streamObserver);
         }
@@ -269,7 +270,7 @@ public class PropertyEncoder {
       MltTilesetMetadata.Column columnMetadata,
       List<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean useAdvancedEncodings,
+      boolean useFSST,
       boolean coercePropertyValues,
       MLTStreamObserver streamObserver)
       throws IOException {
@@ -310,7 +311,7 @@ public class PropertyEncoder {
         StringEncoder.encode(
             stringValues,
             physicalLevelTechnique,
-            useAdvancedEncodings,
+            useFSST,
             streamObserver,
             "prop_" + columnMetadata.getName());
 

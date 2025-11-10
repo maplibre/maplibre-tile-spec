@@ -5,10 +5,11 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector>
 #include <variant>
+#include <vector>
 
 namespace mlt {
 
@@ -19,13 +20,17 @@ public:
     StringDictViews(std::vector<std::uint8_t>&& data_, std::vector<std::string_view> views_) noexcept
         : data(std::move(data_)),
           views(std::move(views_)) {}
+    StringDictViews(std::shared_ptr<std::vector<std::uint8_t>> data_, std::vector<std::string_view> views_) noexcept
+        : sharedData(std::move(data_)),
+          views(std::move(views_)) {}
     StringDictViews(StringDictViews&&) noexcept = default;
-    StringDictViews& operator=(StringDictViews&&) = delete;
+    StringDictViews& operator=(StringDictViews&&) = default;
 
     const auto& getStrings() const noexcept { return views; }
 
 private:
     std::vector<std::uint8_t> data;
+    std::shared_ptr<std::vector<std::uint8_t>> sharedData;
     std::vector<std::string_view> views;
 };
 
@@ -34,6 +39,10 @@ private:
 using Property = std::variant<std::nullptr_t,
                               bool,
                               std::optional<bool>,
+                              std::int32_t,
+                              std::optional<std::int32_t>,
+                              std::int64_t,
+                              std::optional<std::int64_t>,
                               std::uint32_t,
                               std::optional<std::uint32_t>,
                               std::uint64_t,
@@ -51,6 +60,8 @@ using PropertyMap = std::unordered_map<std::string, Property>;
 using PropertyVec = std::variant<std::vector<std::uint8_t>,
                                  std::vector<std::uint32_t>,
                                  std::vector<std::uint64_t>,
+                                 std::vector<std::int32_t>,
+                                 std::vector<std::int64_t>,
                                  std::vector<float>,
                                  std::vector<double>,
                                  StringDictViews>;

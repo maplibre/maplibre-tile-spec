@@ -53,20 +53,24 @@ struct Tag0x01 {
             case 1:
             case 2:
             case 3:
-                return Column{.nullable = (typeCode & 1) != 0,
+                return Column{.name = {},
+                              .nullable = (typeCode & 1) != 0,
                               .columnScope = ColumnScope::FEATURE,
                               .type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = typeCode > 1}};
             case 4:
-                return Column{.nullable = false,
+                return Column{.name = {},
+                              .nullable = false,
                               .columnScope = ColumnScope::FEATURE,
                               .type = ComplexColumn{.type = ComplexType::GEOMETRY}};
             case 30:
-                return Column{.nullable = false,
+                return Column{.name = {},
+                              .nullable = false,
                               .columnScope = ColumnScope::FEATURE,
                               .type = ComplexColumn{.type = ComplexType::STRUCT}};
             default:
                 if (const auto type = mapScalarType(typeCode); type) {
-                    return Column{.nullable = (typeCode & 1) != 0,
+                    return Column{.name = {},
+                                  .nullable = (typeCode & 1) != 0,
                                   .columnScope = ColumnScope::FEATURE,
                                   .type = ScalarColumn{.type = *type}};
                 }

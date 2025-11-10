@@ -91,6 +91,65 @@ function setupVarintDecodeMock(value: number | number[] = 0): void {
     });
 }
 
+describe('decodePlainStringVector', () => {
+    it('should return null when plainLengthStream is null', () => {
+        const result = (StringDecoder as any).decodePlainStringVector('test', null, new Uint8Array([1, 2, 3]), null, null);
+        expect(result).toBeNull();
+    });
+
+    it('should return null when plainDataStream is null', () => {
+        const result = (StringDecoder as any).decodePlainStringVector('test', new Int32Array([0, 3]), null, null, null);
+        expect(result).toBeNull();
+    });
+
+    it('should return StringDictionaryVector when offsetStream exists (non-nullable)', () => {
+        const plainLengthStream = new Int32Array([0, 3, 7]);
+        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
+        const offsetStream = new Int32Array([0, 1]);
+
+        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, offsetStream, null);
+
+        expect(result).toBeDefined();
+        expect(result.name).toBe('test');
+    });
+
+    it('should return StringDictionaryVector when offsetStream exists (nullable)', () => {
+        const plainLengthStream = new Int32Array([0, 3, 7]);
+        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
+        const offsetStream = new Int32Array([0, 1]);
+        const nullabilityBuffer = { size: () => 2, get: (i: number) => true } as any;
+
+        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer);
+
+        expect(result).toBeDefined();
+        expect(result.name).toBe('test');
+    });
+
+    it('should return StringDictionaryVector with sparse offset when nullability mismatch', () => {
+        const plainLengthStream = new Int32Array([0, 3, 7]);
+        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
+        const nullabilityBuffer = {
+            size: () => 3,
+            get: (i: number) => i !== 1
+        } as any;
+
+        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, null, nullabilityBuffer);
+
+        expect(result).toBeDefined();
+        expect(result.name).toBe('test');
+    });
+
+    it('should return StringFlatVector (non-nullable)', () => {
+        const plainLengthStream = new Int32Array([0, 3, 7]);
+        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
+
+        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, null, null);
+
+        expect(result).toBeDefined();
+        expect(result.name).toBe('test');
+    });
+});
+
 describe('decodeSharedDictionary', () => {
     let mockData: Uint8Array;
     let mockOffset: IntWrapper;

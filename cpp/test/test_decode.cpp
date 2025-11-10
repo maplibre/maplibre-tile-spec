@@ -160,6 +160,13 @@ TEST(Decode, AllBing) {
         loadTile(path);
     }
 }
+TEST(Decode, AllAmazon) {
+    const std::regex metadataFilePattern{".*\\.mlt"};
+    for (const auto& path : findFiles(basePath + "/amazon", metadataFilePattern)) {
+        std::cout << "  Loading " << path.filename().string() << " ...\n";
+        loadTile(path);
+    }
+}
 TEST(Decode, AllOMT) {
     const std::regex metadataFilePattern{".*\\.mlt"};
     for (const auto& path : findFiles(basePath + "/omt", metadataFilePattern)) {

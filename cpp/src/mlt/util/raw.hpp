@@ -8,16 +8,16 @@
 
 namespace mlt::util::decoding {
 
-inline void decodeRaw(BufferStream& buffer, std::vector<std::uint8_t>& out, std::uint32_t numBytes, bool consume) {
+inline void decodeRaw(BufferStream& tileData, std::vector<std::uint8_t>& out, std::uint32_t numBytes, bool consume) {
     out.resize(numBytes);
-    std::copy(buffer.getReadPosition(), buffer.getReadPosition() + numBytes, out.begin());
+    std::copy(tileData.getReadPosition(), tileData.getReadPosition() + numBytes, out.begin());
     if (consume) {
-        buffer.consume(numBytes);
+        tileData.consume(numBytes);
     }
 }
 
 template <typename T>
-void decodeRaw(BufferStream& buffer,
+void decodeRaw(BufferStream& tileData,
                std::vector<T>& out,
                const metadata::stream::StreamMetadata& metadata,
                bool consume) {
@@ -26,9 +26,9 @@ void decodeRaw(BufferStream& buffer,
     assert(numBytes == metadata.getByteLength());
     out.resize(numValues);
     std::copy(
-        buffer.getReadPosition(), buffer.getReadPosition() + numBytes, reinterpret_cast<std::uint8_t*>(out.data()));
+        tileData.getReadPosition(), tileData.getReadPosition() + numBytes, reinterpret_cast<std::uint8_t*>(out.data()));
     if (consume) {
-        buffer.consume(numBytes);
+        tileData.consume(numBytes);
     }
 }
 
