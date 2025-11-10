@@ -78,7 +78,7 @@ for file in $FILES ; do
     mkdir -p "../$BASIC_PATH/$z/$x" "../$ADVANCED_PATH/$z/$x" "../$MVT_PATH/$z/$x"
 
     if ! isIgnoreBasic "$z/$x/$y"; then
-        convert_tile $z $x $y "../$SRC_PATH" "../$BASIC_PATH" 
+        convert_tile $z $x $y "../$SRC_PATH" "../$BASIC_PATH"
         if [ $? -ne 0 ]; then
             echo $z/$x/$y >> ignore_list_basic
         fi
@@ -140,4 +140,3 @@ mb-util --image_format=mltm --scheme=tms "../$ADVANCED_PATH" omt-advanced-mlt.mb
 
 echo -e \\nBuilding omt-ref.mbtiles ...
 mb-util --image_format=pbf --scheme=tms "../$MVT_PATH" omt-ref.mbtiles
-
