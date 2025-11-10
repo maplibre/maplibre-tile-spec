@@ -25,7 +25,6 @@ endif(MLT_WITH_JSON)
 if(MLT_WITH_FASTPFOR)
     target_include_directories(mlt-cpp-test PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
 endif(MLT_WITH_FASTPFOR)
-target_include_directories(mlt-cpp-test PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fsst")
 
 set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
@@ -35,4 +34,4 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
-target_link_libraries(mlt-cpp-test mlt-cpp gtest_main fsst)
+target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
