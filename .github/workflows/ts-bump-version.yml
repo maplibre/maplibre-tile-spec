@@ -1,3 +1,5 @@
+name: Manual TypeScript Version Bump
+
 on:
   workflow_dispatch:
     inputs:
