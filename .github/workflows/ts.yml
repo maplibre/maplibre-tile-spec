@@ -35,17 +35,3 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: ts/coverage/coverage-final.json
-
-  bench-js:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: just
-      - uses: ./.github/actions/mlt-setup-node
-      - name: Bench JS decoder
-        run: just -v bench-js
