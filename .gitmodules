@@ -9,7 +9,7 @@
 	url = https://github.com/fast-pack/FastPFor.git
 [submodule "cpp/vendor/fsst"]
 	path = cpp/vendor/fsst
-	url = https://github.com/cwida/fsst.git
+url=git@github.com:TimSylvester/fsst.git
 [submodule "cpp/vendor/json"]
 	path = cpp/vendor/json
 	url = https://github.com/nlohmann/json.git

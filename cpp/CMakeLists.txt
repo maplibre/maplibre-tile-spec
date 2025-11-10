@@ -160,6 +160,9 @@ endif(MLT_WITH_FASTPFOR)
 # FSST
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5" CACHE STRING "" FORCE)
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fsst" "${CMAKE_CURRENT_BINARY_DIR}/fsst" EXCLUDE_FROM_ALL SYSTEM)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    target_compile_options(fsst PRIVATE -Wno-shorten-64-to-32 -Wno-error=shorten-64-to-32)
+endif()
 
 target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fsst")
 
