@@ -1,10 +1,9 @@
-name: js-bump-version
-
 on:
   workflow_dispatch:
     inputs:
       release_type:
         type: choice
+        description: 'Type of version bump'
         options:
           - major
           - minor

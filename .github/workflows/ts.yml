@@ -1,12 +1,14 @@
-name: Javascript CI
+name: TypeScript CI
 
 on:
   push:
     paths:
+      - '.github/**'
       - 'ts/**'
       - 'test/**'
   pull_request:
     paths:
+      - '.github/**'
       - 'ts/**'
       - 'test/**'
   workflow_dispatch:

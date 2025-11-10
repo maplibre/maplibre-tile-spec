@@ -3,10 +3,12 @@ name: Rust CI
 on:
   push:
     paths:
+      - '.github/**'
       - 'rust/**'
       - 'test/**'
   pull_request:
     paths:
+      - '.github/**'
       - 'rust/**'
       - 'test/**'
   workflow_dispatch:
