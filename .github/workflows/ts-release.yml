@@ -57,6 +57,10 @@ jobs:
         run: |
           npm run build
 
+      - name: Copy license files into package dir
+        run: | 
+          cp -v ../{LICENSE-MIT,LICENSE-APACHE} ./ 2>/dev/null || true
+
       - name: Release (GitHub) - Create Draft
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
         with:
