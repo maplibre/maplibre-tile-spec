@@ -7,261 +7,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Road/label",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0,0,0,0,0, ...; 83]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -400,24 +146,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Colormap",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0; 4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -453,18 +182,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Road",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0; 2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -506,39 +224,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "City small scale",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0,0,0,0,0, ...; 9]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -939,21 +625,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Admin1 area/label",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0; 3]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1332,51 +1004,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Water area large scale",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0,0,0,0,0, ...; 13]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1749,15 +1377,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Urban area",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0; 1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1781,24 +1401,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Admin0 ribbon L7 inner",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0; 4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1834,18 +1437,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Boundary line",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0; 2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1887,24 +1479,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Admin0 ribbon L7 outer",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0; 4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1940,15 +1515,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Land",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0; 1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1981,15 +1548,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Admin0 forest or park/label",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0; 1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2374,21 +1933,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Spot elevation",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0; 3]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2447,18 +1992,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Road tunnel",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0; 2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2500,24 +2034,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Admin0 forest or park",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0; 4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2873,15 +2390,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Graticule",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0; 1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2922,27 +2431,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Biome",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0,0; 5]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2979,18 +2468,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Water line large scale/label",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0; 2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -3360,18 +2838,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Water line large scale",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0; 2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -3725,18 +3192,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Water area large scale/label",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0; 2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -4122,18 +3578,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Vegetation small scale",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0; 2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -4167,24 +3612,7 @@ source: mlt-nom/tests/snapshots.rs
             name: "Graticule/label",
             extent: 4096,
             id: Decoded(
-                DecodedId(
-                    Some(
-                        [
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                            Some(
-                                0,
-                            ),
-                        ],
-                    ),
-                ),
+                DecodedId([0,0,0,0; 4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {

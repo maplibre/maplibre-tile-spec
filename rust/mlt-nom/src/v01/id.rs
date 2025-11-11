@@ -1,3 +1,6 @@
+use std::fmt::Debug;
+use std::fmt::Formatter;
+
 use borrowme::borrowme;
 
 use crate::MltError;
@@ -31,10 +34,36 @@ pub enum RawIdValue<'a> {
 }
 
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct DecodedId(Option<Vec<Option<u64>>>);
 
 impl_decodable!(Id<'a>, RawId<'a>, DecodedId);
+
+impl Debug for DecodedId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            None => write!(f, "DecodedId(None)"),
+            Some(ids) => {
+                let preview: Vec<String> = ids
+                    .iter()
+                    .take(8)
+                    .map(|opt_id| {
+                        opt_id
+                            .map(|id| id.to_string())
+                            .unwrap_or_else(|| "None".to_string())
+                    })
+                    .collect();
+                write!(
+                    f,
+                    "DecodedId([{}{}; {}])",
+                    preview.join(","),
+                    if ids.len() > 8 { ", ..." } else { "" },
+                    ids.len()
+                )
+            }
+        }
+    }
+}
 
 impl<'a> From<RawId<'a>> for Id<'a> {
     fn from(value: RawId<'a>) -> Self {
