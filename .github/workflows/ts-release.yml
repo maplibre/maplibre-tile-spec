@@ -1,4 +1,4 @@
-name: Release MLT JavaScript
+name: TypeScript - Release
 
 on:
   push:
