@@ -197,6 +197,31 @@ impl<T: Display + Debug> Debug for OptSeq<'_, T> {
     }
 }
 
+pub struct OptSeqOpt<'a, T>(pub Option<&'a [Option<T>]>);
+
+impl<T: Display + Debug> Debug for OptSeqOpt<'_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(v) = self.0 {
+            write!(
+                f,
+                "[{}{}; {}]",
+                v.iter()
+                    .take(8)
+                    .map(|opt| match opt {
+                        Some(val) => val.to_string(),
+                        None => "None".to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(","),
+                if v.len() > 8 { ", ..." } else { "" },
+                v.len()
+            )
+        } else {
+            write!(f, "None")
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

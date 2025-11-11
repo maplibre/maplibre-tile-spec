@@ -11,7 +11,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 28]",
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 28],
                     geometry_offsets: [0,1,2,3,4,5,6,7, ...; 29],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 32],
                     ring_offsets: [0,6,20,33,37,62,67,79, ...; 32],
@@ -50,7 +50,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 11]",
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 11],
                     geometry_offsets: None,
                     part_offsets: [0,2,4,8,10,23,32,34, ...; 12],
                     ring_offsets: None,
@@ -137,7 +137,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 86]",
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 86],
                     geometry_offsets: [0,1,2,3,4,5,6,7, ...; 87],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 88],
                     ring_offsets: [0,4,8,13,17,35,39,48, ...; 92],
@@ -168,7 +168,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Point,Point,Point,Point,Point,Point,Point,Point, ...; 22]",
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point,Point, ...; 22],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
@@ -335,7 +335,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Point,Point,Point,Point,Point,Point,Point; 7]",
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point; 7],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
@@ -430,7 +430,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 11]",
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 11],
                     geometry_offsets: [0,1,2,3,4,5,6,7, ...; 12],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 12],
                     ring_offsets: [0,9,13,40,48,53,71,85, ...; 12],
@@ -469,7 +469,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 25]",
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 25],
                     geometry_offsets: [0,1,2,3,4,5,6,7, ...; 26],
                     part_offsets: [0,6,10,15,22,25,32,36, ...; 27],
                     ring_offsets: None,
@@ -564,7 +564,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 624]",
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 624],
                     geometry_offsets: [0,1,2,3,4,5,6,7, ...; 625],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 667],
                     ring_offsets: [0,4,8,12,17,21,27,31, ...; 790],
@@ -586,7 +586,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 3055]",
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 3055],
                     geometry_offsets: [0,1,2,3,4,5,6,7, ...; 3056],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 3057],
                     ring_offsets: [0,2,4,6,8,10,12,14, ...; 3061],

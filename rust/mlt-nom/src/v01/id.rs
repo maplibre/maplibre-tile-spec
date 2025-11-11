@@ -4,6 +4,7 @@ use borrowme::borrowme;
 
 use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
+use crate::utils::OptSeqOpt;
 use crate::v01::Stream;
 
 /// ID column representation, either raw or decoded, or none if there are no IDs
@@ -43,22 +44,7 @@ impl Debug for DecodedId {
         match &self.0 {
             None => write!(f, "DecodedId(None)"),
             Some(ids) => {
-                let preview: Vec<String> = ids
-                    .iter()
-                    .take(8)
-                    .map(|opt_id| {
-                        opt_id
-                            .map(|id| id.to_string())
-                            .unwrap_or_else(|| "None".to_string())
-                    })
-                    .collect();
-                write!(
-                    f,
-                    "DecodedId([{}{}; {}])",
-                    preview.join(","),
-                    if ids.len() > 8 { ", ..." } else { "" },
-                    ids.len()
-                )
+                write!(f, "DecodedId({:?})", &OptSeqOpt(Some(ids)))
             }
         }
     }

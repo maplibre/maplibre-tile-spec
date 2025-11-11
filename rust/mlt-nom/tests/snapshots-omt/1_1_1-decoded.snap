@@ -11,7 +11,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 5052]",
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 5052],
                     geometry_offsets: [0,1,2,3,4,5,6,7, ...; 5053],
                     part_offsets: [0,3,7,9,15,17,19,21, ...; 31959],
                     ring_offsets: None,
@@ -74,7 +74,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Point,Point,Point,Point,Point,Point,Point,Point, ...; 21]",
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point,Point, ...; 21],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
@@ -641,7 +641,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Point,Point,Point,Point,Point,Point,Point,Point, ...; 120]",
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point,Point, ...; 120],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
@@ -1256,7 +1256,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: "[Polygon,MultiPolygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 20]",
+                    vector_types: [Polygon,MultiPolygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 20],
                     geometry_offsets: [0,1,7,8,9,10,11,12, ...; 21],
                     part_offsets: [0,1,2,18,19,25,26,38, ...; 31],
                     ring_offsets: [0,42,56,445,455,477,485,490, ...; 93],

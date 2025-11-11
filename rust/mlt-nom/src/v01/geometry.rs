@@ -40,7 +40,7 @@ pub struct DecodedGeometry {
 }
 
 /// Types of geometries supported in MLT
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, TryFromPrimitive, strum::Display)]
 #[repr(u8)]
 pub enum GeometryType {
     Point,
@@ -93,28 +93,8 @@ impl<'a> Geometry<'a> {
 
 impl Debug for DecodedGeometry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let vector_types_str = {
-            let preview: Vec<String> = self
-                .vector_types
-                .iter()
-                .take(8)
-                .map(|vt| format!("{vt:?}"))
-                .collect();
-            format!(
-                "[{}{}; {}]",
-                preview.join(","),
-                if self.vector_types.len() > 8 {
-                    ", ..."
-                } else {
-                    ""
-                },
-                self.vector_types.len()
-            )
-        };
         f.debug_struct("DecodedGeometry")
-            // .field("vector_type", &self.vector_type)
-            // .field("vertex_buffer_type", &self.vertex_buffer_type)
-            .field("vector_types", &vector_types_str)
+            .field("vector_types", &OptSeq(Some(&self.vector_types)))
             .field(
                 "geometry_offsets",
                 &OptSeq(self.geometry_offsets.as_deref()),
@@ -133,7 +113,6 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
     type Input = RawGeometry<'a>;
 
     fn from_raw(RawGeometry { meta, items }: RawGeometry<'a>) -> Result<Self, MltError> {
-        // let vector_type = Self::get_vector_type_int_stream(&meta);
         let vector_types = decode_geometry_types(meta)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -246,7 +225,6 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
         // This is handled by including index_buffer in the DecodedGeometry
 
         Ok(DecodedGeometry {
-            // vector_type,
             // vertex_buffer_type: VertexBufferType::Vec2, // Morton not supported yet
             vector_types,
             geometry_offsets,
