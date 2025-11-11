@@ -39,8 +39,26 @@ source: mlt-nom/tests/snapshots.rs
             id: DecodeError(
                 "not implemented: decode 32 bit Id from stream",
             ),
-            geometry: DecodeError(
-                "not implemented: geometry_offsets with part_offsets case is not implemented",
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [
+                        MultiLineString,
+                        LineString,
+                        MultiLineString,
+                        LineString,
+                        MultiLineString,
+                        LineString,
+                        MultiLineString,
+                        LineString,
+                    ],
+                    geometry_offsets: [0,2,3,8,9,11,12,17, ...; 9],
+                    part_offsets: [0,6,14,32,34,36,59,65, ...; 19],
+                    ring_offsets: None,
+                    vertex_offsets: [96,97,98,99,101,102,100,204, ...; 416],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [-64,399,190,387,224,375,263,334, ...; 410],
+                },
             ),
             properties: [
                 Decoded(

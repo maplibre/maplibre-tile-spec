@@ -182,7 +182,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                 &offsets,
                 GeometryType::Polygon,
             ));
-            if let Some(_part_offsets) = part_offsets.take() {
+            if let Some(part_offsets_copy) = part_offsets.take() {
                 if let Some(_ring_offsets) = ring_offsets.take() {
                     // auto partOffsetsCopy = partOffsets;
                     // decodeLevel1LengthStream(geometryTypes,
@@ -196,11 +196,10 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         "geometry_offsets with part_offsets and ring_offsets case is not implemented",
                     ));
                 } else {
-                    // auto partOffsetsCopy = partOffsets;
-                    // decodeLevel1WithoutRingBufferLengthStream(
-                    //     geometryTypes, geometryOffsets, partOffsetsCopy, partOffsets);
-                    return Err(MltError::NotImplemented(
-                        "geometry_offsets with part_offsets case is not implemented",
+                    part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
+                        &vector_types,
+                        geometry_offsets.as_ref().unwrap(),
+                        &part_offsets_copy,
                     ));
                 }
             }
@@ -312,4 +311,41 @@ fn decode_root_length_stream(
         previous_offset = offset;
     }
     root_buffer_offsets
+}
+
+/// Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer
+fn decode_level1_without_ring_buffer_length_stream(
+    geometry_types: &[GeometryType],
+    root_offset_buffer: &[u32],
+    level1_length_buffer: &[u32],
+) -> Vec<u32> {
+    let final_size = root_offset_buffer[root_offset_buffer.len() - 1] as usize + 1;
+    let mut level1_buffer_offsets = Vec::with_capacity(final_size);
+    level1_buffer_offsets.push(0);
+    let mut previous_offset = 0_u32;
+    let mut level1_offset_buffer_counter = 1_usize;
+    let mut level1_length_counter = 0_usize;
+
+    for (i, &geometry_type) in geometry_types.iter().enumerate() {
+        let num_geometries = (root_offset_buffer[i + 1] - root_offset_buffer[i]) as usize;
+
+        if geometry_type == GeometryType::MultiLineString || geometry_type == GeometryType::LineString {
+            // For MultiLineString and LineString a value in the level1LengthBuffer exists
+            for _j in 0..num_geometries {
+                previous_offset = previous_offset + level1_length_buffer[level1_length_counter];
+                level1_length_counter += 1;
+                level1_buffer_offsets.push(previous_offset);
+                level1_offset_buffer_counter += 1;
+            }
+        } else {
+            // For MultiPoint and Point no value in level1LengthBuffer exists
+            for _j in 0..num_geometries {
+                previous_offset += 1;
+                level1_buffer_offsets.push(previous_offset);
+                level1_offset_buffer_counter += 1;
+            }
+        }
+    }
+
+    level1_buffer_offsets
 }

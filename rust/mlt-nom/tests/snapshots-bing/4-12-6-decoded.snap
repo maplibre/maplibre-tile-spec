@@ -31,8 +31,36 @@ source: mlt-nom/tests/snapshots.rs
             id: DecodeError(
                 "not implemented: decode 32 bit Id from stream",
             ),
-            geometry: DecodeError(
-                "not implemented: geometry_offsets with part_offsets case is not implemented",
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        LineString,
+                        MultiLineString,
+                        MultiLineString,
+                        LineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                    ],
+                    geometry_offsets: [0,238,12905,13129,13228,13261,13336,13548, ...; 19],
+                    part_offsets: [0,2,4,6,8,10,12,14, ...; 38425],
+                    ring_offsets: None,
+                    vertex_offsets: [7317,7318,31858,31860,31862,31854,31861,31858, ...; 92278],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [-80,424,-54,430,-40,431,919,89, ...; 65648],
+                },
             ),
             properties: [
                 Decoded(
@@ -113,8 +141,24 @@ source: mlt-nom/tests/snapshots.rs
             id: DecodeError(
                 "not implemented: decode 32 bit Id from stream",
             ),
-            geometry: DecodeError(
-                "not implemented: geometry_offsets with part_offsets case is not implemented",
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        Point,
+                        Point,
+                        Point,
+                    ],
+                    geometry_offsets: [0,4,77,101,102,103,104; 7],
+                    part_offsets: [0,70,73,75,145,151,170,191, ...; 105],
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [301,2908,333,2918,342,2936,375,2928, ...; 2294],
+                },
             ),
             properties: [
                 Decoded(
@@ -359,8 +403,39 @@ source: mlt-nom/tests/snapshots.rs
             id: DecodeError(
                 "not implemented: decode 32 bit Id from stream",
             ),
-            geometry: DecodeError(
-                "not implemented: geometry_offsets with part_offsets case is not implemented",
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [
+                        MultiLineString,
+                        MultiLineString,
+                        MultiLineString,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                        Point,
+                    ],
+                    geometry_offsets: [0,111,124,126,127,128,129,130, ...; 22],
+                    part_offsets: [0,3,19,28,39,45,59,93, ...; 145],
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [16,1102,0,1096,0,1118,1411,-80, ...; 4386],
+                },
             ),
             properties: [
                 Decoded(
