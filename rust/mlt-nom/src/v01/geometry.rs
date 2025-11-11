@@ -205,19 +205,17 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                 }
             }
         } else if let Some(offsets) = part_offsets.take() {
-            if let Some(_ring_offsets) = ring_offsets {
+            if let Some(ring_offsets_copy) = ring_offsets.take() {
                 part_offsets = Some(decode_root_length_stream(
                     &vector_types,
                     &offsets,
                     GeometryType::LineString,
                 ));
-                // decodeLevel1LengthStream(geometryTypes,
-                //                          partOffsets,
-                //                          ringOffsetsCopy,
-                //                          /*isLineStringPresent=*/true,
-                //                          ringOffsets);
-                return Err(MltError::NotImplemented(
-                    "part_offsets with ring_offsets case is not implemented",
+                ring_offsets = Some(decode_level1_length_stream(
+                    &vector_types,
+                    part_offsets.as_ref().unwrap(),
+                    &ring_offsets_copy,
+                    true, // isLineStringPresent
                 ));
             } else {
                 part_offsets = Some(decode_root_length_stream(
