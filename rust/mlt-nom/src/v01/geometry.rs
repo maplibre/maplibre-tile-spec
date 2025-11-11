@@ -14,7 +14,6 @@ use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Str
 pub enum Geometry<'a> {
     Raw(RawGeometry<'a>),
     Decoded(DecodedGeometry),
-    DecodeError(String), // will be removed in the future
 }
 
 /// Unparsed geometry data as read directly from the tile
@@ -88,7 +87,6 @@ impl<'a> Geometry<'a> {
         Ok(match self {
             Self::Raw(v) => DecodedGeometry::from_raw(v)?,
             Self::Decoded(v) => v,
-            Self::DecodeError(e) => Err(MltError::DecodeError(e))?,
         })
     }
 }

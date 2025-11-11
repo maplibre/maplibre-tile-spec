@@ -10,7 +10,6 @@ use crate::v01::Stream;
 pub enum Property<'a> {
     Raw(RawProperty<'a>),
     Decoded(DecodedProperty),
-    DecodeError(String), // will be removed in the future
 }
 
 /// Unparsed property data as read directly from the tile
@@ -86,7 +85,6 @@ impl<'a> Property<'a> {
         Ok(match self {
             Self::Raw(v) => DecodedProperty::from_raw(v)?,
             Self::Decoded(v) => v,
-            Self::DecodeError(e) => Err(MltError::DecodeError(e))?,
         })
     }
 }
