@@ -7,18 +7,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "Water line",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0; 2]),
+                DecodedId([0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString; 2],
+                    vector_types: [LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,2,4; 3],
+                    part_offsets: [0,2,4],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [1896,1872,1912,1900,3968,3880,4044,3888; 8],
+                    vertices: [1896,1872,1912,1900,3968,3880,4044,3888],
                 },
             ),
             properties: [
@@ -437,12 +437,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "Railroad",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString; 1],
-                    geometry_offsets: [0,2808; 2],
+                    vector_types: [MultiLineString],
+                    geometry_offsets: [0,2808],
                     part_offsets: [0,26,40,57,60,62,68,71, ...; 2809],
                     ring_offsets: None,
                     vertex_offsets: [4689,4687,4688,4683,4684,4681,4679,4474, ...; 10964],
@@ -468,18 +468,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "Admin2 area/label",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point; 1],
+                    vector_types: [Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [1345,2334; 2],
+                    vertices: [1345,2334],
                 },
             ),
             properties: [
@@ -515,12 +515,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "Road",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0,0,0,0,0; 7]),
+                DecodedId([0,0,0,0,0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString; 7],
-                    geometry_offsets: [0,547,660,811,903,970,1330,1368; 8],
+                    vector_types: [MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString],
+                    geometry_offsets: [0,547,660,811,903,970,1330,1368],
                     part_offsets: [0,8,80,83,93,99,101,138, ...; 1369],
                     ring_offsets: None,
                     vertex_offsets: [5253,5615,5616,5617,5614,5609,5610,5603, ...; 9614],
@@ -554,17 +554,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "Urban area",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon; 1],
-                    geometry_offsets: [0,1; 2],
-                    part_offsets: [0,11; 2],
+                    vector_types: [Polygon],
+                    geometry_offsets: [0,1],
+                    part_offsets: [0,11],
                     ring_offsets: [0,136,158,172,194,218,249,271, ...; 12],
                     vertex_offsets: None,
                     index_buffer: [294,295,296,297,298,299,3,4, ...; 918],
-                    triangles: [306; 1],
+                    triangles: [306],
                     vertices: [668,304,676,324,940,204,1032,144, ...; 626],
                 },
             ),
@@ -576,13 +576,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "Boundary line",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString; 1],
-                    geometry_offsets: [0,5; 2],
-                    part_offsets: [0,194,388,407,426,450; 6],
+                    vector_types: [MultiLineString],
+                    geometry_offsets: [0,5],
+                    part_offsets: [0,194,388,407,426,450],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -974,18 +974,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "Openspace or forest/label",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point; 1],
+                    vector_types: [Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [3633,3222; 2],
+                    vertices: [3633,3222],
                 },
             ),
             properties: [
@@ -1029,17 +1029,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "Land",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon; 1],
-                    geometry_offsets: [0,1; 2],
-                    part_offsets: [0,1; 2],
-                    ring_offsets: [0,6; 2],
+                    vector_types: [Polygon],
+                    geometry_offsets: [0,1],
+                    part_offsets: [0,1],
+                    ring_offsets: [0,6],
                     vertex_offsets: None,
                     index_buffer: [4,5,0,1,2,3,3,4, ...; 12],
-                    triangles: [4; 1],
+                    triangles: [4],
                     vertices: [-64,4160,-64,0,-64,-64,4160,-64, ...; 12],
                 },
             ),
@@ -1060,18 +1060,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "Spot elevation",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0; 3]),
+                DecodedId([0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point; 3],
+                    vector_types: [Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [4152,1755,3154,1391,1431,3761; 6],
+                    vertices: [4152,1755,3154,1391,1431,3761],
                 },
             ),
             properties: [
@@ -1115,12 +1115,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "Road tunnel",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0,0,0,0,0; 7]),
+                DecodedId([0,0,0,0,0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString; 7],
-                    geometry_offsets: [0,45,64,77,88,94,101,104; 8],
+                    vector_types: [MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString],
+                    geometry_offsets: [0,45,64,77,88,94,101,104],
                     part_offsets: [0,6,9,14,19,25,32,37, ...; 105],
                     ring_offsets: None,
                     vertex_offsets: None,
@@ -1545,17 +1545,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "Biome",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon; 1],
-                    geometry_offsets: [0,1; 2],
-                    part_offsets: [0,1; 2],
-                    ring_offsets: [0,6; 2],
+                    vector_types: [Polygon],
+                    geometry_offsets: [0,1],
+                    part_offsets: [0,1],
+                    ring_offsets: [0,6],
                     vertex_offsets: None,
                     index_buffer: [4,5,0,1,2,3,3,4, ...; 12],
-                    triangles: [4; 1],
+                    triangles: [4],
                     vertices: [-64,4160,-64,0,-64,-64,4160,-64, ...; 12],
                 },
             ),
@@ -1576,18 +1576,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "Land Feature place",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point; 1],
+                    vector_types: [Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [1653,2495; 2],
+                    vertices: [1653,2495],
                 },
             ),
             properties: [
@@ -1645,13 +1645,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "Water area/label",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0,0; 4]),
+                DecodedId([0,0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,MultiLineString,LineString; 4],
-                    geometry_offsets: [0,1,2,4,5; 5],
-                    part_offsets: [0,4,8,19,30,45; 6],
+                    vector_types: [LineString,LineString,MultiLineString,LineString],
+                    geometry_offsets: [0,1,2,4,5],
+                    part_offsets: [0,4,8,19,30,45],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -2036,13 +2036,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "Road tunnel/label",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0; 2]),
+                DecodedId([0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,LineString; 2],
-                    geometry_offsets: [0,2,3; 3],
-                    part_offsets: [0,6,12,21; 4],
+                    vector_types: [MultiLineString,LineString],
+                    geometry_offsets: [0,2,3],
+                    part_offsets: [0,6,12,21],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -2099,18 +2099,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "Religion place",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0; 3]),
+                DecodedId([0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point; 3],
+                    vector_types: [Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [670,915,1124,1251,2464,2215; 6],
+                    vertices: [670,915,1124,1251,2464,2215],
                 },
             ),
             properties: [
@@ -2190,17 +2190,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "Openspace or forest",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiPolygon; 1],
-                    geometry_offsets: [0,2; 2],
-                    part_offsets: [0,1,2; 3],
-                    ring_offsets: [0,66,83; 3],
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,2],
+                    part_offsets: [0,1,2],
+                    ring_offsets: [0,66,83],
                     vertex_offsets: None,
                     index_buffer: [64,65,0,2,3,4,4,5, ...; 237],
-                    triangles: [79; 1],
+                    triangles: [79],
                     vertices: [3576,2760,3596,2764,3620,2764,3624,2712, ...; 166],
                 },
             ),
@@ -2212,17 +2212,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "Zoo",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0; 2]),
+                DecodedId([0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon,Polygon; 2],
-                    geometry_offsets: [0,1,2; 3],
-                    part_offsets: [0,1,2; 3],
-                    ring_offsets: [0,7,22; 3],
+                    vector_types: [Polygon,Polygon],
+                    geometry_offsets: [0,1,2],
+                    part_offsets: [0,1,2],
+                    ring_offsets: [0,7,22],
                     vertex_offsets: None,
                     index_buffer: [6,0,1,1,2,3,4,5, ...; 54],
-                    triangles: [5,13; 2],
+                    triangles: [5,13],
                     vertices: [3136,3100,3152,3136,3156,3252,3132,3328, ...; 44],
                 },
             ),

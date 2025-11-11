@@ -278,17 +278,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "landuse",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0,0,0; 5]),
+                DecodedId([0,0,0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon; 5],
-                    geometry_offsets: [0,306,316,320,715,718; 6],
+                    vector_types: [MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon],
+                    geometry_offsets: [0,306,316,320,715,718],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 719],
                     ring_offsets: [0,65,72,302,370,386,409,475, ...; 723],
                     vertex_offsets: None,
                     index_buffer: [63,64,0,0,1,2,3,4, ...; 62868],
-                    triangles: [8158,799,689,11151,159; 5],
+                    triangles: [8158,799,689,11151,159],
                     vertices: [-21,3353,-21,3092,-15,3101,0,3099, ...; 44938],
                 },
             ),
@@ -516,12 +516,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "boundaries",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0; 2]),
+                DecodedId([0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,MultiLineString; 2],
-                    geometry_offsets: [0,4,9; 3],
+                    vector_types: [MultiLineString,MultiLineString],
+                    geometry_offsets: [0,4,9],
                     part_offsets: [0,10,23,28,50,56,156,187, ...; 10],
                     ring_offsets: None,
                     vertex_offsets: None,

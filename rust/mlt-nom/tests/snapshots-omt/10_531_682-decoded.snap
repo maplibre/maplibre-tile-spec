@@ -46,11 +46,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "aerodrome_label",
             extent: 4096,
             id: Decoded(
-                DecodedId([23146938,23160058,143269312,777800953,26840918; 5]),
+                DecodedId([23146938,23160058,143269312,777800953,26840918]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point,Point,Point; 5],
+                    vector_types: [Point,Point,Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,

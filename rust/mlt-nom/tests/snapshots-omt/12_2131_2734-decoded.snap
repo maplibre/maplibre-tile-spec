@@ -77,18 +77,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "mountain_peak",
             extent: 4096,
             id: Decoded(
-                DecodedId([7137399677,506698316,4786443525,8283776911; 4]),
+                DecodedId([7137399677,506698316,4786443525,8283776911]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point,Point; 4],
+                    vector_types: [Point,Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [-77,4490,-21,3314,-439,3311,262,3426; 8],
+                    vertices: [-77,4490,-21,3314,-439,3311,262,3426],
                 },
             ),
             properties: [
@@ -592,17 +592,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "park",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4,5,6; 6]),
+                DecodedId([1,2,3,4,5,6]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon,Polygon,Polygon,MultiPolygon,Polygon,MultiPolygon; 6],
-                    geometry_offsets: [0,1,2,3,7,8,10; 7],
+                    vector_types: [Polygon,Polygon,Polygon,MultiPolygon,Polygon,MultiPolygon],
+                    geometry_offsets: [0,1,2,3,7,8,10],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 11],
                     ring_offsets: [0,25,46,112,116,139,148,156, ...; 11],
                     vertex_offsets: None,
                     index_buffer: [23,24,0,0,1,2,4,5, ...; 495],
-                    triangles: [23,19,64,36,12,11; 6],
+                    triangles: [23,19,64,36,12,11],
                     vertices: [708,3300,740,3290,474,3523,405,3772, ...; 370],
                 },
             ),

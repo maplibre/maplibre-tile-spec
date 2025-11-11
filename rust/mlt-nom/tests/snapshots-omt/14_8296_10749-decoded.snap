@@ -537,17 +537,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "water",
             extent: 4096,
             id: Decoded(
-                DecodedId([2,3; 2]),
+                DecodedId([2,3]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon,Polygon; 2],
-                    geometry_offsets: [0,1,2; 3],
-                    part_offsets: [0,1,2; 3],
-                    ring_offsets: [0,11,19; 3],
+                    vector_types: [Polygon,Polygon],
+                    geometry_offsets: [0,1,2],
+                    part_offsets: [0,1,2],
+                    ring_offsets: [0,11,19],
                     vertex_offsets: None,
                     index_buffer: [9,10,0,0,1,2,2,3, ...; 45],
-                    triangles: [9,6; 2],
+                    triangles: [9,6],
                     vertices: [1543,1641,1551,1653,1550,1664,1544,1673, ...; 38],
                 },
             ),

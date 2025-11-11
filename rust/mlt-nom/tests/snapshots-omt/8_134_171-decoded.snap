@@ -46,13 +46,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "waterway",
             extent: 4096,
             id: Decoded(
-                DecodedId([3,4,3,4; 4]),
+                DecodedId([3,4,3,4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString; 4],
+                    vector_types: [LineString,LineString,LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,109,124,233,248; 5],
+                    part_offsets: [0,109,124,233,248],
                     ring_offsets: None,
                     vertex_offsets: [123,120,119,122,70,71,73,121, ...; 248],
                     index_buffer: None,
@@ -849,11 +849,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "transportation_name",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4,1,2,3,4; 8]),
+                DecodedId([1,2,3,4,1,2,3,4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString; 8],
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString],
                     geometry_offsets: None,
                     part_offsets: [0,4,8,10,13,17,21,23, ...; 9],
                     ring_offsets: None,

@@ -46,18 +46,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "aerodrome_label",
             extent: 4096,
             id: Decoded(
-                DecodedId([48015835,4441659208,40766649; 3]),
+                DecodedId([48015835,4441659208,40766649]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point; 3],
+                    vector_types: [Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [-536,-827,4557,-439,1530,-557; 6],
+                    vertices: [-536,-827,4557,-439,1530,-557],
                 },
             ),
             properties: [
@@ -149,13 +149,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "waterway",
             extent: 4096,
             id: Decoded(
-                DecodedId([2,4,5,6,7; 5]),
+                DecodedId([2,4,5,6,7]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,MultiLineString,LineString,MultiLineString,LineString; 5],
-                    geometry_offsets: [0,1,3,4,6,7; 6],
-                    part_offsets: [0,28,38,45,55,62,68,107; 8],
+                    vector_types: [LineString,MultiLineString,LineString,MultiLineString,LineString],
+                    geometry_offsets: [0,1,3,4,6,7],
+                    part_offsets: [0,28,38,45,55,62,68,107],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -648,13 +648,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "transportation_name",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4; 4]),
+                DecodedId([1,2,3,4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString; 4],
+                    vector_types: [LineString,LineString,LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,6,12,22,27; 5],
+                    part_offsets: [0,6,12,22,27],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,

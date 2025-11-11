@@ -897,13 +897,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "transportation_name",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4,5,6; 6]),
+                DecodedId([1,2,3,4,5,6]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString; 6],
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,8,16,21,26,34,42; 7],
+                    part_offsets: [0,8,16,21,26,34,42],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,

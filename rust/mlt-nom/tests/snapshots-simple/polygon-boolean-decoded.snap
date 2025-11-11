@@ -7,18 +7,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "layer",
             extent: 4096,
             id: Decoded(
-                DecodedId([1; 1]),
+                DecodedId([1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon; 1],
-                    geometry_offsets: [0,1; 2],
-                    part_offsets: [0,1; 2],
-                    ring_offsets: [0,3; 2],
+                    vector_types: [Polygon],
+                    geometry_offsets: [0,1],
+                    part_offsets: [0,1],
+                    ring_offsets: [0,3],
                     vertex_offsets: None,
-                    index_buffer: [1,2,0; 3],
-                    triangles: [1; 1],
-                    vertices: [3,6,8,12,20,34; 6],
+                    index_buffer: [1,2,0],
+                    triangles: [1],
+                    vertices: [3,6,8,12,20,34],
                 },
             ),
             properties: [

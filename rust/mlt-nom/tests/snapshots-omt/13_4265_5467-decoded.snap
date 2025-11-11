@@ -560,17 +560,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "park",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2; 2]),
+                DecodedId([1,2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon,Polygon; 2],
-                    geometry_offsets: [0,1,2; 3],
-                    part_offsets: [0,1,2; 3],
-                    ring_offsets: [0,5,53; 3],
+                    vector_types: [Polygon,Polygon],
+                    geometry_offsets: [0,1,2],
+                    part_offsets: [0,1,2],
+                    ring_offsets: [0,5,53],
                     vertex_offsets: None,
                     index_buffer: [3,4,0,0,1,2,2,3, ...; 147],
-                    triangles: [3,46; 2],
+                    triangles: [3,46],
                     vertices: [49,3467,-64,3568,-64,3459,-37,3458, ...; 106],
                 },
             ),

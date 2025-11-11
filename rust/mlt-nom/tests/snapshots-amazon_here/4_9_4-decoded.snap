@@ -494,17 +494,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "landuse",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0; 3]),
+                DecodedId([0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiPolygon,MultiPolygon,Polygon; 3],
-                    geometry_offsets: [0,271,302,303; 4],
+                    vector_types: [MultiPolygon,MultiPolygon,Polygon],
+                    geometry_offsets: [0,271,302,303],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 304],
                     ring_offsets: [0,41,48,193,289,364,402,422, ...; 382],
                     vertex_offsets: None,
                     index_buffer: [40,0,1,1,2,3,4,5, ...; 88716],
-                    triangles: [28278,1280,14; 3],
+                    triangles: [28278,1280,14],
                     vertices: [-21,3842,-21,3837,-19,3836,-16,3846, ...; 60676],
                 },
             ),
@@ -549,12 +549,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "roads",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0; 3]),
+                DecodedId([0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,MultiLineString,MultiLineString; 3],
-                    geometry_offsets: [0,154,163,214; 4],
+                    vector_types: [MultiLineString,MultiLineString,MultiLineString],
+                    geometry_offsets: [0,154,163,214],
                     part_offsets: [0,2,5,7,9,16,18,20, ...; 215],
                     ring_offsets: None,
                     vertex_offsets: [285,284,382,301,303,156,153,156, ...; 733],
@@ -628,12 +628,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "boundaries",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0; 2]),
+                DecodedId([0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,MultiLineString; 2],
-                    geometry_offsets: [0,2,11; 3],
+                    vector_types: [MultiLineString,MultiLineString],
+                    geometry_offsets: [0,2,11],
                     part_offsets: [0,153,191,205,211,233,242,286, ...; 12],
                     ring_offsets: None,
                     vertex_offsets: None,

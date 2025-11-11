@@ -46,18 +46,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "aerodrome_label",
             extent: 4096,
             id: Decoded(
-                DecodedId([23721543; 1]),
+                DecodedId([23721543]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point; 1],
+                    vector_types: [Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [4258,4173; 2],
+                    vertices: [4258,4173],
                 },
             ),
             properties: [
@@ -149,13 +149,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "waterway",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2; 2]),
+                DecodedId([1,2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString; 2],
+                    vector_types: [LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,22,75; 3],
+                    part_offsets: [0,22,75],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -243,18 +243,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "mountain_peak",
             extent: 4096,
             id: Decoded(
-                DecodedId([6496264896; 1]),
+                DecodedId([6496264896]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point; 1],
+                    vector_types: [Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [2155,4859; 2],
+                    vertices: [2155,4859],
                 },
             ),
             properties: [
@@ -488,18 +488,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "transportation_name",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2; 2]),
+                DecodedId([1,2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString; 2],
+                    vector_types: [LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,2,4; 3],
+                    part_offsets: [0,2,4],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [1799,3829,2113,4224,2120,4224,1801,3823; 8],
+                    vertices: [1799,3829,2113,4224,2120,4224,1801,3823],
                 },
             ),
             properties: [
@@ -622,18 +622,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "aeroway",
             extent: 4096,
             id: Decoded(
-                DecodedId([2; 1]),
+                DecodedId([2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon; 1],
-                    geometry_offsets: [0,1; 2],
-                    part_offsets: [0,1; 2],
-                    ring_offsets: [0,3; 2],
+                    vector_types: [Polygon],
+                    geometry_offsets: [0,1],
+                    part_offsets: [0,1],
+                    ring_offsets: [0,3],
                     vertex_offsets: None,
-                    index_buffer: [1,2,0; 3],
-                    triangles: [1; 1],
-                    vertices: [4160,4160,4094,4160,4160,4130; 6],
+                    index_buffer: [1,2,0],
+                    triangles: [1],
+                    vertices: [4160,4160,4094,4160,4160,4130],
                 },
             ),
             properties: [

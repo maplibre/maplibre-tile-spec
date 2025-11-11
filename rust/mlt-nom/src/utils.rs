@@ -179,21 +179,7 @@ pub struct OptSeq<'a, T>(pub Option<&'a [T]>);
 
 impl<T: Display + Debug> Debug for OptSeq<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some(v) = self.0 {
-            write!(
-                f,
-                "[{}{}; {}]",
-                v.iter()
-                    .take(8)
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join(","),
-                if v.len() > 8 { ", ..." } else { "" },
-                v.len()
-            )
-        } else {
-            write!(f, "None")
-        }
+        write_seq(f, self.0, ToString::to_string)
     }
 }
 
@@ -201,24 +187,28 @@ pub struct OptSeqOpt<'a, T>(pub Option<&'a [Option<T>]>);
 
 impl<T: Display + Debug> Debug for OptSeqOpt<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some(v) = self.0 {
-            write!(
-                f,
-                "[{}{}; {}]",
-                v.iter()
-                    .take(8)
-                    .map(|opt| match opt {
-                        Some(val) => val.to_string(),
-                        None => "None".to_string(),
-                    })
-                    .collect::<Vec<_>>()
-                    .join(","),
-                if v.len() > 8 { ", ..." } else { "" },
-                v.len()
-            )
+        write_seq(f, self.0, |opt| match opt {
+            Some(val) => val.to_string(),
+            None => "None".to_string(),
+        })
+    }
+}
+
+fn write_seq<T>(
+    f: &mut Formatter,
+    value: Option<&[T]>,
+    to_str: fn(&T) -> String,
+) -> std::fmt::Result {
+    if let Some(v) = value {
+        let items = v.iter().take(8).map(to_str).collect::<Vec<_>>().join(",");
+        write!(f, "[{items}")?;
+        if v.len() > 8 {
+            write!(f, ", ...; {}]", v.len())
         } else {
-            write!(f, "None")
+            write!(f, "]")
         }
+    } else {
+        write!(f, "None")
     }
 }
 

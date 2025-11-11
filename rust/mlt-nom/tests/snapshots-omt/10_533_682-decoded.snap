@@ -592,13 +592,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "transportation_name",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2; 2]),
+                DecodedId([1,2]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString; 2],
+                    vector_types: [LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,11,22; 3],
+                    part_offsets: [0,11,22],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -718,11 +718,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "aeroway",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4,5,6,7,8; 8]),
+                DecodedId([1,2,3,4,5,6,7,8]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString,LineString,Polygon,Polygon,Polygon; 8],
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,Polygon,Polygon,Polygon],
                     geometry_offsets: None,
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 9],
                     ring_offsets: [0,2,4,6,8,10,14,18, ...; 9],

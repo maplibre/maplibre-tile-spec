@@ -331,11 +331,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "poi",
             extent: 4096,
             id: Decoded(
-                DecodedId([6728014150,33584043900,2516097570,2511927610,257414550,33767002700,6748546770; 7]),
+                DecodedId([6728014150,33584043900,2516097570,2511927610,257414550,33767002700,6748546770]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point,Point,Point,Point,Point; 7],
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
@@ -568,17 +568,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "park",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4; 4]),
+                DecodedId([1,2,3,4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon,Polygon,Polygon,Polygon; 4],
-                    geometry_offsets: [0,1,2,3,4; 5],
-                    part_offsets: [0,1,2,3,4; 5],
-                    ring_offsets: [0,7,18,37,62; 5],
+                    vector_types: [Polygon,Polygon,Polygon,Polygon],
+                    geometry_offsets: [0,1,2,3,4],
+                    part_offsets: [0,1,2,3,4],
+                    ring_offsets: [0,7,18,37,62],
                     vertex_offsets: None,
                     index_buffer: [5,6,0,0,1,2,2,3, ...; 162],
-                    triangles: [5,9,17,23; 4],
+                    triangles: [5,9,17,23],
                     vertices: [2169,1627,2143,1631,2119,1573,2028,1580, ...; 124],
                 },
             ),

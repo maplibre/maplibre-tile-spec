@@ -494,13 +494,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "earth",
             extent: 4096,
             id: Decoded(
-                DecodedId([1523632385; 1]),
+                DecodedId([1523632385]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString; 1],
+                    vector_types: [LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,11; 2],
+                    part_offsets: [0,11],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -932,12 +932,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "boundaries",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0; 2]),
+                DecodedId([0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,MultiLineString; 2],
-                    geometry_offsets: [0,103,124; 3],
+                    vector_types: [MultiLineString,MultiLineString],
+                    geometry_offsets: [0,103,124],
                     part_offsets: [0,30,100,111,119,123,127,131, ...; 125],
                     ring_offsets: None,
                     vertex_offsets: None,

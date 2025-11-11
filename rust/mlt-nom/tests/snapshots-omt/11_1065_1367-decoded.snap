@@ -46,18 +46,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "aerodrome_label",
             extent: 4096,
             id: Decoded(
-                DecodedId([4441659208; 1]),
+                DecodedId([4441659208]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point; 1],
+                    vector_types: [Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [5018,-878; 2],
+                    vertices: [5018,-878],
                 },
             ),
             properties: [
@@ -117,13 +117,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "waterway",
             extent: 4096,
             id: Decoded(
-                DecodedId([1; 1]),
+                DecodedId([1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString; 1],
+                    vector_types: [LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,32; 2],
+                    part_offsets: [0,32],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,

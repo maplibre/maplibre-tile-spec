@@ -46,12 +46,12 @@ source: mlt-nom/tests/snapshots.rs
             name: "waterway",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,1; 2]),
+                DecodedId([1,1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,MultiLineString; 2],
-                    geometry_offsets: [0,4,8; 3],
+                    vector_types: [MultiLineString,MultiLineString],
+                    geometry_offsets: [0,4,8],
                     part_offsets: [0,61,65,100,143,204,208,243, ...; 9],
                     ring_offsets: None,
                     vertex_offsets: [43,42,37,36,48,47,49,35, ...; 286],

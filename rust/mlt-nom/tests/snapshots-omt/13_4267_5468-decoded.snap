@@ -46,13 +46,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "waterway",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4; 4]),
+                DecodedId([1,2,3,4]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString; 4],
+                    vector_types: [LineString,LineString,LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,2,4,14,23; 5],
+                    part_offsets: [0,2,4,14,23],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -243,11 +243,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "poi",
             extent: 4096,
             id: Decoded(
-                DecodedId([1587125580,2912035530,6715877470,2730987730,6752785580; 5]),
+                DecodedId([1587125580,2912035530,6715877470,2730987730,6752785580]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point,Point,Point; 5],
+                    vector_types: [Point,Point,Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,

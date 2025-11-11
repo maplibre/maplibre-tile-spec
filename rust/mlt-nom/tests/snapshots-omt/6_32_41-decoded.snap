@@ -7,18 +7,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "water_name",
             extent: 4096,
             id: Decoded(
-                DecodedId([3056400000,3056400000; 2]),
+                DecodedId([3056400000,3056400000]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point; 2],
+                    vector_types: [Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
                     triangles: None,
-                    vertices: [6554,5713,6554,5713; 4],
+                    vertices: [6554,5713,6554,5713],
                 },
             ),
             properties: [

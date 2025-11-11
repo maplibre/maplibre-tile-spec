@@ -46,11 +46,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "aerodrome_label",
             extent: 4096,
             id: Decoded(
-                DecodedId([4441659208,25827689,26195889,27545390,89663121,101076568,492537654; 7]),
+                DecodedId([4441659208,25827689,26195889,27545390,89663121,101076568,492537654]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Point,Point,Point,Point,Point,Point,Point; 7],
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point],
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,
@@ -269,11 +269,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "waterway",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4,5,6,7,8; 8]),
+                DecodedId([1,2,3,4,5,6,7,8]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,MultiLineString,LineString; 8],
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,MultiLineString,LineString],
                     geometry_offsets: [0,1,2,3,4,5,6,8, ...; 9],
                     part_offsets: [0,6,15,28,34,72,115,133, ...; 10],
                     ring_offsets: None,
@@ -720,13 +720,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "transportation_name",
             extent: 4096,
             id: Decoded(
-                DecodedId([1,2,3,4,5,6; 6]),
+                DecodedId([1,2,3,4,5,6]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString; 6],
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString],
                     geometry_offsets: None,
-                    part_offsets: [0,8,16,22,28,32,36; 7],
+                    part_offsets: [0,8,16,22,28,32,36],
                     ring_offsets: None,
                     vertex_offsets: [8,6,5,1,3,17,19,21, ...; 36],
                     index_buffer: None,

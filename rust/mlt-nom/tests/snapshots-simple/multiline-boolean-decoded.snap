@@ -7,13 +7,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "layer",
             extent: 4096,
             id: Decoded(
-                DecodedId([1; 1]),
+                DecodedId([1]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString; 1],
-                    geometry_offsets: [0,2; 2],
-                    part_offsets: [0,3,5; 3],
+                    vector_types: [MultiLineString],
+                    geometry_offsets: [0,2],
+                    part_offsets: [0,3,5],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,

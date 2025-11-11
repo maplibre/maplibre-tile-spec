@@ -7,11 +7,11 @@ source: mlt-nom/tests/snapshots.rs
             name: "water_feature",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0,0,0,0,0,0; 8]),
+                DecodedId([0,0,0,0,0,0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,Point; 8],
+                    vector_types: [MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,Point],
                     geometry_offsets: [0,58,70,73,132,136,176,191, ...; 9],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 193],
                     ring_offsets: [0,30,85,95,103,122,129,134, ...; 225],
@@ -117,17 +117,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "land_cover_grass",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiPolygon; 1],
-                    geometry_offsets: [0,12; 2],
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,12],
                     part_offsets: [0,1,2,8,9,10,24,25, ...; 13],
                     ring_offsets: [0,17,28,461,474,504,521,538, ...; 31],
                     vertex_offsets: None,
                     index_buffer: [15,16,0,1,2,3,4,5, ...; 4335],
-                    triangles: [1445; 1],
+                    triangles: [1445],
                     vertices: [1928,-21,1903,-7,1901,64,1884,86, ...; 2870],
                 },
             ),
@@ -148,17 +148,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "reserve",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiPolygon; 1],
-                    geometry_offsets: [0,121; 2],
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,121],
                     part_offsets: [0,1,2,3,4,5,6,7, ...; 122],
                     ring_offsets: [0,4,12,21,34,40,54,60, ...; 122],
                     vertex_offsets: None,
                     index_buffer: [2,3,0,0,1,2,10,11, ...; 2925],
-                    triangles: [975; 1],
+                    triangles: [975],
                     vertices: [1613,432,1598,438,1576,428,1609,422, ...; 2434],
                 },
             ),
@@ -179,13 +179,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "country_region",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0,0,0; 5]),
+                DecodedId([0,0,0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [LineString,Point,Point,Point,Point; 5],
+                    vector_types: [LineString,Point,Point,Point,Point],
                     geometry_offsets: None,
-                    part_offsets: [0,116,117,118,119,120; 6],
+                    part_offsets: [0,116,117,118,119,120],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
@@ -274,17 +274,17 @@ source: mlt-nom/tests/snapshots.rs
             name: "land_cover_forest",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiPolygon; 1],
-                    geometry_offsets: [0,19; 2],
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,19],
                     part_offsets: [0,1,3,4,5,6,7,8, ...; 20],
                     ring_offsets: [0,12,191,209,239,254,290,320, ...; 24],
                     vertex_offsets: None,
                     index_buffer: [10,11,0,1,2,3,4,5, ...; 3189],
-                    triangles: [1063; 1],
+                    triangles: [1063],
                     vertices: [1925,-13,1897,-5,1891,47,1848,31, ...; 2186],
                 },
             ),
@@ -305,18 +305,18 @@ source: mlt-nom/tests/snapshots.rs
             name: "vector_background",
             extent: 4096,
             id: Decoded(
-                DecodedId([0; 1]),
+                DecodedId([0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [Polygon; 1],
-                    geometry_offsets: [0,1; 2],
-                    part_offsets: [0,1; 2],
-                    ring_offsets: [0,4; 2],
+                    vector_types: [Polygon],
+                    geometry_offsets: [0,1],
+                    part_offsets: [0,1],
+                    ring_offsets: [0,4],
                     vertex_offsets: None,
-                    index_buffer: [2,3,0,0,1,2; 6],
-                    triangles: [2; 1],
-                    vertices: [0,0,4096,0,4096,4096,0,4096; 8],
+                    index_buffer: [2,3,0,0,1,2],
+                    triangles: [2],
+                    vertices: [0,0,4096,0,4096,4096,0,4096],
                 },
             ),
             properties: [],
@@ -422,13 +422,13 @@ source: mlt-nom/tests/snapshots.rs
             name: "admin_division1",
             extent: 4096,
             id: Decoded(
-                DecodedId([0,0,0,0; 4]),
+                DecodedId([0,0,0,0]),
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [MultiLineString,Point,Point,Point; 4],
-                    geometry_offsets: [0,2,3,4,5; 5],
-                    part_offsets: [0,43,151,152,153,154; 6],
+                    vector_types: [MultiLineString,Point,Point,Point],
+                    geometry_offsets: [0,2,3,4,5],
+                    part_offsets: [0,43,151,152,153,154],
                     ring_offsets: None,
                     vertex_offsets: None,
                     index_buffer: None,
