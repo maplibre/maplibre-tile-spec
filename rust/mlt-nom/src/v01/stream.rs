@@ -439,8 +439,21 @@ impl LogicalValue {
                 }
             },
             LogicalDecoder::Delta => match self.data {
-                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())),
+                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, u32>(data.as_slice())),
             },
+            LogicalDecoder::DeltaRle(rle_meta) => {
+                match self.data {
+                    LogicalData::VecU32(data) => {
+                        // First decode RLE, then apply ZigZag Delta decoding
+                        let rle_decoded = decode_rle(
+                            &data,
+                            rle_meta.runs as usize,
+                            rle_meta.num_rle_values as usize,
+                        )?;
+                        Ok(decode_zigzag_delta::<i32, u32>(rle_decoded.as_slice()))
+                    }
+                }
+            }
             v => Err(MltError::DecodeError(format!(
                 "Unsupported LogicalDecoder {v:?} for u32"
             ))),

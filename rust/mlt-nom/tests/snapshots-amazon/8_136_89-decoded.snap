@@ -6,8 +6,22 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Admin0 ribbon L8 L9 inner",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -41,8 +55,220 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Road/label",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -166,8 +392,22 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Colormap",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -201,8 +441,22 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Road",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -244,8 +498,28 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "City small scale",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -641,8 +915,16 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Admin1 area/label",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1018,8 +1300,40 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Water area large scale",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1387,8 +1701,16 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Urban area",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1411,8 +1733,19 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Boundary line",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1453,8 +1786,16 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Land",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1486,8 +1827,28 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Spot elevation",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1547,8 +1908,22 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Road tunnel",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1590,8 +1965,16 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Admin0 forest or park",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1943,8 +2326,16 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Graticule",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -1984,8 +2375,28 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Biome",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2021,8 +2432,67 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Water line large scale/label",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2407,8 +2877,97 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Water line large scale",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2787,8 +3346,22 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Admin0 ribbon L8 L9 outer",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -2822,8 +3395,16 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Water area large scale/label",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -3207,8 +3788,19 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Vegetation small scale",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -3241,8 +3833,19 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "Graticule/label",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                0,
+                            ),
+                            Some(
+                                0,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {

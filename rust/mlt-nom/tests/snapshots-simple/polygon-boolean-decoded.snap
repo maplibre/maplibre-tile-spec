@@ -6,8 +6,16 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "layer",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 32 bit Id from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                1,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
