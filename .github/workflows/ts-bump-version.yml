@@ -1,10 +1,11 @@
-name: js-bump-version
+name: Manual TypeScript Version Bump
 
 on:
   workflow_dispatch:
     inputs:
       release_type:
         type: choice
+        description: 'Type of version bump'
         options:
           - major
           - minor
