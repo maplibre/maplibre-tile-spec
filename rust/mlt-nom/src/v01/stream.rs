@@ -127,6 +127,7 @@ pub struct LogicalValue {
 #[derive(Debug, PartialEq)]
 pub enum LogicalData {
     VecU32(Vec<u32>),
+    VecU64(Vec<u64>),
 }
 
 /// Representation of the raw stream data, in various physical formats
@@ -296,6 +297,40 @@ impl<'a> Stream<'a> {
             .map_err(Into::into)
     }
 
+    pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
+        let value = match self.meta.physical_decoder {
+            PhysicalDecoder::VarInt => match self.data {
+                StreamData::VarInt(data) => all(utils::parse_varint_vec::<u64, u64>(
+                    data.data,
+                    self.meta.num_values,
+                )?),
+                StreamData::Raw(_) => {
+                    return Err(MltError::InvalidStreamData {
+                        expected: "VarInt",
+                        got: "Raw".to_string(),
+                    });
+                }
+            },
+            PhysicalDecoder::None => {
+                // For raw data, we'd need to read 8 bytes per value
+                // But typically 64-bit IDs use VarInt encoding
+                return Err(MltError::DecodeError(
+                    "Raw physical decoder not supported for u64".to_string(),
+                ));
+            }
+            PhysicalDecoder::FastPFOR => {
+                return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"));
+            }
+            PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
+        }?;
+
+        Ok(LogicalValue::new(self.meta, LogicalData::VecU64(value)))
+    }
+
+    pub fn decode_u64(self) -> Result<Vec<u64>, MltError> {
+        self.decode_bits_u64()?.decode_u64()
+    }
+
     pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.physical_decoder {
             PhysicalDecoder::VarInt => match self.data {
@@ -328,10 +363,6 @@ impl<'a> Stream<'a> {
         }?;
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
-    }
-
-    fn decode_physical_u64(self) -> Result<Vec<u64>, MltError> {
-        todo!("decode 64 bit integer from stream")
     }
 
     // pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
@@ -405,9 +436,15 @@ impl LogicalValue {
         match self.meta.logical_decoder {
             LogicalDecoder::ComponentwiseDelta => match self.data {
                 LogicalData::VecU32(data) => decode_componentwise_delta_vec2s(&data),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as i32".to_string(),
+                )),
             },
             LogicalDecoder::Delta => match self.data {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as i32".to_string(),
+                )),
             },
             LogicalDecoder::DeltaRle(rle_meta) => {
                 match self.data {
@@ -420,6 +457,9 @@ impl LogicalValue {
                         )?;
                         Ok(decode_zigzag_delta::<i32, _>(rle_decoded.as_slice()))
                     }
+                    LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                        "Cannot decode VecU64 as i32".to_string(),
+                    )),
                 }
             }
             v => Err(MltError::DecodeError(format!(
@@ -432,14 +472,23 @@ impl LogicalValue {
         match self.meta.logical_decoder {
             LogicalDecoder::None => match self.data {
                 LogicalData::VecU32(data) => Ok(data),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as u32".to_string(),
+                )),
             },
             LogicalDecoder::Rle(value) => match self.data {
                 LogicalData::VecU32(data) => {
                     decode_rle(&data, value.runs as usize, value.num_rle_values as usize)
                 }
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as u32".to_string(),
+                )),
             },
             LogicalDecoder::Delta => match self.data {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, u32>(data.as_slice())),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as u32".to_string(),
+                )),
             },
             LogicalDecoder::DeltaRle(rle_meta) => {
                 match self.data {
@@ -452,10 +501,57 @@ impl LogicalValue {
                         )?;
                         Ok(decode_zigzag_delta::<i32, u32>(rle_decoded.as_slice()))
                     }
+                    LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                        "Cannot decode VecU64 as u32".to_string(),
+                    )),
                 }
             }
             v => Err(MltError::DecodeError(format!(
                 "Unsupported LogicalDecoder {v:?} for u32"
+            ))),
+        }
+    }
+
+    pub fn decode_u64(self) -> Result<Vec<u64>, MltError> {
+        match self.meta.logical_decoder {
+            LogicalDecoder::None => match self.data {
+                LogicalData::VecU64(data) => Ok(data),
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as u64".to_string(),
+                )),
+            },
+            LogicalDecoder::Rle(value) => match self.data {
+                LogicalData::VecU64(data) => {
+                    decode_rle(&data, value.runs as usize, value.num_rle_values as usize)
+                }
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as u64".to_string(),
+                )),
+            },
+            LogicalDecoder::Delta => match self.data {
+                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, u64>(data.as_slice())),
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as u64".to_string(),
+                )),
+            },
+            LogicalDecoder::DeltaRle(rle_meta) => {
+                match self.data {
+                    LogicalData::VecU64(data) => {
+                        // First decode RLE, then apply ZigZag Delta decoding
+                        let rle_decoded = decode_rle(
+                            &data,
+                            rle_meta.runs as usize,
+                            rle_meta.num_rle_values as usize,
+                        )?;
+                        Ok(decode_zigzag_delta::<i64, u64>(rle_decoded.as_slice()))
+                    }
+                    LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                        "Cannot decode VecU32 as u64".to_string(),
+                    )),
+                }
+            }
+            v => Err(MltError::DecodeError(format!(
+                "Unsupported LogicalDecoder {v:?} for u64"
             ))),
         }
     }

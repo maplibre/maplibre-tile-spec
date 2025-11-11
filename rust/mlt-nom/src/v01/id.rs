@@ -66,16 +66,20 @@ impl<'a> FromRaw<'a> for DecodedId {
     fn from_raw(RawId { optional: _, value }: RawId<'_>) -> Result<Self, MltError> {
         // Note: The optional/present stream is ignored for ID columns (following C++ implementation)
         // The ID stream contains all IDs directly
-        
+
         match value {
             RawIdValue::Id32(stream) => {
                 // Decode 32-bit IDs as u32, then convert to u64
                 let ids: Vec<u32> = stream.decode_bits_u32()?.decode_u32()?;
-                let ids_u64: Vec<Option<u64>> = ids.into_iter().map(|id| Some(id as u64)).collect();
+                let ids_u64: Vec<Option<u64>> =
+                    ids.into_iter().map(|id| Some(u64::from(id))).collect();
                 Ok(DecodedId(Some(ids_u64)))
             }
-            RawIdValue::Id64(_stream) => {
-                Err(MltError::NotImplemented("decode 64 bit LongId from stream"))
+            RawIdValue::Id64(stream) => {
+                // Decode 64-bit IDs directly as u64
+                let ids: Vec<u64> = stream.decode_u64()?;
+                let ids_u64: Vec<Option<u64>> = ids.into_iter().map(Some).collect();
+                Ok(DecodedId(Some(ids_u64)))
             }
         }
     }

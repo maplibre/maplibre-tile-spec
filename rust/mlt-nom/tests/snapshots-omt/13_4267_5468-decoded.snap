@@ -613,8 +613,58 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "place",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 64 bit LongId from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                69614525060,
+                            ),
+                            Some(
+                                4065245420,
+                            ),
+                            Some(
+                                1285379280,
+                            ),
+                            Some(
+                                2565340690,
+                            ),
+                            Some(
+                                950251580,
+                            ),
+                            Some(
+                                39466894490,
+                            ),
+                            Some(
+                                2994402260,
+                            ),
+                            Some(
+                                2954050010,
+                            ),
+                            Some(
+                                1469416120,
+                            ),
+                            Some(
+                                1469416200,
+                            ),
+                            Some(
+                                950246870,
+                            ),
+                            Some(
+                                26454379320,
+                            ),
+                            Some(
+                                69614525040,
+                            ),
+                            Some(
+                                69614525030,
+                            ),
+                            Some(
+                                1469416290,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
@@ -708,8 +758,28 @@ source: mlt-nom/tests/snapshots.rs
         Layer01 {
             name: "poi",
             extent: 4096,
-            id: DecodeError(
-                "not implemented: decode 64 bit LongId from stream",
+            id: Decoded(
+                DecodedId(
+                    Some(
+                        [
+                            Some(
+                                1587125580,
+                            ),
+                            Some(
+                                2912035530,
+                            ),
+                            Some(
+                                6715877470,
+                            ),
+                            Some(
+                                2730987730,
+                            ),
+                            Some(
+                                6752785580,
+                            ),
+                        ],
+                    ),
+                ),
             ),
             geometry: Decoded(
                 DecodedGeometry {
