@@ -93,10 +93,28 @@ impl<'a> Geometry<'a> {
 
 impl Debug for DecodedGeometry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let vector_types_str = {
+            let preview: Vec<String> = self
+                .vector_types
+                .iter()
+                .take(8)
+                .map(|vt| format!("{vt:?}"))
+                .collect();
+            format!(
+                "[{}{}; {}]",
+                preview.join(","),
+                if self.vector_types.len() > 8 {
+                    ", ..."
+                } else {
+                    ""
+                },
+                self.vector_types.len()
+            )
+        };
         f.debug_struct("DecodedGeometry")
             // .field("vector_type", &self.vector_type)
             // .field("vertex_buffer_type", &self.vertex_buffer_type)
-            .field("vector_types", &self.vector_types)
+            .field("vector_types", &vector_types_str)
             .field(
                 "geometry_offsets",
                 &OptSeq(self.geometry_offsets.as_deref()),

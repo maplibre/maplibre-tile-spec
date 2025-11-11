@@ -11,9 +11,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [
-                        MultiPolygon,
-                    ],
+                    vector_types: "[MultiPolygon; 1]",
                     geometry_offsets: [0,2; 2],
                     part_offsets: [0,1,3; 3],
                     ring_offsets: [0,4,8,12; 4],

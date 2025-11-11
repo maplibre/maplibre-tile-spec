@@ -1,5 +1,4 @@
-use std::fmt::Debug;
-use std::fmt::Formatter;
+use std::fmt::{Debug, Formatter};
 
 use borrowme::borrowme;
 

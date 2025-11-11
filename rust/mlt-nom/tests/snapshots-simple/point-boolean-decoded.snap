@@ -11,9 +11,7 @@ source: mlt-nom/tests/snapshots.rs
             ),
             geometry: Decoded(
                 DecodedGeometry {
-                    vector_types: [
-                        Point,
-                    ],
+                    vector_types: "[Point; 1]",
                     geometry_offsets: None,
                     part_offsets: None,
                     ring_offsets: None,

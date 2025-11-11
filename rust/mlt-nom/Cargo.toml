@@ -36,3 +36,4 @@ pedantic = { level = "warn", priority = -1 }
 missing_errors_doc = "allow"
 multiple_crate_versions = "allow"
 missing_panics_doc = "allow"
+too_many_lines = "allow"
