@@ -1,0 +1,37 @@
+name: TypeScript CI
+
+on:
+  push:
+    paths:
+      - '.github/**'
+      - 'ts/**'
+      - 'test/**'
+  pull_request:
+    paths:
+      - '.github/**'
+      - 'ts/**'
+      - 'test/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+      - uses: ./.github/actions/mlt-setup-node
+      - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
+        run: just -v lint-js
+      - run: just -v test-js
+      - run: just -v build-js
+      - name: Codecov upload
+        if: '!cancelled()'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ts/coverage/coverage-final.json

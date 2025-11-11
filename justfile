@@ -7,7 +7,7 @@ binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-tele
 
 # By default, show the list of all available commands
 @_default:
-    {{just_executable()}} --list
+    {{quote(just_executable())}} --list
 
 bench: bench-js bench-java
 
@@ -161,7 +161,7 @@ mkdocs-build:
 [working-directory: 'java']
 generate-expected-mlt:  (cargo-install 'fd' 'fd-find')
     ./gradlew cli
-    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{just_executable()}} generate-one-expected-mlt
+    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{quote(just_executable())}} generate-one-expected-mlt
 
 # Generate a single .mlt file for a given .mvt or .pbf file, assuming JAR is built
 [working-directory: 'java']
@@ -174,6 +174,7 @@ generate-one-expected-mlt file:
         --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
         --outlines ALL \
         --colmap-delim '[.*]name/[:_]/' \
+        --enable-fsst \
         --tessellate \
         --coerce-mismatch \
         --verbose

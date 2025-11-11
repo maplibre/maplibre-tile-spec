@@ -1,0 +1,59 @@
+name: Java - Release
+
+on:
+  push:
+    tags:
+      - 'java-v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
+
+      - uses: ./.github/actions/mlt-setup-java
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          version="$(just extract-version java ${{ github.ref_name }})"
+          echo version="$version" >> "$GITHUB_ENV"
+
+      - name: Make gradlew executable
+        run: chmod +x ./java/gradlew
+
+      - name: Publish to Maven Central
+        working-directory: java
+        run: ./gradlew publishToMavenCentral -Pversion=${{ env.version }}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Build CLI tool
+        working-directory: java
+        run: ./gradlew cli
+
+      - name: Rename CLI artifacts
+        run: |
+          cp java/mlt-cli/build/libs/encode.jar mlt-encode.jar
+          cp java/mlt-cli/build/libs/decode.jar mlt-decode.jar
+
+      - name: Add CLI artifacts to GitHub release
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        with:
+          tag_name: java-v${{ env.version }}
+          fail_on_unmatched_files: true
+          name: java-v${{ env.version }}
+          files: |
+            mlt-encode.jar
+            mlt-decode.jar
