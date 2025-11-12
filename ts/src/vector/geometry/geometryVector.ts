@@ -1,7 +1,8 @@
 import type TopologyVector from "../../vector/geometry/topologyVector";
 import { convertGeometryVector } from "./geometryVectorConverter";
+import { type SelectionVector } from "../filter/selectionVector";
 import ZOrderCurve from "./zOrderCurve";
-import { type GEOMETRY_TYPE } from "./geometryType";
+import { type GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
 import { type VertexBufferType } from "./vertexBufferType";
 import type Point from "@mapbox/point-geometry";
 
@@ -94,6 +95,10 @@ export abstract class GeometryVector implements Iterable<Geometry> {
     abstract geometryType(index: number): number;
 
     abstract get numGeometries(): number;
+
+    abstract filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector;
+
+    abstract filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector);
 
     abstract containsSingleGeometryType(): boolean;
 }

@@ -1,7 +1,8 @@
 import Point from "@mapbox/point-geometry";
-import { GEOMETRY_TYPE } from "./geometryType";
+import { GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
 import { type CoordinatesArray } from "./geometryVector";
 import type TopologyVector from "./topologyVector";
+import { type SelectionVector } from "../filter/selectionVector";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {
     protected constructor(
@@ -14,6 +15,10 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
     abstract geometryType(index: number): number;
 
     abstract get numGeometries(): number;
+
+    abstract filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector;
+
+    abstract filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector);
 
     abstract containsSingleGeometryType(): boolean;
 

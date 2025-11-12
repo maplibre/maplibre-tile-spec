@@ -7,3 +7,5 @@ export { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 export type { TileSetMetadata } from "./metadata/tileset/tilesetMetadata";
 export type { Geometry } from "./vector/geometry/geometryVector";
 export type { Feature } from "./vector/featureTable";
+export { SelectionVector } from "./vector/filter/selectionVector";
+export { default as filter } from "./processing/filter";
