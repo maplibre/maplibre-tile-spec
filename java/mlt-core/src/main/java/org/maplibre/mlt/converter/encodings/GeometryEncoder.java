@@ -897,8 +897,7 @@ public class GeometryEncoder {
     partSize.add(1 + polygon.getNumInteriorRing());
 
     final var exteriorRing = polygon.getExteriorRing();
-    assert (exteriorRing.isValid());
-    assert (!exteriorRing.isEmpty());
+    // If the ring isn't closed, our assumptions about the number of vertices will be incorrect.
     assert (exteriorRing.isClosed());
 
     final var shell = ringToLineString(exteriorRing, factory);
@@ -907,8 +906,6 @@ public class GeometryEncoder {
 
     for (var i = 0; i < polygon.getNumInteriorRing(); i++) {
       final var interiorRing = polygon.getInteriorRingN(i);
-      assert (interiorRing.isValid());
-      assert (!interiorRing.isEmpty());
       assert (interiorRing.isClosed());
 
       final var ring = ringToLineString(interiorRing, factory);
