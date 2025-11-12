@@ -283,6 +283,69 @@ mod tests {
     }
 
     #[test]
+    fn test_bytes_to_u64s_valid() {
+        // Little-endian representation:
+        // [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01] -> 0x0102030405060708
+        // [0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88] -> 0x8899AABBCCDDEEFF
+        let bytes: [u8; 16] = [
+            0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA,
+            0x99, 0x88,
+        ];
+        let res = bytes_to_u64s(&bytes, 2);
+        assert!(res.is_ok(), "Should decode valid buffer with 2 values");
+        let (remaining, u64s) = res.unwrap();
+        assert!(remaining.is_empty(), "All input should be consumed");
+        assert_eq!(
+            u64s,
+            vec![0x0102_0304_0506_0708, 0x8899_AABB_CCDD_EEFF],
+            "Decoded values should match"
+        );
+    }
+
+    #[test]
+    fn test_bytes_to_u64s_empty() {
+        let bytes: [u8; 0] = [];
+        let res = bytes_to_u64s(&bytes, 0);
+        assert!(res.is_ok(), "Empty slice with 0 values is valid");
+        let (remaining, u64s) = res.unwrap();
+        assert!(remaining.is_empty(), "All input should be consumed");
+        assert!(
+            u64s.is_empty(),
+            "Output should be an empty Vec for 0 values"
+        );
+    }
+
+    #[test]
+    fn test_bytes_to_u64s_buffer_underflow() {
+        // Only 8 bytes but requesting 2 values (16 bytes needed)
+        let bytes = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+        let res = bytes_to_u64s(&bytes, 2);
+        assert!(
+            res.is_err(),
+            "Should error if not enough bytes for requested values"
+        );
+    }
+
+    #[test]
+    fn test_bytes_to_u64s_partial_consumption() {
+        // 24 bytes (3 values) but only requesting 2 values
+        let bytes: [u8; 24] = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        ];
+        let res = bytes_to_u64s(&bytes, 2);
+        assert!(res.is_ok(), "Should decode 2 values from larger buffer");
+        let (remaining, u64s) = res.unwrap();
+        assert_eq!(remaining.len(), 8, "Should have 8 bytes remaining");
+        assert_eq!(u64s.len(), 2, "Should have exactly 2 values");
+        assert_eq!(
+            u64s,
+            vec![0x0807_0605_0403_0201, 0x100F_0E0D_0C0B_0A09],
+            "Decoded values should match"
+        );
+    }
+
+    #[test]
     fn test_decode_zigzag() {
         let encoded_u32 = [0u32, 1, 2, 3, 4, 5, u32::MAX];
         let expected_i32 = [0i32, -1, 1, -2, 2, -3, i32::MIN];
