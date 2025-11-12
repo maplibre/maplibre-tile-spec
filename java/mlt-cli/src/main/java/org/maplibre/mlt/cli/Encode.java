@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -422,7 +423,8 @@ public class Encode {
         System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
-        compare(decodedTile, decodedMvTile, compareGeom, compareProp, verboseLevel);
+        compare(
+            decodedTile, decodedMvTile, compareGeom, compareProp, conversionConfig, verboseLevel);
       }
     }
   }
@@ -984,9 +986,16 @@ public class Encode {
       MapboxVectorTile mvTile,
       boolean compareGeom,
       boolean compareProp,
+      ConversionConfig config,
       int verboseLevel) {
+    final Predicate<Layer> testFilter =
+        (Layer x) ->
+            (config.getLayerFilterPattern() == null)
+                || (config.getLayerFilterPattern().matcher(x.name()).matches()
+                    ^ config.getLayerFilterInvert());
+    final var mvtLayers =
+        mvTile.layers().stream().filter(x -> !x.features().isEmpty()).filter(testFilter).toList();
     final var mltLayers = mlTile.layers();
-    final var mvtLayers = mvTile.layers().stream().filter(x -> !x.features().isEmpty()).toList();
     if (mltLayers.size() != mvtLayers.size()) {
       final var mvtNames = mvtLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
       final var mltNames = mltLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
@@ -1040,15 +1049,27 @@ public class Encode {
           final var mvtGeomValid = mvtGeometry.isValid();
           if (mltGeomValid != mvtGeomValid) {
             throw new RuntimeException(
-                "Geometry validity in MLT and MVT layers do not match: \nMVT:\n"
+                "Geometry validity in MLT and MVT layers do not match for feature index "
+                    + j
+                    + " in layer '"
+                    + mvtLayer.name()
+                    + "': \nMVT:\n"
                     + mvtGeomValid
+                    + " : "
+                    + mvtGeometry
                     + "\nMLT:\n"
-                    + mltGeomValid);
+                    + mltGeomValid
+                    + " : "
+                    + mltGeometry);
           }
 
           if (mvtGeomValid && !mltGeometry.equals(mvtGeometry)) {
             throw new RuntimeException(
-                "Geometries in MLT and MVT layers do not match: \nMVT:\n"
+                "Geometries in MLT and MVT layers do not match for feature index "
+                    + j
+                    + " in layer '"
+                    + mvtLayer.name()
+                    + "': \nMVT:\n"
                     + mvtGeometry
                     + "\nMLT:\n"
                     + mltGeometry
