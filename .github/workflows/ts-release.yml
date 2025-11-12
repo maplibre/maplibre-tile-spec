@@ -58,7 +58,7 @@ jobs:
           npm run build
 
       - name: Copy license files into package dir
-        run: | 
+        run: |
           cp -v ../{LICENSE-MIT,LICENSE-APACHE} ./ 2>/dev/null || true
 
       - name: Release (GitHub) - Create Draft
