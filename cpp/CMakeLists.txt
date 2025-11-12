@@ -157,12 +157,6 @@ else()
     message(STATUS "[MLT] No FastPFOR support")
 endif(MLT_WITH_FASTPFOR)
 
-# FSST
-set(CMAKE_POLICY_VERSION_MINIMUM "3.5" CACHE STRING "" FORCE)
-add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fsst" "${CMAKE_CURRENT_BINARY_DIR}/fsst" EXCLUDE_FROM_ALL SYSTEM)
-
-target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fsst")
-
 # json
 if(MLT_WITH_JSON)
     message(STATUS "[MLT] Including JSON support")

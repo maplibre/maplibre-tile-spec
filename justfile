@@ -174,6 +174,7 @@ generate-one-expected-mlt file:
         --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
         --outlines ALL \
         --colmap-delim '[.*]name/[:_]/' \
+        --enable-fsst \
         --tessellate \
         --coerce-mismatch \
         --verbose
