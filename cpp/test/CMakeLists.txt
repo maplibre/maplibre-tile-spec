@@ -25,7 +25,6 @@ endif(MLT_WITH_JSON)
 if(MLT_WITH_FASTPFOR)
     target_include_directories(mlt-cpp-test PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
 endif(MLT_WITH_FASTPFOR)
-target_include_directories(mlt-cpp-test PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fsst")
 
 set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)

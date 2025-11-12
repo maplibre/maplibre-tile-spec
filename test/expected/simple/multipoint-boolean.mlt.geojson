@@ -1,0 +1,31 @@
+{
+  "layers": [
+    {
+      "name": "layer",
+      "version": 1,
+      "extent": 4096,
+      "features": [
+        {
+          "type": "Feature",
+          "id": 1,
+          "geometry": {
+            "type": "MultiPoint",
+            "coordinates": [
+              [
+                -171.55906677246094,
+                83.67641366382949
+              ],
+              [
+                -171.56044006347656,
+                83.6767918001807
+              ]
+            ]
+          },
+          "properties": {
+            "key": true
+          }
+        }
+      ]
+    }
+  ]
+}

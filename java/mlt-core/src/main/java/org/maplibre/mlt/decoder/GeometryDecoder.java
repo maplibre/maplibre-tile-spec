@@ -20,7 +20,8 @@ public class GeometryDecoder {
       List<Integer> numParts,
       List<Integer> numRings,
       List<Integer> vertexOffsets,
-      List<Integer> vertexList) {}
+      List<Integer> vertexList,
+      List<Integer> triangles) {}
 
   private GeometryDecoder() {}
 
@@ -34,6 +35,7 @@ public class GeometryDecoder {
     List<Integer> numRings = null;
     List<Integer> vertexOffsets = null;
     List<Integer> vertexList = null;
+    List<Integer> triangles = null;
     for (var i = 0; i < numStreams - 1; i++) {
       var geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
       switch (geometryStreamMetadata.physicalStreamType()) {
@@ -52,7 +54,9 @@ public class GeometryDecoder {
                   IntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
               break;
             case TRIANGLES:
-              throw new NotImplementedException("Not implemented yet.");
+              triangles =
+                  IntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+              break;
           }
           break;
         case OFFSET:
@@ -85,7 +89,7 @@ public class GeometryDecoder {
     }
 
     return new GeometryColumn(
-        geometryTypes, numGeometries, numParts, numRings, vertexOffsets, vertexList);
+        geometryTypes, numGeometries, numParts, numRings, vertexOffsets, vertexList, triangles);
   }
 
   public static Geometry[] decodeGeometry(GeometryColumn geometryColumn) {
