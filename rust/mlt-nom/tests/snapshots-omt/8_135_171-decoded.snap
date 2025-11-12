@@ -1,0 +1,1077 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+[
+    Tag01(
+        Layer01 {
+            name: "landcover",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,7,8, ...; 1216]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 1216],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 1217],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 1267],
+                    ring_offsets: [0,13,45,65,73,81,98,112, ...; 1583],
+                    vertex_offsets: None,
+                    index_buffer: [11,12,0,1,2,3,3,4, ...; 38232],
+                    triangles: [11,30,18,6,6,15,12,11, ...; 1216],
+                    vertices: [1225,351,1218,428,1187,441,1171,409, ...; 29524],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "subclass",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "landuse",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,7,8, ...; 38]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,MultiPolygon, ...; 38],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 39],
+                    part_offsets: [0,9,12,13,15,18,25,28, ...; 51],
+                    ring_offsets: [0,13,16,21,25,28,31,34, ...; 125],
+                    vertex_offsets: None,
+                    index_buffer: [17,5,21,24,21,5,5,25, ...; 2262],
+                    triangles: [40,20,2,19,17,48,16,33, ...; 38],
+                    vertices: [2068,2812,2190,2847,2067,2907,2071,2879, ...; 1496],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "mountain_peak",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1801697037,1598386892,954241137,270294251,5827637281,501586769,717667355,1398979583, ...; 204]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point,Point, ...; 204],
+                    geometry_offsets: None,
+                    part_offsets: None,
+                    ring_offsets: None,
+                    vertex_offsets: [85,75,38,11,24,15,51,84, ...; 204],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [-917,646,-731,875,-572,659,0,701, ...; 204],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "ele",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "ele_ft",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:latin",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_int",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "rank",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:da",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:he",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ja",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:la",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:lt",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ru",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:zh",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "place",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([16833253550,209829270,2400901600,16518887340,216871490,2400901700,16746191010,339979950, ...; 290]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point,Point, ...; 290],
+                    geometry_offsets: None,
+                    part_offsets: None,
+                    ring_offsets: None,
+                    vertex_offsets: [88,0,112,52,102,108,91,123, ...; 290],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [-3019,-2856,-2896,-2402,-3186,-2621,-3539,-2721, ...; 290],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "iso_a2",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:am",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ar",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:az",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:be",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:bg",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:br",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:bs",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ca",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:co",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:cs",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:cy",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:da",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:el",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:eo",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:es",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:et",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:eu",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:fi",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:fr",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:fy",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ga",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:gd",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:he",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:hi",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:hr",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:hu",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:hy",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:id",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:is",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:it",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ja",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ka",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:kk",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:kn",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ko",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ku",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:la",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:latin",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:lb",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:lt",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:lv",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:mk",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ml",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:mt",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:nl",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:no",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:oc",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:pl",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:pt",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:rm",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ro",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ru",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:sk",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:sl",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:sq",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:sr",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:sv",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:ta",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:te",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:th",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:tr",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:uk",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:zh",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_int",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "rank",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "capital",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "water",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([2,3,4,5,6,7,8,9, ...; 40]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 40],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 41],
+                    part_offsets: [0,2,4,5,6,7,8,9, ...; 43],
+                    ring_offsets: [0,5,8,16,19,32,38,55, ...; 47],
+                    vertex_offsets: None,
+                    index_buffer: [4,0,1,2,3,5,7,5, ...; 1170],
+                    triangles: [8,11,11,4,15,26,12,8, ...; 40],
+                    vertices: [1352,1515,1376,1596,1363,1598,1323,1550, ...; 932],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "intermittent",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "transportation_name",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,1,2, ...; 12]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 12],
+                    geometry_offsets: None,
+                    part_offsets: [0,4,8,11,15,21,27,31, ...; 13],
+                    ring_offsets: None,
+                    vertex_offsets: [0,1,20,18,17,19,1,0, ...; 54],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [-24,300,20,343,272,183,280,171, ...; 44],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "network",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "ref",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "ref_length",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "park",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,6,7,8,9, ...; 176]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon,Polygon,MultiPolygon,MultiPolygon,Polygon,MultiPolygon,Polygon,MultiPolygon, ...; 176],
+                    geometry_offsets: [0,1,2,4,6,7,10,11, ...; 177],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 307],
+                    ring_offsets: [0,15,43,56,61,68,73,77, ...; 333],
+                    vertex_offsets: [1808,1823,1826,1819,1821,1817,1816,1818, ...; 4034],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [51,256,59,281,47,300,60,317, ...; 3930],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:latin",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_int",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "rank",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "transportation",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,7,8, ...; 9936]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 9936],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 9937],
+                    part_offsets: [0,2,4,6,8,10,12,14, ...; 9941],
+                    ring_offsets: None,
+                    vertex_offsets: [2395,2397,5283,5284,2407,2406,3613,3612, ...; 22576],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [-64,-49,-40,-64,-34,-64,-33,-64, ...; 10672],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "brunnel",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "subclass",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+]

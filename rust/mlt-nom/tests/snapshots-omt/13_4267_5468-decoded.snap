@@ -1,0 +1,603 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+[
+    Tag01(
+        Layer01 {
+            name: "landcover",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,7,8, ...; 40]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 40],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 41],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 42],
+                    ring_offsets: [0,10,15,28,48,71,116,123, ...; 42],
+                    vertex_offsets: None,
+                    index_buffer: [8,9,0,1,2,3,5,6, ...; 1185],
+                    triangles: [8,3,11,18,21,43,5,5, ...; 40],
+                    vertices: [3678,3967,3784,3980,3860,4124,3848,4129, ...; 954],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "subclass",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "waterway",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [LineString,LineString,LineString,LineString],
+                    geometry_offsets: None,
+                    part_offsets: [0,2,4,14,23],
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [943,141,967,121,1232,2,1265,-64, ...; 46],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "intermittent",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "brunnel",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:latin",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_int",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "landuse",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,7,8, ...; 64]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 64],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 65],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 65],
+                    ring_offsets: [0,4,12,16,37,40,47,51, ...; 68],
+                    vertex_offsets: None,
+                    index_buffer: [2,3,0,0,1,2,6,7, ...; 1116],
+                    triangles: [2,6,2,19,1,5,2,7, ...; 64],
+                    vertices: [114,1820,-64,1853,-64,1674,64,1637, ...; 990],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "place",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([69614525060,4065245420,1285379280,2565340690,950251580,39466894490,2994402260,2954050010, ...; 15]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point,Point, ...; 15],
+                    geometry_offsets: None,
+                    part_offsets: None,
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [-2175,4046,-3065,-3626,-1278,6833,-1492,3313, ...; 30],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:latin",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_int",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "rank",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "poi",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1587125580,2912035530,6715877470,2730987730,6752785580]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Point,Point,Point,Point,Point],
+                    geometry_offsets: None,
+                    part_offsets: None,
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [55,3403,2142,2593,2030,-334,2934,1873, ...; 10],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:latin",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_int",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "rank",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "subclass",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "water",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([2,3,4,5,6,7,8,9, ...; 13]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 13],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 14],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 14],
+                    ring_offsets: [0,4,12,20,27,31,36,42, ...; 14],
+                    vertex_offsets: None,
+                    index_buffer: [2,3,0,0,1,2,6,7, ...; 144],
+                    triangles: [2,6,6,5,2,3,4,4, ...; 13],
+                    vertices: [2061,3777,1983,3795,1976,3765,2053,3747, ...; 148],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "intermittent",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "transportation_name",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,7,8, ...; 30]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 30],
+                    geometry_offsets: None,
+                    part_offsets: [0,8,15,24,26,34,45,47, ...; 31],
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [290,2230,402,2603,478,2890,600,3397, ...; 432],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "brunnel",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "network",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "ref",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "ref_length",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name:latin",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_de",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_en",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name_int",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "building",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([52251949,53020796,884074846,55209766,545879312,886939412,884074847,284400963, ...; 646]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [MultiPolygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon,Polygon, ...; 646],
+                    geometry_offsets: [0,2,3,4,5,6,7,8, ...; 647],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 732],
+                    ring_offsets: [0,6,9,18,22,28,32,38, ...; 743],
+                    vertex_offsets: None,
+                    index_buffer: [4,5,0,0,1,2,2,3, ...; 14487],
+                    triangles: [5,7,2,4,2,4,3,2, ...; 646],
+                    vertices: [2674,-40,2653,-30,2645,-48,2624,-38, ...; 12542],
+                },
+            ),
+            properties: [],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "transportation",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([1,2,3,4,5,6,7,8, ...; 1433]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [LineString,LineString,LineString,LineString,LineString,LineString,LineString,LineString, ...; 1433],
+                    geometry_offsets: [0,1,2,3,4,5,6,7, ...; 1434],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 1437],
+                    ring_offsets: [0,2,4,6,11,15,21,26, ...; 1437],
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [1467,2985,1493,2962,2786,2434,2783,2422, ...; 8456],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "brunnel",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "class",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "layer",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "oneway",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "ramp",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "service",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "bicycle",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "surface",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "subclass",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "foot",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "horse",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+]

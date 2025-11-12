@@ -1,7 +1,10 @@
+use std::fmt::{Debug, Formatter};
+
 use borrowme::borrowme;
 
 use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
+use crate::utils::OptSeqOpt;
 use crate::v01::Stream;
 
 /// ID column representation, either raw or decoded, or none if there are no IDs
@@ -31,10 +34,21 @@ pub enum RawIdValue<'a> {
 }
 
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct DecodedId(Option<Vec<Option<u64>>>);
 
 impl_decodable!(Id<'a>, RawId<'a>, DecodedId);
+
+impl Debug for DecodedId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            None => write!(f, "DecodedId(None)"),
+            Some(ids) => {
+                write!(f, "DecodedId({:?})", &OptSeqOpt(Some(ids)))
+            }
+        }
+    }
+}
 
 impl<'a> From<RawId<'a>> for Id<'a> {
     fn from(value: RawId<'a>) -> Self {
@@ -61,16 +75,24 @@ impl<'a> Id<'a> {
 impl<'a> FromRaw<'a> for DecodedId {
     type Input = RawId<'a>;
 
-    fn from_raw(RawId { optional, value }: RawId<'_>) -> Result<Self, MltError> {
-        let value = match value {
+    fn from_raw(RawId { optional: _, value }: RawId<'_>) -> Result<Self, MltError> {
+        // Note: The optional/present stream is ignored for ID columns (following C++ implementation)
+        // The ID stream contains all IDs directly
+
+        match value {
             RawIdValue::Id32(stream) => {
-                todo!("decode 32 bit Id from stream")
+                // Decode 32-bit IDs as u32, then convert to u64
+                let ids: Vec<u32> = stream.decode_bits_u32()?.decode_u32()?;
+                let ids_u64: Vec<Option<u64>> =
+                    ids.into_iter().map(|id| Some(u64::from(id))).collect();
+                Ok(DecodedId(Some(ids_u64)))
             }
             RawIdValue::Id64(stream) => {
-                todo!("decode 64 bit LongId from stream")
+                // Decode 64-bit IDs directly as u64
+                let ids: Vec<u64> = stream.decode_u64()?;
+                let ids_u64: Vec<Option<u64>> = ids.into_iter().map(Some).collect();
+                Ok(DecodedId(Some(ids_u64)))
             }
-        };
-
-        // Ok(DecodedId(Some(value)))
+        }
     }
 }
