@@ -367,7 +367,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -379,21 +379,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -509,7 +496,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -521,21 +508,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -575,7 +549,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -587,21 +561,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -641,7 +602,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -653,21 +614,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -707,7 +655,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -719,21 +667,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -773,7 +708,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -785,21 +720,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -839,7 +761,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -851,21 +773,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -905,7 +814,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -917,21 +826,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1049,20 +945,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x05; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -1074,20 +957,20 @@ source: mlt-nom/tests/snapshots.rs
                                         physical_decoder: VarInt,
                                     },
                                     data: VarInt(
-                                        [0x0200; 2],
+                                        [0x0205; 2],
                                     ),
                                 },
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
-                                        num_values: 1,
+                                        num_values: 2,
                                         logical_decoder: None,
                                         physical_decoder: None,
                                     },
                                     data: Raw(
-                                        [0x7269766572; 5],
+                                        [0x7269766572726976...; 10],
                                     ),
                                 },
                             ],
@@ -1120,7 +1003,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -1137,21 +1020,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 2,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x0001; 2],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 2,
                                         logical_decoder: None,
@@ -1191,7 +1061,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1203,21 +1073,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1257,7 +1114,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -1274,21 +1131,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 2,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x0001; 2],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 2,
                                         logical_decoder: None,
@@ -1328,7 +1172,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -1345,21 +1189,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 2,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x0001; 2],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 2,
                                         logical_decoder: None,
@@ -1665,7 +1496,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1677,21 +1508,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1807,7 +1625,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1819,21 +1637,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1873,7 +1678,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1885,21 +1690,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1939,7 +1731,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -1951,21 +1743,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2005,7 +1784,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2017,21 +1796,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2071,7 +1837,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2083,21 +1849,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2311,6 +2064,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 14,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 7,
+                                                num_rle_values: 91,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x2209020101012B02...; 14],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 91,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x416C486153635761...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 164,
@@ -2319,6 +2103,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0605090707050A0A...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 164,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x38474B23220D3F54...; 952],
                                     ),
                                 },
                                 Stream {
@@ -2337,19 +2134,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x015401010B010127...; 24],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 164,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x48656964656E5765...; 1475],
                                     ),
                                 },
                             ],
@@ -2382,6 +2166,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 14,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 7,
+                                                num_rle_values: 91,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x2209020101012B02...; 14],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 91,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x416C486153635761...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 164,
@@ -2390,6 +2205,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0605090707050A0A...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 164,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x38474B23220D3F54...; 952],
                                     ),
                                 },
                                 Stream {
@@ -2408,19 +2236,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x015401010B010127...; 24],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 164,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x48656964656E5765...; 1475],
                                     ),
                                 },
                             ],
@@ -2453,6 +2268,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 14,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 7,
+                                                num_rle_values: 91,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x2209020101012B02...; 14],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 91,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x416C486153635761...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 164,
@@ -2461,6 +2307,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0605090707050A0A...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 164,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x38474B23220D3F54...; 952],
                                     ),
                                 },
                                 Stream {
@@ -2479,19 +2338,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x015401010B010127...; 24],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 164,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x48656964656E5765...; 1475],
                                     ),
                                 },
                             ],
@@ -2524,6 +2370,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 14,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 7,
+                                                num_rle_values: 91,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x2209020101012B02...; 14],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 91,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x416C486153635761...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 164,
@@ -2532,6 +2409,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0605090707050A0A...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 164,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x38474B23220D3F54...; 952],
                                     ),
                                 },
                                 Stream {
@@ -2550,19 +2440,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x015401010B010127...; 24],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 164,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x48656964656E5765...; 1475],
                                     ),
                                 },
                             ],
@@ -2595,6 +2472,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 14,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 7,
+                                                num_rle_values: 91,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x2209020101012B02...; 14],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 91,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x416C486153635761...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 164,
@@ -2603,6 +2511,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0605090707050A0A...; 164],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 164,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x38474B23220D3F54...; 952],
                                     ),
                                 },
                                 Stream {
@@ -2621,19 +2542,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x015401010B010127...; 24],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 164,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x48656964656E5765...; 1475],
                                     ),
                                 },
                             ],
@@ -2709,7 +2617,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 4,
                                         logical_decoder: None,
@@ -2721,21 +2629,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 4,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00010203; 4],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 4,
                                         logical_decoder: None,
@@ -2775,7 +2670,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2787,21 +2682,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2841,7 +2723,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2853,21 +2735,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2907,7 +2776,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -2919,21 +2788,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -3381,20 +3237,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x04; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -3406,20 +3249,20 @@ source: mlt-nom/tests/snapshots.rs
                                         physical_decoder: VarInt,
                                     },
                                     data: VarInt(
-                                        [0x0200; 2],
+                                        [0x0204; 2],
                                     ),
                                 },
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
-                                        num_values: 1,
+                                        num_values: 2,
                                         logical_decoder: None,
                                         physical_decoder: None,
                                     },
                                     data: Raw(
-                                        [0x726F6164; 4],
+                                        [0x726F6164726F6164; 8],
                                     ),
                                 },
                             ],
@@ -3452,20 +3295,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x03; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -3477,20 +3307,20 @@ source: mlt-nom/tests/snapshots.rs
                                         physical_decoder: VarInt,
                                     },
                                     data: VarInt(
-                                        [0x0200; 2],
+                                        [0x0203; 2],
                                     ),
                                 },
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
-                                        num_values: 1,
+                                        num_values: 2,
                                         logical_decoder: None,
                                         physical_decoder: None,
                                     },
                                     data: Raw(
-                                        [0x412033; 3],
+                                        [0x412033412033; 6],
                                     ),
                                 },
                             ],
@@ -3738,6 +3568,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 10,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 5,
+                                                num_rle_values: 38,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x070201011B020304...; 10],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 38,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x616E6368656E6572...; 59],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 21,
@@ -3746,6 +3607,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0D120C2D0F0D1916...; 21],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 21,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x0912231F1C1C0AFF...; 355],
                                     ),
                                 },
                                 Stream {
@@ -3764,19 +3638,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0203020601010A01...; 18],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 21,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x4E53472053746F6C...; 504],
                                     ),
                                 },
                             ],
@@ -3809,6 +3670,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 10,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 5,
+                                                num_rle_values: 38,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x070201011B020304...; 10],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 38,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x616E6368656E6572...; 59],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 21,
@@ -3817,6 +3709,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0D120C2D0F0D1916...; 21],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 21,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x0912231F1C1C0AFF...; 355],
                                     ),
                                 },
                                 Stream {
@@ -3835,19 +3740,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0203020601010A01...; 18],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 21,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x4E53472053746F6C...; 504],
                                     ),
                                 },
                             ],
@@ -3880,20 +3772,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -3911,9 +3790,9 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
-                                        num_values: 1,
+                                        num_values: 27,
                                         logical_decoder: None,
                                         physical_decoder: None,
                                     },
@@ -3951,20 +3830,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
+                                            VarBinary,
                                         ),
                                         num_values: 2,
                                         logical_decoder: Rle(
@@ -3982,9 +3848,9 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
-                                        num_values: 1,
+                                        num_values: 27,
                                         logical_decoder: None,
                                         physical_decoder: None,
                                     },
@@ -4022,6 +3888,37 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
+                                            Symbol,
+                                        ),
+                                        num_values: 10,
+                                        logical_decoder: Rle(
+                                            RleMeta {
+                                                runs: 5,
+                                                num_rle_values: 38,
+                                            },
+                                        ),
+                                        physical_decoder: VarInt,
+                                    },
+                                    data: VarInt(
+                                        [0x070201011B020304...; 10],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Fsst,
+                                        ),
+                                        num_values: 38,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x616E6368656E6572...; 59],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Length(
                                             Dictionary,
                                         ),
                                         num_values: 21,
@@ -4030,6 +3927,19 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0D120C2D0F0D1916...; 21],
+                                    ),
+                                },
+                                Stream {
+                                    meta: StreamMeta {
+                                        physical_type: Data(
+                                            Single,
+                                        ),
+                                        num_values: 21,
+                                        logical_decoder: None,
+                                        physical_decoder: None,
+                                    },
+                                    data: Raw(
+                                        [0x0912231F1C1C0AFF...; 355],
                                     ),
                                 },
                                 Stream {
@@ -4048,19 +3958,6 @@ source: mlt-nom/tests/snapshots.rs
                                     },
                                     data: VarInt(
                                         [0x0203020601010A01...; 18],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Data(
-                                            Single,
-                                        ),
-                                        num_values: 21,
-                                        logical_decoder: None,
-                                        physical_decoder: None,
-                                    },
-                                    data: Raw(
-                                        [0x4E53472053746F6C...; 504],
                                     ),
                                 },
                             ],
@@ -4256,7 +4153,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -4268,21 +4165,8 @@ source: mlt-nom/tests/snapshots.rs
                                 },
                                 Stream {
                                     meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -4322,20 +4206,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Length(
-                                            Dictionary,
-                                        ),
-                                        num_values: 1,
-                                        logical_decoder: None,
-                                        physical_decoder: VarInt,
-                                    },
-                                    data: VarInt(
-                                        [0x00; 1],
-                                    ),
-                                },
-                                Stream {
-                                    meta: StreamMeta {
-                                        physical_type: Offset(
-                                            String,
+                                            VarBinary,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,
@@ -4348,7 +4219,7 @@ source: mlt-nom/tests/snapshots.rs
                                 Stream {
                                     meta: StreamMeta {
                                         physical_type: Data(
-                                            Single,
+                                            None,
                                         ),
                                         num_values: 1,
                                         logical_decoder: None,

@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -31,17 +31,17 @@
     "@maplibre/maplibre-gl-style-spec": "^24.3.1",
     "@types/bytebuffer": "^5.0.49",
     "@types/earcut": "^3.0.0",
-    "@types/node": "^24.10.0",
+    "@types/node": "^24.10.1",
     "@types/pbf": "^3.0.5",
     "@types/varint": "^6.0.3",
-    "@vitest/coverage-v8": "^4.0.7",
+    "@vitest/coverage-v8": "^4.0.8",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
     "eslint": "^9.39.1",
     "pbf": "^4.0.1",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.3",
+    "typescript-eslint": "^8.46.4",
     "varint": "^6.0.0",
     "vitest": "^4.0.1"
   },

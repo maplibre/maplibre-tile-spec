@@ -3,10 +3,12 @@ name: C++ CI
 on:
   push:
     paths:
+      - '.github/**'
       - 'cpp/**'
       - 'test/**'
   pull_request:
     paths:
+      - '.github/**'
       - 'cpp/**'
       - 'test/**'
 
@@ -27,10 +29,6 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 1
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            /*
-            !cpp/vendor/fsst/paper/*
 
       - name: Configure with CMake
         run: cmake -B build -S .

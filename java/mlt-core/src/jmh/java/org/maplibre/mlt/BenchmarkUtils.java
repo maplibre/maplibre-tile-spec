@@ -47,7 +47,7 @@ public class BenchmarkUtils {
     var optimizations =
         TestSettings.OPTIMIZED_MVT_LAYERS.stream()
             .collect(Collectors.toMap(l -> l, l -> optimization));
-    var config = new ConversionConfig(true, true, optimizations);
+    var config = new ConversionConfig(true, true, true, optimizations);
     var encodedMltTile = MltConverter.convertMvt(encodedMvtTile.getRight(), metadata, config, null);
     encodedMltTiles.put(z, encodedMltTile);
   }
