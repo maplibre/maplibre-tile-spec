@@ -113,8 +113,8 @@ public class Encode {
     final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
     final var columnMappings = getColumnMappings(cmd);
-    final var minZoom = cmd.getParsedOptionValue(MIN_ZOOM_OPTION, 0L).intValue();
-    final var maxZoom = cmd.getParsedOptionValue(MAX_ZOOM_OPTION, Long.MAX_VALUE).intValue();
+    final var minZoom = cmd.getParsedOptionValue(MIN_ZOOM_OPTION, 0);
+    final var maxZoom = cmd.getParsedOptionValue(MAX_ZOOM_OPTION, Integer.MAX_VALUE);
 
     if (verbose > 0 && !columnMappings.isEmpty()) {
       System.err.println("Using Column Mappings:");
