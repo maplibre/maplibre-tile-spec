@@ -147,9 +147,11 @@ function convertTileResponse(filePath, res) {
     " --mlt " +
     mltPath +
     (config.noids ? " --noids" : "") +
-    (config.advanced ? " --advanced" : "") +
+    (config.fsst ? " --fsst" : "") +
+    (config.fastpfor ? " --fastpfor" : "") +
     (config.nomorton ? " --nomorton" : "") +
-    (config.outlines ? " --outlines \\*" : "") +
+    (config.outlines ? " --outlines " + config.outlines : "") +
+    (config.tessellate ? " --tessellate" : "") +
     (config.coercemismatch ? "--coerce-mismatch" : "") +
     (config.timer ? " --timer" : "") +
     (config.compare ? " --compare-all" : "");
