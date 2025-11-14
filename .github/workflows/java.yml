@@ -37,3 +37,12 @@ jobs:
       - run: just -v test-java-cli
       - name: Test Maven local publishing
         run: cd java && ./gradlew publishMavenPublicationToMavenLocal
+
+      - run: npm install
+        working-directory: java/encoding-server
+      - run: npm run lint
+        working-directory: java/encoding-server
+      - run: npm run format
+        working-directory: java/encoding-server
+      - if: matrix.os != 'windows-latest'
+        uses: infotroph/tree-is-clean@69d598a958e8cb8f3d0e3d52b5ebcd8684f2adc2 # v1.0.6
