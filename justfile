@@ -158,13 +158,13 @@ mkdocs-build:
     cd mkdocs && docker run --rm -v ${PWD}:/docs squidfunk/mkdocs-material build --strict
 
 # Build Java encoder and generate .mlt files for all .pbf files in test/fixtures
-[working-directory: 'java']
+#[working-directory: 'java']
 generate-expected-mlt:  (cargo-install 'fd' 'fd-find')
     ./gradlew cli
     fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{quote(just_executable())}} generate-one-expected-mlt
 
 # Generate a single .mlt file for a given .mvt or .pbf file, assuming JAR is built
-[working-directory: 'java']
+#[working-directory: 'java']
 [private]
 generate-one-expected-mlt file:
     java \

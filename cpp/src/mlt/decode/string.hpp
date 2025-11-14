@@ -64,7 +64,9 @@ public:
                         throw std::runtime_error("Data stream missing logical type");
                     }
                     dictType = streamMetadata->getLogicalStreamType()->getDictionaryType();
+                    /// can we only get 2 dictionarytypes in here?
                     auto& target = (dictType == DictionaryType::SINGLE) ? dictionaryStream : symbolStream;
+                    /// DictionaryTpye::FSST is not used?
                     decodeRaw(tileData, target, streamMetadata->getByteLength(), /*consume=*/true);
                     break;
                 }
@@ -209,53 +211,6 @@ public:
                           decompressedLength);
     }
 
-    static std::vector<std::uint8_t> decodeFSST(const std::uint8_t* symbols,
-                                                const std::size_t symbolCount,
-                                                const std::uint32_t* symbolLengths,
-                                                const std::size_t symbolLengthCount,
-                                                const std::uint8_t* compressedData,
-                                                const std::size_t compressedDataCount,
-                                                const std::size_t decompressedLength) {
-        std::vector<std::uint8_t> output;
-
-        if (decompressedLength > 0) {
-            output.resize(decompressedLength);
-        }
-        std::vector<std::uint32_t> symbolOffsets(symbolLengthCount);
-        for (size_t i = 1; i < symbolLengthCount; i++) {
-            symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
-        }
-
-        std::size_t idx = 0;
-        for (size_t i = 0; i < compressedDataCount; i++) {
-            const std::uint8_t symbolIndex = compressedData[i];
-
-            // 255 is our escape byte -> take the next symbol as it is
-            if (symbolIndex == 255) {
-                if (idx == output.size()) {
-                    output.resize(output.size() * 2);
-                }
-                output[idx++] = compressedData[++i];
-            } else if (symbolIndex < symbolLengthCount) {
-                const auto len = symbolLengths[symbolIndex];
-                if (idx + len > output.size()) {
-                    output.resize((output.size() + len) * 2);
-                }
-                const auto offset = symbolOffsets[symbolIndex];
-                if (offset >= symbolCount) {
-                    throw std::runtime_error("FSST decode: symbol index out of bounds");
-                }
-                std::memcpy(&output[idx], &symbols[offset], len);
-                idx += len;
-            } else {
-                throw std::runtime_error("FSST decode: invalid symbol index");
-            }
-        }
-
-        output.resize(idx);
-        return output;
-    }
-
 private:
     IntegerDecoder& intDecoder;
 
@@ -316,6 +271,61 @@ private:
         for (std::uint32_t i = 0; i < numValues; ++i) {
             out.push_back(dictionary[offsets[offsetIndex++]]);
         }
+    }
+
+     /// the symbols are uint8_t since they are already aligned in memory with the corresponding size
+    static std::vector<std::uint8_t> decodeFSST(const std::uint8_t* symbols,
+                                                const std::size_t symbolCount,
+                                                const std::uint32_t* symbolLengths,
+                                                const std::size_t symbolLengthCount,
+                                                const std::uint8_t* compressedData,
+                                                const std::size_t compressedDataCount,
+                                                const std::size_t decompressedLength) {
+        std::vector<std::uint8_t> output(decompressedLength);
+        std::vector<std::uint32_t> symbolOffsets(symbolLengthCount);
+        for (size_t i = 1; i < symbolLengthCount; i++) {
+            symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
+        }
+        
+        /*  the code below provides a faster lookup in my opinion. It is the "easy" example from the fsst paper.
+        This is currently not possible since the symbols are already tightly packed inside the byte stream for fsst encoding.
+        The trade-off was made for tighter packing for the symbol table
+
+        We can decode 8bytes of string value via 
+        void decodeSingleByteviaFSST(uint8_t in[], uint8_t out[],
+                uint64_t sym[256], uint8_t len[256]){
+                uint8_t code = *in++;
+                *((uint64_t*)out) = sym[code];
+                out += len[code];
+        }        
+        */
+
+        for (size_t i = 0; i < compressedDataCount; i++) {
+            const std::uint8_t symbolIndex = compressedData[i];
+
+            // 255 is our escape byte -> take the next symbol as it is
+            if (symbolIndex == 255) {
+                /// this operation just copies the plain strings which are uncompressed
+                output.push_back(compressedData[++i]);
+            } else if (symbolIndex < symbolLengthCount) {
+                const auto len = symbolLengths[symbolIndex];
+                const auto offset = symbolOffsets[symbolIndex];
+                if (offset >= symbolCount) {
+                    throw std::runtime_error("FSST decode: symbol index out of bounds");
+                }
+                /// one symbol from the original fsst paper is here encoded as the contingous memory
+                /// symbols[offset] until symbols[offset+length] contains the up to 8 bytes
+                /// this results from the decoder side since the java class Symbol contains an array of up to 8 bytes
+                /// for each Symbol object
+                for (uint32_t j = 0; j < len; ++j) {
+                     output.push_back(symbols[(size_t)offset + j]);
+                }
+                //std::memcpy(&output[idx], &symbols[offset], len);
+            } else {
+                throw std::runtime_error("FSST decode: invalid symbol index");
+            }
+        }
+        return output;
     }
 };
 
