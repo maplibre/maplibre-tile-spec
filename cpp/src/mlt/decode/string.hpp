@@ -287,15 +287,14 @@ private:
         for (size_t i = 1; i < symbolLengthCount; i++) {
             symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
         }
-    
+
         for (size_t i = 0; i < compressedDataCount; i++) {
             const std::uint8_t symbolIndex = compressedData[i];
             // 255 is our escape byte -> take the next symbol as it is
             if (symbolIndex == 255) {
                 /// this operation just copies the plain strings which are uncompressed
-                if(compressedData[i+1]==255)
-                {
-                    throw std::runtime_error("FSST decode: two escape sequences in a row detected index"); 
+                if (compressedData[i + 1] == 255) {
+                    throw std::runtime_error("FSST decode: two escape sequences in a row detected index");
                 }
                 output.push_back(compressedData[++i]);
             } else if (symbolIndex < symbolLengthCount) {
@@ -305,7 +304,7 @@ private:
                     throw std::runtime_error("FSST decode: symbol index out of bounds");
                 }
                 const std::uint8_t* start = symbols + offset;
-                const std::uint8_t* end   = start + len;
+                const std::uint8_t* end = start + len;
                 output.insert(output.end(), start, end);
             } else {
                 throw std::runtime_error("FSST decode: invalid symbol index");
@@ -313,16 +312,16 @@ private:
         }
         return output;
         /*  the code below provides a faster lookup in my opinion. It is the "easy" example from the fsst paper.
-        This is currently not possible since the symbols are already tightly packed inside the byte stream for fsst encoding.
-        The trade-off was made for tighter packing for the symbol table
+        This is currently not possible since the symbols are already tightly packed inside the byte stream for fsst
+        encoding. The trade-off was made for tighter packing for the symbol table
 
-        We can decode 8bytes of string value via 
+        We can decode 8bytes of string value via
         void decodeSingleByteviaFSST(uint8_t in[], uint8_t out[],
                 uint64_t sym[256], uint8_t len[256]){
                 uint8_t code = *in++;
                 *((uint64_t*)out) = sym[code];
                 out += len[code];
-        }        
+        }
         */
     }
 };
