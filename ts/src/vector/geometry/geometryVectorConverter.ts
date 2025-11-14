@@ -22,16 +22,54 @@ class MvtGeometryFactory {
     }
 
     createPolygon(shell: Point[], rings: Array<Array<Point>>): CoordinatesArray {
-        return [shell, ...rings];
+        // Check and correct shell winding order (must be clockwise)
+        const shellArea = calculateSignedArea(shell);
+        const correctShell = shellArea < 0 ? [...shell].reverse() : shell;
+
+        // Check and correct hole winding order (must be counter-clockwise)
+        const correctRings = rings.map((ring) => {
+            const ringArea = calculateSignedArea(ring);
+            return ringArea > 0 ? [...ring].reverse() : ring;
+        });
+
+        return [correctShell, ...correctRings];
     }
 
     createMultiPolygon(polygons: Array<Array<Point>>[]): CoordinatesArray {
-        //TODO: check winding order of shell and holes
-        return polygons.flat();
+        // Correct winding order for each polygon
+        const correctPolygons = polygons.map((polygon) => {
+            // Safety check for empty polygons
+            if(polygon.length === 0) { return polygon; }
+
+            // First ring is the shell (exterior) - must be clockwise
+            const shell = polygon[0];
+            const shellArea = calculateSignedArea(shell);
+            const correctShell = shellArea < 0 ? [...shell].reverse() : shell;
+
+            // Remaining rings are holes (interiors) - must be counter-clockwise
+            const rings = polygon.slice(1);
+            const correctRings = rings.map((ring) => {
+                const ringArea = calculateSignedArea(ring);
+                return ringArea > 0 ? [...ring].reverse() : ring;
+            });
+            return [correctShell, ...correctRings];
+        })
+        return correctPolygons.flat();
     }
 }
 
-export function convertGeometryVector(geometryVector: GeometryVector): CoordinatesArray[] {
+// Calculate signed area using shoelace formula (positive = clockwise, negative = counter-clockwise)
+export function calculateSignedArea(ring: Array<Point>): number {
+    let sum = 0;
+    for (let i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
+        const p1 = ring[i];
+        const p2 = ring[j];
+        sum += (p2.x - p1.x) * (p1.y + p2.y);
+    }
+    return sum;
+}
+
+    export function convertGeometryVector(geometryVector: GeometryVector): CoordinatesArray[] {
     const geometries: CoordinatesArray[] = new Array(geometryVector.numGeometries);
     let partOffsetCounter = 1;
     let ringOffsetsCounter = 1;

@@ -4,6 +4,7 @@ import { GEOMETRY_TYPE, type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 import { FlatSelectionVector } from "../filter/flatSelectionVector";
 import { type SelectionVector } from "../filter/selectionVector";
+import { SequenceSelectionVector } from "../filter/sequenceSelectionVector";
 
 export class ConstGeometryVector extends GeometryVector {
     constructor(
@@ -70,19 +71,12 @@ export class ConstGeometryVector extends GeometryVector {
         return true;
     }
 
-    //TODO: refactor -> quick and dirty -> let a multi part geometry be equal to a single part geometry
-    //to produce the same results as with MVT and the existing styles
     filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector {
         if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
             return new FlatSelectionVector([]);
         }
-
-        //TODO: use ConstSelectionVector
-        const selectionVector = new Array(this.numGeometries);
-        for (let i = 0; i < this.numGeometries; i++) {
-            selectionVector[i] = i;
-        }
-        return new FlatSelectionVector(selectionVector);
+        // All geometries match - return sequential selection (memory-efficient)
+        return new SequenceSelectionVector(0, 1, this.numGeometries);
     }
 
     filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector) {

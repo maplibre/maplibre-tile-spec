@@ -3,19 +3,16 @@ import { type SelectionVector } from "../vector/filter/selectionVector";
 import { FlatSelectionVector } from "../vector/filter/flatSelectionVector";
 import { SINGLE_PART_GEOMETRY_TYPE } from "../vector/geometry/geometryType";
 import { type ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { SequenceSelectionVector } from "../vector/filter/sequenceSelectionVector";
 
 const compoundExpressions = ["all", "any"];
 const comparisonExpressions = ["==", "!=", ">=", "<=", ">", "<"];
 const matchExpressions = ["in", "!in", "has", "!has", "none"];
 
 export default function filter(featureTable: FeatureTable, expression: ExpressionSpecification): SelectionVector {
+    // No filter expression - return all features using memory-efficient sequential selection
     if (!expression) {
-        //TODO: get rid of that workaround for performance reasons
-        const selectionVector = new Array(featureTable.numFeatures);
-        for (let i = 0; i < featureTable.numFeatures; i++) {
-            selectionVector[i] = i;
-        }
-        return new FlatSelectionVector(selectionVector);
+        return new SequenceSelectionVector(0, 1, featureTable.numFeatures);
     }
 
     if (isCompoundExpression(expression)) {
@@ -94,7 +91,6 @@ function executeMatchExpression(
     if (!propertyVector) {
         //TODO: implement proper solution
         if (comparisonInstruction[0] === "!") {
-            //TODO: use SequenceSelectionVector
             return selectionVector ?? createSequenceSelectionVector(featureTable);
         }
 
@@ -135,13 +131,9 @@ function executeMatchExpression(
     }
 }
 
+// Helper function to create a sequential selection vector for all features in a table
 function createSequenceSelectionVector(featureTable: FeatureTable) {
-    const selectionVector = new Array(featureTable.numFeatures);
-    //TODO: use SequenceSelectionVector
-    for (let i = 0; i < featureTable.numFeatures; i++) {
-        selectionVector[i] = i;
-    }
-    return new FlatSelectionVector(selectionVector);
+    return new SequenceSelectionVector(0, 1, featureTable.numFeatures);
 }
 
 function executeComparisonExpression(

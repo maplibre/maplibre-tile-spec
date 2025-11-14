@@ -1,13 +1,11 @@
 import { type SelectionVector } from "./selectionVector";
 import { FlatSelectionVector } from "./flatSelectionVector";
 import type BitVector from "../flat/bitVector";
+import { SequenceSelectionVector } from "./sequenceSelectionVector";
 
+// Creates a memory-efficient sequential selection vector (O(1) memory vs O(n))
 export function createSelectionVector(size: number) {
-    const selectionVector = new Array(size);
-    for (let i = 0; i < size; i++) {
-        selectionVector[i] = i;
-    }
-    return new FlatSelectionVector(selectionVector);
+    return new SequenceSelectionVector(0, 1, size);
 }
 
 export function createNullableSelectionVector(size: number, nullabilityBuffer: BitVector) {
@@ -40,6 +38,5 @@ export function updateNullableSelectionVector(selectionVector: SelectionVector, 
             buffer[limit++] = buffer[i];
         }
     }
-
     selectionVector.setLimit(limit);
 }
