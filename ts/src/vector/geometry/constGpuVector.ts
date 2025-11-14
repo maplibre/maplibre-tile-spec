@@ -1,5 +1,9 @@
+import { type SelectionVector } from "../filter/selectionVector";
+import { type SINGLE_PART_GEOMETRY_TYPE } from "./geometryType";
 import { GpuVector } from "./gpuVector";
 import type TopologyVector from "./topologyVector";
+import { FlatSelectionVector } from "../filter/flatSelectionVector";
+import { SequenceSelectionVector } from "../filter/sequenceSelectionVector";
 
 //TODO: extend from GeometryVector -> make topology vector optional
 export class ConstGpuVector extends GpuVector {
@@ -65,4 +69,19 @@ export class ConstGpuVector extends GpuVector {
     containsSingleGeometryType(): boolean {
         return true;
     }
+
+    filter(geometryType: SINGLE_PART_GEOMETRY_TYPE): SelectionVector {
+        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
+            return new FlatSelectionVector([]);
+        }
+        // All geometries match - return sequential selection (memory-efficient)
+        return new SequenceSelectionVector(0, 1, this.numGeometries);
+    }
+
+    filterSelected(geometryType: SINGLE_PART_GEOMETRY_TYPE, selectionVector: SelectionVector) {
+        if (geometryType !== this._geometryType && geometryType + 3 !== this._geometryType) {
+            selectionVector.setLimit(0);
+        }
+    }
+
 }
