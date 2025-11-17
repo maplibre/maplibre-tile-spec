@@ -18,17 +18,6 @@ export function createNullableSelectionVector(size: number, nullabilityBuffer: B
 }
 
 /** Returns new selection vector with only indices where nullability is true. */
-export function updateSelectionVector(selectionVector: SelectionVector, nullabilityBuffer: BitVector): SelectionVector {
-    const filteredIndices = [];
-    for (let i = 0; i < selectionVector.limit; i++) {
-        if (!nullabilityBuffer || nullabilityBuffer.get(i)) {
-            filteredIndices.push(selectionVector.getIndex(i));
-        }
-    }
-    return new FlatSelectionVector(filteredIndices);
-}
-
-/** Returns new selection vector with only indices where nullability is true. */
 export function updateNullableSelectionVector(selectionVector: SelectionVector, nullabilityBuffer: BitVector): SelectionVector {
     const filteredIndices = [];
     for (let i = 0; i < selectionVector.limit; i++) {
