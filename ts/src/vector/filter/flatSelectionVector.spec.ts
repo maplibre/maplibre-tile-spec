@@ -1,76 +1,76 @@
 import {beforeEach, describe, it, expect} from "vitest";
 import {FlatSelectionVector} from "./flatSelectionVector";
 
-let vector: number[];
-let FSVector: FlatSelectionVector;
-
-beforeEach(() => {
-    vector = [0, 1, 999999999999, -28, 36];
-    FSVector = new FlatSelectionVector(vector);
-});
-
 describe("flatSelectionVector", () => {
+    let vector: number[];
+    let fsVector: FlatSelectionVector;
+
+    beforeEach(() => {
+        vector = [0, 1, 999999999999, -28, 36];
+        fsVector = new FlatSelectionVector(vector);
+    });
+
     describe("getIndex Test", () => {
         it("Should return value from Index", () => {
-            expect(FSVector.getIndex(0)).toBe(0);
-            expect(FSVector.getIndex(2)).toBe(999999999999);
-            expect(FSVector.getIndex(3)).toBe(-28);
+            expect(fsVector.getIndex(0)).toBe(0);
+            expect(fsVector.getIndex(2)).toBe(999999999999);
+            expect(fsVector.getIndex(3)).toBe(-28);
         });
         it("Should return Index out of bounds", () => {
-            expect(() => FSVector.getIndex(80)).toThrowError("Index out of bounds");
-            expect(() => FSVector.getIndex(-36)).toThrowError("Index out of bounds")
+            expect(() => fsVector.getIndex(80)).toThrowError("Index out of bounds");
+            expect(() => fsVector.getIndex(-36)).toThrowError("Index out of bounds")
         });
     });
     describe("setIndex Test", () => {
         it("Should set value on Index", () => {
-            FSVector.setIndex(0, 25);
-            FSVector.setIndex(2, -48);
-            FSVector.setIndex(3, 1000000000000001);
+            fsVector.setIndex(0, 25);
+            fsVector.setIndex(2, -48);
+            fsVector.setIndex(3, 1000000000000001);
 
-            expect(FSVector.getIndex(0)).toBe(25);
-            expect(FSVector.getIndex(2)).toBe(-48);
-            expect(FSVector.getIndex(3)).toBe(1000000000000001);
+            expect(fsVector.getIndex(0)).toBe(25);
+            expect(fsVector.getIndex(2)).toBe(-48);
+            expect(fsVector.getIndex(3)).toBe(1000000000000001);
         });
         it("Should return Index out of bounds", () => {
-            expect(() => FSVector.setIndex(-1, 0)).toThrowError("Index out of bounds");
-            expect(() => FSVector.setIndex(25, 52)).toThrowError("Index out of bounds");
+            expect(() => fsVector.setIndex(-1, 0)).toThrowError("Index out of bounds");
+            expect(() => fsVector.setIndex(25, 52)).toThrowError("Index out of bounds");
         })
     });
     describe("setLimit Test", () => {
         it("Should set limit", () => {
-            FSVector.setLimit(250);
-            expect(FSVector.limit).toBe(250);
-            FSVector.setLimit(0);
-            expect(FSVector.limit).toBe(0);
-            FSVector.setLimit(-125);
-            expect(FSVector.limit).toBe(-125);
+            fsVector.setLimit(250);
+            expect(fsVector.limit).toBe(250);
+            fsVector.setLimit(0);
+            expect(fsVector.limit).toBe(0);
+            fsVector.setLimit(-125);
+            expect(fsVector.limit).toBe(-125);
         })
     });
     describe("selectionValues Test", () => {
         it("Should return selectionVector", () => {
-            expect(FSVector.selectionValues()).toBe(vector)
+            expect(fsVector.selectionValues()).toBe(vector)
 
-            const EmptyFSVector = new FlatSelectionVector([]);
-            expect(EmptyFSVector.selectionValues()).toStrictEqual([])
+            const emptyFsVector = new FlatSelectionVector([]);
+            expect(emptyFsVector.selectionValues()).toStrictEqual([])
         });
     });
     describe("get capacity Test", () => {
         it("Should return capacity", () => {
-            expect(FSVector.capacity).toBe(vector.length);
+            expect(fsVector.capacity).toBe(vector.length);
 
-            const EmptyFSVector = new FlatSelectionVector([]);
-            expect(EmptyFSVector.capacity).toBe(0)
+            const emptyFsVector = new FlatSelectionVector([]);
+            expect(emptyFsVector.capacity).toBe(0)
         });
     });
     describe("get limit Test", () => {
         it("Should return limit", () => {
-            expect(FSVector.limit).toBe(vector.length);
+            expect(fsVector.limit).toBe(vector.length);
 
-            const EmptyFSVector = new FlatSelectionVector([]);
-            expect(EmptyFSVector.limit).toBe(0);
+            const emptyFsVector = new FlatSelectionVector([]);
+            expect(emptyFsVector.limit).toBe(0);
 
-            const LimitFSVector = new FlatSelectionVector([], 52);
-            expect(LimitFSVector.limit).toBe(52);
+            const limitFsVector = new FlatSelectionVector([], 52);
+            expect(limitFsVector.limit).toBe(52);
         });
     })
 })

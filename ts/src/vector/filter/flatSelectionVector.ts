@@ -1,5 +1,9 @@
 import { type SelectionVector } from "./selectionVector";
 
+/**
+ * Array-based SelectionVector for non-sequential selections.
+ * Stores indices explicitly, suitable for irregular patterns and frequent modifications.
+ */
 export class FlatSelectionVector implements SelectionVector {
     /**
      * @param _selectionVector
@@ -15,34 +19,40 @@ export class FlatSelectionVector implements SelectionVector {
         }
     }
 
+    /** @inheritdoc */
     getIndex(index: number): number {
         if (index >= this._limit || index < 0) {
-            throw new Error("Index out of bounds");
+            throw new RangeError("Index out of bounds");
         }
 
         return this._selectionVector[index];
     }
 
+    /** @inheritdoc */
     setIndex(index: number, value: number): void {
         if (index >= this._limit || index < 0) {
-            throw new Error("Index out of bounds");
+            throw new RangeError("Index out of bounds");
         }
 
         this._selectionVector[index] = value;
     }
 
+    /** @inheritdoc */
     setLimit(limit: number): void {
         this._limit = limit;
     }
 
+    /** @inheritdoc */
     selectionValues(): number[] {
         return this._selectionVector;
     }
 
+    /** @inheritdoc */
     get capacity() {
         return this._selectionVector.length;
     }
 
+    /** @inheritdoc */
     get limit() {
         return this._limit;
     }

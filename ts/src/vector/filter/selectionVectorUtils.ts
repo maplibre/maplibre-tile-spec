@@ -3,10 +3,12 @@ import { FlatSelectionVector } from "./flatSelectionVector";
 import type BitVector from "../flat/bitVector";
 import { SequenceSelectionVector } from "./sequenceSelectionVector";
 
+/** Creates sequential selection vector [0, 1, 2, ..., size-1] using lazy computation. */
 export function createSelectionVector(size: number) {
     return new SequenceSelectionVector(0, 1, size);
 }
 
+/** Creates selection vector containing only non-null indices based on nullability buffer. */
 export function createNullableSelectionVector(size: number, nullabilityBuffer: BitVector) {
     const selectionVector = [];
     for (let i = 0; i < size; i++) {
@@ -17,25 +19,24 @@ export function createNullableSelectionVector(size: number, nullabilityBuffer: B
     return new FlatSelectionVector(selectionVector);
 }
 
-export function updateSelectionVector(selectionVector: SelectionVector, nullabilityBuffer: BitVector) {
-    const buffer = selectionVector.selectionValues();
-    let limit = 0;
+/** Returns new selection vector with only indices where nullability is true. */
+export function updateSelectionVector(selectionVector: SelectionVector, nullabilityBuffer: BitVector): SelectionVector {
+    const filteredIndices = [];
     for (let i = 0; i < selectionVector.limit; i++) {
         if (!nullabilityBuffer || nullabilityBuffer.get(i)) {
-            buffer[limit++] = buffer[i];
+            filteredIndices.push(selectionVector.getIndex(i));
         }
     }
-
-    selectionVector.setLimit(limit);
+    return new FlatSelectionVector(filteredIndices);
 }
 
-export function updateNullableSelectionVector(selectionVector: SelectionVector, nullabilityBuffer: BitVector) {
-    const buffer = selectionVector.selectionValues();
-    let limit = 0;
+/** Returns new selection vector with only indices where nullability is true. */
+export function updateNullableSelectionVector(selectionVector: SelectionVector, nullabilityBuffer: BitVector): SelectionVector {
+    const filteredIndices = [];
     for (let i = 0; i < selectionVector.limit; i++) {
         if (!nullabilityBuffer || nullabilityBuffer.get(i)) {
-            buffer[limit++] = buffer[i];
+            filteredIndices.push(selectionVector.getIndex(i));
         }
     }
-    selectionVector.setLimit(limit);
+    return new FlatSelectionVector(filteredIndices);
 }

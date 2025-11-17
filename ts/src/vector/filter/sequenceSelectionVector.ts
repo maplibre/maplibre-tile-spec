@@ -1,31 +1,37 @@
 import { type SelectionVector } from "./selectionVector";
 
+/**
+ * Memory-efficient SelectionVector for arithmetic sequences (base + index * delta).
+ * Calculates values on-demand, only materializes when modified.
+ */
 export class SequenceSelectionVector implements SelectionVector {
-    private _baseValue: number;
-    private _delta: number;
-    private _limit: number;
-    private _capacity: number;
     private _materializedArray: number[] | null = null;
 
-    constructor(baseValue: number, delta: number, size: number) {
-        this._baseValue = baseValue;
-        this._delta = delta;
-        this._limit = size;
-        this._capacity = size;
-    }
-    get limit(): any {
+    constructor(
+        private readonly _baseValue: number,
+        private readonly _delta: number,
+        private _limit: number,
+        private readonly _capacity: number = _limit,
+    ) {}
+
+    /** @inheritdoc */
+    get limit(): number {
         return this._limit;
     }
-    get capacity(): any {
+
+    /** @inheritdoc */
+    get capacity(): number {
         return this._capacity;
     }
 
+    /** @inheritdoc */
     selectionValues(): number[] {
         if (!this._materializedArray) {
             this._materializedArray = this.materialize();
         }
         return this._materializedArray;
     }
+
     private materialize(): number[] {
         const arr = new Array<number>(this._capacity);
         for (let i = 0; i < this._capacity; i++) {
@@ -34,6 +40,7 @@ export class SequenceSelectionVector implements SelectionVector {
         return arr;
     }
 
+    /** @inheritdoc */
     getIndex(index: number): number {
         if (index >= this._limit || index < 0) {
             throw new RangeError("Index out of bounds");
@@ -43,6 +50,8 @@ export class SequenceSelectionVector implements SelectionVector {
         }
         return this._baseValue + index * this._delta;
     }
+
+    /** @inheritdoc */
     setIndex(index: number, value: number): void {
         if (index >= this._limit || index < 0) {
             throw new RangeError("Index out of bounds");
@@ -53,6 +62,7 @@ export class SequenceSelectionVector implements SelectionVector {
         this._materializedArray[index] = value;
     }
 
+    /** @inheritdoc */
     setLimit(limit: number): void {
         this._limit = limit;
     }
