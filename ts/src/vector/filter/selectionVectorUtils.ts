@@ -3,12 +3,10 @@ import { FlatSelectionVector } from "./flatSelectionVector";
 import type BitVector from "../flat/bitVector";
 import { SequenceSelectionVector } from "./sequenceSelectionVector";
 
-/** Creates sequential selection vector [0, 1, 2, ..., size-1] using lazy computation. */
 export function createSelectionVector(size: number) {
     return new SequenceSelectionVector(0, 1, size);
 }
 
-/** Creates selection vector containing only non-null indices based on nullability buffer. */
 export function createNullableSelectionVector(size: number, nullabilityBuffer: BitVector) {
     const selectionVector = [];
     for (let i = 0; i < size; i++) {
