@@ -2,7 +2,6 @@ import {describe, it, expect} from "vitest";
 import {
     createSelectionVector,
     createNullableSelectionVector,
-    updateSelectionVector,
     updateNullableSelectionVector
 } from "./selectionVectorUtils";
 import {FlatSelectionVector} from "./flatSelectionVector";
@@ -50,36 +49,6 @@ describe("selectionVectorUtils", () => {
 
             expect(sv).toBeInstanceOf(FlatSelectionVector);
             expect(sv.limit).toBe(8);
-        });
-    });
-
-    describe("updateSelectionVector", () => {
-        it("Should return FlatSelectionVector when filtering with BitVector", () => {
-            const selectionVector = new FlatSelectionVector([0, 1, 2, 3, 4, 5, 6, 7]);
-            const buffer = new Uint8Array([0b00001011]); // bits 0, 1, 3 are set
-            const bitVector = new BitVector(buffer, 8);
-            const result = updateSelectionVector(selectionVector, bitVector);
-
-            expect(result).toBeInstanceOf(FlatSelectionVector);
-            expect(result.limit).toBe(3);
-            expect(result).not.toStrictEqual(selectionVector);
-        });
-
-        it("Should return same vector when BitVector is null", () => {
-            const selectionVector = new FlatSelectionVector([0, 1, 2, 3, 4, 5, 6, 7]);
-            const result = updateSelectionVector(selectionVector, null);
-
-            expect(result).toStrictEqual(selectionVector);
-        });
-
-        it("Should work with SequenceSelectionVector input", () => {
-            const seqVector = new SequenceSelectionVector(0, 1, 8);
-            const buffer = new Uint8Array([0b00001111]);
-            const bitVector = new BitVector(buffer, 8);
-            const result = updateSelectionVector(seqVector, bitVector);
-
-            expect(result).toBeInstanceOf(FlatSelectionVector);
-            expect(result.limit).toBe(4);
         });
     });
 
