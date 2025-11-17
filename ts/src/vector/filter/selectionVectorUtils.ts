@@ -3,7 +3,6 @@ import { FlatSelectionVector } from "./flatSelectionVector";
 import type BitVector from "../flat/bitVector";
 import { SequenceSelectionVector } from "./sequenceSelectionVector";
 
-// Creates a memory-efficient sequential selection vector (O(1) memory vs O(n))
 export function createSelectionVector(size: number) {
     return new SequenceSelectionVector(0, 1, size);
 }
