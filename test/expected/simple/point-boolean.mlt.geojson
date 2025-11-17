@@ -1,0 +1,25 @@
+{
+  "layers": [
+    {
+      "name": "layer",
+      "version": 1,
+      "extent": 4096,
+      "features": [
+        {
+          "type": "Feature",
+          "id": 1,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -171.5453338623047,
+              83.67565732356232
+            ]
+          },
+          "properties": {
+            "key": true
+          }
+        }
+      ]
+    }
+  ]
+}

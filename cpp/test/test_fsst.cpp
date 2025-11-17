@@ -1,30 +1,30 @@
 #include <gtest/gtest.h>
 
-#include <libfsst.hpp>
+#include <mlt/decode/string.hpp>
 
+#include <string>
 #include <vector>
 
-TEST(FSST, Decode) {
+TEST(FSST, DecodeFromJava) {
     const std::string expected = "AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC";
-    const std::vector<std::uint8_t> compressed{
-        0, 0, 0, 2, 7, 7, 7, 0, 2, 5, 5, 4, 4, 4, 4, 4, 3, 3, 3,
-        3, 3, 3, 6, 6, 6, 3, 3, 3, 3, 0, 0, 2, 4, 4, 4, 4, 5, 5,
-    };
+    const std::vector<std::uint8_t> symbols = {65, 65, 69, 69, 100, 100, 65, 66, 67, 69, 100, 102};
+    const std::vector<std::uint32_t> symbolLengths = {2, 2, 2, 1, 1, 1, 1, 1, 1};
+    const std::vector<std::uint8_t> javaCompressed = {0, 0, 0, 3, 4, 4, 4, 0, 3, 5, 5, 2, 2, 7, 1,
+                                                      1, 1, 8, 8, 8, 1, 1, 0, 0, 3, 2, 2, 5, 5};
 
-    const fsst_decoder_t decoder = {
-        .version = (FSST_VERSION << 32) | (((u64)FSST_CODE_MAX) << 24) | (((u64)0) << 16) | (((u64)9) << 8) |
-                   FSST_ENDIAN_MARKER,
-        .zeroTerminated = 0,
-        .len = {2, 1, 1, 1, 1, 1, 1, 1},
-        .symbol = {65, 65, 0, 65, 69, 100, 67, 102, 66},
-    };
+    const auto decoded = mlt::decoder::StringDecoder::decodeFSST(
+        symbols, symbolLengths, javaCompressed, expected.size());
 
-    std::vector<std::uint8_t> out(2 * expected.size());
-    const auto result = fsst_decompress(&decoder, compressed.size(), compressed.data(), out.size(), out.data());
-    out.resize(result);
+    EXPECT_EQ(decoded.size(), expected.size());
+    EXPECT_EQ(0, memcmp(expected.c_str(), decoded.data(), expected.size()));
 
-    if (out.size() != expected.size() || 0 != memcmp(out.data(), expected.data(), expected.size())) {
-        std::cout << "FSST.Decode Failed\n";
-        // FAIL();
-    }
+    // also make sure buffer growth works
+    const auto decoded2 = mlt::decoder::StringDecoder::decodeFSST(symbols, symbolLengths, javaCompressed, 0);
+    EXPECT_EQ(decoded2.size(), expected.size());
+    EXPECT_EQ(0, memcmp(expected.c_str(), decoded2.data(), expected.size()));
+
+    const auto decoded3 = mlt::decoder::StringDecoder::decodeFSST(
+        symbols, symbolLengths, javaCompressed, expected.size() / 2);
+    EXPECT_EQ(decoded3.size(), expected.size());
+    EXPECT_EQ(0, memcmp(expected.c_str(), decoded3.data(), expected.size() / 2));
 }
