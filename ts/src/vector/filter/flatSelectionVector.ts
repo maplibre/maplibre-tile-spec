@@ -39,6 +39,9 @@ export class FlatSelectionVector implements SelectionVector {
 
     /** @inheritdoc */
     setLimit(limit: number): void {
+        if(limit < 0) {
+            throw new RangeError("Limit out of bounds");
+        }
         this._limit = limit;
     }
 
