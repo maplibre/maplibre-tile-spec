@@ -3,6 +3,7 @@ project(mlt-cpp LANGUAGES CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(AddCXXCompilerFlag)
+include(CheckCXXSourceCompiles)
 
 # Use the same deployment target as the parent project, if set.
 if (NOT MLT_OSX_DEPLOYMENT_TARGET)

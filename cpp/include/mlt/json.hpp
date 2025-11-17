@@ -183,8 +183,11 @@ inline json buildGeometryElement(const geometry::Polygon& poly, const Projection
             }
             ss << "(";
             const auto& coords = rings[i];
-            for (std::size_t j = 0; j < coords.size(); ++j) {
-                ss << (j == 0 ? "" : ", ") << coords[j].x << " " << coords[j].y;
+            for (std::size_t j = 0; j <= coords.size(); ++j) {
+                // Wrap around to the first coordinate to close the ring.
+                // See `getLineStringCoords`
+                const auto& coord = coords[j % coords.size()];
+                ss << (j == 0 ? "" : ", ") << coord.x << " " << coord.y;
             }
             ss << ")";
         }
@@ -214,8 +217,9 @@ inline json buildGeometryElement(const geometry::MultiPolygon& poly, const Proje
                 }
                 ss << "(";
                 const auto& coords = rings[j];
-                for (std::size_t k = 0; k < coords.size(); ++k) {
-                    ss << (k == 0 ? "" : ", ") << coords[k].x << " " << coords[k].y;
+                for (std::size_t k = 0; k <= coords.size(); ++k) {
+                    const auto& coord = coords[k % coords.size()];
+                    ss << (k == 0 ? "" : ", ") << coord.x << " " << coord.y;
                 }
                 ss << ")";
             }
