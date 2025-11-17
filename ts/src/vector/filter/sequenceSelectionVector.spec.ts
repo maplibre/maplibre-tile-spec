@@ -60,21 +60,22 @@ describe("sequenceSelectionVector", () => {
         });
 
         it("Should update limit independently of capacity", () => {
-            const vector = new SequenceSelectionVector(0, 1, 5);
-            expect(vector.capacity).toBe(5);
+            const vector = new SequenceSelectionVector(0, 1, 10);
+            expect(vector.capacity).toBe(10);
 
             vector.setLimit(3);
             expect(vector.limit).toBe(3);
-            expect(vector.capacity).toBe(5);
+            expect(vector.capacity).toBe(10);
 
-            vector.setLimit(10);
-            expect(vector.limit).toBe(10);
-            expect(vector.capacity).toBe(5);
+            vector.setLimit(8);
+            expect(vector.limit).toBe(8);
+            expect(vector.capacity).toBe(10);
         });
 
         it("Should throw RangeError for negative limit", () => {
             const vector = new SequenceSelectionVector(0, 1, 5);
             expect(() => vector.setLimit(-1)).toThrowError("Limit out of bounds");
+            expect(() => vector.setLimit(100)).toThrowError("Limit out of bounds");
         });
 
         it("Should allow setting limit to 0", () => {

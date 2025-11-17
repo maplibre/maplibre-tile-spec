@@ -41,4 +41,16 @@ describe("flatSelectionVector", () => {
             expect(fsVector.capacity).toBe(5);
         });
     });
+    describe("set Limit Tests", () => {
+       it("should set Limit", () => {
+           const fsVector = new FlatSelectionVector([1, 2, 3, 4, 5], 3);
+           fsVector.setLimit(2);
+           expect(fsVector.limit).toBe(2)
+       });
+        it("should throw out of bounds error", () => {
+            const fsVector = new FlatSelectionVector([1, 2, 3, 4, 5], 3);
+            expect(() => fsVector.setLimit(-10)).toThrowError("Limit out of bounds");
+            expect(() => fsVector.setLimit(10)).toThrowError("Limit out of bounds");
+        })
+    });
 })
