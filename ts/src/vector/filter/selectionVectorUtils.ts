@@ -21,8 +21,9 @@ export function createNullableSelectionVector(size: number, nullabilityBuffer: B
 export function updateNullableSelectionVector(selectionVector: SelectionVector, nullabilityBuffer: BitVector): SelectionVector {
     const filteredIndices = [];
     for (let i = 0; i < selectionVector.limit; i++) {
-        if (!nullabilityBuffer || nullabilityBuffer.get(i)) {
-            filteredIndices.push(selectionVector.getIndex(i));
+        const vectorIndex = selectionVector.getIndex(i);
+        if (!nullabilityBuffer || nullabilityBuffer.get(vectorIndex)) {
+            filteredIndices.push(vectorIndex);
         }
     }
     return new FlatSelectionVector(filteredIndices);
