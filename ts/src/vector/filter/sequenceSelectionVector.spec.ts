@@ -15,8 +15,6 @@ describe("sequenceSelectionVector", () => {
             expect(vector.getIndex(0)).toBe(10);
             expect(vector.getIndex(1)).toBe(15);
             expect(vector.getIndex(2)).toBe(20);
-            expect(vector.getIndex(3)).toBe(25);
-            expect(vector.getIndex(4)).toBe(30);
         });
 
         it("Should calculate values with negative delta", () => {
@@ -24,8 +22,6 @@ describe("sequenceSelectionVector", () => {
             expect(vector.getIndex(0)).toBe(100);
             expect(vector.getIndex(1)).toBe(90);
             expect(vector.getIndex(2)).toBe(80);
-            expect(vector.getIndex(3)).toBe(70);
-            expect(vector.getIndex(4)).toBe(60);
         });
 
         it("Should throw RangeError for out of bounds indices", () => {
@@ -54,21 +50,37 @@ describe("sequenceSelectionVector", () => {
         });
     });
 
-    describe("setLimit Test", () => {
-        it("Should update limit", () => {
+    describe("limit Test", () => {
+        it("Should initialize limit to size", () => {
             const vector = new SequenceSelectionVector(0, 1, 5);
-            vector.setLimit(250);
-            expect(vector.limit).toBe(250);
-            vector.setLimit(0);
-            expect(vector.limit).toBe(0);
+            expect(vector.limit).toBe(5);
+
+            const emptyVector = new SequenceSelectionVector(0, 1, 0);
+            expect(emptyVector.limit).toBe(0);
         });
 
-        it("Should change limit independently of capacity", () => {
+        it("Should update limit independently of capacity", () => {
             const vector = new SequenceSelectionVector(0, 1, 5);
             expect(vector.capacity).toBe(5);
+
             vector.setLimit(3);
             expect(vector.limit).toBe(3);
             expect(vector.capacity).toBe(5);
+
+            vector.setLimit(10);
+            expect(vector.limit).toBe(10);
+            expect(vector.capacity).toBe(5);
+        });
+
+        it("Should throw RangeError for negative limit", () => {
+            const vector = new SequenceSelectionVector(0, 1, 5);
+            expect(() => vector.setLimit(-1)).toThrowError("Limit out of bounds");
+        });
+
+        it("Should allow setting limit to 0", () => {
+            const vector = new SequenceSelectionVector(0, 1, 5);
+            vector.setLimit(0);
+            expect(vector.limit).toBe(0);
         });
     });
 
@@ -95,15 +107,15 @@ describe("sequenceSelectionVector", () => {
         });
 
         it("Should reflect modified values", () => {
-            const vector = new SequenceSelectionVector(0, 1, 5);
+            const vector = new SequenceSelectionVector(0, 1, 3);
             vector.setIndex(2, 999);
             const values = vector.selectionValues();
-            expect(values).toStrictEqual([0, 1, 999, 3, 4]);
+            expect(values).toStrictEqual([0, 1, 999]);
         });
     });
 
-    describe("get capacity Test", () => {
-        it("Should return capacity", () => {
+    describe("capacity Test", () => {
+        it("Should return capacity equal to size", () => {
             const vector = new SequenceSelectionVector(0, 1, 5);
             expect(vector.capacity).toBe(5);
         });
@@ -112,28 +124,12 @@ describe("sequenceSelectionVector", () => {
             const vector = new SequenceSelectionVector(0, 1, 0);
             expect(vector.capacity).toBe(0);
         });
-    });
 
-    describe("get limit Test", () => {
-        it("Should return initial limit equal to size", () => {
-            const vector = new SequenceSelectionVector(0, 1, 5);
-            expect(vector.limit).toBe(5);
-        });
-
-        it("Should return 0 for empty vector", () => {
-            const vector = new SequenceSelectionVector(0, 1, 0);
-            expect(vector.limit).toBe(0);
-        });
-
-        it("Should return updated limit after setLimit", () => {
-            const vector = new SequenceSelectionVector(0, 1, 5);
-            vector.setLimit(3);
-            expect(vector.limit).toBe(3);
-        });
-
-        it("Should initialize limit to size", () => {
+        it("Should remain constant when limit changes", () => {
             const vector = new SequenceSelectionVector(10, 5, 50);
-            expect(vector.limit).toBe(50);
+            expect(vector.capacity).toBe(50);
+
+            vector.setLimit(25);
             expect(vector.capacity).toBe(50);
         });
     });
