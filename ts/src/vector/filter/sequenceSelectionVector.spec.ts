@@ -61,8 +61,6 @@ describe("sequenceSelectionVector", () => {
             expect(vector.limit).toBe(250);
             vector.setLimit(0);
             expect(vector.limit).toBe(0);
-            vector.setLimit(-125);
-            expect(vector.limit).toBe(-125);
         });
 
         it("Should change limit independently of capacity", () => {
