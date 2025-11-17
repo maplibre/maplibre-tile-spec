@@ -86,7 +86,7 @@ public:
             return {std::move(dictionaryStream), std::move(views)};
         } else if (!symbolLengthStream.empty()) {
             decodePlain(symbolLengthStream, symbolStream, views, numValues);
-            return {std::move(dictionaryStream), std::move(views)};
+            return {std::move(symbolStream), std::move(views)};
         } else {
             throw std::runtime_error("Expected streams missing in string decoding");
         }
