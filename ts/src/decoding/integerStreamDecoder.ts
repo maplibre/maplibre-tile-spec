@@ -427,7 +427,17 @@ export default class IntegerStreamDecoder {
                     values = decodeVarintInt32(data, offset, 4);
                 } else {
                     const byteOffset = offset.get();
-                    values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+                    // Check if offset is aligned to 4 bytes
+                    if (byteOffset % 4 === 0) {
+                        values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+                    } else {
+                        // Unaligned read - use DataView for safe reading
+                        const dataView = new DataView(data.buffer, data.byteOffset + byteOffset, 16);
+                        values = new Int32Array(4);
+                        for (let i = 0; i < 4; i++) {
+                            values[i] = dataView.getInt32(i * 4, true); // little-endian
+                        }
+                    }
                 }
                 offset.set(savedOffset);
                 // Check if both deltas are encoded 1
