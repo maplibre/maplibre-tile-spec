@@ -57,6 +57,16 @@ jobs:
         run: |
           npm run build
 
+      - name: Merge license files into LICENSE.txt
+        run: |
+          {
+            echo "===== MIT License ====="
+            cat ../LICENSE-MIT
+            echo
+            echo "===== Apache License 2.0 ====="
+            cat ../LICENSE-APACHE
+          } > LICENSE.txt
+
       - name: Release (GitHub) - Create Draft
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
         with:

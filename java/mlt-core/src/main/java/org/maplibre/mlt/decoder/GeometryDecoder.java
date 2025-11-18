@@ -21,7 +21,8 @@ public class GeometryDecoder {
       List<Integer> numRings,
       List<Integer> vertexOffsets,
       List<Integer> vertexList,
-      List<Integer> triangles) {}
+      List<Integer> triangles,
+      List<Integer> indexOffsets) {}
 
   private GeometryDecoder() {}
 
@@ -34,6 +35,7 @@ public class GeometryDecoder {
     List<Integer> numParts = null;
     List<Integer> numRings = null;
     List<Integer> vertexOffsets = null;
+    List<Integer> indexOffsets = null;
     List<Integer> vertexList = null;
     List<Integer> triangles = null;
     for (var i = 0; i < numStreams - 1; i++) {
@@ -60,8 +62,18 @@ public class GeometryDecoder {
           }
           break;
         case OFFSET:
-          vertexOffsets =
-              IntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+          {
+            final var values =
+                IntegerDecoder.decodeIntStream(tile, offset, geometryStreamMetadata, false);
+            final var type = geometryStreamMetadata.logicalStreamType().offsetType();
+            if (type == OffsetType.VERTEX) {
+              vertexOffsets = values;
+            } else if (type == OffsetType.INDEX) {
+              indexOffsets = values;
+            } else {
+              throw new RuntimeException("Unexpected offset stream " + type);
+            }
+          }
           break;
         case DATA:
           if (DictionaryType.VERTEX.equals(
@@ -89,7 +101,14 @@ public class GeometryDecoder {
     }
 
     return new GeometryColumn(
-        geometryTypes, numGeometries, numParts, numRings, vertexOffsets, vertexList, triangles);
+        geometryTypes,
+        numGeometries,
+        numParts,
+        numRings,
+        vertexOffsets,
+        vertexList,
+        triangles,
+        indexOffsets);
   }
 
   public static Geometry[] decodeGeometry(GeometryColumn geometryColumn) {
@@ -113,12 +132,8 @@ public class GeometryDecoder {
 
     var vertexBuffer = geometryColumn.vertexList.stream().mapToInt(i -> i).toArray();
 
-    var containsPolygon =
-        geometryColumn.geometryTypes.stream()
-            .anyMatch(
-                g ->
-                    g == GeometryType.POLYGON.ordinal()
-                        || g == GeometryType.MULTIPOLYGON.ordinal());
+    final var containsPolygon = containsPolygon(geometryTypes);
+
     // TODO: refactor redundant code
     for (var geometryType : geometryTypes) {
       if (geometryType.equals(GeometryType.POINT.ordinal())) {
@@ -711,5 +726,13 @@ public class GeometryDecoder {
     }
 
     return vertices;
+  }
+
+  public static boolean containsPolygon(List<Integer> geometryTypes) {
+    return geometryTypes.stream()
+        .anyMatch(
+            geometryType ->
+                geometryType == GeometryType.POLYGON.ordinal()
+                    || geometryType == GeometryType.MULTIPOLYGON.ordinal());
   }
 }

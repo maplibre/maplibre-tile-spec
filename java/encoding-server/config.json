@@ -1,0 +1,16 @@
+{
+  "host": "0.0.0.0",
+  "port": 80,
+  "verbose": true,
+
+  "input": "mvt",
+  "noids": false,
+  "fsst": false,
+  "fastpfor": false,
+  "nomorton": false,
+  "outlines": "ALL",
+  "tessellate": false,
+  "coercemismatch": true,
+  "timer": false,
+  "compare": false
+}

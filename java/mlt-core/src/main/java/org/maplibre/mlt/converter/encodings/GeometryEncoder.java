@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
@@ -45,21 +46,16 @@ public class GeometryEncoder {
       @Nullable URI tessellateSource,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    var geometryTypes = new ArrayList<Integer>();
-    var numGeometries = new ArrayList<Integer>();
-    var numParts = new ArrayList<Integer>();
-    var numRings = new ArrayList<Integer>();
-    var numTriangles = new ArrayList<Integer>();
-    var indexBuffer = new ArrayList<Integer>();
-    var vertexBuffer = new ArrayList<Vertex>();
-    var containsPolygon =
-        geometries.stream()
-            .anyMatch(
-                g ->
-                    g.getGeometryType().equals(Geometry.TYPENAME_MULTIPOLYGON)
-                        || g.getGeometryType().equals(Geometry.TYPENAME_POLYGON));
+    final var geometryTypes = new ArrayList<Integer>();
+    final var numGeometries = new ArrayList<Integer>();
+    final var numParts = new ArrayList<Integer>();
+    final var numRings = new ArrayList<Integer>();
+    final var numTriangles = new ArrayList<Integer>();
+    final var indexBuffer = new ArrayList<Integer>();
+    final var vertexBuffer = new ArrayList<Vertex>();
+    final var containsPolygon = containsPolygon(geometries);
     for (var geometry : geometries) {
-      var geometryType = geometry.getGeometryType();
+      final var geometryType = geometry.getGeometryType();
       switch (geometryType) {
         case Geometry.TYPENAME_POINT:
           {
@@ -84,9 +80,8 @@ public class GeometryEncoder {
         case Geometry.TYPENAME_POLYGON:
           {
             geometryTypes.add(GeometryType.POLYGON.ordinal());
-            var polygon = (Polygon) geometry;
-            var vertices = flatPolygon(polygon, numParts, numRings);
-            vertexBuffer.addAll(vertices);
+            final var polygon = (Polygon) geometry;
+            flatPolygon(polygon, vertexBuffer, numParts, numRings);
 
             var tessellatedPolygon =
                 TessellationUtils.tessellatePolygon(polygon, 0, tessellateSource);
@@ -94,7 +89,7 @@ public class GeometryEncoder {
             indexBuffer.addAll(tessellatedPolygon.indexBuffer());
 
             if (polygon.getNumInteriorRing() > 500) {
-              System.out.println(
+              System.err.println(
                   "Polygon with more than 500 rings ----------------------------------------------");
             }
             break;
@@ -123,8 +118,7 @@ public class GeometryEncoder {
             var numRings2 = 0;
             for (var i = 0; i < numPolygons; i++) {
               var polygon = (Polygon) multiPolygon.getGeometryN(i);
-              var vertices = flatPolygon(polygon, numParts, numRings);
-              vertexBuffer.addAll(vertices);
+              flatPolygon(polygon, vertexBuffer, numParts, numRings);
 
               numRings2 += polygon.getNumInteriorRing();
             }
@@ -136,7 +130,7 @@ public class GeometryEncoder {
             indexBuffer.addAll(tessellatedPolygon.indexBuffer());
 
             if (numRings2 > 500) {
-              System.out.println(
+              System.err.println(
                   "MultiPolygon with more than 500 rings --------------------------------------------");
             }
             break;
@@ -306,7 +300,10 @@ public class GeometryEncoder {
             + encodedMortonVertexDictionary.encodedValues.length;
 
     // TODO: move pre-tessellation column creation up to avoid doing unnecessary work
-    if (includePreTessellatedPolygonGeometry(geometryTypes)) {
+    /* Currently use pre-tessellation only if all geometries in a FeatureTable are Polygons or MultiPolygons */
+    final boolean includePreTessellatedPolygonGeometry = containsOnlyPolygons(geometryTypes);
+
+    if (includePreTessellatedPolygonGeometry) {
       // TODO: also support Vertex Dictionary and Morton Encoded Vertex Dictionary encoding?
       var encodedVertexBufferStream =
           encodeVertexBuffer(
@@ -509,8 +506,14 @@ public class GeometryEncoder {
         encodedIndexBuffer);
   }
 
-  /* Currently use pre-tessellation only if all geometries in a FeatureTable are Polygons or MultiPolygons */
-  private static boolean includePreTessellatedPolygonGeometry(List<Integer> geometryTypes) {
+  private static boolean containsPolygon(List<Geometry> geometries) {
+    return geometries.stream()
+        .map(Geometry::getGeometryType)
+        .anyMatch(
+            t -> t.equals(Geometry.TYPENAME_MULTIPOLYGON) || t.equals(Geometry.TYPENAME_POLYGON));
+  }
+
+  public static boolean containsOnlyPolygons(List<Integer> geometryTypes) {
     return geometryTypes.stream()
         .allMatch(
             geometryType ->
@@ -531,22 +534,15 @@ public class GeometryEncoder {
     var numParts = new ArrayList<Integer>();
     var numRings = new ArrayList<Integer>();
     var vertexBuffer = new ArrayList<Vertex>();
-    var containsPolygon =
-        geometries.stream()
-            .anyMatch(
-                g ->
-                    g.getGeometryType().equals(Geometry.TYPENAME_MULTIPOLYGON)
-                        || g.getGeometryType().equals(Geometry.TYPENAME_POLYGON));
+    final var containsPolygon = containsPolygon(geometries);
     for (var geometry : geometries) {
       var geometryType = geometry.getGeometryType();
       switch (geometryType) {
         case Geometry.TYPENAME_POINT:
           {
             geometryTypes.add(GeometryType.POINT.ordinal());
-            var point = (Point) geometry;
-            var x = (int) point.getX();
-            var y = (int) point.getY();
-            vertexBuffer.add(new Vertex(x, y));
+            final var point = (Point) geometry;
+            vertexBuffer.add(new Vertex((int) point.getX(), (int) point.getY()));
             break;
           }
         case Geometry.TYPENAME_LINESTRING:
@@ -563,9 +559,8 @@ public class GeometryEncoder {
         case Geometry.TYPENAME_POLYGON:
           {
             geometryTypes.add(GeometryType.POLYGON.ordinal());
-            var polygon = (Polygon) geometry;
-            var vertices = flatPolygon(polygon, numParts, numRings);
-            vertexBuffer.addAll(vertices);
+            final var polygon = (Polygon) geometry;
+            flatPolygon(polygon, vertexBuffer, numParts, numRings);
             break;
           }
         case Geometry.TYPENAME_MULTILINESTRING:
@@ -591,8 +586,7 @@ public class GeometryEncoder {
             numGeometries.add(numPolygons);
             for (var i = 0; i < numPolygons; i++) {
               var polygon = (Polygon) multiPolygon.getGeometryN(i);
-              var vertices = flatPolygon(polygon, numParts, numRings);
-              vertexBuffer.addAll(vertices);
+              flatPolygon(polygon, vertexBuffer, numParts, numRings);
             }
             break;
           }
@@ -887,100 +881,38 @@ public class GeometryEncoder {
   private static List<Vertex> flatLineString(LineString lineString) {
     return Arrays.stream(lineString.getCoordinates())
         .map(v -> new Vertex((int) v.x, (int) v.y))
-        .collect(Collectors.toList());
+        .toList();
   }
 
-  private static List<Vertex> flatPolygonWithClosingPoint(
-      Polygon polygon, List<Integer> partSize, List<Integer> ringSize) {
-    var numRings = polygon.getNumInteriorRing() + 1;
-    partSize.add(numRings);
+  private static LineString ringToLineString(LinearRing ring, GeometryFactory factory) {
+    return factory.createLineString(
+        Arrays.copyOf(ring.getCoordinates(), ring.getCoordinates().length - 1));
+  }
 
-    var exteriorRing = polygon.getExteriorRing();
-    var shell =
-        new GeometryFactory()
-            .createLineString(
-                Arrays.copyOf(exteriorRing.getCoordinates(), exteriorRing.getCoordinates().length));
-    var shellVertices = flatLineString(shell);
-    var vertexBuffer = new ArrayList<>(shellVertices);
+  private static void flatPolygon(
+      Polygon polygon, ArrayList<Vertex> vertices, List<Integer> partSize, List<Integer> ringSize) {
+    final var factory = new GeometryFactory();
+
+    // 1 for the outline, 1 for each interior ring
+    partSize.add(1 + polygon.getNumInteriorRing());
+
+    final var exteriorRing = polygon.getExteriorRing();
+    // If the ring isn't closed, our assumptions about the number of vertices will be incorrect.
+    assert (exteriorRing.isClosed());
+
+    final var shell = ringToLineString(exteriorRing, factory);
+    vertices.addAll(flatLineString(shell));
     ringSize.add(shell.getNumPoints());
 
     for (var i = 0; i < polygon.getNumInteriorRing(); i++) {
-      var interiorRing = polygon.getInteriorRingN(i);
-      var ring =
-          new GeometryFactory()
-              .createLineString(
-                  Arrays.copyOf(
-                      interiorRing.getCoordinates(), interiorRing.getCoordinates().length));
+      final var interiorRing = polygon.getInteriorRingN(i);
+      assert (interiorRing.isClosed());
 
-      var ringVertices = flatLineString(ring);
-      vertexBuffer.addAll(ringVertices);
+      final var ring = ringToLineString(interiorRing, factory);
+      vertices.addAll(flatLineString(ring));
       ringSize.add(ring.getNumPoints());
     }
-
-    return vertexBuffer;
   }
-
-  private static List<Vertex> flatPolygon(
-      Polygon polygon, List<Integer> partSize, List<Integer> ringSize) {
-    var numRings = polygon.getNumInteriorRing() + 1;
-    partSize.add(numRings);
-
-    var exteriorRing = polygon.getExteriorRing();
-    var shell =
-        new GeometryFactory()
-            .createLineString(
-                Arrays.copyOf(
-                    exteriorRing.getCoordinates(), exteriorRing.getCoordinates().length - 1));
-    var shellVertices = flatLineString(shell);
-    var vertexBuffer = new ArrayList<>(shellVertices);
-    ringSize.add(shell.getNumPoints());
-
-    for (var i = 0; i < polygon.getNumInteriorRing(); i++) {
-      var interiorRing = polygon.getInteriorRingN(i);
-      var ring =
-          new GeometryFactory()
-              .createLineString(
-                  Arrays.copyOf(
-                      interiorRing.getCoordinates(), interiorRing.getCoordinates().length - 1));
-
-      var ringVertices = flatLineString(ring);
-      vertexBuffer.addAll(ringVertices);
-      ringSize.add(ring.getNumPoints());
-    }
-
-    return vertexBuffer;
-  }
-
-  /*private static List<Vertex> flatPolygon(
-          Polygon polygon, List<Integer> partSize, List<Integer> ringSize) {
-    var numRings = polygon.getNumInteriorRing() + 1;
-    partSize.add(numRings);
-
-    var exteriorRing = polygon.getExteriorRing();
-    var shell =
-            new GeometryFactory()
-                    .createLineString(
-                            Arrays.copyOf(
-                                    exteriorRing.getCoordinates(), exteriorRing.getCoordinates().length));
-    var shellVertices = flatLineString(shell);
-    var vertexBuffer = new ArrayList<>(shellVertices);
-    ringSize.add(shell.getNumPoints());
-
-    for (var i = 0; i < polygon.getNumInteriorRing(); i++) {
-      var interiorRing = polygon.getInteriorRingN(i);
-      var ring =
-              new GeometryFactory()
-                      .createLineString(
-                              Arrays.copyOf(
-                                      interiorRing.getCoordinates(), interiorRing.getCoordinates().length));
-
-      var ringVertices = flatLineString(ring);
-      vertexBuffer.addAll(ringVertices);
-      ringSize.add(ring.getNumPoints());
-    }
-
-    return vertexBuffer;
-  }*/
 
   /**
    * Encodes the StreamMetadata and applies the specified physical level technique to the values.

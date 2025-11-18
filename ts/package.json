@@ -34,7 +34,7 @@
     "@types/node": "^24.10.1",
     "@types/pbf": "^3.0.5",
     "@types/varint": "^6.0.3",
-    "@vitest/coverage-v8": "^4.0.8",
+    "@vitest/coverage-v8": "^4.0.9",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
     "eslint": "^9.39.1",

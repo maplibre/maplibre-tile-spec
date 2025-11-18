@@ -5,12 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.*;
 
 public class TessellationUtilsTest {
   private TessellationUtilsTest() {}
 
-  // @Test
+  @Test
+  @Disabled
   public void tessellateMultiPolygon_PolygonsWithoutHoles() {
     var geometryFactory = new GeometryFactory();
     var shell1 =
@@ -43,7 +46,7 @@ public class TessellationUtilsTest {
     assertEquals(expectedIndexBuffer, tessellatedPolygon.indexBuffer());
   }
 
-  // @Test
+  @Test
   public void tessellateMultiPolygon_PolygonsWithHoles() {
     var geometryFactory = new GeometryFactory();
     var shell1 =

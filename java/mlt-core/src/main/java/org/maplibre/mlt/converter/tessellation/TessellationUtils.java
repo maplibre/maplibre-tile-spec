@@ -24,19 +24,16 @@ public class TessellationUtils {
 
   public static TessellatedPolygon tessellatePolygon(
       Polygon polygon, int indexOffset, @Nullable URI tessellateSource) {
-    var flattenedCoordinates = flatCoordinatesWithoutClosingPoint(polygon);
-    // var flattenedCoordinates = flatPolygonWithClosingPoint(polygon);
+    final var flattenedCoordinates = flatCoordinatesWithoutClosingPoint(polygon);
 
-    var holeIndices = new ArrayList<Integer>();
+    final var holeIndices = new ArrayList<Integer>();
     var numVertices = polygon.getExteriorRing().getCoordinates().length - 1;
-    // var numVertices = polygon.getExteriorRing().getCoordinates().length;
     for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
       holeIndices.add(numVertices);
       numVertices += polygon.getInteriorRingN(i).getCoordinates().length - 1;
-      // numVertices += polygon.getInteriorRingN(i).getCoordinates().length;
     }
 
-    var holeIndicesArray =
+    final var holeIndicesArray =
         !holeIndices.isEmpty() ? holeIndices.stream().mapToInt(i -> i).toArray() : null;
 
     Stream<Integer> indices;
@@ -49,8 +46,8 @@ public class TessellationUtils {
       indices = Earcut.earcut(flattenedCoordinates, holeIndicesArray, 2).stream();
     }
 
-    var indexList = indices.map(index -> index + indexOffset).toList();
-    var numTriangles = indexList.size() / 3;
+    final var indexList = indices.map(index -> index + indexOffset).toList();
+    final var numTriangles = indexList.size() / 3;
     return new TessellatedPolygon(indexList, numTriangles, numVertices);
   }
 
