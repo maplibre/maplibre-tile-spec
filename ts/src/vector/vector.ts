@@ -29,10 +29,8 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
     has(index: number): boolean {
         if (index < 0 || index >= this._size) {
             return false;
-        } if (!this.nullabilityBuffer) {
-            return true;
         }
-        return this.nullabilityBuffer.get(index);
+        return this.nullabilityBuffer ? this.nullabilityBuffer.get(index) : true;
     }
 
     get name(): string {
@@ -62,7 +60,6 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
                 vector[limit++] = index;
             }
         }
-
         selectionVector.setLimit(limit);
         return selectionVector;
     }
