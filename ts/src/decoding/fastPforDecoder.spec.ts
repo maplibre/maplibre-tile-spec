@@ -4,6 +4,7 @@ import IntWrapper from "./intWrapper";
 import * as fs from "fs";
 import * as path from "path";
 
+// Test Vector data was generated using the java fastPfor encoder
 describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
     const tvDir = path.join(__dirname, "../../test/data/fastpfor");
 
