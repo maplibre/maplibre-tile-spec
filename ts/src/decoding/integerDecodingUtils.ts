@@ -2,6 +2,7 @@ import type IntWrapper from "./intWrapper";
 import type BitVector from "../vector/flat/bitVector";
 import { type StreamMetadata } from "../mltMetadata";
 import { type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+export { decodeFastPfor } from "./fastPforDecoder";
 
 /* Null suppression (physical level) techniques ------------------------------------------------------------------*/
 
@@ -121,14 +122,6 @@ function decodeVarintRemainder(l, buf, offset) {
     throw new Error("Expected varint not more than 10 bytes");
 }
 
-export function decodeFastPfor(
-    data: Uint8Array,
-    numValues: number,
-    byteLength: number,
-    offset: IntWrapper,
-): Int32Array {
-    throw new Error("FastPFor is not implemented yet.");
-}
 
 export function decodeZigZag(encodedData: Int32Array): void {
     for (let i = 0; i < encodedData.length; i++) {
