@@ -19,7 +19,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'com.google.guava:guava:33.5.0-jre'
     implementation 'com.google.protobuf:protobuf-java:4.32.1'
-    implementation 'io.github.earcut4j:earcut4j:2.2.2'
+    implementation 'nl.bartlouwers:earcut4j:3.0.0'
     testImplementation 'io.github.sebasbaumh:mapbox-vector-tile-java:25.1.0'
     implementation 'me.lemire.integercompression:JavaFastPFOR:0.2.1'
     implementation 'no.ecc.vectortile:java-vector-tile:1.3.23'
