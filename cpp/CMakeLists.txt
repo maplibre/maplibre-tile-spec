@@ -17,6 +17,7 @@ option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
+option(MLT_WITH_COVERAGE "Enable code coverage instrumentation" OFF)
 
 set_target_properties(
     mlt-cpp
@@ -75,6 +76,16 @@ add_cxx_compiler_flag(-wd4061) # MSVC: enum member not handled in switch
 add_cxx_compiler_flag(-wd4514) # MSVC: unreferenced inline function has been removed
 add_cxx_compiler_flag(-wd4710) # MSVC: function not inlined
 add_cxx_compiler_flag(-wd4820) # MSVC: padding added after data member
+
+if(MLT_WITH_COVERAGE)
+    message(STATUS "[MLT] Enabling code coverage instrumentation")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        target_compile_options(mlt-cpp PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+        target_link_options(mlt-cpp PRIVATE --coverage)
+    else()
+        message(WARNING "[MLT] Coverage is not supported for compiler ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+endif()
 
 target_include_directories(mlt-cpp
     PUBLIC ${PROJECT_SOURCE_DIR}/include
