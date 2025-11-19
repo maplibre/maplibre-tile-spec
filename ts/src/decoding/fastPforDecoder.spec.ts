@@ -1,62 +1,71 @@
-import { describe, it, expect } from "vitest";
-import { decodeFastPfor } from "./fastPforDecoder";
+import {describe, expect, it} from "vitest";
+import {decodeFastPfor} from "./fastPforDecoder";
 import IntWrapper from "./intWrapper";
-import * as fs from "fs";
-import * as path from "path";
 
-// Test Vector data was generated using the java fastPfor encoder
+// encoded data was generated using the java fastPfor encoder and expected values are re-generated in the tests
+const ENCODED_NON_ALINGED_358_ENCODED = new Uint8Array([0, 0, 1, 0, 0, 0, 0, 65, 3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12, 19, 18, 17, 16, 23, 22, 21, 20, 27, 26, 25, 24, 31, 30, 29, 28, 35, 34, 33, 32, 39, 38, 37, 36, 43, 42, 41, 40, 47, 46, 45, 44, 51, 50, 49, 48, 55, 54, 53, 52,
+    59, 58, 57, 56, 63, 62, 61, 60, 67, 66, 65, 64, 71, 70, 69, 68, 75, 74, 73, 72, 79, 78, 77, 76, 83, 82, 81, 80, 87, 86, 85, 84, 91, 90, 89, 88, 95, 94, 93, 92, 99, 98, 97, 96, 103, 102, 101, 100, 107, 106, 105, 104, 111, 110, 109, 108, 115, 114, 113, 112, 119, 118, 117, 116,
+    123, 122, 121, 120, 127, 126, 125, 124, 131, 130, 129, 128, 135, 134, 133, 132, 139, 138, 137, 136, 143, 142, 141, 140, 147, 146, 145, 144, 151, 150, 149, 148, 155, 154, 153, 152, 159, 158, 157, 156, 163, 162, 161, 160, 167, 166, 165, 164, 171, 170, 169, 168, 175, 174, 173, 172, 179, 178, 177, 176, 183, 182, 181, 180,
+    187, 186, 185, 184, 191, 190, 189, 188, 195, 194, 193, 192, 199, 198, 197, 196, 203, 202, 201, 200, 207, 206, 205, 204, 211, 210, 209, 208, 215, 214, 213, 212, 219, 218, 217, 216, 223, 222, 221, 220, 227, 226, 225, 224, 231, 230, 229, 228, 235, 234, 233, 232, 239, 238, 237, 236, 243, 242, 241, 240, 247, 246, 245, 244,
+    251, 250, 249, 248, 255, 254, 253, 252, 0, 0, 0, 2, 0, 0, 0, 8, 0, 0, 0, 0, 130, 1, 130, 0, 130, 3, 130, 2, 130, 5, 130, 4, 130, 7, 130, 6, 130, 9, 130, 8, 130, 11, 130, 10, 130, 13, 130, 12, 130, 15, 130, 14, 130, 17, 130, 16, 130, 19, 130, 18, 130, 21, 130, 20,
+    130, 23, 130, 22, 130, 25, 130, 24, 130, 27, 130, 26, 130, 29, 130, 28, 130, 31, 130, 30, 130, 33, 130, 32, 130, 35, 130, 34, 130, 37, 130, 36, 130, 39, 130, 38, 130, 41, 130, 40, 130, 43, 130, 42, 130, 45, 130, 44, 130, 47, 130, 46, 130, 49, 130, 48, 130, 51, 130, 50, 130, 53, 130, 52,
+    130, 55, 130, 54, 130, 57, 130, 56, 130, 59, 130, 58, 130, 61, 130, 60, 130, 63, 130, 62, 130, 65, 130, 64, 130, 67, 130, 66, 130, 69, 130, 68, 130, 71, 130, 70, 130, 73, 130, 72, 130, 75, 130, 74, 130, 77, 130, 76, 130, 79, 130, 78, 130, 81, 130, 80, 130, 83, 130, 82, 130, 85, 130, 84,
+    130, 87, 130, 86, 130, 89, 130, 88, 130, 91, 130, 90, 130, 93, 130, 92, 130, 95, 130, 94, 130, 97, 130, 96, 130, 99, 130, 98, 130, 101, 130, 100],);
+
+const LARGE_EXCEPTIONS_ENCODED = new Uint8Array([
+    0, 0, 1, 0, 0, 0, 0, 25, 191, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 254, 63, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 143, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 248, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 7, 10, 27, 4, 3, 0, 200, 100, 50, 0, 128, 0, 0, 0, 0, 0, 4, 196, 190, 204, 252,
+    14, 166, 0, 9, 95, 94, 16, 0, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135,
+    135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135,
+    135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135,
+    135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135, 135],);
+
+const SEQUENTIAL_ENCODED = new Uint8Array([0, 0, 2, 0, 0, 0, 0, 137, 3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12, 19, 18, 17, 16, 23, 22, 21, 20, 27, 26, 25, 24, 31, 30, 29, 28, 35, 34, 33, 32, 39, 38, 37, 36, 43, 42, 41, 40, 47, 46, 45, 44, 51, 50, 49, 48, 55, 54, 53, 52,
+    59, 58, 57, 56, 63, 62, 61, 60, 67, 66, 65, 64, 71, 70, 69, 68, 75, 74, 73, 72, 79, 78, 77, 76, 83, 82, 81, 80, 87, 86, 85, 84, 91, 90, 89, 88, 95, 94, 93, 92, 99, 98, 97, 96, 103, 102, 101, 100, 107, 106, 105, 104, 111, 110, 109, 108, 115, 114, 113, 112, 119, 118, 117, 116, 123, 122, 121, 120, 127, 126, 125, 124, 131, 130, 129, 128, 135, 134, 133, 132, 139, 138, 137, 136, 143, 142, 141, 140, 147, 146, 145, 144, 151, 150, 149, 148,
+    155, 154, 153, 152, 159, 158, 157, 156, 163, 162, 161, 160, 167, 166, 165, 164, 171, 170, 169, 168, 175, 174, 173, 172, 179, 178, 177, 176, 183, 182, 181, 180, 187, 186, 185, 184, 191, 190, 189, 188, 195, 194, 193, 192, 199, 198, 197, 196, 203, 202, 201, 200, 207, 206, 205, 204, 211, 210, 209, 208, 215, 214, 213, 212,
+    219, 218, 217, 216, 223, 222, 221, 220, 227, 226, 225, 224, 231, 230, 229, 228, 235, 234, 233, 232, 239, 238, 237, 236, 243, 242, 241, 240, 247, 246, 245, 244, 251, 250, 249, 248, 255, 254, 253, 252, 28, 10, 3, 0, 193, 160, 176, 72, 42, 19, 8, 131, 161, 176, 200, 92, 35, 16, 135, 195, 177, 72, 156, 74,
+    24, 139, 197, 162, 200, 220, 106, 51, 143, 199, 163, 177, 28, 138, 67, 32, 201, 164, 178, 73, 170, 83, 40, 147, 165, 178, 201, 92, 99, 48, 151, 203, 179, 73, 156, 202, 56, 155, 205, 166, 201, 220, 234, 115, 159, 207, 167, 179, 29, 10, 131, 64, 209, 168, 180, 74, 42, 147, 72, 163, 169, 180, 202, 93,
+    163, 80, 167, 211, 181, 74, 157, 74, 88, 171, 213, 170, 202, 221, 106, 179, 175, 215, 171, 181, 29, 138, 195, 96, 217, 172, 182, 75, 170, 211, 104, 179, 173, 182, 203, 93, 227, 112, 183, 219, 183, 75, 157, 202, 120, 187, 221, 174, 203, 221, 234, 243, 191, 223, 175, 183, 30, 11, 3, 128, 225, 176, 184, 76,
+    43, 19, 136, 195, 177, 184, 204, 94, 35, 144, 199, 227, 185, 76, 158, 75, 152, 203, 229, 178, 204, 222, 107, 51, 207, 231, 179, 185, 30, 139, 67, 160, 233, 180, 186, 77, 171, 83, 168, 211, 181, 186, 205, 94, 99, 176, 215, 235, 187, 77, 158, 203, 184, 219, 237, 182, 205, 222, 235, 115, 223, 239, 183, 187,
+    31, 11, 131, 192, 241, 184, 188, 78, 43, 147, 200, 227, 185, 188, 206, 95, 163, 208, 231, 243, 189, 78, 159, 75, 216, 235, 245, 186, 206, 223, 107, 179, 239, 247, 187, 189, 31, 139, 195, 224, 249, 188, 190, 79, 171, 211, 232, 243, 189, 190, 207, 95, 227, 240, 247, 251, 191, 79, 159, 203, 248, 251, 253, 190,
+    207, 223, 235, 243, 255, 255, 191, 191, 0, 0, 0, 4, 0, 9, 0, 8, 0, 0, 0, 0]);
+
+const SMAL_VALUES_ENCODED = new Uint8Array([0, 0, 1, 0, 0, 0, 0, 25, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198,
+    250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 0]);
+
+const ZEROS_ENCODED = new Uint8Array([0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0]);
+
 describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
-    const tvDir = path.join(__dirname, "../../test/data/fastpfor");
-
-    interface TestVector {
-        name: string;
-        numValues: number;
-        byteLength: number;
-        inputValues: (number | string)[];
-        encodedBytes: number[];
-        encodedHex: string;
-    }
-
-    function loadTestVector(name: string): TestVector {
-        const jsonPath = path.join(tvDir, `${name}.json`);
-        const content = fs.readFileSync(jsonPath, "utf-8");
-        return JSON.parse(content);
-    }
 
     describe("Core Functionality", () => {
         it("should decode non_aligned_358 (256 FastPFOR + 102 VariableByte)", () => {
-            const tv = loadTestVector("non_aligned_358");
-            const encoded = new Uint8Array(tv.encodedBytes);
+            const decoded = decodeFastPfor(ENCODED_NON_ALINGED_358_ENCODED, 358, 480, new IntWrapper(0));
 
-            const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
-
-            expect(decoded.length).toBe(tv.numValues);
-            expect(decoded[0]).toBe(tv.inputValues[0]);
-            expect(decoded[50]).toBe(tv.inputValues[50]);
-            expect(decoded[99]).toBe(tv.inputValues[99]);
-            expect(decoded[357]).toBe(357);
+            expect(decoded.length).toBe(358);
+            for(let i = 0; i < 358; i++) {
+                expect(decoded[i]).toBe(i)
+            }
         });
     });
 
     describe("Exception Handling", () => {
         it("should decode large_exceptions", () => {
-            const tv = loadTestVector("large_exceptions");
-            const encoded = new Uint8Array(tv.encodedBytes);
+            const decoded = decodeFastPfor(LARGE_EXCEPTIONS_ENCODED, 500, 380, new IntWrapper(0));
 
-            const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
+            expect(decoded.length).toBe(500);
+            for(let i = 0; i < 10; i++) {
+                expect(decoded[i]).toBe(7)
+            }
 
-            expect(decoded.length).toBe(tv.numValues);
-            expect(decoded[0]).toBe(tv.inputValues[0]);
-            expect(decoded[1]).toBe(tv.inputValues[1]);
-            expect(decoded[10]).toBe(tv.inputValues[10]);
-            expect(decoded[50]).toBe(tv.inputValues[50]);
+            // exceptions
+            expect(decoded[10]).toBe(100034530);
+            expect(decoded[50]).toBe(20000);
+            expect(decoded[100]).toBe(30000)
+            expect(decoded[499]).toBe(7)
         });
 
         it("should decode small_values (3-bit wide)", () => {
-            const tv = loadTestVector("small_values");
-            const encoded = new Uint8Array(tv.encodedBytes);
-
-            const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
+            const decoded = decodeFastPfor(SMAL_VALUES_ENCODED, 256, 116, new IntWrapper(0));
             for (let i = 0; i < 256; i++) {
                 expect(decoded[i]).toBe(i % 8);
             }
@@ -65,22 +74,16 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
 
     describe("Special Cases", () => {
         it("should decode zeros (all zeros)", () => {
-            const tv = loadTestVector("zeros");
-            const encoded = new Uint8Array(tv.encodedBytes);
+            const decoded = decodeFastPfor(ZEROS_ENCODED, 265, 20, new IntWrapper(0));
 
-            const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
-
-            expect(decoded.length).toBe(tv.numValues);
+            expect(decoded.length).toBe(265);
             expect(Array.from(decoded).every((v) => v === 0)).toBe(true);
         });
 
         it("should decode sequential (512 values)", () => {
-            const tv = loadTestVector("sequential");
-            const encoded = new Uint8Array(tv.encodedBytes);
+            const decoded = decodeFastPfor(SEQUENTIAL_ENCODED, 512, 564, new IntWrapper(0));
 
-            const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
-
-            expect(decoded.length).toBe(tv.numValues);
+            expect(decoded.length).toBe(512);
 
             // Sequential values 0-511
             for (let i = 0; i < 512; i++) {
@@ -91,20 +94,17 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
 
     describe("Offset Handling", () => {
         it("should handle non-zero initial offset", () => {
-            const tv = loadTestVector("small_values");
-            const encoded = new Uint8Array(tv.encodedBytes);
-
             // Add padding before the actual data
             const padding = new Uint8Array(32);
-            const combined = new Uint8Array(padding.length + encoded.length);
+            const combined = new Uint8Array(padding.length + SMAL_VALUES_ENCODED.length);
             combined.set(padding, 0);
-            combined.set(encoded, padding.length);
+            combined.set(SMAL_VALUES_ENCODED, padding.length);
 
             const offset = new IntWrapper(32);
-            const decoded = decodeFastPfor(combined, tv.numValues, tv.byteLength, offset);
+            const decoded = decodeFastPfor(combined, 256, 116, offset);
 
-            expect(decoded.length).toBe(tv.numValues);
-            expect(offset.get()).toBe(32 + Math.ceil(tv.byteLength / 4) * 4);
+            expect(decoded.length).toBe(256);
+            expect(offset.get()).toBe(32 + Math.ceil(116 / 4) * 4);
 
             // Verify first few values
             for (let i = 0; i < 10; i++) {
@@ -113,27 +113,21 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
         });
 
         it("should advance offset correctly for sequential decoding", () => {
-            const tv1 = loadTestVector("zeros");
-            const tv2 = loadTestVector("small_values");
-
-            const encoded1 = new Uint8Array(tv1.encodedBytes);
-            const encoded2 = new Uint8Array(tv2.encodedBytes);
-
             // Combine two encoded streams
-            const combined = new Uint8Array(Math.ceil(tv1.byteLength / 4) * 4 + Math.ceil(tv2.byteLength / 4) * 4);
-            combined.set(encoded1, 0);
-            combined.set(encoded2, Math.ceil(tv1.byteLength / 4) * 4);
+            const combined = new Uint8Array(Math.ceil(20 / 4) * 4 + Math.ceil(116 / 4) * 4);
+            combined.set(ZEROS_ENCODED, 0);
+            combined.set(SMAL_VALUES_ENCODED, Math.ceil(20 / 4) * 4);
 
             const offset = new IntWrapper(0);
 
             // Decode first stream
-            const decoded1 = decodeFastPfor(combined, tv1.numValues, tv1.byteLength, offset);
-            expect(decoded1.length).toBe(tv1.numValues);
+            const decoded1 = decodeFastPfor(ZEROS_ENCODED, 256, 20, offset);
+            expect(decoded1.length).toBe(256);
             expect(Array.from(decoded1).every((v) => v === 0)).toBe(true);
 
             // Decode second stream
-            const decoded2 = decodeFastPfor(combined, tv2.numValues, tv2.byteLength, offset);
-            expect(decoded2.length).toBe(tv2.numValues);
+            const decoded2 = decodeFastPfor(combined, 256, 116, offset);
+            expect(decoded2.length).toBe(256);
             for (let i = 0; i < 10; i++) {
                 expect(decoded2[i]).toBe(i % 8);
             }
