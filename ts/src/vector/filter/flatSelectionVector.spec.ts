@@ -26,7 +26,7 @@ describe("flatSelectionVector", () => {
         it("Should return reference to underlying array", () => {
             const vector = [0, 1, 2, 3, 4];
             const fsVector = new FlatSelectionVector(vector);
-            expect(fsVector.selectionValues()).toBe(vector);
+            expect(fsVector.selectionValues()).toStrictEqual(vector);
         });
 
         it("Should use array length as default limit and capacity", () => {
