@@ -16,11 +16,6 @@ function createNullableVector(values: number[], nullBits: number, name = "test")
     return new IntFlatVector(name, data, bitVector);
 }
 
-/*
- * the use of the .slice method has to be discussed (is it intentional not in flatSelectionVector or can it be added there)
- * for now the flatSelectionVector stays the same and the tests use the .slice method for validation
- */
-
 // int is used for base testing since it is the simplest datatype. Edge cases are tested separately in the according vector classes
 describe("BaseVector tests", () => {
     describe("filter", () => {
@@ -54,21 +49,21 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([1, 3, 4, 6, 8]);
             simpleVector.filterSelected(20, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([1]);
+            expect(selection.selectionValues()).toEqual([1]);
         });
 
         it("should filter from selection with duplicates", () => {
             const withDuplicates = createVector([10, 20, 30, 20, 50, 10]);
             const selection = new FlatSelectionVector([0, 1, 3, 4]);
             withDuplicates.filterSelected(20, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([1, 3]);
+            expect(selection.selectionValues()).toEqual([1, 3]);
         });
 
         it("should filter from selection with nullability", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([0, 2, 3, 4]);
             withNulls.filterSelected(30, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([2]);
+            expect(selection.selectionValues()).toEqual([2]);
         });
     });
 
@@ -97,21 +92,21 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([1, 3, 4, 5, 7]);
             simpleVector.filterNotEqualSelected(50, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([1, 3, 5, 7]);
+            expect(selection.selectionValues()).toEqual([1, 3, 5, 7]);
         });
 
         it("should filter != from selection with duplicates", () => {
             const withDuplicates = createVector([10, 20, 30, 20, 50, 10]);
             const selection = new FlatSelectionVector([1, 2, 3, 4, 5]);
             withDuplicates.filterNotEqualSelected(20, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([2, 4, 5]);
+            expect(selection.selectionValues()).toEqual([2, 4, 5]);
         });
 
         it("should filter != from selection with nullability", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([0, 2, 3, 4]);
             withNulls.filterNotEqualSelected(30, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 3, 4]);
+            expect(selection.selectionValues()).toEqual([0, 3, 4]);
         });
     });
 
@@ -140,21 +135,21 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([0, 1, 3, 4, 6]);
             simpleVector.matchSelected([20, 40], selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([1, 3]);
+            expect(selection.selectionValues()).toEqual([1, 3]);
         });
 
         it("should match from selection with duplicates", () => {
             const withDuplicates = createVector([10, 20, 30, 20, 50, 10]);
             const selection = new FlatSelectionVector([1, 3, 4, 5]);
             withDuplicates.matchSelected([20, 50], selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([1, 3, 4]);
+            expect(selection.selectionValues()).toEqual([1, 3, 4]);
         });
 
         it("should match from selection with nullability", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([0, 2, 3, 4]);
             withNulls.matchSelected([10, 50], selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 4]);
+            expect(selection.selectionValues()).toEqual([0, 4]);
         });
     });
 
@@ -195,21 +190,21 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([1, 3, 4, 7, 8]);
             simpleVector.noneMatchSelected([20, 80], selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([3, 4, 8]);
+            expect(selection.selectionValues()).toEqual([3, 4, 8]);
         });
 
         it("should handle duplicates in selection", () => {
             const withDuplicates = createVector([10, 20, 30, 20, 50, 10]);
             const selection = new FlatSelectionVector([0, 1, 2, 4, 5]);
             withDuplicates.noneMatchSelected([20], selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 2, 4, 5]);
+            expect(selection.selectionValues()).toEqual([0, 2, 4, 5]);
         });
 
         it("should filter from selection with nullability", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([0, 1, 2, 4]);
             withNulls.noneMatchSelected([10], selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([1, 2, 4]);
+            expect(selection.selectionValues()).toEqual([1, 2, 4]);
         });
     });
 
@@ -238,21 +233,21 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([0, 1, 3, 4, 6]);
             simpleVector.greaterThanOrEqualToSelected(40, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([3, 4, 6]);
+            expect(selection.selectionValues()).toEqual([3, 4, 6]);
         });
 
         it("should filter >= from selection with duplicates", () => {
             const withDuplicates = createVector([10, 20, 30, 20, 50, 10]);
             const selection = new FlatSelectionVector([1, 2, 3, 4, 5]);
             withDuplicates.greaterThanOrEqualToSelected(20, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([1, 2, 3, 4]);
+            expect(selection.selectionValues()).toEqual([1, 2, 3, 4]);
         });
 
         it("should filter >= from selection with nullability", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([1, 2, 3, 4]);
             withNulls.greaterThanOrEqualToSelected(30, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([2, 4]);
+            expect(selection.selectionValues()).toEqual([2, 4]);
         });
     });
 
@@ -281,21 +276,21 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([0, 2, 4, 6, 8]);
             simpleVector.smallerThanOrEqualToSelected(50, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 2, 4]);
+            expect(selection.selectionValues()).toEqual([0, 2, 4]);
         });
 
         it("should filter <= from selection with duplicates", () => {
             const withDuplicates = createVector([10, 20, 30, 20, 50, 10]);
             const selection = new FlatSelectionVector([0, 1, 2, 4, 5]);
             withDuplicates.smallerThanOrEqualToSelected(30, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 1, 2, 5]);
+            expect(selection.selectionValues()).toEqual([0, 1, 2, 5]);
         });
 
         it("should filter <= from selection with nullability", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([0, 2, 3, 4]);
             withNulls.smallerThanOrEqualToSelected(30, selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 2]);
+            expect(selection.selectionValues()).toEqual([0, 2]);
         });
     });
 
@@ -318,14 +313,14 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([0, 2, 4, 6, 8]);
             simpleVector.presentValuesSelected(selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 2, 4, 6, 8]);
+            expect(selection.selectionValues()).toEqual([0, 2, 4, 6, 8]);
         });
 
         it("should filter out null values from selection", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([0, 2, 3, 4]);
             withNulls.presentValuesSelected(selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([0, 2, 4]);
+            expect(selection.selectionValues()).toEqual([0, 2, 4]);
         });
     });
 
@@ -348,14 +343,14 @@ describe("BaseVector tests", () => {
             const simpleVector: IntFlatVector = createVector([10, 20, 30, 40, 50, 60, 70, 80, 90]);
             const selection = new FlatSelectionVector([0, 2, 4, 6, 8]);
             simpleVector.nullableValuesSelected(selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([]);
+            expect(selection.selectionValues()).toEqual([]);
         });
 
         it("should filter only null values from selection", () => {
             const withNulls = createNullableVector([10, 20, 30, 40, 50], 0b00010111);
             const selection = new FlatSelectionVector([0, 2, 3, 4]);
             withNulls.nullableValuesSelected(selection);
-            expect(selection.selectionValues().slice(0, selection.limit)).toEqual([3]);
+            expect(selection.selectionValues()).toEqual([3]);
         });
     });
 

@@ -52,15 +52,15 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
     }
 
     presentValuesSelected(selectionVector: SelectionVector): SelectionVector {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (this.has(index)) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
         return selectionVector;
     }
 
@@ -75,16 +75,15 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
     }
 
     nullableValuesSelected(selectionVector: SelectionVector): SelectionVector {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (!this.has(index)) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
         return selectionVector;
     }
 
@@ -134,32 +133,32 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
 
     /* updates the values and limit of the existing SelectionVector in-place */
     filterSelected(value: K, selectionVector: SelectionVector): void {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (this.has(index) && this.getValue(index) === value) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
     }
 
     filterNotEqualSelected(value: K, selectionVector: SelectionVector): void {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (!this.has(index) || this.getValue(index) !== value) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
     }
 
     /* updates the values and limit of the existing SelectionVector in-place */
     matchSelected(values: K[], selectionVector: SelectionVector): void {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
@@ -167,22 +166,22 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
             const value = this.getValue(index);
             const matchCount = values.filter(v => v === value).length;
             for (let k = 0; k < matchCount; k++) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
     }
 
     noneMatchSelected(values: K[], selectionVector: SelectionVector): void {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (this.has(index) && !values.includes(this.getValue(index))) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
     }
 
     greaterThanOrEqualTo(value: K): SelectionVector {
@@ -206,26 +205,26 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
     }
 
     greaterThanOrEqualToSelected(value: K, selectionVector: SelectionVector): void {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (this.has(index) && this.getValue(index) >= value) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
     }
 
     smallerThanOrEqualToSelected(value: K, selectionVector: SelectionVector): void {
-        let limit = 0;
+        let writeIndex = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (this.has(index) && this.getValue(index) <= value) {
-                vector[limit++] = index;
+                selectionVector.setIndex(writeIndex++, index);
             }
         }
-        selectionVector.setLimit(limit);
+        selectionVector.setLimit(writeIndex);
     }
 }

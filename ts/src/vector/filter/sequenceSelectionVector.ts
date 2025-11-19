@@ -29,7 +29,7 @@ export class SequenceSelectionVector implements SelectionVector {
         if (!this._materializedArray) {
             this._materializedArray = this.materialize();
         }
-        return this._materializedArray;
+        return this._materializedArray.slice(0, this._limit);
     }
 
     private materialize(): number[] {

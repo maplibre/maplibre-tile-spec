@@ -47,7 +47,7 @@ export class FlatSelectionVector implements SelectionVector {
 
     /** @inheritdoc */
     selectionValues(): number[] {
-        return this._selectionVector;
+        return this._selectionVector.slice(0, this._limit);
     }
 
     /** @inheritdoc */
