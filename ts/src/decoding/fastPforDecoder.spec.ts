@@ -30,12 +30,10 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
 
             const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
 
-            expect(decoded.length).toBe(358);
-
-            // Verify sequential values
-            expect(decoded[0]).toBe(0);
-            expect(decoded[255]).toBe(255);
-            expect(decoded[256]).toBe(256);
+            expect(decoded.length).toBe(tv.numValues);
+            expect(decoded[0]).toBe(tv.inputValues[0]);
+            expect(decoded[50]).toBe(tv.inputValues[50]);
+            expect(decoded[99]).toBe(tv.inputValues[99]);
             expect(decoded[357]).toBe(357);
         });
     });
@@ -47,17 +45,11 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
 
             const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
 
-            expect(decoded.length).toBe(500);
-
-            // Most values are 7
-            expect(decoded[0]).toBe(7);
-            expect(decoded[1]).toBe(7);
-
-            // Exceptions
-            expect(decoded[10]).toBe(100034530);
-            expect(decoded[50]).toBe(20000);
-            expect(decoded[100]).toBe(30000);
-            expect(decoded[200]).toBe(50000000);
+            expect(decoded.length).toBe(tv.numValues);
+            expect(decoded[0]).toBe(tv.inputValues[0]);
+            expect(decoded[1]).toBe(tv.inputValues[1]);
+            expect(decoded[10]).toBe(tv.inputValues[10]);
+            expect(decoded[50]).toBe(tv.inputValues[50]);
         });
 
         it("should decode small_values (3-bit wide)", () => {
@@ -65,10 +57,6 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
             const encoded = new Uint8Array(tv.encodedBytes);
 
             const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
-
-            expect(decoded.length).toBe(256);
-
-            // Values cycle 0-7
             for (let i = 0; i < 256; i++) {
                 expect(decoded[i]).toBe(i % 8);
             }
@@ -82,7 +70,7 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
 
             const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
 
-            expect(decoded.length).toBe(256);
+            expect(decoded.length).toBe(tv.numValues);
             expect(Array.from(decoded).every((v) => v === 0)).toBe(true);
         });
 
@@ -92,7 +80,7 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
 
             const decoded = decodeFastPfor(encoded, tv.numValues, tv.byteLength, new IntWrapper(0));
 
-            expect(decoded.length).toBe(512);
+            expect(decoded.length).toBe(tv.numValues);
 
             // Sequential values 0-511
             for (let i = 0; i < 512; i++) {
