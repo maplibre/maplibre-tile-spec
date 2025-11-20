@@ -3,7 +3,7 @@ import {decodeFastPfor} from "./fastPforDecoder";
 import IntWrapper from "./intWrapper";
 import fs from "fs";
 import path from 'path';
-import { fileURLToPath } from 'url';
+import {fileURLToPath} from 'url';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,6 +16,12 @@ const LARGE_EXCEPTIONS_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'large
 const SEQUENTIAL_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'sequence.bin'));
 const SMALE_VALUES_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'smale-values.bin'));
 const ZEROS_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'zeros.bin'));
+const MULTI_PAGE_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'multi-page.bin'));
+const MAX_EXCEPTIONS_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'max-exceptions.bin'));
+const VARIABLEBYTE_ONLY_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'variablebyte-only.bin'));
+const SINGLE_VB_VALUE_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'single-vb-value.bin'));
+const BIT_WIDTH_32_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'bit-width-32.bin'));
+const ALTERNATING_PATTERN_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'alternating-pattern.bin'));
 
 describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
 
@@ -24,8 +30,26 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
             const decoded = decodeFastPfor(ENCODED_NON_ALIGNED_358_ENCODED, 358, 480, new IntWrapper(0));
 
             expect(decoded.length).toBe(358);
-            for(let i = 0; i < 358; i++) {
+            for (let i = 0; i < 358; i++) {
                 expect(decoded[i]).toBe(i)
+            }
+        });
+
+        it("should decode multi-page stream (>65536 values)", () => {
+            const decoded = decodeFastPfor(MULTI_PAGE_ENCODED, 66000, 102872, new IntWrapper(0));
+
+            expect(decoded.length).toBe(66000);
+            for (let i = 0; i < 66000; i++) {
+                expect(decoded[i]).toBe(i % 10000);
+            }
+        });
+
+        it("should decode sequential (512 values)", () => {
+            const decoded = decodeFastPfor(SEQUENTIAL_ENCODED, 512, 564, new IntWrapper(0));
+
+            expect(decoded.length).toBe(512);
+            for (let i = 0; i < 512; i++) {
+                expect(decoded[i]).toBe(i);
             }
         });
     });
@@ -35,7 +59,7 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
             const decoded = decodeFastPfor(LARGE_EXCEPTIONS_ENCODED, 500, 380, new IntWrapper(0));
 
             expect(decoded.length).toBe(500);
-            for(let i = 0; i < 10; i++) {
+            for (let i = 0; i < 10; i++) {
                 expect(decoded[i]).toBe(7)
             }
 
@@ -52,9 +76,18 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
                 expect(decoded[i]).toBe(i % 8);
             }
         });
+
+        it("should decode block with maximum exceptions (256)", () => {
+            const decoded = decodeFastPfor(MAX_EXCEPTIONS_ENCODED, 256, 660, new IntWrapper(0));
+
+            expect(decoded.length).toBe(256);
+            for (let i = 0; i < 256; i++) {
+                expect(decoded[i]).toBe(1000000 + i);
+            }
+        });
     });
 
-    describe("Special Cases", () => {
+    describe("Edge Cases", () => {
         it("should decode zeros (all zeros)", () => {
             const decoded = decodeFastPfor(ZEROS_ENCODED, 265, 20, new IntWrapper(0));
 
@@ -62,14 +95,43 @@ describe("FastPFOR Decoder - Java Generated Test Vectors", () => {
             expect(Array.from(decoded).every((v) => v === 0)).toBe(true);
         });
 
-        it("should decode sequential (512 values)", () => {
-            const decoded = decodeFastPfor(SEQUENTIAL_ENCODED, 512, 564, new IntWrapper(0));
+        it("should decode VariableByte-only stream (<256 values)", () => {
+            const decoded = decodeFastPfor(VARIABLEBYTE_ONLY_ENCODED, 100, 104, new IntWrapper(0));
+
+            expect(decoded.length).toBe(100);
+            for (let i = 0; i < 100; i++) {
+                expect(decoded[i]).toBe(i);
+            }
+        });
+
+        it("should decode single VariableByte value (257 total)", () => {
+            const decoded = decodeFastPfor(SINGLE_VB_VALUE_ENCODED, 257, 280, new IntWrapper(0));
+
+            expect(decoded.length).toBe(257);
+            for (let i = 0; i < 257; i++) {
+                expect(decoded[i]).toBe(i);
+            }
+        });
+
+        it("should decode bit width 32 (maximum bit packing)", () => {
+            const decoded = decodeFastPfor(BIT_WIDTH_32_ENCODED, 256, 1012, new IntWrapper(0));
+
+            expect(decoded.length).toBe(256);
+            for (let i = 0; i < 256; i++) {
+                expect(decoded[i]).toBe(2147483647 - i); // Integer.MAX_VALUE - i
+            }
+        });
+
+        it("should decode alternating high/low pattern (high exception density)", () => {
+            const decoded = decodeFastPfor(ALTERNATING_PATTERN_ENCODED, 512, 1052, new IntWrapper(0));
 
             expect(decoded.length).toBe(512);
-
-            // Sequential values 0-511
             for (let i = 0; i < 512; i++) {
-                expect(decoded[i]).toBe(i);
+                if (i % 2 === 0) {
+                    expect(decoded[i]).toBe(0);
+                } else {
+                    expect(decoded[i]).toBe(10000000);
+                }
             }
         });
     });
