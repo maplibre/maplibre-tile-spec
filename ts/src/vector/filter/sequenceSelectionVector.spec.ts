@@ -35,12 +35,12 @@ describe("sequenceSelectionVector", () => {
         it("Should update value at specified index", () => {
             const vector = new SequenceSelectionVector(0, 1, 5);
             vector.setIndex(0, 25);
-            vector.setIndex(2, -48);
-            vector.setIndex(3, 1000000000000001);
+            vector.setIndex(2, 48);
+            vector.setIndex(3, 4294967295);
 
             expect(vector.getIndex(0)).toBe(25);
-            expect(vector.getIndex(2)).toBe(-48);
-            expect(vector.getIndex(3)).toBe(1000000000000001);
+            expect(vector.getIndex(2)).toBe(48);
+            expect(vector.getIndex(3)).toBe(4294967295);
         });
 
         it("Should throw RangeError for out of bounds indices", () => {
@@ -89,29 +89,29 @@ describe("sequenceSelectionVector", () => {
         it("Should return array with sequential values", () => {
             const vector = new SequenceSelectionVector(0, 1, 5);
             const values = vector.selectionValues();
-            expect(values).toStrictEqual([0, 1, 2, 3, 4]);
+            expect(values).toStrictEqual(new Uint32Array([0, 1, 2, 3, 4]));
         });
 
         it("Should return empty array for empty vector", () => {
             const vector = new SequenceSelectionVector(0, 1, 0);
-            expect(vector.selectionValues()).toStrictEqual([]);
+            expect(vector.selectionValues()).toStrictEqual(new Uint32Array([]));
         });
 
         it("Should return array with custom base and delta", () => {
             const vector = new SequenceSelectionVector(10, 5, 5);
-            expect(vector.selectionValues()).toStrictEqual([10, 15, 20, 25, 30]);
+            expect(vector.selectionValues()).toStrictEqual(new Uint32Array([10, 15, 20, 25, 30]));
         });
 
         it("Should return array with negative delta", () => {
             const vector = new SequenceSelectionVector(100, -10, 5);
-            expect(vector.selectionValues()).toStrictEqual([100, 90, 80, 70, 60]);
+            expect(vector.selectionValues()).toStrictEqual(new Uint32Array([100, 90, 80, 70, 60]));
         });
 
         it("Should reflect modified values", () => {
             const vector = new SequenceSelectionVector(0, 1, 3);
             vector.setIndex(2, 999);
             const values = vector.selectionValues();
-            expect(values).toStrictEqual([0, 1, 999]);
+            expect(values).toStrictEqual(new Uint32Array([0, 1, 999]));
         });
     });
 

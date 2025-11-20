@@ -13,16 +13,52 @@ export class BooleanFlatVector extends Vector<Uint8Array, boolean> {
     protected getValueFromBuffer(index: number): boolean {
         return this.dataVector.get(index);
     }
-    override greaterThanOrEqualTo(value: boolean): SelectionVector {
-        throw new Error("Method not available for type boolean");
+
+    filter(value: boolean): SelectionVector {
+        throw new Error("Not implemented yet.");
     }
-    override smallerThanOrEqualTo(value: boolean): SelectionVector {
-        throw new Error("Method not available for type boolean");
+
+    match(values: boolean[]): SelectionVector {
+        throw new Error("Not implemented yet.");
     }
-    override greaterThanOrEqualToSelected(value: boolean, selectionVector: SelectionVector): void {
-        throw new Error("Method not available for type boolean");
+
+    filterSelected(value: boolean, selectionVector: SelectionVector): void {
+        throw new Error("Not implemented yet.");
     }
-    override smallerThanOrEqualToSelected(value: boolean, selectionVector: SelectionVector): void {
-        throw new Error("Method not available for type boolean");
+
+    matchSelected(values: boolean[], selectionVector: SelectionVector): void {
+        throw new Error("Not implemented yet.");
+    }
+
+    filterNotEqual(value: boolean): SelectionVector {
+        throw new Error("Not implemented yet.");
+    }
+
+    filterNotEqualSelected(value: boolean, selectionVector: SelectionVector): void {
+        throw new Error("Not implemented yet.");
+    }
+
+    greaterThanOrEqualTo(value: boolean): SelectionVector {
+        throw new Error("Not implemented yet.");
+    }
+
+    greaterThanOrEqualToSelected(value: boolean, selectionVector: SelectionVector): void {
+        throw new Error("Not implemented yet.");
+    }
+
+    noneMatch(values: boolean[]): SelectionVector {
+        throw new Error("Not implemented yet.");
+    }
+
+    noneMatchSelected(values: boolean[], selectionVector: SelectionVector): void {
+        throw new Error("Not implemented yet.");
+    }
+
+    smallerThanOrEqualTo(value: boolean): SelectionVector {
+        throw new Error("Not implemented yet.");
+    }
+
+    smallerThanOrEqualToSelected(value: boolean, selectionVector: SelectionVector): void {
+        throw new Error("Not implemented yet.");
     }
 }

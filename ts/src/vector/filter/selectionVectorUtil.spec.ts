@@ -72,7 +72,7 @@ describe("selectionVectorUtils", () => {
     describe("updateNullableSelectionVector", () => {
         describe("with FlatSelectionVector", () => {
             it("Should return new instance when filtering with BitVector", () => {
-                const selectionVector = new FlatSelectionVector([0, 1, 2, 3, 4, 5, 6, 7]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([0, 1, 2, 3, 4, 5, 6, 7]));
                 const buffer = new Uint8Array([0b00001011]);
                 const bitVector = new BitVector(buffer, 8);
                 const result = updateNullableSelectionVector(selectionVector, bitVector);
@@ -83,20 +83,20 @@ describe("selectionVectorUtils", () => {
             });
 
             it("Should return same instance when BitVector is null", () => {
-                const selectionVector = new FlatSelectionVector([0, 1, 2, 3, 4, 5, 6, 7]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([0, 1, 2, 3, 4, 5, 6, 7]));
                 const result = updateNullableSelectionVector(selectionVector, null);
                 expect(result).toStrictEqual(selectionVector);
             });
 
             it("Should return all indices when nullabilityBuffer is undefined", () => {
-                const selectionVector = new FlatSelectionVector([0, 2, 4, 6]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([0, 2, 4, 6]));
                 const result = updateNullableSelectionVector(selectionVector, undefined);
                 expect(result).toBeInstanceOf(FlatSelectionVector);
                 expect(result.limit).toBe(4);
             });
 
             it("Should keep all indices when all bits are set", () => {
-                const selectionVector = new FlatSelectionVector([0, 2, 4, 6]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([0, 2, 4, 6]));
                 const buffer = new Uint8Array([0b01010101]);
                 const bitVector = new BitVector(buffer, 8);
                 const result = updateNullableSelectionVector(selectionVector, bitVector);
@@ -105,7 +105,7 @@ describe("selectionVectorUtils", () => {
             });
 
             it("Should filter out null indices from selection vector", () => {
-                const selectionVector = new FlatSelectionVector([0, 2, 4, 6]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([0, 2, 4, 6]));
                 const buffer = new Uint8Array([0b01000101]); // bits at 0, 2, 6
                 const bitVector = new BitVector(buffer, 8);
                 const result = updateNullableSelectionVector(selectionVector, bitVector);
@@ -114,7 +114,7 @@ describe("selectionVectorUtils", () => {
             });
 
             it("Should return empty vector when all selected indices are null", () => {
-                const selectionVector = new FlatSelectionVector([1, 3, 5]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([1, 3, 5]));
                 const buffer = new Uint8Array([0b01010101]); // bits at 0, 2, 4, 6 (not 1, 3, 5)
                 const bitVector = new BitVector(buffer, 8);
                 const result = updateNullableSelectionVector(selectionVector, bitVector);
@@ -123,7 +123,7 @@ describe("selectionVectorUtils", () => {
             });
 
             it("Should handle empty FlatSelectionVector", () => {
-                const selectionVector = new FlatSelectionVector([]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([]));
                 const buffer = new Uint8Array([0b11111111]);
                 const bitVector = new BitVector(buffer, 8);
                 const result = updateNullableSelectionVector(selectionVector, bitVector);
@@ -132,7 +132,7 @@ describe("selectionVectorUtils", () => {
             });
 
             it("Should filter large index values from selection vector", () => {
-                const selectionVector = new FlatSelectionVector([0, 8, 16]);
+                const selectionVector = new FlatSelectionVector(new Uint32Array([0, 8, 16]));
                 const buffer = new Uint8Array([0b00000001, 0b00000000, 0b00000000]);
                 const bitVector = new BitVector(buffer, 24);
                 const result = updateNullableSelectionVector(selectionVector, bitVector);

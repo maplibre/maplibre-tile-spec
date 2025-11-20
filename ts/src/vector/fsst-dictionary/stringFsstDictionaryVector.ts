@@ -2,8 +2,45 @@ import { VariableSizeVector } from "../variableSizeVector";
 import type BitVector from "../flat/bitVector";
 import { decodeFsst } from "../../decoding/fsstDecoder";
 import { decodeString } from "../../decoding/decodingUtils";
+import { type SelectionVector } from "../filter/selectionVector";
 
 export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, string> {
+    filter(value: string): SelectionVector {
+        throw new Error("Method not implemented.");
+    }
+    filterNotEqual(value: string): SelectionVector {
+        throw new Error("Method not implemented.");
+    }
+    match(values: string[]): SelectionVector {
+        throw new Error("Method not implemented.");
+    }
+    noneMatch(values: string[]): SelectionVector {
+        throw new Error("Method not implemented.");
+    }
+    filterSelected(value: string, selectionVector: SelectionVector): void {
+        throw new Error("Method not implemented.");
+    }
+    filterNotEqualSelected(value: string, selectionVector: SelectionVector): void {
+        throw new Error("Method not implemented.");
+    }
+    matchSelected(values: string[], selectionVector: SelectionVector): void {
+        throw new Error("Method not implemented.");
+    }
+    noneMatchSelected(values: string[], selectionVector: SelectionVector): void {
+        throw new Error("Method not implemented.");
+    }
+    greaterThanOrEqualTo(value: string): SelectionVector {
+        throw new Error("Method not implemented.");
+    }
+    smallerThanOrEqualTo(value: string): SelectionVector {
+        throw new Error("Method not implemented.");
+    }
+    greaterThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
+        throw new Error("Method not implemented.");
+    }
+    smallerThanOrEqualToSelected(value: string, selectionVector: SelectionVector): void {
+        throw new Error("Method not implemented.");
+    }
     private readonly textEncoder: TextEncoder;
 
     // TODO: extend from StringVector

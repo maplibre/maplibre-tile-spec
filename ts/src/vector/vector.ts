@@ -20,9 +20,6 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
     }
 
     getValue(index: number): K | null {
-        if (index < 0 || index >= this._size) {
-            throw new RangeError("Index out of bounds");
-        }
         return this.nullabilityBuffer && !this.nullabilityBuffer.get(index) ? null : this.getValueFromBuffer(index);
     }
 
@@ -30,7 +27,10 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
         if (index < 0 || index >= this._size) {
             return false;
         }
-        return this.nullabilityBuffer ? this.nullabilityBuffer.get(index) : true;
+        if (!this.nullabilityBuffer) {
+            return true;
+        }
+        return this.nullabilityBuffer.get(index);
     }
 
     get name(): string {
@@ -42,189 +42,82 @@ export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView
     }
 
     presentValues(): SelectionVector {
-        const selectionVector = [];
+        const selectionVector = Uint32Array[this._size];
+        let index = 0;
         for (let i = 0; i < this.size; i++) {
             if (this.has(i)) {
-                selectionVector.push(i);
+                selectionVector[index] = i;
+                index++;
             }
         }
         return new FlatSelectionVector(selectionVector);
     }
 
     presentValuesSelected(selectionVector: SelectionVector): SelectionVector {
-        let writeIndex = 0;
+        let limit = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (this.has(index)) {
-                selectionVector.setIndex(writeIndex++, index);
+                vector[limit++] = index;
             }
         }
-        selectionVector.setLimit(writeIndex);
+
+        selectionVector.setLimit(limit);
         return selectionVector;
     }
 
     nullableValues(): SelectionVector {
-        const selectionVector = [];
-        for (let i = 0; i < this.size; i++) {
+        const selectionVector = Uint32Array[this._size];
+        let index = 0;
+        for (let i = 0; i < this._size; i++) {
             if (!this.has(i)) {
-                selectionVector.push(i);
+                selectionVector[index] = i;
+                index++;
             }
         }
         return new FlatSelectionVector(selectionVector);
     }
 
     nullableValuesSelected(selectionVector: SelectionVector): SelectionVector {
-        let writeIndex = 0;
+        let limit = 0;
         const vector = selectionVector.selectionValues();
         for (let i = 0; i < selectionVector.limit; i++) {
             const index = vector[i];
             if (!this.has(index)) {
-                selectionVector.setIndex(writeIndex++, index);
+                vector[limit++] = index;
             }
         }
-        selectionVector.setLimit(writeIndex);
+
+        selectionVector.setLimit(limit);
         return selectionVector;
     }
 
     protected abstract getValueFromBuffer(index: number): K;
 
-    filter(value: K): SelectionVector {
-        const selectionVector = [];
-        for (let i = 0; i < this._size; i++) {
-            if (this.has(i) && this.getValue(i) === value) {
-                selectionVector.push(i);
-            }
-        }
-        return new FlatSelectionVector(selectionVector);
-    }
+    abstract filter(value: K): SelectionVector;
 
-    filterNotEqual(value: K): SelectionVector {
-        const selectionVector = [];
-        for (let i = 0; i < this._size; i++) {
-            if (!this.has(i) || this.getValue(i) !== value) {
-                selectionVector.push(i);
-            }
-        }
-        return new FlatSelectionVector(selectionVector);
-    }
+    abstract filterNotEqual(value: K): SelectionVector;
 
-    match(values: K[]): SelectionVector {
-        const selectionVector = [];
-        for (let i = 0; i < this._size; i++) {
-            if (!this.has(i)) continue;
-            const value = this.getValue(i);
-            const matchCount = values.filter(v => v === value).length;
-            selectionVector.push(...Array(matchCount).fill(i));
-        }
-        return new FlatSelectionVector(selectionVector);
-    }
+    abstract match(values: K[]): SelectionVector;
 
-
-    noneMatch(values: K[]): SelectionVector {
-        const selectionVector = [];
-        for (let i = 0; i < this._size; i++) {
-            if (this.has(i) && !values.includes(this.getValue(i))) {
-                selectionVector.push(i);
-            }
-        }
-        return new FlatSelectionVector(selectionVector);
-    }
+    abstract noneMatch(values: K[]): SelectionVector;
 
     /* updates the values and limit of the existing SelectionVector in-place */
-    filterSelected(value: K, selectionVector: SelectionVector): void {
-        let writeIndex = 0;
-        const vector = selectionVector.selectionValues();
-        for (let i = 0; i < selectionVector.limit; i++) {
-            const index = vector[i];
-            if (this.has(index) && this.getValue(index) === value) {
-                selectionVector.setIndex(writeIndex++, index);
-            }
-        }
-        selectionVector.setLimit(writeIndex);
-    }
+    abstract filterSelected(value: K, selectionVector: SelectionVector): void;
 
-    filterNotEqualSelected(value: K, selectionVector: SelectionVector): void {
-        let writeIndex = 0;
-        const vector = selectionVector.selectionValues();
-        for (let i = 0; i < selectionVector.limit; i++) {
-            const index = vector[i];
-            if (!this.has(index) || this.getValue(index) !== value) {
-                selectionVector.setIndex(writeIndex++, index);
-            }
-        }
-        selectionVector.setLimit(writeIndex);
-    }
+    abstract filterNotEqualSelected(value: K, selectionVector: SelectionVector): void;
 
     /* updates the values and limit of the existing SelectionVector in-place */
-    matchSelected(values: K[], selectionVector: SelectionVector): void {
-        let writeIndex = 0;
-        const vector = selectionVector.selectionValues();
-        for (let i = 0; i < selectionVector.limit; i++) {
-            const index = vector[i];
-            if (!this.has(index)) continue;
-            const value = this.getValue(index);
-            const matchCount = values.filter(v => v === value).length;
-            for (let k = 0; k < matchCount; k++) {
-                selectionVector.setIndex(writeIndex++, index);
-            }
-        }
-        selectionVector.setLimit(writeIndex);
-    }
+    abstract matchSelected(values: K[], selectionVector: SelectionVector): void;
 
-    noneMatchSelected(values: K[], selectionVector: SelectionVector): void {
-        let writeIndex = 0;
-        const vector = selectionVector.selectionValues();
-        for (let i = 0; i < selectionVector.limit; i++) {
-            const index = vector[i];
-            if (this.has(index) && !values.includes(this.getValue(index))) {
-                selectionVector.setIndex(writeIndex++, index);
-            }
-        }
-        selectionVector.setLimit(writeIndex);
-    }
+    abstract noneMatchSelected(values: K[], selectionVector: SelectionVector): void;
 
-    greaterThanOrEqualTo(value: K): SelectionVector {
-        const selectionVector = [];
-        for (let i = 0; i < this._size; i++) {
-            if (this.has(i) && this.getValue(i) >= value) {
-                selectionVector.push(i);
-            }
-        }
-        return new FlatSelectionVector(selectionVector);
-    }
+    abstract greaterThanOrEqualTo(value: K): SelectionVector;
 
-    smallerThanOrEqualTo(value: K): SelectionVector {
-        const selectionVector = [];
-        for (let i = 0; i < this._size; i++) {
-            if (this.has(i) && this.getValue(i) <= value) {
-                selectionVector.push(i);
-            }
-        }
-        return new FlatSelectionVector(selectionVector);
-    }
+    abstract smallerThanOrEqualTo(value: K): SelectionVector;
 
-    greaterThanOrEqualToSelected(value: K, selectionVector: SelectionVector): void {
-        let writeIndex = 0;
-        const vector = selectionVector.selectionValues();
-        for (let i = 0; i < selectionVector.limit; i++) {
-            const index = vector[i];
-            if (this.has(index) && this.getValue(index) >= value) {
-                selectionVector.setIndex(writeIndex++, index);
-            }
-        }
-        selectionVector.setLimit(writeIndex);
-    }
+    abstract greaterThanOrEqualToSelected(value: K, selectionVector: SelectionVector): void;
 
-    smallerThanOrEqualToSelected(value: K, selectionVector: SelectionVector): void {
-        let writeIndex = 0;
-        const vector = selectionVector.selectionValues();
-        for (let i = 0; i < selectionVector.limit; i++) {
-            const index = vector[i];
-            if (this.has(index) && this.getValue(index) <= value) {
-                selectionVector.setIndex(writeIndex++, index);
-            }
-        }
-        selectionVector.setLimit(writeIndex);
-    }
+    abstract smallerThanOrEqualToSelected(value: K, selectionVector: SelectionVector): void;
 }
