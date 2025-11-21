@@ -22,7 +22,7 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 @FunctionalInterface
 interface TriConsumer<A, B, C> {
@@ -90,7 +90,7 @@ public class MltDecoderTest {
   private void testTile(
       String tileId,
       String tileDirectory,
-      TriConsumer<byte[], MltTilesetMetadata.TileSetMetadata, MapboxVectorTile> decodeAndCompare,
+      TriConsumer<byte[], MltMetadata.TileSetMetadata, MapboxVectorTile> decodeAndCompare,
       @SuppressWarnings("SameParameterValue") TestUtils.Optimization optimization,
       List<String> reassignableLayers,
       @SuppressWarnings("SameParameterValue") boolean useFastPFOR,

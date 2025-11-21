@@ -10,7 +10,7 @@ import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class StringDecoder {
 
@@ -39,7 +39,7 @@ public class StringDecoder {
   }
 
   public static Triple<HashMap<String, Integer>, HashMap<String, BitSet>, Map<String, List<String>>>
-      decodeSharedDictionary(byte[] data, IntWrapper offset, MltTilesetMetadata.Column column)
+      decodeSharedDictionary(byte[] data, IntWrapper offset, MltMetadata.Column column)
           throws IOException {
     List<Integer> dictionaryLengthStream = null;
     byte[] dictionaryStream = null;
@@ -103,12 +103,11 @@ public class StringDecoder {
     var presentStreams = new HashMap<String, BitSet>();
     var numValues = new HashMap<String, Integer>();
     var values = new HashMap<String, List<String>>();
-    for (var childField : column.getComplexType().getChildrenList()) {
+    for (var childField : column.complexType.children) {
       var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
       if (numStreams != 2
-          || childField.hasComplexField()
-          || childField.getScalarField().getPhysicalType()
-              != MltTilesetMetadata.ScalarType.STRING) {
+          || childField.complexType != null
+          || childField.scalarType.physicalType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Currently only optional string fields are implemented for a struct.");
       }
@@ -134,7 +133,7 @@ public class StringDecoder {
         }
       }
 
-      final var columnName = column.getName() + childField.getName();
+      final var columnName = column.name + childField.name;
       // TODO: refactor to work also when present stream is null
       numValues.put(columnName, presentStreamMetadata.numValues());
       presentStreams.put(columnName, presentStream);
@@ -287,7 +286,7 @@ public class StringDecoder {
 
   public static List<String> decodeFsstDictionaryEncodedStringColumn(byte[] data, IntWrapper offset)
       throws IOException {
-    /* FsstDictionary -> SymbolTable, SymbolLength, CompressedCorups, Length, Data */
+    /* FsstDictionary -> SymbolTable, SymbolLength, CompressedCorpus, Length, Data */
     // TODO: get rid of that IntWrapper creation
     var symbolTableOffset = new IntWrapper(offset.get());
     var symbolTableMetadata = StreamMetadataDecoder.decode(data, symbolTableOffset);

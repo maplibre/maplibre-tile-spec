@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -24,7 +25,7 @@ import org.maplibre.mlt.converter.encodings.StringEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class StringDecoderTest {
 
@@ -57,14 +58,9 @@ public class StringDecoderTest {
     var values = List.of(values1, values2);
     var encodedValues = encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
-    var tileMetadata =
-        MltTilesetMetadata.Column.newBuilder()
-            .setName("Test")
-            .setNullable(true)
-            .setScalarType(
-                MltTilesetMetadata.ScalarColumn.newBuilder()
-                    .setPhysicalType(MltTilesetMetadata.ScalarType.STRING))
-            .build();
+    final var tileMetadata =
+        new MltMetadata.Column("Test", new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING));
+    tileMetadata.isNullable = true;
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
@@ -83,14 +79,10 @@ public class StringDecoderTest {
     final var encodedValues =
         encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
-    final var test = createField("Test", MltTilesetMetadata.ScalarType.STRING);
-    final var test2 = createField("Test2", MltTilesetMetadata.ScalarType.STRING);
-    final var tileMetadata =
-        MltTilesetMetadata.Column.newBuilder()
-            .setName("Parent")
-            .setNullable(true)
-            .setComplexType(createComplexColumn(test, test2))
-            .build();
+    final var test = createField("Test", MltMetadata.ScalarType.STRING);
+    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING);
+    final var tileMetadata = new MltMetadata.Column("Parent", createComplexColumn(test, test2));
+    tileMetadata.isNullable = true;
 
     var decodedValues =
         StringDecoder.decodeSharedDictionary(
@@ -101,23 +93,17 @@ public class StringDecoderTest {
     Assert.equals(values2, v.get("ParentTest2"));
   }
 
-  private MltTilesetMetadata.ScalarField createField(MltTilesetMetadata.ScalarType type) {
-    return MltTilesetMetadata.ScalarField.newBuilder().setPhysicalType(type).build();
+  private MltMetadata.ScalarField createField(MltMetadata.ScalarType type) {
+    return new MltMetadata.ScalarField(type);
   }
 
-  private MltTilesetMetadata.Field createField(
-      String name, @SuppressWarnings("SameParameterValue") MltTilesetMetadata.ScalarType type) {
-    return MltTilesetMetadata.Field.newBuilder()
-        .setName(name)
-        .setScalarField(createField(type))
-        .build();
+  private MltMetadata.Field createField(
+      String name, @SuppressWarnings("SameParameterValue") MltMetadata.ScalarType type) {
+    return new MltMetadata.Column(name, createField(type));
   }
 
-  private MltTilesetMetadata.ComplexColumn createComplexColumn(MltTilesetMetadata.Field... fields) {
-    return MltTilesetMetadata.ComplexColumn.newBuilder()
-        .setPhysicalType(MltTilesetMetadata.ComplexType.STRUCT)
-        .addAllChildren(() -> Arrays.stream(fields).iterator())
-        .build();
+  private MltMetadata.ComplexField createComplexColumn(MltMetadata.Field... fields) {
+    return new MltMetadata.ComplexField(MltMetadata.ComplexType.STRUCT, Arrays.asList(fields));
   }
 
   @Test
@@ -130,14 +116,10 @@ public class StringDecoderTest {
     final var encodedValues =
         encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, false);
 
-    final var test = createField("Test", MltTilesetMetadata.ScalarType.STRING);
-    final var test2 = createField("Test2", MltTilesetMetadata.ScalarType.STRING);
-    final var tileMetadata =
-        MltTilesetMetadata.Column.newBuilder()
-            .setName("Parent")
-            .setNullable(true)
-            .setComplexType(createComplexColumn(test, test2))
-            .build();
+    final var test = createField("Test", MltMetadata.ScalarType.STRING);
+    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING);
+    final var tileMetadata = new MltMetadata.Column("Parent", createComplexColumn(test, test2));
+    tileMetadata.isNullable = true;
 
     final var decodeResults =
         StringDecoder.decodeSharedDictionary(
@@ -194,14 +176,10 @@ public class StringDecoderTest {
     final var encodedValues =
         encodeSharedDictionary(values, PhysicalLevelTechnique.FAST_PFOR, true);
 
-    final var test = createField("Test", MltTilesetMetadata.ScalarType.STRING);
-    final var test2 = createField("Test2", MltTilesetMetadata.ScalarType.STRING);
-    final var tileMetadata =
-        MltTilesetMetadata.Column.newBuilder()
-            .setName("Parent")
-            .setNullable(true)
-            .setComplexType(createComplexColumn(test, test2))
-            .build();
+    final var test = createField("Test", MltMetadata.ScalarType.STRING);
+    final var test2 = createField("Test2", MltMetadata.ScalarType.STRING);
+    final var tileMetadata = new MltMetadata.Column("Parent", createComplexColumn(test, test2));
+    tileMetadata.isNullable = true;
 
     final var decodeResult =
         StringDecoder.decodeSharedDictionary(
@@ -254,12 +232,10 @@ public class StringDecoderTest {
             .toList();
     final var encodedValues = encodeSharedDictionary(List.of(values), technique, false);
     final var tileMetadata =
-        MltTilesetMetadata.Column.newBuilder()
-            .setName("TestParent:")
-            .setNullable(true)
-            .setComplexType(
-                createComplexColumn(createField("TestChild", MltTilesetMetadata.ScalarType.STRING)))
-            .build();
+        new MltMetadata.Column(
+            "TestParent:",
+            createComplexColumn(createField("TestChild", MltMetadata.ScalarType.STRING)));
+    tileMetadata.isNullable = true;
     var decodeResult =
         StringDecoder.decodeSharedDictionary(
             encodedValues.getRight(), new IntWrapper(0), tileMetadata);
@@ -282,17 +258,17 @@ public class StringDecoderTest {
     final var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
     final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
     final var fieldMetadata =
-        tileMetadata.getFeatureTables(tableIndex).getColumnsList().stream()
-            .filter(f -> f.getName().equals("name"))
+        tileMetadata.featureTables.get(tableIndex).columns.stream()
+            .filter(f -> Objects.equals(f.name, "name"))
             .findFirst()
             .orElseThrow();
 
     var layer = mvTile.layers().get(tableIndex);
     var sharedValues = new ArrayList<List<String>>();
-    for (var column : fieldMetadata.getComplexType().getChildrenList()) {
+    for (var column : fieldMetadata.complexType.children) {
       var values = new ArrayList<String>();
       for (var feature : layer.features()) {
-        values.add((String) feature.properties().get(fieldMetadata.getName() + column.getName()));
+        values.add((String) feature.properties().get(fieldMetadata.name + column.name));
       }
       sharedValues.add(values);
     }
@@ -306,10 +282,10 @@ public class StringDecoderTest {
             encodedValues.getRight(), new IntWrapper(0), fieldMetadata);
     final var decodedValues = decodeResult.getRight();
 
-    for (var column : fieldMetadata.getComplexType().getChildrenList()) {
+    for (var column : fieldMetadata.complexType.children) {
       var i = 0;
       for (var feature : layer.features()) {
-        final var propertyName = fieldMetadata.getName() + column.getName();
+        final var propertyName = fieldMetadata.name + column.name;
         final var expectedValue = (String) feature.properties().get(propertyName);
         final var field = decodedValues.get(propertyName);
         Assert.isTrue(expectedValue == null || field != null);
@@ -342,15 +318,15 @@ public class StringDecoderTest {
             "place:name", 68,
             "place:name_", 3);
     int found = 0;
-    for (var table : metadata.getFeatureTablesList()) {
-      for (var column : table.getColumnsList()) {
-        if (column.hasComplexType()
-            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
-          final var complex = column.getComplexType();
-          final var fieldKey = table.getName() + ":" + column.getName();
+    for (var table : metadata.featureTables) {
+      for (var column : table.columns) {
+        if (column.complexType != null
+            && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
+          final var complex = column.complexType;
+          final var fieldKey = table.name + ":" + column.name;
           Assert.equals(
               expected.get(fieldKey),
-              complex.getChildrenCount(),
+              complex.children.size(),
               "Unexpected number of children in " + fieldKey);
           found++;
         }
@@ -378,16 +354,16 @@ public class StringDecoderTest {
             "water_name:name", 5,
             "place:name", 5);
     int found = 0;
-    for (var table : metadata.getFeatureTablesList()) {
-      for (var column : table.getColumnsList()) {
-        if (column.hasComplexType()
-            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
-          final var complex = column.getComplexType();
-          final var fieldKey = table.getName() + ":" + column.getName();
+    for (var table : metadata.featureTables) {
+      for (var column : table.columns) {
+        if (column.complexType != null
+            && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
+          final var complex = column.complexType;
+          final var fieldKey = table.name + ":" + column.name;
           Assert.isTrue(expected.containsKey(fieldKey));
           Assert.equals(
               expected.get(fieldKey),
-              complex.getChildrenCount(),
+              complex.children.size(),
               "Unexpected number of children in " + fieldKey);
           found++;
         }

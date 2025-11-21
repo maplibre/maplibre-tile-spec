@@ -43,36 +43,4 @@ public class BooleanEncoder {
     streamObserver.observeStream(streamName, values, valuesMetadata, encodedValueStream);
     return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
   }
-
-  /*
-   * Combines a BitVector encoding with the Byte RLE encoding form the ORC format
-   * */
-  public static byte[] encodeBooleanStreamOptimized(
-      List<Boolean> values,
-      PhysicalStreamType streamType,
-      @NotNull MLTStreamObserver streamObserver,
-      @Nullable String streamName)
-      throws IOException {
-    var valueStream = new BitSet(values.size());
-    for (var i = 0; i < values.size(); i++) {
-      var value = values.get(i);
-      valueStream.set(i, value);
-    }
-
-    var encodedValueStream = EncodingUtils.encodeBooleanRle(valueStream, values.size());
-    /* For Boolean RLE the additional information provided by the RleStreamMetadata class are not needed */
-    var valuesMetadata =
-        new StreamMetadata(
-                streamType,
-                null,
-                LogicalLevelTechnique.RLE,
-                LogicalLevelTechnique.NONE,
-                PhysicalLevelTechnique.NONE,
-                values.size(),
-                encodedValueStream.length)
-            .encode();
-
-    streamObserver.observeStream(streamName, values, valuesMetadata, encodedValueStream);
-    return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
-  }
 }
