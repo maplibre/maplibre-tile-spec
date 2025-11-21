@@ -16,14 +16,16 @@ public class Server {
     return startServer(port);
   }
 
+  @SuppressWarnings("try") // Use `_` (unnamed variable) with JDK22+
   private boolean isRunning(int port) {
-    try (Socket client = new Socket("localhost", port)) {
+    try (final Socket ignored = new Socket("localhost", port)) {
       return true;
     } catch (Exception e) {
       return false;
     }
   }
 
+  @SuppressWarnings("InfiniteLoopStatement")
   private boolean startServer(int port) {
     try (ServerSocket server = new ServerSocket(port)) {
       System.out.println("Server started on port " + port);

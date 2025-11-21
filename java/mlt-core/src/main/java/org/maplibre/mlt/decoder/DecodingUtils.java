@@ -9,13 +9,11 @@ import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.List;
 import me.lemire.integercompression.*;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.orc.impl.BufferChunk;
 import org.apache.orc.impl.InStream;
 import org.apache.orc.impl.RunLengthByteReader;
-import org.maplibre.mlt.converter.geometry.ZOrderCurve;
 
 public class DecodingUtils {
   private DecodingUtils() {}
@@ -127,20 +125,8 @@ public class DecodingUtils {
     return (encoded >>> 1) ^ (-(encoded & 1));
   }
 
-  public static void decodeZigZag(int[] encoded) {
-    for (var i = 0; i < encoded.length; i++) {
-      encoded[i] = decodeZigZag(encoded[i]);
-    }
-  }
-
   public static long decodeZigZag(long encoded) {
     return (encoded >>> 1) ^ (-(encoded & 1));
-  }
-
-  public static void decodeZigZag(long[] encoded) {
-    for (var i = 0; i < encoded.length; i++) {
-      encoded[i] = decodeZigZag(encoded[i]);
-    }
   }
 
   public static int[] decodeFastPfor(
@@ -213,25 +199,6 @@ public class DecodingUtils {
     return values;
   }
 
-  public static void decodeFastPforOptimized(
-      byte[] buffer, IntWrapper offset, int byteLength, int[] decodedValues) {
-    // TODO: get rid of that conversion
-    IntBuffer intBuf =
-        ByteBuffer.wrap(buffer, offset.get(), byteLength)
-            // TODO: change to little endian
-            .order(ByteOrder.BIG_ENDIAN)
-            .asIntBuffer();
-    int[] intValues = new int[(int) Math.ceil(byteLength / 4d)];
-    for (var i = 0; i < intValues.length; i++) {
-      intValues[i] = intBuf.get(i);
-    }
-
-    IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
-    ic.uncompress(intValues, new IntWrapper(0), intValues.length, decodedValues, new IntWrapper(0));
-
-    offset.add(byteLength);
-  }
-
   public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
       throws IOException {
     var inStream =
@@ -284,18 +251,6 @@ public class DecodingUtils {
       offset += runLength;
     }
     return values;
-  }
-
-  public static int[] decodeMortonCode(List<Integer> mortonCodes, ZOrderCurve zOrderCurve) {
-    var vertexBuffer = new int[mortonCodes.size() * 2];
-    for (var i = 0; i < mortonCodes.size(); i++) {
-      var mortonCode = mortonCodes.get(i);
-      var vertex = zOrderCurve.decode(mortonCode);
-      vertexBuffer[i * 2] = vertex[0];
-      vertexBuffer[i * 2 + 1] = vertex[1];
-    }
-
-    return vertexBuffer;
   }
 
   public static float[] decodeFloatsLE(byte[] encodedValues, IntWrapper pos, int numValues) {

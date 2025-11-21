@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltTypeMapTest {
   @Test
@@ -16,8 +16,7 @@ public class MltTypeMapTest {
             28, 29, 30);
 
     for (var i = 0; i < 100; ++i) {
-      final MltTilesetMetadata.Column.Builder[] columns =
-          new MltTilesetMetadata.Column.Builder[] {null};
+      final MltMetadata.Column[] columns = new MltMetadata.Column[] {null};
       if (valid.contains(i)) {
         final var typeCode = i;
         Assertions.assertDoesNotThrow(
@@ -36,25 +35,25 @@ public class MltTypeMapTest {
 
       // STRUCT must have children before being re-encoded
       if (MltTypeMap.Tag0x01.columnTypeHasChildren(i)) {
-        column.setComplexType(
-            MltTilesetMetadata.ComplexColumn.newBuilder(column.getComplexType())
-                .addChildren(MltTilesetMetadata.Field.newBuilder()));
+        column.complexType.children.add(
+            new MltMetadata.Field(
+                null, new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING)));
       }
 
-      final boolean complex = column.hasComplexType();
+      final boolean complex = column.complexType != null;
       final boolean logical =
-          (complex && column.getComplexType().hasLogicalType())
-              || (!complex && column.getScalarType().hasLogicalType());
+          (complex && column.complexType.logicalType != null)
+              || (!complex && column.scalarType.logicalType != null);
 
       final var typeCode =
           MltTypeMap.Tag0x01.encodeColumnType(
-                  (!complex && !logical) ? column.getScalarType().getPhysicalType() : null,
-                  (!complex && logical) ? column.getScalarType().getLogicalType() : null,
-                  (complex && !logical) ? column.getComplexType().getPhysicalType() : null,
-                  (complex && logical) ? column.getComplexType().getLogicalType() : null,
-                  column.getNullable(),
-                  complex && !column.getComplexType().getChildrenList().isEmpty(),
-                  !complex && column.getScalarType().getLongID())
+                  (!complex && !logical) ? column.scalarType.physicalType : null,
+                  (!complex && logical) ? column.scalarType.logicalType : null,
+                  (complex && !logical) ? column.complexType.physicalType : null,
+                  (complex && logical) ? column.complexType.logicalType : null,
+                  column.isNullable,
+                  complex && !column.complexType.children.isEmpty(),
+                  !complex && column.scalarType.hasLongId)
               .or(Assertions::fail);
       assertEquals(typeCode.get(), i);
     }

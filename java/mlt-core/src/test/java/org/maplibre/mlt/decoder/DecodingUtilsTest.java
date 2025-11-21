@@ -3,15 +3,11 @@ package org.maplibre.mlt.decoder;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import me.lemire.integercompression.IntWrapper;
-import org.apache.commons.lang3.ArrayUtils;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.decoder.vectorized.VectorizedDecodingUtils;
-import org.maplibre.mlt.vector.BitVector;
 
 public class DecodingUtilsTest {
 
@@ -45,31 +41,6 @@ public class DecodingUtilsTest {
 
     Assert.equals(value, decodedValue);
     Assert.equals(value2, decodedValue2);
-  }
-
-  @Test
-  @Disabled
-  public void decodeNullableDelta() {
-    // var values = new int[] {10, 14, 16, 19};
-    var expectedValues = new int[] {10, 14, 14, 16, 16, 19, 19};
-    var deltaValues = new int[] {10, 4, 2, 3};
-    // 0101011
-    var byteBuffer = ByteBuffer.wrap(new byte[] {0x2B});
-    var bitVector = new BitVector(byteBuffer, 7);
-
-    var decodedData = VectorizedDecodingUtils.decodeNullableZigZagDelta(bitVector, deltaValues);
-
-    assertArrayEquals(expectedValues, decodedData);
-  }
-
-  @Test
-  void deltaOfDeltaDecoding() {
-    var offsets = new int[] {2, 6, 8, 14};
-    // var numParts = new int[] {2, 4, 2, 6}; // delta coded
-    var deltaCodedNumParts = new int[] {2, 2, -2, 4}; // delta of delta coded
-    var zigZagEncodedValues = EncodingUtils.encodeZigZag(deltaCodedNumParts);
-    var decodedValues = VectorizedDecodingUtils.zigZagDeltaOfDeltaDecoding(zigZagEncodedValues);
-    assertArrayEquals(ArrayUtils.addAll(new int[] {0}, offsets), decodedValues);
   }
 
   @Test
