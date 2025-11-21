@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.*;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class PropertyDecoder {
 
@@ -41,7 +41,7 @@ public class PropertyDecoder {
   private static Object decodeScalarPropertyColumn(
       byte[] data,
       IntWrapper offset,
-      MltTilesetMetadata.ScalarColumn scalarType,
+      MltMetadata.ScalarField scalarType,
       boolean nullable,
       int numStreams)
       throws IOException {
@@ -58,7 +58,7 @@ public class PropertyDecoder {
       presentStreamSize = 0;
     }
 
-    switch (scalarType.getPhysicalType()) {
+    switch (scalarType.physicalType) {
       case BOOLEAN:
         {
           final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
@@ -77,7 +77,7 @@ public class PropertyDecoder {
                   data,
                   offset,
                   dataStreamMetadata,
-                  scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_32);
+                  scalarType.physicalType == MltMetadata.ScalarType.INT_32);
           return unpack(dataStream, presentStream, presentStreamSize);
         }
       case FLOAT:
@@ -103,7 +103,7 @@ public class PropertyDecoder {
                   data,
                   offset,
                   dataStreamMetadata,
-                  scalarType.getPhysicalType() == MltTilesetMetadata.ScalarType.INT_64);
+                  scalarType.physicalType == MltMetadata.ScalarType.INT_64);
           return unpack(dataStream, presentStream, presentStreamSize);
         }
       case STRING:
@@ -124,12 +124,12 @@ public class PropertyDecoder {
   }
 
   public static Object decodePropertyColumn(
-      byte[] data, IntWrapper offset, MltTilesetMetadata.Column column, int numStreams)
+      byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
       throws IOException {
 
-    if (column.hasScalarType()) {
+    if (column.scalarType != null) {
       return decodeScalarPropertyColumn(
-          data, offset, column.getScalarType(), column.getNullable(), numStreams);
+          data, offset, column.scalarType, column.isNullable, numStreams);
     }
 
     /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */

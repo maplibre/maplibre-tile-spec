@@ -31,7 +31,7 @@ import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltGenerator {
   private static final int MIN_ZOOM = 0;
@@ -73,10 +73,7 @@ public class MltGenerator {
         try {
           final var isIdPresent = false;
           final var tileMetadata =
-              writeTileSetMetadata(
-                  MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, isIdPresent),
-                  MLT_OUTPUT_DIR);
-
+              MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, isIdPresent);
           final var mlTile = convertMvtToMlt(optimizations, true, mvTile, tileMetadata);
 
           final var z = tileId.getLeft();
@@ -126,9 +123,7 @@ public class MltGenerator {
       try {
         final var isIdPresent = false;
         final var tileMetadata =
-            writeTileSetMetadata(
-                MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, isIdPresent),
-                MLT_SPECIFIC_TILES_OUTPUT_DIR);
+            MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, isIdPresent);
 
         var mlTile = convertMvtToMlt(optimizations, USE_POLYGON_TESSELLATION, mvTile, tileMetadata);
 
@@ -153,10 +148,7 @@ public class MltGenerator {
         try {
           final var isIdPresent = false;
           final var tileMetadata =
-              writeTileSetMetadata(
-                  MltConverter.createTilesetMetadata(
-                      mvTile.getMiddle(), COLUMN_MAPPINGS, isIdPresent),
-                  MLT_SPECIFIC_TILES_OUTPUT_DIR);
+              MltConverter.createTilesetMetadata(mvTile.getMiddle(), COLUMN_MAPPINGS, isIdPresent);
 
           var mlTile =
               convertMvtToMlt(
@@ -197,7 +189,7 @@ public class MltGenerator {
       Map<String, FeatureTableOptimizations> optimizations,
       boolean preTessellatePolygons,
       MapboxVectorTile mvTile,
-      MltTilesetMetadata.TileSetMetadata tileMetadata)
+      MltMetadata.TileSetMetadata tileMetadata)
       throws IOException {
     var config =
         new ConversionConfig(
@@ -210,13 +202,6 @@ public class MltGenerator {
             USE_MORTON_ENCODING,
             OUTLINE_POLYGON_FEATURE_TABLE_NAMES);
     return MltConverter.convertMvt(mvTile, tileMetadata, config, null);
-  }
-
-  private static MltTilesetMetadata.TileSetMetadata writeTileSetMetadata(
-      MltTilesetMetadata.TileSetMetadata tilesetMetadata, String mltOutputDir) throws IOException {
-    var outputMetadataPath = Paths.get(mltOutputDir, TILESET_METADATA_FILE_NAME);
-    tilesetMetadata.writeTo(Files.newOutputStream(outputMetadataPath));
-    return tilesetMetadata;
   }
 
   private static void writeTile(

@@ -14,7 +14,7 @@ import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltDecoder {
   private MltDecoder() {}
@@ -54,27 +54,26 @@ public class MltDecoder {
 
   /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
   public static Layer decodeMltLayer(
-      byte[] tile, MltTilesetMetadata.FeatureTableSchema layerMetadata, int tileExtent)
-      throws IOException {
+      byte[] tile, MltMetadata.FeatureTable layerMetadata, int tileExtent) throws IOException {
     final var offset = new IntWrapper(0);
     List<Long> ids = null;
     Geometry[] geometries = null;
     final var properties = new HashMap<String, List<Object>>();
-    for (var columnMetadata : layerMetadata.getColumnsList()) {
-      final var columnName = columnMetadata.getName();
+    for (var columnMetadata : layerMetadata.columns) {
+      final var columnName = columnMetadata.name;
       final var hasStreamCount = MltTypeMap.Tag0x01.hasStreamCount(columnMetadata);
       final var numStreams = hasStreamCount ? DecodingUtils.decodeVarints(tile, offset, 1)[0] : 0;
       // TODO: add decoding of vector type to be compliant with the spec
       // TODO: compare based on ids
       if (MltTypeMap.Tag0x01.isID(columnMetadata)) {
-        if (columnMetadata.getNullable()) {
+        if (columnMetadata.isNullable) {
           final var presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
           // TODO: handle present stream -> should a id column even be nullable?
           offset.add(presentStreamMetadata.byteLength());
         }
 
         final var idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-        if (columnMetadata.getScalarType().getLongID()) {
+        if (columnMetadata.scalarType.hasLongId) {
           ids = IntegerDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
         } else {
           ids =
@@ -119,7 +118,7 @@ public class MltDecoder {
       List<Long> ids,
       Geometry[] geometries,
       Map<String, List<Object>> properties,
-      MltTilesetMetadata.FeatureTableSchema metadata,
+      MltMetadata.FeatureTable metadata,
       int tileExtent) {
     if (ids != null && geometries.length != ids.size()) {
       System.out.println(
@@ -128,7 +127,7 @@ public class MltDecoder {
               + "), geometries("
               + geometries.length
               + "), are not equal for layer: "
-              + metadata.getName());
+              + metadata.name);
     }
     var features = new ArrayList<Feature>(geometries.length);
     for (var j = 0; j < geometries.length; j++) {
@@ -146,39 +145,36 @@ public class MltDecoder {
       features.add(feature);
     }
 
-    return new Layer(metadata.getName(), features, tileExtent);
+    return new Layer(metadata.name, features, tileExtent);
   }
 
-  private static MltTilesetMetadata.Column decodeColumn(InputStream stream) throws IOException {
+  private static MltMetadata.Column decodeColumn(InputStream stream) throws IOException {
     final var typeCode = DecodingUtils.decodeVarint(stream);
     final var column = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
 
     if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
-      column.setName(DecodingUtils.decodeString(stream));
+      column.name = DecodingUtils.decodeString(stream);
     }
 
     if (MltTypeMap.Tag0x01.columnTypeHasChildren(typeCode)) {
       final var childCount = DecodingUtils.decodeVarint(stream);
       for (var i = 0; i < childCount; ++i) {
-        column.setComplexType(
-            MltTilesetMetadata.ComplexColumn.newBuilder(column.getComplexType())
-                .addChildren(MltTypeMap.Tag0x01.toField(decodeColumn(stream))));
+        column.complexType.children.add(decodeColumn(stream));
       }
     }
 
-    return column.build();
+    return column;
   }
 
-  public static Pair<MltTilesetMetadata.FeatureTableSchema, Integer> parseEmbeddedMetadata(
-      InputStream stream) throws IOException {
-    final var table = MltTilesetMetadata.FeatureTableSchema.newBuilder();
-    table.setName(DecodingUtils.decodeString(stream));
+  public static Pair<MltMetadata.FeatureTable, Integer> parseEmbeddedMetadata(InputStream stream)
+      throws IOException {
+    final var table = new MltMetadata.FeatureTable(DecodingUtils.decodeString(stream));
     final var extent = DecodingUtils.decodeVarint(stream);
 
     final var columnCount = DecodingUtils.decodeVarint(stream);
     for (int i = 0; i < columnCount; ++i) {
-      table.addColumns(decodeColumn(stream));
+      table.columns.add(decodeColumn(stream));
     }
-    return Pair.of(table.build(), extent);
+    return Pair.of(table, extent);
   }
 }

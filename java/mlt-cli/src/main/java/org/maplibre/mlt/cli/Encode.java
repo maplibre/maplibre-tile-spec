@@ -74,7 +74,7 @@ import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.decoder.MltDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class Encode {
 
@@ -448,7 +448,7 @@ public class Encode {
   private static ConversionConfig applyColumnMappingsToConversionConfig(
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
-      MltTilesetMetadata.TileSetMetadata metadata) {
+      MltMetadata.TileSetMetadata metadata) {
     // If there are no column mappings, or the config already has optimizations, don't modify it
     if (columnMappings.isEmpty() || !conversionConfig.getOptimizations().isEmpty()) {
       return conversionConfig;
@@ -458,16 +458,16 @@ public class Encode {
     // TODO: Allow per-layer settings, and access to the other options
     // final var commonOptimization = new FeatureTableOptimizations(false, false, columnMappings);
     final var optimizationMap =
-        metadata.getFeatureTablesList().stream()
+        metadata.featureTables.stream()
             .collect(
                 Collectors.toUnmodifiableMap(
-                    MltTilesetMetadata.FeatureTableSchema::getName,
+                    t -> t.name,
                     table ->
                         new FeatureTableOptimizations(
                             false,
                             false,
                             columnMappings.entrySet().stream()
-                                .filter(entry -> entry.getKey().matcher(table.getName()).matches())
+                                .filter(entry -> entry.getKey().matcher(table.name).matches())
                                 .flatMap(entry -> entry.getValue().stream())
                                 .toList())));
     return new ConversionConfig(
@@ -516,14 +516,16 @@ public class Encode {
         final var metadata = mbTilesReader.getMetadata();
         mbTilesWriter.addMetadataEntry(metadata);
 
-        final var pbMeta = MltTilesetMetadata.TileSetMetadata.newBuilder();
-        pbMeta.setName(metadata.getTilesetName());
-        pbMeta.setAttribution(metadata.getAttribution());
-        pbMeta.setDescription(metadata.getTilesetDescription());
+        final var pbMeta = new MltMetadata.TileSetMetadata();
+        pbMeta.name = metadata.getTilesetName();
+        pbMeta.attribution = metadata.getAttribution();
+        pbMeta.description = metadata.getTilesetDescription();
+
         final var bounds = metadata.getTilesetBounds();
-        pbMeta.addAllBounds(
-            List.of(bounds.getLeft(), bounds.getTop(), bounds.getRight(), bounds.getBottom()));
-        final var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta.build());
+        pbMeta.bounds =
+            List.of(bounds.getLeft(), bounds.getTop(), bounds.getRight(), bounds.getBottom());
+
+        final var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta);
 
         final var tiles = mbTilesReader.getTiles();
         try {
@@ -976,18 +978,17 @@ public class Encode {
   }
 
   private static void printColumnMappings(
-      MltTilesetMetadata.TileSetMetadata metadata,
+      MltMetadata.TileSetMetadata metadata,
       @SuppressWarnings("SameParameterValue") PrintStream out) {
-    for (var table : metadata.getFeatureTablesList()) {
-      for (var column : table.getColumnsList()) {
-        if (column.hasComplexType()
-            && column.getComplexType().hasPhysicalType()
-            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
+    for (var table : metadata.featureTables) {
+      for (var column : table.columns) {
+        if (column.complexType != null
+            && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
           out.format(
               "Found column mapping: %s => %s%n",
-              table.getName(),
-              column.getComplexType().getChildrenList().stream()
-                  .map(f -> column.getName() + f.getName())
+              table.name,
+              column.complexType.children.stream()
+                  .map(f -> column.name + f.name)
                   .collect(Collectors.joining(", ")));
         }
       }
