@@ -97,6 +97,10 @@ public class PropertyEncoder {
      * the other in the sequence */
     final var complexType = columnMetadata.complexType;
     for (var nestedFieldMetadata : complexType.children) {
+      if (nestedFieldMetadata.scalarType == null) {
+        throw new IllegalArgumentException(
+            "Nested field '" + nestedFieldMetadata.name + "' has null scalarType");
+      }
       final var scalarType = nestedFieldMetadata.scalarType.physicalType;
       if (scalarType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
@@ -219,6 +223,9 @@ public class PropertyEncoder {
       boolean coercePropertyValues,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
+    if (columnMetadata.scalarType == null) {
+      throw new IllegalArgumentException("scalarType must not be null");
+    }
     final var scalarType = columnMetadata.scalarType.physicalType;
     return switch (scalarType) {
       case BOOLEAN ->

@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
-import org.maplibre.mlt.metadata.tileset.MltMetadata;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;
 
@@ -28,7 +27,6 @@ public class OmtDecoderBenchmark {
   private static final Map<Integer, ByteArrayInputStream> encodedMvtTiles2 = new HashMap<>();
   private static final Map<Integer, byte[]> compressedMVTiles = new HashMap<>();
   private static final Map<Integer, byte[]> encodedMltTiles = new HashMap<>();
-  private static final Map<Integer, MltMetadata.TileSetMetadata> tileMetadata = new HashMap<>();
   private static final String SEPARATOR = "_";
 
   @Setup

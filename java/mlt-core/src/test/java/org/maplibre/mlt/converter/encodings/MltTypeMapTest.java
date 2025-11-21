@@ -35,6 +35,8 @@ public class MltTypeMapTest {
 
       // STRUCT must have children before being re-encoded
       if (MltTypeMap.Tag0x01.columnTypeHasChildren(i)) {
+        Assertions.assertNotNull(column.complexType);
+        Assertions.assertNotNull(column.complexType.children);
         column.complexType.children.add(
             new MltMetadata.Field(
                 null, new MltMetadata.ScalarField(MltMetadata.ScalarType.STRING)));
