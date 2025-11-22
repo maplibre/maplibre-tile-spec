@@ -87,12 +87,13 @@ public class StringDecoder {
 
     List<String> dictionary = null;
     if (symbolLengthStream != null && symbolTableStream != null && dictionaryLengthStream != null) {
-      @SuppressWarnings("deprecation")
+      var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
       var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
               symbolLengthStream.stream().mapToInt(i -> i).toArray(),
-              dictionaryStream);
+              dictionaryStream,
+              decompressedLength);
       dictionary = decodeDictionary(dictionaryLengthStream, utf8Values);
     } else if (dictionaryLengthStream != null) {
       dictionary = decodeDictionary(dictionaryLengthStream, dictionaryStream);
@@ -208,11 +209,13 @@ public class StringDecoder {
     }
 
     if (symbolTableStream != null && symbolLengthStream != null && dictionaryLengthStream != null) {
+      var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
       var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
               symbolLengthStream.stream().mapToInt(i -> i).toArray(),
-              dictionaryStream);
+              dictionaryStream,
+              decompressedLength);
       return Triple.of(
           numValues,
           presentStream,
@@ -316,12 +319,11 @@ public class StringDecoder {
             compressedCorpusOffset.get(),
             compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
 
-    @SuppressWarnings("deprecation")
+    var length = IntegerDecoder.decodeIntStream(data, lengthOffset, lengthMetadata, false);
+    var decompressedLength = length.stream().mapToInt(i -> i).sum();
     var values =
         FsstEncoder.decode(
-            symbols, symbolLength.stream().mapToInt(i -> i).toArray(), compressedCorpus);
-
-    var length = IntegerDecoder.decodeIntStream(data, lengthOffset, lengthMetadata, false);
+            symbols, symbolLength.stream().mapToInt(i -> i).toArray(), compressedCorpus, decompressedLength);
     var decodedData = IntegerDecoder.decodeIntStream(data, dataOffset, dataMetadata, false);
 
     var decodedDictionary = new ArrayList<String>();
