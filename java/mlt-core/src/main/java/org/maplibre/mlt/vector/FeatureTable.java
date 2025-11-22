@@ -14,26 +14,21 @@ import org.maplibre.mlt.vector.sequence.IntSequenceVector;
 public class FeatureTable implements Iterable<Feature> {
   private final String name;
 
-  @SuppressWarnings("rawtypes")
-  private final Vector idColumn;
+  private final Vector<?, ?> idColumn;
 
   private final GeometryVector geometryColumn;
 
-  @SuppressWarnings("rawtypes")
-  private final Vector[] propertyColumns;
+  private final Vector<?, ?>[] propertyColumns;
 
-  public FeatureTable(
-      String name,
-      GeometryVector geometryVector,
-      @SuppressWarnings("rawtypes") Vector[] properties) {
+  public FeatureTable(String name, GeometryVector geometryVector, Vector<?, ?>[] properties) {
     this(name, null, geometryVector, properties);
   }
 
   public FeatureTable(
       String name,
-      @SuppressWarnings("rawtypes") Vector idColumn,
+      Vector<?, ?> idColumn,
       GeometryVector geometryVector,
-      @SuppressWarnings("rawtypes") Vector[] properties) {
+      Vector<?, ?>[] properties) {
     this.name = name;
     this.idColumn = idColumn;
     this.geometryColumn = geometryVector;
@@ -87,8 +82,7 @@ public class FeatureTable implements Iterable<Feature> {
     return name;
   }
 
-  @SuppressWarnings("rawtypes")
-  public Vector getIdColumn() {
+  public Vector<?, ?> getIdColumn() {
     return idColumn;
   }
 
@@ -96,8 +90,7 @@ public class FeatureTable implements Iterable<Feature> {
     return geometryColumn;
   }
 
-  @SuppressWarnings("rawtypes")
-  public Vector[] getPropertyColumns() {
+  public Vector<?, ?>[] getPropertyColumns() {
     return propertyColumns;
   }
 }
