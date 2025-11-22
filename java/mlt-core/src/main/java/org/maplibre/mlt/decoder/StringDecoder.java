@@ -323,7 +323,10 @@ public class StringDecoder {
     var decompressedLength = length.stream().mapToInt(i -> i).sum();
     var values =
         FsstEncoder.decode(
-            symbols, symbolLength.stream().mapToInt(i -> i).toArray(), compressedCorpus, decompressedLength);
+            symbols,
+            symbolLength.stream().mapToInt(i -> i).toArray(),
+            compressedCorpus,
+            decompressedLength);
     var decodedData = IntegerDecoder.decodeIntStream(data, dataOffset, dataMetadata, false);
 
     var decodedDictionary = new ArrayList<String>();

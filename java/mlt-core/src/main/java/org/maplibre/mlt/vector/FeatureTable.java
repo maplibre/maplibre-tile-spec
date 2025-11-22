@@ -20,10 +20,7 @@ public class FeatureTable implements Iterable<Feature> {
 
   private final Vector<?, ?>[] propertyColumns;
 
-  public FeatureTable(
-      String name,
-      GeometryVector geometryVector,
-      Vector<?, ?>[] properties) {
+  public FeatureTable(String name, GeometryVector geometryVector, Vector<?, ?>[] properties) {
     this(name, null, geometryVector, properties);
   }
 
