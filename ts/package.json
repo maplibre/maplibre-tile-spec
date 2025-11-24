@@ -4,8 +4,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "/dist",
-    "/src"
+    "/dist"
   ],
   "license": "(MIT OR Apache-2.0)",
   "homepage": "https://github.com/maplibre/maplibre-tile-spec/#readme",
