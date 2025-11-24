@@ -11,10 +11,10 @@ export class FlatSelectionVector implements SelectionVector {
      * In write mode the limit is equal to the capacity of the Buffer.
      */
     constructor(
-        private _selectionVector: number[],
+        private _selectionVector: Uint32Array,
         private _limit?: number,
     ) {
-        if (!this._limit) {
+        if (this._limit === undefined) {
             this._limit = this._selectionVector.length;
         }
     }
@@ -46,8 +46,8 @@ export class FlatSelectionVector implements SelectionVector {
     }
 
     /** @inheritdoc */
-    selectionValues(): number[] {
-        return this._selectionVector;
+    selectionValues(): Uint32Array {
+        return this._selectionVector.subarray(0, this._limit);
     }
 
     /** @inheritdoc */

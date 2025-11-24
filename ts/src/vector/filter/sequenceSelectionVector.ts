@@ -5,7 +5,7 @@ import { type SelectionVector } from "./selectionVector";
  * Calculates values on-demand, only materializes when modified.
  */
 export class SequenceSelectionVector implements SelectionVector {
-    private _materializedArray: number[] | null = null;
+    private _materializedArray: Uint32Array | null = null;
 
     constructor(
         private readonly _baseValue: number,
@@ -25,15 +25,15 @@ export class SequenceSelectionVector implements SelectionVector {
     }
 
     /** @inheritdoc */
-    selectionValues(): number[] {
+    selectionValues(): Uint32Array {
         if (!this._materializedArray) {
             this._materializedArray = this.materialize();
         }
-        return this._materializedArray;
+        return this._materializedArray.subarray(0, this._limit);
     }
 
-    private materialize(): number[] {
-        const arr = new Array<number>(this._capacity);
+    private materialize(): Uint32Array {
+        const arr = new Uint32Array(this._capacity);
         for (let i = 0; i < this._capacity; i++) {
             arr[i] = this._baseValue + i * this._delta;
         }
