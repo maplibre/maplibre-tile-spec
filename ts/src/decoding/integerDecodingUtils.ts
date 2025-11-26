@@ -622,18 +622,17 @@ function decodeNullableUnsignedRle(bitVector: BitVector, data: Int32Array, numRu
     for (let i = 0; i < numRuns; i++) {
         const runLength = data[i];
         const value = data[i + numRuns];
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
+        let nonNullCount = 0;
+        while (nonNullCount < runLength && offset < bitVector.size()) {
+            if (bitVector.get(offset)) {
+                values[offset] = value;
+                nonNullCount++;
             } else {
-                values[j] = 0;
-                offset++;
+                values[offset] = 0;
             }
+            offset++;
         }
-        offset += runLength;
     }
-
     return values;
 }
 
@@ -644,18 +643,17 @@ function decodeNullableZigZagRle(bitVector, data: Int32Array, numRuns: number): 
         const runLength = data[i];
         let value = data[i + numRuns];
         value = (value >>> 1) ^ -(value & 1);
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
+        let nonNullCount = 0;
+        while (nonNullCount < runLength && offset < bitVector.size()) {
+            if (bitVector.get(offset)) {
+                values[offset] = value;
+                nonNullCount++;
             } else {
-                values[j] = 0;
-                offset++;
+                values[offset] = 0;
             }
+            offset++;
         }
-        offset += runLength;
     }
-
     return values;
 }
 
@@ -677,16 +675,16 @@ function decodeNullableUnsignedRleInt64(bitVector: BitVector, data: BigInt64Arra
     for (let i = 0; i < numRuns; i++) {
         const runLength = Number(data[i]);
         const value = data[i + numRuns];
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
+        let nonNullCount = 0;
+        while (nonNullCount < runLength && offset < bitVector.size()) {
+            if (bitVector.get(offset)) {
+                values[offset] = value;
+                nonNullCount++;
             } else {
-                values[j] = 0n;
-                offset++;
+                values[offset] = 0n;
             }
+            offset++;
         }
-        offset += runLength;
     }
 
     return values;
@@ -699,16 +697,16 @@ function decodeNullableZigZagRleInt64(bitVector, data: BigInt64Array, numRuns: n
         const runLength = Number(data[i]);
         let value = data[i + numRuns];
         value = (value >> 1n) ^ -(value & 1n);
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
+        let nonNullCount = 0;
+        while (nonNullCount < runLength && offset < bitVector.size()) {
+            if (bitVector.get(offset)) {
+                values[offset] = value;
+                nonNullCount++;
             } else {
-                values[j] = 0n;
-                offset++;
+                values[offset] = 0n;
             }
+            offset++;
         }
-        offset += runLength;
     }
 
     return values;
