@@ -45,7 +45,7 @@ export class StringDecoder {
 
             switch (streamMetadata.physicalStreamType) {
                 case PhysicalStreamType.PRESENT: {
-                    const presentData = decodeBooleanRle(data, streamMetadata.numValues, offset);
+                    const presentData = decodeBooleanRle(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
                     presentStream = new BitVector(presentData, streamMetadata.numValues);
                     break;
                 }
@@ -259,7 +259,7 @@ export class StringDecoder {
             }
 
             const presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, offset);
+            const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
             const offsetStreamMetadata = StreamMetadataDecoder.decode(data, offset);
             const offsetCount = (offsetStreamMetadata instanceof RleEncodedStreamMetadata
                 ? offsetStreamMetadata.numRleValues
