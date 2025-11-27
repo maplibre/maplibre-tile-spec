@@ -40,7 +40,7 @@ export function decodeString(
 
         switch (streamMetadata.physicalStreamType) {
             case PhysicalStreamType.PRESENT: {
-                const presentData = decodeBooleanRle(data, streamMetadata.numValues, offset);
+                const presentData = decodeBooleanRle(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
                 presentStream = new BitVector(presentData, streamMetadata.numValues);
                 break;
             }
@@ -248,7 +248,7 @@ export function decodeSharedDictionary(
         }
 
         const presentStreamMetadata = decodeStreamMetadata(data, offset);
-        const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, offset);
+        const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
         const offsetStreamMetadata = decodeStreamMetadata(data, offset);
         const offsetCount = offsetStreamMetadata.decompressedCount;
         const isNullable = offsetCount !== numFeatures;
