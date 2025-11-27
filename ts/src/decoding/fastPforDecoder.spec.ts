@@ -8,7 +8,7 @@ import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const TEST_DIR_PATH = path.resolve(__dirname, "../test/data/fastPfor/");
+const TEST_DIR_PATH = path.resolve(__dirname, "../../src/test/data/fastPfor/");
 
 // encoded data was generated using the java fastPfor encoder and expected values are re-generated in the tests
 const ENCODED_NON_ALIGNED_358_ENCODED = fs.readFileSync(path.join(TEST_DIR_PATH, 'non-aligned_358.bin'));
