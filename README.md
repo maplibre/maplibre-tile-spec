@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-# MapLibre Tiles (MLT)
+# MapLibre Tile (MLT)
 
 > [!NOTE]
 > [The specification](https://maplibre.org/maplibre-tile-spec/specification/) is deemed stable as of October 2025. However, as a living standard, experimental features may continue to evolve. Implementations and integrations are being developed, refer to the [implementation status](https://maplibre.org/maplibre-tile-spec/implementation-status/) page for the current status.
