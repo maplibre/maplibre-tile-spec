@@ -1,15 +1,15 @@
-import {describe, it, expect} from "vitest";
+import { describe, it, expect } from "vitest";
 import IntegerStreamDecoder from "./integerStreamDecoder";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
-import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
-import {LogicalStreamType} from "../metadata/tile/logicalStreamType";
-import {LogicalLevelTechnique} from "../metadata/tile/logicalLevelTechnique";
-import {PhysicalLevelTechnique} from "../metadata/tile/physicalLevelTechnique";
-import {VectorType} from "../vector/vectorType";
-import {DictionaryType} from "../metadata/tile/dictionaryType";
+import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
+import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
+import { VectorType } from "../vector/vectorType";
+import { DictionaryType } from "../metadata/tile/dictionaryType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import {StreamMetadata} from "../metadata/tile/streamMetadata";
+import { StreamMetadata } from "../metadata/tile/streamMetadata";
 
 /**
  * Helper function to create StreamMetadata
@@ -18,22 +18,24 @@ function createStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
     numValues: number = 3,
+    physicalTechnique: PhysicalLevelTechnique = PhysicalLevelTechnique.VARINT,
+    byteLength: number = 10,
 ): StreamMetadata {
     return new StreamMetadata(
         PhysicalStreamType.DATA,
         new LogicalStreamType(DictionaryType.NONE),
         logicalTechnique1,
         logicalTechnique2,
-        PhysicalLevelTechnique.VARINT,
+        physicalTechnique,
         numValues,
-        10,
+        byteLength,
     );
 }
 
 /**
  * Helper function to create RleEncodedStreamMetadata
  */
-function createRleMetadata(
+function createRleStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
     logicalTechnique2: LogicalLevelTechnique,
     runs: number,
@@ -55,7 +57,7 @@ function createRleMetadata(
 describe("IntegerStreamDecoder.getVectorType", () => {
     describe("Delta-RLE with single run", () => {
         it("should return SEQUENCE for 1 run", () => {
-            const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 1, 5);
+            const metadata = createRleStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 1, 5);
             const data = new Uint8Array([5, 2]);
             const offset = new IntWrapper(0);
             const result = IntegerStreamDecoder.getVectorType(metadata, 5, data, offset);
@@ -65,7 +67,7 @@ describe("IntegerStreamDecoder.getVectorType", () => {
 
     describe("Delta-RLE with 2 runs", () => {
         it("should return SEQUENCE when both deltas equal 1 (zigzag=2)", () => {
-            const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5);
+            const metadata = createRleStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5);
             const data = new Uint8Array([1, 4, 2, 2]);
             const offset = new IntWrapper(0);
             const result = IntegerStreamDecoder.getVectorType(metadata, 5, data, offset);
@@ -76,7 +78,7 @@ describe("IntegerStreamDecoder.getVectorType", () => {
 
 describe("IntegerStreamDecoder.decodeLongBuffer", () => {
     it("should decode DELTA with RLE", () => {
-        const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5);
+        const metadata = createRleStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 5);
         const values = new BigInt64Array([3n, 2n, 0n, 2n]);
         const result = IntegerStreamDecoder["decodeLongBuffer"](values, metadata, true);
         expect(result).toBeInstanceOf(BigInt64Array);
@@ -90,7 +92,7 @@ describe("IntegerStreamDecoder.decodeLongBuffer", () => {
     });
 
     it("should decode RLE", () => {
-        const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2, 5);
+        const metadata = createRleStreamMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2, 5);
         const values = new BigInt64Array([3n, 2n, 2n, 4n]);
         const result = IntegerStreamDecoder["decodeLongBuffer"](values, metadata, true);
         expect(result).toBeInstanceOf(BigInt64Array);
@@ -119,7 +121,7 @@ describe("IntegerStreamDecoder.decodeLongBuffer", () => {
 
 describe("IntegerStreamDecoder.decodeNullableLongBuffer", () => {
     it("should decode DELTA with RLE", () => {
-        const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 3);
+        const metadata = createRleStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, 2, 3);
         const values = new BigInt64Array([2n, 1n, 0n, 2n]);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 5);
         const result = IntegerStreamDecoder["decodeNullableLongBuffer"](values, metadata, true, bitVector);
@@ -135,7 +137,7 @@ describe("IntegerStreamDecoder.decodeNullableLongBuffer", () => {
     });
 
     it("should decode RLE", () => {
-        const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2, 3);
+        const metadata = createRleStreamMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2, 3);
         const values = new BigInt64Array([2n, 1n, 2n, 4n]);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 5);
         const result = IntegerStreamDecoder["decodeNullableLongBuffer"](values, metadata, true, bitVector);
@@ -163,5 +165,54 @@ describe("IntegerStreamDecoder.decodeNullableLongBuffer", () => {
         const values = new BigInt64Array([1n, 2n, 3n]);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
         expect(() => IntegerStreamDecoder["decodeNullableLongBuffer"](values, metadata, true, bitVector)).toThrow();
+    });
+});
+
+describe("IntegerStreamDecoder FastPFOR Integration", () => {
+    it("should decode FastPFOR stream via decodeIntStream", () => {
+        // Java-generated FastPFOR test vector: 256 values (0-7 repeating)
+        const encodedBytes = new Uint8Array([
+            0, 0, 1, 0, 0, 0, 0, 25, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136,
+            198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136,
+            250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198,
+            136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250,
+            198, 250, 198, 136, 250, 136, 250, 198, 136, 198, 136, 250, 198, 250, 198, 136, 250, 0, 0, 0, 2, 0, 0, 0, 3,
+            0, 0, 0, 0,
+        ]);
+
+        const metadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            256,
+            PhysicalLevelTechnique.FAST_PFOR,
+            encodedBytes.length,
+        );
+
+        const offset = new IntWrapper(0);
+        const decoded = IntegerStreamDecoder.decodeIntStream(encodedBytes, offset, metadata, false);
+
+        expect(decoded.length).toBe(256);
+        for (let i = 0; i < 256; i++) {
+            expect(decoded[i]).toBe(i % 8);
+        }
+    });
+
+    it("should decode FastPFOR with DELTA encoding", () => {
+        // FastPFOR-encoded zeros + DELTA decoding
+        const encodedBytes = new Uint8Array([0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 0]);
+
+        const metadata = createStreamMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.NONE,
+            256,
+            PhysicalLevelTechnique.FAST_PFOR,
+            encodedBytes.length,
+        );
+
+        const offset = new IntWrapper(0);
+        const decoded = IntegerStreamDecoder.decodeIntStream(encodedBytes, offset, metadata, false);
+
+        expect(decoded.length).toBe(256);
+        expect(Array.from(decoded).every((v) => v === 0)).toBe(true);
     });
 });
