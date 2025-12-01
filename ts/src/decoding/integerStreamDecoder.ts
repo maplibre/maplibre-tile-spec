@@ -142,7 +142,7 @@ export function decodeLongFloat64Stream(
     isSigned: boolean,
 ): Float64Array {
     const values = decodeVarintFloat64(data, streamMetadata.numValues, offset);
-    return this.decodeFloat64Buffer(values, streamMetadata, isSigned);
+    return decodeFloat64Buffer(values, streamMetadata, isSigned);
 }
 
 export function decodeConstLongStream(
