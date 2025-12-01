@@ -9,13 +9,7 @@ export function createFlatGeometryVector(
     vertexOffsets: Int32Array,
     vertexBuffer: Int32Array,
 ): FlatGeometryVector {
-    return new FlatGeometryVector(
-        VertexBufferType.VEC_2,
-        geometryTypes,
-        topologyVector,
-        vertexOffsets,
-        vertexBuffer,
-    );
+    return new FlatGeometryVector(VertexBufferType.VEC_2, geometryTypes, topologyVector, vertexOffsets, vertexBuffer);
 }
 
 export function createFlatGeometryVectorMortonEncoded(

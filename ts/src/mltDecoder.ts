@@ -6,7 +6,16 @@ import { type RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamM
 import { VectorType } from "./vector/vectorType";
 import { IntFlatVector } from "./vector/flat/intFlatVector";
 import BitVector from "./vector/flat/bitVector";
-import { decodeConstIntStream, decodeConstLongStream, decodeIntStream, decodeLongFloat64Stream, decodeLongStream, decodeSequenceIntStream, decodeSequenceLongStream, getVectorType } from "./decoding/integerStreamDecoder";
+import {
+    decodeConstIntStream,
+    decodeConstLongStream,
+    decodeIntStream,
+    decodeLongFloat64Stream,
+    decodeLongStream,
+    decodeSequenceIntStream,
+    decodeSequenceLongStream,
+    getVectorType,
+} from "./decoding/integerStreamDecoder";
 import { IntSequenceVector } from "./vector/sequence/intSequenceVector";
 import { LongFlatVector } from "./vector/flat/longFlatVector";
 import { LongSequenceVector } from "./vector/sequence/longSequenceVector";

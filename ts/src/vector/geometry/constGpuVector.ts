@@ -9,14 +9,7 @@ export function createConstGpuVector(
     vertexBuffer: Int32Array,
     topologyVector?: TopologyVector | null,
 ): GpuVector {
-    return new ConstGpuVector(
-        numGeometries,
-        geometryType,
-        triangleOffsets,
-        indexBuffer,
-        vertexBuffer,
-        topologyVector,
-    );
+    return new ConstGpuVector(numGeometries, geometryType, triangleOffsets, indexBuffer, vertexBuffer, topologyVector);
 }
 
 //TODO: extend from GeometryVector -> make topology vector optional

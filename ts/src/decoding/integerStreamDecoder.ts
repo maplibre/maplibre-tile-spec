@@ -210,11 +210,7 @@ function decodeIntBuffer(
     }
 }
 
-function decodeLongBuffer(
-    values: BigInt64Array,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
-): BigInt64Array {
+function decodeLongBuffer(values: BigInt64Array, streamMetadata: StreamMetadata, isSigned: boolean): BigInt64Array {
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
