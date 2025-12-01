@@ -3,6 +3,39 @@ import type TopologyVector from "../../vector/geometry/topologyVector";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 
+export function createFlatGeometryVector(
+    geometryTypes: Int32Array,
+    topologyVector: TopologyVector,
+    vertexOffsets: Int32Array,
+    vertexBuffer: Int32Array,
+): FlatGeometryVector {
+    return new FlatGeometryVector(
+        VertexBufferType.VEC_2,
+        geometryTypes,
+        topologyVector,
+        vertexOffsets,
+        vertexBuffer,
+    );
+}
+
+export function createFlatGeometryVectorMortonEncoded(
+    geometryTypes: Int32Array,
+    topologyVector: TopologyVector,
+    vertexOffsets: Int32Array,
+    vertexBuffer: Int32Array,
+    mortonInfo: MortonSettings,
+): FlatGeometryVector {
+    //TODO: refactor to use unsigned integers
+    return new FlatGeometryVector(
+        VertexBufferType.MORTON,
+        geometryTypes,
+        topologyVector,
+        vertexOffsets,
+        vertexBuffer,
+        mortonInfo,
+    );
+}
+
 export class FlatGeometryVector extends GeometryVector {
     constructor(
         vertexBufferType: VertexBufferType,
@@ -14,39 +47,6 @@ export class FlatGeometryVector extends GeometryVector {
         mortonSettings?: MortonSettings,
     ) {
         super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
-    }
-
-    static createMortonEncoded(
-        geometryTypes: Int32Array,
-        topologyVector: TopologyVector,
-        vertexOffsets: Int32Array,
-        vertexBuffer: Int32Array,
-        mortonInfo: MortonSettings,
-    ): FlatGeometryVector {
-        //TODO: refactor to use unsigned integers
-        return new FlatGeometryVector(
-            VertexBufferType.MORTON,
-            geometryTypes,
-            topologyVector,
-            vertexOffsets,
-            vertexBuffer,
-            mortonInfo,
-        );
-    }
-
-    public static create(
-        geometryTypes: Int32Array,
-        topologyVector: TopologyVector,
-        vertexOffsets: Int32Array,
-        vertexBuffer: Int32Array,
-    ): FlatGeometryVector {
-        return new FlatGeometryVector(
-            VertexBufferType.VEC_2,
-            geometryTypes,
-            topologyVector,
-            vertexOffsets,
-            vertexBuffer,
-        );
     }
 
     geometryType(index: number): number {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { type LogicalStreamType } from "../metadata/tile/logicalStreamType";
-import IntegerStreamDecoder from "./integerStreamDecoder";
+import * as IntegerStreamDecoder from "./integerStreamDecoder";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
 import { type StreamMetadata } from "../metadata/tile/streamMetadata";
 import { LengthType } from "../metadata/tile/lengthType";

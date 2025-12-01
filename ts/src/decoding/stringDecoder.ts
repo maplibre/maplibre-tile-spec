@@ -1,18 +1,18 @@
-import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
-import {StringFlatVector} from "../vector/flat/stringFlatVector";
-import {StringDictionaryVector} from "../vector/dictionary/stringDictionaryVector";
+import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
+import { StringFlatVector } from "../vector/flat/stringFlatVector";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 import type IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 import type Vector from "../vector/vector";
-import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
-import {DictionaryType} from "../metadata/tile/dictionaryType";
-import {LengthType} from "../metadata/tile/lengthType";
-import IntegerStreamDecoder from "./integerStreamDecoder";
-import {type Column, ScalarType} from "../metadata/tileset/tilesetMetadata";
-import {decodeVarintInt32} from "./integerDecodingUtils";
-import {decodeBooleanRle, skipColumn} from "./decodingUtils";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
-import {StringFsstDictionaryVector} from "../vector/fsst-dictionary/stringFsstDictionaryVector";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
+import { DictionaryType } from "../metadata/tile/dictionaryType";
+import { LengthType } from "../metadata/tile/lengthType";
+import { decodeIntStream, decodeLengthStreamToOffsetBuffer, decodeNullableIntStream } from "./integerStreamDecoder";
+import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { decodeVarintInt32 } from "./integerDecodingUtils";
+import { decodeBooleanRle, skipColumn } from "./decodingUtils";
+import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 
 export class StringDecoder {
     private static readonly ROOT_COLUMN_NAME = "default";
@@ -53,12 +53,12 @@ export class StringDecoder {
                     const isNullable = bitVector != null || presentStream != null;
                     const nullabilityBuffer = bitVector ?? presentStream;
                     offsetStream = isNullable
-                        ? IntegerStreamDecoder.decodeNullableIntStream(data, offset, streamMetadata, false, nullabilityBuffer)
-                        : IntegerStreamDecoder.decodeIntStream(data, offset, streamMetadata, false);
+                        ? decodeNullableIntStream(data, offset, streamMetadata, false, nullabilityBuffer)
+                        : decodeIntStream(data, offset, streamMetadata, false);
                     break;
                 }
                 case PhysicalStreamType.LENGTH: {
-                    const ls = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
+                    const ls = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
                     if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
                         dictionaryLengthStream = ls;
                     } else if (LengthType.SYMBOL === streamMetadata.logicalStreamType.lengthType) {
@@ -199,13 +199,13 @@ export class StringDecoder {
             switch (streamMetadata.physicalStreamType) {
                 case PhysicalStreamType.LENGTH:
                     if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
-                        dictionaryOffsetBuffer = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
+                        dictionaryOffsetBuffer = decodeLengthStreamToOffsetBuffer(
                             data,
                             offset,
                             streamMetadata,
                         );
                     } else {
-                        symbolOffsetBuffer = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
+                        symbolOffsetBuffer = decodeLengthStreamToOffsetBuffer(
                             data,
                             offset,
                             streamMetadata,
@@ -237,11 +237,10 @@ export class StringDecoder {
                 continue;
             }
 
-            const columnName = `${column.name}${
-                childField.name === StringDecoder.ROOT_COLUMN_NAME
-                    ? ""
-                    : StringDecoder.NESTED_COLUMN_SEPARATOR + childField.name
-            }`;
+            const columnName = `${column.name}${childField.name === StringDecoder.ROOT_COLUMN_NAME
+                ? ""
+                : StringDecoder.NESTED_COLUMN_SEPARATOR + childField.name
+                }`;
             if (propertyColumnNames) {
                 if (!propertyColumnNames.has(columnName)) {
                     //TODO: add size of sub column to Mlt for faster skipping
@@ -266,14 +265,14 @@ export class StringDecoder {
                 : offsetStreamMetadata.numValues);
             const isNullable = offsetCount !== numFeatures;
             const offsetStream = isNullable
-                ? IntegerStreamDecoder.decodeNullableIntStream(
+                ? decodeNullableIntStream(
                     data,
                     offset,
                     offsetStreamMetadata,
                     false,
                     new BitVector(presentStream, presentStreamMetadata.numValues),
                 )
-                : IntegerStreamDecoder.decodeIntStream(data, offset, offsetStreamMetadata, false);
+                : decodeIntStream(data, offset, offsetStreamMetadata, false);
 
             stringDictionaryVectors[i++] = symbolTableBuffer
                 ? new StringFsstDictionaryVector(

@@ -1,23 +1,23 @@
-import {afterEach, describe, expect, it, vi} from 'vitest';
-import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
-import IntegerStreamDecoder from "./integerStreamDecoder";
-import {decodePropertyColumn} from "./propertyDecoder";
-import { type Column} from "../metadata/tileset/tilesetMetadata";
-import {ScalarType} from "../metadata/tile/scalarType";
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
+import * as IntegerStreamDecoder from "./integerStreamDecoder";
+import { decodePropertyColumn } from "./propertyDecoder";
+import { type Column } from "../metadata/tileset/tilesetMetadata";
+import { ScalarType } from "../metadata/tile/scalarType";
 import IntWrapper from "./intWrapper";
-import {IntFlatVector} from "../vector/flat/intFlatVector";
-import {LongFlatVector} from "../vector/flat/longFlatVector";
-import {IntSequenceVector} from "../vector/sequence/intSequenceVector";
-import {LongSequenceVector} from "../vector/sequence/longSequenceVector";
-import {IntConstVector} from "../vector/constant/intConstVector";
-import {LongConstVector} from "../vector/constant/longConstVector";
-import {VectorType} from "../vector/vectorType";
-import {StringDecoder} from "./stringDecoder";
+import { IntFlatVector } from "../vector/flat/intFlatVector";
+import { LongFlatVector } from "../vector/flat/longFlatVector";
+import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
+import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
+import { IntConstVector } from "../vector/constant/intConstVector";
+import { LongConstVector } from "../vector/constant/longConstVector";
+import { VectorType } from "../vector/vectorType";
+import { StringDecoder } from "./stringDecoder";
 import * as decodingUtils from './decodingUtils';
-import {BooleanFlatVector} from "../vector/flat/booleanFlatVector";
-import {FloatFlatVector} from "../vector/flat/floatFlatVector";
-import {DoubleFlatVector} from "../vector/flat/doubleFlatVector";
-import { type StringFlatVector} from "../vector/flat/stringFlatVector";
+import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
+import { FloatFlatVector } from "../vector/flat/floatFlatVector";
+import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
+import { type StringFlatVector } from "../vector/flat/stringFlatVector";
 
 // Constants for test data
 const TEST_DATA = {
@@ -628,7 +628,7 @@ describe('decodePropertyColumn', () => {
         it('should handle zero numValues gracefully', () => {
             // Arrange
             vi.spyOn(StreamMetadataDecoder, 'decode')
-                .mockReturnValue({...mockStreamMetadata(), numValues: 0});
+                .mockReturnValue({ ...mockStreamMetadata(), numValues: 0 });
             vi.spyOn(IntegerStreamDecoder, 'getVectorType')
                 .mockReturnValue(VectorType.FLAT);
             vi.spyOn(IntegerStreamDecoder, 'decodeIntStream')
