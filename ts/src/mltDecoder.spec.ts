@@ -81,10 +81,7 @@ function removeEmptyStrings(mvtProperties: Record<string, any>) {
     }
 }
 
-function comparePlainGeometryEncodedTile(
-    mlt: FeatureTable[],
-    mvt: VectorTile,
-) {
+function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
     for (const featureTable of mlt) {
         const layer = mvt.layers[featureTable.name];
 

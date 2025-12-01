@@ -28,7 +28,10 @@ export function createNullableSelectionVector(size: number, nullabilityBuffer?: 
  * @param selectionVector - The input selection vector to filter
  * @param nullabilityBuffer - Optional bit vector where 1=not null, 0=null. If undefined/null, all values are considered non-null.
  */
-export function updateNullableSelectionVector(selectionVector: SelectionVector, nullabilityBuffer?: BitVector): SelectionVector {
+export function updateNullableSelectionVector(
+    selectionVector: SelectionVector,
+    nullabilityBuffer?: BitVector,
+): SelectionVector {
     const filteredIndices = [];
     for (let i = 0; i < selectionVector.limit; i++) {
         const vectorIndex = selectionVector.getIndex(i);

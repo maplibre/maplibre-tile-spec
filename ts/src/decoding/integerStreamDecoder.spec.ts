@@ -1,15 +1,15 @@
-import {describe, it, expect} from "vitest";
+import { describe, it, expect } from "vitest";
 import IntegerStreamDecoder from "./integerStreamDecoder";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
-import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
-import {LogicalStreamType} from "../metadata/tile/logicalStreamType";
-import {LogicalLevelTechnique} from "../metadata/tile/logicalLevelTechnique";
-import {PhysicalLevelTechnique} from "../metadata/tile/physicalLevelTechnique";
-import {VectorType} from "../vector/vectorType";
-import {DictionaryType} from "../metadata/tile/dictionaryType";
+import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
+import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
+import { VectorType } from "../vector/vectorType";
+import { DictionaryType } from "../metadata/tile/dictionaryType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import {StreamMetadata} from "../metadata/tile/streamMetadata";
+import { StreamMetadata } from "../metadata/tile/streamMetadata";
 
 /**
  * Helper function to create StreamMetadata
