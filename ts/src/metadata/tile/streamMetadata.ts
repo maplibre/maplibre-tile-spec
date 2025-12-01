@@ -8,6 +8,43 @@ import { LengthType } from "./lengthType";
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 
+export function decodeStreamMetadata(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
+    const stream_type = tile[offset.get()];
+    const physicalStreamType = Object.values(PhysicalStreamType)[stream_type >> 4] as PhysicalStreamType;
+    let logicalStreamType: LogicalStreamType | null = null;
+
+    switch (physicalStreamType) {
+        case PhysicalStreamType.DATA:
+            logicalStreamType = new LogicalStreamType(
+                Object.values(DictionaryType)[stream_type & 0xf] as DictionaryType,
+            );
+            break;
+        case PhysicalStreamType.OFFSET:
+            logicalStreamType = new LogicalStreamType(null, Object.values(OffsetType)[stream_type & 0xf] as OffsetType);
+            break;
+        case PhysicalStreamType.LENGTH:
+            logicalStreamType = new LogicalStreamType(
+                null,
+                null,
+                Object.values(LengthType)[stream_type & 0xf] as LengthType,
+            );
+            break;
+    }
+    offset.increment();
+
+    const encodings_header = tile[offset.get()];
+    const llt1 = Object.values(LogicalLevelTechnique)[encodings_header >> 5] as LogicalLevelTechnique;
+    const llt2 = Object.values(LogicalLevelTechnique)[(encodings_header >> 2) & 0x7] as LogicalLevelTechnique;
+    const plt = Object.values(PhysicalLevelTechnique)[encodings_header & 0x3] as PhysicalLevelTechnique;
+    offset.increment();
+
+    const sizeInfo = decodeVarintInt32(tile, offset, 2);
+    const numValues = sizeInfo[0];
+    const byteLength = sizeInfo[1];
+
+    return new StreamMetadata(physicalStreamType, logicalStreamType, llt1, llt2, plt, numValues, byteLength);
+}
+
 export class StreamMetadata {
     constructor(
         private readonly _physicalStreamType: PhysicalStreamType,
@@ -18,46 +55,6 @@ export class StreamMetadata {
         private readonly _numValues: number,
         private readonly _byteLength: number,
     ) {}
-
-    public static decode(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
-        const stream_type = tile[offset.get()];
-        const physicalStreamType = Object.values(PhysicalStreamType)[stream_type >> 4] as PhysicalStreamType;
-        let logicalStreamType: LogicalStreamType | null = null;
-
-        switch (physicalStreamType) {
-            case PhysicalStreamType.DATA:
-                logicalStreamType = new LogicalStreamType(
-                    Object.values(DictionaryType)[stream_type & 0xf] as DictionaryType,
-                );
-                break;
-            case PhysicalStreamType.OFFSET:
-                logicalStreamType = new LogicalStreamType(
-                    null,
-                    Object.values(OffsetType)[stream_type & 0xf] as OffsetType,
-                );
-                break;
-            case PhysicalStreamType.LENGTH:
-                logicalStreamType = new LogicalStreamType(
-                    null,
-                    null,
-                    Object.values(LengthType)[stream_type & 0xf] as LengthType,
-                );
-                break;
-        }
-        offset.increment();
-
-        const encodings_header = tile[offset.get()];
-        const llt1 = Object.values(LogicalLevelTechnique)[encodings_header >> 5] as LogicalLevelTechnique;
-        const llt2 = Object.values(LogicalLevelTechnique)[(encodings_header >> 2) & 0x7] as LogicalLevelTechnique;
-        const plt = Object.values(PhysicalLevelTechnique)[encodings_header & 0x3] as PhysicalLevelTechnique;
-        offset.increment();
-
-        const sizeInfo = decodeVarintInt32(tile, offset, 2);
-        const numValues = sizeInfo[0];
-        const byteLength = sizeInfo[1];
-
-        return new StreamMetadata(physicalStreamType, logicalStreamType, llt1, llt2, plt, numValues, byteLength);
-    }
 
     get physicalStreamType(): PhysicalStreamType {
         return this._physicalStreamType;

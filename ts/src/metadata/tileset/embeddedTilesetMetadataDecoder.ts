@@ -8,7 +8,7 @@ import {
     type ScalarField,
     type TileSetMetadata,
 } from "./tilesetMetadata";
-import { TypeMap } from "./typeMap";
+import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
 const enum FieldOptions {
     nullable = 1 << 0,
@@ -91,13 +91,13 @@ function decodeField(src: Uint8Array, offset: IntWrapper): Field {
  */
 function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-    const column = TypeMap.decodeColumnType(typeCode);
+    const column = decodeColumnType(typeCode);
 
     if (!column) {
         throw new Error(`Unsupported column type code: ${typeCode}`);
     }
 
-    if (TypeMap.columnTypeHasName(typeCode)) {
+    if (columnTypeHasName(typeCode)) {
         column.name = decodeString(src, offset);
     } else {
         // ID and GEOMETRY columns have implicit names
@@ -108,7 +108,7 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
         }
     }
 
-    if (TypeMap.columnTypeHasChildren(typeCode)) {
+    if (columnTypeHasChildren(typeCode)) {
         // Only STRUCT (typeCode 30) has children
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
         const complexCol = column.complexType;

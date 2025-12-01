@@ -1,10 +1,45 @@
-import { StreamMetadata } from "./streamMetadata";
+import { decodeStreamMetadata, StreamMetadata } from "./streamMetadata";
 import { type PhysicalStreamType } from "./physicalStreamType";
 import { type LogicalStreamType } from "./logicalStreamType";
 import { type LogicalLevelTechnique } from "./logicalLevelTechnique";
 import { type PhysicalLevelTechnique } from "./physicalLevelTechnique";
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
+
+export function decodeRleEncodedStreamMetadata(tile: Uint8Array, offset: IntWrapper): RleEncodedStreamMetadata {
+    const streamMetadata = decodeStreamMetadata(tile, offset);
+    const rleInfo = decodeVarintInt32(tile, offset, 2);
+    return new RleEncodedStreamMetadata(
+        streamMetadata.physicalStreamType,
+        streamMetadata.logicalStreamType,
+        streamMetadata.logicalLevelTechnique1,
+        streamMetadata.logicalLevelTechnique2,
+        streamMetadata.physicalLevelTechnique,
+        streamMetadata.numValues,
+        streamMetadata.byteLength,
+        rleInfo[0],
+        rleInfo[1],
+    );
+}
+
+export function decodePartialRleEncodedStreamMetadata(
+    streamMetadata: StreamMetadata,
+    tile: Uint8Array,
+    offset: IntWrapper,
+): RleEncodedStreamMetadata {
+    const rleInfo = decodeVarintInt32(tile, offset, 2);
+    return new RleEncodedStreamMetadata(
+        streamMetadata.physicalStreamType,
+        streamMetadata.logicalStreamType,
+        streamMetadata.logicalLevelTechnique1,
+        streamMetadata.logicalLevelTechnique2,
+        streamMetadata.physicalLevelTechnique,
+        streamMetadata.numValues,
+        streamMetadata.byteLength,
+        rleInfo[0],
+        rleInfo[1],
+    );
+}
 
 export class RleEncodedStreamMetadata extends StreamMetadata {
     /**
@@ -31,41 +66,6 @@ export class RleEncodedStreamMetadata extends StreamMetadata {
             physicalLevelTechnique,
             numValues,
             byteLength,
-        );
-    }
-
-    static decode(tile: Uint8Array, offset: IntWrapper): RleEncodedStreamMetadata {
-        const streamMetadata = StreamMetadata.decode(tile, offset);
-        const rleInfo = decodeVarintInt32(tile, offset, 2);
-        return new RleEncodedStreamMetadata(
-            streamMetadata.physicalStreamType,
-            streamMetadata.logicalStreamType,
-            streamMetadata.logicalLevelTechnique1,
-            streamMetadata.logicalLevelTechnique2,
-            streamMetadata.physicalLevelTechnique,
-            streamMetadata.numValues,
-            streamMetadata.byteLength,
-            rleInfo[0],
-            rleInfo[1],
-        );
-    }
-
-    static decodePartial(
-        streamMetadata: StreamMetadata,
-        tile: Uint8Array,
-        offset: IntWrapper,
-    ): RleEncodedStreamMetadata {
-        const rleInfo = decodeVarintInt32(tile, offset, 2);
-        return new RleEncodedStreamMetadata(
-            streamMetadata.physicalStreamType,
-            streamMetadata.logicalStreamType,
-            streamMetadata.logicalLevelTechnique1,
-            streamMetadata.logicalLevelTechnique2,
-            streamMetadata.physicalLevelTechnique,
-            streamMetadata.numValues,
-            streamMetadata.byteLength,
-            rleInfo[0],
-            rleInfo[1],
         );
     }
 
