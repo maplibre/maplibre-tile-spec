@@ -1,25 +1,24 @@
-import {StreamMetadataDecoder} from "../metadata/tile/streamMetadataDecoder";
-import {StringFlatVector} from "../vector/flat/stringFlatVector";
-import {StringDictionaryVector} from "../vector/dictionary/stringDictionaryVector";
+import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
+import { StringFlatVector } from "../vector/flat/stringFlatVector";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 import type IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 import type Vector from "../vector/vector";
-import {PhysicalStreamType} from "../metadata/tile/physicalStreamType";
-import {DictionaryType} from "../metadata/tile/dictionaryType";
-import {LengthType} from "../metadata/tile/lengthType";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
+import { DictionaryType } from "../metadata/tile/dictionaryType";
+import { LengthType } from "../metadata/tile/lengthType";
 import IntegerStreamDecoder from "./integerStreamDecoder";
-import {type Column, ScalarType} from "../metadata/tileset/tilesetMetadata";
-import {decodeVarintInt32} from "./integerDecodingUtils";
-import {decodeBooleanRle, skipColumn} from "./decodingUtils";
-import {RleEncodedStreamMetadata} from "../metadata/tile/rleEncodedStreamMetadata";
-import {StringFsstDictionaryVector} from "../vector/fsst-dictionary/stringFsstDictionaryVector";
+import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { decodeVarintInt32 } from "./integerDecodingUtils";
+import { decodeBooleanRle, skipColumn } from "./decodingUtils";
+import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 
 export class StringDecoder {
     private static readonly ROOT_COLUMN_NAME = "default";
     private static readonly NESTED_COLUMN_SEPARATOR = ":";
 
-    private constructor() {
-    }
+    private constructor() {}
 
     static decode(
         name: string,
@@ -53,7 +52,13 @@ export class StringDecoder {
                     const isNullable = bitVector != null || presentStream != null;
                     const nullabilityBuffer = bitVector ?? presentStream;
                     offsetStream = isNullable
-                        ? IntegerStreamDecoder.decodeNullableIntStream(data, offset, streamMetadata, false, nullabilityBuffer)
+                        ? IntegerStreamDecoder.decodeNullableIntStream(
+                              data,
+                              offset,
+                              streamMetadata,
+                              false,
+                              nullabilityBuffer,
+                          )
                         : IntegerStreamDecoder.decodeIntStream(data, offset, streamMetadata, false);
                     break;
                 }
@@ -85,26 +90,30 @@ export class StringDecoder {
             }
         }
 
-        return this.decodeFsstDictionaryVector(
-            name,
-            symbolTableStream,
-            offsetStream,
-            dictionaryLengthStream,
-            dictionaryStream,
-            symbolLengthStream,
-            bitVector ?? presentStream
-        ) ?? this.decodeDictionaryVector(
-            name,
-            dictionaryStream,
-            offsetStream,
-            dictionaryLengthStream,
-            bitVector ?? presentStream
-        ) ?? this.decodePlainStringVector(
-            name,
-            plainLengthStream,
-            plainDataStream,
-            offsetStream,
-            bitVector ?? presentStream
+        return (
+            this.decodeFsstDictionaryVector(
+                name,
+                symbolTableStream,
+                offsetStream,
+                dictionaryLengthStream,
+                dictionaryStream,
+                symbolLengthStream,
+                bitVector ?? presentStream,
+            ) ??
+            this.decodeDictionaryVector(
+                name,
+                dictionaryStream,
+                offsetStream,
+                dictionaryLengthStream,
+                bitVector ?? presentStream,
+            ) ??
+            this.decodePlainStringVector(
+                name,
+                plainLengthStream,
+                plainDataStream,
+                offsetStream,
+                bitVector ?? presentStream,
+            )
         );
     }
 
@@ -115,7 +124,7 @@ export class StringDecoder {
         dictionaryLengthStream: Int32Array | null,
         dictionaryStream: Uint8Array | null,
         symbolLengthStream: Int32Array | null,
-        nullabilityBuffer: BitVector | null
+        nullabilityBuffer: BitVector | null,
     ): Vector | null {
         if (!symbolTableStream) {
             return null;
@@ -136,13 +145,19 @@ export class StringDecoder {
         dictionaryStream: Uint8Array | null,
         offsetStream: Int32Array | null,
         dictionaryLengthStream: Int32Array | null,
-        nullabilityBuffer: BitVector | null
+        nullabilityBuffer: BitVector | null,
     ): Vector | null {
         if (!dictionaryStream) {
             return null;
         }
         return nullabilityBuffer
-            ? new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream, nullabilityBuffer)
+            ? new StringDictionaryVector(
+                  name,
+                  offsetStream,
+                  dictionaryLengthStream,
+                  dictionaryStream,
+                  nullabilityBuffer,
+              )
             : new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream);
     }
 
@@ -151,7 +166,7 @@ export class StringDecoder {
         plainLengthStream: Int32Array | null,
         plainDataStream: Uint8Array | null,
         offsetStream: Int32Array | null,
-        nullabilityBuffer: BitVector | null
+        nullabilityBuffer: BitVector | null,
     ): Vector | null {
         if (!plainLengthStream || !plainDataStream) {
             return null;
@@ -173,7 +188,13 @@ export class StringDecoder {
                     sparseOffsetStream[i] = 0;
                 }
             }
-            return new StringDictionaryVector(name, sparseOffsetStream, plainLengthStream, plainDataStream, nullabilityBuffer);
+            return new StringDictionaryVector(
+                name,
+                sparseOffsetStream,
+                plainLengthStream,
+                plainDataStream,
+                nullabilityBuffer,
+            );
         }
 
         return nullabilityBuffer
@@ -261,37 +282,38 @@ export class StringDecoder {
             const presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
             const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, offset);
             const offsetStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            const offsetCount = (offsetStreamMetadata instanceof RleEncodedStreamMetadata
-                ? offsetStreamMetadata.numRleValues
-                : offsetStreamMetadata.numValues);
+            const offsetCount =
+                offsetStreamMetadata instanceof RleEncodedStreamMetadata
+                    ? offsetStreamMetadata.numRleValues
+                    : offsetStreamMetadata.numValues;
             const isNullable = offsetCount !== numFeatures;
             const offsetStream = isNullable
                 ? IntegerStreamDecoder.decodeNullableIntStream(
-                    data,
-                    offset,
-                    offsetStreamMetadata,
-                    false,
-                    new BitVector(presentStream, presentStreamMetadata.numValues),
-                )
+                      data,
+                      offset,
+                      offsetStreamMetadata,
+                      false,
+                      new BitVector(presentStream, presentStreamMetadata.numValues),
+                  )
                 : IntegerStreamDecoder.decodeIntStream(data, offset, offsetStreamMetadata, false);
 
             stringDictionaryVectors[i++] = symbolTableBuffer
                 ? new StringFsstDictionaryVector(
-                    columnName,
-                    offsetStream,
-                    dictionaryOffsetBuffer,
-                    dictionaryBuffer,
-                    symbolOffsetBuffer,
-                    symbolTableBuffer,
-                    new BitVector(presentStream, presentStreamMetadata.numValues),
-                )
+                      columnName,
+                      offsetStream,
+                      dictionaryOffsetBuffer,
+                      dictionaryBuffer,
+                      symbolOffsetBuffer,
+                      symbolTableBuffer,
+                      new BitVector(presentStream, presentStreamMetadata.numValues),
+                  )
                 : new StringDictionaryVector(
-                    columnName,
-                    offsetStream,
-                    dictionaryOffsetBuffer,
-                    dictionaryBuffer,
-                    new BitVector(presentStream, presentStreamMetadata.numValues),
-                );
+                      columnName,
+                      offsetStream,
+                      dictionaryOffsetBuffer,
+                      dictionaryBuffer,
+                      new BitVector(presentStream, presentStreamMetadata.numValues),
+                  );
         }
 
         return stringDictionaryVectors;

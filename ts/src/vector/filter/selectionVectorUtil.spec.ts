@@ -1,11 +1,11 @@
-import {describe, it, expect} from "vitest";
+import { describe, it, expect } from "vitest";
 import {
     createSelectionVector,
     createNullableSelectionVector,
-    updateNullableSelectionVector
+    updateNullableSelectionVector,
 } from "./selectionVectorUtils";
-import {FlatSelectionVector} from "./flatSelectionVector";
-import {SequenceSelectionVector} from "./sequenceSelectionVector";
+import { FlatSelectionVector } from "./flatSelectionVector";
+import { SequenceSelectionVector } from "./sequenceSelectionVector";
 import BitVector from "../flat/bitVector";
 
 describe("selectionVectorUtils", () => {

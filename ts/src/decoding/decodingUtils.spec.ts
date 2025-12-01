@@ -89,11 +89,11 @@ describe("decodingUtils", () => {
 
     describe("decodeBooleanRle", () => {
         it("should decode boolean RLE", () => {
-            const buffer = new Uint8Array([254, 0xFF]);
+            const buffer = new Uint8Array([254, 0xff]);
             const offset = new IntWrapper(0);
             const result = decodeBooleanRle(buffer, 8, offset);
 
-            expect(result[0]).toBe(0xFF);
+            expect(result[0]).toBe(0xff);
         });
     });
 
