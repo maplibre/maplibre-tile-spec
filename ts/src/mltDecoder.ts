@@ -6,7 +6,16 @@ import { type RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamM
 import { VectorType } from "./vector/vectorType";
 import { IntFlatVector } from "./vector/flat/intFlatVector";
 import BitVector from "./vector/flat/bitVector";
-import IntegerStreamDecoder from "./decoding/integerStreamDecoder";
+import {
+    decodeConstIntStream,
+    decodeConstLongStream,
+    decodeIntStream,
+    decodeLongFloat64Stream,
+    decodeLongStream,
+    decodeSequenceIntStream,
+    decodeSequenceLongStream,
+    getVectorType,
+} from "./decoding/integerStreamDecoder";
 import { IntSequenceVector } from "./vector/sequence/intSequenceVector";
 import { LongFlatVector } from "./vector/flat/longFlatVector";
 import { LongSequenceVector } from "./vector/sequence/longSequenceVector";
@@ -166,15 +175,15 @@ function decodeIdColumn(
     idWithinMaxSafeInteger: boolean = false,
 ): IntVector {
     const idDataType = columnMetadata.scalarType.physicalType;
-    const vectorType = IntegerStreamDecoder.getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset);
+    const vectorType = getVectorType(idDataStreamMetadata, sizeOrNullabilityBuffer, tile, offset);
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {
-                const id = IntegerStreamDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false);
+                const id = decodeIntStream(tile, offset, idDataStreamMetadata, false);
                 return new IntFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {
-                const id = IntegerStreamDecoder.decodeSequenceIntStream(tile, offset, idDataStreamMetadata);
+                const id = decodeSequenceIntStream(tile, offset, idDataStreamMetadata);
                 return new IntSequenceVector(
                     columnName,
                     id[0],
@@ -183,7 +192,7 @@ function decodeIdColumn(
                 );
             }
             case VectorType.CONST: {
-                const id = IntegerStreamDecoder.decodeConstIntStream(tile, offset, idDataStreamMetadata, false);
+                const id = decodeConstIntStream(tile, offset, idDataStreamMetadata, false);
                 return new IntConstVector(columnName, id, sizeOrNullabilityBuffer);
             }
         }
@@ -191,15 +200,15 @@ function decodeIdColumn(
         switch (vectorType) {
             case VectorType.FLAT: {
                 if (idWithinMaxSafeInteger) {
-                    const id = IntegerStreamDecoder.decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
+                    const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
                     return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
                 }
 
-                const id = IntegerStreamDecoder.decodeLongStream(tile, offset, idDataStreamMetadata, false);
+                const id = decodeLongStream(tile, offset, idDataStreamMetadata, false);
                 return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {
-                const id = IntegerStreamDecoder.decodeSequenceLongStream(tile, offset, idDataStreamMetadata);
+                const id = decodeSequenceLongStream(tile, offset, idDataStreamMetadata);
                 return new LongSequenceVector(
                     columnName,
                     id[0],
@@ -208,7 +217,7 @@ function decodeIdColumn(
                 );
             }
             case VectorType.CONST: {
-                const id = IntegerStreamDecoder.decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
+                const id = decodeConstLongStream(tile, offset, idDataStreamMetadata, false);
                 return new LongConstVector(columnName, id, sizeOrNullabilityBuffer);
             }
         }

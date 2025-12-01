@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "vitest run --coverage --coverage.reportOnFailure",
+    "test": "vitest run ./src --coverage --coverage.reportOnFailure",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\""
   },

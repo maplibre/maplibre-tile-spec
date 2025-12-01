@@ -7,7 +7,7 @@ import type Vector from "../vector/vector";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
-import IntegerStreamDecoder from "./integerStreamDecoder";
+import { decodeIntStream, decodeLengthStreamToOffsetBuffer, decodeNullableIntStream } from "./integerStreamDecoder";
 import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
@@ -52,18 +52,12 @@ export class StringDecoder {
                     const isNullable = bitVector != null || presentStream != null;
                     const nullabilityBuffer = bitVector ?? presentStream;
                     offsetStream = isNullable
-                        ? IntegerStreamDecoder.decodeNullableIntStream(
-                              data,
-                              offset,
-                              streamMetadata,
-                              false,
-                              nullabilityBuffer,
-                          )
-                        : IntegerStreamDecoder.decodeIntStream(data, offset, streamMetadata, false);
+                        ? decodeNullableIntStream(data, offset, streamMetadata, false, nullabilityBuffer)
+                        : decodeIntStream(data, offset, streamMetadata, false);
                     break;
                 }
                 case PhysicalStreamType.LENGTH: {
-                    const ls = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
+                    const ls = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
                     if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
                         dictionaryLengthStream = ls;
                     } else if (LengthType.SYMBOL === streamMetadata.logicalStreamType.lengthType) {
@@ -220,17 +214,9 @@ export class StringDecoder {
             switch (streamMetadata.physicalStreamType) {
                 case PhysicalStreamType.LENGTH:
                     if (LengthType.DICTIONARY === streamMetadata.logicalStreamType.lengthType) {
-                        dictionaryOffsetBuffer = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
-                            data,
-                            offset,
-                            streamMetadata,
-                        );
+                        dictionaryOffsetBuffer = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
                     } else {
-                        symbolOffsetBuffer = IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer(
-                            data,
-                            offset,
-                            streamMetadata,
-                        );
+                        symbolOffsetBuffer = decodeLengthStreamToOffsetBuffer(data, offset, streamMetadata);
                     }
                     break;
                 case PhysicalStreamType.DATA:
@@ -288,14 +274,14 @@ export class StringDecoder {
                     : offsetStreamMetadata.numValues;
             const isNullable = offsetCount !== numFeatures;
             const offsetStream = isNullable
-                ? IntegerStreamDecoder.decodeNullableIntStream(
+                ? decodeNullableIntStream(
                       data,
                       offset,
                       offsetStreamMetadata,
                       false,
                       new BitVector(presentStream, presentStreamMetadata.numValues),
                   )
-                : IntegerStreamDecoder.decodeIntStream(data, offset, offsetStreamMetadata, false);
+                : decodeIntStream(data, offset, offsetStreamMetadata, false);
 
             stringDictionaryVectors[i++] = symbolTableBuffer
                 ? new StringFsstDictionaryVector(

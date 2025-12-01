@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
-import IntegerStreamDecoder from "./integerStreamDecoder";
+import * as IntegerStreamDecoder from "./integerStreamDecoder";
 import { decodePropertyColumn } from "./propertyDecoder";
 import { type Column } from "../metadata/tileset/tilesetMetadata";
 import { ScalarType } from "../metadata/tile/scalarType";
