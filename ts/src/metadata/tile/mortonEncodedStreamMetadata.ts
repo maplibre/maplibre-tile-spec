@@ -1,4 +1,4 @@
-import { decodeStreamMetadata, StreamMetadata } from "./streamMetadata";
+import { decodeStreamMetadata, type StreamMetadata } from "./streamMetadata";
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 
