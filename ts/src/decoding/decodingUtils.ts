@@ -1,12 +1,12 @@
 import type IntWrapper from "./intWrapper";
 import { VectorType } from "../vector/vectorType";
 import BitVector from "../vector/flat/bitVector";
-import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
+import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 
 export function skipColumn(numStreams: number, tile: Uint8Array, offset: IntWrapper) {
     //TODO: add size of column in Mlt for fast skipping
     for (let i = 0; i < numStreams; i++) {
-        const streamMetadata = StreamMetadataDecoder.decode(tile, offset);
+        const streamMetadata = decodeStreamMetadata(tile, offset);
         offset.add(streamMetadata.byteLength);
     }
 }

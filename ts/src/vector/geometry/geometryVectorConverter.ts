@@ -1,5 +1,5 @@
 import { type GeometryVector, type MortonSettings, type CoordinatesArray } from "./geometryVector";
-import ZOrderCurve from "./zOrderCurve";
+import { decodeZOrderCurve } from "./zOrderCurve";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 import Point from "@mapbox/point-geometry";
@@ -22,7 +22,7 @@ class MvtGeometryFactory {
     }
 
     createPolygon(shell: Point[], rings: Array<Array<Point>>): CoordinatesArray {
-        return [shell, ...rings];
+        return [shell].concat(rings);
     }
 
     createMultiPolygon(polygons: Array<Array<Point>>[]): CoordinatesArray {
@@ -68,7 +68,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
             } else {
                 const offset = vertexOffsets[vertexOffsetsOffset++];
                 const mortonCode = vertexBuffer[offset];
-                const vertex = ZOrderCurve.decode(mortonCode, mortonSettings.numBits, mortonSettings.coordinateShift);
+                const vertex = decodeZOrderCurve(mortonCode, mortonSettings.numBits, mortonSettings.coordinateShift);
                 const coordinate = new Point(vertex.x, vertex.y);
                 geometries[geometryCounter++] = geometryFactory.createPoint(coordinate);
             }
@@ -412,7 +412,7 @@ function decodeMortonDictionaryEncodedLineString(
     for (let i = 0; i < numVertices; i++) {
         const offset = vertexOffsets[vertexOffset + i];
         const mortonEncodedVertex = vertexBuffer[offset];
-        const vertex = ZOrderCurve.decode(mortonEncodedVertex, mortonSettings.numBits, mortonSettings.coordinateShift);
+        const vertex = decodeZOrderCurve(mortonEncodedVertex, mortonSettings.numBits, mortonSettings.coordinateShift);
         vertices[i] = new Point(vertex.x, vertex.y);
     }
     if (closeLineString) {
