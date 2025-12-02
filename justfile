@@ -122,6 +122,24 @@ test-js: install-js
 test-rust:
     cd rust && cargo test
 
+# Generate code coverage report for C++
+[working-directory: 'cpp']
+coverage-cpp:
+    mkdir -p coverage
+    cmake -B build-coverage -S . -DMLT_WITH_COVERAGE=ON
+    cmake --build build-coverage --target mlt-cpp-test
+    build-coverage/test/mlt-cpp-test
+    lcov --directory build-coverage --capture --output-file coverage/coverage.info --ignore-errors inconsistent
+    lcov --extract coverage/coverage.info '*/cpp/src/mlt/*' '*/cpp/include/mlt/*' --output-file coverage/coverage.info --ignore-errors inconsistent
+    echo "Coverage report generated at cpp/coverage/coverage.info"
+    lcov --summary coverage/coverage.info --ignore-errors inconsistent,corrupt || true
+
+# Generate HTML code coverage report for C++
+[working-directory: 'cpp']
+coverage-cpp-html: coverage-cpp
+    genhtml coverage/coverage.info --output-directory coverage/html --title "MLT C++ Coverage" --legend --demangle-cpp --show-details --branch-coverage --ignore-errors inconsistent,corrupt
+    echo "HTML coverage report generated at file://{{justfile_directory()}}/cpp/coverage/html/index.html"
+
 # Delete integration test output files
 [private]
 clean-int-test:
