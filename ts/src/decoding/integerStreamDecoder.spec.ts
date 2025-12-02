@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { getVectorType, decodeLongStream, decodeNullableLongStream } from "./integerStreamDecoder";
-import { RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
@@ -9,7 +8,8 @@ import { VectorType } from "../vector/vectorType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import { StreamMetadata } from "../metadata/tile/streamMetadata";
+import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { type StreamMetadata } from "../metadata/tile/streamMetadata";
 
 /**
  * Helper function to create StreamMetadata
@@ -19,15 +19,16 @@ function createStreamMetadata(
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
     numValues: number = 3,
 ): StreamMetadata {
-    return new StreamMetadata(
-        PhysicalStreamType.DATA,
-        new LogicalStreamType(DictionaryType.NONE),
-        logicalTechnique1,
-        logicalTechnique2,
-        PhysicalLevelTechnique.VARINT,
+    return {
+        physicalStreamType: PhysicalStreamType.DATA,
+        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalLevelTechnique1: logicalTechnique1,
+        logicalLevelTechnique2: logicalTechnique2,
+        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
         numValues,
-        10,
-    );
+        byteLength: 10,
+        decompressedCount: numValues,
+    };
 }
 
 /**
@@ -39,17 +40,18 @@ function createRleMetadata(
     runs: number,
     numRleValues: number,
 ): RleEncodedStreamMetadata {
-    return new RleEncodedStreamMetadata(
-        PhysicalStreamType.DATA,
-        new LogicalStreamType(DictionaryType.NONE),
-        logicalTechnique1,
-        logicalTechnique2,
-        PhysicalLevelTechnique.VARINT,
-        runs * 2,
-        10,
+    return {
+        physicalStreamType: PhysicalStreamType.DATA,
+        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalLevelTechnique1: logicalTechnique1,
+        logicalLevelTechnique2: logicalTechnique2,
+        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
+        numValues: runs * 2,
+        byteLength: 10,
+        decompressedCount: numRleValues,
         runs,
         numRleValues,
-    );
+    };
 }
 
 describe("getVectorType", () => {

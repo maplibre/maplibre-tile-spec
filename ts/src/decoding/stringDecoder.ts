@@ -251,10 +251,7 @@ export function decodeSharedDictionary(
         const presentStreamMetadata = decodeStreamMetadataExtended(data, offset);
         const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, offset);
         const offsetStreamMetadata = decodeStreamMetadataExtended(data, offset);
-        const offsetCount =
-            offsetStreamMetadata instanceof RleEncodedStreamMetadata
-                ? offsetStreamMetadata.numRleValues
-                : offsetStreamMetadata.numValues;
+        const offsetCount = offsetStreamMetadata.decompressedCount;
         const isNullable = offsetCount !== numFeatures;
         const offsetStream = isNullable
             ? decodeNullableIntStream(

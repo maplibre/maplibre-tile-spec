@@ -97,7 +97,7 @@ export default function decodeTile(
                 }
 
                 const idDataStreamMetadata = decodeStreamMetadataExtended(tile, offset);
-                numFeatures = idDataStreamMetadata.getDecompressedCount();
+                numFeatures = idDataStreamMetadata.decompressedCount;
 
                 idVector = decodeIdColumn(
                     tile,
@@ -115,7 +115,7 @@ export default function decodeTile(
                 if (numFeatures === 0) {
                     const savedOffset = offset.get();
                     const geometryTypeMetadata = decodeStreamMetadataExtended(tile, offset);
-                    numFeatures = geometryTypeMetadata.getDecompressedCount();
+                    numFeatures = geometryTypeMetadata.decompressedCount;
                     offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
                 }
 

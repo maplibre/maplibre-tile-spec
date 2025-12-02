@@ -90,8 +90,8 @@ export function decodeGeometryColumn(
                     } else {
                         const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
                         mortonSettings = {
-                            numBits: mortonMetadata.numBits(),
-                            coordinateShift: mortonMetadata.coordinateShift(),
+                            numBits: mortonMetadata.numBits,
+                            coordinateShift: mortonMetadata.coordinateShift,
                         };
                         vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false, scalingData);
                     }
@@ -174,8 +174,8 @@ export function decodeGeometryColumn(
                 } else {
                     const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
                     mortonSettings = {
-                        numBits: mortonMetadata.numBits(),
-                        coordinateShift: mortonMetadata.coordinateShift(),
+                        numBits: mortonMetadata.numBits,
+                        coordinateShift: mortonMetadata.coordinateShift,
                     };
                     vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false, scalingData);
                 }
