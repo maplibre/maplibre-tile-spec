@@ -1,5 +1,5 @@
 import { type GeometryVector, type MortonSettings } from "../vector/geometry/geometryVector";
-import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
+import { decodeStreamMetadata, type MortonEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import type IntWrapper from "./intWrapper";
 import {
     decodeConstIntStream,
@@ -11,7 +11,6 @@ import { VectorType } from "../vector/vectorType";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
-import { type MortonEncodedStreamMetadata } from "../metadata/tile/mortonEncodedStreamMetadata";
 import TopologyVector from "../vector/geometry/topologyVector";
 import {
     ConstGeometryVector,
@@ -37,7 +36,7 @@ export function decodeGeometryColumn(
     numFeatures: number,
     scalingData?: GeometryScaling,
 ): GeometryVector | GpuVector {
-    const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
+    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
     const geometryTypesVectorType = getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
 
     let geometryOffsets: Int32Array = null;
@@ -56,7 +55,7 @@ export function decodeGeometryColumn(
         const geometryType = decodeConstIntStream(tile, offset, geometryTypeMetadata, false);
 
         for (let i = 0; i < numStreams - 1; i++) {
-            const geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+            const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
             switch (geometryStreamMetadata.physicalStreamType) {
                 case PhysicalStreamType.LENGTH:
                     switch (geometryStreamMetadata.logicalStreamType.lengthType) {
@@ -90,8 +89,8 @@ export function decodeGeometryColumn(
                     } else {
                         const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
                         mortonSettings = {
-                            numBits: mortonMetadata.numBits(),
-                            coordinateShift: mortonMetadata.coordinateShift(),
+                            numBits: mortonMetadata.numBits,
+                            coordinateShift: mortonMetadata.coordinateShift,
                         };
                         vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false, scalingData);
                     }
@@ -141,7 +140,7 @@ export function decodeGeometryColumn(
     const geometryTypeVector = decodeIntStream(tile, offset, geometryTypeMetadata, false);
 
     for (let i = 0; i < numStreams - 1; i++) {
-        const geometryStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+        const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
         switch (geometryStreamMetadata.physicalStreamType) {
             case PhysicalStreamType.LENGTH:
                 switch (geometryStreamMetadata.logicalStreamType.lengthType) {
@@ -174,8 +173,8 @@ export function decodeGeometryColumn(
                 } else {
                     const mortonMetadata = geometryStreamMetadata as MortonEncodedStreamMetadata;
                     mortonSettings = {
-                        numBits: mortonMetadata.numBits(),
-                        coordinateShift: mortonMetadata.coordinateShift(),
+                        numBits: mortonMetadata.numBits,
+                        coordinateShift: mortonMetadata.coordinateShift,
                     };
                     vertexBuffer = decodeIntStream(tile, offset, geometryStreamMetadata, false, scalingData);
                 }
