@@ -143,7 +143,9 @@ export default function decodeTile(
                 );
                 if (propertyVector) {
                     if (Array.isArray(propertyVector)) {
-                        propertyVectors.push(...propertyVector);
+                        for (const property of propertyVector) {
+                            propertyVectors.push(property);
+                        }
                     } else {
                         propertyVectors.push(propertyVector);
                     }

@@ -22,7 +22,7 @@ class MvtGeometryFactory {
     }
 
     createPolygon(shell: Point[], rings: Array<Array<Point>>): CoordinatesArray {
-        return [shell, ...rings];
+        return [shell].concat(rings);
     }
 
     createMultiPolygon(polygons: Array<Array<Point>>[]): CoordinatesArray {
