@@ -8,8 +8,7 @@ import { VectorType } from "../vector/vectorType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
-import { type StreamMetadata } from "../metadata/tile/streamMetadata";
+import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 
 /**
  * Helper function to create StreamMetadata

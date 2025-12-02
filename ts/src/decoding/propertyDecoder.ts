@@ -2,7 +2,7 @@ import type IntWrapper from "./intWrapper";
 import { type Column, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import type Vector from "../vector/vector";
 import BitVector from "../vector/flat/bitVector";
-import { decodeStreamMetadataExtended } from "../metadata/tile/streamMetadataDecoder";
+import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import { VectorType } from "../vector/vectorType";
 import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
 import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
@@ -32,7 +32,6 @@ import {
     getVectorType,
 } from "./integerStreamDecoder";
 import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
-import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
 import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
 import { decodeSharedDictionary, decodeString } from "./stringDecoder";
 
@@ -84,7 +83,7 @@ function decodeScalarPropertyColumn(
 
     // Read nullability stream if column is nullable
     if (columnMetadata.nullable) {
-        const presentStreamMetadata = decodeStreamMetadataExtended(data, offset);
+        const presentStreamMetadata = decodeStreamMetadata(data, offset);
         numValues = presentStreamMetadata.numValues;
         const streamDataStart = offset.get();
         // Decode the RLE boolean data
@@ -126,7 +125,7 @@ function decodeBooleanColumn(
     numFeatures: number,
     sizeOrNullabilityBuffer: number | BitVector,
 ): BooleanFlatVector {
-    const dataStreamMetadata = decodeStreamMetadataExtended(data, offset);
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const numValues = dataStreamMetadata.numValues;
     const streamDataStart = offset.get();
     const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
@@ -145,7 +144,7 @@ function decodeFloatColumn(
     column: Column,
     sizeOrNullabilityBuffer: number | BitVector,
 ): FloatFlatVector {
-    const dataStreamMetadata = decodeStreamMetadataExtended(data, offset);
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
         ? decodeNullableFloatsLE(data, offset, sizeOrNullabilityBuffer, dataStreamMetadata.numValues)
         : decodeFloatsLE(data, offset, dataStreamMetadata.numValues);
@@ -158,7 +157,7 @@ function decodeDoubleColumn(
     column: Column,
     sizeOrNullabilityBuffer: number | BitVector,
 ): DoubleFlatVector {
-    const dataStreamMetadata = decodeStreamMetadataExtended(data, offset);
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
         ? decodeNullableDoublesLE(data, offset, sizeOrNullabilityBuffer, dataStreamMetadata.numValues)
         : decodeDoublesLE(data, offset, dataStreamMetadata.numValues);
@@ -172,7 +171,7 @@ function decodeLongColumn(
     sizeOrNullabilityBuffer: number | BitVector,
     scalarColumn: ScalarColumn,
 ): Vector<BigInt64Array, bigint> {
-    const dataStreamMetadata = decodeStreamMetadataExtended(data, offset);
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_64;
     if (vectorType === VectorType.FLAT) {
@@ -201,7 +200,7 @@ function decodeIntColumn(
     scalarColumn: ScalarColumn,
     sizeOrNullabilityBuffer: number | BitVector,
 ): Vector<Int32Array, number> {
-    const dataStreamMetadata = decodeStreamMetadataExtended(data, offset);
+    const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const vectorType = getVectorType(dataStreamMetadata, sizeOrNullabilityBuffer, data, offset);
     const isSigned = scalarColumn.physicalType === ScalarType.INT_32;
 

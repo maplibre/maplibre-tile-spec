@@ -1,8 +1,7 @@
 import FeatureTable from "./vector/featureTable";
 import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./decoding/intWrapper";
-import { decodeStreamMetadataExtended } from "./metadata/tile/streamMetadataDecoder";
-import { type RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamMetadata";
+import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { VectorType } from "./vector/vectorType";
 import { IntFlatVector } from "./vector/flat/intFlatVector";
 import BitVector from "./vector/flat/bitVector";
@@ -30,7 +29,7 @@ import { decodeBooleanRle } from "./decoding/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
 import { hasStreamCount } from "./metadata/tileset/typeMap";
-import { type StreamMetadata } from "./metadata/tile/streamMetadata";
+import { type StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { type GeometryVector } from "./vector/geometry/geometryVector";
 import type Vector from "./vector/vector";
 import { type GpuVector } from "./vector/geometry/gpuVector";
@@ -88,7 +87,7 @@ export default function decodeTile(
                 let nullabilityBuffer = null;
                 // Check column metadata nullable flag, not numStreams (ID columns don't have stream count)
                 if (columnMetadata.nullable) {
-                    const presentStreamMetadata = decodeStreamMetadataExtended(tile, offset);
+                    const presentStreamMetadata = decodeStreamMetadata(tile, offset);
                     const streamDataStart = offset.get();
                     const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, offset);
                     // Fix offset: decodeBooleanRle doesn't consume all compressed bytes
@@ -96,7 +95,7 @@ export default function decodeTile(
                     nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
                 }
 
-                const idDataStreamMetadata = decodeStreamMetadataExtended(tile, offset);
+                const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
                 numFeatures = idDataStreamMetadata.decompressedCount;
 
                 idVector = decodeIdColumn(
@@ -114,7 +113,7 @@ export default function decodeTile(
                 // If no ID column, get numFeatures from geometry type stream metadata
                 if (numFeatures === 0) {
                     const savedOffset = offset.get();
-                    const geometryTypeMetadata = decodeStreamMetadataExtended(tile, offset);
+                    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
                     numFeatures = geometryTypeMetadata.decompressedCount;
                     offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
                 }
