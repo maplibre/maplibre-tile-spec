@@ -1,4 +1,3 @@
-import { type StreamMetadata } from "../metadata/tile/streamMetadata";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import type IntWrapper from "./intWrapper";
 import {
@@ -45,7 +44,7 @@ import {
     zigZagRleDeltaDecoding,
 } from "./integerDecodingUtils";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
+import { type StreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import BitVector from "../vector/flat/bitVector";
 import { VectorType } from "../vector/vectorType";
 import type GeometryScaling from "./geometryScaling";

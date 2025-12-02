@@ -1,8 +1,7 @@
 import FeatureTable from "./vector/featureTable";
 import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./decoding/intWrapper";
-import { StreamMetadataDecoder } from "./metadata/tile/streamMetadataDecoder";
-import { type RleEncodedStreamMetadata } from "./metadata/tile/rleEncodedStreamMetadata";
+import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { VectorType } from "./vector/vectorType";
 import { IntFlatVector } from "./vector/flat/intFlatVector";
 import BitVector from "./vector/flat/bitVector";
@@ -29,8 +28,8 @@ import type GeometryScaling from "./decoding/geometryScaling";
 import { decodeBooleanRle } from "./decoding/decodingUtils";
 import { DoubleFlatVector } from "./vector/flat/doubleFlatVector";
 import { decodeEmbeddedTileSetMetadata } from "./metadata/tileset/embeddedTilesetMetadataDecoder";
-import { TypeMap } from "./metadata/tileset/typeMap";
-import { type StreamMetadata } from "./metadata/tile/streamMetadata";
+import { hasStreamCount } from "./metadata/tileset/typeMap";
+import { type StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { type GeometryVector } from "./vector/geometry/geometryVector";
 import type Vector from "./vector/vector";
 import { type GpuVector } from "./vector/geometry/gpuVector";
@@ -88,7 +87,7 @@ export default function decodeTile(
                 let nullabilityBuffer = null;
                 // Check column metadata nullable flag, not numStreams (ID columns don't have stream count)
                 if (columnMetadata.nullable) {
-                    const presentStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
+                    const presentStreamMetadata = decodeStreamMetadata(tile, offset);
                     const streamDataStart = offset.get();
                     const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, offset);
                     // Fix offset: decodeBooleanRle doesn't consume all compressed bytes
@@ -96,8 +95,8 @@ export default function decodeTile(
                     nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
                 }
 
-                const idDataStreamMetadata = StreamMetadataDecoder.decode(tile, offset);
-                numFeatures = idDataStreamMetadata.getDecompressedCount();
+                const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
+                numFeatures = idDataStreamMetadata.decompressedCount;
 
                 idVector = decodeIdColumn(
                     tile,
@@ -114,8 +113,8 @@ export default function decodeTile(
                 // If no ID column, get numFeatures from geometry type stream metadata
                 if (numFeatures === 0) {
                     const savedOffset = offset.get();
-                    const geometryTypeMetadata = StreamMetadataDecoder.decode(tile, offset);
-                    numFeatures = geometryTypeMetadata.getDecompressedCount();
+                    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
+                    numFeatures = geometryTypeMetadata.decompressedCount;
                     offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
                 }
 
@@ -126,7 +125,7 @@ export default function decodeTile(
                 geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
             } else {
                 // Property columns: STRING and STRUCT have stream count, others don't
-                const hasStreamCnt = TypeMap.hasStreamCount(columnMetadata);
+                const hasStreamCnt = hasStreamCount(columnMetadata);
                 const numStreams = hasStreamCnt ? decodeVarintInt32(tile, offset, 1)[0] : 1;
 
                 if (numStreams === 0 && columnMetadata.type === "scalarType") {
@@ -143,7 +142,9 @@ export default function decodeTile(
                 );
                 if (propertyVector) {
                     if (Array.isArray(propertyVector)) {
-                        propertyVectors.push(...propertyVector);
+                        for (const property of propertyVector) {
+                            propertyVectors.push(property);
+                        }
                     } else {
                         propertyVectors.push(propertyVector);
                     }

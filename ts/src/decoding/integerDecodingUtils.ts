@@ -1,7 +1,7 @@
 import type IntWrapper from "./intWrapper";
-import { type RleEncodedStreamMetadata } from "../metadata/tile/rleEncodedStreamMetadata";
 import type BitVector from "../vector/flat/bitVector";
 import { type StreamMetadata } from "../mltMetadata";
+import { type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 
 /* Null suppression (physical level) techniques ------------------------------------------------------------------*/
 

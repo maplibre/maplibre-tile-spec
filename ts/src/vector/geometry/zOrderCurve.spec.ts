@@ -1,16 +1,22 @@
 import { describe, it, expect } from "vitest";
-import ZOrderCurve from "./zOrderCurve";
+import { decodeZOrderCurve } from "./zOrderCurve";
 
-describe("ZOrderCurve", () => {
-    it("decode", () => {
-        const expectedIndex = 38865244;
-        const expectedVertex = { x: 3358, y: 4130 };
-        const zCurve = new ZOrderCurve(288, 4150);
+describe("decodeZOrderCurve", () => {
+    it("should decode z-order curve", () => {
+        const encodedValue = 38865244;
+        const numBits = 13;
+        const coordinateShift = 0;
+        const expectedDecodedValue = { x: 3358, y: 4130 };
 
-        const actualIndex = zCurve.encode(expectedVertex);
-        const actualVertex = zCurve.decode(actualIndex);
+        expect(expectedDecodedValue).toEqual(decodeZOrderCurve(encodedValue, numBits, coordinateShift));
+    });
 
-        expect(actualIndex).toEqual(expectedIndex);
-        expect(actualVertex).toEqual(expectedVertex);
+    it("should decode the example value of wikipedia", () => {
+        const encodedValue = 2479;
+        const numBits = 6;
+        const coordinateShift = 0;
+        const expectedDecodedValue = { x: 19, y: 47 };
+
+        expect(expectedDecodedValue).toEqual(decodeZOrderCurve(encodedValue, numBits, coordinateShift));
     });
 });
