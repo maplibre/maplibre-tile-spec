@@ -1,25 +1,10 @@
 import { decodeStreamMetadata, StreamMetadata } from "./streamMetadata";
-import { type PhysicalStreamType } from "./physicalStreamType";
-import { type LogicalStreamType } from "./logicalStreamType";
-import { type LogicalLevelTechnique } from "./logicalLevelTechnique";
-import { type PhysicalLevelTechnique } from "./physicalLevelTechnique";
-import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
+import type IntWrapper from "../../decoding/intWrapper";
 
 export function decodeRleEncodedStreamMetadata(tile: Uint8Array, offset: IntWrapper): RleEncodedStreamMetadata {
     const streamMetadata = decodeStreamMetadata(tile, offset);
-    const rleInfo = decodeVarintInt32(tile, offset, 2);
-    return new RleEncodedStreamMetadata(
-        streamMetadata.physicalStreamType,
-        streamMetadata.logicalStreamType,
-        streamMetadata.logicalLevelTechnique1,
-        streamMetadata.logicalLevelTechnique2,
-        streamMetadata.physicalLevelTechnique,
-        streamMetadata.numValues,
-        streamMetadata.byteLength,
-        rleInfo[0],
-        rleInfo[1],
-    );
+    return decodePartialRleEncodedStreamMetadata(streamMetadata, tile, offset);
 }
 
 export function decodePartialRleEncodedStreamMetadata(
@@ -28,59 +13,21 @@ export function decodePartialRleEncodedStreamMetadata(
     offset: IntWrapper,
 ): RleEncodedStreamMetadata {
     const rleInfo = decodeVarintInt32(tile, offset, 2);
-    return new RleEncodedStreamMetadata(
-        streamMetadata.physicalStreamType,
-        streamMetadata.logicalStreamType,
-        streamMetadata.logicalLevelTechnique1,
-        streamMetadata.logicalLevelTechnique2,
-        streamMetadata.physicalLevelTechnique,
-        streamMetadata.numValues,
-        streamMetadata.byteLength,
-        rleInfo[0],
-        rleInfo[1],
-    );
+    return {
+        physicalStreamType: streamMetadata.physicalStreamType,
+        logicalStreamType: streamMetadata.logicalStreamType,
+        logicalLevelTechnique1: streamMetadata.logicalLevelTechnique1,
+        logicalLevelTechnique2: streamMetadata.logicalLevelTechnique2,
+        physicalLevelTechnique: streamMetadata.physicalLevelTechnique,
+        numValues: streamMetadata.numValues,
+        byteLength: streamMetadata.byteLength,
+        decompressedCount: rleInfo[1],
+        runs: rleInfo[0],
+        numRleValues: rleInfo[1],
+    };
 }
 
-export class RleEncodedStreamMetadata extends StreamMetadata {
-    /**
-     * @param numValues After LogicalLevelTechnique was applied -> numRuns + numValues
-     * @param _runs Length of the runs array
-     * @param _numRleValues Used for pre-allocating the arrays on the client for faster decoding
-     */
-    constructor(
-        physicalStreamType: PhysicalStreamType,
-        logicalStreamType: LogicalStreamType,
-        logicalLevelTechnique1: LogicalLevelTechnique,
-        logicalLevelTechnique2: LogicalLevelTechnique,
-        physicalLevelTechnique: PhysicalLevelTechnique,
-        numValues: number,
-        byteLength: number,
-        private readonly _runs: number,
-        private readonly _numRleValues: number,
-    ) {
-        super(
-            physicalStreamType,
-            logicalStreamType,
-            logicalLevelTechnique1,
-            logicalLevelTechnique2,
-            physicalLevelTechnique,
-            numValues,
-            byteLength,
-        );
-    }
-
-    public get runs(): number {
-        return this._runs;
-    }
-
-    get numRleValues(): number {
-        return this._numRleValues;
-    }
-
-    /**
-     * Override to return the decompressed count for RLE streams.
-     */
-    override getDecompressedCount(): number {
-        return this._numRleValues;
-    }
-}
+export type RleEncodedStreamMetadata = StreamMetadata & {
+    readonly runs: number;
+    readonly numRleValues: number;
+};

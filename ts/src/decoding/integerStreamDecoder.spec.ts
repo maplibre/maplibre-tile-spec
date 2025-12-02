@@ -19,15 +19,16 @@ function createStreamMetadata(
     logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
     numValues: number = 3,
 ): StreamMetadata {
-    return new StreamMetadata(
-        PhysicalStreamType.DATA,
-        new LogicalStreamType(DictionaryType.NONE),
-        logicalTechnique1,
-        logicalTechnique2,
-        PhysicalLevelTechnique.VARINT,
+    return {
+        physicalStreamType: PhysicalStreamType.DATA,
+        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalLevelTechnique1: logicalTechnique1,
+        logicalLevelTechnique2: logicalTechnique2,
+        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
         numValues,
-        10,
-    );
+        byteLength: 10,
+        decompressedCount: numValues,
+    };
 }
 
 /**
@@ -39,17 +40,18 @@ function createRleMetadata(
     runs: number,
     numRleValues: number,
 ): RleEncodedStreamMetadata {
-    return new RleEncodedStreamMetadata(
-        PhysicalStreamType.DATA,
-        new LogicalStreamType(DictionaryType.NONE),
-        logicalTechnique1,
-        logicalTechnique2,
-        PhysicalLevelTechnique.VARINT,
-        runs * 2,
-        10,
+    return {
+        physicalStreamType: PhysicalStreamType.DATA,
+        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalLevelTechnique1: logicalTechnique1,
+        logicalLevelTechnique2: logicalTechnique2,
+        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
+        numValues: runs * 2,
+        byteLength: 10,
+        decompressedCount: numRleValues,
         runs,
         numRleValues,
-    );
+    };
 }
 
 describe("getVectorType", () => {

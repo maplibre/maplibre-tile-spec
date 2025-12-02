@@ -5,8 +5,8 @@ import { PhysicalLevelTechnique } from "./physicalLevelTechnique";
 import { DictionaryType } from "./dictionaryType";
 import { OffsetType } from "./offsetType";
 import { LengthType } from "./lengthType";
-import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
+import type IntWrapper from "../../decoding/intWrapper";
 
 export function decodeStreamMetadata(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
     const stream_type = tile[offset.get()];
@@ -42,54 +42,30 @@ export function decodeStreamMetadata(tile: Uint8Array, offset: IntWrapper): Stre
     const numValues = sizeInfo[0];
     const byteLength = sizeInfo[1];
 
-    return new StreamMetadata(physicalStreamType, logicalStreamType, llt1, llt2, plt, numValues, byteLength);
+    return {
+        physicalStreamType,
+        logicalStreamType,
+        logicalLevelTechnique1: llt1,
+        logicalLevelTechnique2: llt2,
+        physicalLevelTechnique: plt,
+        numValues,
+        byteLength,
+        decompressedCount: numValues,
+    };
 }
 
-export class StreamMetadata {
-    constructor(
-        private readonly _physicalStreamType: PhysicalStreamType,
-        private readonly _logicalStreamType: LogicalStreamType,
-        private readonly _logicalLevelTechnique1: LogicalLevelTechnique,
-        private readonly _logicalLevelTechnique2: LogicalLevelTechnique,
-        private readonly _physicalLevelTechnique: PhysicalLevelTechnique,
-        private readonly _numValues: number,
-        private readonly _byteLength: number,
-    ) {}
-
-    get physicalStreamType(): PhysicalStreamType {
-        return this._physicalStreamType;
-    }
-
-    get logicalStreamType(): LogicalStreamType {
-        return this._logicalStreamType;
-    }
-
-    get logicalLevelTechnique1(): LogicalLevelTechnique {
-        return this._logicalLevelTechnique1;
-    }
-
-    get logicalLevelTechnique2(): LogicalLevelTechnique {
-        return this._logicalLevelTechnique2;
-    }
-
-    get physicalLevelTechnique(): PhysicalLevelTechnique {
-        return this._physicalLevelTechnique;
-    }
-
-    get numValues(): number {
-        return this._numValues;
-    }
-
-    get byteLength(): number {
-        return this._byteLength;
-    }
-
+export type StreamMetadata = {
+    readonly physicalStreamType: PhysicalStreamType;
+    readonly logicalStreamType: LogicalStreamType;
+    readonly logicalLevelTechnique1: LogicalLevelTechnique;
+    readonly logicalLevelTechnique2: LogicalLevelTechnique;
+    readonly physicalLevelTechnique: PhysicalLevelTechnique;
+    readonly numValues: number;
+    readonly byteLength: number;
     /**
      * Returns the number of decompressed values.
      * For non-RLE streams, this is the same as numValues.
      * For RLE streams, this is overridden to return numRleValues.
      */
-    getDecompressedCount(): number {
-        return this._numValues;
-    }
-}
+    readonly decompressedCount: number;
+};
