@@ -1,82 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { getVectorType, decodeLongStream, decodeNullableLongStream } from "./integerStreamDecoder";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
-import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-
-/**
- * Helper function to create StreamMetadata
- */
-function createStreamMetadata(
-    logicalTechnique1: LogicalLevelTechnique,
-    logicalTechnique2: LogicalLevelTechnique = LogicalLevelTechnique.NONE,
-    numValues: number = 3,
-): StreamMetadata {
-    return {
-        physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
-        logicalLevelTechnique1: logicalTechnique1,
-        logicalLevelTechnique2: logicalTechnique2,
-        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
-        numValues,
-        byteLength: 10,
-        decompressedCount: numValues,
-    };
-}
-
-/**
- * Helper function to create RleEncodedStreamMetadata
- */
-function createRleMetadata(
-    logicalTechnique1: LogicalLevelTechnique,
-    logicalTechnique2: LogicalLevelTechnique,
-    runs: number,
-    numRleValues: number,
-): RleEncodedStreamMetadata {
-    return {
-        physicalStreamType: PhysicalStreamType.DATA,
-        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
-        logicalLevelTechnique1: logicalTechnique1,
-        logicalLevelTechnique2: logicalTechnique2,
-        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
-        numValues: runs * 2,
-        byteLength: 10,
-        decompressedCount: numRleValues,
-        runs,
-        numRleValues,
-    };
-}
-
-function encodeSingleVarintInt64(value: bigint, dst: Uint8Array, offset: IntWrapper): void {
-    let v = value;
-    while (v > 0x7fn) {
-        dst[offset.get()] = Number(v & 0x7fn) | 0x80;
-        offset.increment();
-        v >>= 7n;
-    }
-    dst[offset.get()] = Number(v & 0x7fn);
-    offset.increment();
-}
-
-function encodeVarintInt64Array(values: BigInt64Array): Uint8Array {
-    const buffer = new Uint8Array(values.length * 10);
-    const offset = new IntWrapper(0);
-
-    for (const value of values) {
-        encodeSingleVarintInt64(value, buffer, offset);
-    }
-    return buffer.slice(0, offset.get());
-}
-
-function encodeZigZag(value: bigint): bigint {
-    return (value << 1n) ^ (value >> 63n);
-}
+import {
+    createStreamMetadata,
+    createRleMetadata,
+    encodeVarintInt64Array,
+    encodeZigZag64,
+} from "./decodingTestUtils";
 
 describe("getVectorType", () => {
     it("Delta-RLE with single run should return SEQUENCE for 1 run", () => {
@@ -102,7 +35,7 @@ describe("decodeLongStream", () => {
         const runs = 3;
         const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
         const expectedValues = new BigInt64Array([10n, 12n, 14n, 15n, 16n]);
-        const rleValues = new BigInt64Array([1n, 2n, 2n, encodeZigZag(10n), encodeZigZag(2n), encodeZigZag(1n)]);
+        const rleValues = new BigInt64Array([1n, 2n, 2n, encodeZigZag64(10n), encodeZigZag64(2n), encodeZigZag64(1n)]);
         const data = encodeVarintInt64Array(rleValues);
         const offset = new IntWrapper(0);
 
@@ -117,7 +50,7 @@ describe("decodeLongStream", () => {
         const deltaEncoded = new BigInt64Array([2n, 4n - 2n, 6n - 4n,]);
         const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
         for (let i = 0; i < deltaEncoded.length; i++) {
-            zigzagEncoded[i] = encodeZigZag(deltaEncoded[i]);
+            zigzagEncoded[i] = encodeZigZag64(deltaEncoded[i]);
         }
         const data = encodeVarintInt64Array(zigzagEncoded);
         const offset = new IntWrapper(0);
@@ -132,7 +65,7 @@ describe("decodeLongStream", () => {
         const runs = 2;
         const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
         const expectedValues = new BigInt64Array([100n, 100n, 100n, -50n, -50n]);
-        const rleValues = new BigInt64Array([3n, 2n, encodeZigZag(100n), encodeZigZag(-50n),
+        const rleValues = new BigInt64Array([3n, 2n, encodeZigZag64(100n), encodeZigZag64(-50n),
         ]);
         const data = encodeVarintInt64Array(rleValues);
         const offset = new IntWrapper(0);
@@ -145,7 +78,7 @@ describe("decodeLongStream", () => {
     it("should decode NONE signed", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
         const expectedValues = new BigInt64Array([2n, -4n, 6n]);
-        const zigzagEncoded = new BigInt64Array(Array.from(expectedValues, (val) => encodeZigZag(val)));
+        const zigzagEncoded = new BigInt64Array(Array.from(expectedValues, (val) => encodeZigZag64(val)));
         const data = encodeVarintInt64Array(zigzagEncoded);
         const offset = new IntWrapper(0);
 
@@ -181,7 +114,7 @@ describe("decodeNullableLongStream", () => {
         const runs = 3;
         const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
         const expectedValues = new BigInt64Array([10n, 12n, 14n, 15n, 16n]);
-        const rleValues = new BigInt64Array([1n, 2n, 2n, encodeZigZag(10n), encodeZigZag(2n), encodeZigZag(1n)]);
+        const rleValues = new BigInt64Array([1n, 2n, 2n, encodeZigZag64(10n), encodeZigZag64(2n), encodeZigZag64(1n)]);
         const data = encodeVarintInt64Array(rleValues);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00011111]), 5); // All non-null
@@ -197,7 +130,7 @@ describe("decodeNullableLongStream", () => {
         const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
         const expectedValues = new BigInt64Array([10n, 10n, 12n, 12n, 14n]); // null values repeat previous value
         // Encode only non-null values: [10n, 12n, 14n]
-        const rleValues = new BigInt64Array([1n, 2n, encodeZigZag(10n), encodeZigZag(2n)]);
+        const rleValues = new BigInt64Array([1n, 2n, encodeZigZag64(10n), encodeZigZag64(2n)]);
         const data = encodeVarintInt64Array(rleValues);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00010101]), 5); // positions 0, 2, 4 are non-null
@@ -213,7 +146,7 @@ describe("decodeNullableLongStream", () => {
         const deltaEncoded = new BigInt64Array([2n, 4n - 2n, 6n - 4n]);
         const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
         for (let i = 0; i < deltaEncoded.length; i++) {
-            zigzagEncoded[i] = encodeZigZag(deltaEncoded[i]);
+            zigzagEncoded[i] = encodeZigZag64(deltaEncoded[i]);
         }
         const data = encodeVarintInt64Array(zigzagEncoded);
         const offset = new IntWrapper(0);
@@ -231,7 +164,7 @@ describe("decodeNullableLongStream", () => {
         const deltaEncoded = new BigInt64Array([2n, 4n - 2n, 6n - 4n]);
         const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
         for (let i = 0; i < deltaEncoded.length; i++) {
-            zigzagEncoded[i] = encodeZigZag(deltaEncoded[i]);
+            zigzagEncoded[i] = encodeZigZag64(deltaEncoded[i]);
         }
         const data = encodeVarintInt64Array(zigzagEncoded);
         const offset = new IntWrapper(0);
@@ -247,7 +180,7 @@ describe("decodeNullableLongStream", () => {
         const runs = 2;
         const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
         const expectedValues = new BigInt64Array([100n, 100n, 100n, -50n, -50n]);
-        const rleValues = new BigInt64Array([3n, 2n, encodeZigZag(100n), encodeZigZag(-50n)]);
+        const rleValues = new BigInt64Array([3n, 2n, encodeZigZag64(100n), encodeZigZag64(-50n)]);
         const data = encodeVarintInt64Array(rleValues);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00011111]), 5); // All non-null
@@ -263,7 +196,7 @@ describe("decodeNullableLongStream", () => {
         const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
         const expectedValues = new BigInt64Array([100n, 0n, 100n, 0n, -50n]); // null values become 0n
         // Encode only non-null values: [100n, 100n, -50n]
-        const rleValues = new BigInt64Array([2n, 1n, encodeZigZag(100n), encodeZigZag(-50n)]);
+        const rleValues = new BigInt64Array([2n, 1n, encodeZigZag64(100n), encodeZigZag64(-50n)]);
         const data = encodeVarintInt64Array(rleValues);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00010101]), 5); // positions 0, 2, 4 are non-null
@@ -276,7 +209,7 @@ describe("decodeNullableLongStream", () => {
     it("should decode NONE signed with all non-null values", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
         const expectedValues = new BigInt64Array([2n, -4n, 6n]);
-        const zigzagEncoded = new BigInt64Array(Array.from(expectedValues, (val) => encodeZigZag(val)));
+        const zigzagEncoded = new BigInt64Array(Array.from(expectedValues, (val) => encodeZigZag64(val)));
         const data = encodeVarintInt64Array(zigzagEncoded);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3); // All non-null
@@ -291,7 +224,7 @@ describe("decodeNullableLongStream", () => {
         const expectedValues = new BigInt64Array([2n, 0n, -4n, 0n, 6n]); // null values become 0n
         // Encode only non-null values: [2n, -4n, 6n]
         const nonNullValues = [2n, -4n, 6n];
-        const zigzagEncoded = new BigInt64Array(Array.from(nonNullValues, (val) => encodeZigZag(val)));
+        const zigzagEncoded = new BigInt64Array(Array.from(nonNullValues, (val) => encodeZigZag64(val)));
         const data = encodeVarintInt64Array(zigzagEncoded);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00010101]), 5); // positions 0, 2, 4 are non-null

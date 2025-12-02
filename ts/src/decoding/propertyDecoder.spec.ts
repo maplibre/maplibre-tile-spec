@@ -1,765 +1,584 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import * as StreamMetadataDecoder from "../metadata/tile/streamMetadataDecoder";
-import * as IntegerStreamDecoder from "./integerStreamDecoder";
+import { describe, it, expect } from "vitest";
 import { decodePropertyColumn } from "./propertyDecoder";
-import { type Column } from "../metadata/tileset/tilesetMetadata";
-import { ScalarType } from "../metadata/tile/scalarType";
 import IntWrapper from "./intWrapper";
+import { ScalarType, type Column } from "../metadata/tileset/tilesetMetadata";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { IntFlatVector } from "../vector/flat/intFlatVector";
 import { LongFlatVector } from "../vector/flat/longFlatVector";
+import { FloatFlatVector } from "../vector/flat/floatFlatVector";
+import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
 import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
 import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
 import { IntConstVector } from "../vector/constant/intConstVector";
 import { LongConstVector } from "../vector/constant/longConstVector";
-import { VectorType } from "../vector/vectorType";
-import * as StringDecoder from "./stringDecoder";
-import * as decodingUtils from "./decodingUtils";
-import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
-import { FloatFlatVector } from "../vector/flat/floatFlatVector";
-import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
-import { type StringFlatVector } from "../vector/flat/stringFlatVector";
+import {
+    createStreamMetadata,
+    createRleMetadata,
+    buildEncodedStream,
+    encodeVarintInt32Array,
+    encodeVarintInt64Array,
+    encodeZigZag32,
+    encodeZigZag64,
+    encodeFloatsLE,
+    encodeBooleanRle,
+    concatenateBuffers,
+} from "./decodingTestUtils";
 
-// Constants for test data
-const TEST_DATA = {
-    BYTE_LENGTH: 12,
-    NUM_VALUES: 3,
-    NULLABILITY_BYTE_LENGTH: 1,
-    BUFFER_SIZE: 100,
-};
-
-// Helper: Create column with specific configuration
-function createColumn(scalarType: ScalarType, nullable: boolean = false): Column {
+function createColumnMetadata(name: string, scalarType: number, nullable: boolean = false): Column {
     return {
-        name: "age",
-        nullable,
-        columnScope: null,
+        name: name,
+        nullable: nullable,
         type: "scalarType",
         scalarType: {
-            longID: false,
             physicalType: scalarType,
-            logicalType: null,
             type: "physicalType",
         },
-        complexType: null,
     };
 }
 
-// Helper: Setup stream metadata mock
-function mockStreamMetadata(byteLength: number = TEST_DATA.BYTE_LENGTH, numValues: number = TEST_DATA.NUM_VALUES) {
-    return {
-        byteLength,
-        numValues,
-        logicalLevelTechnique1: 0,
-        logicalLevelTechnique2: 0,
-        physicalLevelTechnique: 0,
-    } as any;
-}
-
-// Helper: Setup RLE stream metadata for sequence encoding
-function mockRleStreamMetadata(
-    byteLength: number = TEST_DATA.BYTE_LENGTH,
-    numValues: number = TEST_DATA.NUM_VALUES,
-    numRleValues: number = 2,
-) {
-    return {
-        byteLength,
-        numValues,
-        numRleValues,
-        logicalLevelTechnique1: 0,
-        logicalLevelTechnique2: 0,
-        physicalLevelTechnique: 0,
-    } as any;
-}
-
-// Helper: Mock integer decoders (INT_32 or INT_64)
-function mockIntegerDecoder(scalarType: ScalarType) {
-    vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-
-    if (scalarType === ScalarType.INT_64 || scalarType === ScalarType.UINT_64) {
-        vi.spyOn(IntegerStreamDecoder, "decodeLongStream").mockReturnValue(new BigInt64Array([100n, 200n, 300n]));
-    } else {
-        vi.spyOn(IntegerStreamDecoder, "decodeIntStream").mockReturnValue(new Int32Array([100, 200, 300]));
-    }
-}
-
-// Helper: Mock integer sequence decoders
-function mockIntegerSequenceDecoder(scalarType: ScalarType) {
-    vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.SEQUENCE);
-
-    if (scalarType === ScalarType.INT_64 || scalarType === ScalarType.UINT_64) {
-        vi.spyOn(IntegerStreamDecoder, "decodeSequenceLongStream").mockReturnValue([10n, 20n]);
-    } else {
-        vi.spyOn(IntegerStreamDecoder, "decodeSequenceIntStream").mockReturnValue([10, 20]);
-    }
-}
-
-// Helper: Mock integer const decoders
-function mockIntegerConstDecoder(scalarType: ScalarType) {
-    vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.CONST);
-
-    if (scalarType === ScalarType.INT_64 || scalarType === ScalarType.UINT_64) {
-        vi.spyOn(IntegerStreamDecoder, "decodeConstLongStream").mockReturnValue(42n);
-    } else {
-        vi.spyOn(IntegerStreamDecoder, "decodeConstIntStream").mockReturnValue(42);
-    }
-}
-
-// Helper: Mock float decoders (FLOAT or DOUBLE)
-function mockFloatDecoder(scalarType: ScalarType) {
-    if (scalarType === ScalarType.FLOAT) {
-        vi.spyOn(decodingUtils, "decodeFloatsLE").mockReturnValue(new Float32Array([100.5, 200.5, 300.5]));
-    } else if (scalarType === ScalarType.DOUBLE) {
-        vi.spyOn(decodingUtils, "decodeDoublesLE").mockReturnValue(new Float64Array([100.5, 200.5, 300.5]));
-    }
-}
-
-// Helper: Mock nullable float decoders
-function mockNullableFloatDecoder(scalarType: ScalarType) {
-    if (scalarType === ScalarType.FLOAT) {
-        vi.spyOn(decodingUtils, "decodeNullableFloatsLE").mockReturnValue(new Float32Array([100.5, 200.5, 300.5]));
-    } else if (scalarType === ScalarType.DOUBLE) {
-        vi.spyOn(decodingUtils, "decodeNullableDoublesLE").mockReturnValue(new Float64Array([100.5, 200.5, 300.5]));
-    }
-}
-
-// Helper: Mock nullable integer decoders
-function mockNullableIntegerDecoder(scalarType: ScalarType) {
-    vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-
-    if (scalarType === ScalarType.INT_64 || scalarType === ScalarType.UINT_64) {
-        vi.spyOn(IntegerStreamDecoder, "decodeNullableLongStream").mockReturnValue(
-            new BigInt64Array([100n, 200n, 300n]),
+describe("decodePropertyColumn - INT_32", () => {
+    it("should decode INT_32 column with NONE encoding (signed)", () => {
+        const expectedValues = new Int32Array([2, -4, 6]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, false);
+        const zigzagEncoded = new Int32Array(expectedValues.length);
+        for (let i = 0; i < expectedValues.length; i++) {
+            zigzagEncoded[i] = encodeZigZag32(expectedValues[i]);
+        }
+        const encodedData = encodeVarintInt32Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
         );
-    } else {
-        vi.spyOn(IntegerStreamDecoder, "decodeNullableIntStream").mockReturnValue(new Int32Array([100, 200, 300]));
-    }
-}
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-// Helper: Setup nullable column with separate nullability stream
-function setupNullableStreamMocks() {
-    const metadataSpy = vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata");
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
 
-    // First call: nullability stream
-    metadataSpy.mockReturnValueOnce({
-        byteLength: TEST_DATA.NULLABILITY_BYTE_LENGTH,
-        numValues: TEST_DATA.NUM_VALUES,
-        logicalLevelTechnique1: 0,
-        logicalLevelTechnique2: 0,
-        physicalLevelTechnique: 0,
-    } as any);
-
-    // Subsequent calls: data stream
-    metadataSpy.mockReturnValue(mockStreamMetadata());
-
-    // Mock the nullability bitmap decoding
-    vi.spyOn(decodingUtils, "decodeBooleanRle").mockReturnValue(new Uint8Array([0b00000111]));
-}
-
-describe("decodePropertyColumn", () => {
-    afterEach(() => vi.restoreAllMocks());
-
-    describe("Number Columns - Non-Nullable - Signed Types", () => {
-        const numberTypes = [
-            {
-                scalarType: ScalarType.INT_32,
-                vectorClass: IntFlatVector,
-                mockFn: mockIntegerDecoder,
-                testName: "INT_32",
-            },
-            {
-                scalarType: ScalarType.INT_64,
-                vectorClass: LongFlatVector,
-                mockFn: mockIntegerDecoder,
-                testName: "INT_64",
-            },
-        ];
-
-        it.each(numberTypes)("should decode $testName column", ({ scalarType, vectorClass, mockFn }) => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            mockFn(scalarType);
-            const column = createColumn(scalarType, false);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeInstanceOf(vectorClass);
-            expect((result as any)._name).toBe("age");
-            expect((result as any).dataBuffer).toHaveLength(TEST_DATA.NUM_VALUES);
-        });
+        expect(result).toBeInstanceOf(IntFlatVector);
+        const resultVec = result as IntFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("Number Columns - Non-Nullable - Unsigned Types", () => {
-        const numberTypes = [
-            {
-                scalarType: ScalarType.UINT_32,
-                vectorClass: IntFlatVector,
-                mockFn: mockIntegerDecoder,
-                testName: "UINT_32",
-            },
-            {
-                scalarType: ScalarType.UINT_64,
-                vectorClass: LongFlatVector,
-                mockFn: mockIntegerDecoder,
-                testName: "UINT_64",
-            },
-        ];
-
-        it.each(numberTypes)("should decode $testName column", ({ scalarType, vectorClass, mockFn }) => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            mockFn(scalarType);
-            const column = createColumn(scalarType, false);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeInstanceOf(vectorClass);
-            expect((result as any)._name).toBe("age");
-            expect((result as any).dataBuffer).toHaveLength(TEST_DATA.NUM_VALUES);
-        });
-    });
-
-    describe("Number Columns - Nullable - Signed Types", () => {
-        const numberTypes = [
-            { scalarType: ScalarType.INT_32, mockFn: mockNullableIntegerDecoder, testName: "INT_32" },
-            { scalarType: ScalarType.INT_64, mockFn: mockNullableIntegerDecoder, testName: "INT_64" },
-        ];
-
-        it.each(numberTypes)("should decode nullable $testName column with null mask", ({ scalarType, mockFn }) => {
-            // Arrange
-            setupNullableStreamMocks();
-            mockFn(scalarType);
-            const column = createColumn(scalarType, true);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 2, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeDefined();
-            expect((result as any)._name).toBe("age");
-        });
-    });
-
-    describe("Number Columns - Nullable - Unsigned Types", () => {
-        const numberTypes = [
-            { scalarType: ScalarType.UINT_32, mockFn: mockNullableIntegerDecoder, testName: "UINT_32" },
-            { scalarType: ScalarType.UINT_64, mockFn: mockNullableIntegerDecoder, testName: "UINT_64" },
-        ];
-
-        it.each(numberTypes)("should decode nullable $testName column with null mask", ({ scalarType, mockFn }) => {
-            // Arrange
-            setupNullableStreamMocks();
-            mockFn(scalarType);
-            const column = createColumn(scalarType, true);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 2, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeDefined();
-            expect((result as any)._name).toBe("age");
-        });
-    });
-
-    describe("Integer Vector Encoding Types - SEQUENCE", () => {
-        const numberTypes = [
-            {
-                scalarType: ScalarType.INT_32,
-                vectorClass: IntSequenceVector,
-                mockFn: mockIntegerSequenceDecoder,
-                testName: "INT_32",
-            },
-            {
-                scalarType: ScalarType.INT_64,
-                vectorClass: LongSequenceVector,
-                mockFn: mockIntegerSequenceDecoder,
-                testName: "INT_64",
-            },
-        ];
-
-        it.each(numberTypes)(
-            "should decode $testName with SEQUENCE encoding",
-            ({ scalarType, vectorClass, mockFn }) => {
-                // Arrange
-                vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockRleStreamMetadata());
-                mockFn(scalarType);
-                const column = createColumn(scalarType, false);
-                const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-                const offset = new IntWrapper(0);
-
-                // Act
-                const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-                // Assert
-                expect(result).toBeInstanceOf(vectorClass);
-                expect((result as any)._name).toBe("age");
-            },
+    it("should decode INT_32 column with DELTA encoding", () => {
+        const expectedValues = new Int32Array([2, 4, 6]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, false);
+        // Delta encode: store deltas
+        const deltaEncoded = new Int32Array([2, 4 - 2, 6 - 4]);
+        const zigzagEncoded = new Int32Array(deltaEncoded.length);
+        for (let i = 0; i < deltaEncoded.length; i++) {
+            zigzagEncoded[i] = encodeZigZag32(deltaEncoded[i]);
+        }
+        const encodedData = encodeVarintInt32Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
         );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(IntFlatVector);
+        const resultVec = result as IntFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("Integer Vector Encoding Types - CONST", () => {
-        const numberTypes = [
-            {
-                scalarType: ScalarType.INT_32,
-                vectorClass: IntConstVector,
-                mockFn: mockIntegerConstDecoder,
-                testName: "INT_32",
-            },
-            {
-                scalarType: ScalarType.INT_64,
-                vectorClass: LongConstVector,
-                mockFn: mockIntegerConstDecoder,
-                testName: "INT_64",
-            },
-        ];
-
-        it.each(numberTypes)("should decode $testName with CONST encoding", ({ scalarType, vectorClass, mockFn }) => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            mockFn(scalarType);
-            const column = createColumn(scalarType, false);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeInstanceOf(vectorClass);
-            expect((result as any)._name).toBe("age");
-        });
-    });
-
-    describe("Float Columns - Non-Nullable", () => {
-        const numberTypes = [
-            {
-                scalarType: ScalarType.FLOAT,
-                vectorClass: FloatFlatVector,
-                mockFn: mockFloatDecoder,
-                testName: "FLOAT",
-            },
-            {
-                scalarType: ScalarType.DOUBLE,
-                vectorClass: DoubleFlatVector,
-                mockFn: mockFloatDecoder,
-                testName: "DOUBLE",
-            },
-        ];
-
-        it.each(numberTypes)("should decode $testName column", ({ scalarType, vectorClass, mockFn }) => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            mockFn(scalarType);
-            const column = createColumn(scalarType, false);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeInstanceOf(vectorClass);
-            expect((result as any)._name).toBe("age");
-            expect((result as any).dataBuffer).toHaveLength(TEST_DATA.NUM_VALUES);
-        });
-    });
-
-    describe("Float Columns - Nullable", () => {
-        const numberTypes = [
-            {
-                scalarType: ScalarType.FLOAT,
-                vectorClass: FloatFlatVector,
-                mockFn: mockNullableFloatDecoder,
-                testName: "FLOAT",
-            },
-            {
-                scalarType: ScalarType.DOUBLE,
-                vectorClass: DoubleFlatVector,
-                mockFn: mockNullableFloatDecoder,
-                testName: "DOUBLE",
-            },
-        ];
-
-        it.each(numberTypes)(
-            "should decode nullable $testName column with null mask",
-            ({ scalarType, vectorClass, mockFn }) => {
-                // Arrange
-                setupNullableStreamMocks();
-                mockFn(scalarType);
-                const column = createColumn(scalarType, true);
-                const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-                const offset = new IntWrapper(0);
-
-                // Act
-                const result = decodePropertyColumn(data, offset, column, 2, TEST_DATA.NUM_VALUES);
-
-                // Assert
-                expect(result).toBeInstanceOf(vectorClass);
-                expect((result as any)._name).toBe("age");
-            },
+    it("should decode INT_32 column with RLE encoding", () => {
+        const expectedValues = new Int32Array([100, 100, 100, -50, -50]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, false);
+        const runs = 2;
+        const rleValues = new Int32Array([3, 2, encodeZigZag32(100), encodeZigZag32(-50)]);
+        const encodedData = encodeVarintInt32Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.RLE,
+            LogicalLevelTechnique.NONE,
+            runs,
+            expectedValues.length,
         );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(IntFlatVector);
+        const resultVec = result as IntFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("Boolean Columns", () => {
-        it("should decode non-nullable BOOLEAN column", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            vi.spyOn(decodingUtils, "decodeBooleanRle").mockReturnValue(new Uint8Array([0b00000111]));
-            const column = createColumn(ScalarType.BOOLEAN, false);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+    it("should decode INT_32 column with DELTA+RLE encoding", () => {
+        const expectedValues = new Int32Array([10, 12, 14, 15, 16]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, false);
+        const runs = 3;
+        const rleValues = new Int32Array([1, 2, 2, encodeZigZag32(10), encodeZigZag32(2), encodeZigZag32(1)]);
+        const encodedData = encodeVarintInt32Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.RLE,
+            runs,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
 
-            // Assert
-            expect(result).toBeInstanceOf(BooleanFlatVector);
-            expect((result as any)._name).toBe("age");
-        });
-
-        it("should decode nullable BOOLEAN column with null mask", () => {
-            // Arrange
-            setupNullableStreamMocks();
-            vi.spyOn(decodingUtils, "decodeNullableBooleanRle").mockReturnValue(new Uint8Array([0b00000111]));
-            const column = createColumn(ScalarType.BOOLEAN, true);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 2, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeInstanceOf(BooleanFlatVector);
-            expect((result as any)._name).toBe("age");
-        });
+        expect(result).toBeInstanceOf(IntFlatVector);
+        const resultVec = result as IntFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("String Columns - Nullable", () => {
-        const streamConfigs = [
-            { totalStreams: 2, description: "single data stream" },
-            { totalStreams: 4, description: "multiple data streams" },
-        ];
+    it("should decode nullable INT_32 column with null values", () => {
+        const expectedValues = [2, null, -4, null, 6]; // positions 1 and 3 are null
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, true);
+        // Only non-null values: [2, -4, 6]
+        const nonNullValues = [2, -4, 6];
+        const zigzagEncoded = new Int32Array(nonNullValues.map((v) => encodeZigZag32(v)));
+        const encodedData = encodeVarintInt32Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nonNullValues.length,
+        );
+        const dataStream = buildEncodedStream(streamMetadata, encodedData);
+        // Nullability stream: positions 0, 2, 4 are non-null
+        const nullabilityValues = [true, false, true, false, true];
+        const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
+        const nullabilityMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nullabilityValues.length,
+        );
+        const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
+        const fullData = concatenateBuffers(nullabilityStream, dataStream);
+        const offset = new IntWrapper(0);
 
-        it.each(streamConfigs)("should decode nullable STRING with $description", ({ totalStreams }) => {
-            // Arrange
-            setupNullableStreamMocks();
-            const mockStringVector = { name: "age" };
-            const stringDecodeSpy = vi.spyOn(StringDecoder, "decodeString").mockReturnValue(mockStringVector as any);
-            const column = createColumn(ScalarType.STRING, true);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, expectedValues.length);
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, totalStreams, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect((result as StringFlatVector).name).toBe(mockStringVector.name);
-        });
+        expect(result).toBeInstanceOf(IntFlatVector);
+        const resultVec = result as IntFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("Column Filtering", () => {
-        it("should return null when column NOT in propertyColumnNames filter", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            const skipColumnSpy = vi.spyOn(decodingUtils, "skipColumn");
-            const column = createColumn(ScalarType.STRING);
-            const filterList = new Set(["name", "value"]);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+    it("should decode INT_32 SEQUENCE vector", () => {
+        const numValues = 5;
+        const value = 10; // For single-run SEQUENCE, base and delta must be equal
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, false);
+        // SEQUENCE: single run where base === delta (e.g., 10, 20, 30, 40, 50)
+        const runs = 1;
+        const rleValues = new Int32Array([numValues, encodeZigZag32(value)]);
+        const encodedData = encodeVarintInt32Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.RLE,
+            runs,
+            numValues,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES, filterList);
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, numValues);
 
-            // Assert
-            expect(result).toBeNull();
-            expect(skipColumnSpy).toHaveBeenCalledWith(1, data, offset);
-        });
-
-        it("should decode column when it IS in propertyColumnNames filter", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            vi.spyOn(decodingUtils, "decodeBooleanRle").mockReturnValue(new Uint8Array([0b00000111]));
-            const column = createColumn(ScalarType.BOOLEAN);
-            const filterList = new Set(["age", "name"]);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES, filterList);
-
-            // Assert
-            expect(result).toBeInstanceOf(BooleanFlatVector);
-        });
-
-        it("should ignore filter when propertyColumnNames is undefined", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            vi.spyOn(decodingUtils, "decodeBooleanRle").mockReturnValue(new Uint8Array([0b00000111]));
-            const column = createColumn(ScalarType.BOOLEAN);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES, undefined);
-
-            // Assert
-            expect(result).toBeInstanceOf(BooleanFlatVector);
-        });
-
-        it("should handle empty filter set", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            const skipColumnSpy = vi.spyOn(decodingUtils, "skipColumn");
-            const column = createColumn(ScalarType.BOOLEAN);
-            const filterList = new Set<string>();
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES, filterList);
-
-            // Assert
-            expect(result).toBeNull();
-            expect(skipColumnSpy).toHaveBeenCalled();
-        });
+        expect(result).toBeInstanceOf(IntSequenceVector);
+        const seqVec = result as IntSequenceVector;
+        expect(seqVec.getValue(0)).toBe(value);
+        expect(seqVec.getValue(1)).toBe(value + value);
+        expect(seqVec.getValue(2)).toBe(value + value * 2);
     });
 
-    describe("Edge Cases", () => {
-        it("should handle single value column", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata(12, 1));
-            vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-            vi.spyOn(IntegerStreamDecoder, "decodeIntStream").mockReturnValue(new Int32Array([42]));
-            const column = createColumn(ScalarType.INT_32);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+    it("should decode INT_32 CONST vector", () => {
+        const numValues = 5;
+        const constValue = 42;
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_32, false);
+        const runs = 1;
+        const rleValues = new Int32Array([numValues, encodeZigZag32(constValue)]);
+        const encodedData = encodeVarintInt32Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.RLE,
+            LogicalLevelTechnique.NONE,
+            runs,
+            numValues,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, 1);
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, numValues);
 
-            // Assert
-            expect(result).toBeInstanceOf(IntFlatVector);
-            expect((result as any).dataBuffer).toHaveLength(1);
-        });
+        expect(result).toBeInstanceOf(IntConstVector);
+        const constVec = result as IntConstVector;
+        expect(constVec.getValue(0)).toBe(constValue);
+        expect(constVec.getValue(4)).toBe(constValue);
+    });
+});
 
-        it("should handle large column with many values", () => {
-            // Arrange
-            const largeNumValues = 100000;
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(
-                mockStreamMetadata(400000, largeNumValues),
-            );
-            vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-            const largeArray = new Int32Array(largeNumValues);
-            for (let i = 0; i < largeNumValues; i++) {
-                largeArray[i] = i;
-            }
-            vi.spyOn(IntegerStreamDecoder, "decodeIntStream").mockReturnValue(largeArray);
-            const column = createColumn(ScalarType.INT_32);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+describe("decodePropertyColumn - INT_64", () => {
+    it("should decode INT_64 column with NONE encoding (signed)", () => {
+        const expectedValues = new BigInt64Array([2n, -4n, 6n]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_64, false);
+        const zigzagEncoded = new BigInt64Array(Array.from(expectedValues, (val) => encodeZigZag64(val)));
+        const encodedData = encodeVarintInt64Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, largeNumValues);
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
 
-            // Assert
-            expect(result).toBeInstanceOf(IntFlatVector);
-            expect((result as any).dataBuffer).toHaveLength(largeNumValues);
-        });
-
-        it("should handle zero numValues gracefully", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue({
-                ...mockStreamMetadata(),
-                numValues: 0,
-            });
-            vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-            vi.spyOn(IntegerStreamDecoder, "decodeIntStream").mockReturnValue(new Int32Array(0));
-            const column = createColumn(ScalarType.INT_32);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, 0);
-
-            // Assert
-            expect(result).toBeInstanceOf(IntFlatVector);
-            expect((result as any).dataBuffer).toHaveLength(0);
-        });
-
-        it("should handle multiple sequential columns with offset advancement", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata(12, 3));
-            vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-            vi.spyOn(IntegerStreamDecoder, "decodeIntStream").mockReturnValue(new Int32Array([100, 200, 300]));
-            const column1 = createColumn(ScalarType.INT_32);
-            const column2 = createColumn(ScalarType.INT_32);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result1 = decodePropertyColumn(data, offset, column1, 1, TEST_DATA.NUM_VALUES);
-            const offsetAfterFirst = offset.get();
-            const result2 = decodePropertyColumn(data, offset, column2, 1, TEST_DATA.NUM_VALUES);
-            const offsetAfterSecond = offset.get();
-
-            // Assert
-            expect(result1).toBeInstanceOf(IntFlatVector);
-            expect(result2).toBeInstanceOf(IntFlatVector);
-            expect(offsetAfterSecond).toEqual(offsetAfterFirst);
-        });
-
-        it("should handle non-scalar column type returning null", () => {
-            // Arrange
-            const column: Column = {
-                name: "complex",
-                nullable: false,
-                columnScope: null,
-                type: "complexType",
-                complexType: { type: "arrayType" },
-                scalarType: null,
-            } as any;
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 2, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeNull();
-        });
+        expect(result).toBeInstanceOf(LongFlatVector);
+        const resultVec = result as LongFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("Offset Management", () => {
-        it("should handle offset at non-zero starting position", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-            vi.spyOn(IntegerStreamDecoder, "decodeIntStream").mockReturnValue(new Int32Array([100, 200, 300]));
+    it("should decode INT_64 column with DELTA encoding", () => {
+        const expectedValues = new BigInt64Array([2n, 4n, 6n]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_64, false);
+        const deltaEncoded = new BigInt64Array([2n, 4n - 2n, 6n - 4n]);
+        const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
+        for (let i = 0; i < deltaEncoded.length; i++) {
+            zigzagEncoded[i] = encodeZigZag64(deltaEncoded[i]);
+        }
+        const encodedData = encodeVarintInt64Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-            const column = createColumn(ScalarType.INT_32);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const startOffset = 50;
-            const offset = new IntWrapper(startOffset);
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect(result).toBeInstanceOf(IntFlatVector);
-            expect(offset.get()).toEqual(startOffset);
-        });
-
-        it("should correctly skip columns with filterList and advance offset", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            const skipColumnSpy = vi
-                .spyOn(decodingUtils, "skipColumn")
-                .mockImplementation((numStreams, data, offset) => {
-                    offset.add(12 * numStreams); // Simulate skipping
-                });
-
-            const column = createColumn(ScalarType.INT_32);
-            const filterList = new Set(["other_column"]);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
-            const startOffset = offset.get();
-
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 3, TEST_DATA.NUM_VALUES, filterList);
-
-            // Assert
-            expect(result).toBeNull();
-            expect(offset.get()).toBeGreaterThan(startOffset);
-            expect(skipColumnSpy).toHaveBeenCalledWith(3, data, offset);
-        });
+        expect(result).toBeInstanceOf(LongFlatVector);
+        const resultVec = result as LongFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("Type Consistency Checks", () => {
-        it("should preserve column metadata in returned vector", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            vi.spyOn(IntegerStreamDecoder, "getVectorType").mockReturnValue(VectorType.FLAT);
-            vi.spyOn(IntegerStreamDecoder, "decodeIntStream").mockReturnValue(new Int32Array([10, 20, 30]));
+    it("should decode INT_64 column with RLE encoding", () => {
+        const expectedValues = new BigInt64Array([100n, 100n, 100n, -50n, -50n]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_64, false);
+        const runs = 2;
+        const rleValues = new BigInt64Array([3n, 2n, encodeZigZag64(100n), encodeZigZag64(-50n)]);
+        const encodedData = encodeVarintInt64Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.RLE,
+            LogicalLevelTechnique.NONE,
+            runs,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-            const column = createColumn(ScalarType.INT_32);
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-            // Assert
-            expect((result as any)._name).toBe(column.name);
-        });
-
-        it("should handle all signed and unsigned type combinations", () => {
-            // Arrange
-            const types = [ScalarType.INT_32, ScalarType.UINT_32, ScalarType.INT_64, ScalarType.UINT_64];
-
-            types.forEach((scalarType) => {
-                vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-                mockIntegerDecoder(scalarType);
-
-                const column = createColumn(scalarType, false);
-                const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-                const offset = new IntWrapper(0);
-
-                // Act
-                const result = decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-
-                // Assert
-                expect(result).toBeDefined();
-                expect((result as any)._name).toBe("age");
-
-                vi.restoreAllMocks();
-            });
-        });
+        expect(result).toBeInstanceOf(LongFlatVector);
+        const resultVec = result as LongFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 
-    describe("Error Scenarios", () => {
-        it("should handle invalid scalar type gracefully", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            const column = createColumn(999 as any); // Invalid type
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+    it("should decode INT_64 column with DELTA+RLE encoding", () => {
+        const expectedValues = new BigInt64Array([10n, 12n, 14n, 15n, 16n]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_64, false);
+        const runs = 3;
+        const rleValues = new BigInt64Array([1n, 2n, 2n, encodeZigZag64(10n), encodeZigZag64(2n), encodeZigZag64(1n)]);
+        const encodedData = encodeVarintInt64Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.RLE,
+            runs,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
 
-            // Act & Assert
-            expect(() => {
-                decodePropertyColumn(data, offset, column, 1, TEST_DATA.NUM_VALUES);
-            }).toThrow();
-        });
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
 
-        it("should handle mismatched numStreams for string type", () => {
-            // Arrange
-            vi.spyOn(StreamMetadataDecoder, "decodeStreamMetadata").mockReturnValue(mockStreamMetadata());
-            const column: Column = {
-                name: "stringCol",
-                nullable: false,
-                columnScope: null,
-                type: "stringType",
-                scalarType: null,
-                complexType: null,
-            } as any;
-            const data = new Uint8Array(TEST_DATA.BUFFER_SIZE);
-            const offset = new IntWrapper(0);
+        expect(result).toBeInstanceOf(LongFlatVector);
+        const resultVec = result as LongFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
+    });
 
-            // Act
-            const result = decodePropertyColumn(data, offset, column, 2, TEST_DATA.NUM_VALUES);
+    it("should decode nullable INT_64 column with null values", () => {
+        const expectedValues = [2n, null, -4n, null, 6n];
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_64, true);
+        const nonNullValues = [2n, -4n, 6n];
+        const zigzagEncoded = new BigInt64Array(nonNullValues.map((v) => encodeZigZag64(v)));
+        const encodedData = encodeVarintInt64Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nonNullValues.length,
+        );
+        const dataStream = buildEncodedStream(streamMetadata, encodedData);
+        const nullabilityValues = [true, false, true, false, true];
+        const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
+        const nullabilityMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nullabilityValues.length,
+        );
+        const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
+        const fullData = concatenateBuffers(nullabilityStream, dataStream);
+        const offset = new IntWrapper(0);
 
-            // Assert
-            expect(result).toBeNull();
-        });
+        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, expectedValues.length);
+
+        expect(result).toBeInstanceOf(LongFlatVector);
+        const resultVec = result as LongFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
+    });
+
+    it("should decode INT_64 SEQUENCE vector", () => {
+        const numValues = 5;
+        const value = 10n;
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_64, false);
+        // SEQUENCE: single run where base === delta (e.g., 10, 20, 30, 40, 50)
+        const runs = 1;
+        const rleValues = new BigInt64Array([BigInt(numValues), encodeZigZag64(value)]);
+        const encodedData = encodeVarintInt64Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.RLE,
+            runs,
+            numValues,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, numValues);
+
+        expect(result).toBeInstanceOf(LongSequenceVector);
+        const seqVec = result as LongSequenceVector;
+        expect(seqVec.getValue(0)).toBe(value);
+        expect(seqVec.getValue(1)).toBe(value + value);
+        expect(seqVec.getValue(2)).toBe(value + value * 2n);
+    });
+
+    it("should decode INT_64 CONST vector", () => {
+        const numValues = 5;
+        const constValue = 42n;
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.INT_64, false);
+        const runs = 1;
+        const rleValues = new BigInt64Array([BigInt(numValues), encodeZigZag64(constValue)]);
+        const encodedData = encodeVarintInt64Array(rleValues);
+        const streamMetadata = createRleMetadata(
+            LogicalLevelTechnique.RLE,
+            LogicalLevelTechnique.NONE,
+            runs,
+            numValues,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, numValues);
+
+        expect(result).toBeInstanceOf(LongConstVector);
+        const constVec = result as LongConstVector;
+        expect(constVec.getValue(0)).toBe(constValue);
+        expect(constVec.getValue(4)).toBe(constValue);
+    });
+});
+
+describe("decodePropertyColumn - FLOAT", () => {
+    it("should decode non-nullable FLOAT column", () => {
+        const expectedValues = new Float32Array([1.5, 2.7, -3.14, 4.2]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.FLOAT, false);
+        // Encode as little-endian floats
+        const encodedData = encodeFloatsLE(expectedValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(FloatFlatVector);
+        const resultVec = result as FloatFlatVector;
+        expect(resultVec.size).toBe(expectedValues.length);
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBeCloseTo(expectedValues[i], 5);
+        }
+    });
+
+    it("should decode nullable FLOAT column with null values", () => {
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.FLOAT, true);
+        const nonNullValues = new Float32Array([1.5, 2.7, 3.14]);
+        const encodedData = encodeFloatsLE(nonNullValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nonNullValues.length,
+        );
+        const dataStream = buildEncodedStream(streamMetadata, encodedData);
+        const nullabilityValues = [true, false, true, false, true];
+        const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
+        const nullabilityMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nullabilityValues.length,
+        );
+        const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
+        const fullData = concatenateBuffers(nullabilityStream, dataStream);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, nullabilityValues.length);
+
+        expect(result).toBeInstanceOf(FloatFlatVector);
+        const resultVec = result as FloatFlatVector;
+        expect(resultVec.size).toBe(nullabilityValues.length);
+        expect(resultVec.getValue(0)).toBeCloseTo(1.5, 5);
+        expect(resultVec.getValue(1)).toBe(null); // null value
+        expect(resultVec.getValue(2)).toBeCloseTo(2.7, 5);
+        expect(resultVec.getValue(3)).toBe(null); // null value
+        expect(resultVec.getValue(4)).toBeCloseTo(3.14, 5);
+    });
+
+    it("should handle offset correctly after decoding FLOAT column", () => {
+        const expectedValues = new Float32Array([1.0, 2.0, 3.0]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.FLOAT, false);
+        const encodedData = encodeFloatsLE(expectedValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        // Verify offset was advanced correctly
+        expect(offset.get()).toBe(fullStream.length);
+    });
+});
+
+describe("decodePropertyColumn - BOOLEAN", () => {
+    it("should decode non-nullable BOOLEAN column with RLE", () => {
+        const booleanValues = [true, false, true, true, false, false, false, true];
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.BOOLEAN, false);
+        const encodedData = encodeBooleanRle(booleanValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            booleanValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, booleanValues.length);
+
+        expect(result).toBeInstanceOf(BooleanFlatVector);
+        const boolVec = result as BooleanFlatVector;
+        for (let i = 0; i < booleanValues.length; i++) {
+            expect(boolVec.getValue(i)).toBe(booleanValues[i]);
+        }
+    });
+
+    it("should decode nullable BOOLEAN column with RLE and present stream", () => {
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.BOOLEAN, true);
+        const nonNullBooleanValues = [true, false, true];
+        const encodedData = encodeBooleanRle(nonNullBooleanValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nonNullBooleanValues.length,
+        );
+        const dataStream = buildEncodedStream(streamMetadata, encodedData);
+        const nullabilityValues = [true, false, true, false, true];
+        const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
+        const nullabilityMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nullabilityValues.length,
+        );
+        const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
+        const fullData = concatenateBuffers(nullabilityStream, dataStream);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, nullabilityValues.length);
+
+        expect(result).toBeInstanceOf(BooleanFlatVector);
+        const boolVec = result as BooleanFlatVector;
+        expect(boolVec.getValue(0)).toBe(true);
+        expect(boolVec.getValue(1)).toBe(null);
+        expect(boolVec.getValue(2)).toBe(false);
+        expect(boolVec.getValue(3)).toBe(null);
+        expect(boolVec.getValue(4)).toBe(true);
+    });
+});
+
+describe("decodePropertyColumn - Edge Cases", () => {
+    it("should filter columns with propertyColumnNames set", () => {
+        const expectedValues = new Int32Array([1, 2, 3]);
+        const columnMetadata = createColumnMetadata("includedColumn", ScalarType.INT_32, false);
+        const zigzagEncoded = new Int32Array(expectedValues.length);
+        for (let i = 0; i < expectedValues.length; i++) {
+            zigzagEncoded[i] = encodeZigZag32(expectedValues[i]);
+        }
+        const encodedData = encodeVarintInt32Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const propertyColumnNames = new Set(["includedColumn"]);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length, propertyColumnNames,);
+
+        expect(result).toBeInstanceOf(IntFlatVector);
+        const resultVec = result as IntFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
+    });
+
+    it("should return null for empty columns (numStreams === 0)", () => {
+        const columnMetadata = createColumnMetadata("emptyColumn", ScalarType.INT_32, false);
+        const offset = new IntWrapper(0);
+        const data = new Uint8Array(0);
+
+        const result = decodePropertyColumn(data, offset, columnMetadata, 0, 0);
+
+        expect(result).toBeNull();
+    });
+
+    it("should throw error for unsupported data type", () => {
+        const columnMetadata = createColumnMetadata("unsupportedColumn", ScalarType.INT_8, false);
+        const encodedData = new Uint8Array([1, 2, 3]);
+        const streamMetadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 3);
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        expect(() => {
+            decodePropertyColumn(fullStream, offset, columnMetadata, 1, 3);
+        }).toThrow();
     });
 });
