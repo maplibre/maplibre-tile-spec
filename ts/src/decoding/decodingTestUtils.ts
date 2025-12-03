@@ -149,19 +149,22 @@ export function encodeStreamMetadata(metadata: StreamMetadata | RleEncodedStream
 
     switch (metadata.physicalStreamType) {
         case PhysicalStreamType.DATA:
-            lowerNibble = metadata.logicalStreamType.dictionaryType !== undefined
-                ? Object.values(DictionaryType).indexOf(metadata.logicalStreamType.dictionaryType)
-                : 0;
+            lowerNibble =
+                metadata.logicalStreamType.dictionaryType !== undefined
+                    ? Object.values(DictionaryType).indexOf(metadata.logicalStreamType.dictionaryType)
+                    : 0;
             break;
         case PhysicalStreamType.OFFSET:
-            lowerNibble = metadata.logicalStreamType.offsetType !== undefined
-                ? Object.values(OffsetType).indexOf(metadata.logicalStreamType.offsetType)
-                : 0;
+            lowerNibble =
+                metadata.logicalStreamType.offsetType !== undefined
+                    ? Object.values(OffsetType).indexOf(metadata.logicalStreamType.offsetType)
+                    : 0;
             break;
         case PhysicalStreamType.LENGTH:
-            lowerNibble = metadata.logicalStreamType.lengthType !== undefined
-                ? Object.values(LengthType).indexOf(metadata.logicalStreamType.lengthType)
-                : 0;
+            lowerNibble =
+                metadata.logicalStreamType.lengthType !== undefined
+                    ? Object.values(LengthType).indexOf(metadata.logicalStreamType.lengthType)
+                    : 0;
             break;
     }
 
@@ -182,7 +185,7 @@ export function encodeStreamMetadata(metadata: StreamMetadata | RleEncodedStream
     encodeSingleVarintInt32(metadata.byteLength, buffer, offset);
 
     // If RLE, encode runs and numRleValues
-    if ('runs' in metadata && 'numRleValues' in metadata) {
+    if ("runs" in metadata && "numRleValues" in metadata) {
         encodeSingleVarintInt32(metadata.runs, buffer, offset);
         encodeSingleVarintInt32(metadata.numRleValues, buffer, offset);
     }

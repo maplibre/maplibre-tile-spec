@@ -4,12 +4,7 @@ import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import {
-    createStreamMetadata,
-    createRleMetadata,
-    encodeVarintInt64Array,
-    encodeZigZag64,
-} from "./decodingTestUtils";
+import { createStreamMetadata, createRleMetadata, encodeVarintInt64Array, encodeZigZag64 } from "./decodingTestUtils";
 
 describe("getVectorType", () => {
     it("Delta-RLE with single run should return SEQUENCE for 1 run", () => {
@@ -47,7 +42,7 @@ describe("decodeLongStream", () => {
     it("should decode DELTA without RLE", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA);
         const expectedValues = new BigInt64Array([2n, 4n, 6n]);
-        const deltaEncoded = new BigInt64Array([2n, 4n - 2n, 6n - 4n,]);
+        const deltaEncoded = new BigInt64Array([2n, 4n - 2n, 6n - 4n]);
         const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
         for (let i = 0; i < deltaEncoded.length; i++) {
             zigzagEncoded[i] = encodeZigZag64(deltaEncoded[i]);
@@ -65,8 +60,7 @@ describe("decodeLongStream", () => {
         const runs = 2;
         const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
         const expectedValues = new BigInt64Array([100n, 100n, 100n, -50n, -50n]);
-        const rleValues = new BigInt64Array([3n, 2n, encodeZigZag64(100n), encodeZigZag64(-50n),
-        ]);
+        const rleValues = new BigInt64Array([3n, 2n, encodeZigZag64(100n), encodeZigZag64(-50n)]);
         const data = encodeVarintInt64Array(rleValues);
         const offset = new IntWrapper(0);
 

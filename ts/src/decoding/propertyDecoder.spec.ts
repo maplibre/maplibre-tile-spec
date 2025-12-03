@@ -551,7 +551,14 @@ describe("decodePropertyColumn - Edge Cases", () => {
         const propertyColumnNames = new Set(["includedColumn"]);
         const offset = new IntWrapper(0);
 
-        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length, propertyColumnNames,);
+        const result = decodePropertyColumn(
+            fullStream,
+            offset,
+            columnMetadata,
+            1,
+            expectedValues.length,
+            propertyColumnNames,
+        );
 
         expect(result).toBeInstanceOf(IntFlatVector);
         const resultVec = result as IntFlatVector;
