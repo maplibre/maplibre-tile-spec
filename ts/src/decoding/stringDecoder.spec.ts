@@ -7,7 +7,7 @@ import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { OffsetType } from "../metadata/tile/offsetType";
 import IntWrapper from "./intWrapper";
-import { decodeString } from "./stringDecoder";
+import { decodeString, decodeSharedDictionary } from "./stringDecoder";
 import {
     buildEncodedStream,
     encodeVarintInt32Array,
@@ -15,10 +15,17 @@ import {
     createStringLengths,
     concatenateBuffers,
     encodeBooleanRle,
+    createStructFieldStreams,
+    createColumnMetadataForStruct,
 } from "./decodingTestUtils";
 import { StringFlatVector } from "../vector/flat/stringFlatVector";
 import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
+import { ScalarType } from "../metadata/tileset/tilesetMetadata";
+
+// -----------------------------------------------------------------------------
+// Generic Helper for creating encoded streams
+// -----------------------------------------------------------------------------
 
 function createStream(
     physicalType: PhysicalStreamType,
@@ -54,13 +61,13 @@ function createStringStreams(
     const hasNull = strings.some((s) => s === null);
     const nonNullStrings = strings.filter((s): s is string => s !== null);
 
-    const stringBytes = encodeStrings(
-        encoding === "dictionary"
-            ? Array.from(new Set(nonNullStrings)) // Unique strings for dictionary
-            : nonNullStrings,
-    );
+    // Prepare data for encoding
+    const uniqueStrings = Array.from(new Set(nonNullStrings));
+    const stringsToEncode = encoding === "dictionary" ? uniqueStrings : nonNullStrings;
+    const stringBytes = encodeStrings(stringsToEncode);
 
     const streams: Uint8Array[] = [];
+
     if (hasNull) {
         const nullabilityValues = strings.map((s) => s !== null);
         streams.push(
@@ -79,13 +86,17 @@ function createStringStreams(
                 technique: PhysicalLevelTechnique.VARINT,
                 count: lengths.length,
             }),
-            createStream(PhysicalStreamType.DATA, stringBytes, { logical: new LogicalStreamType(DictionaryType.NONE) }),
+            createStream(PhysicalStreamType.DATA, stringBytes, {
+                logical: new LogicalStreamType(DictionaryType.NONE),
+            }),
         );
     } else {
-        const uniqueStrings = Array.from(new Set(nonNullStrings));
         const stringMap = new Map(uniqueStrings.map((s, i) => [s, i]));
         const offsets = nonNullStrings.map((s) => stringMap.get(s));
-        const dictLengths = createStringLengths(uniqueStrings);
+
+        const { lengthStream, dataStream } = createSharedDictionaryStreams(uniqueStrings, {
+            dictionaryType: DictionaryType.SINGLE,
+        });
 
         streams.push(
             createStream(PhysicalStreamType.OFFSET, encodeVarintInt32Array(new Int32Array(offsets)), {
@@ -93,14 +104,8 @@ function createStringStreams(
                 technique: PhysicalLevelTechnique.VARINT,
                 count: offsets.length,
             }),
-            createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(new Int32Array(dictLengths)), {
-                logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
-                technique: PhysicalLevelTechnique.VARINT,
-                count: dictLengths.length,
-            }),
-            createStream(PhysicalStreamType.DATA, stringBytes, {
-                logical: new LogicalStreamType(DictionaryType.SINGLE),
-            }),
+            lengthStream,
+            dataStream,
         );
     }
 
@@ -108,7 +113,7 @@ function createStringStreams(
 }
 
 function createFsstDictionaryStringStreams(): Uint8Array {
-    // FSST hardcoded data for test
+    // Hardcoded FSST test data
     const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
     const symbolLengths = new Int32Array([3, 3]);
     const compressedDictionary = new Uint8Array([0, 1]);
@@ -143,6 +148,58 @@ function createFsstDictionaryStringStreams(): Uint8Array {
     );
 }
 
+function createSharedDictionaryStreams(
+    dictionaryStrings: string[],
+    options: { useFsst?: boolean; dictionaryType?: DictionaryType } = {},
+): {
+    lengthStream: Uint8Array;
+    dataStream: Uint8Array;
+    symbolLengthStream?: Uint8Array;
+    symbolDataStream?: Uint8Array;
+} {
+    const { useFsst = false, dictionaryType = DictionaryType.SHARED } = options;
+
+    // Standard Dictionary Streams
+    const encodedDictionary = encodeStrings(dictionaryStrings);
+    const dictionaryLengths = createStringLengths(dictionaryStrings);
+
+    const lengthStream = createStream(
+        PhysicalStreamType.LENGTH,
+        encodeVarintInt32Array(new Int32Array(dictionaryLengths)),
+        {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: dictionaryLengths.length,
+        },
+    );
+
+    const dataStream = createStream(PhysicalStreamType.DATA, encodedDictionary, {
+        logical: new LogicalStreamType(dictionaryType),
+        count: encodedDictionary.length,
+    });
+
+    if (useFsst) {
+        // FSST Symbol Table Streams (Hardcoded for test consistency)
+        const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
+        const symbolLengths = new Int32Array([3, 3]);
+
+        const symbolLengthStream = createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(symbolLengths), {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.SYMBOL),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: symbolLengths.length,
+        });
+
+        const symbolDataStream = createStream(PhysicalStreamType.DATA, symbolTable, {
+            logical: new LogicalStreamType(DictionaryType.FSST),
+            count: symbolTable.length,
+        });
+
+        return { lengthStream, dataStream, symbolLengthStream, symbolDataStream };
+    }
+
+    return { lengthStream, dataStream };
+}
+
 describe("decodeString - Plain String Decoder", () => {
     it("should decode plain strings with simple ASCII values", () => {
         const expectedStrings = ["hello", "world", "test"];
@@ -162,10 +219,8 @@ describe("decodeString - Plain String Decoder", () => {
         const expectedStrings = ["a", "abc", "hello world"];
         const fullStream = createStringStreams(expectedStrings, "plain");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 2);
 
-        expect(result).toBeInstanceOf(StringFlatVector);
         const resultVec = result as StringFlatVector;
         for (let i = 0; i < expectedStrings.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedStrings[i]);
@@ -173,13 +228,11 @@ describe("decodeString - Plain String Decoder", () => {
     });
 
     it("should decode nullable plain strings", () => {
-        const expectedStrings: (string | null)[] = ["hello", null, "world", null, "test"];
+        const expectedStrings = ["hello", null, "world", null, "test"];
         const fullStream = createStringStreams(expectedStrings, "plain");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 3);
 
-        // Nullable strings return StringDictionaryVector or StringFlatVector
         expect(result).not.toBeNull();
         for (let i = 0; i < expectedStrings.length; i++) {
             expect(result.getValue(i)).toBe(expectedStrings[i]);
@@ -190,7 +243,6 @@ describe("decodeString - Plain String Decoder", () => {
         const expectedStrings = ["", "data", "", "more"];
         const fullStream = createStringStreams(expectedStrings, "plain");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 2);
 
         expect(result).toBeInstanceOf(StringFlatVector);
@@ -201,10 +253,9 @@ describe("decodeString - Plain String Decoder", () => {
     });
 
     it("should decode mixed null and empty strings", () => {
-        const expectedStrings: (string | null)[] = [null, "", "data", null, ""];
+        const expectedStrings = [null, "", "data", null, ""];
         const fullStream = createStringStreams(expectedStrings, "plain");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 3);
 
         expect(result).not.toBeNull();
@@ -217,7 +268,6 @@ describe("decodeString - Plain String Decoder", () => {
         const expectedStrings = ["hello", "Привет", "world", "日本"];
         const fullStream = createStringStreams(expectedStrings, "plain");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 2);
 
         expect(result).toBeInstanceOf(StringFlatVector);
@@ -233,7 +283,6 @@ describe("decodeString - Dictionary String Decoder", () => {
         const expectedStrings = ["cat", "dog", "cat", "cat", "dog"];
         const fullStream = createStringStreams(expectedStrings, "dictionary");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
@@ -247,12 +296,11 @@ describe("decodeString - Dictionary String Decoder", () => {
         const expectedStrings = ["same", "same", "same"];
         const fullStream = createStringStreams(expectedStrings, "dictionary");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
         for (let i = 0; i < expectedStrings.length; i++) {
-            expect(result.getValue(i)).toBe("same");
+            expect(result.getValue(i)).toBe(expectedStrings[i]);
         }
     });
 
@@ -260,7 +308,6 @@ describe("decodeString - Dictionary String Decoder", () => {
         const expectedStrings = ["café", "日本", "café", "日本"];
         const fullStream = createStringStreams(expectedStrings, "dictionary");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
@@ -273,7 +320,6 @@ describe("decodeString - Dictionary String Decoder", () => {
         const expectedStrings = ["unique1", "unique2", "unique3", "unique4"];
         const fullStream = createStringStreams(expectedStrings, "dictionary");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
@@ -283,10 +329,9 @@ describe("decodeString - Dictionary String Decoder", () => {
     });
 
     it("should decode nullable dictionary strings", () => {
-        const expectedStrings: (string | null)[] = [null, "", "data", "", null];
+        const expectedStrings = [null, "", "data", "", null];
         const fullStream = createStringStreams(expectedStrings, "dictionary");
         const offset = new IntWrapper(0);
-
         const result = decodeString("testColumn", fullStream, offset, 4);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
@@ -294,142 +339,338 @@ describe("decodeString - Dictionary String Decoder", () => {
             expect(result.getValue(i)).toBe(expectedStrings[i]);
         }
     });
+});
 
-    describe("decodeString - FSST Dictionary Decoder (Basic Coverage)", () => {
-        it("should decode FSST-compressed strings with simple symbol table", () => {
-            const fullStream = createStringStreams([], "fsst");
-            const offset = new IntWrapper(0);
+describe("decodeString - FSST Dictionary Decoder (Basic Coverage)", () => {
+    it("should decode FSST-compressed strings with simple symbol table", () => {
+        const fullStream = createStringStreams([], "fsst");
+        const offset = new IntWrapper(0);
 
-            const result = decodeString("testColumn", fullStream, offset, 6);
+        const result = decodeString("testColumn", fullStream, offset, 6);
 
-            expect(result).toBeInstanceOf(StringFsstDictionaryVector);
-            const resultVec = result as StringFsstDictionaryVector;
+        expect(result).toBeInstanceOf(StringFsstDictionaryVector);
+        const resultVec = result as StringFsstDictionaryVector;
 
-            // Expected: ["cat", "dog", "cat"]
-            expect(resultVec.getValue(0)).toBe("cat");
-            expect(resultVec.getValue(1)).toBe("dog");
-            expect(resultVec.getValue(2)).toBe("cat");
+        const expectedValues = ["cat", "dog", "cat"];
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
+    });
+});
+
+describe("decodeString - Empty Column Edge Cases", () => {
+    it("should handle empty column with numStreams = 0 (returns null)", () => {
+        const fullStream = new Uint8Array([]);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", fullStream, offset, 0);
+        expect(result).toBeNull();
+    });
+
+    it("should handle column with all zero-length streams (returns null)", () => {
+        const emptyStream = createStream(PhysicalStreamType.LENGTH, new Uint8Array([]), {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
+        });
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", emptyStream, offset, 1);
+        expect(result).toBeNull();
+    });
+
+    it("should handle single value plain string column", () => {
+        const strings = ["single"];
+        const fullStream = createStringStreams(strings, "plain");
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", fullStream, offset, 2);
+
+        expect(result).toBeInstanceOf(StringFlatVector);
+        expect((result as StringFlatVector).getValue(0)).toBe("single");
+    });
+
+    it("should handle single null value in plain string column (returns null)", () => {
+        const strings = [null];
+        const fullStream = createStringStreams(strings, "plain");
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", fullStream, offset, 3);
+        expect(result).toBeNull();
+    });
+});
+
+describe("decodeString - Integration Tests", () => {
+    it("should correctly track offset through multiple streams", () => {
+        const strings = ["hello", "world"];
+        const fullStream = createStringStreams(strings, "plain");
+        const offset = new IntWrapper(0);
+        const initialOffset = offset.get();
+
+        const result = decodeString("testColumn", fullStream, offset, 2);
+
+        expect(result).toBeInstanceOf(StringFlatVector);
+        expect(offset.get()).toBeGreaterThan(initialOffset);
+        expect(offset.get()).toBe(fullStream.length);
+    });
+
+    it("should correctly track offset through nullable streams", () => {
+        const strings = ["test", null, "data"];
+        const fullStream = createStringStreams(strings, "plain");
+        const offset = new IntWrapper(0);
+        const initialOffset = offset.get();
+
+        const result = decodeString("testColumn", fullStream, offset, 3);
+
+        expect(result).not.toBeNull();
+        expect(offset.get()).toBeGreaterThan(initialOffset);
+        expect(offset.get()).toBe(fullStream.length);
+    });
+
+    it("should correctly track offset through FSST dictionary streams", () => {
+        const fullStream = createStringStreams([], "fsst");
+        const offset = new IntWrapper(0);
+        const initialOffset = offset.get();
+
+        const result = decodeString("testColumn", fullStream, offset, 6);
+
+        expect(result).toBeInstanceOf(StringFsstDictionaryVector);
+        expect(offset.get()).toBeGreaterThan(initialOffset);
+        expect(offset.get()).toBe(fullStream.length);
+    });
+
+    it("should handle consecutive decoding operations with shared offset tracker", () => {
+        const stream1 = createStringStreams(["first"], "plain");
+        const stream2 = createStringStreams(["second"], "plain");
+        const combinedStream = concatenateBuffers(stream1, stream2);
+
+        const offset = new IntWrapper(0);
+
+        const result1 = decodeString("column1", combinedStream, offset, 2);
+        expect((result1 as StringFlatVector).getValue(0)).toBe("first");
+
+        const offsetAfterFirst = offset.get();
+
+        const result2 = decodeString("column2", combinedStream, offset, 2);
+        expect((result2 as StringFlatVector).getValue(0)).toBe("second");
+
+        expect(offset.get()).toBeGreaterThan(offsetAfterFirst);
+        expect(offset.get()).toBe(combinedStream.length);
+    });
+});
+
+describe("decodeSharedDictionary", () => {
+    describe("basic functionality", () => {
+        it("should decode single field with shared dictionary", () => {
+            const dictionaryStrings = ["apple", "banana", "peach", "date"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+
+            const fieldStreams = createStructFieldStreams([0, 1, 2, 3], [true, true, true, true]);
+            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetadata = createColumnMetadataForStruct("address", [{ name: "street" }]);
+
+            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 4);
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toBeInstanceOf(StringDictionaryVector);
+            expect(result[0].name).toBe("address:street");
+            for (let i = 0; i < dictionaryStrings.length; i++) {
+                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
+            }
         });
     });
 
-    describe("decodeString - Empty Column Edge Cases", () => {
-        it("should handle empty column with numStreams = 0 (returns null)", () => {
-            const fullStream = new Uint8Array([]);
-            const offset = new IntWrapper(0);
-            const result = decodeString("testColumn", fullStream, offset, 0);
+    describe("nullability", () => {
+        it("should handle nullable fields with PRESENT stream", () => {
+            const dictionaryStrings = ["red", "green", "blue"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
 
-            expect(result).toBeNull();
+            const fieldStreams = createStructFieldStreams([0, 2], [true, false, true, false]);
+            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetadata = createColumnMetadataForStruct("colors", [{ name: "primary" }]);
+
+            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 4);
+
+            expect(result).toHaveLength(1);
+            const expected = ["red", null, "blue", null];
+            for (let i = 0; i < expected.length; i++) {
+                expect(result[0].getValue(i)).toBe(expected[i]);
+            }
         });
 
-        it("should handle column with all zero-length streams (returns null)", () => {
-            // Create a stream with metadata but zero byteLength
-            const metadata = {
-                physicalStreamType: PhysicalStreamType.LENGTH,
-                logicalStreamType: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
-                logicalLevelTechnique1: LogicalLevelTechnique.NONE,
-                logicalLevelTechnique2: LogicalLevelTechnique.NONE,
-                physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
-                numValues: 0,
-                byteLength: 0,
-                decompressedCount: 0,
-            };
-            const emptyStream = buildEncodedStream(metadata, new Uint8Array([]));
+        it("should detect nullable fields when offsetCount < numFeatures", () => {
+            const dictionaryStrings = ["alpha", "beta"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
 
-            const offset = new IntWrapper(0);
-            const result = decodeString("testColumn", emptyStream, offset, 1);
+            // Simulating implicit nullability by mismatched counts
+            const fieldStreams = createStructFieldStreams([0, 1], [true, false, false, true]);
+            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetadata = createColumnMetadataForStruct("greek", [{ name: "letter" }]);
 
-            expect(result).toBeNull();
-        });
+            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 4);
 
-        it("should handle single value plain string column", () => {
-            const strings = ["single"];
-            const fullStream = createStringStreams(strings, "plain");
-            const offset = new IntWrapper(0);
-            const result = decodeString("testColumn", fullStream, offset, 2);
-
-            expect(result).toBeInstanceOf(StringFlatVector);
-            const resultVec = result as StringFlatVector;
-            expect(resultVec.getValue(0)).toBe("single");
-        });
-
-        it("should handle single null value in plain string column (returns null)", () => {
-            const strings: (string | null)[] = [null];
-            const fullStream = createStringStreams(strings, "plain");
-            const offset = new IntWrapper(0);
-            const result = decodeString("testColumn", fullStream, offset, 3);
-
-            // When there are only null values, the decoder returns null since there's no data
-            expect(result).toBeNull();
+            expect(result).toHaveLength(1);
+            const expected = ["alpha", null, null, "beta"];
+            for (let i = 0; i < expected.length; i++) {
+                expect(result[0].getValue(i)).toBe(expected[i]);
+            }
         });
     });
 
-    describe("decodeString - Integration Tests", () => {
-        it("should correctly track offset through multiple streams", () => {
-            const strings = ["hello", "world"];
-            const fullStream = createStringStreams(strings, "plain");
-            const offset = new IntWrapper(0);
-            const initialOffset = offset.get();
+    describe("FSST encoding", () => {
+        it("should decode FSST-compressed shared dictionary", () => {
+            const dictionaryStrings = ["compressed1", "compressed2"];
+            const { lengthStream, dataStream, symbolLengthStream, symbolDataStream } = createSharedDictionaryStreams(
+                dictionaryStrings,
+                { useFsst: true },
+            );
 
-            const result = decodeString("testColumn", fullStream, offset, 2);
+            const fieldStreams = createStructFieldStreams([0, 1], [true, true]);
+            const completeData = concatenateBuffers(
+                lengthStream,
+                symbolLengthStream,
+                symbolDataStream,
+                dataStream,
+                fieldStreams,
+            );
+            const columnMetadata = createColumnMetadataForStruct("data", [{ name: "value" }]);
 
-            expect(result).toBeInstanceOf(StringFlatVector);
-            expect(offset.get()).toBeGreaterThan(initialOffset);
-            expect(offset.get()).toBe(fullStream.length);
+            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 2);
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toBeInstanceOf(StringFsstDictionaryVector);
+            expect(result[0].name).toBe("data:value");
+        });
+    });
+
+    describe("field filtering", () => {
+        it("should filter fields by propertyColumnNames", () => {
+            const dictionaryStrings = ["val1", "val2"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+
+            const field1Streams = createStructFieldStreams([0], [true]);
+            const field2Streams = createStructFieldStreams([1], [true]);
+            const field3Streams = createStructFieldStreams([0], [true]);
+
+            const completeData = concatenateBuffers(
+                lengthStream,
+                dataStream,
+                field1Streams,
+                field2Streams,
+                field3Streams,
+            );
+            const columnMetadata = createColumnMetadataForStruct("multi", [
+                { name: "field1" },
+                { name: "field2" },
+                { name: "field3" },
+            ]);
+
+            const propertyColumnNames = new Set(["multi:field1", "multi:field3"]);
+            const result = decodeSharedDictionary(
+                completeData,
+                new IntWrapper(0),
+                columnMetadata,
+                1,
+                propertyColumnNames,
+            );
+
+            expect(result).toHaveLength(2);
+            expect(result[0].name).toBe("multi:field1");
+            expect(result[1].name).toBe("multi:field3");
         });
 
-        it("should correctly track offset through nullable streams", () => {
-            const strings: (string | null)[] = ["test", null, "data"];
-            const fullStream = createStringStreams(strings, "plain");
-            const offset = new IntWrapper(0);
-            const initialOffset = offset.get();
+        it("should skip fields with numStreams=0", () => {
+            const dictionaryStrings = ["present"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
 
-            const result = decodeString("testColumn", fullStream, offset, 3);
+            const field1Streams = createStructFieldStreams([0], [true], true);
+            const field2Streams = createStructFieldStreams([], [], false); // numStreams=0
+            const field3Streams = createStructFieldStreams([0], [true], true);
 
-            expect(result).not.toBeNull();
-            // Verify offset advanced through PRESENT, LENGTH, and DATA streams
-            expect(offset.get()).toBeGreaterThan(initialOffset);
-            expect(offset.get()).toBe(fullStream.length);
+            const completeData = concatenateBuffers(
+                lengthStream,
+                dataStream,
+                field1Streams,
+                field2Streams,
+                field3Streams,
+            );
+            const columnMetadata = createColumnMetadataForStruct("test", [
+                { name: "field1" },
+                { name: "field2" },
+                { name: "field3" },
+            ]);
+
+            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 1);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].name).toBe("test:field1");
+            expect(result[1].name).toBe("test:field3");
         });
 
-        it("should correctly track offset through FSST dictionary streams", () => {
-            const fullStream = createStringStreams([], "fsst");
+        it("should handle mixed present and filtered fields", () => {
+            const dictionaryStrings = ["data"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+
+            const field1Streams = createStructFieldStreams([0], [true], true);
+            const field2Streams = createStructFieldStreams([], [], false);
+            const field3Streams = createStructFieldStreams([0], [true], true);
+
+            const completeData = concatenateBuffers(
+                lengthStream,
+                dataStream,
+                field1Streams,
+                field2Streams,
+                field3Streams,
+            );
+            const columnMetadata = createColumnMetadataForStruct("mixed", [
+                { name: "field1" },
+                { name: "field2" },
+                { name: "field3" },
+            ]);
+
+            const propertyColumnNames = new Set(["mixed:field3"]);
+            const result = decodeSharedDictionary(
+                completeData,
+                new IntWrapper(0),
+                columnMetadata,
+                1,
+                propertyColumnNames,
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].name).toBe("mixed:field3");
+        });
+    });
+
+    describe("error handling", () => {
+        it("should throw error for non-string field types", () => {
+            const dictionaryStrings = ["value"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const fieldStreams = createStructFieldStreams([0], [true]);
+            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+
+            const columnMetadata = createColumnMetadataForStruct("invalid", [
+                { name: "field1", type: ScalarType.INT_32 },
+            ]);
+
+            expect(() => {
+                decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 1);
+            }).toThrow("Currently only optional string fields are implemented for a struct.");
+        });
+    });
+
+    describe("offset tracking", () => {
+        it("should correctly advance offset through all streams", () => {
+            const dictionaryStrings = ["a", "b", "c"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+
+            const field1Streams = createStructFieldStreams([0, 1], [true, true]);
+            const field2Streams = createStructFieldStreams([1, 2], [true, true]);
+
+            const completeData = concatenateBuffers(lengthStream, dataStream, field1Streams, field2Streams);
+            const columnMetadata = createColumnMetadataForStruct("track", [{ name: "field1" }, { name: "field2" }]);
+
             const offset = new IntWrapper(0);
             const initialOffset = offset.get();
+            const result = decodeSharedDictionary(completeData, offset, columnMetadata, 2);
 
-            const result = decodeString("testColumn", fullStream, offset, 6);
-
-            expect(result).toBeInstanceOf(StringFsstDictionaryVector);
-            // Verify offset advanced through all 6 streams (PRESENT, SYMBOL_TABLE, SYMBOL_LENGTH, OFFSET, DICT_LENGTH, DICT_DATA)
+            expect(result).toHaveLength(2);
             expect(offset.get()).toBeGreaterThan(initialOffset);
-            expect(offset.get()).toBe(fullStream.length);
-        });
-
-        it("should handle consecutive decoding operations with shared offset tracker", () => {
-            // Create two separate string columns in sequence
-            const stream1 = createStringStreams(["first"], "plain");
-            const stream2 = createStringStreams(["second"], "plain");
-            const combinedStream = concatenateBuffers(stream1, stream2);
-
-            const offset = new IntWrapper(0);
-
-            // Decode first column
-            const result1 = decodeString("column1", combinedStream, offset, 2);
-            expect(result1).toBeInstanceOf(StringFlatVector);
-            const vec1 = result1 as StringFlatVector;
-            expect(vec1.getValue(0)).toBe("first");
-
-            // Offset should now point to start of second column
-            const offsetAfterFirst = offset.get();
-
-            // Decode second column
-            const result2 = decodeString("column2", combinedStream, offset, 2);
-            expect(result2).toBeInstanceOf(StringFlatVector);
-            const vec2 = result2 as StringFlatVector;
-            expect(vec2.getValue(0)).toBe("second");
-
-            // Verify offset advanced through both columns
-            expect(offset.get()).toBeGreaterThan(offsetAfterFirst);
-            expect(offset.get()).toBe(combinedStream.length);
+            expect(offset.get()).toBe(completeData.length);
         });
     });
 });

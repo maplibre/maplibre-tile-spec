@@ -7,6 +7,7 @@ import { LengthType } from "../metadata/tile/lengthType";
 import { OffsetType } from "../metadata/tile/offsetType";
 import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "./intWrapper";
+import { type Column, type Field, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
 
 export function createStreamMetadata(
     logicalTechnique1: LogicalLevelTechnique,
@@ -45,14 +46,88 @@ export function createRleMetadata(
     };
 }
 
+export function createStructFieldStreams(
+    offsetIndices: number[],
+    presentValues: boolean[],
+    isPresent: boolean = true,
+): Uint8Array {
+    if (!isPresent) {
+        // Field not present in tile: encode numStreams = 0
+        const buffer = new Uint8Array(5);
+        const offset = new IntWrapper(0);
+        encodeSingleVarintInt32(0, buffer, offset);
+        return buffer.slice(0, offset.get());
+    }
+
+    // Encode numStreams = 2 (PRESENT + OFFSET streams)
+    const numStreamsBuffer = new Uint8Array(5);
+    const numStreamsOffset = new IntWrapper(0);
+    encodeSingleVarintInt32(2, numStreamsBuffer, numStreamsOffset);
+    const numStreamsEncoded = numStreamsBuffer.slice(0, numStreamsOffset.get());
+
+    // Encode PRESENT stream (Boolean RLE)
+    const presentMetadata = {
+        physicalStreamType: PhysicalStreamType.PRESENT,
+        logicalStreamType: new LogicalStreamType(DictionaryType.NONE),
+        logicalLevelTechnique1: LogicalLevelTechnique.NONE,
+        logicalLevelTechnique2: LogicalLevelTechnique.NONE,
+        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
+        numValues: presentValues.length,
+        byteLength: 0,
+        decompressedCount: presentValues.length,
+    };
+    const encodedPresent = buildEncodedStream(presentMetadata, encodeBooleanRle(presentValues));
+
+    // Encode OFFSET stream (dictionary indices)
+    const offsetMetadata = {
+        physicalStreamType: PhysicalStreamType.OFFSET,
+        logicalStreamType: new LogicalStreamType(undefined, OffsetType.STRING),
+        logicalLevelTechnique1: LogicalLevelTechnique.NONE,
+        logicalLevelTechnique2: LogicalLevelTechnique.NONE,
+        physicalLevelTechnique: PhysicalLevelTechnique.VARINT,
+        numValues: offsetIndices.length,
+        byteLength: 0,
+        decompressedCount: offsetIndices.length,
+    };
+    const encodedOffsets = buildEncodedStream(offsetMetadata, encodeVarintInt32Array(new Int32Array(offsetIndices)));
+
+    return concatenateBuffers(numStreamsEncoded, encodedPresent, encodedOffsets);
+}
+
+export function createColumnMetadataForStruct(
+    columnName: string,
+    childFields: Array<{ name: string; type?: number }>,
+): Column {
+    const children: Field[] = childFields.map((fieldConfig) => ({
+        name: fieldConfig.name,
+        nullable: true,
+        scalarField: {
+            physicalType: fieldConfig.type ?? ScalarType.STRING,
+            type: "physicalType" as const,
+        },
+        type: "scalarField" as const,
+    }));
+
+    return {
+        name: columnName,
+        nullable: false,
+        complexType: {
+            physicalType: ComplexType.STRUCT,
+            children,
+            type: "physicalType" as const,
+        },
+        type: "complexType" as const,
+    };
+}
+
 export function buildEncodedStream(
     streamMetadata: StreamMetadata | RleEncodedStreamMetadata,
-    encodedData: Uint8Array
+    encodedData: Uint8Array,
 ): Uint8Array {
     // Update byteLength to match actual encoded data length
     const updatedMetadata = {
         ...streamMetadata,
-        byteLength: encodedData.length
+        byteLength: encodedData.length,
     };
 
     const metadataBuffer = encodeStreamMetadata(updatedMetadata);
@@ -185,7 +260,7 @@ export function encodeBooleanRle(values: boolean[]): Uint8Array {
         if (values[i]) {
             const byteIndex = Math.floor(i / 8);
             const bitIndex = i % 8;
-            packed[byteIndex] |= (1 << bitIndex);
+            packed[byteIndex] |= 1 << bitIndex;
         }
     }
 
@@ -211,7 +286,7 @@ export function concatenateBuffers(...buffers: Uint8Array[]): Uint8Array {
 
 export function encodeStrings(strings: string[]): Uint8Array {
     const encoder = new TextEncoder();
-    const encoded = strings.map(s => encoder.encode(s));
+    const encoded = strings.map((s) => encoder.encode(s));
     const totalLength = encoded.reduce((sum, arr) => sum + arr.length, 0);
     const result = new Uint8Array(totalLength);
     let offset = 0;
