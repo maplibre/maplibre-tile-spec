@@ -3,6 +3,8 @@ import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
+import { LengthType } from "../metadata/tile/lengthType";
+import { OffsetType } from "../metadata/tile/offsetType";
 import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "./intWrapper";
 
@@ -66,12 +68,29 @@ export function encodeStreamMetadata(metadata: StreamMetadata | RleEncodedStream
     let writeOffset = 0;
 
     // Encode stream type byte (first byte)
-    // physicalStreamType in upper 4 bits, dictionaryType in lower 4 bits
+    // physicalStreamType in upper 4 bits, type-specific value in lower 4 bits
     const physicalTypeIndex = Object.values(PhysicalStreamType).indexOf(metadata.physicalStreamType);
-    const dictionaryTypeIndex = metadata.logicalStreamType.dictionaryType !== undefined
-        ? Object.values(DictionaryType).indexOf(metadata.logicalStreamType.dictionaryType)
-        : 0;
-    const streamTypeByte = (physicalTypeIndex << 4) | dictionaryTypeIndex;
+    let lowerNibble = 0;
+
+    switch (metadata.physicalStreamType) {
+        case PhysicalStreamType.DATA:
+            lowerNibble = metadata.logicalStreamType.dictionaryType !== undefined
+                ? Object.values(DictionaryType).indexOf(metadata.logicalStreamType.dictionaryType)
+                : 0;
+            break;
+        case PhysicalStreamType.OFFSET:
+            lowerNibble = metadata.logicalStreamType.offsetType !== undefined
+                ? Object.values(OffsetType).indexOf(metadata.logicalStreamType.offsetType)
+                : 0;
+            break;
+        case PhysicalStreamType.LENGTH:
+            lowerNibble = metadata.logicalStreamType.lengthType !== undefined
+                ? Object.values(LengthType).indexOf(metadata.logicalStreamType.lengthType)
+                : 0;
+            break;
+    }
+
+    const streamTypeByte = (physicalTypeIndex << 4) | lowerNibble;
     buffer[writeOffset++] = streamTypeByte;
 
     // Encode encodings header byte (second byte)
@@ -188,4 +207,38 @@ export function concatenateBuffers(...buffers: Uint8Array[]): Uint8Array {
     }
 
     return result;
+}
+
+export function encodeStrings(strings: string[]): Uint8Array {
+    const encoder = new TextEncoder();
+    const encoded = strings.map(s => encoder.encode(s));
+    const totalLength = encoded.reduce((sum, arr) => sum + arr.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const arr of encoded) {
+        result.set(arr, offset);
+        offset += arr.length;
+    }
+    return result;
+}
+
+export function createStringOffsets(strings: string[]): Int32Array {
+    const offsets = new Int32Array(strings.length + 1);
+    let currentOffset = 0;
+    const encoder = new TextEncoder();
+    for (let i = 0; i < strings.length; i++) {
+        offsets[i] = currentOffset;
+        currentOffset += encoder.encode(strings[i]).length;
+    }
+    offsets[strings.length] = currentOffset;
+    return offsets;
+}
+
+export function createStringLengths(strings: string[]): Int32Array {
+    const lengths = new Int32Array(strings.length);
+    const encoder = new TextEncoder();
+    for (let i = 0; i < strings.length; i++) {
+        lengths[i] = encoder.encode(strings[i]).length;
+    }
+    return lengths;
 }
