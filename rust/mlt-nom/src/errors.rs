@@ -9,6 +9,8 @@ pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum MltError {
+    #[error("{0}")]
+    DecodeError(String),
     #[error("Integer overflow")]
     IntegerOverflow,
     #[error("multiple ID columns found (only one allowed)")]
