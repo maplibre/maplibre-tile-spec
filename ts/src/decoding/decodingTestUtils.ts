@@ -222,18 +222,6 @@ export function encodeStrings(strings: string[]): Uint8Array {
     return result;
 }
 
-export function createStringOffsets(strings: string[]): Int32Array {
-    const offsets = new Int32Array(strings.length + 1);
-    let currentOffset = 0;
-    const encoder = new TextEncoder();
-    for (let i = 0; i < strings.length; i++) {
-        offsets[i] = currentOffset;
-        currentOffset += encoder.encode(strings[i]).length;
-    }
-    offsets[strings.length] = currentOffset;
-    return offsets;
-}
-
 export function createStringLengths(strings: string[]): Int32Array {
     const lengths = new Int32Array(strings.length);
     const encoder = new TextEncoder();
