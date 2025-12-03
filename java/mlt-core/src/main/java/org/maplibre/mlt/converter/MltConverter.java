@@ -481,6 +481,7 @@ public class MltConverter {
                 physicalLevelTechnique,
                 config.getUseFSST(),
                 config.getCoercePropertyValues(),
+                config.getIntegerEncodingOption(),
                 streamRecorder);
       }
 
@@ -529,6 +530,7 @@ public class MltConverter {
         config.getUseFSST(),
         config.getCoercePropertyValues(),
         columnMappings,
+        config.getIntegerEncodingOption(),
         streamRecorder);
   }
 

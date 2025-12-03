@@ -156,7 +156,8 @@ public class Encode {
             useMortonEncoding,
             (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
             filterPattern,
-            filterInvert);
+            filterInvert,
+            ConversionConfig.IntegerEncodingOption.AUTO);
 
     if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
@@ -480,7 +481,8 @@ public class Encode {
         conversionConfig.getUseMortonEncoding(),
         conversionConfig.getOutlineFeatureTableNames(),
         conversionConfig.getLayerFilterPattern(),
-        conversionConfig.getLayerFilterInvert());
+        conversionConfig.getLayerFilterInvert(),
+        conversionConfig.getIntegerEncodingOption());
   }
 
   /// Encode the entire contents of an MBTile file of MVT tiles
