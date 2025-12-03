@@ -23,10 +23,6 @@ import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVec
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 import { ScalarType } from "../metadata/tileset/tilesetMetadata";
 
-// -----------------------------------------------------------------------------
-// Generic Helper for creating encoded streams
-// -----------------------------------------------------------------------------
-
 function createStream(
     physicalType: PhysicalStreamType,
     data: Uint8Array,
@@ -61,7 +57,6 @@ function createStringStreams(
     const hasNull = strings.some((s) => s === null);
     const nonNullStrings = strings.filter((s): s is string => s !== null);
 
-    // Prepare data for encoding
     const uniqueStrings = Array.from(new Set(nonNullStrings));
     const stringsToEncode = encoding === "dictionary" ? uniqueStrings : nonNullStrings;
     const stringBytes = encodeStrings(stringsToEncode);
@@ -179,7 +174,7 @@ function createSharedDictionaryStreams(
     });
 
     if (useFsst) {
-        // FSST Symbol Table Streams (Hardcoded for test consistency)
+        // FSST Symbol Table Streams Hardcoded for test
         const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
         const symbolLengths = new Int32Array([3, 3]);
 
