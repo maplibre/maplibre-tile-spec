@@ -24,6 +24,9 @@ import {
     encodeBooleanRle,
     concatenateBuffers,
     encodeDoubleLE,
+    encodeStrings,
+    createStringLengths,
+    createColumnMetadataForStruct,
 } from "./decodingTestUtils";
 
 function createColumnMetadata(name: string, scalarType: number, nullable: boolean = false): Column {
@@ -690,6 +693,35 @@ describe("decodePropertyColumn - DOUBLE", () => {
     });
 });
 
+describe("decodePropertyColumn - STRING", () => {
+    it("should decode non-nullable STRING column", () => {
+        const strings = ["hello", "world", "test"];
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.STRING, false);
+        const stringData = encodeStrings(strings);
+        const lengths = createStringLengths(strings);
+        const encodedLengths = encodeVarintInt32Array(lengths);
+        const lengthMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            strings.length,
+        );
+        const lengthStream = buildEncodedStream(lengthMetadata, encodedLengths);
+        const dataMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            stringData.length,
+        );
+        const dataStream = buildEncodedStream(dataMetadata, stringData);
+        const fullData = concatenateBuffers(lengthStream, dataStream);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, strings.length);
+
+        expect(result).not.toBeNull();
+        expect(offset.get()).toBeGreaterThan(0);
+    });
+});
+
 describe("decodePropertyColumn - Edge Cases", () => {
     it("should filter columns with propertyColumnNames set", () => {
         const expectedValues = new Int32Array([1, 2, 3]);
@@ -761,6 +793,20 @@ describe("decodePropertyColumn - Edge Cases", () => {
         const data = new Uint8Array(0);
 
         const result = decodePropertyColumn(data, offset, columnMetadata, 0, 0);
+
+        expect(result).toBeNull();
+    });
+
+    it("should return null for complex type with numStreams != 1", () => {
+        // Create a struct/complex type column
+        const columnMetadata = createColumnMetadataForStruct("structColumn", [
+            { name: "field1", type: ScalarType.INT_32 },
+            { name: "field2", type: ScalarType.STRING },
+        ]);
+        const offset = new IntWrapper(0);
+        const data = new Uint8Array(10);
+
+        const result = decodePropertyColumn(data, offset, columnMetadata, 2, 5);
 
         expect(result).toBeNull();
     });
