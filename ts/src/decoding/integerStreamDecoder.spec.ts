@@ -18,6 +18,7 @@ import {
     encodeVarintInt64Array,
     encodeZigZag64,
     encodeVarintInt32Array,
+    encodeDelta,
 } from "./decodingTestUtils";
 
 describe("getVectorType", () => {
@@ -67,6 +68,35 @@ describe("decodeIntStream", () => {
         expect(() => decodeIntStream(data, offset, metadata, false)).toThrow(
             "Specified physicalLevelTechnique is not supported (yet).",
         );
+    });
+
+    it("should decode MORTON", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
+        // Morton encoding uses delta encoding (sorted data, no zigzag needed)
+        const expectedValues = new Int32Array([10, 15, 18, 20]);
+        const deltaEncoded = encodeDelta(expectedValues);
+        const data = encodeVarintInt32Array(deltaEncoded);
+        const offset = new IntWrapper(0);
+
+        const result = decodeIntStream(data, offset, metadata, false);
+
+        expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode COMPONENTWISE_DELTA with scalingData", () => {
+        const metadata = createStreamMetadata(
+            LogicalLevelTechnique.COMPONENTWISE_DELTA,
+            LogicalLevelTechnique.NONE,
+            6,
+        );
+        const encoded = new Int32Array([4, 6, 2, 4, 2, 4]);
+        const data = encodeVarintInt32Array(encoded);
+        const offset = new IntWrapper(0);
+        const scalingData = { extent: 100, min: 0, max: 100, scale: 2 };
+
+        const result = decodeIntStream(data, offset, metadata, false, scalingData);
+
+        expect(result).toEqual(new Int32Array([4, 6, 6, 10, 8, 14]));
     });
 });
 
@@ -145,17 +175,16 @@ describe("decodeFloat64Buffer", () => {
 describe("decodeNullableIntStream", () => {
     it("should decode MORTON", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
-        // MORTON uses fastInverseDelta (cumulative sum)
-        // Delta encoded: [10, 5, 3, 2]
-        // After fastInverseDelta: [10, 15, 18, 20]
-        const deltaEncoded = new Int32Array([10, 5, 3, 2]);
+        // Morton encoding uses delta encoding (sorted data, no zigzag needed)
+        const expectedValues = new Int32Array([10, 15, 18, 20]);
+        const deltaEncoded = encodeDelta(expectedValues);
         const data = encodeVarintInt32Array(deltaEncoded);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00001111]), 4); // All non-null
 
         const result = decodeNullableIntStream(data, offset, metadata, false, bitVector);
 
-        expect(result).toEqual(new Int32Array([10, 15, 18, 20]));
+        expect(result).toEqual(expectedValues);
     });
 
     it("should decode COMPONENTWISE_DELTA", () => {
