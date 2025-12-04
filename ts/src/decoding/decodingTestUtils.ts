@@ -94,6 +94,178 @@ export function createStructFieldStreams(
     return concatenateBuffers(numStreamsEncoded, encodedPresent, encodedOffsets);
 }
 
+export function createStream(
+    physicalType: PhysicalStreamType,
+    data: Uint8Array,
+    options: {
+        logical?: LogicalStreamType;
+        technique?: PhysicalLevelTechnique;
+        count?: number;
+    } = {},
+): Uint8Array {
+    const count = options.count ?? 0;
+    return buildEncodedStream(
+        {
+            physicalStreamType: physicalType,
+            logicalStreamType: options.logical ?? new LogicalStreamType(),
+            logicalLevelTechnique1: LogicalLevelTechnique.NONE,
+            logicalLevelTechnique2: LogicalLevelTechnique.NONE,
+            physicalLevelTechnique: options.technique ?? PhysicalLevelTechnique.NONE,
+            numValues: count,
+            byteLength: data.length,
+            decompressedCount: count,
+        },
+        data,
+    );
+}
+
+export function createStringStreams(
+    strings: (string | null)[],
+    encoding: "plain" | "dictionary" | "fsst" = "plain",
+): Uint8Array {
+    if (encoding === "fsst") return createFsstDictionaryStringStreams();
+
+    const hasNull = strings.some((s) => s === null);
+    const nonNullStrings = strings.filter((s): s is string => s !== null);
+
+    const uniqueStrings = Array.from(new Set(nonNullStrings));
+    const stringsToEncode = encoding === "dictionary" ? uniqueStrings : nonNullStrings;
+    const stringBytes = encodeStrings(stringsToEncode);
+
+    const streams: Uint8Array[] = [];
+
+    if (hasNull) {
+        const nullabilityValues = strings.map((s) => s !== null);
+        streams.push(
+            createStream(PhysicalStreamType.PRESENT, encodeBooleanRle(nullabilityValues), {
+                technique: PhysicalLevelTechnique.VARINT,
+                count: nullabilityValues.length,
+            }),
+        );
+    }
+
+    if (encoding === "plain") {
+        const lengths = createStringLengths(nonNullStrings);
+        streams.push(
+            createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(new Int32Array(lengths)), {
+                logical: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
+                technique: PhysicalLevelTechnique.VARINT,
+                count: lengths.length,
+            }),
+            createStream(PhysicalStreamType.DATA, stringBytes, {
+                logical: new LogicalStreamType(DictionaryType.NONE),
+            }),
+        );
+    } else {
+        const stringMap = new Map(uniqueStrings.map((s, i) => [s, i]));
+        const offsets = nonNullStrings.map((s) => stringMap.get(s));
+
+        const { lengthStream, dataStream } = createSharedDictionaryStreams(uniqueStrings, {
+            dictionaryType: DictionaryType.SINGLE,
+        });
+
+        streams.push(
+            createStream(PhysicalStreamType.OFFSET, encodeVarintInt32Array(new Int32Array(offsets)), {
+                logical: new LogicalStreamType(undefined, OffsetType.STRING),
+                technique: PhysicalLevelTechnique.VARINT,
+                count: offsets.length,
+            }),
+            lengthStream,
+            dataStream,
+        );
+    }
+
+    return concatenateBuffers(...streams);
+}
+
+export function createFsstDictionaryStringStreams(): Uint8Array {
+    // Hardcoded FSST test data
+    const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
+    const symbolLengths = new Int32Array([3, 3]);
+    const compressedDictionary = new Uint8Array([0, 1]);
+    const dictionaryLengths = new Int32Array([3, 3]);
+    const offsets = new Int32Array([0, 1, 0]); // "cat", "dog", "cat"
+    const numValues = 3;
+
+    return concatenateBuffers(
+        createStream(PhysicalStreamType.PRESENT, encodeBooleanRle(new Array(numValues).fill(true)), {
+            technique: PhysicalLevelTechnique.VARINT,
+            count: numValues,
+        }),
+        createStream(PhysicalStreamType.DATA, symbolTable, { logical: new LogicalStreamType(DictionaryType.FSST) }),
+        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(symbolLengths), {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.SYMBOL),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: symbolLengths.length,
+        }),
+        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32Array(offsets), {
+            logical: new LogicalStreamType(undefined, OffsetType.STRING),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: offsets.length,
+        }),
+        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(dictionaryLengths), {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: dictionaryLengths.length,
+        }),
+        createStream(PhysicalStreamType.DATA, compressedDictionary, {
+            logical: new LogicalStreamType(DictionaryType.SINGLE),
+        }),
+    );
+}
+
+export function createSharedDictionaryStreams(
+    dictionaryStrings: string[],
+    options: { useFsst?: boolean; dictionaryType?: DictionaryType } = {},
+): {
+    lengthStream: Uint8Array;
+    dataStream: Uint8Array;
+    symbolLengthStream?: Uint8Array;
+    symbolDataStream?: Uint8Array;
+} {
+    const { useFsst = false, dictionaryType = DictionaryType.SHARED } = options;
+
+    // Standard Dictionary Streams
+    const encodedDictionary = encodeStrings(dictionaryStrings);
+    const dictionaryLengths = createStringLengths(dictionaryStrings);
+
+    const lengthStream = createStream(
+        PhysicalStreamType.LENGTH,
+        encodeVarintInt32Array(new Int32Array(dictionaryLengths)),
+        {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: dictionaryLengths.length,
+        },
+    );
+
+    const dataStream = createStream(PhysicalStreamType.DATA, encodedDictionary, {
+        logical: new LogicalStreamType(dictionaryType),
+        count: encodedDictionary.length,
+    });
+
+    if (useFsst) {
+        // FSST Symbol Table Streams Hardcoded for test
+        const symbolTable = new Uint8Array([99, 97, 116, 100, 111, 103]); // "catdog"
+        const symbolLengths = new Int32Array([3, 3]);
+
+        const symbolLengthStream = createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(symbolLengths), {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.SYMBOL),
+            technique: PhysicalLevelTechnique.VARINT,
+            count: symbolLengths.length,
+        });
+
+        const symbolDataStream = createStream(PhysicalStreamType.DATA, symbolTable, {
+            logical: new LogicalStreamType(DictionaryType.FSST),
+            count: symbolTable.length,
+        });
+
+        return { lengthStream, dataStream, symbolLengthStream, symbolDataStream };
+    }
+
+    return { lengthStream, dataStream };
+}
+
 export function createColumnMetadataForStruct(
     columnName: string,
     childFields: Array<{ name: string; type?: number }>,
