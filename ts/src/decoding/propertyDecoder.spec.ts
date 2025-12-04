@@ -24,10 +24,12 @@ import {
     encodeBooleanRle,
     concatenateBuffers,
     encodeDoubleLE,
-    encodeStrings,
-    createStringLengths,
+    createSharedDictionaryStreams,
     createColumnMetadataForStruct,
+    createStructFieldStreams,
 } from "./decodingTestUtils";
+import { decodeSharedDictionary } from "./stringDecoder";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 
 function createColumnMetadata(name: string, scalarType: number, nullable: boolean = false): Column {
     return {
@@ -694,31 +696,24 @@ describe("decodePropertyColumn - DOUBLE", () => {
 });
 
 describe("decodePropertyColumn - STRING", () => {
-    it("should decode non-nullable STRING column", () => {
-        const strings = ["hello", "world", "test"];
-        const columnMetadata = createColumnMetadata("testColumn", ScalarType.STRING, false);
-        const stringData = encodeStrings(strings);
-        const lengths = createStringLengths(strings);
-        const encodedLengths = encodeVarintInt32Array(lengths);
-        const lengthMetadata = createStreamMetadata(
-            LogicalLevelTechnique.NONE,
-            LogicalLevelTechnique.NONE,
-            strings.length,
-        );
-        const lengthStream = buildEncodedStream(lengthMetadata, encodedLengths);
-        const dataMetadata = createStreamMetadata(
-            LogicalLevelTechnique.NONE,
-            LogicalLevelTechnique.NONE,
-            stringData.length,
-        );
-        const dataStream = buildEncodedStream(dataMetadata, stringData);
-        const fullData = concatenateBuffers(lengthStream, dataStream);
-        const offset = new IntWrapper(0);
+    describe("basic functionality", () => {
+        it("should decode single field with shared dictionary", () => {
+            const dictionaryStrings = ["apple", "banana", "peach", "date"];
+            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
 
-        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, strings.length);
+            const fieldStreams = createStructFieldStreams([0, 1, 2, 3], [true, true, true, true]);
+            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetadata = createColumnMetadataForStruct("address", [{ name: "street" }]);
+            const offset = new IntWrapper(0);
+            const result = decodePropertyColumn(completeData, offset, columnMetadata, 1, dictionaryStrings.length);
 
-        expect(result).not.toBeNull();
-        expect(offset.get()).toBeGreaterThan(0);
+            expect(result).toHaveLength(1);
+            expect(result[0]).toBeInstanceOf(StringDictionaryVector);
+            expect(result[0].name).toBe("address:street");
+            for (let i = 0; i < dictionaryStrings.length; i++) {
+                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
+            }
+        });
     });
 });
 
