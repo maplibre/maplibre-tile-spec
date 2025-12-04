@@ -21,24 +21,6 @@ export function encodeVarintInt32Array(values: Int32Array): Uint8Array {
     return buffer.slice(0, offset.get());
 }
 
-export function encodeZigZag32(value: number): number {
-    return (value << 1) ^ (value >> 31);
-}
-
-//Used for Morton encoding
-export function encodeDelta(values: Int32Array): Int32Array {
-    if (values.length === 0) return new Int32Array(0);
-
-    const result = new Int32Array(values.length);
-    result[0] = values[0];
-
-    for (let i = 1; i < values.length; i++) {
-        result[i] = values[i] - values[i - 1];
-    }
-
-    return result;
-}
-
 export function encodeSingleVarintInt64(value: bigint, dst: Uint8Array, offset: IntWrapper): void {
     let v = value;
     while (v > 0x7fn) {
@@ -59,9 +41,26 @@ export function encodeVarintInt64Array(values: BigInt64Array): Uint8Array {
     }
     return buffer.slice(0, offset.get());
 }
+export function encodeZigZag32(value: number): number {
+    return (value << 1) ^ (value >> 31);
+}
 
 export function encodeZigZag64(value: bigint): bigint {
     return (value << 1n) ^ (value >> 63n);
+}
+
+//Used for Morton encoding
+export function encodeDelta(values: Int32Array): Int32Array {
+    if (values.length === 0) return new Int32Array(0);
+
+    const result = new Int32Array(values.length);
+    result[0] = values[0];
+
+    for (let i = 1; i < values.length; i++) {
+        result[i] = values[i] - values[i - 1];
+    }
+
+    return result;
 }
 
 export function encodeFloatsLE(values: Float32Array): Uint8Array {
