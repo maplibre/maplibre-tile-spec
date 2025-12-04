@@ -738,7 +738,6 @@ describe("decodePropertyColumn - Edge Cases", () => {
             expectedValues.length,
         );
         const fullStream = buildEncodedStream(streamMetadata, encodedData);
-        // Filter set does NOT include "excludedColumn", so it should be skipped
         const propertyColumnNames = new Set(["someOtherColumn"]);
         const offset = new IntWrapper(0);
 
