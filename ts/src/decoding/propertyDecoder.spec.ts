@@ -224,6 +224,30 @@ describe("decodePropertyColumn - INT_32", () => {
     });
 });
 
+describe("decodePropertyColumn - UINT_32", () => {
+    it("should decode UINT_32 column with NONE encoding (unsigned)", () => {
+        const expectedValues = new Uint32Array([2, 4, 6, 100]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_32, false);
+        // No zigzag encoding for unsigned integers
+        const encodedData = encodeVarintInt32Array(new Int32Array(expectedValues));
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(IntFlatVector);
+        const resultVec = result as IntFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
+    });
+});
+
 describe("decodePropertyColumn - INT_64", () => {
     it("should decode INT_64 column with NONE encoding (signed)", () => {
         const expectedValues = new BigInt64Array([2n, -4n, 6n]);
@@ -401,6 +425,61 @@ describe("decodePropertyColumn - INT_64", () => {
         const constVec = result as LongConstVector;
         expect(constVec.getValue(0)).toBe(constValue);
         expect(constVec.getValue(4)).toBe(constValue);
+    });
+});
+
+describe("decodePropertyColumn - UINT_64", () => {
+    it("should decode UINT_64 column with NONE encoding (unsigned)", () => {
+        const expectedValues = new BigUint64Array([2n, 4n, 6n, 100n]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_64, false);
+        // No zigzag encoding for unsigned integers
+        const encodedData = encodeVarintInt64Array(new BigInt64Array(expectedValues));
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(LongFlatVector);
+        const resultVec = result as LongFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
+    });
+
+    it("should decode nullable UINT_64 column with null values", () => {
+        const expectedValues = [2n, null, 4n, null, 6n];
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_64, true);
+        const nonNullValues = [2n, 4n, 6n];
+        const encodedData = encodeVarintInt64Array(new BigInt64Array(nonNullValues));
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nonNullValues.length,
+        );
+        const dataStream = buildEncodedStream(streamMetadata, encodedData);
+        const nullabilityValues = [true, false, true, false, true];
+        const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
+        const nullabilityMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nullabilityValues.length,
+        );
+        const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
+        const fullData = concatenateBuffers(nullabilityStream, dataStream);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, expectedValues.length);
+
+        expect(result).toBeInstanceOf(LongFlatVector);
+        const resultVec = result as LongFlatVector;
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
     });
 });
 
@@ -643,6 +722,38 @@ describe("decodePropertyColumn - Edge Cases", () => {
         for (let i = 0; i < expectedValues.length; i++) {
             expect(resultVec.getValue(i)).toBe(expectedValues[i]);
         }
+    });
+
+    it("should skip column when not in propertyColumnNames filter", () => {
+        const expectedValues = new Int32Array([1, 2, 3]);
+        const columnMetadata = createColumnMetadata("excludedColumn", ScalarType.INT_32, false);
+        const zigzagEncoded = new Int32Array(expectedValues.length);
+        for (let i = 0; i < expectedValues.length; i++) {
+            zigzagEncoded[i] = encodeZigZag32(expectedValues[i]);
+        }
+        const encodedData = encodeVarintInt32Array(zigzagEncoded);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        // Filter set does NOT include "excludedColumn", so it should be skipped
+        const propertyColumnNames = new Set(["someOtherColumn"]);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(
+            fullStream,
+            offset,
+            columnMetadata,
+            1,
+            expectedValues.length,
+            propertyColumnNames,
+        );
+
+        // Should return null and advance the offset past the skipped data
+        expect(result).toBe(null);
+        expect(offset.get()).toBe(fullStream.length);
     });
 
     it("should return null for empty columns (numStreams === 0)", () => {
