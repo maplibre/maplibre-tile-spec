@@ -5,13 +5,20 @@ import {
     decodeNullableLongStream,
     decodeIntStream,
     decodeFloat64Buffer,
+    decodeNullableIntStream,
 } from "./integerStreamDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import { createStreamMetadata, createRleMetadata, encodeVarintInt64Array, encodeZigZag64 } from "./decodingTestUtils";
+import {
+    createStreamMetadata,
+    createRleMetadata,
+    encodeVarintInt64Array,
+    encodeZigZag64,
+    encodeVarintInt32Array,
+} from "./decodingTestUtils";
 
 describe("getVectorType", () => {
     it("Delta-RLE with single run should return SEQUENCE for 1 run", () => {
@@ -131,6 +138,54 @@ describe("decodeFloat64Buffer", () => {
 
         expect(() => decodeFloat64Buffer(values, metadata, true)).toThrow(
             "The specified Logical level technique is not supported: MORTON",
+        );
+    });
+});
+
+describe("decodeNullableIntStream", () => {
+    it("should decode MORTON", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
+        // MORTON uses fastInverseDelta (cumulative sum)
+        // Delta encoded: [10, 5, 3, 2]
+        // After fastInverseDelta: [10, 15, 18, 20]
+        const deltaEncoded = new Int32Array([10, 5, 3, 2]);
+        const data = encodeVarintInt32Array(deltaEncoded);
+        const offset = new IntWrapper(0);
+        const bitVector = new BitVector(new Uint8Array([0b00001111]), 4); // All non-null
+
+        const result = decodeNullableIntStream(data, offset, metadata, false, bitVector);
+
+        expect(result).toEqual(new Int32Array([10, 15, 18, 20]));
+    });
+
+    it("should decode COMPONENTWISE_DELTA", () => {
+        const metadata = createStreamMetadata(
+            LogicalLevelTechnique.COMPONENTWISE_DELTA,
+            LogicalLevelTechnique.NONE,
+            6,
+        );
+        // COMPONENTWISE_DELTA for Vec2 (x, y pairs)
+        // Zigzag encoded deltas: [4, 6, 2, 4, 2, 4] (encodes [2, 3, 1, 2, 1, 2])
+        // After componentwise delta decode: [2, 3, 3, 5, 4, 7]
+        const encoded = new Int32Array([4, 6, 2, 4, 2, 4]);
+        const data = encodeVarintInt32Array(encoded);
+        const offset = new IntWrapper(0);
+        const bitVector = new BitVector(new Uint8Array([0b00111111]), 6); // All non-null
+
+        const result = decodeNullableIntStream(data, offset, metadata, false, bitVector);
+
+        expect(result).toEqual(new Int32Array([2, 3, 3, 5, 4, 7]));
+    });
+
+    it("should throw for unsupported technique", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.PDE, LogicalLevelTechnique.NONE, 3);
+        const values = new Int32Array([1, 2, 3]);
+        const data = encodeVarintInt32Array(values);
+        const offset = new IntWrapper(0);
+        const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
+
+        expect(() => decodeNullableIntStream(data, offset, metadata, false, bitVector)).toThrow(
+            "The specified Logical level technique is not supported",
         );
     });
 });
