@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { getVectorType, decodeLongStream, decodeNullableLongStream } from "./integerStreamDecoder";
+import { getVectorType, decodeLongStream, decodeNullableLongStream, decodeIntStream } from "./integerStreamDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
@@ -21,6 +22,38 @@ describe("getVectorType", () => {
         const offset = new IntWrapper(0);
         const result = getVectorType(metadata, 5, data, offset);
         expect(result).toBe(VectorType.SEQUENCE);
+    });
+});
+
+describe("decodeIntStream", () => {
+    it("should decode with PhysicalLevelTechnique.NONE", () => {
+        const metadata = {
+            ...createStreamMetadata(LogicalLevelTechnique.NONE),
+            physicalLevelTechnique: PhysicalLevelTechnique.NONE,
+            numValues: 3,
+            byteLength: 3,
+        };
+        const data = new Uint8Array([10, 20, 30]);
+        const offset = new IntWrapper(0);
+
+        const result = decodeIntStream(data, offset, metadata, false);
+
+        expect(result).toEqual(new Int32Array([10, 20, 30]));
+    });
+
+    it("should throw for unsupported PhysicalLevelTechnique", () => {
+        const metadata = {
+            ...createStreamMetadata(LogicalLevelTechnique.NONE),
+            physicalLevelTechnique: PhysicalLevelTechnique.ALP,
+            numValues: 3,
+            byteLength: 3,
+        };
+        const data = new Uint8Array([10, 20, 30]);
+        const offset = new IntWrapper(0);
+
+        expect(() => decodeIntStream(data, offset, metadata, false)).toThrow(
+            "Specified physicalLevelTechnique is not supported (yet).",
+        );
     });
 });
 
