@@ -6,6 +6,7 @@ import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { IntFlatVector } from "../vector/flat/intFlatVector";
 import { LongFlatVector } from "../vector/flat/longFlatVector";
 import { FloatFlatVector } from "../vector/flat/floatFlatVector";
+import { DoubleFlatVector } from "../vector/flat/doubleFlatVector";
 import { BooleanFlatVector } from "../vector/flat/booleanFlatVector";
 import { IntSequenceVector } from "../vector/sequence/intSequenceVector";
 import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
@@ -22,6 +23,7 @@ import {
     encodeFloatsLE,
     encodeBooleanRle,
     concatenateBuffers,
+    encodeDoubleLE,
 } from "./decodingTestUtils";
 
 function createColumnMetadata(name: string, scalarType: number, nullable: boolean = false): Column {
@@ -530,6 +532,82 @@ describe("decodePropertyColumn - BOOLEAN", () => {
         expect(boolVec.getValue(2)).toBe(false);
         expect(boolVec.getValue(3)).toBe(null);
         expect(boolVec.getValue(4)).toBe(true);
+    });
+});
+
+describe("decodePropertyColumn - DOUBLE", () => {
+    it("should decode non-nullable DOUBLE column", () => {
+        const expectedValues = new Float32Array([1.2345, 5.4321, 1.33742]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, false);
+        // Encode as little-endian double
+        const encodedData = encodeDoubleLE(expectedValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        expect(result).toBeInstanceOf(DoubleFlatVector);
+        const resultVec = result as DoubleFlatVector;
+        expect(resultVec.size).toBe(expectedValues.length);
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBeCloseTo(expectedValues[i], 5);
+        }
+    });
+
+    it("should decode nullable DOUBLE column with null values", () => {
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, true);
+        const nonNullValues = new Float32Array([1.5, 2.7, 3.14159]);
+        const encodedData = encodeDoubleLE(nonNullValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nonNullValues.length,
+        );
+        const dataStream = buildEncodedStream(streamMetadata, encodedData);
+        const nullabilityValues = [true, false, true, false, true];
+        const nullabilityEncoded = encodeBooleanRle(nullabilityValues);
+        const nullabilityMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            nullabilityValues.length,
+        );
+        const nullabilityStream = buildEncodedStream(nullabilityMetadata, nullabilityEncoded);
+        const fullData = concatenateBuffers(nullabilityStream, dataStream);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(fullData, offset, columnMetadata, 2, nullabilityValues.length);
+
+        expect(result).toBeInstanceOf(DoubleFlatVector);
+        const resultVec = result as DoubleFlatVector;
+        expect(resultVec.size).toBe(nullabilityValues.length);
+        expect(resultVec.getValue(0)).toBeCloseTo(1.5, 5);
+        expect(resultVec.getValue(1)).toBe(null); // null value
+        expect(resultVec.getValue(2)).toBeCloseTo(2.7, 5);
+        expect(resultVec.getValue(3)).toBe(null); // null value
+        expect(resultVec.getValue(4)).toBeCloseTo(3.14159, 5);
+    });
+
+    it("should handle offset correctly after decoding DOUBLE column", () => {
+        const expectedValues = new Float32Array([1.33742, 1.2345, 5.4321]);
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.DOUBLE, false);
+        const encodedData = encodeDoubleLE(expectedValues);
+        const streamMetadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
+        const fullStream = buildEncodedStream(streamMetadata, encodedData);
+        const offset = new IntWrapper(0);
+
+        decodePropertyColumn(fullStream, offset, columnMetadata, 1, expectedValues.length);
+
+        // Verify offset was advanced correctly
+        expect(offset.get()).toBe(fullStream.length);
     });
 });
 
