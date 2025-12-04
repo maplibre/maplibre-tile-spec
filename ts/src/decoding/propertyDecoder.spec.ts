@@ -16,19 +16,20 @@ import {
     createStreamMetadata,
     createRleMetadata,
     buildEncodedStream,
-    encodeVarintInt32Array,
-    encodeVarintInt64Array,
-    encodeZigZag32,
-    encodeZigZag64,
-    encodeFloatsLE,
-    encodeBooleanRle,
-    concatenateBuffers,
-    encodeDoubleLE,
     createSharedDictionaryStreams,
     createColumnMetadataForStruct,
     createStructFieldStreams,
+    concatenateBuffers,
 } from "./decodingTestUtils";
-import { decodeSharedDictionary } from "./stringDecoder";
+import {
+    encodeVarintInt64Array,
+    encodeVarintInt32Array,
+    encodeZigZag64,
+    encodeZigZag32,
+    encodeBooleanRle,
+    encodeFloatsLE,
+    encodeDoubleLE,
+} from "../encoding/encodingUtils";
 import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 
 function createColumnMetadata(name: string, scalarType: number, nullable: boolean = false): Column {

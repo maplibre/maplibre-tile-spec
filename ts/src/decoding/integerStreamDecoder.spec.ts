@@ -12,14 +12,8 @@ import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique"
 import { VectorType } from "../vector/vectorType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import {
-    createStreamMetadata,
-    createRleMetadata,
-    encodeVarintInt64Array,
-    encodeZigZag64,
-    encodeVarintInt32Array,
-    encodeDelta,
-} from "./decodingTestUtils";
+import { createStreamMetadata, createRleMetadata } from "./decodingTestUtils";
+import { encodeVarintInt64Array, encodeVarintInt32Array, encodeZigZag64, encodeDelta } from "../encoding/encodingUtils";
 
 describe("getVectorType", () => {
     it("Delta-RLE with single run should return SEQUENCE for 1 run", () => {
@@ -84,11 +78,7 @@ describe("decodeIntStream", () => {
     });
 
     it("should decode COMPONENTWISE_DELTA with scalingData", () => {
-        const metadata = createStreamMetadata(
-            LogicalLevelTechnique.COMPONENTWISE_DELTA,
-            LogicalLevelTechnique.NONE,
-            6,
-        );
+        const metadata = createStreamMetadata(LogicalLevelTechnique.COMPONENTWISE_DELTA, LogicalLevelTechnique.NONE, 6);
         const encoded = new Int32Array([4, 6, 2, 4, 2, 4]);
         const data = encodeVarintInt32Array(encoded);
         const offset = new IntWrapper(0);
@@ -188,11 +178,7 @@ describe("decodeNullableIntStream", () => {
     });
 
     it("should decode COMPONENTWISE_DELTA", () => {
-        const metadata = createStreamMetadata(
-            LogicalLevelTechnique.COMPONENTWISE_DELTA,
-            LogicalLevelTechnique.NONE,
-            6,
-        );
+        const metadata = createStreamMetadata(LogicalLevelTechnique.COMPONENTWISE_DELTA, LogicalLevelTechnique.NONE, 6);
         // COMPONENTWISE_DELTA for Vec2 (x, y pairs)
         // Zigzag encoded deltas: [4, 6, 2, 4, 2, 4] (encodes [2, 3, 1, 2, 1, 2])
         // After componentwise delta decode: [2, 3, 3, 5, 4, 7]
