@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { getVectorType, decodeLongStream, decodeNullableLongStream, decodeIntStream } from "./integerStreamDecoder";
+import {
+    getVectorType,
+    decodeLongStream,
+    decodeNullableLongStream,
+    decodeIntStream,
+    decodeFloat64Buffer,
+} from "./integerStreamDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
@@ -53,6 +59,78 @@ describe("decodeIntStream", () => {
 
         expect(() => decodeIntStream(data, offset, metadata, false)).toThrow(
             "Specified physicalLevelTechnique is not supported (yet).",
+        );
+    });
+});
+
+describe("decodeFloat64Buffer", () => {
+    it("should decode NONE unsigned", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+        const values = new Float64Array([1.5, 2.5, 3.5]);
+
+        const result = decodeFloat64Buffer(values, metadata, false);
+
+        expect(result).toEqual(new Float64Array([1.5, 2.5, 3.5]));
+    });
+
+    it("should decode NONE signed", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+        // ZigZag encoded: positive values are multiplied by 2
+        const values = new Float64Array([4, 10, 6]); // zigzag encoded [2, 5, 3]
+
+        const result = decodeFloat64Buffer(values, metadata, true);
+
+        expect(result).toEqual(new Float64Array([2, 5, 3]));
+    });
+
+    it("should decode RLE unsigned", () => {
+        const numRleValues = 5;
+        const runs = 2;
+        const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
+        const values = new Float64Array([3, 2, 10.5, 20.5]);
+
+        const result = decodeFloat64Buffer(values, metadata, false);
+
+        expect(result).toEqual(new Float64Array([10.5, 10.5, 10.5, 20.5, 20.5]));
+    });
+
+    it("should decode RLE signed", () => {
+        const numRleValues = 5;
+        const runs = 2;
+        const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
+        const values = new Float64Array([3, 2, 20, 40]); // zigzag encoded [10, 20]
+
+        const result = decodeFloat64Buffer(values, metadata, true);
+
+        expect(result).toEqual(new Float64Array([10, 10, 10, 20, 20]));
+    });
+
+    it("should decode DELTA without RLE", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA);
+        const values = new Float64Array([4, 4, 4]);
+
+        const result = decodeFloat64Buffer(values, metadata, true);
+
+        expect(result).toEqual(new Float64Array([2, 4, 6]));
+    });
+
+    it("should decode DELTA with RLE", () => {
+        const numRleValues = 5;
+        const runs = 2;
+        const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
+        const values = new Float64Array([1, 4, 20, 4]);
+
+        const result = decodeFloat64Buffer(values, metadata, true);
+
+        expect(result).toEqual(new Float64Array([10, 12, 14, 16, 18]));
+    });
+
+    it("should throw for unsupported technique", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON);
+        const values = new Float64Array([1, 2, 3]);
+
+        expect(() => decodeFloat64Buffer(values, metadata, true)).toThrow(
+            "The specified Logical level technique is not supported: MORTON",
         );
     });
 });
