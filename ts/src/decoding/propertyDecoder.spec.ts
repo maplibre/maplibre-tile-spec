@@ -12,8 +12,7 @@ import { LongSequenceVector } from "../vector/sequence/longSequenceVector";
 import { IntConstVector } from "../vector/constant/intConstVector";
 import { LongConstVector } from "../vector/constant/longConstVector";
 import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
-import { createColumnMetadataForStruct } from "./decodingTestUtils";
-import { encodeSharedDictionary, encodeStructField } from "../encoding/stringEncoder";
+import { createColumnMetadataForStruct, encodeSharedDictionary, encodeStructField } from "./decodingTestUtils";
 import { concatenateBuffers } from "../encoding/encodingUtils";
 import {
     encodeInt32NoneColumn,
