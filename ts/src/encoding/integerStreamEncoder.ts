@@ -44,6 +44,57 @@ export function encodeInt32SignedRle(runs: Array<[number, number]>): Uint8Array 
     return encodeVarintInt32Array(new Int32Array(rleValues));
 }
 
+export function encodeInt32ArrayToRle(values: Int32Array): { data: Uint8Array, runs: number } {
+    const rleRuns: Array<[number, number]> = [];
+    let currentValue = values[0];
+    let currentCount = 1;
+
+    for (let i = 1; i < values.length; i++) {
+        if (values[i] === currentValue) {
+            currentCount++;
+        } else {
+            rleRuns.push([currentCount, currentValue]);
+            currentValue = values[i];
+            currentCount = 1;
+        }
+    }
+    rleRuns.push([currentCount, currentValue]);
+
+    return {
+        data: encodeInt32SignedRle(rleRuns),
+        runs: rleRuns.length
+    };
+}
+
+export function encodeFloat64ArrayToRle(values: Float64Array): { data: Float64Array, runs: number } {
+    const rleRuns: Array<[number, number]> = [];
+    let currentValue = values[0];
+    let currentCount = 1;
+
+    for (let i = 1; i < values.length; i++) {
+        if (values[i] === currentValue) {
+            currentCount++;
+        } else {
+            rleRuns.push([currentCount, currentValue]);
+            currentValue = values[i];
+            currentCount = 1;
+        }
+    }
+    rleRuns.push([currentCount, currentValue]);
+
+    // Flatten to [count1, count2, value1, value2, ...]
+    const data = new Float64Array(rleRuns.length * 2);
+    for (let i = 0; i < rleRuns.length; i++) {
+        data[i] = rleRuns[i][0]; // count
+        data[rleRuns.length + i] = rleRuns[i][1]; // value
+    }
+
+    return {
+        data: data,
+        runs: rleRuns.length
+    };
+}
+
 /**
  * Encodes Int32 values with MORTON encoding (delta without zigzag)
  */
