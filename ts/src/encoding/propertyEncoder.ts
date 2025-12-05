@@ -19,7 +19,7 @@ import {
 /**
  * Encodes INT_32 values with NONE encoding (no delta, no RLE)
  */
-export function encodeInt32None(values: Int32Array): Uint8Array {
+export function encodeInt32NoneColumn(values: Int32Array): Uint8Array {
     const zigzagEncoded = new Int32Array(values.length);
     for (let i = 0; i < values.length; i++) {
         zigzagEncoded[i] = encodeZigZag32(values[i]);
@@ -32,7 +32,7 @@ export function encodeInt32None(values: Int32Array): Uint8Array {
 /**
  * Encodes INT_32 values with DELTA encoding
  */
-export function encodeInt32Delta(values: Int32Array): Uint8Array {
+export function encodeInt32DeltaColumn(values: Int32Array): Uint8Array {
     // Delta encode: store deltas
     const deltaEncoded = new Int32Array(values.length);
     deltaEncoded[0] = values[0];
@@ -53,7 +53,7 @@ export function encodeInt32Delta(values: Int32Array): Uint8Array {
  * Encodes INT_32 values with RLE encoding
  * @param runs - Array of [runLength, value] pairs
  */
-export function encodeInt32Rle(runs: Array<[number, number]>): Uint8Array {
+export function encodeInt32RleColumn(runs: Array<[number, number]>): Uint8Array {
     const runLengths: number[] = [];
     const values: number[] = [];
     let totalValues = 0;
@@ -79,7 +79,7 @@ export function encodeInt32Rle(runs: Array<[number, number]>): Uint8Array {
  * Encodes INT_32 values with DELTA+RLE encoding
  * @param runs - Array of [runLength, deltaValue] pairs, where first value is the base
  */
-export function encodeInt32DeltaRle(runs: Array<[number, number]>): Uint8Array {
+export function encodeInt32DeltaRleColumn(runs: Array<[number, number]>): Uint8Array {
     const runLengths: number[] = [];
     const values: number[] = [];
     let totalValues = 0;
