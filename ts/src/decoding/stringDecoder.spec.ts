@@ -347,9 +347,7 @@ describe("decodeSharedDictionary", () => {
                 dataStream,
                 fieldStreams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings", [
-                { name: "value" },
-            ]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings", [{ name: "value" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,

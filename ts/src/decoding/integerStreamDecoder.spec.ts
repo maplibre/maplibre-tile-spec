@@ -101,7 +101,11 @@ describe("decodeIntStream", () => {
 
     it("should decode NONE signed with Int32", () => {
         const expectedValues = new Int32Array([2, -4, 6, -8]);
-        const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, expectedValues.length);
+        const metadata = createStreamMetadata(
+            LogicalLevelTechnique.NONE,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
         const data = encodeInt32SignedNone(expectedValues);
         const offset = new IntWrapper(0);
 
@@ -112,7 +116,11 @@ describe("decodeIntStream", () => {
 
     it("should decode DELTA signed with Int32", () => {
         const expectedValues = new Int32Array([10, 12, 14, 16]);
-        const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, expectedValues.length);
+        const metadata = createStreamMetadata(
+            LogicalLevelTechnique.DELTA,
+            LogicalLevelTechnique.NONE,
+            expectedValues.length,
+        );
         const data = encodeInt32SignedDelta(expectedValues);
         const offset = new IntWrapper(0);
 

@@ -1,9 +1,4 @@
-import {
-    encodeVarintInt32Array,
-    encodeVarintInt64Array,
-    encodeZigZag32,
-    encodeZigZag64,
-} from "./encodingUtils";
+import { encodeVarintInt32Array, encodeVarintInt64Array, encodeZigZag32, encodeZigZag64 } from "./encodingUtils";
 
 /**
  * Encodes Int32 values with zigzag encoding and varint compression
