@@ -7,6 +7,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
@@ -34,8 +35,15 @@ public class MvtToMltConversionTest {
     // Step 2: Create metadata
     var metadata = MltConverter.createTilesetMetadata(mvtTile, Map.of(), true, false, false);
 
-    // Step 3: Create conversion config
-    var config = new ConversionConfig(true, false, false, Map.of());
+    // Step 3: Create conversion config using builder
+    var config =
+        ConversionConfig.builder()
+            .includeIds(true)
+            .useFastPFOR(false)
+            .useFSST(false)
+            .optimizations(Map.of())
+            .integerEncoding(IntegerEncodingOption.RLE)
+            .build();
 
     // Step 4: Convert MVT to MLT
     byte[] mltTile = MltConverter.convertMvt(mvtTile, metadata, config, null);

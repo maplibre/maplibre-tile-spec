@@ -8,19 +8,14 @@ import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 
 public class ConversionConfig {
-  /**
-   * Enum to specify which integer encoding technique to use. AUTO will
-   * automatically select the best encoding based on size.
-   */
   public enum IntegerEncodingOption {
-    AUTO, // Automatically select best encoding (default)
-    PLAIN, // Force plain encoding
-    DELTA, // Force delta encoding
-    RLE, // Force RLE encoding
+    AUTO,     // Automatically select best encoding (default)
+    PLAIN,    // Force plain encoding
+    DELTA,    // Force delta encoding
+    RLE,      // Force RLE encoding (only for const streams)
     DELTA_RLE // Force delta-RLE encoding
   }
 
-  // Default values as constants
   public static final boolean DEFAULT_INCLUDE_IDS = true;
   public static final boolean DEFAULT_USE_FAST_PFOR = false;
   public static final boolean DEFAULT_USE_FSST = false;
@@ -131,19 +126,19 @@ public class ConversionConfig {
       boolean useFastPFOR,
       boolean useFSST,
       Map<String, FeatureTableOptimizations> optimizations,
-      boolean preTessellatePolygons) {
+      IntegerEncodingOption integerEncodingOption) {
     this(
         includeIds,
         useFastPFOR,
         useFSST,
         /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
-        null,
-        preTessellatePolygons,
+        optimizations,
+        /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
         /* outlineFeatureTableNames= */ null,
         /* layerFilterPattern= */ null,
         /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
-        /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
+        integerEncodingOption);
   }
 
   public ConversionConfig(
