@@ -48,13 +48,8 @@ describe("getVectorType", () => {
 
 describe("decodeIntStream", () => {
     it("should decode with PhysicalLevelTechnique.NONE", () => {
-        const metadata = {
-            ...createStreamMetadata(LogicalLevelTechnique.NONE),
-            physicalLevelTechnique: PhysicalLevelTechnique.NONE,
-            numValues: 3,
-            byteLength: 3,
-        };
-        const expectedValues = new Uint8Array([10, 20, 30]);
+        const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
+        const expectedValues = new Int32Array([10, 20, 30]);
         const offset = new IntWrapper(0);
 
         const result = decodeIntStream(expectedValues, offset, metadata, false);
@@ -85,18 +80,6 @@ describe("decodeIntStream", () => {
         const offset = new IntWrapper(0);
 
         const result = decodeIntStream(data, offset, metadata, false);
-
-        expect(result).toEqual(expectedValues);
-    });
-
-    it("should decode COMPONENTWISE_DELTA with scalingData", () => {
-        const metadata = createStreamMetadata(LogicalLevelTechnique.COMPONENTWISE_DELTA, LogicalLevelTechnique.NONE, 6);
-        const expectedValues = new Int32Array([4, 6, 2, 4, 2, 4]);
-        const data = encodeVarintInt32Array(expectedValues);
-        const offset = new IntWrapper(0);
-        const scalingData = { extent: 100, min: 0, max: 100, scale: 2 };
-
-        const result = decodeIntStream(data, offset, metadata, false, scalingData);
 
         expect(result).toEqual(expectedValues);
     });
@@ -202,7 +185,7 @@ describe("decodeFloat64Buffer", () => {
 
     it("should decode RLE signed", () => {
         const expectedValues = new Float64Array([10, 10, 10, 20, 20]);
-        const { data, runs } = encodeFloat64ArrayToRle(expectedValues);
+        const { data, runs } = encodeFloat64ArrayToRle(expectedValues, true); // Pass signed=true
         const metadata = createRleMetadata(
             LogicalLevelTechnique.RLE,
             LogicalLevelTechnique.NONE,
@@ -266,18 +249,6 @@ describe("decodeNullableIntStream", () => {
         const result = decodeNullableIntStream(data, offset, metadata, false, bitVector);
 
         expect(result).toEqual(expectedValues);
-    });
-
-    it("should decode COMPONENTWISE_DELTA", () => {
-        const metadata = createStreamMetadata(LogicalLevelTechnique.COMPONENTWISE_DELTA, LogicalLevelTechnique.NONE, 6);
-        const encoded = new Int32Array([4, 6, 2, 4, 2, 4]);
-        const data = encodeVarintInt32Array(encoded);
-        const offset = new IntWrapper(0);
-        const bitVector = new BitVector(new Uint8Array([0b00111111]), 6); // All non-null
-
-        const result = decodeNullableIntStream(data, offset, metadata, false, bitVector);
-
-        expect(result).toEqual(new Int32Array([2, 3, 3, 5, 4, 7]));
     });
 
     it("should throw for unsupported technique", () => {

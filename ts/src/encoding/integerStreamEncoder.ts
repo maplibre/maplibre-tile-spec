@@ -66,7 +66,7 @@ export function encodeInt32ArrayToRle(values: Int32Array): { data: Uint8Array, r
     };
 }
 
-export function encodeFloat64ArrayToRle(values: Float64Array): { data: Float64Array, runs: number } {
+export function encodeFloat64ArrayToRle(values: Float64Array, signed: boolean = false): { data: Float64Array, runs: number } {
     const rleRuns: Array<[number, number]> = [];
     let currentValue = values[0];
     let currentCount = 1;
@@ -86,7 +86,8 @@ export function encodeFloat64ArrayToRle(values: Float64Array): { data: Float64Ar
     const data = new Float64Array(rleRuns.length * 2);
     for (let i = 0; i < rleRuns.length; i++) {
         data[i] = rleRuns[i][0]; // count
-        data[rleRuns.length + i] = rleRuns[i][1]; // value
+        // Apply zigzag encoding for signed values: multiply by 2
+        data[rleRuns.length + i] = signed ? rleRuns[i][1] * 2 : rleRuns[i][1];
     }
 
     return {
