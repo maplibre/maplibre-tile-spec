@@ -1,29 +1,29 @@
 import { describe, it, expect } from "vitest";
-import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { LengthType } from "../metadata/tile/lengthType";
-import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 import IntWrapper from "./intWrapper";
 import { decodeString, decodeSharedDictionary } from "./stringDecoder";
 import {
-    createStream,
-    concatenateBuffers,
-    createSharedDictionaryStreams,
-    createStructFieldStreams,
-    createColumnMetadataForStruct,
-    createStringStreams,
-} from "./decodingTestUtils";
+    encodePlainStrings,
+    encodeDictionaryStrings,
+    encodeFsstStrings,
+    encodeSharedDictionary,
+    encodeStructField,
+} from "../encoding/stringEncoder";
+import { concatenateBuffers, createColumnMetadataForStruct, createStream } from "./decodingTestUtils";
 import { StringFlatVector } from "../vector/flat/stringFlatVector";
 import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 import { ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
+import { LengthType } from "../metadata/tile/lengthType";
+import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 
 describe("decodeString - Plain String Decoder", () => {
     it("should decode plain strings with simple ASCII values", () => {
         const expectedStrings = ["hello", "world", "test"];
-        const fullStream = createStringStreams(expectedStrings, "plain");
+        const encodedStrings = encodePlainStrings(expectedStrings);
         const offset = new IntWrapper(0);
 
-        const result = decodeString("testColumn", fullStream, offset, 2);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
         expect(result).toBeInstanceOf(StringFlatVector);
         const resultVec = result as StringFlatVector;
@@ -34,9 +34,9 @@ describe("decodeString - Plain String Decoder", () => {
 
     it("should decode plain strings with varying lengths", () => {
         const expectedStrings = ["a", "abc", "hello world"];
-        const fullStream = createStringStreams(expectedStrings, "plain");
+        const encodedStrings = encodePlainStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 2);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
         const resultVec = result as StringFlatVector;
         for (let i = 0; i < expectedStrings.length; i++) {
@@ -44,23 +44,11 @@ describe("decodeString - Plain String Decoder", () => {
         }
     });
 
-    it("should decode nullable plain strings", () => {
-        const expectedStrings = ["hello", null, "world", null, "test"];
-        const fullStream = createStringStreams(expectedStrings, "plain");
-        const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 3);
-
-        expect(result).not.toBeNull();
-        for (let i = 0; i < expectedStrings.length; i++) {
-            expect(result.getValue(i)).toBe(expectedStrings[i]);
-        }
-    });
-
     it("should decode plain strings with empty strings", () => {
-        const expectedStrings = ["", "data", "", "more"];
-        const fullStream = createStringStreams(expectedStrings, "plain");
+        const expectedStrings = ["", "encodedStrings", "", "more"];
+        const encodedStrings = encodePlainStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 2);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
         expect(result).toBeInstanceOf(StringFlatVector);
         const resultVec = result as StringFlatVector;
@@ -70,10 +58,10 @@ describe("decodeString - Plain String Decoder", () => {
     });
 
     it("should decode mixed null and empty strings", () => {
-        const expectedStrings = [null, "", "data", null, ""];
-        const fullStream = createStringStreams(expectedStrings, "plain");
+        const expectedStrings = [null, "", "encodedStrings", null, ""];
+        const encodedStrings = encodePlainStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 3);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
         expect(result).not.toBeNull();
         for (let i = 0; i < expectedStrings.length; i++) {
@@ -83,9 +71,9 @@ describe("decodeString - Plain String Decoder", () => {
 
     it("should decode mixed ASCII and UTF-8 strings", () => {
         const expectedStrings = ["hello", "Привет", "world", "日本"];
-        const fullStream = createStringStreams(expectedStrings, "plain");
+        const encodedStrings = encodePlainStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 2);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
         expect(result).toBeInstanceOf(StringFlatVector);
         const resultVec = result as StringFlatVector;
@@ -98,9 +86,9 @@ describe("decodeString - Plain String Decoder", () => {
 describe("decodeString - Dictionary String Decoder", () => {
     it("should decode dictionary-compressed strings with repeated values", () => {
         const expectedStrings = ["cat", "dog", "cat", "cat", "dog"];
-        const fullStream = createStringStreams(expectedStrings, "dictionary");
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 3);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
         const resultVec = result as StringDictionaryVector;
@@ -111,9 +99,9 @@ describe("decodeString - Dictionary String Decoder", () => {
 
     it("should decode dictionary with single repeated string", () => {
         const expectedStrings = ["same", "same", "same"];
-        const fullStream = createStringStreams(expectedStrings, "dictionary");
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 3);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
         for (let i = 0; i < expectedStrings.length; i++) {
@@ -123,9 +111,9 @@ describe("decodeString - Dictionary String Decoder", () => {
 
     it("should decode dictionary with UTF-8 strings", () => {
         const expectedStrings = ["café", "日本", "café", "日本"];
-        const fullStream = createStringStreams(expectedStrings, "dictionary");
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 3);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
         for (let i = 0; i < expectedStrings.length; i++) {
@@ -135,9 +123,9 @@ describe("decodeString - Dictionary String Decoder", () => {
 
     it("should decode dictionary with all unique strings", () => {
         const expectedStrings = ["unique1", "unique2", "unique3", "unique4"];
-        const fullStream = createStringStreams(expectedStrings, "dictionary");
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 3);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
         for (let i = 0; i < expectedStrings.length; i++) {
@@ -146,10 +134,10 @@ describe("decodeString - Dictionary String Decoder", () => {
     });
 
     it("should decode nullable dictionary strings", () => {
-        const expectedStrings = [null, "", "data", "", null];
-        const fullStream = createStringStreams(expectedStrings, "dictionary");
+        const expectedStrings = [null, "", "encodedStrings", "", null];
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 4);
+        const result = decodeString("testColumn", encodedStrings, offset, 4);
 
         expect(result).toBeInstanceOf(StringDictionaryVector);
         for (let i = 0; i < expectedStrings.length; i++) {
@@ -160,10 +148,10 @@ describe("decodeString - Dictionary String Decoder", () => {
 
 describe("decodeString - FSST Dictionary Decoder (Basic Coverage)", () => {
     it("should decode FSST-compressed strings with simple symbol table", () => {
-        const fullStream = createStringStreams([], "fsst");
+        const encodedStrings = encodeFsstStrings();
         const offset = new IntWrapper(0);
 
-        const result = decodeString("testColumn", fullStream, offset, 6);
+        const result = decodeString("testColumn", encodedStrings, offset, 6);
 
         expect(result).toBeInstanceOf(StringFsstDictionaryVector);
         const resultVec = result as StringFsstDictionaryVector;
@@ -194,9 +182,9 @@ describe("decodeString - Empty Column Edge Cases", () => {
 
     it("should handle single value plain string column", () => {
         const strings = ["single"];
-        const fullStream = createStringStreams(strings, "plain");
+        const encodedStrings = encodePlainStrings(strings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 2);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
         expect(result).toBeInstanceOf(StringFlatVector);
         expect((result as StringFlatVector).getValue(0)).toBe("single");
@@ -204,9 +192,9 @@ describe("decodeString - Empty Column Edge Cases", () => {
 
     it("should handle single null value in plain string column (returns null)", () => {
         const strings = [null];
-        const fullStream = createStringStreams(strings, "plain");
+        const encodedStrings = encodePlainStrings(strings);
         const offset = new IntWrapper(0);
-        const result = decodeString("testColumn", fullStream, offset, 3);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
         expect(result).toBeNull();
     });
 });
@@ -214,45 +202,45 @@ describe("decodeString - Empty Column Edge Cases", () => {
 describe("decodeString - Integration Tests", () => {
     it("should correctly track offset through multiple streams", () => {
         const strings = ["hello", "world"];
-        const fullStream = createStringStreams(strings, "plain");
+        const encodedStrings = encodePlainStrings(strings);
         const offset = new IntWrapper(0);
         const initialOffset = offset.get();
 
-        const result = decodeString("testColumn", fullStream, offset, 2);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
         expect(result).toBeInstanceOf(StringFlatVector);
         expect(offset.get()).toBeGreaterThan(initialOffset);
-        expect(offset.get()).toBe(fullStream.length);
+        expect(offset.get()).toBe(encodedStrings.length);
     });
 
     it("should correctly track offset through nullable streams", () => {
-        const strings = ["test", null, "data"];
-        const fullStream = createStringStreams(strings, "plain");
+        const strings = ["test", null, "encodedStrings"];
+        const encodedStrings = encodePlainStrings(strings);
         const offset = new IntWrapper(0);
         const initialOffset = offset.get();
 
-        const result = decodeString("testColumn", fullStream, offset, 3);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
         expect(result).not.toBeNull();
         expect(offset.get()).toBeGreaterThan(initialOffset);
-        expect(offset.get()).toBe(fullStream.length);
+        expect(offset.get()).toBe(encodedStrings.length);
     });
 
     it("should correctly track offset through FSST dictionary streams", () => {
-        const fullStream = createStringStreams([], "fsst");
+        const encodedStrings = encodeFsstStrings();
         const offset = new IntWrapper(0);
         const initialOffset = offset.get();
 
-        const result = decodeString("testColumn", fullStream, offset, 6);
+        const result = decodeString("testColumn", encodedStrings, offset, 6);
 
         expect(result).toBeInstanceOf(StringFsstDictionaryVector);
         expect(offset.get()).toBeGreaterThan(initialOffset);
-        expect(offset.get()).toBe(fullStream.length);
+        expect(offset.get()).toBe(encodedStrings.length);
     });
 
     it("should handle consecutive decoding operations with shared offset tracker", () => {
-        const stream1 = createStringStreams(["first"], "plain");
-        const stream2 = createStringStreams(["second"], "plain");
+        const stream1 = encodePlainStrings(["first"]);
+        const stream2 = encodePlainStrings(["second"]);
         const combinedStream = concatenateBuffers(stream1, stream2);
 
         const offset = new IntWrapper(0);
@@ -274,13 +262,18 @@ describe("decodeSharedDictionary", () => {
     describe("basic functionality", () => {
         it("should decode single field with shared dictionary", () => {
             const dictionaryStrings = ["apple", "banana", "peach", "date"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            const fieldStreams = createStructFieldStreams([0, 1, 2, 3], [true, true, true, true]);
-            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetadata = createColumnMetadataForStruct("address", [{ name: "street" }]);
+            const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("address", [{ name: "street" }]);
 
-            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 4);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                4,
+            );
 
             expect(result).toHaveLength(1);
             expect(result[0]).toBeInstanceOf(StringDictionaryVector);
@@ -294,13 +287,18 @@ describe("decodeSharedDictionary", () => {
     describe("nullability", () => {
         it("should handle nullable fields with PRESENT stream", () => {
             const dictionaryStrings = ["red", "green", "blue"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            const fieldStreams = createStructFieldStreams([0, 2], [true, false, true, false]);
-            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetadata = createColumnMetadataForStruct("colors", [{ name: "primary" }]);
+            const fieldStreams = encodeStructField([0, 2], [true, false, true, false]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("colors", [{ name: "primary" }]);
 
-            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 4);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                4,
+            );
 
             expect(result).toHaveLength(1);
             const expected = ["red", null, "blue", null];
@@ -311,14 +309,19 @@ describe("decodeSharedDictionary", () => {
 
         it("should detect nullable fields when offsetCount < numFeatures", () => {
             const dictionaryStrings = ["alpha", "beta"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
             // Simulating implicit nullability by mismatched counts
-            const fieldStreams = createStructFieldStreams([0, 1], [true, false, false, true]);
-            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetadata = createColumnMetadataForStruct("greek", [{ name: "letter" }]);
+            const fieldStreams = encodeStructField([0, 1], [true, false, false, true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("greek", [{ name: "letter" }]);
 
-            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 4);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                4,
+            );
 
             expect(result).toHaveLength(1);
             const expected = ["alpha", null, null, "beta"];
@@ -331,46 +334,53 @@ describe("decodeSharedDictionary", () => {
     describe("FSST encoding", () => {
         it("should decode FSST-compressed shared dictionary", () => {
             const dictionaryStrings = ["compressed1", "compressed2"];
-            const { lengthStream, dataStream, symbolLengthStream, symbolDataStream } = createSharedDictionaryStreams(
+            const { lengthStream, dataStream, symbolLengthStream, symbolDataStream } = encodeSharedDictionary(
                 dictionaryStrings,
                 { useFsst: true },
             );
 
-            const fieldStreams = createStructFieldStreams([0, 1], [true, true]);
-            const completeData = concatenateBuffers(
+            const fieldStreams = encodeStructField([0, 1], [true, true]);
+            const completeencodedStrings = concatenateBuffers(
                 lengthStream,
                 symbolLengthStream,
                 symbolDataStream,
                 dataStream,
                 fieldStreams,
             );
-            const columnMetadata = createColumnMetadataForStruct("data", [{ name: "value" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings", [
+                { name: "value" },
+            ]);
 
-            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 2);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                2,
+            );
 
             expect(result).toHaveLength(1);
             expect(result[0]).toBeInstanceOf(StringFsstDictionaryVector);
-            expect(result[0].name).toBe("data:value");
+            expect(result[0].name).toBe("encodedStrings:value");
         });
     });
 
     describe("field filtering", () => {
         it("should filter fields by propertyColumnNames", () => {
             const dictionaryStrings = ["val1", "val2"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            const field1Streams = createStructFieldStreams([0], [true]);
-            const field2Streams = createStructFieldStreams([1], [true]);
-            const field3Streams = createStructFieldStreams([0], [true]);
+            const field1Streams = encodeStructField([0], [true]);
+            const field2Streams = encodeStructField([1], [true]);
+            const field3Streams = encodeStructField([0], [true]);
 
-            const completeData = concatenateBuffers(
+            const completeencodedStrings = concatenateBuffers(
                 lengthStream,
                 dataStream,
                 field1Streams,
                 field2Streams,
                 field3Streams,
             );
-            const columnMetadata = createColumnMetadataForStruct("multi", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("multi", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
@@ -378,9 +388,9 @@ describe("decodeSharedDictionary", () => {
 
             const propertyColumnNames = new Set(["multi:field1", "multi:field3"]);
             const result = decodeSharedDictionary(
-                completeData,
+                completeencodedStrings,
                 new IntWrapper(0),
-                columnMetadata,
+                columnMetaencodedStrings,
                 1,
                 propertyColumnNames,
             );
@@ -392,26 +402,31 @@ describe("decodeSharedDictionary", () => {
 
         it("should skip fields with numStreams=0", () => {
             const dictionaryStrings = ["present"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            const field1Streams = createStructFieldStreams([0], [true], true);
-            const field2Streams = createStructFieldStreams([], [], false); // numStreams=0
-            const field3Streams = createStructFieldStreams([0], [true], true);
+            const field1Streams = encodeStructField([0], [true], true);
+            const field2Streams = encodeStructField([], [], false); // numStreams=0
+            const field3Streams = encodeStructField([0], [true], true);
 
-            const completeData = concatenateBuffers(
+            const completeencodedStrings = concatenateBuffers(
                 lengthStream,
                 dataStream,
                 field1Streams,
                 field2Streams,
                 field3Streams,
             );
-            const columnMetadata = createColumnMetadataForStruct("test", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("test", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
             ]);
 
-            const result = decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 1);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                1,
+            );
 
             expect(result).toHaveLength(2);
             expect(result[0].name).toBe("test:field1");
@@ -419,21 +434,21 @@ describe("decodeSharedDictionary", () => {
         });
 
         it("should handle mixed present and filtered fields", () => {
-            const dictionaryStrings = ["data"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const dictionaryStrings = ["encodedStrings"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            const field1Streams = createStructFieldStreams([0], [true], true);
-            const field2Streams = createStructFieldStreams([], [], false);
-            const field3Streams = createStructFieldStreams([0], [true], true);
+            const field1Streams = encodeStructField([0], [true], true);
+            const field2Streams = encodeStructField([], [], false);
+            const field3Streams = encodeStructField([0], [true], true);
 
-            const completeData = concatenateBuffers(
+            const completeencodedStrings = concatenateBuffers(
                 lengthStream,
                 dataStream,
                 field1Streams,
                 field2Streams,
                 field3Streams,
             );
-            const columnMetadata = createColumnMetadataForStruct("mixed", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("mixed", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
@@ -441,9 +456,9 @@ describe("decodeSharedDictionary", () => {
 
             const propertyColumnNames = new Set(["mixed:field3"]);
             const result = decodeSharedDictionary(
-                completeData,
+                completeencodedStrings,
                 new IntWrapper(0),
-                columnMetadata,
+                columnMetaencodedStrings,
                 1,
                 propertyColumnNames,
             );
@@ -456,16 +471,16 @@ describe("decodeSharedDictionary", () => {
     describe("error handling", () => {
         it("should throw error for non-string field types", () => {
             const dictionaryStrings = ["value"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
-            const fieldStreams = createStructFieldStreams([0], [true]);
-            const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+            const fieldStreams = encodeStructField([0], [true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
 
-            const columnMetadata = createColumnMetadataForStruct("invalid", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("invalid", [
                 { name: "field1", type: ScalarType.INT_32 },
             ]);
 
             expect(() => {
-                decodeSharedDictionary(completeData, new IntWrapper(0), columnMetadata, 1);
+                decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings, 1);
             }).toThrow("Currently only optional string fields are implemented for a struct.");
         });
     });
@@ -473,21 +488,24 @@ describe("decodeSharedDictionary", () => {
     describe("offset tracking", () => {
         it("should correctly advance offset through all streams", () => {
             const dictionaryStrings = ["a", "b", "c"];
-            const { lengthStream, dataStream } = createSharedDictionaryStreams(dictionaryStrings);
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            const field1Streams = createStructFieldStreams([0, 1], [true, true]);
-            const field2Streams = createStructFieldStreams([1, 2], [true, true]);
+            const field1Streams = encodeStructField([0, 1], [true, true]);
+            const field2Streams = encodeStructField([1, 2], [true, true]);
 
-            const completeData = concatenateBuffers(lengthStream, dataStream, field1Streams, field2Streams);
-            const columnMetadata = createColumnMetadataForStruct("track", [{ name: "field1" }, { name: "field2" }]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, field1Streams, field2Streams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("track", [
+                { name: "field1" },
+                { name: "field2" },
+            ]);
 
             const offset = new IntWrapper(0);
             const initialOffset = offset.get();
-            const result = decodeSharedDictionary(completeData, offset, columnMetadata, 2);
+            const result = decodeSharedDictionary(completeencodedStrings, offset, columnMetaencodedStrings, 2);
 
             expect(result).toHaveLength(2);
             expect(offset.get()).toBeGreaterThan(initialOffset);
-            expect(offset.get()).toBe(completeData.length);
+            expect(offset.get()).toBe(completeencodedStrings.length);
         });
     });
 });
