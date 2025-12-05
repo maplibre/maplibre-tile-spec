@@ -50,9 +50,10 @@ describe("decodeIntStream", () => {
     it("should decode with PhysicalLevelTechnique.NONE", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
         const expectedValues = new Int32Array([10, 20, 30]);
+        const data = encodeVarintInt32Array(expectedValues);
         const offset = new IntWrapper(0);
 
-        const result = decodeIntStream(expectedValues, offset, metadata, false);
+        const result = decodeIntStream(data, offset, metadata, false);
 
         expect(result).toEqual(expectedValues);
     });
