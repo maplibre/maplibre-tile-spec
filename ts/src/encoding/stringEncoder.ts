@@ -123,31 +123,6 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
     return concatenateBuffers(...streams);
 }
 
-/**
- * Encodes streams for a struct field.
- * @param offsetIndices - Indices into the shared dictionary
- * @param presentValues - Boolean array indicating which values are present
- * @param isPresent - Whether the field itself is present
- * @returns Encoded streams for the field
- */
-export function encodeStructField(
-    offsetIndices: number[],
-    presentValues: boolean[],
-    isPresent: boolean = true,
-): Uint8Array {
-    if (!isPresent) {
-        return encodeNumStreams(0);
-    }
-
-    const numStreamsEncoded = encodeNumStreams(2);
-    const encodedPresent = createPresentStream(presentValues);
-    const encodedOffsets = createOffsetStream(offsetIndices);
-
-    return concatenateBuffers(numStreamsEncoded, encodedPresent, encodedOffsets);
-}
-
-// Helper functions
-
 function createStream(
     physicalType: PhysicalStreamType,
     data: Uint8Array,
