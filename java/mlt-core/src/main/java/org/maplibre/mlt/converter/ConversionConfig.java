@@ -95,7 +95,7 @@ public class ConversionConfig {
         useMortonEncoding,
         outlineFeatureTableNames,
         /* layerFilterPattern= */ null,
-        /* layerFilterInvert= */ false,
+        /* layerFilterInvert= */ DEFAULT_LAYER_FILTER_INVERT,
         /* integerEncodingOption= */ DEFAULT_INTEGER_ENCODING);
   }
 
@@ -125,6 +125,7 @@ public class ConversionConfig {
       boolean useFastPFOR,
       boolean useFSST,
       Map<String, FeatureTableOptimizations> optimizations,
+      boolean preTessellatePolygons,
       IntegerEncodingOption integerEncodingOption) {
     this(
         includeIds,
