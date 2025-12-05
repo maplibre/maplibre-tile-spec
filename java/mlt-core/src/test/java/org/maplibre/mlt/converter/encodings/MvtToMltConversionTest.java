@@ -10,8 +10,8 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.data.MapLibreTile;
+import org.maplibre.mlt.decoder.MltDecoder;
 
 public class MvtToMltConversionTest {
 
@@ -74,7 +74,8 @@ public class MvtToMltConversionTest {
         System.out.println("    Properties count: " + feature.properties().size());
         if (!feature.properties().isEmpty()) {
           var firstProp = feature.properties().entrySet().iterator().next();
-          System.out.println("    Sample property: " + firstProp.getKey() + " = " + firstProp.getValue());
+          System.out.println(
+              "    Sample property: " + firstProp.getKey() + " = " + firstProp.getValue());
         }
       }
     }

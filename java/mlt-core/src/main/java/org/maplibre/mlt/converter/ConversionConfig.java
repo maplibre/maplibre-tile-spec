@@ -9,10 +9,10 @@ import org.jetbrains.annotations.NotNull;
 
 public class ConversionConfig {
   public enum IntegerEncodingOption {
-    AUTO,     // Automatically select best encoding (default)
-    PLAIN,    // Force plain encoding
-    DELTA,    // Force delta encoding
-    RLE,      // Force RLE encoding (only for const streams)
+    AUTO, // Automatically select best encoding (default)
+    PLAIN, // Force plain encoding
+    DELTA, // Force delta encoding
+    RLE, // Force RLE encoding (only for const streams)
     DELTA_RLE // Force delta-RLE encoding
   }
 
@@ -23,8 +23,7 @@ public class ConversionConfig {
   public static final boolean DEFAULT_USE_MORTON_ENCODING = true;
   public static final boolean DEFAULT_PRE_TESSELLATE_POLYGONS = false;
   public static final boolean DEFAULT_LAYER_FILTER_INVERT = false;
-  public static final IntegerEncodingOption DEFAULT_INTEGER_ENCODING =
-      IntegerEncodingOption.AUTO;
+  public static final IntegerEncodingOption DEFAULT_INTEGER_ENCODING = IntegerEncodingOption.AUTO;
 
   private final boolean includeIds;
   private final boolean useFastPFOR;
@@ -260,9 +259,8 @@ public class ConversionConfig {
   }
 
   /**
-   * Builder class for creating ConversionConfig instances with a fluent
-   * API. All fields have sensible defaults, so you only need to set the
-   * values you want to override.
+   * Builder class for creating ConversionConfig instances with a fluent API. All fields have
+   * sensible defaults, so you only need to set the values you want to override.
    *
    * <p>Example usage:
    *
@@ -285,8 +283,7 @@ public class ConversionConfig {
     private List<String> outlineFeatureTableNames = null;
     private Pattern layerFilterPattern = null;
     private boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
-    private IntegerEncodingOption integerEncodingOption =
-        DEFAULT_INTEGER_ENCODING;
+    private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
 
     public Builder includeIds(boolean val) {
       this.includeIds = val;
@@ -308,8 +305,7 @@ public class ConversionConfig {
       return this;
     }
 
-    public Builder optimizations(
-        Map<String, FeatureTableOptimizations> val) {
+    public Builder optimizations(Map<String, FeatureTableOptimizations> val) {
       this.optimizations = val;
       return this;
     }

@@ -94,8 +94,7 @@ public class IntegerEncoder {
       @Nullable String streamName)
       throws IOException {
     var encodedValueStream =
-        IntegerEncoder.encodeInt(
-            values, physicalLevelTechnique, isSigned, encodingOption);
+        IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned, encodingOption);
 
     // TODO: refactor -> also allow the use of none null suppression techniques
     var streamMetadata =
@@ -189,13 +188,10 @@ public class IntegerEncoder {
     return result;
   }
 
-   // Encodes integers with AUTO encoding option (backward compatibility).
+  // Encodes integers with AUTO encoding option (backward compatibility).
   public static IntegerEncodingResult encodeInt(
-      List<Integer> values,
-      PhysicalLevelTechnique physicalLevelTechnique,
-      boolean isSigned) {
-    return encodeInt(
-        values, physicalLevelTechnique, isSigned, IntegerEncodingOption.AUTO);
+      List<Integer> values, PhysicalLevelTechnique physicalLevelTechnique, boolean isSigned) {
+    return encodeInt(values, physicalLevelTechnique, isSigned, IntegerEncodingOption.AUTO);
   }
 
   /*
@@ -278,9 +274,7 @@ public class IntegerEncoder {
     if (values.size() / runs >= 2
         && (encodingOption == IntegerEncodingOption.AUTO
             || encodingOption == IntegerEncodingOption.RLE)) {
-      var rleValues =
-          EncodingUtils.encodeRle(
-              values.stream().mapToInt(i -> i).toArray());
+      var rleValues = EncodingUtils.encodeRle(values.stream().mapToInt(i -> i).toArray());
       rlePhysicalLevelEncodedValuesLength =
           rleValues.getLeft().size() + rleValues.getRight().size();
       rleEncodedValues =
@@ -301,8 +295,7 @@ public class IntegerEncoder {
       if (encodingOption == IntegerEncodingOption.RLE) {
         var result = new IntegerEncodingResult();
         result.encodedValues = rleEncodedValues;
-        result.physicalLevelEncodedValuesLength =
-            rlePhysicalLevelEncodedValuesLength;
+        result.physicalLevelEncodedValuesLength = rlePhysicalLevelEncodedValuesLength;
         result.numRuns = runs;
         result.logicalLevelTechnique1 = LogicalLevelTechnique.RLE;
         result.logicalLevelTechnique2 = LogicalLevelTechnique.NONE;
@@ -328,8 +321,7 @@ public class IntegerEncoder {
       if (encodingOption == IntegerEncodingOption.DELTA_RLE) {
         var result = new IntegerEncodingResult();
         result.encodedValues = deltaRleEncodedValues;
-        result.physicalLevelEncodedValuesLength =
-            deltaRlePhysicalLevelEncodedValuesLength;
+        result.physicalLevelEncodedValuesLength = deltaRlePhysicalLevelEncodedValuesLength;
         result.numRuns = deltaRuns;
         result.logicalLevelTechnique1 = LogicalLevelTechnique.DELTA;
         result.logicalLevelTechnique2 = LogicalLevelTechnique.RLE;
