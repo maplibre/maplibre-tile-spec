@@ -1,14 +1,14 @@
 import { describe, it, expect } from "vitest";
 import IntWrapper from "./intWrapper";
 import { decodeString, decodeSharedDictionary } from "./stringDecoder";
+import { encodePlainStrings, encodeDictionaryStrings, encodeStructField } from "../encoding/stringEncoder";
 import {
-    encodePlainStrings,
-    encodeDictionaryStrings,
+    concatenateBuffers,
+    createColumnMetadataForStruct,
+    createStream,
     encodeFsstStrings,
     encodeSharedDictionary,
-    encodeStructField,
-} from "../encoding/stringEncoder";
-import { concatenateBuffers, createColumnMetadataForStruct, createStream } from "./decodingTestUtils";
+} from "./decodingTestUtils";
 import { StringFlatVector } from "../vector/flat/stringFlatVector";
 import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
