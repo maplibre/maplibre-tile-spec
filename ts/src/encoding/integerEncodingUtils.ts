@@ -313,6 +313,72 @@ export function encodeNullableZigZagDeltaInt64(inputData: BigInt64Array): {
     };
 }
 
+export function encodeDeltaRleInt32(input: Int32Array): {
+    encodedData: Int32Array;
+    numRuns: number;
+    numValues: number;
+} {
+    if (input.length === 0) {
+        return { encodedData: new Int32Array(0), numRuns: 0, numValues: 0 };
+    }
+
+    const deltasAndEncoded: number[] = [];
+    let previousValue: number = 0;
+
+    // Step 1 & 2: Calculate Deltas and Zigzag Encode them
+    for (let i = 0; i < input.length; i++) {
+        const currentValue = input[i];
+        const delta = currentValue - previousValue;
+        const encodedDelta = encodeZigZagInt32Value(delta);
+        deltasAndEncoded.push(encodedDelta);
+        previousValue = currentValue;
+    }
+    // deltasAndEncoded now holds the intermediate stream of zigzagged deltas
+
+    // Step 3: Apply RLE to the stream of zigzag-encoded deltas
+    const runLengths: number[] = [];
+    const runZigZagDeltas: number[] = [];
+
+    let currentRunLength = 0;
+    let currentRunValue = deltasAndEncoded[0];
+
+    for (let i = 0; i < deltasAndEncoded.length; i++) {
+        const nextValue = deltasAndEncoded[i];
+
+        if (nextValue === currentRunValue) {
+            currentRunLength++;
+        } else {
+            runLengths.push(currentRunLength);
+            runZigZagDeltas.push(currentRunValue);
+            currentRunValue = nextValue;
+            currentRunLength = 1;
+        }
+    }
+    // Record the final run
+    runLengths.push(currentRunLength);
+    runZigZagDeltas.push(currentRunValue);
+
+    // Step 4: Combine lengths and values into the final structured output array
+    const numRuns = runLengths.length;
+    const encodedData = new Int32Array(numRuns * 2);
+
+    // Populate the first half with lengths
+    for (let i = 0; i < numRuns; i++) {
+        encodedData[i] = runLengths[i];
+    }
+
+    // Populate the second half with zigzagged deltas
+    // Int32Array.set() works with standard number arrays
+    encodedData.set(runZigZagDeltas, numRuns);
+
+    return {
+        encodedData: encodedData,
+        numRuns: numRuns,
+        numValues: input.length, // Total original values count
+    };
+}
+
+
 export function encodeDeltaRleInt64(input: BigInt64Array): {
     encodedData: BigInt64Array;
     numRuns: number;
@@ -552,3 +618,94 @@ export function encodeZigZagRleFloat64(input: Float64Array): {
         numTotalValues: input.length, // Total original values count
     };
 }
+
+export function encodeNullableUnsignedRleInt32(values: Int32Array, bitVector: BitVector): { data: Int32Array, numRuns: number } {
+    const lengths: number[] = [];
+    const runValues: number[] = [];
+    let i = 0;
+    const size = values.length;
+    while (i < size) {
+        let searchIndex = i;
+        let validValue: number | null = null;
+        while (searchIndex < size) {
+            if (bitVector.get(searchIndex)) {
+                validValue = values[searchIndex];
+                break;
+            }
+            searchIndex++;
+        }
+        if (validValue === null) break;
+        let currentRunValidCount = 0;
+        let scanIndex = i;
+        while (scanIndex < size) {
+            const isSet = bitVector.get(scanIndex);
+            if (!isSet) {
+                scanIndex++;
+            } else {
+                const val = values[scanIndex];
+                if (val === validValue) {
+                    currentRunValidCount++;
+                    scanIndex++;
+                } else {
+                    break;
+                }
+            }
+        }
+        lengths.push(currentRunValidCount);
+        runValues.push(validValue);
+        i = scanIndex;
+    }
+    const numRuns = lengths.length;
+    const resultData = new Int32Array(numRuns * 2);
+    for (let k = 0; k < numRuns; k++) {
+        resultData[k] = lengths[k];
+        resultData[k + numRuns] = runValues[k];
+    }
+    return { data: resultData, numRuns };
+}
+
+export function encodeNullableUnsignedRleInt64(values: BigInt64Array, bitVector: BitVector): { data: BigInt64Array, numRuns: number } {
+    const lengths: number[] = [];
+    const runValues: bigint[] = [];
+    let i = 0;
+    const size = values.length;
+    while (i < size) {
+        let searchIndex = i;
+        let validValue: bigint | null = null;
+        while (searchIndex < size) {
+            if (bitVector.get(searchIndex)) {
+                validValue = values[searchIndex];
+                break;
+            }
+            searchIndex++;
+        }
+        if (validValue === null) break;
+        let currentRunValidCount = 0;
+        let scanIndex = i;
+        while (scanIndex < size) {
+            const isSet = bitVector.get(scanIndex);
+            if (!isSet) {
+                scanIndex++;
+            } else {
+                const val = values[scanIndex];
+                if (val === validValue) {
+                    currentRunValidCount++;
+                    scanIndex++;
+                } else {
+                    break;
+                }
+            }
+        }
+        lengths.push(currentRunValidCount);
+        runValues.push(validValue);
+        i = scanIndex;
+    }
+    const numRuns = lengths.length;
+    const resultData = new BigInt64Array(numRuns * 2);
+    for (let k = 0; k < numRuns; k++) {
+        resultData[k] = BigInt(lengths[k]);
+        resultData[k + numRuns] = runValues[k];
+    }
+    return { data: resultData, numRuns };
+}
+

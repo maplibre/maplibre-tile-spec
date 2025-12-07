@@ -16,6 +16,7 @@ import {
     decodeNullableZigZagDeltaInt64,
     padWithZerosInt64,
     padZigZagWithZerosInt64,
+    decodeDeltaRleInt32,
     decodeDeltaRleInt64,
     decodeUnsignedConstRleInt64,
     decodeZigZagConstRleInt64,
@@ -26,6 +27,8 @@ import {
     decodeZigZagRleDeltaInt32,
     fastInverseDelta,
     decodeZigZagSequenceRleInt32,
+    decodeNullableUnsignedRleInt32,
+    decodeNullableUnsignedRleInt64
 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
@@ -33,6 +36,7 @@ import {
     encodeVarintInt32,
     encodeVarintInt64,
     encodeDeltaInt32,
+    encodeDeltaRleInt32,
     encodeDeltaRleInt64,
     encodeNullableZigZagDeltaInt32,
     encodeNullableZigZagDeltaInt64,
@@ -48,6 +52,8 @@ import {
     encodeZigZagRleFloat64,
     encodeZigZagRleInt32,
     encodeZigZagRleInt64,
+    encodeNullableUnsignedRleInt32,
+    encodeNullableUnsignedRleInt64
 } from "../encoding/integerEncodingUtils";
 
 describe("IntegerDecodingUtils", () => {
@@ -201,6 +207,20 @@ describe("IntegerDecodingUtils", () => {
         expect(Array.from(decoded)).toEqual([1n, 0n, 2n]);
     });
 
+    it("should decode empty delta RLE Int32", () => {
+        const data = new Int32Array([]);
+        const encoded = encodeDeltaRleInt32(data);
+        const decoded = decodeDeltaRleInt32(encoded.encodedData, encoded.numRuns, encoded.numValues);
+        expect(Array.from(decoded)).toEqual([]);
+    });
+
+    it("should decode delta RLE Int32", () => {
+        const data = new Int32Array([1, 2, 3, 5, 6, 7]);
+        const encoded = encodeDeltaRleInt32(data);
+        const decoded = decodeDeltaRleInt32(encoded.encodedData, encoded.numRuns, encoded.numValues);
+        expect(Array.from(decoded)).toEqual([1, 2, 3, 5, 6, 7]);
+    });
+
     it("should decode empty delta RLE Int64", () => {
         const data = new BigInt64Array([]);
         const encoded = encodeDeltaRleInt64(data);
@@ -308,4 +328,24 @@ describe("IntegerDecodingUtils", () => {
             expect(decoded.length).toBe(5);
         });
     });
+
+    it("should decode nullable unsigned RLE Int32", () => {
+        const data = new Int32Array([0, 0, 5, 5, 0, 5, 6, 6]);
+        const bitVectorData = new Uint8Array([0b01110111]);
+        const bitVector = new BitVector(bitVectorData, 8);
+        const encoded = encodeNullableUnsignedRleInt32(data, bitVector);
+        const decoded = decodeNullableUnsignedRleInt32(bitVector, encoded.data, encoded.numRuns);
+        // same as input, but 0 for when the bit is false
+        expect(Array.from(decoded)).toEqual([0, 0, 5, 0, 0, 5, 6, 0]);
+    });
+
+    it("should decode nullable unsigned RLE Int64", () => {
+        const data = new BigInt64Array([0n, 0n, 5n, 5n, 0n, 5n, 6n, 6n]);
+        const bitVectorData = new Uint8Array([0b01110111]);
+        const bitVector = new BitVector(bitVectorData, 8);
+        const encoded = encodeNullableUnsignedRleInt64(data, bitVector);
+        const decoded = decodeNullableUnsignedRleInt64(bitVector, encoded.data, encoded.numRuns);
+        // same as input, but 0 for when the bit is false
+        expect(Array.from(decoded)).toEqual([0n, 0n, 5n, 0n, 0n, 5n, 6n, 0n]);
+    })
 });
