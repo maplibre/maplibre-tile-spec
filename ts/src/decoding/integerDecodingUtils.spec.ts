@@ -200,7 +200,6 @@ describe("IntegerDecodingUtils", () => {
         expect(Array.from(decoded)).toEqual([1n, 0n, 2n]);
     });
 
-
     it("should decode empty delta RLE Int64", () => {
         const data = new BigInt64Array([]);
         const encoded = encodeDeltaRleInt64(data);
