@@ -715,15 +715,15 @@ export function decodeDeltaRleInt64(data: BigInt64Array, numRuns: number, numVal
     return result;
 }
 
-export function decodeUnsignedConstRle(data: Int32Array): number {
+export function decodeUnsignedConstRleInt32(data: Int32Array): number {
     return data[1];
 }
 
-export function decodeZigZagConstRle(data: Int32Array): number {
+export function decodeZigZagConstRleInt32(data: Int32Array): number {
     return decodeZigZagInt32Value(data[1]);
 }
 
-export function decodeZigZagSequenceRle(data: Int32Array): [baseValue: number, delta: number] {
+export function decodeZigZagSequenceRleInt32(data: Int32Array): [baseValue: number, delta: number] {
     /* base value and delta value are equal */
     if (data.length == 2) {
         const value = decodeZigZagInt32Value(data[1]);

@@ -25,6 +25,7 @@ import {
     decodeZigZagRleFloat64,
     decodeZigZagRleDeltaInt32,
     fastInverseDelta,
+    decodeZigZagSequenceRleInt32,
 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
@@ -225,10 +226,31 @@ describe("IntegerDecodingUtils", () => {
             expect(decodeZigZagConstRleInt64(data)).toBe(2n);
         });
 
+        it("should decode zigzag sequence RLE Int32", () => {
+            const data = new Int32Array([5, 2]);
+            const [base, delta] = decodeZigZagSequenceRleInt32(data);
+            expect(base).toBe(1);
+            expect(delta).toBe(1);
+        });
+
+        it("should decode zigzag sequence RLE Int32 with delta", () => {
+            const data = new Int32Array([5, 2, 5, 2]);
+            const [base, delta] = decodeZigZagSequenceRleInt32(data);
+            expect(base).toBe(-3);
+            expect(delta).toBe(1);
+        });
+
         it("should decode zigzag sequence RLE Int64", () => {
             const data = new BigInt64Array([5n, 2n]);
             const [base, delta] = decodeZigZagSequenceRleInt64(data);
             expect(base).toBe(1n);
+            expect(delta).toBe(1n);
+        });
+
+        it("should decode zigzag sequence RLE Int64 with delta", () => {
+            const data = new BigInt64Array([5n, 2n, 5n, 2n]);
+            const [base, delta] = decodeZigZagSequenceRleInt64(data);
+            expect(base).toBe(-3n);
             expect(delta).toBe(1n);
         });
     });

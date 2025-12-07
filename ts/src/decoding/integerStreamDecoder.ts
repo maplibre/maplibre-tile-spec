@@ -8,7 +8,7 @@ import {
     decodeFastPfor,
     decodeNullableZigZagDeltaInt32,
     decodeNullableZigZagDeltaInt64,
-    decodeUnsignedConstRle,
+    decodeUnsignedConstRleInt32,
     decodeUnsignedConstRleInt64,
     decodeUnsignedRleInt32,
     decodeUnsignedRleFloat64,
@@ -17,14 +17,14 @@ import {
     decodeVarintInt64,
     decodeVarintFloat64,
     decodeZigZagInt32Array,
-    decodeZigZagConstRle,
+    decodeZigZagConstRleInt32,
     decodeZigZagConstRleInt64,
     decodeZigZagDelta,
     decodeZigZagDeltaFloat64,
     decodeZigZagDeltaInt64,
     decodeZigZagFloat64Array,
     decodeZigZagInt64Array,
-    decodeZigZagSequenceRle,
+    decodeZigZagSequenceRleInt32,
     decodeZigZagSequenceRleInt64,
     decodeZigZagInt32Value,
     decodeZigZagInt64Value,
@@ -105,7 +105,7 @@ export function decodeConstIntStream(
         return isSigned ? decodeZigZagInt32Value(value) : value;
     }
 
-    return isSigned ? decodeZigZagConstRle(values) : decodeUnsignedConstRle(values);
+    return isSigned ? decodeZigZagConstRleInt32(values) : decodeUnsignedConstRleInt32(values);
 }
 
 export function decodeSequenceIntStream(
@@ -114,7 +114,7 @@ export function decodeSequenceIntStream(
     streamMetadata: StreamMetadata,
 ): [baseValue: number, delta: number] {
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeZigZagSequenceRle(values);
+    return decodeZigZagSequenceRleInt32(values);
 }
 
 export function decodeSequenceLongStream(
