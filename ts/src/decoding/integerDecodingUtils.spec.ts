@@ -168,10 +168,10 @@ describe("IntegerDecodingUtils", () => {
     });
 
     it("should decode delta RLE Int64", () => {
-        const data = new BigInt64Array([1n, 2n, 3n]);
+        const data = new BigInt64Array([1n, 2n, 3n, 5n, 6n, 7n]);
         const encoded = encodeDeltaRleInt64(data);
         const decoded = decodeDeltaRleInt64(encoded.encodedData, encoded.numRuns, encoded.numValues);
-        expect(Array.from(decoded)).toEqual([1n, 2n, 3n]);
+        expect(Array.from(decoded)).toEqual([1n, 2n, 3n, 5n, 6n, 7n]);
     });
 
     describe("Const and Sequence RLE", () => {
