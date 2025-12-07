@@ -3,36 +3,36 @@ import type IntWrapper from "./intWrapper";
 import {
     decodeComponentwiseDeltaVec2,
     decodeComponentwiseDeltaVec2Scaled,
-    decodeDeltaRle,
+    decodeDeltaRleInt32,
     decodeDeltaRleInt64,
     decodeFastPfor,
     decodeNullableRle,
     decodeNullableRleInt64,
-    decodeNullableZigZagDelta,
+    decodeNullableZigZagDeltaInt32,
     decodeNullableZigZagDeltaInt64,
     decodeRle,
     decodeRleFloat64,
     decodeRleInt64,
     decodeUnsignedConstRle,
     decodeUnsignedConstRleInt64,
-    decodeUnsignedRle,
+    decodeUnsignedRleInt32,
     decodeUnsignedRleFloat64,
     decodeUnsignedRleInt64,
     decodeVarintInt32,
     decodeVarintInt64,
     decodeVarintFloat64,
-    decodeZigZag,
+    decodeZigZagInt32Array,
     decodeZigZagConstRle,
     decodeZigZagConstRleInt64,
     decodeZigZagDelta,
     decodeZigZagDeltaFloat64,
     decodeZigZagDeltaInt64,
-    decodeZigZagFloat64,
-    decodeZigZagInt64,
+    decodeZigZagFloat64Array,
+    decodeZigZagInt64Array,
     decodeZigZagSequenceRle,
     decodeZigZagSequenceRleInt64,
-    decodeZigZagValue,
-    decodeZigZagValueInt64,
+    decodeZigZagInt32Value,
+    decodeZigZagInt64Value,
     fastInverseDelta,
     inverseDelta,
     padWithZeros,
@@ -41,7 +41,7 @@ import {
     padZigZagWithZerosInt64,
     rleDeltaDecoding,
     zigZagDeltaOfDeltaDecoding,
-    zigZagRleDeltaDecoding,
+    decodeZigZagRleDeltaInt32,
 } from "./integerDecodingUtils";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { type StreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
@@ -100,7 +100,7 @@ export function decodeConstIntStream(
 
     if (values.length === 1) {
         const value = values[0];
-        return isSigned ? decodeZigZagValue(value) : value;
+        return isSigned ? decodeZigZagInt32Value(value) : value;
     }
 
     return isSigned ? decodeZigZagConstRle(values) : decodeUnsignedConstRle(values);
@@ -140,7 +140,7 @@ export function decodeLongFloat64Stream(
     streamMetadata: StreamMetadata,
     isSigned: boolean,
 ): Float64Array {
-    const values = decodeVarintFloat64(data, streamMetadata.numValues, offset);
+    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
     return decodeFloat64Buffer(values, streamMetadata, isSigned);
 }
 
@@ -154,7 +154,7 @@ export function decodeConstLongStream(
 
     if (values.length === 1) {
         const value = values[0];
-        return isSigned ? decodeZigZagValueInt64(value) : value;
+        return isSigned ? decodeZigZagInt64Value(value) : value;
     }
 
     return isSigned ? decodeZigZagConstRleInt64(values) : decodeUnsignedConstRleInt64(values);
@@ -180,7 +180,7 @@ function decodeIntBuffer(
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                return decodeDeltaRle(values, rleMetadata.runs, rleMetadata.numRleValues);
+                return decodeDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
             }
             decodeZigZagDelta(values);
             return values;
@@ -199,7 +199,7 @@ function decodeIntBuffer(
             return values;
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                decodeZigZag(values);
+                decodeZigZagInt32Array(values);
             }
             return values;
         default:
@@ -222,7 +222,7 @@ function decodeLongBuffer(values: BigInt64Array, streamMetadata: StreamMetadata,
             return decodeRleInt64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                decodeZigZagInt64(values);
+                decodeZigZagInt64Array(values);
             }
             return values;
         default:
@@ -249,7 +249,7 @@ export function decodeFloat64Buffer(
             return decodeRleFloat64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                decodeZigZagFloat64(values);
+                decodeZigZagFloat64Array(values);
             }
             return values;
         default:
@@ -295,7 +295,7 @@ function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMe
         streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
     ) {
         const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        const decodedValues = zigZagRleDeltaDecoding(values, rleMetadata.runs, rleMetadata.numRleValues);
+        const decodedValues = decodeZigZagRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
         fastInverseDelta(decodedValues);
         return decodedValues;
     }
@@ -339,9 +339,9 @@ function decodeNullableIntBuffer(
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                values = decodeUnsignedRle(values, rleMetadata.runs, rleMetadata.numRleValues);
+                values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
             }
-            return decodeNullableZigZagDelta(bitVector, values);
+            return decodeNullableZigZagDeltaInt32(bitVector, values);
         case LogicalLevelTechnique.RLE:
             return decodeNullableRle(values, streamMetadata, isSigned, bitVector);
         case LogicalLevelTechnique.MORTON:

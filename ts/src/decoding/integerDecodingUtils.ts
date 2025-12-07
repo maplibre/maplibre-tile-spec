@@ -56,9 +56,11 @@ export function decodeVarintInt64(src: Uint8Array, offset: IntWrapper, numValues
     return dst;
 }
 
-/* Since decoding Int64 values to BigInt is more than an order of magnitude slower in the tests
- *  then using a Float64, this decoding method limits the max size of a Long value to 53 bits   */
-export function decodeVarintFloat64(src: Uint8Array, numValues: number, offset: IntWrapper): Float64Array {
+/*
+ * Since decoding Int64 values to BigInt is more than an order of magnitude slower in the tests then using a Float64,
+ * this decoding method limits the max size of a Long value to 53 bits
+ */
+export function decodeVarintFloat64(src: Uint8Array, offset: IntWrapper, numValues: number): Float64Array {
     const dst = new Float64Array(numValues);
     for (let i = 0; i < numValues; i++) {
         dst[i] = decodeSingleVarintFloat64(src, offset);
@@ -130,34 +132,32 @@ export function decodeFastPfor(
     throw new Error("FastPFor is not implemented yet.");
 }
 
-export function decodeZigZag(encodedData: Int32Array): void {
+export function decodeZigZagInt32Value(encoded: number): number {
+    return (encoded >>> 1) ^ -(encoded & 1);
+}
+
+export function decodeZigZagInt64Value(encoded: bigint): bigint {
+    return (encoded >> 1n) ^ -(encoded & 1n);
+}
+
+export function decodeZigZagInt32Array(encodedData: Int32Array): void {
     for (let i = 0; i < encodedData.length; i++) {
-        const encoded = encodedData[i];
-        encodedData[i] = (encoded >>> 1) ^ -(encoded & 1);
+        encodedData[i] = decodeZigZagInt32Value(encodedData[i]);
     }
 }
 
-export function decodeZigZagInt64(encodedData: BigInt64Array): void {
+export function decodeZigZagInt64Array(encodedData: BigInt64Array): void {
     for (let i = 0; i < encodedData.length; i++) {
-        const encoded = encodedData[i];
-        encodedData[i] = (encoded >> 1n) ^ -(encoded & 1n);
+        encodedData[i] = decodeZigZagInt64Value(encodedData[i]);
     }
 }
 
-export function decodeZigZagFloat64(encodedData: Float64Array): void {
+export function decodeZigZagFloat64Array(encodedData: Float64Array): void {
     for (let i = 0; i < encodedData.length; i++) {
         const encoded = encodedData[i];
         //Get rid of branch? -> var v = encoded % 2 && 1; encodedData[i] = (encoded + v) / (v * 2 - 1) * 2;
         encodedData[i] = encoded % 2 === 1 ? (encoded + 1) / -2 : encoded / 2;
     }
-}
-
-export function decodeZigZagValue(encoded: number): number {
-    return (encoded >>> 1) ^ -(encoded & 1);
-}
-
-export function decodeZigZagValueInt64(encoded: bigint): bigint {
-    return (encoded >> 1n) ^ -(encoded & 1n);
 }
 
 // Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
@@ -184,8 +184,8 @@ function decodeSingleVarintInt64(bytes: Uint8Array, pos: IntWrapper): bigint {
 
 export function decodeRle(data: Int32Array, streamMetadata: RleEncodedStreamMetadata, isSigned: boolean): Int32Array {
     return isSigned
-        ? decodeZigZagRle(data, streamMetadata.runs, streamMetadata.numRleValues)
-        : decodeUnsignedRle(data, streamMetadata.runs, streamMetadata.numRleValues);
+        ? decodeZigZagRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues)
+        : decodeUnsignedRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues);
 }
 
 export function decodeRleInt64(
@@ -208,7 +208,7 @@ export function decodeRleFloat64(
         : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
 }
 
-export function decodeUnsignedRle(encodedData: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
     const decodedValues = new Int32Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -325,13 +325,13 @@ export function decodeZigZagDeltaFloat64(data: Float64Array) {
     }
 }
 
-export function decodeZigZagRle(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeZigZagRleInt32(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
     const decodedValues = new Int32Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
         const runLength = data[i];
         let value = data[i + numRuns];
-        value = (value >>> 1) ^ -(value & 1);
+        value = decodeZigZagInt32Value(value);
         decodedValues.fill(value, offset, offset + runLength);
         offset += runLength;
     }
@@ -344,7 +344,7 @@ export function decodeZigZagRleInt64(data: BigInt64Array, numRuns: number, numTo
     for (let i = 0; i < numRuns; i++) {
         const runLength = Number(data[i]);
         let value = data[i + numRuns];
-        value = (value >> 1n) ^ -(value & 1n);
+        value = decodeZigZagInt64Value(value);
         decodedValues.fill(value, offset, offset + runLength);
         offset += runLength;
     }
@@ -460,7 +460,7 @@ function clamp(n: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, n));
 }
 
-export function decodeNullableZigZagDelta(bitVector: BitVector, data: Int32Array): Int32Array {
+export function decodeNullableZigZagDeltaInt32(bitVector: BitVector, data: Int32Array): Int32Array {
     const decodedData = new Int32Array(bitVector.size());
     let dataCounter = 0;
     if (bitVector.get(0)) {
@@ -470,8 +470,7 @@ export function decodeNullableZigZagDelta(bitVector: BitVector, data: Int32Array
         decodedData[0] = 0;
     }
 
-    let i = 1;
-    for (; i != decodedData.length; ++i) {
+    for (let i = 1; i != decodedData.length; ++i) {
         decodedData[i] = bitVector.get(i)
             ? decodedData[i - 1] + ((data[dataCounter] >>> 1) ^ -(data[dataCounter++] & 1))
             : decodedData[i - 1];
@@ -490,8 +489,7 @@ export function decodeNullableZigZagDeltaInt64(bitVector: BitVector, data: BigIn
         decodedData[0] = 0n;
     }
 
-    let i = 1;
-    for (; i != decodedData.length; ++i) {
+    for (let i = 1; i != decodedData.length; ++i) {
         decodedData[i] = bitVector.get(i)
             ? decodedData[i - 1] + ((data[dataCounter] >> 1n) ^ -(data[dataCounter++] & 1n))
             : decodedData[i - 1];
@@ -505,10 +503,9 @@ export function decodeNullableZigZagDeltaInt64(bitVector: BitVector, data: BigIn
 export function zigZagDeltaOfDeltaDecoding(data: Int32Array): Int32Array {
     const decodedData = new Int32Array(data.length + 1);
     decodedData[0] = 0;
-    decodedData[1] = decodeZigZagValue(data[0]);
+    decodedData[1] = decodeZigZagInt32Value(data[0]);
     let deltaSum = decodedData[1];
-    let i = 2;
-    for (; i != decodedData.length; ++i) {
+    for (let i = 2; i != decodedData.length; ++i) {
         const zigZagValue = data[i - 1];
         const delta = (zigZagValue >>> 1) ^ -(zigZagValue & 1);
         deltaSum += delta;
@@ -518,7 +515,7 @@ export function zigZagDeltaOfDeltaDecoding(data: Int32Array): Int32Array {
     return decodedData;
 }
 
-export function zigZagRleDeltaDecoding(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
     const decodedValues = new Int32Array(numTotalValues + 1);
     decodedValues[0] = 0;
     let offset = 1;
@@ -534,7 +531,6 @@ export function zigZagRleDeltaDecoding(data: Int32Array, numRuns: number, numTot
 
         offset += runLength;
     }
-
     return decodedValues;
 }
 
@@ -560,8 +556,7 @@ export function rleDeltaDecoding(data: Int32Array, numRuns: number, numTotalValu
 export function padWithZeros(bitVector: BitVector, data: Int32Array): Int32Array {
     const decodedData = new Int32Array(bitVector.size());
     let dataCounter = 0;
-    let i = 0;
-    for (; i != decodedData.length; ++i) {
+    for (let i = 0; i != decodedData.length; ++i) {
         decodedData[i] = bitVector.get(i) ? data[dataCounter++] : 0;
     }
 
@@ -571,8 +566,7 @@ export function padWithZeros(bitVector: BitVector, data: Int32Array): Int32Array
 export function padZigZagWithZeros(bitVector: BitVector, data: Int32Array): Int32Array {
     const decodedData = new Int32Array(bitVector.size());
     let dataCounter = 0;
-    let i = 0;
-    for (; i != decodedData.length; ++i) {
+    for (let i = 0; i != decodedData.length; ++i) {
         if (bitVector.get(i)) {
             const value = data[dataCounter++];
             decodedData[i] = (value >>> 1) ^ -(value & 1);
@@ -587,8 +581,7 @@ export function padZigZagWithZeros(bitVector: BitVector, data: Int32Array): Int3
 export function padWithZerosInt64(bitVector: BitVector, data: BigInt64Array): BigInt64Array {
     const decodedData = new BigInt64Array(bitVector.size());
     let dataCounter = 0;
-    let i = 0;
-    for (; i != decodedData.length; ++i) {
+    for (let i = 0; i != decodedData.length; ++i) {
         decodedData[i] = bitVector.get(i) ? data[dataCounter++] : 0n;
     }
 
@@ -598,11 +591,10 @@ export function padWithZerosInt64(bitVector: BitVector, data: BigInt64Array): Bi
 export function padZigZagWithZerosInt64(bitVector: BitVector, data: BigInt64Array): BigInt64Array {
     const decodedData = new BigInt64Array(bitVector.size());
     let dataCounter = 0;
-    let i = 0;
-    for (; i != decodedData.length; ++i) {
+    for (let i = 0; i != decodedData.length; ++i) {
         if (bitVector.get(i)) {
             const value = data[dataCounter++];
-            decodedData[i] = (value >> 1n) ^ -(value & 1n);
+            decodedData[i] = decodeZigZagInt64Value(value);
         } else {
             decodedData[i] = 0n;
         }
@@ -731,7 +723,7 @@ function decodeNullableZigZagRleInt64(bitVector, data: BigInt64Array, numRuns: n
  * @param numValues Total number of values to reconstruct
  * @returns Reconstructed values with deltas applied
  */
-export function decodeDeltaRle(data: Int32Array, numRuns: number, numValues: number): Int32Array {
+export function decodeDeltaRleInt32(data: Int32Array, numRuns: number, numValues: number): Int32Array {
     const result = new Int32Array(numValues);
     let outPos = 0;
     let previousValue = 0;
@@ -739,7 +731,7 @@ export function decodeDeltaRle(data: Int32Array, numRuns: number, numValues: num
     for (let i = 0; i < numRuns; i++) {
         const runLength = data[i];
         const zigZagDelta = data[i + numRuns];
-        const delta = decodeZigZagValue(zigZagDelta);
+        const delta = decodeZigZagInt32Value(zigZagDelta);
 
         for (let j = 0; j < runLength; j++) {
             previousValue += delta;
@@ -761,7 +753,7 @@ export function decodeDeltaRleInt64(data: BigInt64Array, numRuns: number, numVal
     for (let i = 0; i < numRuns; i++) {
         const runLength = Number(data[i]);
         const zigZagDelta = data[i + numRuns];
-        const delta = decodeZigZagValueInt64(zigZagDelta);
+        const delta = decodeZigZagInt64Value(zigZagDelta);
 
         for (let j = 0; j < runLength; j++) {
             previousValue += delta;
@@ -777,19 +769,19 @@ export function decodeUnsignedConstRle(data: Int32Array): number {
 }
 
 export function decodeZigZagConstRle(data: Int32Array): number {
-    return decodeZigZagValue(data[1]);
+    return decodeZigZagInt32Value(data[1]);
 }
 
 export function decodeZigZagSequenceRle(data: Int32Array): [baseValue: number, delta: number] {
     /* base value and delta value are equal */
     if (data.length == 2) {
-        const value = decodeZigZagValue(data[1]);
+        const value = decodeZigZagInt32Value(data[1]);
         return [value, value];
     }
 
     /* base value and delta value are not equal -> 2 runs and 2 values*/
-    const base = decodeZigZagValue(data[2]);
-    const delta = decodeZigZagValue(data[3]);
+    const base = decodeZigZagInt32Value(data[2]);
+    const delta = decodeZigZagInt32Value(data[3]);
     return [base, delta];
 }
 
@@ -798,18 +790,18 @@ export function decodeUnsignedConstRleInt64(data: BigInt64Array): bigint {
 }
 
 export function decodeZigZagConstRleInt64(data: BigInt64Array): bigint {
-    return decodeZigZagValueInt64(data[1]);
+    return decodeZigZagInt64Value(data[1]);
 }
 
 export function decodeZigZagSequenceRleInt64(data: BigInt64Array): [baseValue: bigint, delta: bigint] {
     /* base value and delta value are equal */
     if (data.length == 2) {
-        const value = decodeZigZagValueInt64(data[1]);
+        const value = decodeZigZagInt64Value(data[1]);
         return [value, value];
     }
 
     /* base value and delta value are not equal -> 2 runs and 2 values*/
-    const base = decodeZigZagValueInt64(data[2]);
-    const delta = decodeZigZagValueInt64(data[3]);
+    const base = decodeZigZagInt64Value(data[2]);
+    const delta = decodeZigZagInt64Value(data[3]);
     return [base, delta];
 }

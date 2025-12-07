@@ -139,7 +139,7 @@ it("should decode RLE signed with Int32", () => {
         LogicalLevelTechnique.RLE,
         LogicalLevelTechnique.NONE,
         runs,
-        expectedValues.length
+        expectedValues.length,
     );
     const offset = new IntWrapper(0);
 
@@ -176,7 +176,7 @@ describe("decodeFloat64Buffer", () => {
             LogicalLevelTechnique.RLE,
             LogicalLevelTechnique.NONE,
             runs,
-            expectedValues.length
+            expectedValues.length,
         );
 
         const result = decodeFloat64Buffer(data, metadata, false);
@@ -191,7 +191,7 @@ describe("decodeFloat64Buffer", () => {
             LogicalLevelTechnique.RLE,
             LogicalLevelTechnique.NONE,
             runs,
-            expectedValues.length
+            expectedValues.length,
         );
 
         const result = decodeFloat64Buffer(data, metadata, true);
@@ -216,12 +216,7 @@ describe("decodeFloat64Buffer", () => {
         // RLE encoded: count=1, count=4, value=20, value=4
         const numRleValues = 5;
         const runs = 2;
-        const metadata = createRleMetadata(
-            LogicalLevelTechnique.DELTA,
-            LogicalLevelTechnique.RLE,
-            runs,
-            numRleValues
-        );
+        const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
         const values = new Float64Array([1, 4, 20, 4]);
 
         const result = decodeFloat64Buffer(values, metadata, true);

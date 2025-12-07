@@ -44,7 +44,7 @@ export function encodeInt32SignedRle(runs: Array<[number, number]>): Uint8Array 
     return encodeVarintInt32Array(new Int32Array(rleValues));
 }
 
-export function encodeInt32ArrayToRle(values: Int32Array): { data: Uint8Array, runs: number } {
+export function encodeInt32ArrayToRle(values: Int32Array): { data: Uint8Array; runs: number } {
     const rleRuns: Array<[number, number]> = [];
     let currentValue = values[0];
     let currentCount = 1;
@@ -62,11 +62,14 @@ export function encodeInt32ArrayToRle(values: Int32Array): { data: Uint8Array, r
 
     return {
         data: encodeInt32SignedRle(rleRuns),
-        runs: rleRuns.length
+        runs: rleRuns.length,
     };
 }
 
-export function encodeFloat64ArrayToRle(values: Float64Array, signed: boolean = false): { data: Float64Array, runs: number } {
+export function encodeFloat64ArrayToRle(
+    values: Float64Array,
+    signed: boolean = false,
+): { data: Float64Array; runs: number } {
     const rleRuns: Array<[number, number]> = [];
     let currentValue = values[0];
     let currentCount = 1;
@@ -92,7 +95,7 @@ export function encodeFloat64ArrayToRle(values: Float64Array, signed: boolean = 
 
     return {
         data: data,
-        runs: rleRuns.length
+        runs: rleRuns.length,
     };
 }
 
