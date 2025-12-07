@@ -50,14 +50,14 @@ import {
 } from "../encoding/integerEncodingUtils";
 
 describe("IntegerDecodingUtils", () => {
-    it("should decode int 32", () => {
+    it("should decode Int32", () => {
         const value = 2 ** 10;
         const encoded = encodeVarintInt32(value);
         const decoded = decodeVarintInt32(encoded, new IntWrapper(0), 1);
         expect(decoded[0]).toEqual(value);
     });
 
-    it("should decode int 64", () => {
+    it("should decode Int64", () => {
         const value = 2n ** 50n;
         const encoded = encodeVarintInt64(value);
         const decoded = decodeVarintInt64(encoded, new IntWrapper(0), 1);
@@ -93,7 +93,7 @@ describe("IntegerDecodingUtils", () => {
         expect(Array.from(data)).toEqual([value]);
     });
 
-    it("should decode single int 32 zigzag values", () => {
+    it("should decode single Int32 zigzag values", () => {
         expect(encodeZigZagInt32Value(decodeZigZagInt32Value(0))).toBe(0);
         expect(encodeZigZagInt32Value(decodeZigZagInt32Value(1))).toBe(1);
         expect(encodeZigZagInt32Value(decodeZigZagInt32Value(2))).toBe(2);
@@ -104,6 +104,13 @@ describe("IntegerDecodingUtils", () => {
         expect(encodeZigZagInt64Value(decodeZigZagInt64Value(1n))).toBe(1n);
     });
 
+    it("should decode empty unsigned RLE", () => {
+        const data = new Int32Array([]);
+        const encodedRle = encodeUnsignedRleInt32(data);
+        const decoded = decodeUnsignedRleInt32(encodedRle, encodedRle.length / 2, data.length);
+        expect(Array.from(decoded)).toEqual([]);
+    });
+
     it("should decode unsigned RLE", () => {
         const data = new Int32Array([10, 10, 20, 20, 20]);
         const encodedRle = encodeUnsignedRleInt32(data);
@@ -111,11 +118,25 @@ describe("IntegerDecodingUtils", () => {
         expect(Array.from(decoded)).toEqual([10, 10, 20, 20, 20]);
     });
 
+    it("should decode empty unsigned RLE Int64", () => {
+        const data = new BigInt64Array([]);
+        const encodedRle = encodeUnsignedRleInt64(data);
+        const decoded = decodeUnsignedRleInt64(encodedRle, encodedRle.length / 2, data.length);
+        expect(Array.from(decoded)).toEqual([]);
+    });
+
     it("should decode unsigned RLE Int64", () => {
         const data = new BigInt64Array([10n, 10n, 20n, 20n, 20n]);
         const encodedRle = encodeUnsignedRleInt64(data);
         const decoded = decodeUnsignedRleInt64(encodedRle, encodedRle.length / 2, data.length);
         expect(Array.from(decoded)).toEqual([10n, 10n, 20n, 20n, 20n]);
+    });
+
+    it("should decode empty unsigned RLE Float64", () => {
+        const data = new Float64Array([]);
+        const encodedRle = encodeUnsignedRleFloat64(data);
+        const decoded = decodeUnsignedRleFloat64(encodedRle, encodedRle.length / 2, data.length);
+        expect(Array.from(decoded)).toEqual([]);
     });
 
     it("should decode unsigned RLE Float64", () => {
@@ -139,10 +160,22 @@ describe("IntegerDecodingUtils", () => {
         expect(Array.from(data)).toEqual([10, 15, 18, 20]);
     });
 
+    it("should decode empty nullable zigzag delta Int32", () => {
+        const encodedData = encodeNullableZigZagDeltaInt32(new Int32Array([]));
+        const decoded = decodeNullableZigZagDeltaInt32(encodedData.bitVector, encodedData.encodedData);
+        expect(Array.from(decoded)).toEqual([]);
+    });
+
     it("should decode nullable zigzag delta Int32", () => {
         const encodedData = encodeNullableZigZagDeltaInt32(new Int32Array([1, 2]));
         const decoded = decodeNullableZigZagDeltaInt32(encodedData.bitVector, encodedData.encodedData);
         expect(Array.from(decoded)).toEqual([1, 2]);
+    });
+
+    it("should decode empty nullable zigzag delta Int64", () => {
+        const encodedData = encodeNullableZigZagDeltaInt64(new BigInt64Array([]));
+        const decoded = decodeNullableZigZagDeltaInt64(encodedData.bitVector, encodedData.encodedData);
+        expect(Array.from(decoded)).toEqual([]);
     });
 
     it("should decode nullable zigzag delta Int64", () => {
@@ -165,6 +198,14 @@ describe("IntegerDecodingUtils", () => {
         const data = new BigInt64Array([2n, 4n]);
         const decoded = padZigZagWithZerosInt64(bitVector, data);
         expect(Array.from(decoded)).toEqual([1n, 0n, 2n]);
+    });
+
+
+    it("should decode empty delta RLE Int64", () => {
+        const data = new BigInt64Array([]);
+        const encoded = encodeDeltaRleInt64(data);
+        const decoded = decodeDeltaRleInt64(encoded.encodedData, encoded.numRuns, encoded.numValues);
+        expect(Array.from(decoded)).toEqual([]);
     });
 
     it("should decode delta RLE Int64", () => {
@@ -193,6 +234,13 @@ describe("IntegerDecodingUtils", () => {
         });
     });
 
+    it("should decode empty ZigZag RLE Int32", () => {
+        const data = new Int32Array([]);
+        const encoded = encodeZigZagRleInt32(data);
+        const decoded = decodeZigZagRleInt32(encoded.encodedData, encoded.numRuns, encoded.numTotalValues);
+        expect(Array.from(decoded)).toEqual([]);
+    });
+
     it("should decode ZigZag RLE Int32", () => {
         const encoded = new Int32Array([2, 2, 3, 3, 3]);
         const encodedData = encodeZigZagRleInt32(encoded);
@@ -200,11 +248,25 @@ describe("IntegerDecodingUtils", () => {
         expect(Array.from(decoded)).toEqual([2, 2, 3, 3, 3]);
     });
 
+    it("should decode empty ZigZag RLE Int64", () => {
+        const data = new BigInt64Array([]);
+        const encoded = encodeZigZagRleInt64(data);
+        const decoded = decodeZigZagRleInt64(encoded.encodedData, encoded.numRuns, encoded.numTotalValues);
+        expect(Array.from(decoded)).toEqual([]);
+    });
+
     it("should decode ZigZag RLE Int64", () => {
         const encoded = new BigInt64Array([2n, 2n, 3n, 3n, 3n]);
         const encodedData = encodeZigZagRleInt64(encoded);
         const decoded = decodeZigZagRleInt64(encodedData.encodedData, encodedData.numRuns, encodedData.numTotalValues);
         expect(Array.from(decoded)).toEqual([2n, 2n, 3n, 3n, 3n]);
+    });
+
+    it("should decode empty ZigZag RLE Float64", () => {
+        const data = new Float64Array([]);
+        const encoded = encodeZigZagRleFloat64(data);
+        const decoded = decodeZigZagRleFloat64(encoded.encodedData, encoded.numRuns, encoded.numTotalValues);
+        expect(Array.from(decoded)).toEqual([]);
     });
 
     it("should decode ZigZag RLE Float64", () => {
