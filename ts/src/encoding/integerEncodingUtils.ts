@@ -708,4 +708,3 @@ export function encodeNullableUnsignedRleInt64(values: BigInt64Array, bitVector:
     }
     return { data: resultData, numRuns };
 }
-
