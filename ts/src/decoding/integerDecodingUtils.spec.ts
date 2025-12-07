@@ -147,10 +147,10 @@ describe("IntegerDecodingUtils", () => {
     });
 
     it("should decode zigzag delta Int64", () => {
-        const data = new BigInt64Array([1n, 2n, 3n]);
+        const data = new BigInt64Array([1n, 2n, 3n, 5n, 6n, 7n]);
         encodeZigZagDeltaInt64(data);
         decodeZigZagDeltaInt64(data);
-        expect(Array.from(data)).toEqual([1n, 2n, 3n]);
+        expect(Array.from(data)).toEqual([1n, 2n, 3n, 5n, 6n, 7n]);
     });
 
     it("should apply fast inverse delta", () => {

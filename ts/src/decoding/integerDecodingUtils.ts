@@ -1,9 +1,5 @@
 import type IntWrapper from "./intWrapper";
 import type BitVector from "../vector/flat/bitVector";
-import { type StreamMetadata } from "../mltMetadata";
-import { type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
-
-/* Null suppression (physical level) techniques ------------------------------------------------------------------*/
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Int32Array {
@@ -180,34 +176,6 @@ function decodeSingleVarintInt64(bytes: Uint8Array, pos: IntWrapper): bigint {
     }
     pos.set(index);
     return value;
-}
-
-/* Logical Level Techniques Flat Vectors ------------------------------------------------------------------ */
-
-export function decodeRle(data: Int32Array, streamMetadata: RleEncodedStreamMetadata, isSigned: boolean): Int32Array {
-    return isSigned
-        ? decodeZigZagRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues)
-        : decodeUnsignedRleInt32(data, streamMetadata.runs, streamMetadata.numRleValues);
-}
-
-export function decodeRleInt64(
-    data: BigInt64Array,
-    streamMetadata: RleEncodedStreamMetadata,
-    isSigned: boolean,
-): BigInt64Array {
-    return isSigned
-        ? decodeZigZagRleInt64(data, streamMetadata.runs, streamMetadata.numRleValues)
-        : decodeUnsignedRleInt64(data, streamMetadata.runs, streamMetadata.numRleValues);
-}
-
-export function decodeRleFloat64(
-    data: Float64Array,
-    streamMetadata: RleEncodedStreamMetadata,
-    isSigned: boolean,
-): Float64Array {
-    return isSigned
-        ? decodeZigZagRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues)
-        : decodeUnsignedRleFloat64(data, streamMetadata.runs, streamMetadata.numRleValues);
 }
 
 export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
@@ -604,19 +572,7 @@ export function padZigZagWithZerosInt64(bitVector: BitVector, data: BigInt64Arra
     return decodedData;
 }
 
-export function decodeNullableRle(
-    data: Int32Array,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
-    bitVector: BitVector,
-): Int32Array {
-    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-    return isSigned
-        ? decodeNullableZigZagRle(bitVector, data, rleMetadata.runs)
-        : decodeNullableUnsignedRle(bitVector, data, rleMetadata.runs);
-}
-
-function decodeNullableUnsignedRle(bitVector: BitVector, data: Int32Array, numRuns: number): Int32Array {
+export function decodeNullableUnsignedRleInt32(bitVector: BitVector, data: Int32Array, numRuns: number): Int32Array {
     const values = new Int32Array(bitVector.size());
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -637,7 +593,7 @@ function decodeNullableUnsignedRle(bitVector: BitVector, data: Int32Array, numRu
     return values;
 }
 
-function decodeNullableZigZagRle(bitVector, data: Int32Array, numRuns: number): Int32Array {
+export function decodeNullableZigZagRleInt32(bitVector: BitVector, data: Int32Array, numRuns: number): Int32Array {
     const values = new Int32Array(bitVector.size());
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -659,19 +615,11 @@ function decodeNullableZigZagRle(bitVector, data: Int32Array, numRuns: number): 
     return values;
 }
 
-export function decodeNullableRleInt64(
-    data: BigInt64Array,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
+export function decodeNullableUnsignedRleInt64(
     bitVector: BitVector,
+    data: BigInt64Array,
+    numRuns: number,
 ): BigInt64Array {
-    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-    return isSigned
-        ? decodeNullableZigZagRleInt64(bitVector, data, rleMetadata.runs)
-        : decodeNullableUnsignedRleInt64(bitVector, data, rleMetadata.runs);
-}
-
-function decodeNullableUnsignedRleInt64(bitVector: BitVector, data: BigInt64Array, numRuns: number): BigInt64Array {
     const values = new BigInt64Array(bitVector.size());
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -692,7 +640,11 @@ function decodeNullableUnsignedRleInt64(bitVector: BitVector, data: BigInt64Arra
     return values;
 }
 
-function decodeNullableZigZagRleInt64(bitVector, data: BigInt64Array, numRuns: number): BigInt64Array {
+export function decodeNullableZigZagRleInt64(
+    bitVector: BitVector,
+    data: BigInt64Array,
+    numRuns: number,
+): BigInt64Array {
     const values = new BigInt64Array(bitVector.size());
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -713,8 +665,6 @@ function decodeNullableZigZagRleInt64(bitVector, data: BigInt64Array, numRuns: n
 
     return values;
 }
-
-/* Logical Level Techniques Const and Sequence Vectors ------------------------------------------------------------- */
 
 /**
  * Decode Delta-RLE with multiple runs by fully reconstructing values.
