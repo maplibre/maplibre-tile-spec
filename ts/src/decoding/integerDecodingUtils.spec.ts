@@ -28,7 +28,7 @@ import {
     fastInverseDelta,
     decodeZigZagSequenceRleInt32,
     decodeNullableUnsignedRleInt32,
-    decodeNullableUnsignedRleInt64
+    decodeNullableUnsignedRleInt64,
 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
@@ -53,7 +53,7 @@ import {
     encodeZigZagRleInt32,
     encodeZigZagRleInt64,
     encodeNullableUnsignedRleInt32,
-    encodeNullableUnsignedRleInt64
+    encodeNullableUnsignedRleInt64,
 } from "../encoding/integerEncodingUtils";
 
 describe("IntegerDecodingUtils", () => {
@@ -347,5 +347,5 @@ describe("IntegerDecodingUtils", () => {
         const decoded = decodeNullableUnsignedRleInt64(bitVector, encoded.data, encoded.numRuns);
         // same as input, but 0 for when the bit is false
         expect(Array.from(decoded)).toEqual([0n, 0n, 5n, 0n, 0n, 5n, 6n, 0n]);
-    })
+    });
 });

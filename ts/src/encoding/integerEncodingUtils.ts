@@ -378,7 +378,6 @@ export function encodeDeltaRleInt32(input: Int32Array): {
     };
 }
 
-
 export function encodeDeltaRleInt64(input: BigInt64Array): {
     encodedData: BigInt64Array;
     numRuns: number;
@@ -619,7 +618,10 @@ export function encodeZigZagRleFloat64(input: Float64Array): {
     };
 }
 
-export function encodeNullableUnsignedRleInt32(values: Int32Array, bitVector: BitVector): { data: Int32Array, numRuns: number } {
+export function encodeNullableUnsignedRleInt32(
+    values: Int32Array,
+    bitVector: BitVector,
+): { data: Int32Array; numRuns: number } {
     const lengths: number[] = [];
     const runValues: number[] = [];
     let i = 0;
@@ -664,7 +666,10 @@ export function encodeNullableUnsignedRleInt32(values: Int32Array, bitVector: Bi
     return { data: resultData, numRuns };
 }
 
-export function encodeNullableUnsignedRleInt64(values: BigInt64Array, bitVector: BitVector): { data: BigInt64Array, numRuns: number } {
+export function encodeNullableUnsignedRleInt64(
+    values: BigInt64Array,
+    bitVector: BitVector,
+): { data: BigInt64Array; numRuns: number } {
     const lengths: number[] = [];
     const runValues: bigint[] = [];
     let i = 0;
