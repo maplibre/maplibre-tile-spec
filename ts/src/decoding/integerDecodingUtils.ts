@@ -140,19 +140,19 @@ export function decodeZigZagFloat64Value(encoded: number): number {
     return encoded % 2 === 1 ? (encoded + 1) / -2 : encoded / 2;
 }
 
-export function decodeZigZagInt32Array(encodedData: Int32Array): void {
+export function decodeZigZagInt32(encodedData: Int32Array): void {
     for (let i = 0; i < encodedData.length; i++) {
         encodedData[i] = decodeZigZagInt32Value(encodedData[i]);
     }
 }
 
-export function decodeZigZagInt64Array(encodedData: BigInt64Array): void {
+export function decodeZigZagInt64(encodedData: BigInt64Array): void {
     for (let i = 0; i < encodedData.length; i++) {
         encodedData[i] = decodeZigZagInt64Value(encodedData[i]);
     }
 }
 
-export function decodeZigZagFloat64Array(encodedData: Float64Array): void {
+export function decodeZigZagFloat64(encodedData: Float64Array): void {
     for (let i = 0; i < encodedData.length; i++) {
         encodedData[i] = decodeZigZagFloat64Value(encodedData[i]);
     }

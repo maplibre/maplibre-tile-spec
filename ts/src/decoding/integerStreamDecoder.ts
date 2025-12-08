@@ -16,9 +16,9 @@ import {
     decodeVarintInt32,
     decodeVarintInt64,
     decodeVarintFloat64,
-    decodeZigZagInt32Array,
-    decodeZigZagInt64Array,
-    decodeZigZagFloat64Array,
+    decodeZigZagInt32,
+    decodeZigZagInt64,
+    decodeZigZagFloat64,
     decodeZigZagConstRleInt32,
     decodeZigZagConstRleInt64,
     decodeZigZagDeltaInt32,
@@ -59,7 +59,7 @@ export function decodeIntStream(
     scalingData?: GeometryScaling,
 ): Int32Array {
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeIntBuffer(values, streamMetadata, isSigned, scalingData);
+    return decodeInt32(values, streamMetadata, isSigned, scalingData);
 }
 
 export function decodeLengthStreamToOffsetBuffer(
@@ -71,7 +71,11 @@ export function decodeLengthStreamToOffsetBuffer(
     return decodeLengthToOffsetBuffer(values, streamMetadata);
 }
 
-function decodePhysicalLevelTechnique(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata) {
+function decodePhysicalLevelTechnique(
+    data: Uint8Array,
+    offset: IntWrapper,
+    streamMetadata: StreamMetadata,
+): Int32Array {
     const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
     if (physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR) {
         return decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset);
@@ -133,7 +137,7 @@ export function decodeLongStream(
     isSigned: boolean,
 ): BigInt64Array {
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeLongBuffer(values, streamMetadata, isSigned);
+    return decodeInt64(values, streamMetadata, isSigned);
 }
 
 export function decodeLongFloat64Stream(
@@ -143,7 +147,7 @@ export function decodeLongFloat64Stream(
     isSigned: boolean,
 ): Float64Array {
     const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64Buffer(values, streamMetadata, isSigned);
+    return decodeFloat64(values, streamMetadata, isSigned);
 }
 
 export function decodeConstLongStream(
@@ -172,7 +176,7 @@ export function decodeConstLongStream(
  *   - Delta Rle
  *   - Componentwise Delta -> always ZigZag encoding is used
  * */
-function decodeIntBuffer(
+function decodeInt32(
     values: Int32Array,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
@@ -201,7 +205,7 @@ function decodeIntBuffer(
             return values;
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                decodeZigZagInt32Array(values);
+                decodeZigZagInt32(values);
             }
             return values;
         default:
@@ -211,7 +215,7 @@ function decodeIntBuffer(
     }
 }
 
-function decodeLongBuffer(values: BigInt64Array, streamMetadata: StreamMetadata, isSigned: boolean): BigInt64Array {
+function decodeInt64(values: BigInt64Array, streamMetadata: StreamMetadata, isSigned: boolean): BigInt64Array {
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -224,7 +228,7 @@ function decodeLongBuffer(values: BigInt64Array, streamMetadata: StreamMetadata,
             return decodeRleInt64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                decodeZigZagInt64Array(values);
+                decodeZigZagInt64(values);
             }
             return values;
         default:
@@ -234,11 +238,7 @@ function decodeLongBuffer(values: BigInt64Array, streamMetadata: StreamMetadata,
     }
 }
 
-export function decodeFloat64Buffer(
-    values: Float64Array,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
-): Float64Array {
+export function decodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -251,7 +251,7 @@ export function decodeFloat64Buffer(
             return decodeRleFloat64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
-                decodeZigZagFloat64Array(values);
+                decodeZigZagFloat64(values);
             }
             return values;
         default:
@@ -317,7 +317,7 @@ export function decodeNullableIntStream(
             ? decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset)
             : decodeVarintInt32(data, offset, streamMetadata.numValues);
 
-    return decodeNullableIntBuffer(values, streamMetadata, isSigned, bitVector);
+    return decodeNullableInt32(values, streamMetadata, isSigned, bitVector);
 }
 
 export function decodeNullableLongStream(
@@ -328,10 +328,10 @@ export function decodeNullableLongStream(
     bitVector: BitVector,
 ): BigInt64Array {
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeNullableLongBuffer(values, streamMetadata, isSigned, bitVector);
+    return decodeNullableInt64(values, streamMetadata, isSigned, bitVector);
 }
 
-function decodeNullableIntBuffer(
+function decodeNullableInt32(
     values: Int32Array,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
@@ -360,7 +360,7 @@ function decodeNullableIntBuffer(
     }
 }
 
-function decodeNullableLongBuffer(
+function decodeNullableInt64(
     values: BigInt64Array,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
@@ -394,43 +394,40 @@ export function getVectorType(
         return (streamMetadata as RleEncodedStreamMetadata).runs === 1 ? VectorType.CONST : VectorType.FLAT;
     }
 
-    const numFeatures =
-        sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
-
     if (
-        logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
+        logicalLevelTechnique1 !== LogicalLevelTechnique.DELTA ||
+        streamMetadata.logicalLevelTechnique2 !== LogicalLevelTechnique.RLE
     ) {
-        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        const runs = rleMetadata.runs;
-        const zigZagOne = 2;
-
-        if (rleMetadata.numRleValues !== numFeatures) {
-            return VectorType.FLAT;
-        }
-        // Single run is always a sequence
-        if (runs === 1) {
-            return VectorType.SEQUENCE;
-        }
-        // Two runs can be a sequence if both deltas are equal to 1
-        if (runs === 2) {
-            const savedOffset = offset.get();
-
-            let values: Int32Array;
-            if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
-                values = decodeVarintInt32(data, offset, 4);
-            } else {
-                const byteOffset = offset.get();
-                values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
-            }
-            offset.set(savedOffset);
-            // Check if both deltas are encoded 1
-            if (values[2] === zigZagOne && values[3] === zigZagOne) {
-                return VectorType.SEQUENCE;
-            }
-        }
+        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
     }
 
+    const numFeatures =
+        sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
+    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+
+    if (rleMetadata.numRleValues !== numFeatures) {
+        return VectorType.FLAT;
+    }
+    if (rleMetadata.runs === 1) {
+        // Single run is always a sequence
+        return VectorType.SEQUENCE;
+    }
+    // Two runs can be a sequence if both deltas are equal to 1
+    const savedOffset = offset.get();
+
+    let values: Int32Array;
+    if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+        values = decodeVarintInt32(data, offset, 4);
+    } else {
+        const byteOffset = offset.get();
+        values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+    }
+    offset.set(savedOffset);
+    const zigZagOne = 2;
+    // Check if both deltas are encoded 1
+    if (values[2] === zigZagOne && values[3] === zigZagOne) {
+        return VectorType.SEQUENCE;
+    }
     return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
 }
 

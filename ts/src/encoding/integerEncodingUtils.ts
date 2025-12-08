@@ -28,27 +28,27 @@ export function encodeZigZagInt64Value(value: bigint): bigint {
 export function encodeZigZagFloat64Value(n: number): number {
     return n >= 0 ? n * 2 : n * -2 - 1;
 }
-export function encodeZigZagInt32Array(data: Int32Array): void {
+export function encodeZigZagInt32(data: Int32Array): void {
     for (let i = 0; i < data.length; i++) {
         data[i] = encodeZigZagInt32Value(data[i]);
     }
 }
 
-export function encodeZigZagInt64Array(data: BigInt64Array): void {
+export function encodeZigZagInt64(data: BigInt64Array): void {
     for (let i = 0; i < data.length; i++) {
         data[i] = encodeZigZagInt64Value(data[i]);
     }
 }
 
-export function encodeZigZagFloat64Array(data: Float64Array): void {
+export function encodeZigZagFloat64(data: Float64Array): void {
     for (let i = 0; i < data.length; i++) {
         data[i] = encodeZigZagFloat64Value(data[i]);
     }
 }
 
-export function encodeUnsignedRleInt32(input: Int32Array): Int32Array {
+export function encodeUnsignedRleInt32(input: Int32Array): { data: Int32Array; runs: number } {
     if (input.length === 0) {
-        return new Int32Array(0);
+        return { data: new Int32Array(0), runs: 0 };
     }
 
     const runLengths: number[] = [];
@@ -87,12 +87,12 @@ export function encodeUnsignedRleInt32(input: Int32Array): Int32Array {
     // Populate the second half with values, offset by the total number of runs
     encodedData.set(runValues, numRuns);
 
-    return encodedData;
+    return { data: encodedData, runs: numRuns };
 }
 
-export function encodeUnsignedRleInt64(input: BigInt64Array): BigInt64Array {
+export function encodeUnsignedRleInt64(input: BigInt64Array): { data: BigInt64Array; runs: number } {
     if (input.length === 0) {
-        return new BigInt64Array(0);
+        return { data: new BigInt64Array(0), runs: 0 };
     }
 
     const runLengths: number[] = [];
@@ -133,12 +133,12 @@ export function encodeUnsignedRleInt64(input: BigInt64Array): BigInt64Array {
     // Populate the second half with values, offset by the total number of runs
     encodedData.set(runValues, numRuns);
 
-    return encodedData;
+    return { data: encodedData, runs: numRuns };
 }
 
-export function encodeUnsignedRleFloat64(input: Float64Array): Float64Array {
+export function encodeUnsignedRleFloat64(input: Float64Array): { data: Float64Array; runs: number } {
     if (input.length === 0) {
-        return new Float64Array(0);
+        return { data: new Float64Array(0), runs: 0 };
     }
 
     const runLengths: number[] = [];
@@ -178,7 +178,28 @@ export function encodeUnsignedRleFloat64(input: Float64Array): Float64Array {
     // Populate the second half with values, offset by the total number of runs
     encodedData.set(runValues, numRuns);
 
-    return encodedData;
+    return { data: encodedData, runs: numRuns };
+}
+
+export function encodeZigZagDeltaInt32(data: Int32Array): void {
+    if (data.length === 0) {
+        return;
+    }
+
+    let previousValue = data[0];
+    data[0] = encodeZigZagInt32Value(previousValue);
+
+    for (let i = 1; i < data.length; i++) {
+        const currentValue = data[i];
+        const delta = currentValue - previousValue;
+        const encodedDelta = encodeZigZagInt32Value(delta);
+
+        // Store the encoded delta back into the array
+        data[i] = encodedDelta;
+
+        // Update the previous value tracker for the next iteration's delta calculation
+        previousValue = currentValue;
+    }
 }
 
 export function encodeZigZagDeltaInt64(data: BigInt64Array): void {
@@ -202,6 +223,27 @@ export function encodeZigZagDeltaInt64(data: BigInt64Array): void {
     }
 }
 
+export function encodeZigZagDeltaFloat64(data: Float64Array): void {
+    if (data.length === 0) {
+        return;
+    }
+
+    let previousValue = data[0];
+    data[0] = encodeZigZagFloat64Value(previousValue);
+
+    for (let i = 1; i < data.length; i++) {
+        const currentValue = data[i];
+        const delta = currentValue - previousValue;
+        const encodedDelta = encodeZigZagFloat64Value(delta);
+
+        // Store the encoded delta back into the array
+        data[i] = encodedDelta;
+
+        // Update the previous value tracker for the next iteration's delta calculation
+        previousValue = currentValue;
+    }
+}
+
 /**
  * This is not really a encode, but more of a decode method...
  */
@@ -215,12 +257,12 @@ export function encodeDeltaInt32(data: Int32Array): void {
 }
 
 export function encodeNullableZigZagDeltaInt32(inputData: Int32Array): {
-    encodedData: Int32Array;
+    data: Int32Array;
     bitVector: BitVector;
     totalSize: number;
 } {
     if (inputData.length === 0) {
-        return { encodedData: new Int32Array(0), bitVector: new BitVector(new Uint8Array(0), 0), totalSize: 0 };
+        return { data: new Int32Array(0), bitVector: new BitVector(new Uint8Array(0), 0), totalSize: 0 };
     }
 
     const totalSize = inputData.length;
@@ -257,19 +299,19 @@ export function encodeNullableZigZagDeltaInt32(inputData: Int32Array): {
     const finalEncodedData = new Int32Array(encodedDeltas);
 
     return {
-        encodedData: finalEncodedData,
+        data: finalEncodedData,
         bitVector: bitVector,
         totalSize: totalSize,
     };
 }
 
 export function encodeNullableZigZagDeltaInt64(inputData: BigInt64Array): {
-    encodedData: BigInt64Array;
+    data: BigInt64Array;
     bitVector: BitVector;
     totalSize: number;
 } {
     if (inputData.length === 0) {
-        return { encodedData: new BigInt64Array(0), bitVector: new BitVector(new Uint8Array(0), 0), totalSize: 0 };
+        return { data: new BigInt64Array(0), bitVector: new BitVector(new Uint8Array(0), 0), totalSize: 0 };
     }
 
     const totalSize = inputData.length;
@@ -307,19 +349,19 @@ export function encodeNullableZigZagDeltaInt64(inputData: BigInt64Array): {
     const finalEncodedData = new BigInt64Array(encodedDeltas);
 
     return {
-        encodedData: finalEncodedData,
+        data: finalEncodedData,
         bitVector: bitVector,
         totalSize: totalSize,
     };
 }
 
 export function encodeDeltaRleInt32(input: Int32Array): {
-    encodedData: Int32Array;
-    numRuns: number;
+    data: Int32Array;
+    runs: number;
     numValues: number;
 } {
     if (input.length === 0) {
-        return { encodedData: new Int32Array(0), numRuns: 0, numValues: 0 };
+        return { data: new Int32Array(0), runs: 0, numValues: 0 };
     }
 
     const deltasAndEncoded: number[] = [];
@@ -372,19 +414,19 @@ export function encodeDeltaRleInt32(input: Int32Array): {
     encodedData.set(runZigZagDeltas, numRuns);
 
     return {
-        encodedData: encodedData,
-        numRuns: numRuns,
+        data: encodedData,
+        runs: numRuns,
         numValues: input.length, // Total original values count
     };
 }
 
 export function encodeDeltaRleInt64(input: BigInt64Array): {
-    encodedData: BigInt64Array;
-    numRuns: number;
+    data: BigInt64Array;
+    runs: number;
     numValues: number;
 } {
     if (input.length === 0) {
-        return { encodedData: new BigInt64Array(0), numRuns: 0, numValues: 0 };
+        return { data: new BigInt64Array(0), runs: 0, numValues: 0 };
     }
 
     const deltasAndEncoded: bigint[] = [];
@@ -436,19 +478,19 @@ export function encodeDeltaRleInt64(input: BigInt64Array): {
     encodedData.set(runZigZagDeltas, numRuns);
 
     return {
-        encodedData: encodedData,
-        numRuns: numRuns,
+        data: encodedData,
+        runs: numRuns,
         numValues: input.length, // Total original values count
     };
 }
 
 export function encodeZigZagRleInt32(input: Int32Array): {
-    encodedData: Int32Array;
-    numRuns: number;
+    data: Int32Array;
+    runs: number;
     numTotalValues: number;
 } {
     if (input.length === 0) {
-        return { encodedData: new Int32Array(0), numRuns: 0, numTotalValues: 0 };
+        return { data: new Int32Array(0), runs: 0, numTotalValues: 0 };
     }
 
     const zigzagEncodedStream: number[] = [];
@@ -494,19 +536,19 @@ export function encodeZigZagRleInt32(input: Int32Array): {
     encodedData.set(runZigZagValues, numRuns);
 
     return {
-        encodedData: encodedData,
-        numRuns: numRuns,
+        data: encodedData,
+        runs: numRuns,
         numTotalValues: input.length, // Total original values count
     };
 }
 
 export function encodeZigZagRleInt64(input: BigInt64Array): {
-    encodedData: BigInt64Array;
-    numRuns: number;
+    data: BigInt64Array;
+    runs: number;
     numTotalValues: number;
 } {
     if (input.length === 0) {
-        return { encodedData: new BigInt64Array(0), numRuns: 0, numTotalValues: 0 };
+        return { data: new BigInt64Array(0), runs: 0, numTotalValues: 0 };
     }
 
     const zigzagEncodedStream: bigint[] = [];
@@ -554,19 +596,19 @@ export function encodeZigZagRleInt64(input: BigInt64Array): {
     encodedData.set(runZigZagValues, numRuns);
 
     return {
-        encodedData: encodedData,
-        numRuns: numRuns,
+        data: encodedData,
+        runs: numRuns,
         numTotalValues: input.length, // Total original values count
     };
 }
 
 export function encodeZigZagRleFloat64(input: Float64Array): {
-    encodedData: Float64Array;
-    numRuns: number;
+    data: Float64Array;
+    runs: number;
     numTotalValues: number;
 } {
     if (input.length === 0) {
-        return { encodedData: new Float64Array(0), numRuns: 0, numTotalValues: 0 };
+        return { data: new Float64Array(0), runs: 0, numTotalValues: 0 };
     }
 
     const zigzagEncodedStream: number[] = [];
@@ -612,8 +654,8 @@ export function encodeZigZagRleFloat64(input: Float64Array): {
     encodedData.set(runZigZagValues, numRuns);
 
     return {
-        encodedData: encodedData,
-        numRuns: numRuns,
+        data: encodedData,
+        runs: numRuns,
         numTotalValues: input.length, // Total original values count
     };
 }

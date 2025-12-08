@@ -1,102 +1,92 @@
-import { encodeVarintInt32Array, encodeVarintInt64Array, encodeZigZag32, encodeZigZag64 } from "./encodingUtils";
+import { encodeVarintInt32Array, encodeVarintInt64Array, encodeZigZag64 } from "./encodingUtils";
+import { RleEncodedStreamMetadata, StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
+import {
+    encodeDeltaRleInt32,
+    encodeZigZagInt32,
+    encodeZigZagRleInt32,
+    encodeUnsignedRleInt32,
+    encodeDeltaInt32,
+    encodeUnsignedRleFloat64,
+    encodeZigZagDeltaFloat64,
+    encodeZigZagFloat64,
+    encodeZigZagRleFloat64,
+} from "./integerEncodingUtils";
 
-/**
- * Encodes Int32 values with zigzag encoding and varint compression
- */
-export function encodeInt32SignedNone(values: Int32Array): Uint8Array {
-    const zigzagEncoded = new Int32Array(values.length);
-    for (let i = 0; i < values.length; i++) {
-        zigzagEncoded[i] = encodeZigZag32(values[i]);
-    }
-    return encodeVarintInt32Array(zigzagEncoded);
+export function encodeIntStream(values: Int32Array, metadata: StreamMetadata, isSigned: boolean): Uint8Array {
+    const { data } = encodeIntBuffer(values, metadata, isSigned);
+    return encodeVarintInt32Array(data);
 }
 
-/**
- * Encodes Int32 values with delta encoding, zigzag, and varint
- */
-export function encodeInt32SignedDelta(values: Int32Array): Uint8Array {
-    const deltaEncoded = new Int32Array(values.length);
-    deltaEncoded[0] = values[0];
-    for (let i = 1; i < values.length; i++) {
-        deltaEncoded[i] = values[i] - values[i - 1];
-    }
-    const zigzagEncoded = new Int32Array(deltaEncoded.length);
-    for (let i = 0; i < deltaEncoded.length; i++) {
-        zigzagEncoded[i] = encodeZigZag32(deltaEncoded[i]);
-    }
-    return encodeVarintInt32Array(zigzagEncoded);
-}
-
-/**
- * Encodes Int32 values with RLE, zigzag, and varint
- * @param runs - Array of [runLength, value] pairs
- */
-export function encodeInt32SignedRle(runs: Array<[number, number]>): Uint8Array {
-    const runLengths: number[] = [];
-    const values: number[] = [];
-
-    for (const [runLength, value] of runs) {
-        runLengths.push(runLength);
-        values.push(encodeZigZag32(value));
-    }
-
-    const rleValues = [...runLengths, ...values];
-    return encodeVarintInt32Array(new Int32Array(rleValues));
-}
-
-export function encodeInt32ArrayToRle(values: Int32Array): { data: Uint8Array; runs: number } {
-    const rleRuns: Array<[number, number]> = [];
-    let currentValue = values[0];
-    let currentCount = 1;
-
-    for (let i = 1; i < values.length; i++) {
-        if (values[i] === currentValue) {
-            currentCount++;
-        } else {
-            rleRuns.push([currentCount, currentValue]);
-            currentValue = values[i];
-            currentCount = 1;
+function encodeIntBuffer(
+    values: Int32Array,
+    streamMetadata: StreamMetadata,
+    isSigned: boolean,
+): { data: Int32Array; runs?: number } {
+    const data = new Int32Array(values);
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                const encoded = encodeDeltaRleInt32(data);
+                return { data: encoded.data, runs: encoded.runs };
+            }
+            encodeDeltaInt32(data);
+            encodeZigZagInt32(data);
+            return { data };
+        case LogicalLevelTechnique.RLE: {
+            if (isSigned) {
+                const encoded = encodeZigZagRleInt32(data);
+                return { data: encoded.data, runs: encoded.runs };
+            }
+            const encoded = encodeUnsignedRleInt32(data);
+            return { data: encoded.data, runs: encoded.runs };
         }
+        case LogicalLevelTechnique.MORTON:
+            encodeDeltaInt32(data);
+            return { data };
+        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+            throw new Error("COMPONENTWISE_DELTA encoding not implemented yet");
+        case LogicalLevelTechnique.NONE:
+            if (isSigned) {
+                encodeZigZagInt32(data);
+            }
+            return { data };
+        default:
+            throw new Error(
+                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+            );
     }
-    rleRuns.push([currentCount, currentValue]);
-
-    return {
-        data: encodeInt32SignedRle(rleRuns),
-        runs: rleRuns.length,
-    };
 }
 
-export function encodeFloat64ArrayToRle(
-    values: Float64Array,
-    signed: boolean = false,
-): { data: Float64Array; runs: number } {
-    const rleRuns: Array<[number, number]> = [];
-    let currentValue = values[0];
-    let currentCount = 1;
-
-    for (let i = 1; i < values.length; i++) {
-        if (values[i] === currentValue) {
-            currentCount++;
-        } else {
-            rleRuns.push([currentCount, currentValue]);
-            currentValue = values[i];
-            currentCount = 1;
-        }
+export function encodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
+    switch (streamMetadata.logicalLevelTechnique1) {
+        case LogicalLevelTechnique.DELTA:
+            encodeZigZagDeltaFloat64(values);
+            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                //const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                values = encodeUnsignedRleFloat64(values).data; //, rleMetadata.runs, rleMetadata.numRleValues);
+            }
+            return values;
+        case LogicalLevelTechnique.RLE:
+            return encodeRleFloat64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
+        case LogicalLevelTechnique.NONE:
+            if (isSigned) {
+                encodeZigZagFloat64(values);
+            }
+            return values;
+        default:
+            throw new Error(
+                `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+            );
     }
-    rleRuns.push([currentCount, currentValue]);
+}
 
-    // Flatten to [count1, count2, value1, value2, ...]
-    const data = new Float64Array(rleRuns.length * 2);
-    for (let i = 0; i < rleRuns.length; i++) {
-        data[i] = rleRuns[i][0]; // count
-        // Apply zigzag encoding for signed values: multiply by 2
-        data[rleRuns.length + i] = signed ? rleRuns[i][1] * 2 : rleRuns[i][1];
-    }
-
-    return {
-        data: data,
-        runs: rleRuns.length,
-    };
+function encodeRleFloat64(
+    data: Float64Array,
+    streamMetadata: RleEncodedStreamMetadata,
+    isSigned: boolean,
+): Float64Array {
+    return isSigned ? encodeZigZagRleFloat64(data).data : encodeUnsignedRleFloat64(data).data;
 }
 
 /**
