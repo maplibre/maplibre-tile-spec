@@ -14,11 +14,11 @@ import {
 } from "./integerEncodingUtils";
 
 export function encodeIntStream(values: Int32Array, metadata: StreamMetadata, isSigned: boolean): Uint8Array {
-    const { data } = encodeIntBuffer(values, metadata, isSigned);
+    const { data } = encodeInt32(values, metadata, isSigned);
     return encodeVarintInt32Array(data);
 }
 
-function encodeIntBuffer(
+function encodeInt32(
     values: Int32Array,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
