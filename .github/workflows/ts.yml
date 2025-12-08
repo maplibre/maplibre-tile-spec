@@ -21,7 +21,7 @@ jobs:
   test-js:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
       - uses: taiki-e/install-action@v2
         with:
           tool: just

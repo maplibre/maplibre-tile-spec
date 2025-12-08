@@ -19,7 +19,7 @@ jobs:
   js-bump-version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
 
       - name: Update version, commit, and create tag
         working-directory: ts
@@ -28,7 +28,7 @@ jobs:
           echo version="$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@84ae59a2cdc2258d6fa0732dd66352dddae2a412 # v7.0.9
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
         with:
           commit-message: bump @maplibre/mlt version to ${{ env.version }}
           branch: mlt-js-version-${{ env.version }}

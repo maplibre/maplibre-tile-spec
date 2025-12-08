@@ -14,7 +14,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
 
       - name: Check if version has been updated
         id: check
@@ -36,7 +36,7 @@ jobs:
     permissions:
       contents: write         # allow making a release
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
 
       - uses: ./.github/actions/mlt-setup-node
 
@@ -68,7 +68,7 @@ jobs:
           } > LICENSE.txt
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           name: js-v${{ env.version }}
           tag_name: js-v${{ env.version }}
@@ -82,7 +82,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ORG_TOKEN }}
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: js-v${{ env.version }}
           name: js-v${{ env.version }}
