@@ -1,5 +1,5 @@
 import { encodeVarintInt32Array, encodeVarintInt64Array, encodeZigZag64 } from "./encodingUtils";
-import { RleEncodedStreamMetadata, StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import {
     encodeDeltaRleInt32,
