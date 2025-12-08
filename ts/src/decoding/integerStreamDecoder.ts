@@ -394,41 +394,42 @@ export function getVectorType(
         return (streamMetadata as RleEncodedStreamMetadata).runs === 1 ? VectorType.CONST : VectorType.FLAT;
     }
 
+    if (
+        logicalLevelTechnique1 !== LogicalLevelTechnique.DELTA ||
+        streamMetadata.logicalLevelTechnique2 !== LogicalLevelTechnique.RLE
+    ) {
+        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+    }
     const numFeatures =
         sizeOrNullabilityBuffer instanceof BitVector ? sizeOrNullabilityBuffer.size() : sizeOrNullabilityBuffer;
+    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
 
-    if (
-        logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
-        streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE
-    ) {
-        const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        const runs = rleMetadata.runs;
-        const zigZagOne = 2;
+    if (rleMetadata.numRleValues !== numFeatures) {
+        return VectorType.FLAT;
+    }
+    // Single run is always a sequence
+    if (rleMetadata.runs === 1) {
+        return VectorType.SEQUENCE;
+    }
 
-        if (rleMetadata.numRleValues !== numFeatures) {
-            return VectorType.FLAT;
-        }
-        // Single run is always a sequence
-        if (runs === 1) {
-            return VectorType.SEQUENCE;
-        }
-        // Two runs can be a sequence if both deltas are equal to 1
-        if (runs === 2) {
-            const savedOffset = offset.get();
+    if (rleMetadata.runs !== 2) {
+        return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
+    }
+    // Two runs can be a sequence if both deltas are equal to 1
+    const savedOffset = offset.get();
 
-            let values: Int32Array;
-            if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
-                values = decodeVarintInt32(data, offset, 4);
-            } else {
-                const byteOffset = offset.get();
-                values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
-            }
-            offset.set(savedOffset);
-            // Check if both deltas are encoded 1
-            if (values[2] === zigZagOne && values[3] === zigZagOne) {
-                return VectorType.SEQUENCE;
-            }
-        }
+    let values: Int32Array;
+    if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+        values = decodeVarintInt32(data, offset, 4);
+    } else {
+        const byteOffset = offset.get();
+        values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+    }
+    offset.set(savedOffset);
+    // Check if both deltas are encoded 1
+    const zigZagOne = 2;
+    if (values[2] === zigZagOne && values[3] === zigZagOne) {
+        return VectorType.SEQUENCE;
     }
     return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
 }
