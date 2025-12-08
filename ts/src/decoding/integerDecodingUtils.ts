@@ -226,7 +226,7 @@ export function decodeUnsignedRleFloat64(
  * In place decoding of the zigzag encoded delta values.
  * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
  */
-export function decodeZigZagDelta(data: Int32Array) {
+export function decodeZigZagDeltaInt32(data: Int32Array) {
     data[0] = decodeZigZagInt32Value(data[0]);
     const sz0 = (data.length / 4) * 4;
     let i = 1;
@@ -522,7 +522,7 @@ export function rleDeltaDecoding(data: Int32Array, numRuns: number, numTotalValu
     return decodedValues;
 }
 
-export function padWithZeros(bitVector: BitVector, data: Int32Array): Int32Array {
+export function padWithZerosInt32(bitVector: BitVector, data: Int32Array): Int32Array {
     const decodedData = new Int32Array(bitVector.size());
     let dataCounter = 0;
     for (let i = 0; i != decodedData.length; ++i) {
@@ -532,7 +532,7 @@ export function padWithZeros(bitVector: BitVector, data: Int32Array): Int32Array
     return decodedData;
 }
 
-export function padZigZagWithZeros(bitVector: BitVector, data: Int32Array): Int32Array {
+export function padZigZagWithZerosInt32(bitVector: BitVector, data: Int32Array): Int32Array {
     const decodedData = new Int32Array(bitVector.size());
     let dataCounter = 0;
     for (let i = 0; i != decodedData.length; ++i) {

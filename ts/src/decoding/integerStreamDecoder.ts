@@ -11,35 +11,35 @@ import {
     decodeUnsignedConstRleInt32,
     decodeUnsignedConstRleInt64,
     decodeUnsignedRleInt32,
-    decodeUnsignedRleFloat64,
     decodeUnsignedRleInt64,
+    decodeUnsignedRleFloat64,
     decodeVarintInt32,
     decodeVarintInt64,
     decodeVarintFloat64,
     decodeZigZagInt32Array,
+    decodeZigZagInt64Array,
+    decodeZigZagFloat64Array,
     decodeZigZagConstRleInt32,
     decodeZigZagConstRleInt64,
-    decodeZigZagDelta,
-    decodeZigZagDeltaFloat64,
+    decodeZigZagDeltaInt32,
     decodeZigZagDeltaInt64,
-    decodeZigZagFloat64Array,
-    decodeZigZagInt64Array,
+    decodeZigZagDeltaFloat64,
     decodeZigZagSequenceRleInt32,
     decodeZigZagSequenceRleInt64,
     decodeZigZagInt32Value,
     decodeZigZagInt64Value,
     fastInverseDelta,
     inverseDelta,
-    padWithZeros,
+    padWithZerosInt32,
     padWithZerosInt64,
-    padZigZagWithZeros,
+    padZigZagWithZerosInt32,
     padZigZagWithZerosInt64,
     rleDeltaDecoding,
     zigZagDeltaOfDeltaDecoding,
     decodeZigZagRleDeltaInt32,
+    decodeZigZagRleInt32,
     decodeZigZagRleInt64,
     decodeZigZagRleFloat64,
-    decodeZigZagRleInt32,
     decodeNullableZigZagRleInt32,
     decodeNullableUnsignedRleInt32,
     decodeNullableZigZagRleInt64,
@@ -162,29 +162,29 @@ export function decodeConstLongStream(
     return isSigned ? decodeZigZagConstRleInt64(values) : decodeUnsignedConstRleInt64(values);
 }
 
+/*
+ * Currently the encoder uses only fixed combinations of encodings.
+ * For performance reasons it is also used a fixed combination of the encodings on the decoding side.
+ * The following encodings and combinations are used:
+ *   - Morton Delta -> always sorted so not ZigZag encoding needed
+ *   - Delta -> currently always in combination with ZigZag encoding
+ *   - Rle -> in combination with ZigZag encoding if data type is signed
+ *   - Delta Rle
+ *   - Componentwise Delta -> always ZigZag encoding is used
+ * */
 function decodeIntBuffer(
     values: Int32Array,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
     scalingData?: GeometryScaling,
 ): Int32Array {
-    /*
-     * Currently the encoder uses only fixed combinations of encodings.
-     * For performance reasons it is also used a fixed combination of the encodings on the decoding side.
-     * The following encodings and combinations are used:
-     *   - Morton Delta -> always sorted so not ZigZag encoding needed
-     *   - Delta -> currently always in combination with ZigZag encoding
-     *   - Rle -> in combination with ZigZag encoding if data type is signed
-     *   - Delta Rle
-     *   - Componentwise Delta -> always ZigZag encoding is used
-     * */
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
                 return decodeDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
             }
-            decodeZigZagDelta(values);
+            decodeZigZagDeltaInt32(values);
             return values;
         case LogicalLevelTechnique.RLE:
             return decodeRleInt32(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
@@ -353,7 +353,7 @@ function decodeNullableIntBuffer(
             decodeComponentwiseDeltaVec2(values);
             return values;
         case LogicalLevelTechnique.NONE:
-            values = isSigned ? padZigZagWithZeros(bitVector, values) : padWithZeros(bitVector, values);
+            values = isSigned ? padZigZagWithZerosInt32(bitVector, values) : padWithZerosInt32(bitVector, values);
             return values;
         default:
             throw new Error("The specified Logical level technique is not supported");
