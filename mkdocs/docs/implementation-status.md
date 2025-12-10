@@ -4,8 +4,8 @@
 
 | Integration | Status |
 |---|---|
-| MapLibre Native | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. [PR #3246](https://github.com/maplibre/maplibre-native/pull/3246). |
-| MapLibre GL JS | Supported since version 5.12.0. [PR #6570](https://github.com/maplibre/maplibre-gl-js/pull/6570). |
+| MapLibre Native | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [#3246](https://github.com/maplibre/maplibre-native/pull/3246). |
+| MapLibre GL JS | Supported since version 5.12.0. PR: [#6570](https://github.com/maplibre/maplibre-gl-js/pull/6570). |
 | Planetiler | Issue: [onthegomap/planetiler#1349](https://github.com/onthegomap/planetiler/issues/1349) |
 
 ## Implementations
