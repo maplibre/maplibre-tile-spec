@@ -29,7 +29,6 @@ import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 
 describe("IntegerDecodingUtils", () => {
-
     describe("decodeVarintInt64", () => {
         it("should decode BigInt values", () => {
             const value = 2n ** 50n;
@@ -102,7 +101,7 @@ describe("IntegerDecodingUtils", () => {
     describe("RLE Decoding", () => {
         it("should decode unsigned RLE", () => {
             const encoded = new Int32Array([2, 3, 10, 20]);
-            const decoded = decodeUnsignedRle(encoded, 2, 5);       //starts hanging on this test
+            const decoded = decodeUnsignedRle(encoded, 2, 5); //starts hanging on this test
             expect(Array.from(decoded)).toEqual([10, 10, 20, 20, 20]);
         });
 
