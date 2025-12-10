@@ -23,7 +23,6 @@ import {
     encodeIntStream,
     encodeFloat64,
 } from "../encoding/integerStreamEncoder";
-import { encodeVarintInt32Array } from "../encoding/encodingUtils";
 
 describe("getVectorType", () => {
     it("should return FLAT for RLE with 0 runs", () => {
@@ -242,12 +241,10 @@ describe("decodeNullableIntStream", () => {
 
     it("should throw for unsupported technique", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.PDE, LogicalLevelTechnique.NONE, 3);
-        const values = new Int32Array([1, 2, 3]);
-        const data = encodeVarintInt32Array(values);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
 
-        expect(() => decodeNullableIntStream(data, offset, metadata, false, bitVector)).toThrow(
+        expect(() => decodeNullableIntStream(new Uint8Array([]), offset, metadata, false, bitVector)).toThrow(
             "The specified Logical level technique is not supported",
         );
     });

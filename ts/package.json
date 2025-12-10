@@ -33,7 +33,6 @@
     "@types/earcut": "^3.0.0",
     "@types/node": "^24.10.1",
     "@types/pbf": "^3.0.5",
-    "@types/varint": "^6.0.3",
     "@vitest/coverage-v8": "^4.0.15",
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
@@ -42,7 +41,6 @@
     "prettier": "^3.7.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
-    "varint": "^6.0.0",
     "vitest": "^4.0.1"
   },
   "dependencies": {

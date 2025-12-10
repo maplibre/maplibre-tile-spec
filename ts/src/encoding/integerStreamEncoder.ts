@@ -1,5 +1,4 @@
-import { encodeVarintInt32Array, encodeVarintInt64Array, encodeZigZag64 } from "./encodingUtils";
-import { type RleEncodedStreamMetadata, type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import { type StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import {
     encodeDeltaRleInt32,
@@ -11,11 +10,14 @@ import {
     encodeZigZagDeltaFloat64,
     encodeZigZagFloat64,
     encodeZigZagRleFloat64,
+    encodeVarintInt32,
+    encodeVarintInt64,
+    encodeZigZagInt64Value,
 } from "./integerEncodingUtils";
 
 export function encodeIntStream(values: Int32Array, metadata: StreamMetadata, isSigned: boolean): Uint8Array {
     const { data } = encodeInt32(values, metadata, isSigned);
-    return encodeVarintInt32Array(data);
+    return encodeVarintInt32(data);
 }
 
 function encodeInt32(
@@ -63,12 +65,11 @@ export function encodeFloat64(values: Float64Array, streamMetadata: StreamMetada
         case LogicalLevelTechnique.DELTA:
             encodeZigZagDeltaFloat64(values);
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                //const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                values = encodeUnsignedRleFloat64(values).data; //, rleMetadata.runs, rleMetadata.numRleValues);
+                values = encodeUnsignedRleFloat64(values).data;
             }
             return values;
         case LogicalLevelTechnique.RLE:
-            return encodeRleFloat64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
+            return encodeRleFloat64(values, isSigned);
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
                 encodeZigZagFloat64(values);
@@ -81,11 +82,7 @@ export function encodeFloat64(values: Float64Array, streamMetadata: StreamMetada
     }
 }
 
-function encodeRleFloat64(
-    data: Float64Array,
-    streamMetadata: RleEncodedStreamMetadata,
-    isSigned: boolean,
-): Float64Array {
+function encodeRleFloat64(data: Float64Array, isSigned: boolean): Float64Array {
     return isSigned ? encodeZigZagRleFloat64(data).data : encodeUnsignedRleFloat64(data).data;
 }
 
@@ -98,15 +95,15 @@ export function encodeInt32Morton(values: Int32Array): Uint8Array {
     for (let i = 1; i < values.length; i++) {
         deltaEncoded[i] = values[i] - values[i - 1];
     }
-    return encodeVarintInt32Array(deltaEncoded);
+    return encodeVarintInt32(deltaEncoded);
 }
 
 /**
  * Encodes BigInt64 values with zigzag encoding and varint compression
  */
 export function encodeInt64SignedNone(values: BigInt64Array): Uint8Array {
-    const zigzagEncoded = new BigInt64Array(Array.from(values, (val) => encodeZigZag64(val)));
-    return encodeVarintInt64Array(zigzagEncoded);
+    const zigzagEncoded = new BigInt64Array(Array.from(values, (val) => encodeZigZagInt64Value(val)));
+    return encodeVarintInt64(zigzagEncoded);
 }
 
 /**
@@ -120,9 +117,9 @@ export function encodeInt64SignedDelta(values: BigInt64Array): Uint8Array {
     }
     const zigzagEncoded = new BigInt64Array(deltaEncoded.length);
     for (let i = 0; i < deltaEncoded.length; i++) {
-        zigzagEncoded[i] = encodeZigZag64(deltaEncoded[i]);
+        zigzagEncoded[i] = encodeZigZagInt64Value(deltaEncoded[i]);
     }
-    return encodeVarintInt64Array(zigzagEncoded);
+    return encodeVarintInt64(zigzagEncoded);
 }
 
 /**
@@ -135,11 +132,11 @@ export function encodeInt64SignedRle(runs: Array<[number, bigint]>): Uint8Array 
 
     for (const [runLength, value] of runs) {
         runLengths.push(BigInt(runLength));
-        values.push(encodeZigZag64(value));
+        values.push(encodeZigZagInt64Value(value));
     }
 
     const rleValues = [...runLengths, ...values];
-    return encodeVarintInt64Array(new BigInt64Array(rleValues));
+    return encodeVarintInt64(new BigInt64Array(rleValues));
 }
 
 /**
@@ -152,16 +149,16 @@ export function encodeInt64SignedDeltaRle(runs: Array<[number, bigint]>): Uint8A
 
     for (const [runLength, value] of runs) {
         runLengths.push(BigInt(runLength));
-        values.push(encodeZigZag64(value));
+        values.push(encodeZigZagInt64Value(value));
     }
 
     const rleValues = [...runLengths, ...values];
-    return encodeVarintInt64Array(new BigInt64Array(rleValues));
+    return encodeVarintInt64(new BigInt64Array(rleValues));
 }
 
 /**
  * Encodes unsigned BigInt64 values with varint compression (no zigzag)
  */
 export function encodeInt64UnsignedNone(values: BigInt64Array): Uint8Array {
-    return encodeVarintInt64Array(values);
+    return encodeVarintInt64(values);
 }

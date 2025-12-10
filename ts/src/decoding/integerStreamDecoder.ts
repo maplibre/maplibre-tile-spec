@@ -34,8 +34,8 @@ import {
     padWithZerosInt64,
     padZigZagWithZerosInt32,
     padZigZagWithZerosInt64,
-    rleDeltaDecoding,
-    zigZagDeltaOfDeltaDecoding,
+    decodeRleDeltaInt32,
+    decodeZigZagDeltaOfDeltaInt32,
     decodeZigZagRleDeltaInt32,
     decodeZigZagRleInt32,
     decodeZigZagRleInt64,
@@ -266,7 +266,7 @@ function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMe
         streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
         streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
     ) {
-        const decodedValues = zigZagDeltaOfDeltaDecoding(values);
+        const decodedValues = decodeZigZagDeltaOfDeltaInt32(values);
         return decodedValues;
     }
 
@@ -275,7 +275,7 @@ function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMe
         streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
     ) {
         const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        const decodedValues = rleDeltaDecoding(values, rleMetadata.runs, rleMetadata.numRleValues);
+        const decodedValues = decodeRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
         return decodedValues;
     }
 

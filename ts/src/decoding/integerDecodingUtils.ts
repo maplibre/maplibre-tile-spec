@@ -47,9 +47,29 @@ export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, num
 export function decodeVarintInt64(src: Uint8Array, offset: IntWrapper, numValues: number): BigInt64Array {
     const dst = new BigInt64Array(numValues);
     for (let i = 0; i < dst.length; i++) {
-        dst[i] = decodeSingleVarintInt64(src, offset);
+        dst[i] = decodeVarintInt64Value(src, offset);
     }
     return dst;
+}
+
+// Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
+function decodeVarintInt64Value(bytes: Uint8Array, pos: IntWrapper): bigint {
+    let value = 0n;
+    let shift = 0;
+    let index = pos.get();
+    while (index < bytes.length) {
+        const b = bytes[index++];
+        value |= BigInt(b & 0x7f) << BigInt(shift);
+        if ((b & 0x80) === 0) {
+            break;
+        }
+        shift += 7;
+        if (shift >= 64) {
+            throw new Error("Varint too long");
+        }
+    }
+    pos.set(index);
+    return value;
 }
 
 /*
@@ -59,13 +79,13 @@ export function decodeVarintInt64(src: Uint8Array, offset: IntWrapper, numValues
 export function decodeVarintFloat64(src: Uint8Array, offset: IntWrapper, numValues: number): Float64Array {
     const dst = new Float64Array(numValues);
     for (let i = 0; i < numValues; i++) {
-        dst[i] = decodeSingleVarintFloat64(src, offset);
+        dst[i] = decodeVarintFloat64Value(src, offset);
     }
     return dst;
 }
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
-function decodeSingleVarintFloat64(buf: Uint8Array, offset: IntWrapper): number {
+function decodeVarintFloat64Value(buf: Uint8Array, offset: IntWrapper): number {
     let val, b;
     b = buf[offset.get()];
     offset.increment();
@@ -156,26 +176,6 @@ export function decodeZigZagFloat64(encodedData: Float64Array): void {
     for (let i = 0; i < encodedData.length; i++) {
         encodedData[i] = decodeZigZagFloat64Value(encodedData[i]);
     }
-}
-
-// Source: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/util/VarInt.java
-function decodeSingleVarintInt64(bytes: Uint8Array, pos: IntWrapper): bigint {
-    let value = 0n;
-    let shift = 0;
-    let index = pos.get();
-    while (index < bytes.length) {
-        const b = bytes[index++];
-        value |= BigInt(b & 0x7f) << BigInt(shift);
-        if ((b & 0x80) === 0) {
-            break;
-        }
-        shift += 7;
-        if (shift >= 64) {
-            throw new Error("Varint too long");
-        }
-    }
-    pos.set(index);
-    return value;
 }
 
 export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
@@ -469,7 +469,7 @@ export function decodeNullableZigZagDeltaInt64(bitVector: BitVector, data: BigIn
 
 /* Transform data to allow util access ------------------------------------------------------------------------ */
 
-export function zigZagDeltaOfDeltaDecoding(data: Int32Array): Int32Array {
+export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Int32Array {
     const decodedData = new Int32Array(data.length + 1);
     decodedData[0] = 0;
     decodedData[1] = decodeZigZagInt32Value(data[0]);
@@ -503,7 +503,7 @@ export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, num
     return decodedValues;
 }
 
-export function rleDeltaDecoding(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
     const decodedValues = new Int32Array(numTotalValues + 1);
     decodedValues[0] = 0;
     let offset = 1;
