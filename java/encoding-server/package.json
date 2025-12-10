@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node server.mjs",
     "format": "prettier -w .",
+    "checkstyle": "prettier . --check",
     "lint": "eslint ."
   },
   "author": "",
