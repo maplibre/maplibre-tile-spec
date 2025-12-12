@@ -19,7 +19,7 @@ bytes = "1.10.1"
 bytes-varint = "1.1.0"
 fastpfor = { version = "0.6.3", features = ["cpp", "rust"] }
 geo-types = "0.7.15"
-geozero = { version = "0.14", features = ["with-mvt"] }
+geozero = { version = "0.15", features = ["with-mvt"] }
 indexmap = "2.7.1"
 morton-encoding = "2.0.1"
 num-traits = "0.2.19"
