@@ -23,16 +23,13 @@ import {
     decodeZigZagRleDeltaInt32,
     fastInverseDelta,
     decodeZigZagSequenceRleInt32,
-    decodeNullableUnsignedRleInt32,
-    decodeNullableUnsignedRleInt64,
     decodeZigZagDeltaInt32,
     decodeZigZagDeltaFloat64,
     decodeRleDeltaInt32,
-    decodeNullableZigZagRleInt32,
 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import { unpackWithRepeat } from "./nullableUtils";
+import { unpackWithRepeat, unpackNullable } from "./nullableUtils";
 import {
     encodeVarintInt32,
     encodeVarintInt64,
@@ -347,7 +344,8 @@ describe("IntegerDecodingUtils", () => {
         const bitVectorData = new Uint8Array([0b01110111]);
         const bitVector = new BitVector(bitVectorData, 8);
         const encoded = encodeNullableZigZagRleInt32(data, bitVector);
-        const decoded = decodeNullableZigZagRleInt32(bitVector, encoded.data, encoded.runs);
+        const compact = decodeZigZagRleInt32(encoded.data, encoded.runs);
+        const decoded = unpackNullable(compact, bitVector, 0);
         // same as input, but 0 for when the bit is false
         expect(Array.from(decoded)).toEqual([0, 0, 5, 0, 0, 5, 6, 0]);
     });
@@ -357,7 +355,8 @@ describe("IntegerDecodingUtils", () => {
         const bitVectorData = new Uint8Array([0b01110111]);
         const bitVector = new BitVector(bitVectorData, 8);
         const encoded = encodeNullableUnsignedRleInt32(data, bitVector);
-        const decoded = decodeNullableUnsignedRleInt32(bitVector, encoded.data, encoded.numRuns);
+        const compact = decodeUnsignedRleInt32(encoded.data, encoded.numRuns);
+        const decoded = unpackNullable(compact, bitVector, 0);
         // same as input, but 0 for when the bit is false
         expect(Array.from(decoded)).toEqual([0, 0, 5, 0, 0, 5, 6, 0]);
     });
@@ -367,7 +366,8 @@ describe("IntegerDecodingUtils", () => {
         const bitVectorData = new Uint8Array([0b01110111]);
         const bitVector = new BitVector(bitVectorData, 8);
         const encoded = encodeNullableUnsignedRleInt64(data, bitVector);
-        const decoded = decodeNullableUnsignedRleInt64(bitVector, encoded.data, encoded.numRuns);
+        const compact = decodeUnsignedRleInt64(encoded.data, encoded.numRuns);
+        const decoded = unpackNullable(compact, bitVector, 0n);
         // same as input, but 0 for when the bit is false
         expect(Array.from(decoded)).toEqual([0n, 0n, 5n, 0n, 0n, 5n, 6n, 0n]);
     });

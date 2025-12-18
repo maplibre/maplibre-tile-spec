@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-    getVectorType,
-    decodeIntStream,
-    decodeFloat64,
-    decodeLongStream,
-} from "./integerStreamDecoder";
+import { getVectorType, decodeIntStream, decodeFloat64, decodeLongStream } from "./integerStreamDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";

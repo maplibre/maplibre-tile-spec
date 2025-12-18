@@ -178,7 +178,15 @@ export function decodeZigZagFloat64(encodedData: Float64Array): void {
     }
 }
 
-export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number, numTotalValues?: number): Int32Array {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += encodedData[i];
+        }
+    }
+
     const decodedValues = new Int32Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -193,8 +201,16 @@ export function decodeUnsignedRleInt32(encodedData: Int32Array, numRuns: number,
 export function decodeUnsignedRleInt64(
     encodedData: BigInt64Array,
     numRuns: number,
-    numTotalValues: number,
+    numTotalValues?: number,
 ): BigInt64Array {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += Number(encodedData[i]);
+        }
+    }
+
     const decodedValues = new BigInt64Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -295,7 +311,15 @@ export function decodeZigZagDeltaFloat64(data: Float64Array) {
     }
 }
 
-export function decodeZigZagRleInt32(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeZigZagRleInt32(data: Int32Array, numRuns: number, numTotalValues?: number): Int32Array {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += data[i];
+        }
+    }
+
     const decodedValues = new Int32Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -308,7 +332,15 @@ export function decodeZigZagRleInt32(data: Int32Array, numRuns: number, numTotal
     return decodedValues;
 }
 
-export function decodeZigZagRleInt64(data: BigInt64Array, numRuns: number, numTotalValues: number): BigInt64Array {
+export function decodeZigZagRleInt64(data: BigInt64Array, numRuns: number, numTotalValues?: number): BigInt64Array {
+    // If numTotalValues not provided, calculate from runs (nullable case)
+    if (numTotalValues === undefined) {
+        numTotalValues = 0;
+        for (let i = 0; i < numRuns; i++) {
+            numTotalValues += Number(data[i]);
+        }
+    }
+
     const decodedValues = new BigInt64Array(numTotalValues);
     let offset = 0;
     for (let i = 0; i < numRuns; i++) {
@@ -482,100 +514,6 @@ export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalV
     }
 
     return decodedValues;
-}
-
-export function decodeNullableUnsignedRleInt32(bitVector: BitVector, data: Int32Array, numRuns: number): Int32Array {
-    const values = new Int32Array(bitVector.size());
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        const value = data[i + numRuns];
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
-            } else {
-                values[j] = 0;
-                offset++;
-            }
-        }
-        offset += runLength;
-    }
-
-    return values;
-}
-
-export function decodeNullableZigZagRleInt32(bitVector: BitVector, data: Int32Array, numRuns: number): Int32Array {
-    const values = new Int32Array(bitVector.size());
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = data[i];
-        let value = data[i + numRuns];
-        value = decodeZigZagInt32Value(value);
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
-            } else {
-                values[j] = 0;
-                offset++;
-            }
-        }
-        offset += runLength;
-    }
-
-    return values;
-}
-
-export function decodeNullableUnsignedRleInt64(
-    bitVector: BitVector,
-    data: BigInt64Array,
-    numRuns: number,
-): BigInt64Array {
-    const values = new BigInt64Array(bitVector.size());
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = Number(data[i]);
-        const value = data[i + numRuns];
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
-            } else {
-                values[j] = 0n;
-                offset++;
-            }
-        }
-        offset += runLength;
-    }
-
-    return values;
-}
-
-export function decodeNullableZigZagRleInt64(
-    bitVector: BitVector,
-    data: BigInt64Array,
-    numRuns: number,
-): BigInt64Array {
-    const values = new BigInt64Array(bitVector.size());
-    let offset = 0;
-    for (let i = 0; i < numRuns; i++) {
-        const runLength = Number(data[i]);
-        let value = data[i + numRuns];
-        value = decodeZigZagInt64Value(value);
-        for (let j = offset; j < offset + runLength; j++) {
-            /* There can be null values in a run */
-            if (bitVector.get(j)) {
-                values[j] = value;
-            } else {
-                values[j] = 0n;
-                offset++;
-            }
-        }
-        offset += runLength;
-    }
-
-    return values;
 }
 
 /**
