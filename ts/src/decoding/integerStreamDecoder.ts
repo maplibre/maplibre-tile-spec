@@ -30,10 +30,6 @@ import {
     decodeZigZagInt64Value,
     fastInverseDelta,
     inverseDelta,
-    padWithZerosInt32,
-    padWithZerosInt64,
-    padZigZagWithZerosInt32,
-    padZigZagWithZerosInt64,
     decodeRleDeltaInt32,
     decodeZigZagDeltaOfDeltaInt32,
     decodeZigZagRleDeltaInt32,
@@ -50,6 +46,7 @@ import { type StreamMetadata, type RleEncodedStreamMetadata } from "../metadata/
 import BitVector from "../vector/flat/bitVector";
 import { VectorType } from "../vector/vectorType";
 import type GeometryScaling from "./geometryScaling";
+import { unpackNullable } from "./nullableUtils";
 
 export function decodeIntStream(
     data: Uint8Array,
@@ -57,9 +54,10 @@ export function decodeIntStream(
     streamMetadata: StreamMetadata,
     isSigned: boolean,
     scalingData?: GeometryScaling,
+    nullabilityBuffer?: BitVector,
 ): Int32Array {
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
-    return decodeInt32(values, streamMetadata, isSigned, scalingData);
+    return decodeInt32(values, streamMetadata, isSigned, scalingData, nullabilityBuffer);
 }
 
 export function decodeLengthStreamToOffsetBuffer(
@@ -135,9 +133,10 @@ export function decodeLongStream(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
+    nullabilityBuffer?: BitVector,
 ): BigInt64Array {
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeInt64(values, streamMetadata, isSigned);
+    return decodeInt64(values, streamMetadata, isSigned, nullabilityBuffer);
 }
 
 export function decodeLongFloat64Stream(
@@ -181,7 +180,39 @@ function decodeInt32(
     streamMetadata: StreamMetadata,
     isSigned: boolean,
     scalingData?: GeometryScaling,
+    nullabilityBuffer?: BitVector,
 ): Int32Array {
+    // If nullable, handle special cases that integrate nullability into decoding
+    if (nullabilityBuffer) {
+        switch (streamMetadata.logicalLevelTechnique1) {
+            case LogicalLevelTechnique.DELTA:
+                if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                    values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+                }
+                // Delta encoding with nulls requires special handling
+                return decodeNullableZigZagDeltaInt32(nullabilityBuffer, values);
+            case LogicalLevelTechnique.RLE:
+                // RLE with nulls requires special handling
+                return decodeNullableRleInt32(values, streamMetadata, isSigned, nullabilityBuffer);
+            case LogicalLevelTechnique.MORTON:
+                fastInverseDelta(values);
+                return values;
+            case LogicalLevelTechnique.COMPONENTWISE_DELTA:
+                decodeComponentwiseDeltaVec2(values);
+                return values;
+            case LogicalLevelTechnique.NONE:
+                if (isSigned) {
+                    decodeZigZagInt32(values);
+                }
+                return unpackNullable(values, nullabilityBuffer, 0);
+            default:
+                throw new Error(
+                    `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+                );
+        }
+    }
+
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -215,7 +246,34 @@ function decodeInt32(
     }
 }
 
-function decodeInt64(values: BigInt64Array, streamMetadata: StreamMetadata, isSigned: boolean): BigInt64Array {
+function decodeInt64(
+    values: BigInt64Array,
+    streamMetadata: StreamMetadata,
+    isSigned: boolean,
+    nullabilityBuffer?: BitVector,
+): BigInt64Array {
+    if (nullabilityBuffer) {
+        switch (streamMetadata.logicalLevelTechnique1) {
+            case LogicalLevelTechnique.DELTA:
+                if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
+                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
+                    values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                }
+                return decodeNullableZigZagDeltaInt64(nullabilityBuffer, values);
+            case LogicalLevelTechnique.RLE:
+                return decodeNullableRleInt64(values, streamMetadata, isSigned, nullabilityBuffer);
+            case LogicalLevelTechnique.NONE:
+                if (isSigned) {
+                    decodeZigZagInt64(values);
+                }
+                return unpackNullable(values, nullabilityBuffer, 0n);
+            default:
+                throw new Error(
+                    `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
+                );
+        }
+    }
+
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -303,84 +361,6 @@ function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMe
     }
 
     throw new Error("Only delta encoding is supported for transforming length to offset streams yet.");
-}
-
-export function decodeNullableIntStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
-    bitVector: BitVector,
-): Int32Array {
-    const values =
-        streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR
-            ? decodeFastPfor(data, streamMetadata.numValues, streamMetadata.byteLength, offset)
-            : decodeVarintInt32(data, offset, streamMetadata.numValues);
-
-    return decodeNullableInt32(values, streamMetadata, isSigned, bitVector);
-}
-
-export function decodeNullableLongStream(
-    data: Uint8Array,
-    offset: IntWrapper,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
-    bitVector: BitVector,
-): BigInt64Array {
-    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
-    return decodeNullableInt64(values, streamMetadata, isSigned, bitVector);
-}
-
-function decodeNullableInt32(
-    values: Int32Array,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
-    bitVector: BitVector,
-): Int32Array {
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-            }
-            return decodeNullableZigZagDeltaInt32(bitVector, values);
-        case LogicalLevelTechnique.RLE:
-            return decodeNullableRleInt32(values, streamMetadata, isSigned, bitVector);
-        case LogicalLevelTechnique.MORTON:
-            fastInverseDelta(values);
-            return values;
-        case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            decodeComponentwiseDeltaVec2(values);
-            return values;
-        case LogicalLevelTechnique.NONE:
-            values = isSigned ? padZigZagWithZerosInt32(bitVector, values) : padWithZerosInt32(bitVector, values);
-            return values;
-        default:
-            throw new Error("The specified Logical level technique is not supported");
-    }
-}
-
-function decodeNullableInt64(
-    values: BigInt64Array,
-    streamMetadata: StreamMetadata,
-    isSigned: boolean,
-    bitVector: BitVector,
-): BigInt64Array {
-    switch (streamMetadata.logicalLevelTechnique1) {
-        case LogicalLevelTechnique.DELTA:
-            if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-            }
-            return decodeNullableZigZagDeltaInt64(bitVector, values);
-        case LogicalLevelTechnique.RLE:
-            return decodeNullableRleInt64(values, streamMetadata, isSigned, bitVector);
-        case LogicalLevelTechnique.NONE:
-            values = isSigned ? padZigZagWithZerosInt64(bitVector, values) : padWithZerosInt64(bitVector, values);
-            return values;
-        default:
-            throw new Error("The specified Logical level technique is not supported");
-    }
 }
 
 export function getVectorType(

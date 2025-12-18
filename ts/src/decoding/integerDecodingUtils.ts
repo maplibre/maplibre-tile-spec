@@ -522,56 +522,6 @@ export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalV
     return decodedValues;
 }
 
-export function padWithZerosInt32(bitVector: BitVector, data: Int32Array): Int32Array {
-    const decodedData = new Int32Array(bitVector.size());
-    let dataCounter = 0;
-    for (let i = 0; i != decodedData.length; ++i) {
-        decodedData[i] = bitVector.get(i) ? data[dataCounter++] : 0;
-    }
-
-    return decodedData;
-}
-
-export function padZigZagWithZerosInt32(bitVector: BitVector, data: Int32Array): Int32Array {
-    const decodedData = new Int32Array(bitVector.size());
-    let dataCounter = 0;
-    for (let i = 0; i != decodedData.length; ++i) {
-        if (bitVector.get(i)) {
-            const value = data[dataCounter++];
-            decodedData[i] = decodeZigZagInt32Value(value);
-        } else {
-            decodedData[i] = 0;
-        }
-    }
-
-    return decodedData;
-}
-
-export function padWithZerosInt64(bitVector: BitVector, data: BigInt64Array): BigInt64Array {
-    const decodedData = new BigInt64Array(bitVector.size());
-    let dataCounter = 0;
-    for (let i = 0; i != decodedData.length; ++i) {
-        decodedData[i] = bitVector.get(i) ? data[dataCounter++] : 0n;
-    }
-
-    return decodedData;
-}
-
-export function padZigZagWithZerosInt64(bitVector: BitVector, data: BigInt64Array): BigInt64Array {
-    const decodedData = new BigInt64Array(bitVector.size());
-    let dataCounter = 0;
-    for (let i = 0; i != decodedData.length; ++i) {
-        if (bitVector.get(i)) {
-            const value = data[dataCounter++];
-            decodedData[i] = decodeZigZagInt64Value(value);
-        } else {
-            decodedData[i] = 0n;
-        }
-    }
-
-    return decodedData;
-}
-
 export function decodeNullableUnsignedRleInt32(bitVector: BitVector, data: Int32Array, numRuns: number): Int32Array {
     const values = new Int32Array(bitVector.size());
     let offset = 0;
