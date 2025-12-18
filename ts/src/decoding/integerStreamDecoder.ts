@@ -324,8 +324,7 @@ function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMe
         streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
         streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
     ) {
-        const decodedValues = decodeZigZagDeltaOfDeltaInt32(values);
-        return decodedValues;
+        return decodeZigZagDeltaOfDeltaInt32(values);
     }
 
     if (
@@ -333,8 +332,7 @@ function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMe
         streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
     ) {
         const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-        const decodedValues = decodeRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-        return decodedValues;
+        return decodeRleDeltaInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
     }
 
     if (
