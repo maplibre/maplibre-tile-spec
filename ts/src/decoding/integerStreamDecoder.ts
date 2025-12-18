@@ -6,8 +6,6 @@ import {
     decodeDeltaRleInt32,
     decodeDeltaRleInt64,
     decodeFastPfor,
-    decodeNullableZigZagDeltaInt32,
-    decodeNullableZigZagDeltaInt64,
     decodeUnsignedConstRleInt32,
     decodeUnsignedConstRleInt64,
     decodeUnsignedRleInt32,
@@ -46,7 +44,7 @@ import { type StreamMetadata, type RleEncodedStreamMetadata } from "../metadata/
 import BitVector from "../vector/flat/bitVector";
 import { VectorType } from "../vector/vectorType";
 import type GeometryScaling from "./geometryScaling";
-import { unpackNullable } from "./nullableUtils";
+import { unpackNullable, unpackWithRepeat } from "./nullableUtils";
 
 export function decodeIntStream(
     data: Uint8Array,
@@ -190,8 +188,9 @@ function decodeInt32(
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
                     values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
-                // Delta encoding with nulls requires special handling
-                return decodeNullableZigZagDeltaInt32(nullabilityBuffer, values);
+                // Decode deltas first, then unpack with repeat for nulls
+                decodeZigZagDeltaInt32(values);
+                return unpackWithRepeat(values, nullabilityBuffer, 0);
             case LogicalLevelTechnique.RLE:
                 // RLE with nulls requires special handling
                 return decodeNullableRleInt32(values, streamMetadata, isSigned, nullabilityBuffer);
@@ -259,7 +258,9 @@ function decodeInt64(
                     const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
                     values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
                 }
-                return decodeNullableZigZagDeltaInt64(nullabilityBuffer, values);
+                // Decode deltas first, then unpack with repeat for nulls
+                decodeZigZagDeltaInt64(values);
+                return unpackWithRepeat(values, nullabilityBuffer, 0n);
             case LogicalLevelTechnique.RLE:
                 return decodeNullableRleInt64(values, streamMetadata, isSigned, nullabilityBuffer);
             case LogicalLevelTechnique.NONE:

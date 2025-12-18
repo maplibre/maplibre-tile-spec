@@ -75,3 +75,51 @@ export function unpackNullableBoolean(
 
     return result.getBuffer();
 }
+
+/**
+ * Unpacking function for DELTA encoding.
+ * This maintains the semantic meaning of DELTA where null represents "no change".
+ *
+ * @param dataStream The compact data stream containing only non-null decoded values
+ * @param presentBits BitVector indicating which positions have values (null if non-nullable)
+ * @param initialValue The initial value to use for first position if null (0, 0n, etc.)
+ * @returns Full array with previous values repeated at null positions
+ */
+export function unpackWithRepeat<T extends TypedArrayInstance>(
+    dataStream: T,
+    presentBits: BitVector | null,
+    initialValue: number | bigint,
+): T {
+    // Non-nullable case: return data stream as-is
+    if (!presentBits) {
+        return dataStream;
+    }
+
+    const size = presentBits.size();
+
+    // Handle empty case
+    if (size === 0 || dataStream.length === 0) {
+        const constructor = dataStream.constructor as TypedArrayConstructor;
+        return new constructor(size) as T;
+    }
+
+    // Create new array of same type with full size
+    const constructor = dataStream.constructor as TypedArrayConstructor;
+    const result = new constructor(size) as T;
+
+    let counter = 0;
+    let previousValue: number | bigint = initialValue;
+
+    for (let i = 0; i < size; i++) {
+        if (presentBits.get(i)) {
+            // Position has a value: take from data stream and update previous
+            previousValue = dataStream[counter++];
+            result[i] = previousValue as any;
+        } else {
+            // Position is null: repeat previous value
+            result[i] = previousValue as any;
+        }
+    }
+
+    return result;
+}

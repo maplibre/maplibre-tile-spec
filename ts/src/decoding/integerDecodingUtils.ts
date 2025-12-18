@@ -429,44 +429,6 @@ function clamp(n: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, n));
 }
 
-export function decodeNullableZigZagDeltaInt32(bitVector: BitVector, data: Int32Array): Int32Array {
-    const decodedData = new Int32Array(bitVector.size());
-    let dataCounter = 0;
-    if (bitVector.get(0)) {
-        decodedData[0] = bitVector.get(0) ? decodeZigZagInt32Value(data[0]) : 0;
-        dataCounter = 1;
-    } else {
-        decodedData[0] = 0;
-    }
-
-    for (let i = 1; i < decodedData.length; ++i) {
-        decodedData[i] = bitVector.get(i)
-            ? decodedData[i - 1] + decodeZigZagInt32Value(data[dataCounter++])
-            : decodedData[i - 1];
-    }
-
-    return decodedData;
-}
-
-export function decodeNullableZigZagDeltaInt64(bitVector: BitVector, data: BigInt64Array): BigInt64Array {
-    const decodedData = new BigInt64Array(bitVector.size());
-    let dataCounter = 0;
-    if (bitVector.get(0)) {
-        decodedData[0] = bitVector.get(0) ? decodeZigZagInt64Value(data[0]) : 0n;
-        dataCounter = 1;
-    } else {
-        decodedData[0] = 0n;
-    }
-
-    for (let i = 1; i < decodedData.length; ++i) {
-        decodedData[i] = bitVector.get(i)
-            ? decodedData[i - 1] + decodeZigZagInt64Value(data[dataCounter++])
-            : decodedData[i - 1];
-    }
-
-    return decodedData;
-}
-
 /* Transform data to allow util access ------------------------------------------------------------------------ */
 
 export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Int32Array {
