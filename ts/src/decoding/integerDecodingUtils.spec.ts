@@ -14,8 +14,6 @@ import {
     decodeZigZagDeltaInt64,
     decodeNullableZigZagDeltaInt32,
     decodeNullableZigZagDeltaInt64,
-    padWithZerosInt64,
-    padZigZagWithZerosInt64,
     decodeDeltaRleInt32,
     decodeDeltaRleInt64,
     decodeUnsignedConstRleInt64,
@@ -213,22 +211,6 @@ describe("IntegerDecodingUtils", () => {
         const encodedData = encodeNullableZigZagDeltaInt64(new BigInt64Array([1n, 2n]));
         const decoded = decodeNullableZigZagDeltaInt64(encodedData.bitVector, encodedData.data);
         expect(Array.from(decoded)).toEqual([1n, 2n]);
-    });
-
-    it("should pad Int64 with zeros", () => {
-        const bitVectorData = new Uint8Array([0b00000011]);
-        const bitVector = new BitVector(bitVectorData, 3);
-        const data = new BigInt64Array([10n, 20n]);
-        const decoded = padWithZerosInt64(bitVector, data);
-        expect(Array.from(decoded)).toEqual([10n, 20n, 0n]);
-    });
-
-    it("should pad zigzag Int64 with zeros", () => {
-        const bitVectorData = new Uint8Array([0b00000101]);
-        const bitVector = new BitVector(bitVectorData, 3);
-        const data = new BigInt64Array([2n, 4n]);
-        const decoded = padZigZagWithZerosInt64(bitVector, data);
-        expect(Array.from(decoded)).toEqual([1n, 0n, 2n]);
     });
 
     it("should decode empty delta RLE Int32", () => {
