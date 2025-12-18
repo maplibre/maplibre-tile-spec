@@ -6,6 +6,7 @@ import { DoubleFlatVector } from "./flat/doubleFlatVector";
 import { IntSequenceVector } from "./sequence/intSequenceVector";
 import { IntConstVector } from "./constant/intConstVector";
 import { type GpuVector } from "./geometry/gpuVector";
+import type { DeferredGeometryColumn } from "../decoding/deferredGeometryColumn";
 
 export interface Feature {
     id: number | bigint;
@@ -15,14 +16,21 @@ export interface Feature {
 
 export default class FeatureTable implements Iterable<Feature> {
     private propertyVectorsMap: Map<string, Vector>;
+    private _geometryVector: GeometryVector | GpuVector | null;
+    private _deferredGeometry: DeferredGeometryColumn | null;
 
+    // Either _geometryVector or _deferredGeometry is expected to be set.
     constructor(
         private readonly _name: string,
-        private readonly _geometryVector: GeometryVector | GpuVector,
+        geometryVector: GeometryVector | GpuVector | null,
         private readonly _idVector?: IntVector,
         private readonly _propertyVectors?: Vector[],
         private readonly _extent = 4096,
-    ) {}
+        deferredGeometry: DeferredGeometryColumn | null = null,
+    ) {
+        this._geometryVector = geometryVector;
+        this._deferredGeometry = deferredGeometry;
+    }
 
     get name(): string {
         return this._name;
@@ -33,7 +41,7 @@ export default class FeatureTable implements Iterable<Feature> {
     }
 
     get geometryVector(): GeometryVector | GpuVector {
-        return this._geometryVector;
+        return this.resolveGeometryVector();
     }
 
     get propertyVectors(): Vector[] {
@@ -49,7 +57,7 @@ export default class FeatureTable implements Iterable<Feature> {
     }
 
     *[Symbol.iterator](): Iterator<Feature> {
-        const geometryIterator = this.geometryVector[Symbol.iterator]();
+        const geometryIterator = this.resolveGeometryVector()[Symbol.iterator]();
         let index = 0;
 
         while (index < this.numFeatures) {
@@ -81,7 +89,11 @@ export default class FeatureTable implements Iterable<Feature> {
     }
 
     get numFeatures(): number {
-        return this.geometryVector.numGeometries;
+        return (
+            this._deferredGeometry?.numFeatures ??
+            this._geometryVector?.numGeometries ??
+            this.missingGeometryVector()
+        );
     }
 
     get extent(): number {
@@ -93,7 +105,7 @@ export default class FeatureTable implements Iterable<Feature> {
      */
     getFeatures(): Feature[] {
         const features: Feature[] = [];
-        const geometries = this.geometryVector.getGeometries();
+        const geometries = this.resolveGeometryVector().getGeometries();
 
         for (let i = 0; i < this.numFeatures; i++) {
             let id;
@@ -129,5 +141,22 @@ export default class FeatureTable implements Iterable<Feature> {
             (intVector instanceof IntConstVector && intVector instanceof IntSequenceVector) ||
             intVector instanceof DoubleFlatVector
         );
+    }
+
+    private resolveGeometryVector(): GeometryVector | GpuVector {
+        if (!this._geometryVector) {
+            if (!this._deferredGeometry) {
+                return this.missingGeometryVector();
+            }
+
+            this._geometryVector = this._deferredGeometry.get();
+            this._deferredGeometry = null;
+        }
+
+        return this._geometryVector;
+    }
+
+    private missingGeometryVector(): never {
+        throw new Error("Geometry vector is not available.");
     }
 }

@@ -20,7 +20,7 @@ import { LongFlatVector } from "./vector/flat/longFlatVector";
 import { LongSequenceVector } from "./vector/sequence/longSequenceVector";
 import { type IntVector } from "./vector/intVector";
 import { decodeVarintInt32 } from "./decoding/integerDecodingUtils";
-import { decodeGeometryColumn } from "./decoding/geometryDecoder";
+import { skipGeometryColumn } from "./decoding/geometryDecoder";
 import { decodePropertyColumn } from "./decoding/propertyDecoder";
 import { IntConstVector } from "./vector/constant/intConstVector";
 import { LongConstVector } from "./vector/constant/longConstVector";
@@ -33,6 +33,7 @@ import { type StreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { type GeometryVector } from "./vector/geometry/geometryVector";
 import type Vector from "./vector/vector";
 import { type GpuVector } from "./vector/geometry/gpuVector";
+import { DeferredGeometryColumn } from "./decoding/deferredGeometryColumn";
 
 const ID_COLUMN_NAME = "id";
 const GEOMETRY_COLUMN_NAME = "geometry";
@@ -77,6 +78,7 @@ export default function decodeTile(
         // Decode columns from streams
         let idVector: IntVector | null = null;
         let geometryVector: GeometryVector | GpuVector | null = null;
+        let deferredGeometry: DeferredGeometryColumn | null = null;
         const propertyVectors: Vector[] = [];
         let numFeatures = 0;
 
@@ -109,20 +111,28 @@ export default function decodeTile(
                 );
             } else if (columnName === GEOMETRY_COLUMN_NAME) {
                 const numStreams = decodeVarintInt32(tile, offset, 1)[0];
+                const geometryColumnStart = offset.get();
 
                 // If no ID column, get numFeatures from geometry type stream metadata
                 if (numFeatures === 0) {
                     const savedOffset = offset.get();
                     const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
                     numFeatures = geometryTypeMetadata.decompressedCount;
-                    offset.set(savedOffset); // Reset to re-read in decodeGeometryColumn
+                    offset.set(savedOffset); // Reset to re-read in geometry decoding
                 }
 
                 if (geometryScaling) {
                     geometryScaling.scale = geometryScaling.extent / extent;
                 }
 
-                geometryVector = decodeGeometryColumn(tile, numStreams, offset, numFeatures, geometryScaling);
+                deferredGeometry = new DeferredGeometryColumn({
+                    tile,
+                    numStreams,
+                    numFeatures,
+                    scalingData: geometryScaling,
+                    startOffset: geometryColumnStart,
+                });
+                skipGeometryColumn(tile, numStreams, offset);
             } else {
                 // Property columns: STRING and STRUCT have stream count, others don't
                 const hasStreamCnt = hasStreamCount(columnMetadata);
@@ -158,6 +168,7 @@ export default function decodeTile(
             idVector,
             propertyVectors,
             extent,
+            deferredGeometry,
         );
         featureTables.push(featureTable);
         offset.set(blockEnd);

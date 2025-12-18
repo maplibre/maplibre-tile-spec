@@ -69,6 +69,10 @@ export function decodeLengthStreamToOffsetBuffer(
     return decodeLengthToOffsetBuffer(values, streamMetadata);
 }
 
+export function skipStreamPayload(offset: IntWrapper, streamMetadata: StreamMetadata): void {
+    offset.add(streamMetadata.byteLength);
+}
+
 function decodePhysicalLevelTechnique(data: Uint8Array, offset: IntWrapper, streamMetadata: StreamMetadata) {
     const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
     if (physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR) {
