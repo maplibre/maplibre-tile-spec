@@ -1,14 +1,17 @@
-import { expect, describe, it } from "vitest";
+import { expect, describe, it, vi } from "vitest";
 import { readdirSync, readFileSync } from "fs";
 import { parse, join } from "path";
 import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 
 import { type FeatureTable, type Feature, decodeTile } from ".";
+import * as geometryDecoder from "./decoding/geometryDecoder";
 import path from "node:path";
 import fs from "node:fs";
 
 const ITERATOR_TILE = path.resolve(__dirname, "../../test/expected/tag0x01/simple/multiline-boolean.mlt");
+// Minimal fixture without an ID column to keep the no-id test deterministic.
+const NO_ID_TILE = path.resolve(__dirname, "../../test/expected/tag0x01/no-id/no-id.mlt");
 
 describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
     const simpleMltTileDir = "../test/expected/tag0x01/simple";
@@ -49,6 +52,43 @@ describe("FeatureTable", () => {
         }
         expect(featureCount).toBe(table.numFeatures);
     });
+
+    it("defers geometry decoding until geometry is accessed", () => {
+        const decodeSpy = vi.spyOn(geometryDecoder, "decodeGeometryColumn");
+        const bytes = new Uint8Array(fs.readFileSync(ITERATOR_TILE));
+        const featureTables = decodeTile(bytes);
+
+        expect(decodeSpy).toHaveBeenCalledTimes(0);
+
+        const table = featureTables[0];
+        expect(table.numFeatures).toBeGreaterThan(0);
+        expect(decodeSpy).toHaveBeenCalledTimes(0);
+
+        const geometryVector = table.geometryVector;
+        expect(decodeSpy).toHaveBeenCalledTimes(1);
+        expect(table.geometryVector).toBe(geometryVector);
+        expect(decodeSpy).toHaveBeenCalledTimes(1);
+        decodeSpy.mockRestore();
+    });
+
+    it("derives numFeatures from geometry metadata when id column is missing", () => {
+        const decodeSpy = vi.spyOn(geometryDecoder, "decodeGeometryColumn");
+        const result = findTileWithoutIdColumn();
+        if (!result) {
+            decodeSpy.mockRestore();
+            return;
+        }
+
+        const table = result.table;
+        expect(table.idVector).toBeFalsy();
+        expect(table.numFeatures).toBeGreaterThan(0);
+        expect(decodeSpy).toHaveBeenCalledTimes(0);
+
+        const geometryVector = table.geometryVector;
+        expect(geometryVector.numGeometries).toBe(table.numFeatures);
+        expect(decodeSpy).toHaveBeenCalledTimes(1);
+        decodeSpy.mockRestore();
+    });
 });
 
 function testTiles(mltSearchDir: string, mvtSearchDir: string) {
@@ -70,6 +110,22 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string) {
             comparePlainGeometryEncodedTile(decodedMlt, decodedMvt);
         });
     }
+}
+
+function findTileWithoutIdColumn() {
+    if (!fs.existsSync(NO_ID_TILE)) {
+        return null;
+    }
+
+    const bytes = new Uint8Array(readFileSync(NO_ID_TILE));
+    const tables = decodeTile(bytes);
+    for (const table of tables) {
+        if (!table.idVector) {
+            return { table, path: NO_ID_TILE };
+        }
+    }
+
+    return null;
 }
 
 function removeEmptyStrings(mvtProperties: Record<string, any>) {

@@ -6,6 +6,7 @@ import {
     decodeIntStream,
     decodeLengthStreamToOffsetBuffer,
     getVectorType,
+    skipStreamPayload,
 } from "./integerStreamDecoder";
 import { VectorType } from "../vector/vectorType";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
@@ -230,6 +231,16 @@ export function decodeGeometryColumn(
               vertexBuffer,
               mortonSettings,
           );
+}
+
+export function skipGeometryColumn(tile: Uint8Array, numStreams: number, offset: IntWrapper): void {
+    const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
+    skipStreamPayload(offset, geometryTypeMetadata);
+
+    for (let i = 0; i < numStreams - 1; i++) {
+        const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
+        skipStreamPayload(offset, geometryStreamMetadata);
+    }
 }
 
 /*
