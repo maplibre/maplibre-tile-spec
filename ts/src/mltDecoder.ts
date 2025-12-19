@@ -88,10 +88,7 @@ export default function decodeTile(
                 // Check column metadata nullable flag, not numStreams (ID columns don't have stream count)
                 if (columnMetadata.nullable) {
                     const presentStreamMetadata = decodeStreamMetadata(tile, offset);
-                    const streamDataStart = offset.get();
-                    const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, offset);
-                    // Fix offset: decodeBooleanRle doesn't consume all compressed bytes
-                    offset.set(streamDataStart + presentStreamMetadata.byteLength);
+                    const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
                     nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
                 }
 

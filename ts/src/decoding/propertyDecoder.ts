@@ -85,12 +85,7 @@ function decodeScalarPropertyColumn(
     if (columnMetadata.nullable) {
         const presentStreamMetadata = decodeStreamMetadata(data, offset);
         numValues = presentStreamMetadata.numValues;
-        const streamDataStart = offset.get();
-        // Decode the RLE boolean data
-        const presentVector = decodeBooleanRle(data, numValues, offset);
-        // FIX: decodeBooleanRle doesn't consume all bytes!
-        // We must advance to the end of the stream using byteLength from metadata
-        offset.set(streamDataStart + presentStreamMetadata.byteLength);
+        const presentVector = decodeBooleanRle(data, numValues, presentStreamMetadata.byteLength, offset);
         nullabilityBuffer = new BitVector(presentVector, presentStreamMetadata.numValues);
     }
 
@@ -127,13 +122,9 @@ function decodeBooleanColumn(
 ): BooleanFlatVector {
     const dataStreamMetadata = decodeStreamMetadata(data, offset);
     const numValues = dataStreamMetadata.numValues;
-    const streamDataStart = offset.get();
     const dataStream = isNullabilityBuffer(sizeOrNullabilityBuffer)
-        ? decodeNullableBooleanRle(data, numValues, offset, sizeOrNullabilityBuffer)
-        : decodeBooleanRle(data, numValues, offset);
-    // TODO: refactor decodeNullableBooleanRle
-    // Fix offset: RLE decoders don't consume all compressed bytes
-    offset.set(streamDataStart + dataStreamMetadata.byteLength);
+        ? decodeNullableBooleanRle(data, numValues, dataStreamMetadata.byteLength, offset, sizeOrNullabilityBuffer)
+        : decodeBooleanRle(data, numValues, dataStreamMetadata.byteLength, offset);
     const dataVector = new BitVector(dataStream, numValues);
     return new BooleanFlatVector(column.name, dataVector, sizeOrNullabilityBuffer);
 }
