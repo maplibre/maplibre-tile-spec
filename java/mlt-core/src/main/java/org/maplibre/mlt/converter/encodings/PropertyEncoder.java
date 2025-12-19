@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
@@ -24,6 +25,7 @@ public class PropertyEncoder {
       boolean useFSST,
       boolean coercePropertyValues,
       List<ColumnMapping> columnMappings,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     /*
@@ -46,7 +48,8 @@ public class PropertyEncoder {
                 coercePropertyValues,
                 streamObserver,
                 columnMetadata,
-                physicalLevelTechnique);
+                physicalLevelTechnique,
+                integerEncodingOption);
       } else if (MltTypeMap.Tag0x01.isStruct(columnMetadata)) {
         if (columnMappings.size() <= i) {
           throw new IllegalArgumentException(
@@ -139,7 +142,8 @@ public class PropertyEncoder {
       boolean coercePropertyValues,
       MLTStreamObserver streamObserver,
       MltMetadata.Column columnMetadata,
-      PhysicalLevelTechnique physicalLevelTechnique)
+      PhysicalLevelTechnique physicalLevelTechnique,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     if (MltTypeMap.Tag0x01.hasStreamCount(columnMetadata)
         && features.stream().noneMatch(f -> f.properties().containsKey(columnMetadata.name))) {
@@ -155,6 +159,7 @@ public class PropertyEncoder {
         physicalLevelTechnique,
         useFSST,
         coercePropertyValues,
+        integerEncodingOption,
         streamObserver);
   }
 
@@ -221,6 +226,7 @@ public class PropertyEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFSST,
       boolean coercePropertyValues,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     if (columnMetadata.scalarType == null) {
@@ -235,12 +241,19 @@ public class PropertyEncoder {
         final var signed = (scalarType == MltMetadata.ScalarType.INT_32);
         // no stream count
         yield encodeInt32Column(
-            features, columnMetadata, isID, physicalLevelTechnique, signed, streamObserver);
+            features,
+            columnMetadata,
+            isID,
+            physicalLevelTechnique,
+            signed,
+            integerEncodingOption,
+            streamObserver);
       }
       case INT_64, UINT_64 -> {
         final var signed = (scalarType == MltMetadata.ScalarType.INT_64);
         // no stream count
-        yield encodeInt64Column(features, columnMetadata, isID, signed, streamObserver);
+        yield encodeInt64Column(
+            features, columnMetadata, isID, signed, integerEncodingOption, streamObserver);
       }
       case FLOAT, DOUBLE ->
           // no stream count
@@ -420,6 +433,7 @@ public class PropertyEncoder {
       boolean isID,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     final var fieldName = metadata.name;
@@ -453,6 +467,7 @@ public class PropertyEncoder {
             isSigned,
             PhysicalStreamType.DATA,
             null,
+            integerEncodingOption,
             streamObserver,
             "prop_" + fieldName);
 
@@ -464,6 +479,7 @@ public class PropertyEncoder {
       MltMetadata.Column metadata,
       boolean isID,
       boolean isSigned,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     final var fieldName = metadata.name;
@@ -491,7 +507,13 @@ public class PropertyEncoder {
             : new byte[0];
     var encodedDataStream =
         IntegerEncoder.encodeLongStream(
-            values, isSigned, PhysicalStreamType.DATA, null, streamObserver, "prop_" + fieldName);
+            values,
+            isSigned,
+            PhysicalStreamType.DATA,
+            null,
+            integerEncodingOption,
+            streamObserver,
+            "prop_" + fieldName);
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
