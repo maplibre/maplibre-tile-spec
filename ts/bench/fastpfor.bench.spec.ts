@@ -59,7 +59,7 @@ describe("bench: fastpfor vs varint decoding", () => {
     it(
         "runs Benchmark.js suites",
         () => {
-            const includeBig = process.argv.includes("--big");
+            const includeBig = process.env.BENCH_BIG === "1";
             const datasets = buildDatasets(includeBig);
 
             // eslint-disable-next-line no-console
@@ -120,4 +120,3 @@ describe("bench: fastpfor vs varint decoding", () => {
         120_000,
     );
 });
-
