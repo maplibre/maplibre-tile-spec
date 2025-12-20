@@ -108,6 +108,338 @@ function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, outPos: 
     }
 }
 
+// Specialized unpack functions for common bitwidths (avoid generic loop overhead)
+function fastUnpack32_1(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    for (let i = 0; i < 32; i++) {
+        out[outPos + i] = (in0 >>> i) & 1;
+    }
+}
+
+function fastUnpack32_2(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x3;
+    out[outPos + 1] = (in0 >>> 2) & 0x3;
+    out[outPos + 2] = (in0 >>> 4) & 0x3;
+    out[outPos + 3] = (in0 >>> 6) & 0x3;
+    out[outPos + 4] = (in0 >>> 8) & 0x3;
+    out[outPos + 5] = (in0 >>> 10) & 0x3;
+    out[outPos + 6] = (in0 >>> 12) & 0x3;
+    out[outPos + 7] = (in0 >>> 14) & 0x3;
+    out[outPos + 8] = (in0 >>> 16) & 0x3;
+    out[outPos + 9] = (in0 >>> 18) & 0x3;
+    out[outPos + 10] = (in0 >>> 20) & 0x3;
+    out[outPos + 11] = (in0 >>> 22) & 0x3;
+    out[outPos + 12] = (in0 >>> 24) & 0x3;
+    out[outPos + 13] = (in0 >>> 26) & 0x3;
+    out[outPos + 14] = (in0 >>> 28) & 0x3;
+    out[outPos + 15] = (in0 >>> 30) & 0x3;
+    out[outPos + 16] = (in1 >>> 0) & 0x3;
+    out[outPos + 17] = (in1 >>> 2) & 0x3;
+    out[outPos + 18] = (in1 >>> 4) & 0x3;
+    out[outPos + 19] = (in1 >>> 6) & 0x3;
+    out[outPos + 20] = (in1 >>> 8) & 0x3;
+    out[outPos + 21] = (in1 >>> 10) & 0x3;
+    out[outPos + 22] = (in1 >>> 12) & 0x3;
+    out[outPos + 23] = (in1 >>> 14) & 0x3;
+    out[outPos + 24] = (in1 >>> 16) & 0x3;
+    out[outPos + 25] = (in1 >>> 18) & 0x3;
+    out[outPos + 26] = (in1 >>> 20) & 0x3;
+    out[outPos + 27] = (in1 >>> 22) & 0x3;
+    out[outPos + 28] = (in1 >>> 24) & 0x3;
+    out[outPos + 29] = (in1 >>> 26) & 0x3;
+    out[outPos + 30] = (in1 >>> 28) & 0x3;
+    out[outPos + 31] = (in1 >>> 30) & 0x3;
+}
+
+function fastUnpack32_3(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x7;
+    out[outPos + 1] = (in0 >>> 3) & 0x7;
+    out[outPos + 2] = (in0 >>> 6) & 0x7;
+    out[outPos + 3] = (in0 >>> 9) & 0x7;
+    out[outPos + 4] = (in0 >>> 12) & 0x7;
+    out[outPos + 5] = (in0 >>> 15) & 0x7;
+    out[outPos + 6] = (in0 >>> 18) & 0x7;
+    out[outPos + 7] = (in0 >>> 21) & 0x7;
+    out[outPos + 8] = (in0 >>> 24) & 0x7;
+    out[outPos + 9] = (in0 >>> 27) & 0x7;
+    out[outPos + 10] = ((in0 >>> 30) | ((in1 & 0x1) << 2)) & 0x7;
+    out[outPos + 11] = (in1 >>> 1) & 0x7;
+    out[outPos + 12] = (in1 >>> 4) & 0x7;
+    out[outPos + 13] = (in1 >>> 7) & 0x7;
+    out[outPos + 14] = (in1 >>> 10) & 0x7;
+    out[outPos + 15] = (in1 >>> 13) & 0x7;
+    out[outPos + 16] = (in1 >>> 16) & 0x7;
+    out[outPos + 17] = (in1 >>> 19) & 0x7;
+    out[outPos + 18] = (in1 >>> 22) & 0x7;
+    out[outPos + 19] = (in1 >>> 25) & 0x7;
+    out[outPos + 20] = (in1 >>> 28) & 0x7;
+    out[outPos + 21] = ((in1 >>> 31) | ((in2 & 0x3) << 1)) & 0x7;
+    out[outPos + 22] = (in2 >>> 2) & 0x7;
+    out[outPos + 23] = (in2 >>> 5) & 0x7;
+    out[outPos + 24] = (in2 >>> 8) & 0x7;
+    out[outPos + 25] = (in2 >>> 11) & 0x7;
+    out[outPos + 26] = (in2 >>> 14) & 0x7;
+    out[outPos + 27] = (in2 >>> 17) & 0x7;
+    out[outPos + 28] = (in2 >>> 20) & 0x7;
+    out[outPos + 29] = (in2 >>> 23) & 0x7;
+    out[outPos + 30] = (in2 >>> 26) & 0x7;
+    out[outPos + 31] = (in2 >>> 29) & 0x7;
+}
+
+function fastUnpack32_4(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0xf;
+    out[outPos + 1] = (in0 >>> 4) & 0xf;
+    out[outPos + 2] = (in0 >>> 8) & 0xf;
+    out[outPos + 3] = (in0 >>> 12) & 0xf;
+    out[outPos + 4] = (in0 >>> 16) & 0xf;
+    out[outPos + 5] = (in0 >>> 20) & 0xf;
+    out[outPos + 6] = (in0 >>> 24) & 0xf;
+    out[outPos + 7] = (in0 >>> 28) & 0xf;
+    out[outPos + 8] = (in1 >>> 0) & 0xf;
+    out[outPos + 9] = (in1 >>> 4) & 0xf;
+    out[outPos + 10] = (in1 >>> 8) & 0xf;
+    out[outPos + 11] = (in1 >>> 12) & 0xf;
+    out[outPos + 12] = (in1 >>> 16) & 0xf;
+    out[outPos + 13] = (in1 >>> 20) & 0xf;
+    out[outPos + 14] = (in1 >>> 24) & 0xf;
+    out[outPos + 15] = (in1 >>> 28) & 0xf;
+    out[outPos + 16] = (in2 >>> 0) & 0xf;
+    out[outPos + 17] = (in2 >>> 4) & 0xf;
+    out[outPos + 18] = (in2 >>> 8) & 0xf;
+    out[outPos + 19] = (in2 >>> 12) & 0xf;
+    out[outPos + 20] = (in2 >>> 16) & 0xf;
+    out[outPos + 21] = (in2 >>> 20) & 0xf;
+    out[outPos + 22] = (in2 >>> 24) & 0xf;
+    out[outPos + 23] = (in2 >>> 28) & 0xf;
+    out[outPos + 24] = (in3 >>> 0) & 0xf;
+    out[outPos + 25] = (in3 >>> 4) & 0xf;
+    out[outPos + 26] = (in3 >>> 8) & 0xf;
+    out[outPos + 27] = (in3 >>> 12) & 0xf;
+    out[outPos + 28] = (in3 >>> 16) & 0xf;
+    out[outPos + 29] = (in3 >>> 20) & 0xf;
+    out[outPos + 30] = (in3 >>> 24) & 0xf;
+    out[outPos + 31] = (in3 >>> 28) & 0xf;
+}
+
+function fastUnpack32_5(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x1f;
+    out[outPos + 1] = (in0 >>> 5) & 0x1f;
+    out[outPos + 2] = (in0 >>> 10) & 0x1f;
+    out[outPos + 3] = (in0 >>> 15) & 0x1f;
+    out[outPos + 4] = (in0 >>> 20) & 0x1f;
+    out[outPos + 5] = (in0 >>> 25) & 0x1f;
+    out[outPos + 6] = ((in0 >>> 30) | ((in1 & 0x7) << 2)) & 0x1f;
+    out[outPos + 7] = (in1 >>> 3) & 0x1f;
+    out[outPos + 8] = (in1 >>> 8) & 0x1f;
+    out[outPos + 9] = (in1 >>> 13) & 0x1f;
+    out[outPos + 10] = (in1 >>> 18) & 0x1f;
+    out[outPos + 11] = (in1 >>> 23) & 0x1f;
+    out[outPos + 12] = ((in1 >>> 28) | ((in2 & 0x1) << 4)) & 0x1f;
+    out[outPos + 13] = (in2 >>> 1) & 0x1f;
+    out[outPos + 14] = (in2 >>> 6) & 0x1f;
+    out[outPos + 15] = (in2 >>> 11) & 0x1f;
+    out[outPos + 16] = (in2 >>> 16) & 0x1f;
+    out[outPos + 17] = (in2 >>> 21) & 0x1f;
+    out[outPos + 18] = (in2 >>> 26) & 0x1f;
+    out[outPos + 19] = ((in2 >>> 31) | ((in3 & 0xf) << 1)) & 0x1f;
+    out[outPos + 20] = (in3 >>> 4) & 0x1f;
+    out[outPos + 21] = (in3 >>> 9) & 0x1f;
+    out[outPos + 22] = (in3 >>> 14) & 0x1f;
+    out[outPos + 23] = (in3 >>> 19) & 0x1f;
+    out[outPos + 24] = (in3 >>> 24) & 0x1f;
+    out[outPos + 25] = ((in3 >>> 29) | ((in4 & 0x3) << 3)) & 0x1f;
+    out[outPos + 26] = (in4 >>> 2) & 0x1f;
+    out[outPos + 27] = (in4 >>> 7) & 0x1f;
+    out[outPos + 28] = (in4 >>> 12) & 0x1f;
+    out[outPos + 29] = (in4 >>> 17) & 0x1f;
+    out[outPos + 30] = (in4 >>> 22) & 0x1f;
+    out[outPos + 31] = (in4 >>> 27) & 0x1f;
+}
+
+function fastUnpack32_6(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x3f;
+    out[outPos + 1] = (in0 >>> 6) & 0x3f;
+    out[outPos + 2] = (in0 >>> 12) & 0x3f;
+    out[outPos + 3] = (in0 >>> 18) & 0x3f;
+    out[outPos + 4] = (in0 >>> 24) & 0x3f;
+    out[outPos + 5] = ((in0 >>> 30) | ((in1 & 0xf) << 2)) & 0x3f;
+    out[outPos + 6] = (in1 >>> 4) & 0x3f;
+    out[outPos + 7] = (in1 >>> 10) & 0x3f;
+    out[outPos + 8] = (in1 >>> 16) & 0x3f;
+    out[outPos + 9] = (in1 >>> 22) & 0x3f;
+    out[outPos + 10] = ((in1 >>> 28) | ((in2 & 0x3) << 4)) & 0x3f;
+    out[outPos + 11] = (in2 >>> 2) & 0x3f;
+    out[outPos + 12] = (in2 >>> 8) & 0x3f;
+    out[outPos + 13] = (in2 >>> 14) & 0x3f;
+    out[outPos + 14] = (in2 >>> 20) & 0x3f;
+    out[outPos + 15] = (in2 >>> 26) & 0x3f;
+    out[outPos + 16] = (in3 >>> 0) & 0x3f;
+    out[outPos + 17] = (in3 >>> 6) & 0x3f;
+    out[outPos + 18] = (in3 >>> 12) & 0x3f;
+    out[outPos + 19] = (in3 >>> 18) & 0x3f;
+    out[outPos + 20] = (in3 >>> 24) & 0x3f;
+    out[outPos + 21] = ((in3 >>> 30) | ((in4 & 0xf) << 2)) & 0x3f;
+    out[outPos + 22] = (in4 >>> 4) & 0x3f;
+    out[outPos + 23] = (in4 >>> 10) & 0x3f;
+    out[outPos + 24] = (in4 >>> 16) & 0x3f;
+    out[outPos + 25] = (in4 >>> 22) & 0x3f;
+    out[outPos + 26] = ((in4 >>> 28) | ((in5 & 0x3) << 4)) & 0x3f;
+    out[outPos + 27] = (in5 >>> 2) & 0x3f;
+    out[outPos + 28] = (in5 >>> 8) & 0x3f;
+    out[outPos + 29] = (in5 >>> 14) & 0x3f;
+    out[outPos + 30] = (in5 >>> 20) & 0x3f;
+    out[outPos + 31] = (in5 >>> 26) & 0x3f;
+}
+
+function fastUnpack32_7(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x7f;
+    out[outPos + 1] = (in0 >>> 7) & 0x7f;
+    out[outPos + 2] = (in0 >>> 14) & 0x7f;
+    out[outPos + 3] = (in0 >>> 21) & 0x7f;
+    out[outPos + 4] = ((in0 >>> 28) | ((in1 & 0x7) << 4)) & 0x7f;
+    out[outPos + 5] = (in1 >>> 3) & 0x7f;
+    out[outPos + 6] = (in1 >>> 10) & 0x7f;
+    out[outPos + 7] = (in1 >>> 17) & 0x7f;
+    out[outPos + 8] = (in1 >>> 24) & 0x7f;
+    out[outPos + 9] = ((in1 >>> 31) | ((in2 & 0x3f) << 1)) & 0x7f;
+    out[outPos + 10] = (in2 >>> 6) & 0x7f;
+    out[outPos + 11] = (in2 >>> 13) & 0x7f;
+    out[outPos + 12] = (in2 >>> 20) & 0x7f;
+    out[outPos + 13] = ((in2 >>> 27) | ((in3 & 0x3) << 5)) & 0x7f;
+    out[outPos + 14] = (in3 >>> 2) & 0x7f;
+    out[outPos + 15] = (in3 >>> 9) & 0x7f;
+    out[outPos + 16] = (in3 >>> 16) & 0x7f;
+    out[outPos + 17] = (in3 >>> 23) & 0x7f;
+    out[outPos + 18] = ((in3 >>> 30) | ((in4 & 0x1f) << 2)) & 0x7f;
+    out[outPos + 19] = (in4 >>> 5) & 0x7f;
+    out[outPos + 20] = (in4 >>> 12) & 0x7f;
+    out[outPos + 21] = (in4 >>> 19) & 0x7f;
+    out[outPos + 22] = ((in4 >>> 26) | ((in5 & 0x1) << 6)) & 0x7f;
+    out[outPos + 23] = (in5 >>> 1) & 0x7f;
+    out[outPos + 24] = (in5 >>> 8) & 0x7f;
+    out[outPos + 25] = (in5 >>> 15) & 0x7f;
+    out[outPos + 26] = (in5 >>> 22) & 0x7f;
+    out[outPos + 27] = ((in5 >>> 29) | ((in6 & 0xf) << 3)) & 0x7f;
+    out[outPos + 28] = (in6 >>> 4) & 0x7f;
+    out[outPos + 29] = (in6 >>> 11) & 0x7f;
+    out[outPos + 30] = (in6 >>> 18) & 0x7f;
+    out[outPos + 31] = (in6 >>> 25) & 0x7f;
+}
+
+function fastUnpack32_8(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0xff;
+    out[outPos + 1] = (in0 >>> 8) & 0xff;
+    out[outPos + 2] = (in0 >>> 16) & 0xff;
+    out[outPos + 3] = (in0 >>> 24) & 0xff;
+    out[outPos + 4] = (in1 >>> 0) & 0xff;
+    out[outPos + 5] = (in1 >>> 8) & 0xff;
+    out[outPos + 6] = (in1 >>> 16) & 0xff;
+    out[outPos + 7] = (in1 >>> 24) & 0xff;
+    out[outPos + 8] = (in2 >>> 0) & 0xff;
+    out[outPos + 9] = (in2 >>> 8) & 0xff;
+    out[outPos + 10] = (in2 >>> 16) & 0xff;
+    out[outPos + 11] = (in2 >>> 24) & 0xff;
+    out[outPos + 12] = (in3 >>> 0) & 0xff;
+    out[outPos + 13] = (in3 >>> 8) & 0xff;
+    out[outPos + 14] = (in3 >>> 16) & 0xff;
+    out[outPos + 15] = (in3 >>> 24) & 0xff;
+    out[outPos + 16] = (in4 >>> 0) & 0xff;
+    out[outPos + 17] = (in4 >>> 8) & 0xff;
+    out[outPos + 18] = (in4 >>> 16) & 0xff;
+    out[outPos + 19] = (in4 >>> 24) & 0xff;
+    out[outPos + 20] = (in5 >>> 0) & 0xff;
+    out[outPos + 21] = (in5 >>> 8) & 0xff;
+    out[outPos + 22] = (in5 >>> 16) & 0xff;
+    out[outPos + 23] = (in5 >>> 24) & 0xff;
+    out[outPos + 24] = (in6 >>> 0) & 0xff;
+    out[outPos + 25] = (in6 >>> 8) & 0xff;
+    out[outPos + 26] = (in6 >>> 16) & 0xff;
+    out[outPos + 27] = (in6 >>> 24) & 0xff;
+    out[outPos + 28] = (in7 >>> 0) & 0xff;
+    out[outPos + 29] = (in7 >>> 8) & 0xff;
+    out[outPos + 30] = (in7 >>> 16) & 0xff;
+    out[outPos + 31] = (in7 >>> 24) & 0xff;
+}
+
+function fastUnpack32_9(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x1ff;
+    out[outPos + 1] = (in0 >>> 9) & 0x1ff;
+    out[outPos + 2] = (in0 >>> 18) & 0x1ff;
+    out[outPos + 3] = ((in0 >>> 27) | ((in1 & 0xf) << 5)) & 0x1ff;
+    out[outPos + 4] = (in1 >>> 4) & 0x1ff;
+    out[outPos + 5] = (in1 >>> 13) & 0x1ff;
+    out[outPos + 6] = (in1 >>> 22) & 0x1ff;
+    out[outPos + 7] = ((in1 >>> 31) | ((in2 & 0xff) << 1)) & 0x1ff;
+    out[outPos + 8] = (in2 >>> 8) & 0x1ff;
+    out[outPos + 9] = (in2 >>> 17) & 0x1ff;
+    out[outPos + 10] = ((in2 >>> 26) | ((in3 & 0x7) << 6)) & 0x1ff;
+    out[outPos + 11] = (in3 >>> 3) & 0x1ff;
+    out[outPos + 12] = (in3 >>> 12) & 0x1ff;
+    out[outPos + 13] = (in3 >>> 21) & 0x1ff;
+    out[outPos + 14] = ((in3 >>> 30) | ((in4 & 0x7f) << 2)) & 0x1ff;
+    out[outPos + 15] = (in4 >>> 7) & 0x1ff;
+    out[outPos + 16] = (in4 >>> 16) & 0x1ff;
+    out[outPos + 17] = ((in4 >>> 25) | ((in5 & 0x3) << 7)) & 0x1ff;
+    out[outPos + 18] = (in5 >>> 2) & 0x1ff;
+    out[outPos + 19] = (in5 >>> 11) & 0x1ff;
+    out[outPos + 20] = (in5 >>> 20) & 0x1ff;
+    out[outPos + 21] = ((in5 >>> 29) | ((in6 & 0x3f) << 3)) & 0x1ff;
+    out[outPos + 22] = (in6 >>> 6) & 0x1ff;
+    out[outPos + 23] = (in6 >>> 15) & 0x1ff;
+    out[outPos + 24] = ((in6 >>> 24) | ((in7 & 0x1) << 8)) & 0x1ff;
+    out[outPos + 25] = (in7 >>> 1) & 0x1ff;
+    out[outPos + 26] = (in7 >>> 10) & 0x1ff;
+    out[outPos + 27] = (in7 >>> 19) & 0x1ff;
+    out[outPos + 28] = ((in7 >>> 28) | ((in8 & 0x1f) << 4)) & 0x1ff;
+    out[outPos + 29] = (in8 >>> 5) & 0x1ff;
+    out[outPos + 30] = (in8 >>> 14) & 0x1ff;
+    out[outPos + 31] = (in8 >>> 23) & 0x1ff;
+}
+
 function fastUnpack32_10(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
     const in0 = inValues[inPos + 0] >>> 0;
     const in1 = inValues[inPos + 1] >>> 0;
@@ -152,6 +484,297 @@ function fastUnpack32_10(inValues: Int32Array, inPos: number, out: Int32Array, o
     out[outPos + 29] = ((in9 >>> 2) & 0x3ff) | 0;
     out[outPos + 30] = ((in9 >>> 12) & 0x3ff) | 0;
     out[outPos + 31] = ((in9 >>> 22) & 0x3ff) | 0;
+}
+
+function fastUnpack32_11(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x7ff;
+    out[outPos + 1] = (in0 >>> 11) & 0x7ff;
+    out[outPos + 2] = ((in0 >>> 22) | ((in1 & 0x1) << 10)) & 0x7ff;
+    out[outPos + 3] = (in1 >>> 1) & 0x7ff;
+    out[outPos + 4] = (in1 >>> 12) & 0x7ff;
+    out[outPos + 5] = ((in1 >>> 23) | ((in2 & 0x3) << 9)) & 0x7ff;
+    out[outPos + 6] = (in2 >>> 2) & 0x7ff;
+    out[outPos + 7] = (in2 >>> 13) & 0x7ff;
+    out[outPos + 8] = ((in2 >>> 24) | ((in3 & 0x7) << 8)) & 0x7ff;
+    out[outPos + 9] = (in3 >>> 3) & 0x7ff;
+    out[outPos + 10] = (in3 >>> 14) & 0x7ff;
+    out[outPos + 11] = ((in3 >>> 25) | ((in4 & 0xf) << 7)) & 0x7ff;
+    out[outPos + 12] = (in4 >>> 4) & 0x7ff;
+    out[outPos + 13] = (in4 >>> 15) & 0x7ff;
+    out[outPos + 14] = ((in4 >>> 26) | ((in5 & 0x1f) << 6)) & 0x7ff;
+    out[outPos + 15] = (in5 >>> 5) & 0x7ff;
+    out[outPos + 16] = (in5 >>> 16) & 0x7ff;
+    out[outPos + 17] = ((in5 >>> 27) | ((in6 & 0x3f) << 5)) & 0x7ff;
+    out[outPos + 18] = (in6 >>> 6) & 0x7ff;
+    out[outPos + 19] = (in6 >>> 17) & 0x7ff;
+    out[outPos + 20] = ((in6 >>> 28) | ((in7 & 0x7f) << 4)) & 0x7ff;
+    out[outPos + 21] = (in7 >>> 7) & 0x7ff;
+    out[outPos + 22] = (in7 >>> 18) & 0x7ff;
+    out[outPos + 23] = ((in7 >>> 29) | ((in8 & 0xff) << 3)) & 0x7ff;
+    out[outPos + 24] = (in8 >>> 8) & 0x7ff;
+    out[outPos + 25] = (in8 >>> 19) & 0x7ff;
+    out[outPos + 26] = ((in8 >>> 30) | ((in9 & 0x1ff) << 2)) & 0x7ff;
+    out[outPos + 27] = (in9 >>> 9) & 0x7ff;
+    out[outPos + 28] = (in9 >>> 20) & 0x7ff;
+    out[outPos + 29] = ((in9 >>> 31) | ((in10 & 0x3ff) << 1)) & 0x7ff;
+    out[outPos + 30] = (in10 >>> 10) & 0x7ff;
+    out[outPos + 31] = (in10 >>> 21) & 0x7ff;
+}
+
+function fastUnpack32_12(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    const in11 = inValues[inPos + 11] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0xfff;
+    out[outPos + 1] = (in0 >>> 12) & 0xfff;
+    out[outPos + 2] = ((in0 >>> 24) | ((in1 & 0xf) << 8)) & 0xfff;
+    out[outPos + 3] = (in1 >>> 4) & 0xfff;
+    out[outPos + 4] = (in1 >>> 16) & 0xfff;
+    out[outPos + 5] = ((in1 >>> 28) | ((in2 & 0xff) << 4)) & 0xfff;
+    out[outPos + 6] = (in2 >>> 8) & 0xfff;
+    out[outPos + 7] = (in2 >>> 20) & 0xfff;
+    out[outPos + 8] = (in3 >>> 0) & 0xfff;
+    out[outPos + 9] = (in3 >>> 12) & 0xfff;
+    out[outPos + 10] = ((in3 >>> 24) | ((in4 & 0xf) << 8)) & 0xfff;
+    out[outPos + 11] = (in4 >>> 4) & 0xfff;
+    out[outPos + 12] = (in4 >>> 16) & 0xfff;
+    out[outPos + 13] = ((in4 >>> 28) | ((in5 & 0xff) << 4)) & 0xfff;
+    out[outPos + 14] = (in5 >>> 8) & 0xfff;
+    out[outPos + 15] = (in5 >>> 20) & 0xfff;
+    out[outPos + 16] = (in6 >>> 0) & 0xfff;
+    out[outPos + 17] = (in6 >>> 12) & 0xfff;
+    out[outPos + 18] = ((in6 >>> 24) | ((in7 & 0xf) << 8)) & 0xfff;
+    out[outPos + 19] = (in7 >>> 4) & 0xfff;
+    out[outPos + 20] = (in7 >>> 16) & 0xfff;
+    out[outPos + 21] = ((in7 >>> 28) | ((in8 & 0xff) << 4)) & 0xfff;
+    out[outPos + 22] = (in8 >>> 8) & 0xfff;
+    out[outPos + 23] = (in8 >>> 20) & 0xfff;
+    out[outPos + 24] = (in9 >>> 0) & 0xfff;
+    out[outPos + 25] = (in9 >>> 12) & 0xfff;
+    out[outPos + 26] = ((in9 >>> 24) | ((in10 & 0xf) << 8)) & 0xfff;
+    out[outPos + 27] = (in10 >>> 4) & 0xfff;
+    out[outPos + 28] = (in10 >>> 16) & 0xfff;
+    out[outPos + 29] = ((in10 >>> 28) | ((in11 & 0xff) << 4)) & 0xfff;
+    out[outPos + 30] = (in11 >>> 8) & 0xfff;
+    out[outPos + 31] = (in11 >>> 20) & 0xfff;
+}
+
+function fastUnpack32_13(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    const in11 = inValues[inPos + 11] >>> 0;
+    const in12 = inValues[inPos + 12] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x1fff;
+    out[outPos + 1] = (in0 >>> 13) & 0x1fff;
+    out[outPos + 2] = ((in0 >>> 26) | ((in1 & 0x7f) << 6)) & 0x1fff;
+    out[outPos + 3] = (in1 >>> 7) & 0x1fff;
+    out[outPos + 4] = ((in1 >>> 20) | ((in2 & 0x1) << 12)) & 0x1fff;
+    out[outPos + 5] = (in2 >>> 1) & 0x1fff;
+    out[outPos + 6] = (in2 >>> 14) & 0x1fff;
+    out[outPos + 7] = ((in2 >>> 27) | ((in3 & 0xff) << 5)) & 0x1fff;
+    out[outPos + 8] = (in3 >>> 8) & 0x1fff;
+    out[outPos + 9] = ((in3 >>> 21) | ((in4 & 0x3) << 11)) & 0x1fff;
+    out[outPos + 10] = (in4 >>> 2) & 0x1fff;
+    out[outPos + 11] = (in4 >>> 15) & 0x1fff;
+    out[outPos + 12] = ((in4 >>> 28) | ((in5 & 0x1ff) << 4)) & 0x1fff;
+    out[outPos + 13] = (in5 >>> 9) & 0x1fff;
+    out[outPos + 14] = ((in5 >>> 22) | ((in6 & 0x7) << 10)) & 0x1fff;
+    out[outPos + 15] = (in6 >>> 3) & 0x1fff;
+    out[outPos + 16] = (in6 >>> 16) & 0x1fff;
+    out[outPos + 17] = ((in6 >>> 29) | ((in7 & 0x3ff) << 3)) & 0x1fff;
+    out[outPos + 18] = (in7 >>> 10) & 0x1fff;
+    out[outPos + 19] = ((in7 >>> 23) | ((in8 & 0xf) << 9)) & 0x1fff;
+    out[outPos + 20] = (in8 >>> 4) & 0x1fff;
+    out[outPos + 21] = (in8 >>> 17) & 0x1fff;
+    out[outPos + 22] = ((in8 >>> 30) | ((in9 & 0x7ff) << 2)) & 0x1fff;
+    out[outPos + 23] = (in9 >>> 11) & 0x1fff;
+    out[outPos + 24] = ((in9 >>> 24) | ((in10 & 0x1f) << 8)) & 0x1fff;
+    out[outPos + 25] = (in10 >>> 5) & 0x1fff;
+    out[outPos + 26] = (in10 >>> 18) & 0x1fff;
+    out[outPos + 27] = ((in10 >>> 31) | ((in11 & 0xfff) << 1)) & 0x1fff;
+    out[outPos + 28] = (in11 >>> 12) & 0x1fff;
+    out[outPos + 29] = ((in11 >>> 25) | ((in12 & 0x3f) << 7)) & 0x1fff;
+    out[outPos + 30] = (in12 >>> 6) & 0x1fff;
+    out[outPos + 31] = (in12 >>> 19) & 0x1fff;
+}
+
+function fastUnpack32_14(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    const in11 = inValues[inPos + 11] >>> 0;
+    const in12 = inValues[inPos + 12] >>> 0;
+    const in13 = inValues[inPos + 13] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x3fff;
+    out[outPos + 1] = (in0 >>> 14) & 0x3fff;
+    out[outPos + 2] = ((in0 >>> 28) | ((in1 & 0x3ff) << 4)) & 0x3fff;
+    out[outPos + 3] = (in1 >>> 10) & 0x3fff;
+    out[outPos + 4] = ((in1 >>> 24) | ((in2 & 0x3f) << 8)) & 0x3fff;
+    out[outPos + 5] = (in2 >>> 6) & 0x3fff;
+    out[outPos + 6] = ((in2 >>> 20) | ((in3 & 0x3) << 12)) & 0x3fff;
+    out[outPos + 7] = (in3 >>> 2) & 0x3fff;
+    out[outPos + 8] = (in3 >>> 16) & 0x3fff;
+    out[outPos + 9] = ((in3 >>> 30) | ((in4 & 0xfff) << 2)) & 0x3fff;
+    out[outPos + 10] = (in4 >>> 12) & 0x3fff;
+    out[outPos + 11] = ((in4 >>> 26) | ((in5 & 0xff) << 6)) & 0x3fff;
+    out[outPos + 12] = (in5 >>> 8) & 0x3fff;
+    out[outPos + 13] = ((in5 >>> 22) | ((in6 & 0xf) << 10)) & 0x3fff;
+    out[outPos + 14] = (in6 >>> 4) & 0x3fff;
+    out[outPos + 15] = (in6 >>> 18) & 0x3fff;
+    out[outPos + 16] = (in7 >>> 0) & 0x3fff;
+    out[outPos + 17] = (in7 >>> 14) & 0x3fff;
+    out[outPos + 18] = ((in7 >>> 28) | ((in8 & 0x3ff) << 4)) & 0x3fff;
+    out[outPos + 19] = (in8 >>> 10) & 0x3fff;
+    out[outPos + 20] = ((in8 >>> 24) | ((in9 & 0x3f) << 8)) & 0x3fff;
+    out[outPos + 21] = (in9 >>> 6) & 0x3fff;
+    out[outPos + 22] = ((in9 >>> 20) | ((in10 & 0x3) << 12)) & 0x3fff;
+    out[outPos + 23] = (in10 >>> 2) & 0x3fff;
+    out[outPos + 24] = (in10 >>> 16) & 0x3fff;
+    out[outPos + 25] = ((in10 >>> 30) | ((in11 & 0xfff) << 2)) & 0x3fff;
+    out[outPos + 26] = (in11 >>> 12) & 0x3fff;
+    out[outPos + 27] = ((in11 >>> 26) | ((in12 & 0xff) << 6)) & 0x3fff;
+    out[outPos + 28] = (in12 >>> 8) & 0x3fff;
+    out[outPos + 29] = ((in12 >>> 22) | ((in13 & 0xf) << 10)) & 0x3fff;
+    out[outPos + 30] = (in13 >>> 4) & 0x3fff;
+    out[outPos + 31] = (in13 >>> 18) & 0x3fff;
+}
+
+function fastUnpack32_15(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    const in11 = inValues[inPos + 11] >>> 0;
+    const in12 = inValues[inPos + 12] >>> 0;
+    const in13 = inValues[inPos + 13] >>> 0;
+    const in14 = inValues[inPos + 14] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0x7fff;
+    out[outPos + 1] = (in0 >>> 15) & 0x7fff;
+    out[outPos + 2] = ((in0 >>> 30) | ((in1 & 0x1fff) << 2)) & 0x7fff;
+    out[outPos + 3] = (in1 >>> 13) & 0x7fff;
+    out[outPos + 4] = ((in1 >>> 28) | ((in2 & 0x7ff) << 4)) & 0x7fff;
+    out[outPos + 5] = (in2 >>> 11) & 0x7fff;
+    out[outPos + 6] = ((in2 >>> 26) | ((in3 & 0x1ff) << 6)) & 0x7fff;
+    out[outPos + 7] = (in3 >>> 9) & 0x7fff;
+    out[outPos + 8] = ((in3 >>> 24) | ((in4 & 0x7f) << 8)) & 0x7fff;
+    out[outPos + 9] = (in4 >>> 7) & 0x7fff;
+    out[outPos + 10] = ((in4 >>> 22) | ((in5 & 0x1f) << 10)) & 0x7fff;
+    out[outPos + 11] = (in5 >>> 5) & 0x7fff;
+    out[outPos + 12] = ((in5 >>> 20) | ((in6 & 0x7) << 12)) & 0x7fff;
+    out[outPos + 13] = (in6 >>> 3) & 0x7fff;
+    out[outPos + 14] = ((in6 >>> 18) | ((in7 & 0x1) << 14)) & 0x7fff;
+    out[outPos + 15] = (in7 >>> 1) & 0x7fff;
+    out[outPos + 16] = (in7 >>> 16) & 0x7fff;
+    out[outPos + 17] = ((in7 >>> 31) | ((in8 & 0x3fff) << 1)) & 0x7fff;
+    out[outPos + 18] = (in8 >>> 14) & 0x7fff;
+    out[outPos + 19] = ((in8 >>> 29) | ((in9 & 0xfff) << 3)) & 0x7fff;
+    out[outPos + 20] = (in9 >>> 12) & 0x7fff;
+    out[outPos + 21] = ((in9 >>> 27) | ((in10 & 0x3ff) << 5)) & 0x7fff;
+    out[outPos + 22] = (in10 >>> 10) & 0x7fff;
+    out[outPos + 23] = ((in10 >>> 25) | ((in11 & 0xff) << 7)) & 0x7fff;
+    out[outPos + 24] = (in11 >>> 8) & 0x7fff;
+    out[outPos + 25] = ((in11 >>> 23) | ((in12 & 0x3f) << 9)) & 0x7fff;
+    out[outPos + 26] = (in12 >>> 6) & 0x7fff;
+    out[outPos + 27] = ((in12 >>> 21) | ((in13 & 0xf) << 11)) & 0x7fff;
+    out[outPos + 28] = (in13 >>> 4) & 0x7fff;
+    out[outPos + 29] = ((in13 >>> 19) | ((in14 & 0x3) << 13)) & 0x7fff;
+    out[outPos + 30] = (in14 >>> 2) & 0x7fff;
+    out[outPos + 31] = (in14 >>> 17) & 0x7fff;
+}
+
+function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
+    const in0 = inValues[inPos] >>> 0;
+    const in1 = inValues[inPos + 1] >>> 0;
+    const in2 = inValues[inPos + 2] >>> 0;
+    const in3 = inValues[inPos + 3] >>> 0;
+    const in4 = inValues[inPos + 4] >>> 0;
+    const in5 = inValues[inPos + 5] >>> 0;
+    const in6 = inValues[inPos + 6] >>> 0;
+    const in7 = inValues[inPos + 7] >>> 0;
+    const in8 = inValues[inPos + 8] >>> 0;
+    const in9 = inValues[inPos + 9] >>> 0;
+    const in10 = inValues[inPos + 10] >>> 0;
+    const in11 = inValues[inPos + 11] >>> 0;
+    const in12 = inValues[inPos + 12] >>> 0;
+    const in13 = inValues[inPos + 13] >>> 0;
+    const in14 = inValues[inPos + 14] >>> 0;
+    const in15 = inValues[inPos + 15] >>> 0;
+    out[outPos + 0] = (in0 >>> 0) & 0xffff;
+    out[outPos + 1] = (in0 >>> 16) & 0xffff;
+    out[outPos + 2] = (in1 >>> 0) & 0xffff;
+    out[outPos + 3] = (in1 >>> 16) & 0xffff;
+    out[outPos + 4] = (in2 >>> 0) & 0xffff;
+    out[outPos + 5] = (in2 >>> 16) & 0xffff;
+    out[outPos + 6] = (in3 >>> 0) & 0xffff;
+    out[outPos + 7] = (in3 >>> 16) & 0xffff;
+    out[outPos + 8] = (in4 >>> 0) & 0xffff;
+    out[outPos + 9] = (in4 >>> 16) & 0xffff;
+    out[outPos + 10] = (in5 >>> 0) & 0xffff;
+    out[outPos + 11] = (in5 >>> 16) & 0xffff;
+    out[outPos + 12] = (in6 >>> 0) & 0xffff;
+    out[outPos + 13] = (in6 >>> 16) & 0xffff;
+    out[outPos + 14] = (in7 >>> 0) & 0xffff;
+    out[outPos + 15] = (in7 >>> 16) & 0xffff;
+    out[outPos + 16] = (in8 >>> 0) & 0xffff;
+    out[outPos + 17] = (in8 >>> 16) & 0xffff;
+    out[outPos + 18] = (in9 >>> 0) & 0xffff;
+    out[outPos + 19] = (in9 >>> 16) & 0xffff;
+    out[outPos + 20] = (in10 >>> 0) & 0xffff;
+    out[outPos + 21] = (in10 >>> 16) & 0xffff;
+    out[outPos + 22] = (in11 >>> 0) & 0xffff;
+    out[outPos + 23] = (in11 >>> 16) & 0xffff;
+    out[outPos + 24] = (in12 >>> 0) & 0xffff;
+    out[outPos + 25] = (in12 >>> 16) & 0xffff;
+    out[outPos + 26] = (in13 >>> 0) & 0xffff;
+    out[outPos + 27] = (in13 >>> 16) & 0xffff;
+    out[outPos + 28] = (in14 >>> 0) & 0xffff;
+    out[outPos + 29] = (in14 >>> 16) & 0xffff;
+    out[outPos + 30] = (in15 >>> 0) & 0xffff;
+    out[outPos + 31] = (in15 >>> 16) & 0xffff;
 }
 
 function fastUnpack32_17(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
@@ -211,6 +834,33 @@ function fastUnpack32_17(inValues: Int32Array, inPos: number, out: Int32Array, o
  * Generic bit-unpacking of 32 integers, matching JavaFastPFOR BitPacking.fastunpack ordering.
  * Reads exactly `bitWidth` int32 words from `inValues` starting at `inPos`.
  */
+// Dispatch table for specialized unpack functions (indices 1-17)
+const UNPACK_DISPATCH: ((inValues: Int32Array, inPos: number, out: Int32Array, outPos: number) => void)[] = [
+    () => { }, // 0 - handled separately
+    fastUnpack32_1,
+    fastUnpack32_2,
+    fastUnpack32_3,
+    fastUnpack32_4,
+    fastUnpack32_5,
+    fastUnpack32_6,
+    fastUnpack32_7,
+    fastUnpack32_8,
+    fastUnpack32_9,
+    fastUnpack32_10,
+    fastUnpack32_11,
+    fastUnpack32_12,
+    fastUnpack32_13,
+    fastUnpack32_14,
+    fastUnpack32_15,
+    fastUnpack32_16,
+    fastUnpack32_17,
+];
+
+/**
+ * Generic bit-unpacking of 32 integers, matching JavaFastPFOR BitPacking.fastunpack ordering.
+ * Reads exactly `bitWidth` int32 words from `inValues` starting at `inPos`.
+ * Uses specialized functions for bitwidths 1-17 for optimal performance.
+ */
 function fastUnpack32(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number, bitWidth: number): void {
     if (bitWidth === 0) {
         out.fill(0, outPos, outPos + 32);
@@ -221,15 +871,13 @@ function fastUnpack32(inValues: Int32Array, inPos: number, out: Int32Array, outP
         return;
     }
 
-    if (bitWidth === 10) {
-        fastUnpack32_10(inValues, inPos, out, outPos);
-        return;
-    }
-    if (bitWidth === 17) {
-        fastUnpack32_17(inValues, inPos, out, outPos);
+    // Use specialized function if available (1-17)
+    if (bitWidth <= 17) {
+        UNPACK_DISPATCH[bitWidth](inValues, inPos, out, outPos);
         return;
     }
 
+    // Generic fallback for bitwidths 18-31
     const mask = MASKS[bitWidth] >>> 0;
     let inputWordIndex = inPos;
     let bitOffset = 0;
@@ -270,12 +918,15 @@ class FastPfor implements Int32Codec {
     private readonly dataPointers = new Int32Array(33);
     private readonly freqs = new Int32Array(33);
     private readonly best = new Int32Array(3);
+    // Reusable buffer for decoding byteContainer (avoids allocation per page)
+    private decodeByteContainer: Uint8Array;
 
     constructor(pageSize = DEFAULT_PAGE_SIZE) {
         this.pageSize = normalizePageSize(pageSize);
 
         const byteContainerSize = (3 * this.pageSize) / BLOCK_SIZE + this.pageSize;
         this.byteContainer = new Uint8Array(byteContainerSize);
+        this.decodeByteContainer = new Uint8Array(byteContainerSize);
 
         const initialPackedSize = (this.pageSize / 32) * 4;
         for (let k = 1; k < this.dataToBePacked.length; k++) {
@@ -504,14 +1155,18 @@ class FastPfor implements Int32Codec {
         let inExcept = initPos + whereMeta;
         const byteSize = inValues[inExcept++] >>> 0;
 
-        const byteContainer = new Uint8Array(byteSize);
+        // Reuse pre-allocated buffer instead of allocating new Uint8Array per page
+        if (this.decodeByteContainer.length < byteSize) {
+            this.decodeByteContainer = new Uint8Array(byteSize * 2);
+        }
+        const byteContainer = this.decodeByteContainer;
         for (let i = 0; i < byteSize; i++) {
             const intIdx = inExcept + (i >> 2);
             const byteInInt = i & 3;
             byteContainer[i] = (inValues[intIdx] >>> (byteInInt * 8)) & 0xff;
         }
 
-        inExcept += Math.ceil(byteSize / 4);
+        inExcept += ((byteSize + 3) >>> 2);
 
         const bitmap = inValues[inExcept++];
 
@@ -546,32 +1201,29 @@ class FastPfor implements Int32Codec {
             const b = byteContainer[bytePosIn++];
             const cExcept = byteContainer[bytePosIn++];
 
-            switch (b) {
-                case 0:
-                    out.fill(0, tmpOutPos, tmpOutPos + BLOCK_SIZE);
-                    break;
-                case 10:
-                    for (let k = 0; k < BLOCK_SIZE; k += 32) {
-                        fastUnpack32_10(inValues, tmpInPos, out, tmpOutPos + k);
-                        tmpInPos += 10;
-                    }
-                    break;
-                case 17:
-                    for (let k = 0; k < BLOCK_SIZE; k += 32) {
-                        fastUnpack32_17(inValues, tmpInPos, out, tmpOutPos + k);
-                        tmpInPos += 17;
-                    }
-                    break;
-                case 32:
-                    out.set(inValues.subarray(tmpInPos, tmpInPos + BLOCK_SIZE), tmpOutPos);
-                    tmpInPos += BLOCK_SIZE;
-                    break;
-                default:
-                    for (let k = 0; k < BLOCK_SIZE; k += 32) {
-                        fastUnpack32(inValues, tmpInPos, out, tmpOutPos + k, b);
-                        tmpInPos += b;
-                    }
-                    break;
+            if (b === 0) {
+                out.fill(0, tmpOutPos, tmpOutPos + BLOCK_SIZE);
+            } else if (b === 32) {
+                out.set(inValues.subarray(tmpInPos, tmpInPos + BLOCK_SIZE), tmpOutPos);
+                tmpInPos += BLOCK_SIZE;
+            } else if (b <= 17) {
+                // Use dispatch table for bitwidths 1-17 (unrolled 8 iterations)
+                const unpackFn = UNPACK_DISPATCH[b];
+                unpackFn(inValues, tmpInPos, out, tmpOutPos);
+                unpackFn(inValues, tmpInPos + b, out, tmpOutPos + 32);
+                unpackFn(inValues, tmpInPos + b * 2, out, tmpOutPos + 64);
+                unpackFn(inValues, tmpInPos + b * 3, out, tmpOutPos + 96);
+                unpackFn(inValues, tmpInPos + b * 4, out, tmpOutPos + 128);
+                unpackFn(inValues, tmpInPos + b * 5, out, tmpOutPos + 160);
+                unpackFn(inValues, tmpInPos + b * 6, out, tmpOutPos + 192);
+                unpackFn(inValues, tmpInPos + b * 7, out, tmpOutPos + 224);
+                tmpInPos += b * 8;
+            } else {
+                // Generic fallback for bitwidths 18-31
+                for (let k = 0; k < BLOCK_SIZE; k += 32) {
+                    fastUnpack32(inValues, tmpInPos, out, tmpOutPos + k, b);
+                    tmpInPos += b;
+                }
             }
 
             if (cExcept > 0) {
@@ -666,7 +1318,7 @@ class Composition {
     constructor(
         private readonly first: Int32Codec,
         private readonly second: Int32Codec,
-    ) {}
+    ) { }
 
     public compress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Buf, outPos: IntWrapper): Int32Buf {
         if (inLength === 0) return out;
