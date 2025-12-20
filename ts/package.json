@@ -17,7 +17,8 @@
     "build": "tsc",
     "test": "vitest run ./src --coverage --coverage.reportOnFailure",
     "lint": "eslint",
-    "format": "prettier --write \"**/*.ts\""
+    "format": "prettier --write \"**/*.ts\"",
+    "bench:fastpfor": "vitest run bench/fastpfor.bench.spec.ts"
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,7 @@
     "url": "https://github.com/maplibre/maplibre-tile-spec/issues"
   },
   "devDependencies": {
+    "benchmark": "^2.1.4",
     "@mapbox/vector-tile": "^2.0.4",
     "@maplibre/maplibre-gl-style-spec": "^24.3.1",
     "@types/bytebuffer": "^5.0.49",
