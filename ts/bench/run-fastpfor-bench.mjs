@@ -18,4 +18,3 @@ const result = spawnSync(
 );
 
 process.exit(result.status ?? 1);
-
