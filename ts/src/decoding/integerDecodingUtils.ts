@@ -1,5 +1,6 @@
 import type IntWrapper from "./intWrapper";
 import type BitVector from "../vector/flat/bitVector";
+import { bigEndianBytesToInt32s, uncompressFastPforInt32 } from "../fastPforCodec";
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Int32Array {
@@ -145,7 +146,11 @@ export function decodeFastPfor(
     byteLength: number,
     offset: IntWrapper,
 ): Int32Array {
-    throw new Error("FastPFor is not implemented yet.");
+    const start = offset.get();
+    const encoded = bigEndianBytesToInt32s(data, start, byteLength);
+    const decoded = uncompressFastPforInt32(encoded, numValues);
+    offset.add(byteLength);
+    return decoded;
 }
 
 export function decodeZigZagInt32Value(encoded: number): number {
