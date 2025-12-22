@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { unpackNullable, unpackNullableBoolean } from "./unpackNullableUtils";
+import { unpackNullable, unpackNullableBoolean, unpackWithRepeat } from "./unpackNullableUtils";
 import BitVector from "../vector/flat/bitVector";
 import { packNullable, packNullableBoolean } from "../encoding/packNullableUtils";
 
@@ -85,4 +85,29 @@ describe("nullableUtils - non-nullable case", () => {
             expect(result).toEqual(new Uint8Array([0b11110000]));
         });
     });
+
+    describe("unpackWithRepeat", () => {
+        it("should return original array when presentBits is null", () => {
+            const dataStream = new Int32Array([1, 2, 3]);
+            const result = unpackWithRepeat(dataStream, null, 0);
+
+            expect(result).toBe(dataStream);
+            expect(result).toEqual(new Int32Array([1, 2, 3]));
+        });
+
+        it("should return empty array when input is empty", () => {
+            const dataStream = new Int32Array([]);
+            const result = unpackWithRepeat(dataStream, null, 0);
+
+            expect(result).toEqual(new Int32Array([]));
+        });
+
+        it("should return repeat values", () => {
+            const dataStream = new Int32Array([1, 2, 3]);
+            const bitVector = new BitVector(new Uint8Array([0b01001001]), 8); // this should have 3 bits set
+            const result = unpackWithRepeat(dataStream, bitVector, 0);
+
+            expect(result).toEqual(new Int32Array([1, 1, 1, 2, 2, 2, 3, 3]));
+        });
+    })
 });
