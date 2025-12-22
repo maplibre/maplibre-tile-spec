@@ -7,7 +7,6 @@ import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 import { createStreamMetadata, createRleMetadata } from "./decodingTestUtils";
 import {
-    encodeInt32Morton,
     encodeInt64SignedNone,
     encodeInt64SignedDelta,
     encodeInt64SignedRle,
@@ -94,6 +93,18 @@ describe("decodeIntStream", () => {
         expect(result).toEqual(expectedValues);
     });
 
+    it("should decode nullable MORTON fully populated", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
+        const expectedValues = new Int32Array([10, 15, 18, 20]);
+        const bitVector = new BitVector(new Uint8Array([0b1111]), 4); // All non-null
+        const data = encodeIntStream(expectedValues, metadata, false, bitVector);
+        const offset = new IntWrapper(0);
+
+        const result = decodeIntStream(data, offset, metadata, false, undefined, bitVector);
+
+        expect(result).toEqual(expectedValues);
+    });
+
     it("should decode NONE signed with Int32", () => {
         const expectedValues = new Int32Array([2, -4, 6, -8]);
         const metadata = createStreamMetadata(
@@ -105,6 +116,16 @@ describe("decodeIntStream", () => {
         const result = decodeIntStream(data, new IntWrapper(0), metadata, true);
 
         expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode nullable NONE signed Int32 partially populated", () => {
+        const expectedValues = new Int32Array([0, 15, 0, 20]);
+        const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 2);
+        const bitVector = new BitVector(new Uint8Array([0b1010]), 4);
+        const data = encodeIntStream(expectedValues, metadata, true, bitVector);
+        const result = decodeIntStream(data, new IntWrapper(0), metadata, true, undefined, bitVector);
+
+        expect(result).toEqual(new Int32Array([0, 15, 0, 20]));
     });
 
     it("should decode DELTA signed with Int32", () => {
@@ -133,6 +154,27 @@ describe("decodeIntStream", () => {
         const result = decodeIntStream(data, new IntWrapper(0), metadata, true);
 
         expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode nullable RLE Int32 partially populated", () => {
+        let metadata = createStreamMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2);
+        const expectedValues = new Int32Array([0, 15, 0, 20]);
+        const bitVector = new BitVector(new Uint8Array([0b1010]), 4);
+        const data = encodeIntStream(expectedValues, metadata, false, bitVector);
+        metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, 2, 2);
+        const result = decodeIntStream(data, new IntWrapper(0), metadata, false, undefined, bitVector);
+
+        expect(result).toEqual(new Int32Array([0, 15, 0, 20]));
+    });
+
+    it("should throw for unsupported technique", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.PDE, LogicalLevelTechnique.NONE, 3);
+        const offset = new IntWrapper(0);
+        const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
+
+        expect(() => decodeIntStream(new Uint8Array([]), offset, metadata, false, undefined, bitVector)).toThrow(
+            "The specified Logical level technique is not supported",
+        );
     });
 });
 
@@ -215,30 +257,6 @@ describe("decodeFloat64Buffer", () => {
 
         expect(() => decodeFloat64(values, metadata, true)).toThrow(
             "The specified Logical level technique is not supported: MORTON",
-        );
-    });
-});
-
-describe("decodeIntStream - nullable", () => {
-    it("should decode MORTON", () => {
-        const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
-        const expectedValues = new Int32Array([10, 15, 18, 20]);
-        const data = encodeInt32Morton(expectedValues);
-        const offset = new IntWrapper(0);
-        const bitVector = new BitVector(new Uint8Array([0b00001111]), 4); // All non-null
-
-        const result = decodeIntStream(data, offset, metadata, false, undefined, bitVector);
-
-        expect(result).toEqual(expectedValues);
-    });
-
-    it("should throw for unsupported technique", () => {
-        const metadata = createStreamMetadata(LogicalLevelTechnique.PDE, LogicalLevelTechnique.NONE, 3);
-        const offset = new IntWrapper(0);
-        const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
-
-        expect(() => decodeIntStream(new Uint8Array([]), offset, metadata, false, undefined, bitVector)).toThrow(
-            "The specified Logical level technique is not supported",
         );
     });
 });

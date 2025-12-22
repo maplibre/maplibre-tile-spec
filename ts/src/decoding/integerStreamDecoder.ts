@@ -189,9 +189,7 @@ function decodeInt32(
                 return unpackWithRepeat(values, nullabilityBuffer, 0);
             case LogicalLevelTechnique.RLE:
                 const rleMetadata32 = streamMetadata as RleEncodedStreamMetadata;
-                const compactRle32 = isSigned
-                    ? decodeZigZagRleInt32(values, rleMetadata32.runs)
-                    : decodeUnsignedRleInt32(values, rleMetadata32.runs);
+                const compactRle32 = decodeRleInt32(values, rleMetadata32, isSigned);
                 return unpackNullable(compactRle32, nullabilityBuffer, 0);
             case LogicalLevelTechnique.MORTON:
                 fastInverseDelta(values);
@@ -262,9 +260,7 @@ function decodeInt64(
                 return unpackWithRepeat(values, nullabilityBuffer, 0n);
             case LogicalLevelTechnique.RLE:
                 const rleMetadata64 = streamMetadata as RleEncodedStreamMetadata;
-                const compactRle64 = isSigned
-                    ? decodeZigZagRleInt64(values, rleMetadata64.runs)
-                    : decodeUnsignedRleInt64(values, rleMetadata64.runs);
+                const compactRle64 = decodeRleInt64(values, rleMetadata64, isSigned);
                 return unpackNullable(compactRle64, nullabilityBuffer, 0n);
             case LogicalLevelTechnique.NONE:
                 if (isSigned) {

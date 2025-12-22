@@ -1,10 +1,7 @@
 import { TypedArrayConstructor, TypedArrayInstance } from "../decoding/unpackNullableUtils";
 import BitVector from "../vector/flat/bitVector";
 
-export function packNullable<T extends TypedArrayInstance>(
-    data: T,
-    presentBits: BitVector | null,
-): T {
+export function packNullable<T extends TypedArrayInstance>(data: T, presentBits: BitVector | null): T {
     // Non-nullable case: if no mask is provided, the data is already "packed"
     if (!presentBits) {
         return data;
@@ -36,11 +33,7 @@ export function packNullable<T extends TypedArrayInstance>(
     return result;
 }
 
-export function packNullableBoolean(
-    data: Uint8Array,
-    dataSize: number,
-    presentBits: BitVector | null,
-): Uint8Array {
+export function packNullableBoolean(data: Uint8Array, dataSize: number, presentBits: BitVector | null): Uint8Array {
     // Non-nullable case: if no mask is provided, the data is already "packed"
     if (!presentBits) {
         return data;

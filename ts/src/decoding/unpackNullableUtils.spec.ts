@@ -39,7 +39,7 @@ describe("nullableUtils - non-nullable case", () => {
         });
 
         it("should return partial array when presentBits is partially set", () => {
-            const dataStream = new Int32Array([10, 20, 30]);
+            const dataStream = new Int32Array([0, 20, 30]); // first number is "null"
             const presentBits = new BitVector(new Uint8Array([0b110]), 3);
             const packed = packNullable(dataStream, presentBits);
             const result = unpackNullable(packed, presentBits, 0);

@@ -13,19 +13,46 @@ import {
     encodeVarintInt32,
     encodeVarintInt64,
     encodeZigZagInt64Value,
+    encodeFastPfor,
 } from "./integerEncodingUtils";
+import BitVector from "../vector/flat/bitVector";
+import { packNullable } from "./packNullableUtils";
+import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 
-export function encodeIntStream(values: Int32Array, metadata: StreamMetadata, isSigned: boolean): Uint8Array {
-    const { data } = encodeInt32(values, metadata, isSigned);
-    return encodeVarintInt32(data);
+export function encodeIntStream(
+    values: Int32Array,
+    metadata: StreamMetadata,
+    isSigned: boolean,
+    bitVector?: BitVector,
+): Uint8Array {
+    const { data } = encodeInt32(values, metadata, isSigned, bitVector);
+    return encodePhysicalLevelTechnique(data, metadata);
+}
+
+function encodePhysicalLevelTechnique(data: Int32Array, streamMetadata: StreamMetadata): Uint8Array {
+    const physicalLevelTechnique = streamMetadata.physicalLevelTechnique;
+    if (physicalLevelTechnique === PhysicalLevelTechnique.FAST_PFOR) {
+        return encodeFastPfor(data);
+    }
+    if (physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+        return encodeVarintInt32(data);
+    }
+
+    if (physicalLevelTechnique === PhysicalLevelTechnique.NONE) {
+        const slice = data.subarray(0, streamMetadata.byteLength);
+        return new Uint8Array(slice);
+    }
+
+    throw new Error("Specified physicalLevelTechnique is not supported (yet).");
 }
 
 function encodeInt32(
     values: Int32Array,
     streamMetadata: StreamMetadata,
     isSigned: boolean,
+    bitVector?: BitVector,
 ): { data: Int32Array; runs?: number } {
-    const data = new Int32Array(values);
+    const data = bitVector ? packNullable(values, bitVector) : new Int32Array(values);
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -84,18 +111,6 @@ export function encodeFloat64(values: Float64Array, streamMetadata: StreamMetada
 
 function encodeRleFloat64(data: Float64Array, isSigned: boolean): Float64Array {
     return isSigned ? encodeZigZagRleFloat64(data).data : encodeUnsignedRleFloat64(data).data;
-}
-
-/**
- * Encodes Int32 values with MORTON encoding (delta without zigzag)
- */
-export function encodeInt32Morton(values: Int32Array): Uint8Array {
-    const deltaEncoded = new Int32Array(values.length);
-    deltaEncoded[0] = values[0];
-    for (let i = 1; i < values.length; i++) {
-        deltaEncoded[i] = values[i] - values[i - 1];
-    }
-    return encodeVarintInt32(deltaEncoded);
 }
 
 /**
