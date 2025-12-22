@@ -5,8 +5,8 @@
  * results compatible with the C++ reference implementation.
  *
  * Strategy:
- * 1. C++ encoded → TS decoded (reference compatibility)
- * 2. TS encoded → TS decoded → TS encoded (deterministic roundtrip)
+ * 1. Load pre-generated binary fixtures (C++ encoded data)
+ * 2. Validate TS decoding of C++ encoded data
  * 3. Exercise unrolled (1-12, 16) and generic (13-15) bitwidth paths
  */
 
@@ -23,54 +23,22 @@ import { encodeFastPfor } from "./integerEncodingUtils";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const CPP_FASTPFOR_TEST = path.resolve(__dirname, "../../../cpp/test/test_fastpfor.cpp");
+const FIXTURES_DIR = path.resolve(__dirname, "../../../test/fixtures/fastpfor");
 
 // FastPFOR processes blocks of 256 values
 const BLOCK_SIZE = 256;
 const TWO_BLOCKS = BLOCK_SIZE * 2;
 
 /**
- * Parse a C++ uint32_t array from source code.
- * Returns Uint32Array to preserve bit-exact representation of unsigned values.
+ * Load a binary fixture as Int32Array (big-endian format).
  */
-function parseCppUint32Array(source: string, name: string): Uint32Array {
-    const re = new RegExp(
-        String.raw`\b(?:static\s+)?(?:constexpr\s+)?const\s+(?:std::)?uint32_t\s+${name}\s*\[\]\s*=\s*\{([\s\S]*?)\};`,
-        "m",
-    );
-    const match = re.exec(source);
-    if (!match) {
-        throw new Error(`Failed to locate C++ array ${name}`);
+function loadBinaryFixture(name: string): Int32Array {
+    const filepath = path.join(FIXTURES_DIR, name);
+    const buffer = fs.readFileSync(filepath);
+    const values = new Int32Array(buffer.length / 4);
+    for (let i = 0; i < values.length; i++) {
+        values[i] = buffer.readInt32BE(i * 4);
     }
-
-    // Strip C++ comments for robust parsing
-    const body = match[1]
-        .replace(/\/\/.*$/gm, "")
-        .replace(/\/\*[\s\S]*?\*\//g, "");
-
-    const tokens = body
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-
-    const values = new Uint32Array(tokens.length);
-    for (let i = 0; i < tokens.length; i++) {
-        let token = tokens[i];
-        token = token.replace(/u$/i, "");
-        token = token.replace(/^(?:UINT32_C|INT32_C)\((.*)\)$/, "$1");
-
-        // Support hex literals (0x...)
-        const parsed = token.startsWith("0x") || token.startsWith("0X")
-            ? Number.parseInt(token, 16)
-            : Number(token);
-
-        if (!Number.isFinite(parsed)) {
-            throw new Error(`Failed to parse token '${tokens[i]}' in ${name}`);
-        }
-        // Use >>> 0 to wrap to uint32 (handles negative values correctly)
-        values[i] = parsed >>> 0;
-    }
-
     return values;
 }
 
@@ -118,29 +86,21 @@ function roundTrip(values: Int32Array): { encoded: Uint8Array; decoded: Int32Arr
 }
 
 describe("cross-language: C++ encoded → TS decoded", () => {
-    const cpp = fs.readFileSync(CPP_FASTPFOR_TEST, "utf8");
-
-    // Test all 4 reference vectors from C++
+    // Test all 4 reference vectors from binary fixtures
     for (const idx of [1, 2, 3, 4]) {
-        it(`decodes C++ compressed${idx} → uncompressed${idx}`, () => {
-            const encoded = parseCppUint32Array(cpp, `compressed${idx}`);
-            const expected = parseCppUint32Array(cpp, `uncompressed${idx}`);
-            // Re-interpret as Int32Array for API compatibility (same bits, respecting byteOffset)
-            const expectedI32 = new Int32Array(expected.buffer, expected.byteOffset, expected.length);
-            expect(expectedI32.length).toBe(expected.length); // Sanity check
+        it(`decodes C++ vector${idx}_compressed → vector${idx}_uncompressed`, () => {
+            const encoded = loadBinaryFixture(`vector${idx}_compressed.bin`);
+            const expected = loadBinaryFixture(`vector${idx}_uncompressed.bin`);
 
             // Test using int32 array directly
-            // Re-interpret Uint32Array as Int32Array (same bits, signed view)
-            const encodedI32 = new Int32Array(encoded.buffer, encoded.byteOffset, encoded.length);
-            expect(encodedI32.length).toBe(encoded.length); // Sanity check
-            const decoded = uncompressFastPforInt32(encodedI32, expectedI32.length);
-            expect(decoded).toEqual(expectedI32);
+            const decoded = uncompressFastPforInt32(encoded, expected.length);
+            expect(decoded).toEqual(expected);
 
             // Test using byte array (how it comes from MLT tiles)
-            const bytes = int32sToBigEndianBytes(encodedI32);
+            const bytes = int32sToBigEndianBytes(encoded);
             const offset = new IntWrapper(0);
-            const decodedFromBytes = decodeFastPfor(bytes, expectedI32.length, bytes.length, offset);
-            expect(decodedFromBytes).toEqual(expectedI32);
+            const decodedFromBytes = decodeFastPfor(bytes, expected.length, bytes.length, offset);
+            expect(decodedFromBytes).toEqual(expected);
             expect(offset.get()).toBe(bytes.length);
         });
     }
@@ -235,4 +195,3 @@ describe("cross-language: edge cases", () => {
         expect(decoded).toEqual(values);
     });
 });
-
