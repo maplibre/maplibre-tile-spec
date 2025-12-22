@@ -109,5 +109,5 @@ describe("nullableUtils - non-nullable case", () => {
 
             expect(result).toEqual(new Int32Array([1, 1, 1, 2, 2, 2, 3, 3]));
         });
-    })
+    });
 });
