@@ -159,16 +159,17 @@ export function decodeConstLongStream(
     return isSigned ? decodeZigZagConstRleInt64(values) : decodeUnsignedConstRleInt64(values);
 }
 
-/*
+/**
+ * This method decodes integer streams.
  * Currently the encoder uses only fixed combinations of encodings.
- * For performance reasons it is also used a fixed combination of the encodings on the decoding side.
+ * For performance reasons it is also uses a fixed combination of the encodings on the decoding side.
  * The following encodings and combinations are used:
  *   - Morton Delta -> always sorted so not ZigZag encoding needed
  *   - Delta -> currently always in combination with ZigZag encoding
  *   - Rle -> in combination with ZigZag encoding if data type is signed
  *   - Delta Rle
  *   - Componentwise Delta -> always ZigZag encoding is used
- * */
+ */
 function decodeInt32(
     values: Int32Array,
     streamMetadata: StreamMetadata,
