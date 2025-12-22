@@ -7,7 +7,8 @@ describe("nullableUtils - non-nullable case", () => {
     describe("unpackNullable", () => {
         it("should return original array when presentBits is null", () => {
             const dataStream = new Int32Array([1, 2, 3]);
-            const result = unpackNullable(dataStream, null, 0);
+            const packed = packNullable(dataStream, null);
+            const result = unpackNullable(packed, null, 0);
 
             expect(result).toBe(dataStream);
             expect(result).toEqual(new Int32Array([1, 2, 3]));
@@ -51,7 +52,8 @@ describe("nullableUtils - non-nullable case", () => {
     describe("unpackNullableBoolean", () => {
         it("should return original array when presentBits is null", () => {
             const dataStream = new Uint8Array([0b11010101]);
-            const result = unpackNullableBoolean(dataStream, 8, null);
+            const packed = packNullableBoolean(dataStream, 8, null);
+            const result = unpackNullableBoolean(packed, 8, null);
 
             expect(result).toBe(dataStream);
             expect(result).toEqual(new Uint8Array([0b11010101]));
