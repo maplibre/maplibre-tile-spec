@@ -28,8 +28,9 @@ function roundUpToMultipleOf32(value: number): number {
     return greatestMultiple(value + 31, 32);
 }
 
+// FastPFOR operates on uint32 bit patterns stored in Int32Array
 function bits(value: number): number {
-    return 32 - Math.clz32(value);
+    return 32 - Math.clz32(value >>> 0);
 }
 
 function normalizePageSize(pageSize: number): number {
@@ -110,7 +111,6 @@ function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, outPos: 
 
 // Specialized unpack functions for common bitwidths (avoid generic loop overhead)
 function fastUnpack32_1(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
-    let op = outPos;
     const in0 = inValues[inPos] >>> 0;
     for (let i = 0; i < 32; i++) {
         out[outPos + i] = (in0 >>> i) & 1;
@@ -844,18 +844,23 @@ class FastPfor implements Int32Codec {
         for (; tmpInPos <= finalInPos; tmpInPos += BLOCK_SIZE) {
             this.getBestBFromData(inValues, tmpInPos);
 
-            const bestB = this.best[0];
+            const b = this.best[0];
             const cExcept = this.best[1];
             const maxBits = this.best[2];
 
-            this.byteContainerPut(bestB);
+            this.byteContainerPut(b);
             this.byteContainerPut(cExcept);
 
             if (cExcept > 0) {
                 this.byteContainerPut(maxBits);
-                const index = maxBits - bestB;
+                const index = maxBits - b;
 
-                if (index >= 0 && index < this.dataToBePacked.length) {
+                // index must be in [1..32] range; anything else is a bug
+                if (index < 1 || index > 32) {
+                    throw new Error(`FastPFOR encode: invalid exception index=${index} (b=${b}, maxBits=${maxBits})`);
+                }
+
+                if (index !== 1) {
                     const needed = this.dataPointers[index] + cExcept;
                     if (needed >= this.dataToBePacked[index].length) {
                         let newSize = 2 * needed;
@@ -868,19 +873,19 @@ class FastPfor implements Int32Codec {
 
                 for (let k = 0; k < BLOCK_SIZE; k++) {
                     const value = inValues[tmpInPos + k] >>> 0;
-                    if ((value >>> bestB) !== 0) {
+                    if ((value >>> b) !== 0) {
                         this.byteContainerPut(k);
                         if (index !== 1) {
-                            this.dataToBePacked[index][this.dataPointers[index]++] = (value >>> bestB) | 0;
+                            this.dataToBePacked[index][this.dataPointers[index]++] = (value >>> b) | 0;
                         }
                     }
                 }
             }
 
             for (let k = 0; k < BLOCK_SIZE; k += 32) {
-                out = ensureInt32Capacity(out, tmpOutPos + bestB);
-                fastPack32(inValues, tmpInPos + k, out, tmpOutPos, bestB);
-                tmpOutPos += bestB;
+                out = ensureInt32Capacity(out, tmpOutPos + b);
+                fastPack32(inValues, tmpInPos + k, out, tmpOutPos, b);
+                tmpOutPos += b;
             }
         }
 
@@ -941,8 +946,30 @@ class FastPfor implements Int32Codec {
 
     public uncompress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Array, outPos: IntWrapper): void {
         if (inLength === 0) return;
+
+        // Validate that we have at least 1 int32 in the window to read the outLength header
+        if (inLength < 1) {
+            throw new Error(`FastPFOR: buffer too small to read alignedLength header`);
+        }
+
         const outLength = inValues[inPos.get()];
         inPos.increment();
+
+        // Validate outLength is non-negative
+        if (outLength < 0) {
+            throw new Error(`FastPFOR: negative outLength=${outLength}`);
+        }
+
+        // Validate outLength is a multiple of BLOCK_SIZE (256)
+        if ((outLength & (BLOCK_SIZE - 1)) !== 0) {
+            throw new Error(`FastPFOR: outLength not multiple of ${BLOCK_SIZE}: ${outLength}`);
+        }
+
+        // Validate outLength doesn't exceed output buffer capacity
+        if (outPos.get() + outLength > out.length) {
+            throw new Error(`FastPFOR: outLength=${outLength} exceeds output capacity ${out.length - outPos.get()}`);
+        }
+
         this.headlessUncompress(inValues, inPos, inLength, out, outPos, outLength);
     }
 
@@ -967,8 +994,24 @@ class FastPfor implements Int32Codec {
         const whereMeta = inValues[inPos.get()];
         inPos.increment();
 
+        // Validate whereMeta bounds (anti-corruption guard)
+        if (whereMeta <= 0 || initPos + whereMeta >= inValues.length) {
+            throw new Error(`FastPFOR: invalid whereMeta ${whereMeta} at position ${initPos}`);
+        }
+
         let inExcept = initPos + whereMeta;
+
+        // Validate inExcept bounds before reading byteSize
+        if (inExcept >= inValues.length) {
+            throw new Error(`FastPFOR decode: inExcept ${inExcept} out of bounds (length=${inValues.length})`);
+        }
         const byteSize = inValues[inExcept++] >>> 0;
+        const metaInts = (byteSize + 3) >>> 2;
+
+        // Validate metaInts bounds before reading byteContainer and bitmap
+        if (inExcept + metaInts >= inValues.length) {
+            throw new Error(`FastPFOR decode: metaInts overflow (inExcept=${inExcept}, metaInts=${metaInts}, length=${inValues.length})`);
+        }
 
         // Reuse pre-allocated buffer instead of allocating new Uint8Array per page
         if (this.decodeByteContainer.length < byteSize) {
@@ -981,7 +1024,7 @@ class FastPfor implements Int32Codec {
             byteContainer[i] = (inValues[intIdx] >>> (byteInInt * 8)) & 0xff;
         }
 
-        inExcept += ((byteSize + 3) >>> 2);
+        inExcept += metaInts;
 
         const bitmap = inValues[inExcept++];
 
@@ -1056,6 +1099,11 @@ class FastPfor implements Int32Codec {
                 const maxBits = byteContainer[bytePosIn++];
                 const index = maxBits - b;
 
+                // index must be in [1..32] range; anything else is corruption
+                if (index < 1 || index > 32) {
+                    throw new Error(`FastPFOR decode: invalid exception index=${index} (b=${b}, maxBits=${maxBits})`);
+                }
+
                 if (index === 1) {
                     for (let k = 0; k < cExcept; k++) {
                         const pos = byteContainer[bytePosIn++];
@@ -1081,7 +1129,6 @@ class VariableByte implements Int32Codec {
         if (inLength === 0) return out;
 
         const bytes: number[] = [];
-        bytes.length = 0;
 
         const start = inPos.get();
         for (let k = start; k < start + inLength; k++) {
