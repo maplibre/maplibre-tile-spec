@@ -97,7 +97,7 @@ describe("nullableUtils - non-nullable case", () => {
 
         it("should return empty array when input is empty", () => {
             const dataStream = new Int32Array([]);
-            const result = unpackWithRepeat(dataStream, null, 0);
+            const result = unpackWithRepeat(dataStream, new BitVector(new Uint8Array([]), 0), 0);
 
             expect(result).toEqual(new Int32Array([]));
         });
