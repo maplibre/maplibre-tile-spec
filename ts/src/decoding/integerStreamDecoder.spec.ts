@@ -1,12 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-    getVectorType,
-    decodeIntStream,
-    decodeFloat64,
-    decodeLongStream,
-    decodeNullableLongStream,
-    decodeNullableIntStream,
-} from "./integerStreamDecoder";
+import { getVectorType, decodeIntStream, decodeFloat64, decodeLongStream } from "./integerStreamDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
@@ -226,7 +219,7 @@ describe("decodeFloat64Buffer", () => {
     });
 });
 
-describe("decodeNullableIntStream", () => {
+describe("decodeIntStream - nullable", () => {
     it("should decode MORTON", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 4);
         const expectedValues = new Int32Array([10, 15, 18, 20]);
@@ -234,7 +227,7 @@ describe("decodeNullableIntStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00001111]), 4); // All non-null
 
-        const result = decodeNullableIntStream(data, offset, metadata, false, bitVector);
+        const result = decodeIntStream(data, offset, metadata, false, undefined, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -244,7 +237,7 @@ describe("decodeNullableIntStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
 
-        expect(() => decodeNullableIntStream(new Uint8Array([]), offset, metadata, false, bitVector)).toThrow(
+        expect(() => decodeIntStream(new Uint8Array([]), offset, metadata, false, undefined, bitVector)).toThrow(
             "The specified Logical level technique is not supported",
         );
     });
@@ -326,7 +319,7 @@ describe("decodeLongStream", () => {
         );
     });
 });
-describe("decodeNullableLongStream", () => {
+describe("decodeLongStream - nullable", () => {
     it("should decode DELTA with RLE with all non-null values", () => {
         const numRleValues = 5;
         const runs = 3;
@@ -340,7 +333,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00011111]), 5); // All non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -358,7 +351,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00010101]), 5); // positions 0, 2, 4 are non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -370,7 +363,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3); // All non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -384,7 +377,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00011010]), 5); // positions 1, 3, 4 are non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -401,7 +394,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00011111]), 5); // All non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -419,7 +412,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00010101]), 5); // positions 0, 2, 4 are non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -431,7 +424,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3); // All non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -445,7 +438,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00010101]), 5); // positions 0, 2, 4 are non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, true, bitVector);
+        const result = decodeLongStream(data, offset, metadata, true, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -457,7 +450,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3); // All non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, false, bitVector);
+        const result = decodeLongStream(data, offset, metadata, false, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -470,7 +463,7 @@ describe("decodeNullableLongStream", () => {
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00010110]), 5); // positions 1, 2, 4 are non-null
 
-        const result = decodeNullableLongStream(data, offset, metadata, false, bitVector);
+        const result = decodeLongStream(data, offset, metadata, false, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
@@ -481,6 +474,6 @@ describe("decodeNullableLongStream", () => {
         const data = encodeInt64UnsignedNone(values);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
-        expect(() => decodeNullableLongStream(data, offset, metadata, true, bitVector)).toThrow();
+        expect(() => decodeLongStream(data, offset, metadata, true, bitVector)).toThrow();
     });
 });
