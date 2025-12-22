@@ -14,16 +14,20 @@ function getStorageKey(boxId) {
 }
 
 function saveZoomState(boxId, transform) {
+  console.log(boxId);
   try {
     const key = getStorageKey(boxId);
-    localStorage.setItem(key, JSON.stringify({
-      x: transform.x,
-      y: transform.y,
-      scale: transform.scale,
-      timestamp: Date.now()
-    }));
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        x: transform.x,
+        y: transform.y,
+        scale: transform.scale,
+        timestamp: Date.now(),
+      })
+    );
   } catch (e) {
-    console.warn('Failed to save zoom state to localStorage:', e);
+    console.warn("Failed to save zoom state to localStorage:", e);
   }
 }
 
@@ -39,7 +43,7 @@ function loadZoomState(boxId) {
       }
     }
   } catch (e) {
-    console.warn('Failed to load zoom state from localStorage:', e);
+    console.warn("Failed to load zoom state from localStorage:", e);
   }
   return null;
 }
@@ -49,7 +53,7 @@ function clearZoomState(boxId) {
     const key = getStorageKey(boxId);
     localStorage.removeItem(key);
   } catch (e) {
-    console.warn('Failed to clear zoom state from localStorage:', e);
+    console.warn("Failed to clear zoom state from localStorage:", e);
   }
 }
 
@@ -57,7 +61,7 @@ function minimize(instance, box, max, min) {
   box.classList.remove("panzoom-fullscreen");
   max.classList.remove("panzoom-hidden");
   min.classList.add("panzoom-hidden");
-  panzoom_reset(instance, box)
+  panzoom_reset(instance, box);
   setTimeout(() => {
     window.scrollTo(0, panzoomScrollPosition);
   }, 0);
@@ -147,12 +151,17 @@ function activate_zoom_pan() {
     selectors = panzoomData.selectors || [];
     initialZoomLevel = panzoomData.initial_zoom_level ?? DEFAULT_ZOOM_LEVEL;
   } catch (e) {
-    console.warn('Failed to parse panzoom data:', e);
+    console.warn("Failed to parse panzoom data:", e);
   }
+
+  let box_counter = 0;
 
   boxes.forEach((box) => {
     let key = box.dataset.key;
     let elem;
+
+    let boxID = box_counter;
+    box_counter += 1;
 
     selectors.every((selector) => {
       elem = box.querySelector(selector);
@@ -204,7 +213,7 @@ function activate_zoom_pan() {
       });
 
       // Load saved zoom state or use initial zoom level
-      const savedState = loadZoomState(box.id);
+      const savedState = loadZoomState(boxID);
       if (savedState) {
         // Apply saved zoom state
         instance.zoomAbs(0, 0, savedState.scale);
@@ -217,20 +226,20 @@ function activate_zoom_pan() {
       // Save zoom state when it changes
       let zoomSaveTimeout;
       let panSaveTimeout;
-      instance.on('zoom', function() {
+      instance.on("zoom", function () {
         // Debounce saving to avoid excessive localStorage writes
         clearTimeout(zoomSaveTimeout);
         zoomSaveTimeout = setTimeout(() => {
           const transform = instance.getTransform();
-          saveZoomState(box.id, transform);
+          saveZoomState(boxID, transform);
         }, SAVE_DEBOUNCE_DELAY_MS);
       });
-      instance.on('pan', function() {
+      instance.on("pan", function () {
         // Debounce saving to avoid excessive localStorage writes
         clearTimeout(panSaveTimeout);
         panSaveTimeout = setTimeout(() => {
           const transform = instance.getTransform();
-          saveZoomState(box.id, transform);
+          saveZoomState(boxID, transform);
         }, SAVE_DEBOUNCE_DELAY_MS);
       });
 

@@ -16,13 +16,17 @@
 
 .panzoom-icon {
     width: 1.125em;
-    fill: var(--md-default-fg-color--lightest);
+    /* fill: var(--md-default-fg-color--lightest); */
+    fill: var(--md-default-fg-color--light);
     transition: 0.25s;
 }
 
 .panzoom-button {
     width: 1.5em;
     height: 1.5em;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 button:hover .panzoom-icon {
@@ -41,13 +45,18 @@ button:hover .panzoom-icon {
 }
 
 .panzoom-nav {
+    --pz-nav-padding: 3px;
     position: absolute;
     right: 10px;
     top: 10px;
     display: flex;
     justify-content: flex-end;
-    gap: 5px;
+    column-gap: 5px;
     z-index: 3;
+    background-color: var(--md-default-bg-color);
+    opacity: 90%;
+    padding: var(--pz-nav-padding);
+    border-radius: 4px;
 }
 
 .panzoom-nav-infobox-top {
