@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * Generate binary fixtures for FastPFOR cross-language tests.
- * 
+ *
  * This script parses the C++ test file (at build-time) and outputs binary
  * fixtures that can be loaded by TypeScript tests without runtime C++ parsing.
- * 
+ *
  * Usage: node scripts/generate-fastpfor-fixtures.mjs
  *    or: npm run gen:fastpfor-fixtures
  */
