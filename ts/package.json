@@ -18,7 +18,8 @@
     "test": "vitest run ./src --coverage --coverage.reportOnFailure",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
-    "bench:fastpfor": "node bench/run-fastpfor-bench.mjs"
+    "bench:fastpfor": "node bench/run-fastpfor-bench.mjs",
+    "gen:fastpfor-fixtures": "node ../scripts/generate-fastpfor-fixtures.mjs"
   },
   "repository": {
     "type": "git",
