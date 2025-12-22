@@ -3,13 +3,13 @@ import BitVector from "../vector/flat/bitVector.js";
 /**
  * Type constraint for TypedArray types that can be unpacked
  */
-type TypedArrayConstructor =
+export type TypedArrayConstructor =
     | Int32ArrayConstructor
     | BigInt64ArrayConstructor
     | Float32ArrayConstructor
     | Float64ArrayConstructor;
 
-type TypedArrayInstance = Int32Array | BigInt64Array | Float32Array | Float64Array;
+export type TypedArrayInstance = Int32Array | BigInt64Array | Float32Array | Float64Array;
 
 /**
  * Generic unpacking function.

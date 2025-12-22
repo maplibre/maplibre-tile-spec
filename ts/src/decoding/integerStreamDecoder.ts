@@ -40,7 +40,7 @@ import { type StreamMetadata, type RleEncodedStreamMetadata } from "../metadata/
 import BitVector from "../vector/flat/bitVector";
 import { VectorType } from "../vector/vectorType";
 import type GeometryScaling from "./geometryScaling";
-import { unpackNullable, unpackWithRepeat } from "./nullableUtils";
+import { unpackNullable, unpackWithRepeat } from "./unpackNullableUtils";
 
 export function decodeIntStream(
     data: Uint8Array,
