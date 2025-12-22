@@ -7,14 +7,8 @@ import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique"
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import type { StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
 import IntWrapper from "../decoding/intWrapper";
-import {
-    encodeVarintInt32Array,
-    encodeSingleVarintInt32,
-    encodeBooleanRle,
-    encodeStrings,
-    createStringLengths,
-    concatenateBuffers,
-} from "./encodingUtils";
+import { encodeBooleanRle, encodeStrings, createStringLengths, concatenateBuffers } from "./encodingUtils";
+import { encodeVarintInt32Value, encodeVarintInt32 } from "./integerEncodingUtils";
 
 /**
  * Encodes plain strings into a complete stream with PRESENT (if needed), LENGTH, and DATA streams.
@@ -42,7 +36,7 @@ export function encodePlainStrings(strings: (string | null)[]): Uint8Array {
     // Add LENGTH stream
     const lengths = createStringLengths(nonNullStrings);
     streams.push(
-        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(new Int32Array(lengths)), {
+        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(new Int32Array(lengths)), {
             logical: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
             technique: PhysicalLevelTechnique.VARINT,
             count: lengths.length,
@@ -97,7 +91,7 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
 
     // Add OFFSET stream
     streams.push(
-        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32Array(new Int32Array(offsets)), {
+        createStream(PhysicalStreamType.OFFSET, encodeVarintInt32(new Int32Array(offsets)), {
             logical: new LogicalStreamType(undefined, OffsetType.STRING),
             technique: PhysicalLevelTechnique.VARINT,
             count: offsets.length,
@@ -106,7 +100,7 @@ export function encodeDictionaryStrings(strings: (string | null)[]): Uint8Array 
 
     // Add LENGTH stream (for dictionary)
     streams.push(
-        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32Array(new Int32Array(lengths)), {
+        createStream(PhysicalStreamType.LENGTH, encodeVarintInt32(new Int32Array(lengths)), {
             logical: new LogicalStreamType(undefined, undefined, LengthType.DICTIONARY),
             technique: PhysicalLevelTechnique.VARINT,
             count: lengths.length,
@@ -179,8 +173,8 @@ function encodeStreamMetadata(metadata: StreamMetadata): Uint8Array {
 
     // Variable-length fields
     const offset = new IntWrapper(writeOffset);
-    encodeSingleVarintInt32(metadata.numValues, buffer, offset);
-    encodeSingleVarintInt32(metadata.byteLength, buffer, offset);
+    encodeVarintInt32Value(metadata.numValues, buffer, offset);
+    encodeVarintInt32Value(metadata.byteLength, buffer, offset);
 
     return buffer.slice(0, offset.get());
 }
@@ -209,7 +203,7 @@ function getLogicalSubtypeValue(metadata: StreamMetadata): number {
 function encodeNumStreams(numStreams: number): Uint8Array {
     const buffer = new Uint8Array(5);
     const offset = new IntWrapper(0);
-    encodeSingleVarintInt32(numStreams, buffer, offset);
+    encodeVarintInt32Value(numStreams, buffer, offset);
     return buffer.slice(0, offset.get());
 }
 
@@ -238,5 +232,5 @@ function createOffsetStream(offsetIndices: number[]): Uint8Array {
         byteLength: 0,
         decompressedCount: offsetIndices.length,
     };
-    return buildEncodedStream(metadata, encodeVarintInt32Array(new Int32Array(offsetIndices)));
+    return buildEncodedStream(metadata, encodeVarintInt32(new Int32Array(offsetIndices)));
 }

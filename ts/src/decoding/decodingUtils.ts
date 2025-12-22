@@ -1,7 +1,8 @@
 import type IntWrapper from "./intWrapper";
 import { VectorType } from "../vector/vectorType";
-import BitVector from "../vector/flat/bitVector";
+import type BitVector from "../vector/flat/bitVector";
 import { decodeStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
+import { unpackNullableBoolean, unpackNullable } from "./unpackNullableUtils";
 
 export function skipColumn(numStreams: number, tile: Uint8Array, offset: IntWrapper) {
     //TODO: add size of column in Mlt for fast skipping
@@ -11,31 +12,20 @@ export function skipColumn(numStreams: number, tile: Uint8Array, offset: IntWrap
     }
 }
 
-export function decodeBooleanRle(buffer: Uint8Array, numBooleans: number, pos: IntWrapper): Uint8Array {
-    const numBytes = Math.ceil(numBooleans / 8.0);
-    return decodeByteRle(buffer, numBytes, pos);
-}
-
-export function decodeNullableBooleanRle(
+export function decodeBooleanRle(
     buffer: Uint8Array,
     numBooleans: number,
     pos: IntWrapper,
-    nullabilityBuffer: BitVector,
+    nullabilityBuffer?: BitVector,
 ): Uint8Array {
-    // TODO: refactor quick and dirty solution -> use solution in one pass
-    const numBytes = Math.ceil(numBooleans / 8);
+    const numBytes = Math.ceil(numBooleans / 8.0);
     const values = decodeByteRle(buffer, numBytes, pos);
-    const bitVector = new BitVector(values, numBooleans);
 
-    const size = nullabilityBuffer.size();
-    const nullableBitvector = new BitVector(new Uint8Array(size), size);
-    let valueCounter = 0;
-    for (let i = 0; i < nullabilityBuffer.size(); i++) {
-        const value = nullabilityBuffer.get(i) ? bitVector.get(valueCounter++) : false;
-        nullableBitvector.set(i, value);
+    if (nullabilityBuffer) {
+        return unpackNullableBoolean(values, numBooleans, nullabilityBuffer);
     }
 
-    return nullableBitvector.getBuffer();
+    return values;
 }
 
 export function decodeByteRle(buffer: Uint8Array, numBytes: number, pos: IntWrapper): Uint8Array {
@@ -63,29 +53,11 @@ export function decodeByteRle(buffer: Uint8Array, numBytes: number, pos: IntWrap
     return values;
 }
 
-export function decodeFloatsLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): Float32Array {
-    const currentPos = pos.get();
-    const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
-    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const fb = new Float32Array(newBuf);
-    pos.set(newOffset);
-    return fb;
-}
-
-export function decodeDoublesLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): Float64Array {
-    const currentPos = pos.get();
-    const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
-    const newBuf = new Uint8Array(encodedValues.subarray(currentPos, newOffset)).buffer;
-    const fb = new Float64Array(newBuf);
-    pos.set(newOffset);
-    return fb;
-}
-
-export function decodeNullableFloatsLE(
+export function decodeFloatsLE(
     encodedValues: Uint8Array,
     pos: IntWrapper,
-    nullabilityBuffer: BitVector,
     numValues: number,
+    nullabilityBuffer?: BitVector,
 ): Float32Array {
     const currentPos = pos.get();
     const newOffset = currentPos + numValues * Float32Array.BYTES_PER_ELEMENT;
@@ -93,21 +65,18 @@ export function decodeNullableFloatsLE(
     const fb = new Float32Array(newBuf);
     pos.set(newOffset);
 
-    const numTotalValues = nullabilityBuffer.size();
-    const nullableFloatsBuffer = new Float32Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numTotalValues; i++) {
-        nullableFloatsBuffer[i] = nullabilityBuffer.get(i) ? fb[offset++] : 0;
+    if (nullabilityBuffer) {
+        return unpackNullable(fb, nullabilityBuffer, 0);
     }
 
-    return nullableFloatsBuffer;
+    return fb;
 }
 
-export function decodeNullableDoublesLE(
+export function decodeDoublesLE(
     encodedValues: Uint8Array,
     pos: IntWrapper,
-    nullabilityBuffer: BitVector,
     numValues: number,
+    nullabilityBuffer?: BitVector,
 ): Float64Array {
     const currentPos = pos.get();
     const newOffset = currentPos + numValues * Float64Array.BYTES_PER_ELEMENT;
@@ -115,14 +84,11 @@ export function decodeNullableDoublesLE(
     const fb = new Float64Array(newBuf);
     pos.set(newOffset);
 
-    const numTotalValues = nullabilityBuffer.size();
-    const nullableDoubleBuffer = new Float64Array(numTotalValues);
-    let offset = 0;
-    for (let i = 0; i < numTotalValues; i++) {
-        nullableDoubleBuffer[i] = nullabilityBuffer.get(i) ? fb[offset++] : 0;
+    if (nullabilityBuffer) {
+        return unpackNullable(fb, nullabilityBuffer, 0);
     }
 
-    return nullableDoubleBuffer;
+    return fb;
 }
 
 const TEXT_DECODER_MIN_LENGTH = 12;

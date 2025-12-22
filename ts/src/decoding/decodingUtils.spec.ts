@@ -1,13 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-    decodeFloatsLE,
-    decodeDoublesLE,
-    decodeBooleanRle,
-    decodeString,
-    decodeByteRle,
-    decodeNullableFloatsLE,
-    decodeNullableDoublesLE,
-} from "./decodingUtils";
+import { decodeFloatsLE, decodeDoublesLE, decodeBooleanRle, decodeString, decodeByteRle } from "./decodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 
@@ -46,7 +38,7 @@ describe("decodingUtils", () => {
         });
     });
 
-    describe("decodeNullableFloatsLE", () => {
+    describe("decodeFloatsLE with nullability", () => {
         it("should decode nullable float values with nullability buffer", () => {
             const buffer = new ArrayBuffer(8);
             const view = new Float32Array(buffer);
@@ -58,7 +50,7 @@ describe("decodingUtils", () => {
             const bitVectorData = new Uint8Array([0b00000101]); // bits 0 and 2 are set
             const nullabilityBuffer = new BitVector(bitVectorData, 3);
 
-            const result = decodeNullableFloatsLE(data, offset, nullabilityBuffer, 2);
+            const result = decodeFloatsLE(data, offset, 2, nullabilityBuffer);
 
             expect(result.length).toBe(3);
             expect(result[0]).toBeCloseTo(1.5); // bit 0 is set
@@ -67,7 +59,7 @@ describe("decodingUtils", () => {
         });
     });
 
-    describe("decodeNullableDoublesLE", () => {
+    describe("decodeDoublesLE with nullability", () => {
         it("should decode nullable double values with nullability buffer", () => {
             const buffer = new ArrayBuffer(16);
             const view = new Float64Array(buffer);
@@ -79,7 +71,7 @@ describe("decodingUtils", () => {
             const bitVectorData = new Uint8Array([0b00000011]); // bits 0 and 1 are set
             const nullabilityBuffer = new BitVector(bitVectorData, 2);
 
-            const result = decodeNullableDoublesLE(data, offset, nullabilityBuffer, 2);
+            const result = decodeDoublesLE(data, offset, 2, nullabilityBuffer);
 
             expect(result.length).toBe(2);
             expect(result[0]).toBeCloseTo(3.14159); // bit 0 is set
