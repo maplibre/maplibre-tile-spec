@@ -1,4 +1,4 @@
-import { TypedArrayConstructor, TypedArrayInstance } from "../decoding/unpackNullableUtils";
+import { type TypedArrayConstructor, type TypedArrayInstance } from "../decoding/unpackNullableUtils";
 import BitVector from "../vector/flat/bitVector";
 
 export function packNullable<T extends TypedArrayInstance>(data: T, presentBits: BitVector | null): T {

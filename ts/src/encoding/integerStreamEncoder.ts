@@ -15,7 +15,7 @@ import {
     encodeZigZagInt64Value,
     encodeFastPfor,
 } from "./integerEncodingUtils";
-import BitVector from "../vector/flat/bitVector";
+import type BitVector from "../vector/flat/bitVector";
 import { packNullable } from "./packNullableUtils";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 
