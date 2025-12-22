@@ -83,7 +83,7 @@ plugins:
   - social:
       cards_layout_options:
         background_color: '#295DAA'
-  #- panzoom
+  - panzoom
   - add-number:
       excludes: ['*']
       includes:
