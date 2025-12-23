@@ -6,7 +6,7 @@ import { encodeFastPfor } from "./integerEncodingUtils";
 import { bigEndianBytesToInt32s } from "../fastPforCodec";
 
 function readInt32BigEndian(buf: Uint8Array, offset: number): number {
-    return ((buf[offset] << 24) | (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3]) | 0;
+    return (buf[offset] << 24) | (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3] | 0;
 }
 
 describe("fastpfor wire format and hardening", () => {
@@ -49,19 +49,19 @@ describe("fastpfor wire format and hardening", () => {
         const baseBuffer = new ArrayBuffer(16);
         const fullView = new Uint8Array(baseBuffer);
         // Fill pattern at offset 1: 4 bytes + 2 trailing bytes
-        fullView[1] = 0xAA;
-        fullView[2] = 0xBB;
-        fullView[3] = 0xCC;
-        fullView[4] = 0xDD;
-        fullView[5] = 0xEE;
-        fullView[6] = 0xFF; // trailing
+        fullView[1] = 0xaa;
+        fullView[2] = 0xbb;
+        fullView[3] = 0xcc;
+        fullView[4] = 0xdd;
+        fullView[5] = 0xee;
+        fullView[6] = 0xff; // trailing
 
         const unalignedBytes = new Uint8Array(baseBuffer, 1, 6);
         const ints = bigEndianBytesToInt32s(unalignedBytes, 0, 6);
 
         expect(ints.length).toBe(2);
-        expect(ints[0]).toBe(0xAABBCCDD | 0);
-        expect(ints[1]).toBe(0xEEFF0000 | 0); // padded
+        expect(ints[0]).toBe(0xaabbccdd | 0);
+        expect(ints[1]).toBe(0xeeff0000 | 0); // padded
     });
 
     // ===========================================

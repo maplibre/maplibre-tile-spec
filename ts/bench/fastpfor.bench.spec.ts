@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, it, expect } from "vitest";
 
 import Benchmark from "benchmark";
 
@@ -8,44 +8,42 @@ import { encodeFastPfor, encodeVarintInt32 } from "../src/encoding/integerEncodi
 
 type Dataset = { name: string; values: Int32Array };
 
-function buildDatasets(includeBig: boolean): Dataset[] {
+function buildDatasets(): Dataset[] {
     const datasets: Dataset[] = [];
 
+    // Sequential values: best case for delta encoding
     datasets.push({
-        name: "sequential_1024",
-        values: new Int32Array(Array.from({ length: 1024 }, (_, i) => i)),
+        name: "sequential_65536",
+        values: new Int32Array(Array.from({ length: 65536 }, (_, i) => i)),
     });
 
+    // Low entropy (mod 8): best case for bit-packing
     datasets.push({
-        name: "small_3bit_4096",
-        values: new Int32Array(Array.from({ length: 4096 }, (_, i) => i % 8)),
+        name: "low_entropy_65536",
+        values: new Int32Array(Array.from({ length: 65536 }, (_, i) => i % 8)),
     });
 
+    // Sparse exceptions: mostly small values with rare large ones
     {
-        const values = new Int32Array(4096);
+        const values = new Int32Array(65536);
         values.fill(7);
         values[10] = 100_034_530;
-        values[50] = 20_000;
-        values[100] = 30_000;
-        values[3999] = 1_000_000;
-        datasets.push({ name: "exceptions_4096", values });
+        values[100] = 20_000;
+        values[1000] = 30_000;
+        values[10000] = 1_000_000;
+        values[50000] = 500_000;
+        datasets.push({ name: "exceptions_65536", values });
     }
 
+    // Random 16-bit values: realistic mixed entropy
     {
-        const values = new Int32Array(8192);
+        const values = new Int32Array(65536);
         let seed = 0x12345678;
         for (let i = 0; i < values.length; i++) {
             seed = (seed * 1103515245 + 12345) >>> 0;
             values[i] = (seed & 0xffff) | 0;
         }
-        datasets.push({ name: "random_u16_8192", values });
-    }
-
-    if (includeBig) {
-        datasets.push({
-            name: "multi_page_66000",
-            values: new Int32Array(Array.from({ length: 66000 }, (_, i) => i % 10000)),
-        });
+        datasets.push({ name: "random_u16_65536", values });
     }
 
     return datasets;
@@ -56,67 +54,79 @@ function formatNumber(n: number): string {
 }
 
 describe("bench: fastpfor vs varint decoding", () => {
-    it(
-        "runs Benchmark.js suites",
-        () => {
-            const includeBig = process.env.BENCH_BIG === "1";
-            const datasets = buildDatasets(includeBig);
+    it("runs Benchmark.js suites", () => {
+        const datasets = buildDatasets();
 
-            // eslint-disable-next-line no-console
-            console.log("FastPFOR vs Varint decoding benchmarks (TypeScript implementation)");
-            // eslint-disable-next-line no-console
-            console.log(`Node ${process.version}`);
-            // eslint-disable-next-line no-console
-            console.log(`Datasets: ${datasets.map((d) => d.name).join(", ")}`);
-            // eslint-disable-next-line no-console
-            console.log("");
+        console.log("FastPFOR vs Varint decoding benchmarks (TypeScript implementation)");
 
-            for (const dataset of datasets) {
-                const values = dataset.values;
-                const fastPforBytes = encodeFastPfor(values);
-                const varintBytes = encodeVarintInt32(values);
+        console.log(`Node ${process.version}`);
 
-                // eslint-disable-next-line no-console
-                console.log(`== ${dataset.name} (n=${values.length}) ==`);
-                // eslint-disable-next-line no-console
-                console.log(`fastpfor bytes: ${fastPforBytes.length}`);
-                // eslint-disable-next-line no-console
-                console.log(`varint bytes:   ${varintBytes.length}`);
+        console.log(`Datasets: ${datasets.map((d) => d.name).join(", ")}`);
 
-                const fastPforOffset = new IntWrapper(0);
-                const varintOffset = new IntWrapper(0);
+        console.log("");
 
-                const suite = new Benchmark.Suite();
-                suite
-                    .add("decodeFastPfor", () => {
-                        fastPforOffset.set(0);
-                        const decoded = decodeFastPfor(fastPforBytes, values.length, fastPforBytes.length, fastPforOffset);
-                        if (decoded.length !== values.length) throw new Error("decoded length mismatch");
-                        if (fastPforOffset.get() !== fastPforBytes.length) throw new Error("offset mismatch");
-                    })
-                    .add("decodeVarintInt32", () => {
-                        varintOffset.set(0);
-                        const decoded = decodeVarintInt32(varintBytes, varintOffset, values.length);
-                        if (decoded.length !== values.length) throw new Error("decoded length mismatch");
-                        if (varintOffset.get() !== varintBytes.length) throw new Error("offset mismatch");
-                    })
-                    .on("cycle", (event: any) => {
-                        const b = event.target as any;
-                        // eslint-disable-next-line no-console
-                        console.log(
-                            `${b.name}: ${formatNumber(b.hz)} ops/sec ±${formatNumber(b.stats.rme)}% (${b.stats.sample.length} samples)`,
-                        );
-                    })
-                    .on("complete", function (this: any) {
-                        const winner = this.filter("fastest").map("name");
-                        // eslint-disable-next-line no-console
-                        console.log(`fastest: ${winner.join(", ")}`);
-                        // eslint-disable-next-line no-console
-                        console.log("");
-                    })
-                    .run({ async: false });
-            }
-        },
-        120_000,
-    );
+        for (const dataset of datasets) {
+            const values = dataset.values;
+            const fastPforBytes = encodeFastPfor(values);
+            const varintBytes = encodeVarintInt32(values);
+
+            // Sanity check: verify FastPFOR decode produces original values
+            const checkFastPforOffset = new IntWrapper(0);
+            const decodedFastPfor = decodeFastPfor(
+                fastPforBytes,
+                values.length,
+                fastPforBytes.length,
+                checkFastPforOffset,
+            );
+            expect(decodedFastPfor.length).toBe(values.length);
+            expect(decodedFastPfor[0]).toBe(values[0]);
+            expect(decodedFastPfor[values.length - 1]).toBe(values[values.length - 1]);
+            expect(checkFastPforOffset.get()).toBe(fastPforBytes.length);
+
+            // Sanity check: verify Varint decode produces original values
+            const checkVarintOffset = new IntWrapper(0);
+            const decodedVarint = decodeVarintInt32(varintBytes, checkVarintOffset, values.length);
+            expect(decodedVarint.length).toBe(values.length);
+            expect(decodedVarint[0]).toBe(values[0]);
+            expect(decodedVarint[values.length - 1]).toBe(values[values.length - 1]);
+            expect(checkVarintOffset.get()).toBe(varintBytes.length);
+
+            console.log(`== ${dataset.name} (n=${values.length}) ==`);
+
+            console.log(`fastpfor bytes: ${fastPforBytes.length}`);
+
+            console.log(`varint bytes:   ${varintBytes.length}`);
+
+            console.log(`compression ratio: ${(varintBytes.length / fastPforBytes.length).toFixed(2)}x`);
+
+            const fastPforOffset = new IntWrapper(0);
+            const varintOffset = new IntWrapper(0);
+
+            const suite = new Benchmark.Suite();
+            suite
+                .add("decodeFastPfor", () => {
+                    fastPforOffset.set(0);
+                    decodeFastPfor(fastPforBytes, values.length, fastPforBytes.length, fastPforOffset);
+                })
+                .add("decodeVarintInt32", () => {
+                    varintOffset.set(0);
+                    decodeVarintInt32(varintBytes, varintOffset, values.length);
+                })
+                .on("cycle", (event: any) => {
+                    const b = event.target;
+
+                    console.log(
+                        `${b.name}: ${formatNumber(b.hz)} ops/sec ±${formatNumber(b.stats.rme)}% (${b.stats.sample.length} samples)`,
+                    );
+                })
+                .on("complete", function (this: any) {
+                    const winner = this.filter("fastest").map("name");
+
+                    console.log(`fastest: ${winner.join(", ")}`);
+
+                    console.log("");
+                })
+                .run({ async: false });
+        }
+    }, 180_000);
 });

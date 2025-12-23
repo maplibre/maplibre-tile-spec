@@ -9,7 +9,7 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        project: './tsconfig.json',
+        project: './tsconfig.eslint.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -39,13 +39,23 @@ export default tseslint.config(
       }],
     },
   },
-    {
-      files: ['**/*.spec.ts'],
-      rules: {
-        '@typescript-eslint/unbound-method': 'off',
+  {
+    files: ['**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+  {
+    // Bench files: use dedicated tsconfig for type-aware linting
+    files: ['bench/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.eslint.bench.json',
+        tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
   {
-    ignores: ['dist', 'node_modules', 'coverage', 'bench', '*.config.mjs', '*.config.js', '**/*.js', '**/*.mjs', '**/*.cjs']
+    ignores: ['dist', 'node_modules', 'coverage', '*.config.mjs', '*.config.js', '**/*.js', '**/*.mjs', '**/*.cjs']
   }
 );

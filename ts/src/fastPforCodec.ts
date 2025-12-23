@@ -650,7 +650,7 @@ function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32Array, o
 // Dispatch table for specialized unpack functions (indices 1-12)
 // Extended Hybrid: 1-12 + 16 are specialized, 13-15 and 17+ use generic fallback
 const UNPACK_DISPATCH: ((inValues: Int32Array, inPos: number, out: Int32Array, outPos: number) => void)[] = [
-    () => { }, // 0 - handled separately
+    () => {}, // 0 - handled separately
     fastUnpack32_1,
     fastUnpack32_2,
     fastUnpack32_3,
@@ -749,7 +749,13 @@ class FastPfor implements Int32Codec {
         }
     }
 
-    public compress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Buf, outPos: IntWrapper): Int32Buf {
+    public compress(
+        inValues: Int32Array,
+        inPos: IntWrapper,
+        inLength: number,
+        out: Int32Buf,
+        outPos: IntWrapper,
+    ): Int32Buf {
         const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
         if (alignedLength === 0) return out;
 
@@ -796,8 +802,7 @@ class FastPfor implements Int32Codec {
             cExcept += this.freqs[b + 1];
             if (cExcept === BLOCK_SIZE) break;
 
-            let thisCost =
-                cExcept * OVERHEAD_OF_EACH_EXCEPT + cExcept * (maxBits - b) + b * BLOCK_SIZE + 8;
+            let thisCost = cExcept * OVERHEAD_OF_EACH_EXCEPT + cExcept * (maxBits - b) + b * BLOCK_SIZE + 8;
             if (maxBits - b === 1) thisCost -= cExcept;
 
             if (thisCost < bestCost) {
@@ -873,7 +878,7 @@ class FastPfor implements Int32Codec {
 
                 for (let k = 0; k < BLOCK_SIZE; k++) {
                     const value = inValues[tmpInPos + k] >>> 0;
-                    if ((value >>> b) !== 0) {
+                    if (value >>> b !== 0) {
                         this.byteContainerPut(k);
                         if (index !== 1) {
                             this.dataToBePacked[index][this.dataPointers[index]++] = (value >>> b) | 0;
@@ -905,10 +910,10 @@ class FastPfor implements Int32Codec {
             // byteContainer is serialized in little-endian inside int32 words (matching JavaFastPFOR),
             // independent of how the overall Int32 stream is later converted to bytes.
             const v =
-                (this.byteContainer[base] |
-                    (this.byteContainer[base + 1] << 8) |
-                    (this.byteContainer[base + 2] << 16) |
-                    (this.byteContainer[base + 3] << 24)) |
+                this.byteContainer[base] |
+                (this.byteContainer[base + 1] << 8) |
+                (this.byteContainer[base + 2] << 16) |
+                (this.byteContainer[base + 3] << 24) |
                 0;
             out[tmpOutPos + i] = v;
         }
@@ -944,7 +949,13 @@ class FastPfor implements Int32Codec {
         return out;
     }
 
-    public uncompress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Array, outPos: IntWrapper): void {
+    public uncompress(
+        inValues: Int32Array,
+        inPos: IntWrapper,
+        inLength: number,
+        out: Int32Array,
+        outPos: IntWrapper,
+    ): void {
         if (inLength === 0) return;
 
         // Validate that we have at least 1 int32 in the window to read the outLength header
@@ -989,7 +1000,13 @@ class FastPfor implements Int32Codec {
         }
     }
 
-    private decodePage(inValues: Int32Array, inPos: IntWrapper, out: Int32Array, outPos: IntWrapper, thisSize: number): void {
+    private decodePage(
+        inValues: Int32Array,
+        inPos: IntWrapper,
+        out: Int32Array,
+        outPos: IntWrapper,
+        thisSize: number,
+    ): void {
         const initPos = inPos.get();
         const whereMeta = inValues[inPos.get()];
         inPos.increment();
@@ -1010,7 +1027,9 @@ class FastPfor implements Int32Codec {
 
         // Validate metaInts bounds before reading byteContainer and bitmap
         if (inExcept + metaInts >= inValues.length) {
-            throw new Error(`FastPFOR decode: metaInts overflow (inExcept=${inExcept}, metaInts=${metaInts}, length=${inValues.length})`);
+            throw new Error(
+                `FastPFOR decode: metaInts overflow (inExcept=${inExcept}, metaInts=${metaInts}, length=${inValues.length})`,
+            );
         }
 
         // Reuse pre-allocated buffer instead of allocating new Uint8Array per page
@@ -1125,7 +1144,13 @@ class FastPfor implements Int32Codec {
 }
 
 class VariableByte implements Int32Codec {
-    public compress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Buf, outPos: IntWrapper): Int32Buf {
+    public compress(
+        inValues: Int32Array,
+        inPos: IntWrapper,
+        inLength: number,
+        out: Int32Buf,
+        outPos: IntWrapper,
+    ): Int32Buf {
         if (inLength === 0) return out;
 
         const bytes: number[] = [];
@@ -1147,7 +1172,7 @@ class VariableByte implements Int32Codec {
 
         let outIdx = outPos.get();
         for (let i = 0; i < bytes.length; i += 4) {
-            const v = (bytes[i] | (bytes[i + 1] << 8) | (bytes[i + 2] << 16) | (bytes[i + 3] << 24)) | 0;
+            const v = bytes[i] | (bytes[i + 1] << 8) | (bytes[i + 2] << 16) | (bytes[i + 3] << 24) | 0;
             out[outIdx++] = v;
         }
 
@@ -1156,7 +1181,13 @@ class VariableByte implements Int32Codec {
         return out;
     }
 
-    public uncompress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Array, outPos: IntWrapper): void {
+    public uncompress(
+        inValues: Int32Array,
+        inPos: IntWrapper,
+        inLength: number,
+        out: Int32Array,
+        outPos: IntWrapper,
+    ): void {
         let s = 0;
         let p = inPos.get();
         const finalP = inPos.get() + inLength;
@@ -1191,9 +1222,15 @@ class Composition {
     constructor(
         private readonly first: Int32Codec,
         private readonly second: Int32Codec,
-    ) { }
+    ) {}
 
-    public compress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Buf, outPos: IntWrapper): Int32Buf {
+    public compress(
+        inValues: Int32Array,
+        inPos: IntWrapper,
+        inLength: number,
+        out: Int32Buf,
+        outPos: IntWrapper,
+    ): Int32Buf {
         if (inLength === 0) return out;
 
         const inPosInit = inPos.get();
@@ -1211,7 +1248,13 @@ class Composition {
         return out;
     }
 
-    public uncompress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Array, outPos: IntWrapper): void {
+    public uncompress(
+        inValues: Int32Array,
+        inPos: IntWrapper,
+        inLength: number,
+        out: Int32Array,
+        outPos: IntWrapper,
+    ): void {
         if (inLength === 0) return;
         const init = inPos.get();
         this.first.uncompress(inValues, inPos, inLength, out, outPos);
@@ -1269,9 +1312,7 @@ export function bigEndianBytesToInt32s(bytes: Uint8Array, offset: number, byteLe
         } else {
             for (let i = 0; i < numCompleteInts; i++) {
                 const base = offset + i * 4;
-                ints[i] =
-                    ((bytes[base] << 24) | (bytes[base + 1] << 16) | (bytes[base + 2] << 8) | bytes[base + 3]) |
-                    0;
+                ints[i] = (bytes[base] << 24) | (bytes[base + 1] << 16) | (bytes[base + 2] << 8) | bytes[base + 3] | 0;
             }
         }
     }
@@ -1290,11 +1331,5 @@ export function bigEndianBytesToInt32s(bytes: Uint8Array, offset: number, byteLe
 
 function bswap32(value: number): number {
     const x = value >>> 0;
-    return (
-        (((x & 0xff) << 24) |
-            ((x & 0xff00) << 8) |
-            ((x >>> 8) & 0xff00) |
-            ((x >>> 24) & 0xff)) >>>
-        0
-    );
+    return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
 }
