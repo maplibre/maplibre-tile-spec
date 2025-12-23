@@ -931,8 +931,8 @@ export function encodeNullableUnsignedRleInt64(
 }
 
 export function encodeNullableZigZagRleInt64(
-    bitVector: BitVector,
     values: BigInt64Array,
+    bitVector: BitVector,
 ): { data: BigInt64Array; numRuns: number } {
     const size = bitVector.size();
     // Temporary storage for runs
