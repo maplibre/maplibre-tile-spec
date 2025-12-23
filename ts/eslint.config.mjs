@@ -46,16 +46,6 @@ export default tseslint.config(
     },
   },
   {
-    // Bench files: use dedicated tsconfig for type-aware linting
-    files: ['bench/**/*.ts'],
-    languageOptions: {
-      parserOptions: {
-        project: './tsconfig.eslint.bench.json',
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
-  },
-  {
     ignores: ['dist', 'node_modules', 'coverage', '*.config.mjs', '*.config.js', '**/*.js', '**/*.mjs', '**/*.cjs']
   }
 );
