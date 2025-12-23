@@ -16,17 +16,6 @@ const BLOCK_SIZE = 256;
 const TWO_BLOCKS = BLOCK_SIZE * 2;
 
 /**
- * TypedArray comparison helper to avoid relying on deep-equality behavior
- * across different ArrayBuffer-backed types (e.g. Int32Array, BigInt64Array, Float64Array).
- */
-function expectArrayLikeEqual<T extends ArrayLike<number> | ArrayLike<bigint>>(actual: T, expected: T) {
-    expect(actual.length).toBe(expected.length);
-    for (let i = 0; i < actual.length; i++) {
-        expect(actual[i]).toBe(expected[i]);
-    }
-}
-
-/**
  * Generate deterministic pseudo-random values constrained to a specific bitwidth using LCG.
  * Uses Math.imul for safe 32-bit multiplication.
  */
@@ -67,7 +56,7 @@ describe("FastPFOR: bitwidth dispatch", () => {
             const offset = new IntWrapper(0);
             const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-            expectArrayLikeEqual(decoded, values);
+            expect(decoded).toEqual(values);
             expect(offset.get()).toBe(encoded.length);
         });
     }
@@ -80,7 +69,7 @@ describe("FastPFOR: bitwidth dispatch", () => {
             const offset = new IntWrapper(0);
             const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-            expectArrayLikeEqual(decoded, values);
+            expect(decoded).toEqual(values);
             expect(offset.get()).toBe(encoded.length);
         });
     }
@@ -94,7 +83,7 @@ describe("FastPFOR: edge cases", () => {
         const offset = new IntWrapper(0);
         const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-        expectArrayLikeEqual(decoded, values);
+        expect(decoded).toEqual(values);
         expect(offset.get()).toBe(encoded.length);
     });
 
@@ -109,7 +98,7 @@ describe("FastPFOR: edge cases", () => {
             const offset = new IntWrapper(0);
             const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-            expectArrayLikeEqual(decoded, values);
+            expect(decoded).toEqual(values);
             expect(offset.get()).toBe(encoded.length);
         }
     });
@@ -128,7 +117,7 @@ describe("FastPFOR: edge cases", () => {
         const offset = new IntWrapper(0);
         const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-        expectArrayLikeEqual(decoded, values);
+        expect(decoded).toEqual(values);
         expect(offset.get()).toBe(encoded.length);
     });
 
@@ -139,7 +128,7 @@ describe("FastPFOR: edge cases", () => {
         const offset = new IntWrapper(0);
         const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-        expectArrayLikeEqual(decoded, values);
+        expect(decoded).toEqual(values);
         expect(offset.get()).toBe(encoded.length);
     });
 
@@ -150,7 +139,7 @@ describe("FastPFOR: edge cases", () => {
         const offset = new IntWrapper(0);
         const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-        expectArrayLikeEqual(decoded, values);
+        expect(decoded).toEqual(values);
         expect(offset.get()).toBe(encoded.length);
     });
 
@@ -164,7 +153,7 @@ describe("FastPFOR: edge cases", () => {
         const offset = new IntWrapper(0);
         const decoded = decodeFastPfor(encoded, values.length, encoded.length, offset);
 
-        expectArrayLikeEqual(decoded, values);
+        expect(decoded).toEqual(values);
         expect(offset.get()).toBe(encoded.length);
     });
 
@@ -184,7 +173,7 @@ describe("FastPFOR: edge cases", () => {
         const offset = new IntWrapper(prefix.length);
         const decoded = decodeFastPfor(buffer, values.length, encoded.length, offset);
 
-        expectArrayLikeEqual(decoded, values);
+        expect(decoded).toEqual(values);
         expect(offset.get()).toBe(buffer.length);
     });
 });

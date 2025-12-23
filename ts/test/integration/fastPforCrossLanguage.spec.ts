@@ -21,17 +21,6 @@ const __dirname = path.dirname(__filename);
 const FIXTURES_DIR = path.resolve(__dirname, "../../../test/fixtures/fastpfor");
 
 /**
- * TypedArray comparison helper to avoid relying on deep-equality behavior
- * across different ArrayBuffer-backed types (e.g. Int32Array, BigInt64Array, Float64Array).
- */
-function expectArrayLikeEqual<T extends ArrayLike<number> | ArrayLike<bigint>>(actual: T, expected: T) {
-    expect(actual.length).toBe(expected.length);
-    for (let i = 0; i < actual.length; i++) {
-        expect(actual[i]).toBe(expected[i]);
-    }
-}
-
-/**
  * Load a binary fixture as Int32Array (big-endian format).
  */
 function loadBinaryFixture(name: string): Int32Array {
@@ -49,26 +38,20 @@ function loadBinaryFixture(name: string): Int32Array {
  * Returns array of vector indices (e.g., [1, 2, 3, 4]).
  */
 function discoverFixtureVectors(): number[] {
-    const files = fs.readdirSync(FIXTURES_DIR);
-    const indices = new Set<number>();
-
-    for (const file of files) {
-        const match = file.match(/^vector(\d+)_compressed\.bin$/);
-        if (match) {
-            const idx = parseInt(match[1], 10);
-            // Verify both compressed and uncompressed files exist
-            const uncompressed = `vector${idx}_uncompressed.bin`;
-            if (files.includes(uncompressed)) {
-                indices.add(idx);
-            }
-        }
-    }
-
-    return Array.from(indices).sort((a, b) => a - b);
+    return fs
+        .readdirSync(FIXTURES_DIR)
+        .map((f) => f.match(/^vector(\d+)_compressed\.bin$/)?.[1])
+        .filter((v): v is string => v !== undefined)
+        .map((v) => parseInt(v, 10))
+        .sort((a, b) => a - b);
 }
 
 describe("FastPFOR Integration: C++ encoded → TS decoded", () => {
     const vectorIndices = discoverFixtureVectors();
+
+    it("has at least one fixture vector", () => {
+        expect(vectorIndices.length).toBeGreaterThan(0);
+    });
 
     for (const idx of vectorIndices) {
         it(`decodes C++ vector${idx}_compressed → vector${idx}_uncompressed`, () => {
@@ -77,14 +60,15 @@ describe("FastPFOR Integration: C++ encoded → TS decoded", () => {
 
             // Test using int32 array directly
             const decoded = uncompressFastPforInt32(encoded, expected.length);
-            expectArrayLikeEqual(decoded, expected);
+            expect(decoded).toEqual(expected);
 
             // Test using byte array (how it comes from MLT tiles)
             const bytes = int32sToBigEndianBytes(encoded);
             const offset = new IntWrapper(0);
             const decodedFromBytes = decodeFastPfor(bytes, expected.length, bytes.length, offset);
-            expectArrayLikeEqual(decodedFromBytes, expected);
+            expect(decodedFromBytes).toEqual(expected);
             expect(offset.get()).toBe(bytes.length);
         });
     }
 });
+
