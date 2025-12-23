@@ -1,6 +1,7 @@
 import IntWrapper from "./decoding/intWrapper";
 
 type Int32Buf = Int32Array<ArrayBufferLike>;
+type Uint8Buf = Uint8Array<ArrayBufferLike>;
 
 const MASKS = (() => {
     const masks = new Uint32Array(33);
@@ -48,7 +49,7 @@ function ensureInt32Capacity(buffer: Int32Buf, requiredLength: number): Int32Buf
     return next;
 }
 
-function ensureUint8Capacity(buffer: Uint8Array, requiredLength: number): Uint8Array {
+function ensureUint8Capacity(buffer: Uint8Buf, requiredLength: number): Uint8Buf {
     if (requiredLength <= buffer.length) return buffer;
 
     let newLength = buffer.length === 0 ? 1 : buffer.length;
@@ -56,7 +57,7 @@ function ensureUint8Capacity(buffer: Uint8Array, requiredLength: number): Uint8A
         newLength *= 2;
     }
 
-    const next = new Uint8Array(newLength);
+    const next = new Uint8Array(newLength) as Uint8Buf;
     next.set(buffer);
     return next;
 }
@@ -645,7 +646,7 @@ function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32Array, o
 // Dispatch table for specialized unpack functions (indices 1-12)
 // Extended Hybrid: 1-12 + 16 are specialized, 13-15 and 17+ use generic fallback
 const UNPACK_DISPATCH: ((inValues: Int32Array, inPos: number, out: Int32Array, outPos: number) => void)[] = [
-    () => { }, // 0 - handled separately
+    () => {}, // 0 - handled separately
     fastUnpack32_1,
     fastUnpack32_2,
     fastUnpack32_3,
@@ -720,73 +721,30 @@ function fastUnpack32(inValues: Int32Array, inPos: number, out: Int32Array, outP
     }
 }
 
-class FastPfor {
-    private readonly pageSize: number;
-    private dataToBePacked: Int32Array[] = new Array(33);
-    private byteContainer: Uint8Array;
-    private byteContainerPos = 0;
-    private readonly dataPointers = new Int32Array(33);
-    private readonly freqs = new Int32Array(33);
-    private readonly best = new Int32Array(3);
-    // Reusable buffer for decoding byteContainer (avoids allocation per page)
-    private decodeByteContainer: Uint8Array;
+function createFastPforEncoder(pageSize = DEFAULT_PAGE_SIZE) {
+    const pSize = normalizePageSize(pageSize);
+    const dataToBePacked: Int32Array[] = new Array(33);
+    const dataPointers = new Int32Array(33);
+    const freqs = new Int32Array(33);
+    const best = new Int32Array(3);
+    let byteContainerPos = 0;
 
-    constructor(pageSize = DEFAULT_PAGE_SIZE) {
-        this.pageSize = normalizePageSize(pageSize);
+    const byteContainerSize = (3 * pSize) / BLOCK_SIZE + pSize;
+    let byteContainer = new Uint8Array(byteContainerSize) as Uint8Buf;
 
-        const byteContainerSize = (3 * this.pageSize) / BLOCK_SIZE + this.pageSize;
-        this.byteContainer = new Uint8Array(byteContainerSize);
-        this.decodeByteContainer = new Uint8Array(byteContainerSize);
-
-        const initialPackedSize = (this.pageSize / 32) * 4;
-        for (let k = 1; k < this.dataToBePacked.length; k++) {
-            this.dataToBePacked[k] = new Int32Array(initialPackedSize);
-        }
+    const initialPackedSize = (pSize / 32) * 4;
+    for (let k = 1; k < dataToBePacked.length; k++) {
+        dataToBePacked[k] = new Int32Array(initialPackedSize);
     }
 
-    public compress(
-        inValues: Int32Array,
-        inPos: IntWrapper,
-        inLength: number,
-        out: Int32Buf,
-        outPos: IntWrapper,
-    ): Int32Buf {
-        const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
-        if (alignedLength === 0) return out;
-
-        out = ensureInt32Capacity(out, outPos.get() + 1);
-        out[outPos.get()] = alignedLength;
-        outPos.increment();
-
-        return this.headlessCompress(inValues, inPos, alignedLength, out, outPos);
-    }
-
-    private headlessCompress(
-        inValues: Int32Array,
-        inPos: IntWrapper,
-        inLength: number,
-        out: Int32Buf,
-        outPos: IntWrapper,
-    ): Int32Buf {
-        const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
-        const finalInPos = inPos.get() + alignedLength;
-
-        while (inPos.get() !== finalInPos) {
-            const thisSize = Math.min(this.pageSize, finalInPos - inPos.get());
-            out = this.encodePage(inValues, inPos, thisSize, out, outPos);
-        }
-
-        return out;
-    }
-
-    private getBestBFromData(inValues: Int32Array, pos: number): void {
-        this.freqs.fill(0);
+    function getBestBFromData(inValues: Int32Array, pos: number): void {
+        freqs.fill(0);
         for (let k = pos, kEnd = pos + BLOCK_SIZE; k < kEnd; k++) {
-            this.freqs[bits(inValues[k])]++;
+            freqs[bits(inValues[k])]++;
         }
 
         let maxBits = 32;
-        while (this.freqs[maxBits] === 0) maxBits--;
+        while (freqs[maxBits] === 0) maxBits--;
 
         let bestB = maxBits;
         let bestCost = maxBits * BLOCK_SIZE;
@@ -794,7 +752,7 @@ class FastPfor {
         let bestCExcept = cExcept;
 
         for (let b = maxBits - 1; b >= 0; b--) {
-            cExcept += this.freqs[b + 1];
+            cExcept += freqs[b + 1];
             if (cExcept === BLOCK_SIZE) break;
 
             let thisCost = cExcept * OVERHEAD_OF_EACH_EXCEPT + cExcept * (maxBits - b) + b * BLOCK_SIZE + 8;
@@ -807,23 +765,23 @@ class FastPfor {
             }
         }
 
-        this.best[0] = bestB;
-        this.best[1] = bestCExcept;
-        this.best[2] = maxBits;
+        best[0] = bestB;
+        best[1] = bestCExcept;
+        best[2] = maxBits;
     }
 
-    private byteContainerClear(): void {
-        this.byteContainerPos = 0;
+    function byteContainerClear(): void {
+        byteContainerPos = 0;
     }
 
-    private byteContainerPut(byteValue: number): void {
-        if (this.byteContainerPos >= this.byteContainer.length) {
-            this.byteContainer = ensureUint8Capacity(this.byteContainer, this.byteContainerPos + 1);
+    function byteContainerPut(byteValue: number): void {
+        if (byteContainerPos >= byteContainer.length) {
+            byteContainer = ensureUint8Capacity(byteContainer, byteContainerPos + 1);
         }
-        this.byteContainer[this.byteContainerPos++] = byteValue & 0xff;
+        byteContainer[byteContainerPos++] = byteValue & 0xff;
     }
 
-    private encodePage(
+    function encodePage(
         inValues: Int32Array,
         inPos: IntWrapper,
         thisSize: number,
@@ -835,24 +793,24 @@ class FastPfor {
         outPos.increment();
         let tmpOutPos = outPos.get();
 
-        this.dataPointers.fill(0);
-        this.byteContainerClear();
+        dataPointers.fill(0);
+        byteContainerClear();
 
         let tmpInPos = inPos.get();
         const finalInPos = tmpInPos + thisSize - BLOCK_SIZE;
 
         for (; tmpInPos <= finalInPos; tmpInPos += BLOCK_SIZE) {
-            this.getBestBFromData(inValues, tmpInPos);
+            getBestBFromData(inValues, tmpInPos);
 
-            const b = this.best[0];
-            const cExcept = this.best[1];
-            const maxBits = this.best[2];
+            const b = best[0];
+            const cExcept = best[1];
+            const maxBits = best[2];
 
-            this.byteContainerPut(b);
-            this.byteContainerPut(cExcept);
+            byteContainerPut(b);
+            byteContainerPut(cExcept);
 
             if (cExcept > 0) {
-                this.byteContainerPut(maxBits);
+                byteContainerPut(maxBits);
                 const index = maxBits - b;
 
                 // index must be in [1..32] range; anything else is a bug
@@ -861,22 +819,22 @@ class FastPfor {
                 }
 
                 if (index !== 1) {
-                    const needed = this.dataPointers[index] + cExcept;
-                    if (needed >= this.dataToBePacked[index].length) {
+                    const needed = dataPointers[index] + cExcept;
+                    if (needed >= dataToBePacked[index].length) {
                         let newSize = 2 * needed;
                         newSize = roundUpToMultipleOf32(newSize);
                         const next = new Int32Array(newSize);
-                        next.set(this.dataToBePacked[index]);
-                        this.dataToBePacked[index] = next;
+                        next.set(dataToBePacked[index]);
+                        dataToBePacked[index] = next;
                     }
                 }
 
                 for (let k = 0; k < BLOCK_SIZE; k++) {
                     const value = inValues[tmpInPos + k] >>> 0;
                     if (value >>> b !== 0) {
-                        this.byteContainerPut(k);
+                        byteContainerPut(k);
                         if (index !== 1) {
-                            this.dataToBePacked[index][this.dataPointers[index]++] = (value >>> b) | 0;
+                            dataToBePacked[index][dataPointers[index]++] = (value >>> b) | 0;
                         }
                     }
                 }
@@ -892,23 +850,23 @@ class FastPfor {
         inPos.set(tmpInPos);
         out[headerPos] = (tmpOutPos - headerPos) | 0;
 
-        const byteSize = this.byteContainerPos;
-        while ((this.byteContainerPos & 3) !== 0) this.byteContainerPut(0);
+        const byteSize = byteContainerPos;
+        while ((byteContainerPos & 3) !== 0) byteContainerPut(0);
 
         out = ensureInt32Capacity(out, tmpOutPos + 1);
         out[tmpOutPos++] = byteSize | 0;
 
-        const howManyInts = this.byteContainerPos / 4;
+        const howManyInts = byteContainerPos / 4;
         out = ensureInt32Capacity(out, tmpOutPos + howManyInts);
         for (let i = 0; i < howManyInts; i++) {
             const base = i * 4;
             // byteContainer is serialized in little-endian inside int32 words (matching JavaFastPFOR),
             // independent of how the overall Int32 stream is later converted to bytes.
             const v =
-                this.byteContainer[base] |
-                (this.byteContainer[base + 1] << 8) |
-                (this.byteContainer[base + 2] << 16) |
-                (this.byteContainer[base + 3] << 24) |
+                byteContainer[base] |
+                (byteContainer[base + 1] << 8) |
+                (byteContainer[base + 2] << 16) |
+                (byteContainer[base + 3] << 24) |
                 0;
             out[tmpOutPos + i] = v;
         }
@@ -916,14 +874,14 @@ class FastPfor {
 
         let bitmap = 0;
         for (let k = 2; k <= 32; k++) {
-            if (this.dataPointers[k] !== 0) bitmap |= 1 << (k - 1);
+            if (dataPointers[k] !== 0) bitmap |= 1 << (k - 1);
         }
 
         out = ensureInt32Capacity(out, tmpOutPos + 1);
         out[tmpOutPos++] = bitmap | 0;
 
         for (let k = 2; k <= 32; k++) {
-            const size = this.dataPointers[k];
+            const size = dataPointers[k];
             if (size !== 0) {
                 out = ensureInt32Capacity(out, tmpOutPos + 1);
                 out[tmpOutPos++] = size | 0;
@@ -931,7 +889,7 @@ class FastPfor {
                 let j = 0;
                 for (; j < size; j += 32) {
                     out = ensureInt32Capacity(out, tmpOutPos + k);
-                    fastPack32(this.dataToBePacked[k], j, out, tmpOutPos, k);
+                    fastPack32(dataToBePacked[k], j, out, tmpOutPos, k);
                     tmpOutPos += k;
                 }
 
@@ -944,58 +902,53 @@ class FastPfor {
         return out;
     }
 
-    public uncompress(
+    function headlessCompress(
         inValues: Int32Array,
         inPos: IntWrapper,
         inLength: number,
-        out: Int32Array,
+        out: Int32Buf,
         outPos: IntWrapper,
-    ): void {
-        if (inLength === 0) return;
+    ): Int32Buf {
+        const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
+        const finalInPos = inPos.get() + alignedLength;
 
-        // Validate that we have at least 1 int32 in the window to read the outLength header
-        if (inLength < 1) {
-            throw new Error(`FastPFOR: buffer too small to read alignedLength header`);
+        while (inPos.get() !== finalInPos) {
+            const thisSize = Math.min(pSize, finalInPos - inPos.get());
+            out = encodePage(inValues, inPos, thisSize, out, outPos);
         }
 
-        const outLength = inValues[inPos.get()];
-        inPos.increment();
-
-        // Validate outLength is non-negative
-        if (outLength < 0) {
-            throw new Error(`FastPFOR: negative outLength=${outLength}`);
-        }
-
-        // Validate outLength is a multiple of BLOCK_SIZE (256)
-        if ((outLength & (BLOCK_SIZE - 1)) !== 0) {
-            throw new Error(`FastPFOR: outLength not multiple of ${BLOCK_SIZE}: ${outLength}`);
-        }
-
-        // Validate outLength doesn't exceed output buffer capacity
-        if (outPos.get() + outLength > out.length) {
-            throw new Error(`FastPFOR: outLength=${outLength} exceeds output capacity ${out.length - outPos.get()}`);
-        }
-
-        this.headlessUncompress(inValues, inPos, inLength, out, outPos, outLength);
+        return out;
     }
 
-    private headlessUncompress(
-        inValues: Int32Array,
-        inPos: IntWrapper,
-        _inLength: number,
-        out: Int32Array,
-        outPos: IntWrapper,
-        outLength: number,
-    ): void {
-        const alignedOutLength = greatestMultiple(outLength, BLOCK_SIZE);
-        const finalOut = outPos.get() + alignedOutLength;
-        while (outPos.get() !== finalOut) {
-            const thisSize = Math.min(this.pageSize, finalOut - outPos.get());
-            this.decodePage(inValues, inPos, out, outPos, thisSize);
-        }
+    return {
+        encode(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Buf, outPos: IntWrapper): Int32Buf {
+            const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
+            if (alignedLength === 0) return out;
+
+            out = ensureInt32Capacity(out, outPos.get() + 1);
+            out[outPos.get()] = alignedLength;
+            outPos.increment();
+
+            return headlessCompress(inValues, inPos, alignedLength, out, outPos);
+        },
+    };
+}
+
+function createFastPforDecoder(pageSize = DEFAULT_PAGE_SIZE) {
+    const pSize = normalizePageSize(pageSize);
+    const dataToBePacked: Int32Array[] = new Array(33);
+    const dataPointers = new Int32Array(33);
+
+    // Reusable buffer for decoding byteContainer (avoids allocation per page)
+    const byteContainerSize = (3 * pSize) / BLOCK_SIZE + pSize;
+    let decodeByteContainer = new Uint8Array(byteContainerSize) as Uint8Buf;
+
+    const initialPackedSize = (pSize / 32) * 4;
+    for (let k = 1; k < dataToBePacked.length; k++) {
+        dataToBePacked[k] = new Int32Array(initialPackedSize);
     }
 
-    private decodePage(
+    function decodePage(
         inValues: Int32Array,
         inPos: IntWrapper,
         out: Int32Array,
@@ -1028,10 +981,10 @@ class FastPfor {
         }
 
         // Reuse pre-allocated buffer instead of allocating new Uint8Array per page
-        if (this.decodeByteContainer.length < byteSize) {
-            this.decodeByteContainer = new Uint8Array(byteSize * 2);
+        if (decodeByteContainer.length < byteSize) {
+            decodeByteContainer = new Uint8Array(byteSize * 2) as Uint8Buf;
         }
-        const byteContainer = this.decodeByteContainer;
+        const byteContainer = decodeByteContainer;
         for (let i = 0; i < byteSize; i++) {
             const intIdx = inExcept + (i >> 2);
             const byteInInt = i & 3;
@@ -1047,13 +1000,13 @@ class FastPfor {
                 const size = inValues[inExcept++];
                 const roundedUp = roundUpToMultipleOf32(size);
 
-                if (this.dataToBePacked[k].length < roundedUp) {
-                    this.dataToBePacked[k] = new Int32Array(roundedUp);
+                if (dataToBePacked[k].length < roundedUp) {
+                    dataToBePacked[k] = new Int32Array(roundedUp);
                 }
 
                 let j = 0;
                 for (; j < size; j += 32) {
-                    fastUnpack32(inValues, inExcept, this.dataToBePacked[k], j, k);
+                    fastUnpack32(inValues, inExcept, dataToBePacked[k], j, k);
                     inExcept += k;
                 }
 
@@ -1062,7 +1015,7 @@ class FastPfor {
             }
         }
 
-        this.dataPointers.fill(0);
+        dataPointers.fill(0);
         let tmpOutPos = outPos.get();
         let tmpInPos = inPos.get();
 
@@ -1126,7 +1079,7 @@ class FastPfor {
                 } else {
                     for (let k = 0; k < cExcept; k++) {
                         const pos = byteContainer[bytePosIn++];
-                        const exceptValue = this.dataToBePacked[index][this.dataPointers[index]++];
+                        const exceptValue = dataToBePacked[index][dataPointers[index]++];
                         out[pos + tmpOutPos] |= exceptValue << b;
                     }
                 }
@@ -1136,135 +1089,154 @@ class FastPfor {
         outPos.set(tmpOutPos);
         inPos.set(inExcept);
     }
-}
 
-class VariableByte {
-    public compress(
+    function headlessUncompress(
         inValues: Int32Array,
         inPos: IntWrapper,
-        inLength: number,
-        out: Int32Buf,
-        outPos: IntWrapper,
-    ): Int32Buf {
-        if (inLength === 0) return out;
-
-        const bytes: number[] = [];
-
-        const start = inPos.get();
-        for (let k = start; k < start + inLength; k++) {
-            let v = inValues[k] >>> 0;
-            while (v >= 0x80) {
-                bytes.push(v & 0x7f);
-                v >>>= 7;
-            }
-            bytes.push(v | 0x80);
-        }
-
-        while (bytes.length % 4 !== 0) bytes.push(0);
-
-        const intsToWrite = bytes.length / 4;
-        out = ensureInt32Capacity(out, outPos.get() + intsToWrite);
-
-        let outIdx = outPos.get();
-        for (let i = 0; i < bytes.length; i += 4) {
-            const v = bytes[i] | (bytes[i + 1] << 8) | (bytes[i + 2] << 16) | (bytes[i + 3] << 24) | 0;
-            out[outIdx++] = v;
-        }
-
-        outPos.set(outIdx);
-        inPos.add(inLength);
-        return out;
-    }
-
-    public uncompress(
-        inValues: Int32Array,
-        inPos: IntWrapper,
-        inLength: number,
+        _inLength: number,
         out: Int32Array,
         outPos: IntWrapper,
+        outLength: number,
     ): void {
-        let s = 0;
-        let p = inPos.get();
-        const finalP = inPos.get() + inLength;
-        let tmpOutPos = outPos.get();
+        const alignedOutLength = greatestMultiple(outLength, BLOCK_SIZE);
+        const finalOut = outPos.get() + alignedOutLength;
+        while (outPos.get() !== finalOut) {
+            const thisSize = Math.min(pSize, finalOut - outPos.get());
+            decodePage(inValues, inPos, out, outPos, thisSize);
+        }
+    }
 
-        let v = 0;
-        let shift = 0;
+    return {
+        decode(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Array, outPos: IntWrapper): void {
+            if (inLength === 0) return;
 
-        while (p < finalP) {
-            const val = inValues[p];
-            const c = (val >>> s) & 0xff;
-            s += 8;
-            p += s >>> 5;
-            s &= 31;
-
-            v += (c & 127) << shift;
-            if ((c & 128) === 128) {
-                out[tmpOutPos++] = v;
-                v = 0;
-                shift = 0;
-            } else {
-                shift += 7;
+            // Validate that we have at least 1 int32 in the window to read the outLength header
+            if (inLength < 1) {
+                throw new Error(`FastPFOR: buffer too small to read alignedLength header`);
             }
-        }
 
-        outPos.set(tmpOutPos);
-        inPos.add(inLength);
-    }
+            const outLength = inValues[inPos.get()];
+            inPos.increment();
+
+            // Validate outLength is non-negative
+            if (outLength < 0) {
+                throw new Error(`FastPFOR: negative outLength=${outLength}`);
+            }
+
+            // Validate outLength is a multiple of BLOCK_SIZE (256)
+            if ((outLength & (BLOCK_SIZE - 1)) !== 0) {
+                throw new Error(`FastPFOR: outLength not multiple of ${BLOCK_SIZE}: ${outLength}`);
+            }
+
+            // Validate outLength doesn't exceed output buffer capacity
+            if (outPos.get() + outLength > out.length) {
+                throw new Error(
+                    `FastPFOR: outLength=${outLength} exceeds output capacity ${out.length - outPos.get()}`,
+                );
+            }
+
+            headlessUncompress(inValues, inPos, inLength, out, outPos, outLength);
+        },
+    };
 }
 
-class Composition {
-    constructor(
-        private readonly first: FastPfor,
-        private readonly second: VariableByte,
-    ) { }
+function encodeVarint(
+    inValues: Int32Array,
+    inPos: IntWrapper,
+    inLength: number,
+    out: Int32Buf,
+    outPos: IntWrapper,
+): Int32Buf {
+    if (inLength === 0) return out;
 
-    public compress(
-        inValues: Int32Array,
-        inPos: IntWrapper,
-        inLength: number,
-        out: Int32Buf,
-        outPos: IntWrapper,
-    ): Int32Buf {
-        if (inLength === 0) return out;
+    const bytes: number[] = [];
 
-        const inPosInit = inPos.get();
-        const outPosInit = outPos.get();
-
-        out = this.first.compress(inValues, inPos, inLength, out, outPos);
-        if (outPos.get() === outPosInit) {
-            out = ensureInt32Capacity(out, outPosInit + 1);
-            out[outPosInit] = 0;
-            outPos.increment();
+    const start = inPos.get();
+    for (let k = start; k < start + inLength; k++) {
+        let v = inValues[k] >>> 0;
+        while (v >= 0x80) {
+            bytes.push(v & 0x7f);
+            v >>>= 7;
         }
-
-        const remaining = inLength - (inPos.get() - inPosInit);
-        out = this.second.compress(inValues, inPos, remaining, out, outPos);
-        return out;
+        bytes.push(v | 0x80);
     }
 
-    public uncompress(
-        inValues: Int32Array,
-        inPos: IntWrapper,
-        inLength: number,
-        out: Int32Array,
-        outPos: IntWrapper,
-    ): void {
-        if (inLength === 0) return;
-        const init = inPos.get();
-        this.first.uncompress(inValues, inPos, inLength, out, outPos);
-        const remainingLength = inLength - (inPos.get() - init);
-        this.second.uncompress(inValues, inPos, remainingLength, out, outPos);
+    while (bytes.length % 4 !== 0) bytes.push(0);
+
+    const intsToWrite = bytes.length / 4;
+    out = ensureInt32Capacity(out, outPos.get() + intsToWrite);
+
+    let outIdx = outPos.get();
+    for (let i = 0; i < bytes.length; i += 4) {
+        const v = bytes[i] | (bytes[i + 1] << 8) | (bytes[i + 2] << 16) | (bytes[i + 3] << 24) | 0;
+        out[outIdx++] = v;
     }
+
+    outPos.set(outIdx);
+    inPos.add(inLength);
+    return out;
 }
 
-const fastPforCodec = new Composition(new FastPfor(), new VariableByte());
+function decodeVarint(
+    inValues: Int32Array,
+    inPos: IntWrapper,
+    inLength: number,
+    out: Int32Array,
+    outPos: IntWrapper,
+): void {
+    let s = 0;
+    let p = inPos.get();
+    const finalP = inPos.get() + inLength;
+    let tmpOutPos = outPos.get();
+
+    let v = 0;
+    let shift = 0;
+
+    while (p < finalP) {
+        const val = inValues[p];
+        const c = (val >>> s) & 0xff;
+        s += 8;
+        p += s >>> 5;
+        s &= 31;
+
+        v += (c & 127) << shift;
+        if ((c & 128) === 128) {
+            out[tmpOutPos++] = v;
+            v = 0;
+            shift = 0;
+        } else {
+            shift += 7;
+        }
+    }
+
+    outPos.set(tmpOutPos);
+    inPos.add(inLength);
+}
+
+const fastPforEncoder = createFastPforEncoder();
+const fastPforDecoder = createFastPforDecoder();
 
 export function encodeFastPforInt32(values: Int32Array): Int32Buf {
     const inPos = new IntWrapper(0);
     const outPos = new IntWrapper(0);
     let out = new Int32Array(values.length + 1024) as Int32Buf;
-    out = fastPforCodec.compress(values, inPos, values.length, out, outPos);
+
+    // 1. FastPFOR compress
+    const inPosInit = inPos.get();
+    const outPosInit = outPos.get();
+
+    out = fastPforEncoder.encode(values, inPos, values.length, out, outPos);
+
+    if (outPos.get() === outPosInit) {
+        out = ensureInt32Capacity(out, outPosInit + 1);
+        out[outPosInit] = 0;
+        outPos.increment();
+    }
+
+    // 2. VariableByte compress for remaining
+    const remaining = values.length - (inPos.get() - inPosInit);
+    out = encodeVarint(values, inPos, remaining, out, outPos);
+
     return out.subarray(0, outPos.get());
 }
 
@@ -1272,7 +1244,15 @@ export function decodeFastPforInt32(encoded: Int32Buf, numValues: number): Int32
     const inPos = new IntWrapper(0);
     const outPos = new IntWrapper(0);
     const decoded = new Int32Array(numValues);
-    fastPforCodec.uncompress(encoded, inPos, encoded.length, decoded, outPos);
+
+    // 1. FastPFOR uncompress
+    const init = inPos.get();
+    fastPforDecoder.decode(encoded, inPos, encoded.length, decoded, outPos);
+
+    // 2. VariableByte uncompress for remaining
+    const remainingLength = encoded.length - (inPos.get() - init);
+    decodeVarint(encoded, inPos, remainingLength, decoded, outPos);
+
     return decoded;
 }
 
