@@ -15,11 +15,6 @@ const OVERHEAD_OF_EACH_EXCEPT = 8;
 const DEFAULT_PAGE_SIZE = 65536;
 const BLOCK_SIZE = 256;
 
-interface Int32Codec {
-    compress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Buf, outPos: IntWrapper): Int32Buf;
-    uncompress(inValues: Int32Array, inPos: IntWrapper, inLength: number, out: Int32Array, outPos: IntWrapper): void;
-}
-
 function greatestMultiple(value: number, factor: number): number {
     return value - (value % factor);
 }
@@ -650,7 +645,7 @@ function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32Array, o
 // Dispatch table for specialized unpack functions (indices 1-12)
 // Extended Hybrid: 1-12 + 16 are specialized, 13-15 and 17+ use generic fallback
 const UNPACK_DISPATCH: ((inValues: Int32Array, inPos: number, out: Int32Array, outPos: number) => void)[] = [
-    () => {}, // 0 - handled separately
+    () => { }, // 0 - handled separately
     fastUnpack32_1,
     fastUnpack32_2,
     fastUnpack32_3,
@@ -725,7 +720,7 @@ function fastUnpack32(inValues: Int32Array, inPos: number, out: Int32Array, outP
     }
 }
 
-class FastPfor implements Int32Codec {
+class FastPfor {
     private readonly pageSize: number;
     private dataToBePacked: Int32Array[] = new Array(33);
     private byteContainer: Uint8Array;
@@ -1143,7 +1138,7 @@ class FastPfor implements Int32Codec {
     }
 }
 
-class VariableByte implements Int32Codec {
+class VariableByte {
     public compress(
         inValues: Int32Array,
         inPos: IntWrapper,
@@ -1220,9 +1215,9 @@ class VariableByte implements Int32Codec {
 
 class Composition {
     constructor(
-        private readonly first: Int32Codec,
-        private readonly second: Int32Codec,
-    ) {}
+        private readonly first: FastPfor,
+        private readonly second: VariableByte,
+    ) { }
 
     public compress(
         inValues: Int32Array,
@@ -1265,7 +1260,7 @@ class Composition {
 
 const fastPforCodec = new Composition(new FastPfor(), new VariableByte());
 
-export function compressFastPforInt32(values: Int32Array): Int32Buf {
+export function encodeFastPforInt32(values: Int32Array): Int32Buf {
     const inPos = new IntWrapper(0);
     const outPos = new IntWrapper(0);
     let out = new Int32Array(values.length + 1024) as Int32Buf;
@@ -1273,7 +1268,7 @@ export function compressFastPforInt32(values: Int32Array): Int32Buf {
     return out.subarray(0, outPos.get());
 }
 
-export function uncompressFastPforInt32(encoded: Int32Buf, numValues: number): Int32Array {
+export function decodeFastPforInt32(encoded: Int32Buf, numValues: number): Int32Array {
     const inPos = new IntWrapper(0);
     const outPos = new IntWrapper(0);
     const decoded = new Int32Array(numValues);

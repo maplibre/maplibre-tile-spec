@@ -1,5 +1,5 @@
 import IntWrapper from "../decoding/intWrapper";
-import { compressFastPforInt32, int32sToBigEndianBytes } from "../fastPforCodec";
+import { encodeFastPforInt32, int32sToBigEndianBytes } from "../fastPforCodec";
 
 export function encodeVarintInt32Value(value: number, dst: Uint8Array, offset: IntWrapper): void {
     let v = value;
@@ -103,7 +103,7 @@ function encodeVarintFloat64Value(val: number, buf: Uint8Array, offset: IntWrapp
 }
 
 export function encodeFastPfor(data: Int32Array): Uint8Array {
-    const compressed = compressFastPforInt32(data);
+    const compressed = encodeFastPforInt32(data);
     return int32sToBigEndianBytes(compressed);
 }
 

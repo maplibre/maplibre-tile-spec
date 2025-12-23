@@ -1,6 +1,6 @@
 import type IntWrapper from "./intWrapper";
 import type BitVector from "../vector/flat/bitVector";
-import { bigEndianBytesToInt32s, uncompressFastPforInt32 } from "../fastPforCodec";
+import { bigEndianBytesToInt32s, decodeFastPforInt32 } from "../fastPforCodec";
 
 //based on https://github.com/mapbox/pbf/blob/main/index.js
 export function decodeVarintInt32(buf: Uint8Array, bufferOffset: IntWrapper, numValues: number): Int32Array {
@@ -148,7 +148,7 @@ export function decodeFastPfor(
 ): Int32Array {
     const start = offset.get();
     const encoded = bigEndianBytesToInt32s(data, start, byteLength);
-    const decoded = uncompressFastPforInt32(encoded, numValues);
+    const decoded = decodeFastPforInt32(encoded, numValues);
     offset.add(byteLength);
     return decoded;
 }

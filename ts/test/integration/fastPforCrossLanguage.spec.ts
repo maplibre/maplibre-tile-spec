@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 import { decodeFastPfor } from "../../src/decoding/integerDecodingUtils";
 import IntWrapper from "../../src/decoding/intWrapper";
-import { int32sToBigEndianBytes, uncompressFastPforInt32 } from "../../src/fastPforCodec";
+import { int32sToBigEndianBytes, decodeFastPforInt32 } from "../../src/fastPforCodec";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +59,7 @@ describe("FastPFOR Integration: C++ encoded → TS decoded", () => {
             const expected = loadBinaryFixture(`vector${idx}_uncompressed.bin`);
 
             // Test using int32 array directly
-            const decoded = uncompressFastPforInt32(encoded, expected.length);
+            const decoded = decodeFastPforInt32(encoded, expected.length);
             expect(decoded).toEqual(expected);
 
             // Test using byte array (how it comes from MLT tiles)
