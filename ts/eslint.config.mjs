@@ -9,7 +9,7 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        project: './tsconfig.json',
+        project: './tsconfig.eslint.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -39,12 +39,12 @@ export default tseslint.config(
       }],
     },
   },
-    {
-      files: ['**/*.spec.ts'],
-      rules: {
-        '@typescript-eslint/unbound-method': 'off',
-      },
+  {
+    files: ['**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
     },
+  },
   {
     ignores: ['dist', 'node_modules', 'coverage', '*.config.mjs', '*.config.js', '**/*.js']
   }
