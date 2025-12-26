@@ -4,7 +4,7 @@
  * This file contains optimized bit-unpacking routines for FastPFOR decoding.
  * Note: This code is mechanically structured and should be treated as "generated code"
  * even though it was hand-written for performance optimization.
- * 
+ *
  * Avoid manually editing individual unpack functions if possible. If changes are needed,
  * update the pattern and verify all functions together.
  *
@@ -554,7 +554,7 @@ export function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32A
 // better register allocation and avoid call overhead.
 
 export function fastUnpack256_1(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
-    // 1 bit per value = 32 values per int32. 
+    // 1 bit per value = 32 values per int32.
     // 256 values = 8 int32s.
     // Unrolling 8 iterations of fastUnpack32_1 logic.
     let op = outPos;
