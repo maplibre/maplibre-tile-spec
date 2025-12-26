@@ -3,7 +3,7 @@
  *
  * Tests for the FastPFOR decoder - the production hot-path.
  * Tests bitwidth dispatch, edge cases, and workspace management.
- * 
+ *
  * DESIGN NOTE:
  * These tests prioritize DETERMINISM.
  * - Bitwidth tests use "Manual Packed Pages" to verify decoder dispatch without encoder dependency.
@@ -300,7 +300,7 @@ function createManualExceptionPage(bitwidth_k: number, b = 0): Int32Array {
 }
 
 describe("FastPFOR Decoder: bitwidth dispatch (Manual Packed Pages)", () => {
-    // We construct pages manually to strictly test the decoder's dispatch logic 
+    // We construct pages manually to strictly test the decoder's dispatch logic
     // without depending on the encoder's heuristics.
 
     for (let bw = 0; bw <= 32; bw++) {
@@ -330,7 +330,7 @@ describe("FastPFOR Decoder: exception logic (Manual Pages)", () => {
         const decoded = decodeFastPforInt32(encoded, BLOCK_SIZE);
 
         const expected = new Int32Array(BLOCK_SIZE);
-        // Packed region is 0. 
+        // Packed region is 0.
         // Exception at 0: adds 1<<b = 32. Total 32.
         expected[0] = 32;
         expected[BLOCK_SIZE >>> 1] = 32;
@@ -375,7 +375,7 @@ describe("FastPFOR Decoder: exception logic (Manual Pages)", () => {
 
 describe("FastPFOR Decoder: Corruption Guards", () => {
     // We use a valid encoded buffer and surgically corrupt it to verifying throwing guards.
-    // For corruption tests, verifying against "perfectly valid" structural encoded data 
+    // For corruption tests, verifying against "perfectly valid" structural encoded data
     // is best achieved by asking the encoder to produce it, then corrupting it.
     const validValues = new Int32Array(BLOCK_SIZE).fill(123);
     const validEncoded = encodeFastPforInt32(validValues);
