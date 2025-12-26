@@ -44,6 +44,7 @@ export type FastPforDecoderWorkspace = {
     dataToBePacked: Array<Int32Array | undefined>;
     dataPointers: Int32Array;
     byteContainer: Uint8Buf;
+    exceptionSizes: Int32Array; // Stores declared size for each exception stream [2..32]
 };
 
 // Module-level constants
@@ -74,12 +75,21 @@ export function createDecoderWorkspace(): FastPforDecoderWorkspace {
         dataToBePacked: new Array(33), // lazy: allocate on first use per bitwidth
         dataPointers: new Int32Array(33),
         byteContainer: new Uint8Array(byteContainerSize) as Uint8Buf,
+        exceptionSizes: new Int32Array(33), // Tracks declared size for corruption detection
     };
 }
 
-// Shared default workspace for the hot-path when caller doesn't provide one.
-// Avoids allocating ~O(pageSize) buffers per stream decode.
-// Not safe for concurrent/overlapping decode calls, but JS execution is synchronous by default.
+/**
+ * Shared default workspace for the hot-path when caller doesn't provide one.
+ * Avoids allocating ~O(pageSize) buffers per stream decode.
+ *
+ * IMPORTANT: Not safe for concurrent/overlapping decode calls. JS execution is synchronous by default,
+ * but if you wrap decoding in a reusable decoder object or need explicit scratch ownership,
+ * create a workspace via createDecoderWorkspace() and pass it to each call.
+ *
+ * Note: In browsers, each WebWorker has its own JS realm/module instance, so this shared workspace
+ * is not shared across workers.
+ */
 let sharedDefaultWorkspace: FastPforDecoderWorkspace | undefined;
 
 /**
@@ -225,6 +235,9 @@ function decodePage(
 
             const overflow = (j - size) | 0;
             inExcept = (inExcept - ((overflow * k) >>> 5)) | 0;
+
+            // Store the declared size for strict corruption detection during patching
+            ws.exceptionSizes[k] = size;
         }
     }
 
@@ -397,10 +410,14 @@ function decodePage(
                 }
 
                 let exPtr = ptrs[index] | 0;
-                // Guard: exception stream must have enough data (anti-corruption)
-                if (exPtr + cExcept > exArr.length) {
+                const exSize = ws.exceptionSizes[index] | 0;
+
+                // Guard: exception stream must have enough data (anti-corruption).
+                // Verify against declared size (exact), not rounded-up buffer length.
+                // This catches corruption where size field is malformed/truncated.
+                if (exPtr + cExcept > exSize) {
                     throw new Error(
-                        `FastPFOR decode: exception stream overflow for index=${index} (need ${cExcept}, have ${exArr.length - exPtr}) at block ${run}`,
+                        `FastPFOR decode: exception stream overflow for index=${index} (ptr=${exPtr}, need ${cExcept}, size=${exSize}) at block ${run}`,
                     );
                 }
 

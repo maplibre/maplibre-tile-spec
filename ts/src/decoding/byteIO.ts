@@ -2,7 +2,12 @@
  * Byte/word conversion helpers.
  *
  * Used by both encoding (tests) and decoding (prod).
- * Kept in decoding/ to keep the dependency graph directional (encoding → decoding).
+ * Placed in decoding/ to maintain unidirectional dependency flow (encoding → decoding),
+ * ensuring encoding code can import decoding utilities without creating cycles.
+ *
+ * Note: bigEndianBytesToInt32s supports trailing bytes (byteLength % 4 !== 0) for generality,
+ * even though FastPFOR specifically enforces byteLength % 4 === 0. This keeps the utility
+ * reusable for other contexts if needed.
  */
 
 // Serialize Int32 words as big-endian bytes (used by MLT stream wrappers).

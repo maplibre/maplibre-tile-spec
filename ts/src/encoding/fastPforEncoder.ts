@@ -50,7 +50,7 @@ function ensureUint8Capacity(buffer: Uint8Buf, requiredLength: number): Uint8Buf
 
 /**
  * Internal workspace for the FastPFOR encoder.
- * Not exported - encoder is a test helper, API is kept simple.
+ * Not exported - workspace API is kept simple for internal use.
  */
 type FastPforEncoderWorkspace = {
     dataToBePacked: Int32Array[];
@@ -130,8 +130,20 @@ function createEncoderWorkspace(): FastPforEncoderWorkspace {
     };
 }
 
-// Internal scratchpad for the encoder (not exposed - encoder is a test helper).
-const defaultEncoderWorkspace = createEncoderWorkspace();
+/**
+ * Default encoder workspace, allocated lazily on first use.
+ * The encoder is used primarily for tests, so lazy allocation avoids unnecessary
+ * memory overhead (~1MB) when the encoder is not needed.
+ * Note: Not thread-safe. For concurrent encoding, create separate workspaces via createEncoderWorkspace().
+ */
+let defaultEncoderWorkspace: FastPforEncoderWorkspace | undefined;
+
+function getOrCreateDefaultWorkspace(): FastPforEncoderWorkspace {
+    if (!defaultEncoderWorkspace) {
+        defaultEncoderWorkspace = createEncoderWorkspace();
+    }
+    return defaultEncoderWorkspace;
+}
 
 function getBestBFromData(inValues: Int32Array, pos: number, ws: FastPforEncoderWorkspace): void {
     const freqs = ws.freqs;
@@ -361,8 +373,10 @@ function encode(
     return headlessEncode(inValues, inPos, alignedLength, out, outPos, ws);
 }
 
-// Note: This implements VByte encoding (MSB=1 is terminator), which is the inverse of standard
-// Protobuf Varint (MSB=0 is terminator). That is why we cannot reuse the generic encodeVarint methods.
+/**
+ * VByte encoding for FastPFOR tail values (MSB=1 terminator).
+ * Note: Inverts standard Protobuf Varint (MSB=0 terminator), so we cannot reuse generic methods.
+ */
 function encodeVByte(
     inValues: Int32Array,
     inPos: IntWrapper,
@@ -408,12 +422,14 @@ function encodeVByte(
 /**
  * Encodes an array of 32-bit integers using FastPFOR encoding.
  *
- * **Test-only helper** for roundtrip validation; performance workspaces are
- * only exposed for the decoder which is the production hot-path.
+ * Used primarily for roundtrip tests. Production encoding happens server-side.
  *
  * Wire format: `[alignedLength:int32] [FastPFOR pages...] [VByte tail]`
  * - Header stores number of values encoded with FastPFOR (multiple of 256)
  * - Remaining values (0–255) are encoded with VByte (MSB=1 terminator)
+ *
+ * Performance: Uses a lazily-allocated default workspace (~1MB on first call)
+ * to avoid memory overhead when encoder is not used.
  */
 export function encodeFastPforInt32(values: Int32Array): Int32Buf {
     const inPos = new IntWrapper(0);
@@ -424,7 +440,7 @@ export function encodeFastPforInt32(values: Int32Array): Int32Buf {
     const inPosInit = inPos.get();
     const outPosInit = outPos.get();
 
-    out = encode(values, inPos, values.length, out, outPos, defaultEncoderWorkspace);
+    out = encode(values, inPos, values.length, out, outPos, getOrCreateDefaultWorkspace());
 
     // encode() writes the alignedLength header only if alignedLength > 0.
     // For <256 values we still emit the header (=0) so decoder knows to proceed to VByte tail.

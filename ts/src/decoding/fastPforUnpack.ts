@@ -10,8 +10,8 @@
  *
  * Exports:
  *  - fastUnpack32_N(inValues, inPos, out, outPos) for N in selected bitwidths (1-12, 16)
- *  - fastUnpack256_N(inValues, inPos, out, outPos) for N in selected bitwidths (1-6, 8, 16)
- *  - fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth) for other bitwidths (incl. 7, 9-15, 17-31)
+ *  - fastUnpack256_N(inValues, inPos, out, outPos) for N in selected bitwidths (1-8, 16)
+ *  - fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth) for other bitwidths (9-15, 17-31)
  */
 
 import { MASKS } from "./fastPforSpec";
@@ -587,8 +587,6 @@ export function fastUnpack256_2(inValues: Int32Array, inPos: number, out: Int32A
     // We need 8 chunks.
     let op = outPos;
     let ip = inPos;
-    // Manual unroll of outer loop 8 times? Or strict loop?
-    // Loop of 8 is likely fine, JS Engine unrolls small constant loops.
     for (let c = 0; c < 8; c++) {
         const in0 = inValues[ip++] >>> 0;
         const in1 = inValues[ip++] >>> 0;

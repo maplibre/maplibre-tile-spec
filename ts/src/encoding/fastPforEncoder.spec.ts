@@ -1,8 +1,8 @@
 /**
  * FastPFOR Encoder Unit Tests
  *
- * Tests for the FastPFOR encoder - a test-only helper for roundtrip validation.
- * The encoder is NOT a production component; it exists for symmetry with the decoder.
+ * Tests for the FastPFOR encoder used in production for integerStreamEncoder.ts.
+ * Validates encode-decode roundtrip symmetry, bitwidth dispatch, and wire format invariants.
  */
 
 import { describe, expect, it } from "vitest";
