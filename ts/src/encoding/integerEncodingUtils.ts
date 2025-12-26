@@ -1,5 +1,6 @@
-import BitVector from "../vector/flat/bitVector";
 import IntWrapper from "../decoding/intWrapper";
+import { encodeFastPforInt32 } from "./fastPforEncoder";
+import { int32sToBigEndianBytes } from "../decoding/byteIO";
 
 export function encodeVarintInt32Value(value: number, dst: Uint8Array, offset: IntWrapper): void {
     let v = value;
@@ -103,7 +104,8 @@ function encodeVarintFloat64Value(val: number, buf: Uint8Array, offset: IntWrapp
 }
 
 export function encodeFastPfor(data: Int32Array): Uint8Array {
-    throw new Error("FastPFor is not implemented yet.");
+    const compressed = encodeFastPforInt32(data);
+    return int32sToBigEndianBytes(compressed);
 }
 
 export function encodeZigZagInt32Value(value: number): number {
