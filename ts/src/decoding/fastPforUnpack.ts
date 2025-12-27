@@ -1,17 +1,6 @@
 /**
- * FastPFOR Bit-Unpacking Functions
- *
- * This file contains optimized bit-unpacking routines for FastPFOR decoding.
- * Note: This code is mechanically structured and should be treated as "generated code"
- * even though it was hand-written for performance optimization.
- *
- * Avoid manually editing individual unpack functions if possible. If changes are needed,
- * update the pattern and verify all functions together.
- *
- * Exports:
- *  - fastUnpack32_N(inValues, inPos, out, outPos) for N in selected bitwidths (1-12, 16)
- *  - fastUnpack256_N(inValues, inPos, out, outPos) for N in selected bitwidths (1-8, 16)
- *  - fastUnpack256_Generic(inValues, inPos, out, outPos, bitWidth) for other bitwidths (9-15, 17-31)
+ * Optimized bit-unpacking routines for FastPFOR decoding.
+ * The functions are mechanically structured; treat edits as a batch.
  */
 
 import { MASKS } from "./fastPforSpec";
@@ -548,15 +537,7 @@ export function fastUnpack32_16(inValues: Int32Array, inPos: number, out: Int32A
     out[op++] = (in15 >>> 0) & 0xffff;
     out[op++] = (in15 >>> 16) & 0xffff;
 }
-
-//fastUnpack256 variants
-// These flatten the 8 calls to fastUnpack32 into a single function to enable
-// better register allocation and avoid call overhead.
-
 export function fastUnpack256_1(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
-    // 1 bit per value = 32 values per int32.
-    // 256 values = 8 int32s.
-    // Unrolling 8 iterations of fastUnpack32_1 logic.
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -581,10 +562,6 @@ export function fastUnpack256_1(inValues: Int32Array, inPos: number, out: Int32A
 }
 
 export function fastUnpack256_2(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
-    // 2 bits per value = 16 values per int32.
-    // 256 values = 16 int32s.
-    // Each fastUnpack32_2 consumes 2 ints for 32 values.
-    // We need 8 chunks.
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -652,8 +629,6 @@ export function fastUnpack256_3(inValues: Int32Array, inPos: number, out: Int32A
 }
 
 export function fastUnpack256_4(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
-    // 4 bits -> 8 values per Int32. 32 values need 4 Int32s.
-    // 8 chunks.
     let op = outPos;
     let ip = inPos;
     for (let c = 0; c < 8; c++) {
@@ -812,7 +787,6 @@ export function fastUnpack256_8(inValues: Int32Array, inPos: number, out: Int32A
 export function fastUnpack256_16(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number): void {
     let op = outPos;
     let ip = inPos;
-    // 16 bits = 2 values per int. 256 values = 128 ints.
     for (let i = 0; i < 128; i++) {
         const in0 = inValues[ip++] >>> 0;
         out[op++] = in0 & 0xffff;
@@ -822,7 +796,6 @@ export function fastUnpack256_16(inValues: Int32Array, inPos: number, out: Int32
 
 
 export function fastUnpack256_Generic(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number, bitWidth: number): void {
-    // mask for bitWidth bits
     const mask = MASKS[bitWidth] >>> 0;
 
     let inputWordIndex = inPos;
@@ -831,7 +804,6 @@ export function fastUnpack256_Generic(inValues: Int32Array, inPos: number, out: 
     let op = outPos;
 
     for (let c = 0; c < 8; c++) {
-        // Unpack 32 values
         for (let i = 0; i < 32; i++) {
             if (bitOffset + bitWidth <= 32) {
                 const value = (currentWord >>> bitOffset) & mask;
@@ -841,7 +813,6 @@ export function fastUnpack256_Generic(inValues: Int32Array, inPos: number, out: 
                 if (bitOffset === 32) {
                     bitOffset = 0;
                     inputWordIndex++;
-                    // Only fetch next word if we are not done with this block of 32
                     if (i !== 31) {
                         currentWord = inValues[inputWordIndex] >>> 0;
                     }
@@ -865,11 +836,8 @@ export function fastUnpack256_Generic(inValues: Int32Array, inPos: number, out: 
         }
         op += 32;
 
-        // After 32 values (block of bitWidth*32 bits), we align to word boundary.
         bitOffset = 0;
-        // Load next word for the next iteration of 'c', unless we are done.
         if (c < 7) {
-            // currentWord needs to be refreshed from the already-incremented inputWordIndex
             currentWord = inValues[inputWordIndex] >>> 0;
         }
     }

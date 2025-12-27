@@ -1,8 +1,5 @@
 /**
- * FastPFOR Codec Specification Constants
- *
- * Single source of truth for constants and types shared by encoder and decoder.
- * Kept in decoding/ to keep the dependency graph directional (encoding → decoding).
+ * Shared constants and helpers for the FastPFOR codec.
  */
 
 export type Int32Buf = Int32Array<ArrayBufferLike>;

@@ -1,25 +1,20 @@
 /**
- * Byte/word conversion helpers.
- *
- * Used by both encoding (tests) and decoding (prod).
- * Placed in decoding/ to maintain unidirectional dependency flow (encoding → decoding),
- * ensuring encoding code can import decoding utilities without creating cycles.
- *
- * Note: bigEndianBytesToInt32s supports trailing bytes (byteLength % 4 !== 0) for generality,
- * even though FastPFOR specifically enforces byteLength % 4 === 0. This keeps the utility
- * reusable for other contexts if needed.
+ * Byte/word conversion helpers shared by the FastPFOR encoder/decoder.
+ * Placed in `decoding/` to keep dependencies one-way (encoding -> decoding).
  */
-
-// Serialize Int32 words as big-endian bytes (used by MLT stream wrappers).
 
 function bswap32(value: number): number {
     const x = value >>> 0;
     return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
 }
 
+/**
+ * Serializes an `Int32Array` to a big-endian byte stream.
+ *
+ * @param values - Int32 words to serialize.
+ * @returns Big-endian byte stream (`values.length * 4` bytes).
+ */
 export function int32sToBigEndianBytes(values: Int32Array): Uint8Array {
-    // Note: the FastPFOR codec operates on an Int32 stream. When converted to bytes for the tile format,
-    // we serialize those int32 words using big-endian order (consistent with existing MLT TS code paths).
     const bytes = new Uint8Array(values.length * 4);
     for (let i = 0; i < values.length; i++) {
         const v = values[i];
@@ -32,9 +27,22 @@ export function int32sToBigEndianBytes(values: Int32Array): Uint8Array {
     return bytes;
 }
 
+/**
+ * Reads a big-endian byte range as int32 words.
+ *
+ * If `byteLength` is not a multiple of 4, the final word is padded with zeros.
+ *
+ * @param bytes - Source byte buffer.
+ * @param offset - Start offset within `bytes`.
+ * @param byteLength - Number of bytes to read.
+ * @returns Decoded int32 words.
+ * @throws RangeError If `(offset, byteLength)` is out of bounds for `bytes`.
+ */
 export function bigEndianBytesToInt32s(bytes: Uint8Array, offset: number, byteLength: number): Int32Array {
     if (offset < 0 || byteLength < 0 || offset + byteLength > bytes.length) {
-        throw new RangeError("bigEndianBytesToInt32s: out of bounds");
+        throw new RangeError(
+            `bigEndianBytesToInt32s: out of bounds (offset=${offset}, byteLength=${byteLength}, bytes.length=${bytes.length})`,
+        );
     }
 
     const numCompleteInts = Math.floor(byteLength / 4);

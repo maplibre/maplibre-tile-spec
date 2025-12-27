@@ -1,10 +1,3 @@
-/**
- * FastPFOR Encoder Unit Tests
- *
- * Tests for the FastPFOR encoder used in production for integerStreamEncoder.ts.
- * Validates encode-decode roundtrip symmetry, bitwidth dispatch, and wire format invariants.
- */
-
 import { describe, expect, it } from "vitest";
 
 import { encodeFastPforInt32 } from "./fastPforEncoder";
@@ -20,26 +13,37 @@ function assertRoundtrip(values: Int32Array): Int32Array {
     return encoded;
 }
 
+/**
+ * Parses the first block header from an encoded FastPFOR stream.
+ *
+ * @param encoded - Output of `encodeFastPforInt32`.
+ * @returns Parsed header fields for the first block.
+ */
 function readFirstBlockHeader(encoded: Int32Array) {
-    if (encoded.length < 4) throw new Error("Encoded buffer too short");
+    if (encoded.length < 4) {
+        throw new Error(`readFirstBlockHeader: expected at least 4 int32 words, got encoded.length=${encoded.length}`);
+    }
 
-    // Encoded layout (when blocks exist): [outLength, whereMeta, ...packed..., byteSize, ...byteContainer...]
     const outLength = encoded[0];
     const whereMeta = encoded[1];
 
-    if (outLength < 0) throw new Error(`Invalid outLength ${outLength}`);
-    if (whereMeta < 1) throw new Error(`Invalid whereMeta ${whereMeta}`);
+    if (outLength < 0) throw new Error(`readFirstBlockHeader: invalid outLength=${outLength} (expected >= 0)`);
+    if (whereMeta < 1) throw new Error(`readFirstBlockHeader: invalid whereMeta=${whereMeta} (expected >= 1)`);
 
     const metaStart = 1 + whereMeta;
-    if (metaStart >= encoded.length) throw new Error("Meta start out of bounds");
+    if (metaStart >= encoded.length) {
+        throw new Error(`readFirstBlockHeader: metaStart=${metaStart} out of bounds (encoded.length=${encoded.length})`);
+    }
 
     const byteSize = encoded[metaStart];
-    if (byteSize < 2) throw new Error(`Invalid byteSize ${byteSize}`);
+    if (byteSize < 2) throw new Error(`readFirstBlockHeader: invalid byteSize=${byteSize} (expected >= 2)`);
 
     const byteContainerStart = metaStart + 1;
     const metaInts = (byteSize + 3) >>> 2;
     if (byteContainerStart + metaInts > encoded.length) {
-        throw new Error("ByteContainer out of bounds");
+        throw new Error(
+            `readFirstBlockHeader: byteContainer out of bounds (byteContainerStart=${byteContainerStart}, metaInts=${metaInts}, encoded.length=${encoded.length})`,
+        );
     }
 
     const firstWord = encoded[byteContainerStart];
@@ -49,10 +53,8 @@ function readFirstBlockHeader(encoded: Int32Array) {
     const maxBits = cExcept > 0 ? ((firstWord >>> 16) & 0xff) : 0;
 
     if (cExcept > 0) {
-        // We need at least 3 bytes for header (b, cExcept, maxBits)
-        // plus cExcept bytes for exception positions.
         if (byteSize < 3 + cExcept) {
-            throw new Error(`ByteSize ${byteSize} too small for cExcept ${cExcept}`);
+            throw new Error(`readFirstBlockHeader: invalid byteSize=${byteSize} for cExcept=${cExcept} (need >= ${3 + cExcept})`);
         }
     }
 
@@ -79,7 +81,6 @@ function generateDeterministicValues(count: number, bitwidth: number, seed: numb
         values[i] = u | 0;
     }
 
-    // Force maxBits == bitwidth by injecting the max value at block boundaries
     const max = bitwidth === 32 ? -1 : ((0xFFFFFFFF >>> (32 - bitwidth)) | 0);
     values[0] = max;
     if (count > BLOCK_SIZE) values[BLOCK_SIZE] = max;
@@ -93,11 +94,11 @@ function generateDeterministicValues(count: number, bitwidth: number, seed: numb
  */
 function generateExceptionFriendlyValues(count: number): Int32Array {
     const v = new Int32Array(count);
-    for (let i = 0; i < count; i++) v[i] = i & 0x0f; // 0..15
+    for (let i = 0; i < count; i++) v[i] = i & 0x0f;
 
     if (count >= BLOCK_SIZE) {
-        v[10] = 0x7fffffff;               // huge
-        v[200] = (1 << 30);               // huge
+        v[10] = 0x7fffffff;
+        v[200] = (1 << 30);
     }
     if (count >= TWO_BLOCKS) {
         v[BLOCK_SIZE + 20] = 0x7fffffff;
@@ -132,7 +133,6 @@ describe("FastPFOR Encoder: roundtrip validation", () => {
         const values = generateDeterministicValues(BLOCK_SIZE, 8);
         const encoded = assertRoundtrip(values);
 
-        // Optional: header sanity (don’t overfit heuristics)
         const h = readFirstBlockHeader(encoded);
         expect(h.b).toBeGreaterThanOrEqual(0);
         expect(h.b).toBeLessThanOrEqual(32);
@@ -174,8 +174,8 @@ describe("FastPFOR Encoder: exception handling", () => {
             (() => {
                 const v = new Int32Array(TWO_BLOCKS);
                 for (let i = 0; i < v.length; i++) v[i] = i & 0x0f;
-                v[10] = 0x80000000 | 0;         // Int32.MIN_VALUE
-                v[200] = -1;                    // 0xFFFFFFFF
+                v[10] = 0x80000000 | 0;
+                v[200] = -1;
                 v[BLOCK_SIZE + 20] = 0x80000000 | 0;
                 v[BLOCK_SIZE + 210] = -1;
                 return v;
@@ -189,11 +189,9 @@ describe("FastPFOR Encoder: exception handling", () => {
             if (h.cExcept > 0) {
                 expect(h.maxBits).toBeGreaterThan(h.b);
                 expect(h.maxBits).toBeLessThanOrEqual(32);
-                return; // We exercised exceptions, great.
+                return;
             }
         }
-
-        // Non-blocking: roundtrip already validated for all candidates.
     });
 
     it("handles all-zeros (bitwidth 0, no exceptions)", () => {

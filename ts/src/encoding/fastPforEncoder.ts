@@ -9,18 +9,12 @@ import {
     normalizePageSize,
 } from "../decoding/fastPforSpec";
 
-// Cost model constant for exception handling (used only by encoder)
-// Represents the approximate overhead in bits for adding an exception:
-// - Exception position (log2(BLOCK_SIZE) = 8 bits)
-// - Exception value overhead (variable, but we use a heuristic average)
 const OVERHEAD_OF_EACH_EXCEPT = 8;
 
-// Compute number of bits needed to represent a value (used only by encoder)
 function bits(value: number): number {
     return 32 - Math.clz32(value >>> 0);
 }
 
-// Local helper for growing Int32 buffers (only used by encoder)
 function ensureInt32Capacity(buffer: Int32Buf, requiredLength: number): Int32Buf {
     if (requiredLength <= buffer.length) return buffer;
 
@@ -34,7 +28,6 @@ function ensureInt32Capacity(buffer: Int32Buf, requiredLength: number): Int32Buf
     return next;
 }
 
-// Local helper for growing Uint8 buffers (only used by encoder)
 function ensureUint8Capacity(buffer: Uint8Buf, requiredLength: number): Uint8Buf {
     if (requiredLength <= buffer.length) return buffer;
 
@@ -98,24 +91,17 @@ function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, outPos: 
         }
     }
 
-    // Flush any remaining bits (when bitWidth doesn't divide 32 evenly)
-    // At this point, we must have produced exactly `bitWidth` 32-bit words:
-    // (outputWordIndex - outPos) is either bitWidth (if bitOffset==0) or bitWidth-1 (if bitOffset!=0 before flush).
     if (bitOffset !== 0) {
         out[outputWordIndex] = currentWord | 0;
     }
 }
 
-// Module-level shared scratchpads (replacing factory state)
-// These are not thread-safe, but JS is single-threaded so it's fine for synchronous execution.
 const pSize = normalizePageSize(DEFAULT_PAGE_SIZE);
 
 const initialPackedSize = (pSize / 32) * 4;
 const byteContainerSize = ((3 * pSize) / BLOCK_SIZE + pSize) | 0;
 
 function createEncoderWorkspace(): FastPforEncoderWorkspace {
-    // dataToBePacked: index range [1..32] used for exception payloads, index 0 unused.
-    // index = maxBits - b, where b in [0..31] and maxBits in [1..32], so index in [1..32].
     const dataToBePacked: Int32Array[] = new Array(33);
     for (let k = 1; k < dataToBePacked.length; k++) {
         dataToBePacked[k] = new Int32Array(initialPackedSize);
@@ -132,9 +118,7 @@ function createEncoderWorkspace(): FastPforEncoderWorkspace {
 
 /**
  * Default encoder workspace, allocated lazily on first use.
- * The encoder is used primarily for tests, so lazy allocation avoids unnecessary
- * memory overhead (~1MB) when the encoder is not needed.
- * Note: Not thread-safe. For concurrent encoding, create separate workspaces via createEncoderWorkspace().
+ * The encoder is used primarily for tests and is not safe for concurrent calls.
  */
 let defaultEncoderWorkspace: FastPforEncoderWorkspace | undefined;
 
@@ -153,7 +137,6 @@ function getBestBFromData(inValues: Int32Array, pos: number, ws: FastPforEncoder
         freqs[bits(inValues[k])]++;
     }
 
-    // maxBits can be 0 if all values in the block are zero (bits(0)=0 => freqs[0]=256)
     let maxBits = 32;
     while (freqs[maxBits] === 0) maxBits--;
 
@@ -181,10 +164,6 @@ function getBestBFromData(inValues: Int32Array, pos: number, ws: FastPforEncoder
     best[2] = maxBits;
 }
 
-// Helpers moved into encodePage or adapted to take state?
-// Since byteContainerPos is reset per page, we can just handle it inside encodePage loop.
-
-
 function encodePage(
     inValues: Int32Array,
     inPos: IntWrapper,
@@ -201,10 +180,8 @@ function encodePage(
     const dataPointers = ws.dataPointers;
     dataPointers.fill(0);
 
-    // Local byteContainer pos
     let byteContainerPos = 0;
 
-    // Local helper to put byte (captures workspace and local pos)
     function byteContainerPut(byteValue: number): void {
         if (byteContainerPos >= ws.byteContainer.length) {
             ws.byteContainer = ensureUint8Capacity(ws.byteContainer, byteContainerPos + 1);
@@ -232,7 +209,6 @@ function encodePage(
             byteContainerPut(maxBits);
             const index = maxBits - b;
 
-            // index must be in [1..32] range; anything else is a bug
             if (index < 1 || index > 32) {
                 throw new Error(`FastPFOR encode: invalid exception index=${index} (b=${b}, maxBits=${maxBits})`);
             }
@@ -248,8 +224,6 @@ function encodePage(
                 }
             }
 
-            // Exception positions: value >>> b !== 0 must match cExcept computed by getBestBFromData
-            // (same criterion: bits(value) > b)
             let realExcept = 0;
             for (let k = 0; k < BLOCK_SIZE; k++) {
                 const value = inValues[tmpInPos + k] >>> 0;
@@ -261,7 +235,6 @@ function encodePage(
                     }
                 }
             }
-            // Sanity check (test-only encoder): exception count must match cost model
             if (realExcept !== cExcept) {
                 throw new Error(`FastPFOR encode: exception count mismatch (got ${realExcept}, expected ${cExcept})`);
             }
@@ -288,8 +261,6 @@ function encodePage(
     const byteContainer = ws.byteContainer;
     for (let i = 0; i < howManyInts; i++) {
         const base = i * 4;
-        // byteContainer is serialized in little-endian inside int32 words (matching JavaFastPFOR),
-        // independent of how the overall Int32 stream is later converted to bytes.
         const v =
             byteContainer[base] |
             (byteContainer[base + 1] << 8) |
@@ -300,9 +271,6 @@ function encodePage(
     }
     tmpOutPos += howManyInts;
 
-    // Build bitmap: bit (k-1) set if exception stream k is present.
-    // For k=32, use 0x80000000 directly to avoid signed shift issues with 1<<31.
-    // This matches the decoder loop which reads k=2..32 and checks bit (k-1).
     let bitmap = 0;
     for (let k = 2; k <= 32; k++) {
         if (dataPointers[k] !== 0) {
@@ -327,7 +295,6 @@ function encodePage(
             }
 
             const overflow = j - size;
-            // Integer division: (overflow * k) / 32 using unsigned shift
             tmpOutPos -= ((overflow * k) >>> 5);
         }
     }
@@ -364,12 +331,11 @@ function encode(
     ws: FastPforEncoderWorkspace,
 ): Int32Buf {
     const alignedLength = greatestMultiple(inLength, BLOCK_SIZE);
-    if (alignedLength === 0) return out;
-
     out = ensureInt32Capacity(out, outPos.get() + 1);
     out[outPos.get()] = alignedLength;
     outPos.increment();
 
+    if (alignedLength === 0) return out;
     return headlessEncode(inValues, inPos, alignedLength, out, outPos, ws);
 }
 
@@ -386,8 +352,6 @@ function encodeVByte(
 ): Int32Buf {
     if (inLength === 0) return out;
 
-    // remaining is in [0..255] because FastPFOR encodes greatestMultiple(values.length, 256).
-    // Test-only: number[] is acceptable for <256 values (max 5 bytes each = 1280 bytes).
     if (inLength > 255) {
         throw new Error(`encodeVByte: inLength=${inLength} exceeds expected max of 255`);
     }
@@ -420,38 +384,17 @@ function encodeVByte(
 }
 
 /**
- * Encodes an array of 32-bit integers using FastPFOR encoding.
- *
- * Used primarily for roundtrip tests. Production encoding happens server-side.
- *
- * Wire format: `[alignedLength:int32] [FastPFOR pages...] [VByte tail]`
- * - Header stores number of values encoded with FastPFOR (multiple of 256)
- * - Remaining values (0–255) are encoded with VByte (MSB=1 terminator)
- *
- * Performance: Uses a lazily-allocated default workspace (~1MB on first call)
- * to avoid memory overhead when encoder is not used.
+ * Encodes an int32 stream using the FastPFOR wire format (pages + VByte tail).
+ * Intended for tests and reference output.
  */
 export function encodeFastPforInt32(values: Int32Array): Int32Buf {
     const inPos = new IntWrapper(0);
     const outPos = new IntWrapper(0);
     let out = new Int32Array(values.length + 1024) as Int32Buf;
 
-    // 1. FastPFOR encode
-    const inPosInit = inPos.get();
-    const outPosInit = outPos.get();
-
     out = encode(values, inPos, values.length, out, outPos, getOrCreateDefaultWorkspace());
 
-    // encode() writes the alignedLength header only if alignedLength > 0.
-    // For <256 values we still emit the header (=0) so decoder knows to proceed to VByte tail.
-    if (outPos.get() === outPosInit) {
-        out = ensureInt32Capacity(out, outPosInit + 1);
-        out[outPosInit] = 0;
-        outPos.increment();
-    }
-
-    // 2. VariableByte encode for remaining (Note: VByte uses MSB=1 as terminator, unlike Protobuf Varint)
-    const remaining = values.length - (inPos.get() - inPosInit);
+    const remaining = values.length - inPos.get();
     out = encodeVByte(values, inPos, remaining, out, outPos);
 
     return out.subarray(0, outPos.get());

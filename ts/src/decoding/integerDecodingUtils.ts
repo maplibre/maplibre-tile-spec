@@ -147,12 +147,12 @@ export function decodeFastPfor(
     byteLength: number,
     offset: IntWrapper,
 ): Int32Array {
-    if ((byteLength & 3) !== 0) {
-        // In MLT, FastPFOR streams are stored as a sequence of int32 words serialized as big-endian bytes.
-        // This makes `byteLength % 4 === 0` a wire-format invariant (not an encoder heuristic).
-        throw new Error("FastPFOR: byte length must be multiple of 4 (int32 word stream)");
-    }
     const start = offset.get();
+    if ((byteLength & 3) !== 0) {
+        throw new Error(
+            `FastPFOR: invalid byteLength=${byteLength} at offset=${start} (data.length=${data.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
+        );
+    }
     const encoded = bigEndianBytesToInt32s(data, start, byteLength);
     const decoded = decodeFastPforInt32(encoded, numValues);
     offset.add(byteLength);
