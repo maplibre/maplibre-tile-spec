@@ -1,5 +1,6 @@
-import { get } from "node:https";
 import { unlink, existsSync, mkdirSync, createWriteStream } from "node:fs";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { exec, execSync, spawn } from "node:child_process";
@@ -34,22 +35,15 @@ function convertRequest(convertResponse) {
       return;
     }
 
-    get(url, (stypeResponse) => {
-      let data = "";
-
-      stypeResponse.on("data", (chunk) => {
-        data += chunk;
+    fetch(url)
+      .then((styleResponse) => styleResponse.text())
+      .then((data) => convertResponse(req, data, res))
+      .catch((error) => {
+        if (config.verbose) {
+          console.error(`Request failed: ${req.query.url} - ${error}`);
+        }
+        res.status(500).send(`Request failed: ${req.query.url} - ${error}`);
       });
-
-      stypeResponse.on("end", () => {
-        convertResponse(req, data, res);
-      });
-    }).on("error", (error) => {
-      if (config.verbose) {
-        console.error(`Request failed: ${req.query.url} - ${error}`);
-      }
-      res.status(500).send(`Request failed: ${req.query.url} - ${error}`);
-    });
   };
 }
 
@@ -261,41 +255,43 @@ function convertTileRequest(req, res) {
     return;
   }
 
-  get(url, (tileResponse) => {
-    if (tileResponse.statusCode !== 200) {
-      res
-        .status(tileResponse.statusCode)
-        .send(
-          `Tile request error: ${req.query.url} - ${tileResponse.statusMessage}`,
-        );
-      return;
-    }
-
-    if (!existsSync(config.cachePath)) {
-      mkdirSync(config.cachePath, { recursive: true });
-    }
-
-    const file = createWriteStream(join(config.cachePath, randomUUID()));
-
-    tileResponse.pipe(file);
-
-    file.on("error", (error) => {
-      if (config.verbose) {
-        console.error(`Tile download failed: ${req.query.url} - ${error}`);
+  fetch(url)
+    .then(async (tileResponse) => {
+      if (!tileResponse.ok) {
+        res
+          .status(tileResponse.status)
+          .send(
+            `Tile request error: ${req.query.url} - ${tileResponse.status} ${tileResponse.statusText}`,
+          );
+        return;
       }
-      res.status(500).send(`Tile download failed: ${req.query.url} - ${error}`);
-    });
 
-    file.on("finish", () => {
-      file.close();
+      if (!existsSync(config.cachePath)) {
+        mkdirSync(config.cachePath, { recursive: true });
+      }
+
+      const file = createWriteStream(join(config.cachePath, randomUUID()));
+
+      try {
+        await pipeline(Readable.fromWeb(tileResponse.body), file);
+      } catch (error) {
+        if (config.verbose) {
+          console.error(`Tile download failed: ${req.query.url} - ${error}`);
+        }
+        res
+          .status(500)
+          .send(`Tile download failed: ${req.query.url} - ${error}`);
+        return;
+      }
+
       convertTileResponse(file.path, res);
+    })
+    .catch((error) => {
+      if (config.verbose) {
+        console.error(`Request failed: ${req.query.url} - ${error}`);
+      }
+      res.status(500).send(`Request failed: ${req.query.url} - ${error}`);
     });
-  }).on("error", (error) => {
-    if (config.verbose) {
-      console.error(`Request failed: ${req.query.url} - ${error}`);
-    }
-    res.status(500).send(`Request failed: ${req.query.url} - ${error}`);
-  });
 }
 
 function runCLISetup() {

@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "https": "^1.0.0",
     "prettier": "^3.6.2"
