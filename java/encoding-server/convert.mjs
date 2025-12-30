@@ -36,7 +36,7 @@ function convertRequest(convertResponse) {
     }
 
     fetch(url)
-      .then((stypeResponse) => stypeResponse.text())
+      .then((styleResponse) => styleResponse.text())
       .then((data) => convertResponse(req, data, res))
       .catch((error) => {
         if (config.verbose) {
