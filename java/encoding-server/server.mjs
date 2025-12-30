@@ -11,7 +11,7 @@ import {
 
 const app = express();
 
-app.use(cors({ origin: config.origins }));
+app.use(cors());
 
 app.use("/style", convertStyleRequest);
 app.use("/source", convertSourceRequest);
