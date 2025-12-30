@@ -12,7 +12,11 @@ const { values: args } = parseArgs({
   options: {
     host: { type: "string", default: "0.0.0.0" },
     port: { type: "string", default: "80" },
-    origins: { type: "string", multiple: true, default: ["http://localhost:3000"] },
+    origins: {
+      type: "string",
+      multiple: true,
+      default: ["http://localhost:3000"],
+    },
     verbose: { type: "boolean", default: true },
     keep_files: { type: "boolean", default: false },
     noencodingserver: { type: "boolean", default: false },

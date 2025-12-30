@@ -278,7 +278,9 @@ function convertTileRequest(req, res) {
         if (config.verbose) {
           console.error(`Tile download failed: ${req.query.url} - ${error}`);
         }
-        res.status(500).send(`Tile download failed: ${req.query.url} - ${error}`);
+        res
+          .status(500)
+          .send(`Tile download failed: ${req.query.url} - ${error}`);
         return;
       }
 
