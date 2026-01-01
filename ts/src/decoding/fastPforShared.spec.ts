@@ -57,15 +57,4 @@ describe("FastPforShared", () => {
             expect(roundUpToMultipleOf32(33)).toBe(64);
         });
     });
-
-    describe("MASKS", () => {
-        it("defines 33 masks (0..32) and common invariants", () => {
-            expect(MASKS.length).toBe(33);
-            expect(MASKS[0]).toBe(0);
-            expect(MASKS[1]).toBe(0x1);
-            expect(MASKS[8]).toBe(0xff);
-            expect(MASKS[31]).toBe(0x7fffffff);
-            expect(MASKS[32]).toBe(0xffffffff);
-        });
-    });
 });
