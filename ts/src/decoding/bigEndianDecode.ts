@@ -1,30 +1,10 @@
 /**
- * Byte/word conversion helpers shared by the FastPFOR encoder/decoder.
- * Placed in `decoding/` to keep dependencies one-way (encoding -> decoding).
+ * Decodes big-endian bytes to int32 words.
  */
 
 function bswap32(value: number): number {
     const x = value >>> 0;
     return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
-}
-
-/**
- * Serializes an `Int32Array` to a big-endian byte stream.
- *
- * @param values - Int32 words to serialize.
- * @returns Big-endian byte stream (`values.length * 4` bytes).
- */
-export function int32sToBigEndianBytes(values: Int32Array): Uint8Array {
-    const bytes = new Uint8Array(values.length * 4);
-    for (let i = 0; i < values.length; i++) {
-        const v = values[i];
-        const base = i * 4;
-        bytes[base] = (v >>> 24) & 0xff;
-        bytes[base + 1] = (v >>> 16) & 0xff;
-        bytes[base + 2] = (v >>> 8) & 0xff;
-        bytes[base + 3] = v & 0xff;
-    }
-    return bytes;
 }
 
 /**
@@ -38,10 +18,10 @@ export function int32sToBigEndianBytes(values: Int32Array): Uint8Array {
  * @returns Decoded int32 words.
  * @throws RangeError If `(offset, byteLength)` is out of bounds for `bytes`.
  */
-export function bigEndianBytesToInt32s(bytes: Uint8Array, offset: number, byteLength: number): Int32Array {
+export function decodeBigEndianInt32s(bytes: Uint8Array, offset: number, byteLength: number): Int32Array {
     if (offset < 0 || byteLength < 0 || offset + byteLength > bytes.length) {
         throw new RangeError(
-            `bigEndianBytesToInt32s: out of bounds (offset=${offset}, byteLength=${byteLength}, bytes.length=${bytes.length})`,
+            `decodeBigEndianInt32s: out of bounds (offset=${offset}, byteLength=${byteLength}, bytes.length=${bytes.length})`,
         );
     }
 
