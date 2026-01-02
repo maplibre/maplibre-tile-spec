@@ -17,10 +17,6 @@ import java.util.zip.GZIPOutputStream;
 import me.lemire.integercompression.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.orc.PhysicalWriter;
-import org.apache.orc.impl.OutStream;
-import org.apache.orc.impl.RunLengthByteWriter;
-import org.apache.orc.impl.writer.StreamOptions;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtils {
@@ -331,16 +327,7 @@ public class EncodingUtils {
   }
 
   public static byte[] encodeByteRle(byte[] values) throws IOException {
-    var outputCatcher = new OutputCatcher();
-    var writer =
-        new RunLengthByteWriter(new OutStream("test", new StreamOptions(1), outputCatcher));
-
-    for (var value : values) {
-      writer.write(value);
-    }
-
-    writer.flush();
-    return outputCatcher.getBuffer();
+    return ByteRleEncoder.encode(values);
   }
 
   public static byte[] encodeBooleanRle(BitSet bitSet, int numValues) throws IOException {
@@ -354,41 +341,5 @@ public class EncodingUtils {
     }
 
     return EncodingUtils.encodeByteRle(presentStream);
-  }
-
-  private static class OutputCatcher implements PhysicalWriter.OutputReceiver {
-    int currentBuffer = 0;
-    List<ByteBuffer> buffers = new ArrayList<>();
-
-    @Override
-    public void output(ByteBuffer buffer) throws IOException {
-      buffers.add(buffer);
-    }
-
-    @Override
-    public void suppress() {}
-
-    public ByteBuffer getCurrentBuffer() {
-      while (currentBuffer < buffers.size() && buffers.get(currentBuffer).remaining() == 0) {
-        currentBuffer += 1;
-      }
-      return currentBuffer < buffers.size() ? buffers.get(currentBuffer) : null;
-    }
-
-    public byte[] getBuffer() throws IOException {
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      for (var buffer : this.buffers) {
-        outputStream.write(buffer.array());
-      }
-      return outputStream.toByteArray();
-    }
-
-    public int getBufferSize() {
-      var size = 0;
-      for (var buffer : buffers) {
-        size += buffer.array().length;
-      }
-      return size;
-    }
   }
 }

@@ -11,9 +11,6 @@ import java.util.Arrays;
 import java.util.BitSet;
 import me.lemire.integercompression.*;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.orc.impl.BufferChunk;
-import org.apache.orc.impl.InStream;
-import org.apache.orc.impl.RunLengthByteReader;
 
 public class DecodingUtils {
   private DecodingUtils() {}
@@ -199,12 +196,8 @@ public class DecodingUtils {
     return values;
   }
 
-  public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos)
-      throws IOException {
-    var inStream =
-        InStream.create(
-            "test", new BufferChunk(ByteBuffer.wrap(buffer), 0), pos.get(), buffer.length);
-    var reader = new RunLengthByteReader(inStream);
+  public static byte[] decodeByteRle(byte[] buffer, int numBytes, int byteSize, IntWrapper pos) {
+    var reader = new ByteRleDecoder(buffer, pos.get(), byteSize);
 
     var values = new byte[numBytes];
     for (var i = 0; i < numBytes; i++) {
@@ -216,7 +209,7 @@ public class DecodingUtils {
   }
 
   public static BitSet decodeBooleanRle(
-      byte[] buffer, int numBooleans, int byteSize, IntWrapper pos) throws IOException {
+      byte[] buffer, int numBooleans, int byteSize, IntWrapper pos) {
     var numBytes = (int) Math.ceil(numBooleans / 8d);
     var byteStream = decodeByteRle(buffer, numBytes, byteSize, pos);
     // TODO: get rid of that conversion
