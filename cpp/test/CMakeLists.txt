@@ -35,3 +35,16 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
 target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
+
+if(MLT_WITH_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        target_compile_options(mlt-cpp-test PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+        target_link_options(mlt-cpp-test PRIVATE --coverage)
+        # On macOS, force-load the static library to include coverage symbols
+        # Coverage initialization/writeout functions are not referenced, so they won't be
+        # linked from static libraries unless we force-load them
+        if(APPLE)
+            target_link_options(mlt-cpp-test PRIVATE -Wl,-force_load,$<TARGET_LINKER_FILE:mlt-cpp>)
+        endif()
+    endif()
+endif()
