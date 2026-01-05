@@ -169,6 +169,7 @@ public class MltConverter {
                       scalarType.name(),
                       prevPhysicalType.name()));
             }
+            return;
           }
         }
       }
