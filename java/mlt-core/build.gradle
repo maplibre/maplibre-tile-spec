@@ -113,7 +113,7 @@ tasks.register('validateSemver') {
 }
 
 mavenPublishing {
-    publishToMavenCentral(false)
+    publishToMavenCentral(true)
     signAllPublications()
 
     coordinates("org.maplibre", "mlt", version)
