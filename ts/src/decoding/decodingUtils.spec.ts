@@ -116,6 +116,24 @@ describe("decodingUtils", () => {
             expect(result[2]).toBe(3);
             expect(offset.get()).toBe(4);
         });
+
+        it("should handle truncated stream when byteLength runs out before numBytes", () => {
+            // Request 10 bytes but byteLength only allows 2 bytes (header + value)
+            // header=0 means numRuns=3, but stream ends after value byte
+            const data = new Uint8Array([0, 42]);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(data, 10, 2, offset);
+
+            // Should only fill 3 bytes (what the run specified) then stop at stream boundary
+            expect(result.length).toBe(10);
+            expect(result[0]).toBe(42);
+            expect(result[1]).toBe(42);
+            expect(result[2]).toBe(42);
+            // Remaining bytes should be 0
+            expect(result[3]).toBe(0);
+            expect(result[9]).toBe(0);
+            expect(offset.get()).toBe(2); // Should stop at byteLength boundary
+        });
     });
 
     describe("decodeString", () => {
