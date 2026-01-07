@@ -15,11 +15,12 @@ export function skipColumn(numStreams: number, tile: Uint8Array, offset: IntWrap
 export function decodeBooleanRle(
     buffer: Uint8Array,
     numBooleans: number,
+    byteLength: number,
     pos: IntWrapper,
     nullabilityBuffer?: BitVector,
 ): Uint8Array {
     const numBytes = Math.ceil(numBooleans / 8.0);
-    const values = decodeByteRle(buffer, numBytes, pos);
+    const values = decodeByteRle(buffer, numBytes, byteLength, pos);
 
     if (nullabilityBuffer) {
         return unpackNullableBoolean(values, numBooleans, nullabilityBuffer);
@@ -28,28 +29,34 @@ export function decodeBooleanRle(
     return values;
 }
 
-export function decodeByteRle(buffer: Uint8Array, numBytes: number, pos: IntWrapper): Uint8Array {
+export function decodeByteRle(buffer: Uint8Array, numBytes: number, byteLength: number, pos: IntWrapper): Uint8Array {
     const values = new Uint8Array(numBytes);
 
     let valueOffset = 0;
-    while (valueOffset < numBytes) {
-        const header = buffer[pos.increment()];
+    const streamEndPos = pos.get() + byteLength;
 
+    while (valueOffset < numBytes) {
+        if (pos.get() >= streamEndPos) {
+            break;
+        }
+
+        const header = buffer[pos.increment()];
         /* Runs */
         if (header <= 0x7f) {
             const numRuns = header + 3;
             const value = buffer[pos.increment()];
-            const endValueOffset = valueOffset + numRuns;
+            const endValueOffset = Math.min(valueOffset + numRuns, numBytes);
             values.fill(value, valueOffset, endValueOffset);
             valueOffset = endValueOffset;
         } else {
             /* Literals */
             const numLiterals = 256 - header;
-            for (let i = 0; i < numLiterals; i++) {
+            for (let i = 0; i < numLiterals && valueOffset < numBytes; i++) {
                 values[valueOffset++] = buffer[pos.increment()];
             }
         }
     }
+    pos.set(streamEndPos);
     return values;
 }
 
