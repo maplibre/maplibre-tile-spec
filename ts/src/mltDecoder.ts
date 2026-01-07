@@ -90,7 +90,6 @@ export default function decodeTile(
                     const presentStreamMetadata = decodeStreamMetadata(tile, offset);
                     const streamDataStart = offset.get();
                     const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
-                    // Fix offset: decodeBooleanRle doesn't consume all compressed bytes
                     offset.set(streamDataStart + presentStreamMetadata.byteLength);
                     nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
                 }
