@@ -32,9 +32,10 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.2'
-    testImplementation 'org.openjdk.jmh:jmh-core:1.37 '
+    testImplementation 'org.openjdk.jmh:jmh-core:1.37'
     testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
     testImplementation 'org.xerial:sqlite-jdbc:3.51.1.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
 }
 
 test {
