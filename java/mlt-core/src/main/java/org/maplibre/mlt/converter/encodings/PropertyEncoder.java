@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
+import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
@@ -13,17 +14,18 @@ import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
 import org.maplibre.mlt.metadata.stream.StreamMetadata;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class PropertyEncoder {
 
   public static byte[] encodePropertyColumns(
-      List<MltTilesetMetadata.Column> propertyColumns,
+      List<MltMetadata.Column> propertyColumns,
       List<Feature> features,
       boolean useFastPFOR,
       boolean useFSST,
       boolean coercePropertyValues,
       List<ColumnMapping> columnMappings,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
     /*
@@ -38,7 +40,7 @@ public class PropertyEncoder {
     var i = 0;
     for (var columnMetadata : propertyColumns) {
       final byte[] encodedColumn;
-      if (columnMetadata.hasScalarType()) {
+      if (columnMetadata.scalarType != null) {
         encodedColumn =
             encodeScalarPropertyColumn(
                 features,
@@ -46,11 +48,12 @@ public class PropertyEncoder {
                 coercePropertyValues,
                 streamObserver,
                 columnMetadata,
-                physicalLevelTechnique);
+                physicalLevelTechnique,
+                integerEncodingOption);
       } else if (MltTypeMap.Tag0x01.isStruct(columnMetadata)) {
         if (columnMappings.size() <= i) {
           throw new IllegalArgumentException(
-              "Missing column mapping nested property column " + columnMetadata.getName());
+              "Missing column mapping nested property column " + columnMetadata.name);
         }
         final var columnMapping = columnMappings.get(i++);
         encodedColumn =
@@ -77,14 +80,14 @@ public class PropertyEncoder {
       List<Feature> features,
       boolean useFSST,
       MLTStreamObserver streamObserver,
-      MltTilesetMetadata.Column columnMetadata,
+      MltMetadata.Column columnMetadata,
       ColumnMapping columnMapping,
       PhysicalLevelTechnique physicalLevelTechnique)
       throws IOException {
     // TODO: add present stream for struct column
 
     /* We limit the nesting level to one in this implementation */
-    final var rootName = columnMetadata.getName();
+    final var rootName = columnMetadata.name;
     final var sharedDictionary = new ArrayList<List<String>>();
 
     if (!columnMapping.getUseSharedDictionaryEncoding()) {
@@ -95,15 +98,19 @@ public class PropertyEncoder {
     /* Plan -> when there is a struct filed and the useSharedDictionaryFlag is enabled
      *  share the dictionary for all string columns which are located one after
      * the other in the sequence */
-    final var complexType = columnMetadata.getComplexType();
-    for (var nestedFieldMetadata : complexType.getChildrenList()) {
-      final var scalarType = nestedFieldMetadata.getScalarField().getPhysicalType();
-      if (scalarType != MltTilesetMetadata.ScalarType.STRING) {
+    final var complexType = columnMetadata.complexType;
+    for (var nestedFieldMetadata : complexType.children) {
+      if (nestedFieldMetadata.scalarType == null) {
+        throw new IllegalArgumentException(
+            "Nested field '" + nestedFieldMetadata.name + "' has null scalarType");
+      }
+      final var scalarType = nestedFieldMetadata.scalarType.physicalType;
+      if (scalarType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Only fields of type String are currently supported as nested property columns");
       }
 
-      final var propertyName = rootName + nestedFieldMetadata.getName();
+      final var propertyName = rootName + nestedFieldMetadata.name;
       sharedDictionary.add(
           features.stream()
               .map(mvtFeature -> (String) mvtFeature.properties().get(propertyName))
@@ -121,7 +128,7 @@ public class PropertyEncoder {
             physicalLevelTechnique,
             useFSST,
             streamObserver,
-            "prop_" + columnMetadata.getName());
+            "prop_" + columnMetadata.name);
     final var numStreams = nestedColumns.getLeft();
     final var encodedColumns = nestedColumns.getRight();
     assert (numStreams > 0); // encodeSharedDictionary cannot return zero streams
@@ -134,11 +141,12 @@ public class PropertyEncoder {
       boolean useFSST,
       boolean coercePropertyValues,
       MLTStreamObserver streamObserver,
-      MltTilesetMetadata.Column columnMetadata,
-      PhysicalLevelTechnique physicalLevelTechnique)
+      MltMetadata.Column columnMetadata,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     if (MltTypeMap.Tag0x01.hasStreamCount(columnMetadata)
-        && features.stream().noneMatch(f -> f.properties().containsKey(columnMetadata.getName()))) {
+        && features.stream().noneMatch(f -> f.properties().containsKey(columnMetadata.name))) {
       // Indicate a missing property column in the tile with a zero for the number of streams
       // TODO: Can we skip the column entirely in this case?
       return EncodingUtils.encodeVarint(0, false);
@@ -151,21 +159,21 @@ public class PropertyEncoder {
         physicalLevelTechnique,
         useFSST,
         coercePropertyValues,
+        integerEncodingOption,
         streamObserver);
   }
 
   private static Boolean getBooleanPropertyValue(
-      Feature feature, MltTilesetMetadata.Column columnMetadata) {
-    final var rawValue = feature.properties().get(columnMetadata.getName());
+      Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
     if (rawValue instanceof Boolean) {
       return (Boolean) rawValue;
     }
     return null;
   }
 
-  private static Integer getIntPropertyValue(
-      Feature feature, MltTilesetMetadata.Column columnMetadata) {
-    final var rawValue = feature.properties().get(columnMetadata.getName());
+  private static Integer getIntPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
     if (rawValue instanceof Integer) {
       return (Integer) rawValue;
     } else if (rawValue instanceof Long) {
@@ -177,9 +185,8 @@ public class PropertyEncoder {
     return null;
   }
 
-  private static Long getLongPropertyValue(
-      Feature feature, MltTilesetMetadata.Column columnMetadata) {
-    final var rawValue = feature.properties().get(columnMetadata.getName());
+  private static Long getLongPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
     if (rawValue instanceof Long) {
       return (Long) rawValue;
     } else if (rawValue instanceof Integer) {
@@ -188,9 +195,8 @@ public class PropertyEncoder {
     return null;
   }
 
-  private static Float getFloatPropertyValue(
-      Feature feature, MltTilesetMetadata.Column columnMetadata) {
-    final var rawValue = feature.properties().get(columnMetadata.getName());
+  private static Float getFloatPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
     if (rawValue instanceof Float) {
       return (Float) rawValue;
     } else if (rawValue instanceof Double) {
@@ -200,8 +206,8 @@ public class PropertyEncoder {
   }
 
   private static String getStringPropertyValue(
-      Feature feature, MltTilesetMetadata.Column columnMetadata, boolean coercePropertyValues) {
-    final var rawValue = feature.properties().get(columnMetadata.getName());
+      Feature feature, MltMetadata.Column columnMetadata, boolean coercePropertyValues) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
     if (rawValue != null) {
       if (rawValue instanceof String) {
         return (String) rawValue;
@@ -214,60 +220,60 @@ public class PropertyEncoder {
   }
 
   public static byte[] encodeScalarPropertyColumn(
-      MltTilesetMetadata.Column columnMetadata,
+      MltMetadata.Column columnMetadata,
       boolean isID,
       List<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFSST,
       boolean coercePropertyValues,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    final var scalarType = columnMetadata.getScalarType().getPhysicalType();
-    switch (scalarType) {
-      case BOOLEAN:
-        {
+    if (columnMetadata.scalarType == null) {
+      throw new IllegalArgumentException("scalarType must not be null");
+    }
+    final var scalarType = columnMetadata.scalarType.physicalType;
+    return switch (scalarType) {
+      case BOOLEAN ->
           // no stream count
-          return encodeBooleanColumn(features, columnMetadata, streamObserver);
-        }
-      case INT_32:
-      case UINT_32:
-        {
-          final var signed = (scalarType == MltTilesetMetadata.ScalarType.INT_32);
+          encodeBooleanColumn(features, columnMetadata, streamObserver);
+      case INT_32, UINT_32 -> {
+        final var signed = (scalarType == MltMetadata.ScalarType.INT_32);
+        // no stream count
+        yield encodeInt32Column(
+            features,
+            columnMetadata,
+            isID,
+            physicalLevelTechnique,
+            signed,
+            integerEncodingOption,
+            streamObserver);
+      }
+      case INT_64, UINT_64 -> {
+        final var signed = (scalarType == MltMetadata.ScalarType.INT_64);
+        // no stream count
+        yield encodeInt64Column(
+            features, columnMetadata, isID, signed, integerEncodingOption, streamObserver);
+      }
+      case FLOAT, DOUBLE ->
           // no stream count
-          return encodeInt32Column(
-              features, columnMetadata, isID, physicalLevelTechnique, signed, streamObserver);
-        }
-      case INT_64:
-      case UINT_64:
-        {
-          final var signed = (scalarType == MltTilesetMetadata.ScalarType.INT_64);
-          // no stream count
-          return encodeInt64Column(features, columnMetadata, isID, signed, streamObserver);
-        }
-      case FLOAT:
-      case DOUBLE:
-        {
-          // no stream count
-          return encodeFloatColumn(features, columnMetadata, streamObserver);
-        }
-      case STRING:
-        {
-          return encodeStringColumn(
+          encodeFloatColumn(features, columnMetadata, streamObserver);
+      case STRING ->
+          encodeStringColumn(
               columnMetadata,
               features,
               physicalLevelTechnique,
               useFSST,
               coercePropertyValues,
               streamObserver);
-        }
-      default:
-        throw new IllegalArgumentException(
-            "The specified scalar data type is currently not supported: " + scalarType);
-    }
+      default ->
+          throw new IllegalArgumentException(
+              "The specified scalar data type is currently not supported: " + scalarType);
+    };
   }
 
   private static byte[] encodeStringColumn(
-      MltTilesetMetadata.Column columnMetadata,
+      MltMetadata.Column columnMetadata,
       List<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFSST,
@@ -291,18 +297,18 @@ public class PropertyEncoder {
 
     if (streamObserver.isActive()) {
       streamObserver.observeStream(
-          "prop_" + columnMetadata.getName() + "_strings", rawStringValues, null, null);
+          "prop_" + columnMetadata.name + "_strings", rawStringValues, null, null);
     }
 
     final byte[] presentStream;
-    if (columnMetadata.getNullable()) {
+    if (columnMetadata.isNullable) {
       final var presentValues = rawStringValues.stream().map(Objects::nonNull).toList();
       presentStream =
           BooleanEncoder.encodeBooleanStream(
               presentValues,
               PhysicalStreamType.PRESENT,
               streamObserver,
-              "prop_" + columnMetadata.getName() + "_present");
+              "prop_" + columnMetadata.name + "_present");
     } else {
       presentStream = new byte[0];
     }
@@ -313,7 +319,7 @@ public class PropertyEncoder {
             physicalLevelTechnique,
             useFSST,
             streamObserver,
-            "prop_" + columnMetadata.getName());
+            "prop_" + columnMetadata.name);
 
     /* Plus 1 for present stream */
     final var streamCount = stringColumn.getLeft() + ((presentStream.length > 0) ? 1 : 0);
@@ -324,11 +330,11 @@ public class PropertyEncoder {
 
   private static byte[] encodeBooleanColumn(
       List<Feature> features,
-      MltTilesetMetadata.Column metadata,
+      MltMetadata.Column metadata,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    final var fieldName = metadata.getName();
-    final var presentStream = metadata.getNullable() ? new BitSet(features.size()) : null;
+    final var fieldName = metadata.name;
+    final var presentStream = metadata.isNullable ? new BitSet(features.size()) : null;
     final var dataStream = new BitSet();
     var dataStreamIndex = 0;
     var presentStreamIndex = 0;
@@ -391,13 +397,12 @@ public class PropertyEncoder {
 
   private static byte[] encodeFloatColumn(
       List<Feature> features,
-      MltTilesetMetadata.Column metadata,
+      MltMetadata.Column metadata,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    final var fieldName = metadata.getName();
+    final var fieldName = metadata.name;
     final var values = new ArrayList<Float>();
-    final var presentValues =
-        metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
+    final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
       final var propertyValue = getFloatPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
@@ -424,16 +429,16 @@ public class PropertyEncoder {
 
   private static byte[] encodeInt32Column(
       List<Feature> features,
-      MltTilesetMetadata.Column metadata,
+      MltMetadata.Column metadata,
       boolean isID,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    final var fieldName = metadata.getName();
+    final var fieldName = metadata.name;
     final var values = new ArrayList<Integer>();
-    final var presentValues =
-        metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
+    final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
       // TODO: refactor -> handle long values for ids differently
       final var propertyValue =
@@ -462,6 +467,7 @@ public class PropertyEncoder {
             isSigned,
             PhysicalStreamType.DATA,
             null,
+            integerEncodingOption,
             streamObserver,
             "prop_" + fieldName);
 
@@ -470,15 +476,15 @@ public class PropertyEncoder {
 
   private static byte[] encodeInt64Column(
       List<Feature> features,
-      MltTilesetMetadata.Column metadata,
+      MltMetadata.Column metadata,
       boolean isID,
       boolean isSigned,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
       @NotNull MLTStreamObserver streamObserver)
       throws IOException {
-    final var fieldName = metadata.getName();
+    final var fieldName = metadata.name;
     final var values = new ArrayList<Long>();
-    final var presentValues =
-        metadata.getNullable() ? new ArrayList<Boolean>(features.size()) : null;
+    final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
       final var propertyValue =
           isID ? Long.valueOf(feature.id()) : getLongPropertyValue(feature, metadata);
@@ -501,7 +507,13 @@ public class PropertyEncoder {
             : new byte[0];
     var encodedDataStream =
         IntegerEncoder.encodeLongStream(
-            values, isSigned, PhysicalStreamType.DATA, null, streamObserver, "prop_" + fieldName);
+            values,
+            isSigned,
+            PhysicalStreamType.DATA,
+            null,
+            integerEncodingOption,
+            streamObserver,
+            "prop_" + fieldName);
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 

@@ -1,13 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-    decodeFloatsLE,
-    decodeDoublesLE,
-    decodeBooleanRle,
-    decodeString,
-    decodeByteRle,
-    decodeNullableFloatsLE,
-    decodeNullableDoublesLE,
-} from "./decodingUtils";
+import { decodeFloatsLE, decodeDoublesLE, decodeBooleanRle, decodeString, decodeByteRle } from "./decodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 
@@ -46,7 +38,7 @@ describe("decodingUtils", () => {
         });
     });
 
-    describe("decodeNullableFloatsLE", () => {
+    describe("decodeFloatsLE with nullability", () => {
         it("should decode nullable float values with nullability buffer", () => {
             const buffer = new ArrayBuffer(8);
             const view = new Float32Array(buffer);
@@ -58,7 +50,7 @@ describe("decodingUtils", () => {
             const bitVectorData = new Uint8Array([0b00000101]); // bits 0 and 2 are set
             const nullabilityBuffer = new BitVector(bitVectorData, 3);
 
-            const result = decodeNullableFloatsLE(data, offset, nullabilityBuffer, 2);
+            const result = decodeFloatsLE(data, offset, 2, nullabilityBuffer);
 
             expect(result.length).toBe(3);
             expect(result[0]).toBeCloseTo(1.5); // bit 0 is set
@@ -67,7 +59,7 @@ describe("decodingUtils", () => {
         });
     });
 
-    describe("decodeNullableDoublesLE", () => {
+    describe("decodeDoublesLE with nullability", () => {
         it("should decode nullable double values with nullability buffer", () => {
             const buffer = new ArrayBuffer(16);
             const view = new Float64Array(buffer);
@@ -79,7 +71,7 @@ describe("decodingUtils", () => {
             const bitVectorData = new Uint8Array([0b00000011]); // bits 0 and 1 are set
             const nullabilityBuffer = new BitVector(bitVectorData, 2);
 
-            const result = decodeNullableDoublesLE(data, offset, nullabilityBuffer, 2);
+            const result = decodeDoublesLE(data, offset, 2, nullabilityBuffer);
 
             expect(result.length).toBe(2);
             expect(result[0]).toBeCloseTo(3.14159); // bit 0 is set
@@ -89,11 +81,11 @@ describe("decodingUtils", () => {
 
     describe("decodeBooleanRle", () => {
         it("should decode boolean RLE", () => {
-            const buffer = new Uint8Array([254, 0xFF]);
+            const buffer = new Uint8Array([254, 0xff]);
             const offset = new IntWrapper(0);
-            const result = decodeBooleanRle(buffer, 8, offset);
+            const result = decodeBooleanRle(buffer, 8, 2, offset);
 
-            expect(result[0]).toBe(0xFF);
+            expect(result[0]).toBe(0xff);
         });
     });
 
@@ -102,7 +94,7 @@ describe("decodingUtils", () => {
             // header=2 means numRuns=2+3=5, followed by value byte
             const data = new Uint8Array([2, 42]);
             const offset = new IntWrapper(0);
-            const result = decodeByteRle(data, 5, offset);
+            const result = decodeByteRle(data, 5, 2, offset);
 
             expect(result.length).toBe(5);
             expect(result[0]).toBe(42);
@@ -116,12 +108,31 @@ describe("decodingUtils", () => {
             // header=253 means numLiterals=256-253=3, followed by 3 literal bytes
             const data = new Uint8Array([253, 1, 2, 3]);
             const offset = new IntWrapper(0);
-            const result = decodeByteRle(data, 3, offset);
+            const result = decodeByteRle(data, 3, 4, offset);
 
             expect(result.length).toBe(3);
             expect(result[0]).toBe(1);
             expect(result[1]).toBe(2);
             expect(result[2]).toBe(3);
+            expect(offset.get()).toBe(4);
+        });
+
+        it("should handle truncated stream when byteLength runs out before numBytes", () => {
+            // Request 10 bytes but byteLength only allows 2 bytes (header + value)
+            // header=0 means numRuns=3, but stream ends after value byte
+            const data = new Uint8Array([0, 42]);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(data, 10, 2, offset);
+
+            // Should only fill 3 bytes (what the run specified) then stop at stream boundary
+            expect(result.length).toBe(10);
+            expect(result[0]).toBe(42);
+            expect(result[1]).toBe(42);
+            expect(result[2]).toBe(42);
+            // Remaining bytes should be 0
+            expect(result[3]).toBe(0);
+            expect(result[9]).toBe(0);
+            expect(offset.get()).toBe(2); // Should stop at byteLength boundary
         });
     });
 

@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.BitSet;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
@@ -67,19 +65,5 @@ public class EncodingUtilsTest {
     for (var i = 0; i < numValues; i++) {
       assertFalse(decodeBooleans.get(i));
     }
-  }
-
-  // @Test
-  public void fastPforTest() throws IOException {
-    int[] data = new int[250000];
-    for (int i = 0; i < data.length; i++) {
-      data[i] = i;
-    }
-
-    final var fastPforCompressed = EncodingUtils.encodeFastPfor128(data, false, false);
-    final var varintCompressed = EncodingUtils.encodeVarints(data, false, false);
-
-    Files.write(Paths.get("./250k_ascending_fastpfor.bin"), fastPforCompressed);
-    Files.write(Paths.get("./250k_ascending_varint.bin"), varintCompressed);
   }
 }

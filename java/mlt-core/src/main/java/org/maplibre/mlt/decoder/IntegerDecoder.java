@@ -76,7 +76,7 @@ public class IntegerDecoder {
   public static List<Integer> decodeIntStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned)
       throws IOException {
-    int[] values = null;
+    int[] values;
     if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.FAST_PFOR) {
       values =
           DecodingUtils.decodeFastPfor(

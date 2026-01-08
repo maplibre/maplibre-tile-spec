@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -73,20 +74,33 @@ import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.decoder.MltDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class Encode {
+
   public static void main(String[] args) {
+    if (!run(args)) {
+      System.exit(1);
+    }
+  }
+
+  public static boolean run(String[] args) {
     try {
       final var cmd = getCommandLine(args);
       if (cmd == null) {
-        System.exit(1);
+        return false;
       }
+
+      if (cmd.hasOption(SERVER_ARG)) {
+        return new Server().run(Integer.parseInt(cmd.getOptionValue(SERVER_ARG, "3001")));
+      }
+
       run(cmd);
+      return true;
     } catch (Exception e) {
       System.err.println("Failed:");
       e.printStackTrace(System.err);
-      System.exit(1);
+      return false;
     }
   }
 
@@ -112,8 +126,8 @@ public class Encode {
     final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
     final var columnMappings = getColumnMappings(cmd);
-    final var minZoom = cmd.getParsedOptionValue(MIN_ZOOM_OPTION, 0L).intValue();
-    final var maxZoom = cmd.getParsedOptionValue(MAX_ZOOM_OPTION, Long.MAX_VALUE).intValue();
+    final var minZoom = cmd.getParsedOptionValue(MIN_ZOOM_OPTION, 0);
+    final var maxZoom = cmd.getParsedOptionValue(MAX_ZOOM_OPTION, Integer.MAX_VALUE);
 
     if (verbose > 0 && !columnMappings.isEmpty()) {
       System.err.println("Using Column Mappings:");
@@ -142,7 +156,8 @@ public class Encode {
             useMortonEncoding,
             (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
             filterPattern,
-            filterInvert);
+            filterInvert,
+            ConversionConfig.IntegerEncodingOption.AUTO);
 
     if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
@@ -422,7 +437,8 @@ public class Encode {
         System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
-        compare(decodedTile, decodedMvTile, compareGeom, compareProp, verboseLevel);
+        compare(
+            decodedTile, decodedMvTile, compareGeom, compareProp, conversionConfig, verboseLevel);
       }
     }
   }
@@ -433,7 +449,7 @@ public class Encode {
   private static ConversionConfig applyColumnMappingsToConversionConfig(
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
-      MltTilesetMetadata.TileSetMetadata metadata) {
+      MltMetadata.TileSetMetadata metadata) {
     // If there are no column mappings, or the config already has optimizations, don't modify it
     if (columnMappings.isEmpty() || !conversionConfig.getOptimizations().isEmpty()) {
       return conversionConfig;
@@ -443,16 +459,16 @@ public class Encode {
     // TODO: Allow per-layer settings, and access to the other options
     // final var commonOptimization = new FeatureTableOptimizations(false, false, columnMappings);
     final var optimizationMap =
-        metadata.getFeatureTablesList().stream()
+        metadata.featureTables.stream()
             .collect(
                 Collectors.toUnmodifiableMap(
-                    MltTilesetMetadata.FeatureTableSchema::getName,
+                    t -> t.name,
                     table ->
                         new FeatureTableOptimizations(
                             false,
                             false,
                             columnMappings.entrySet().stream()
-                                .filter(entry -> entry.getKey().matcher(table.getName()).matches())
+                                .filter(entry -> entry.getKey().matcher(table.name).matches())
                                 .flatMap(entry -> entry.getValue().stream())
                                 .toList())));
     return new ConversionConfig(
@@ -465,7 +481,8 @@ public class Encode {
         conversionConfig.getUseMortonEncoding(),
         conversionConfig.getOutlineFeatureTableNames(),
         conversionConfig.getLayerFilterPattern(),
-        conversionConfig.getLayerFilterInvert());
+        conversionConfig.getLayerFilterInvert(),
+        conversionConfig.getIntegerEncodingOption());
   }
 
   /// Encode the entire contents of an MBTile file of MVT tiles
@@ -501,14 +518,16 @@ public class Encode {
         final var metadata = mbTilesReader.getMetadata();
         mbTilesWriter.addMetadataEntry(metadata);
 
-        final var pbMeta = MltTilesetMetadata.TileSetMetadata.newBuilder();
-        pbMeta.setName(metadata.getTilesetName());
-        pbMeta.setAttribution(metadata.getAttribution());
-        pbMeta.setDescription(metadata.getTilesetDescription());
+        final var pbMeta = new MltMetadata.TileSetMetadata();
+        pbMeta.name = metadata.getTilesetName();
+        pbMeta.attribution = metadata.getAttribution();
+        pbMeta.description = metadata.getTilesetDescription();
+
         final var bounds = metadata.getTilesetBounds();
-        pbMeta.addAllBounds(
-            List.of(bounds.getLeft(), bounds.getTop(), bounds.getRight(), bounds.getBottom()));
-        final var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta.build());
+        pbMeta.bounds =
+            List.of(bounds.getLeft(), bounds.getTop(), bounds.getRight(), bounds.getBottom());
+
+        final var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta);
 
         final var tiles = mbTilesReader.getTiles();
         try {
@@ -961,18 +980,17 @@ public class Encode {
   }
 
   private static void printColumnMappings(
-      MltTilesetMetadata.TileSetMetadata metadata,
+      MltMetadata.TileSetMetadata metadata,
       @SuppressWarnings("SameParameterValue") PrintStream out) {
-    for (var table : metadata.getFeatureTablesList()) {
-      for (var column : table.getColumnsList()) {
-        if (column.hasComplexType()
-            && column.getComplexType().hasPhysicalType()
-            && column.getComplexType().getPhysicalType() == MltTilesetMetadata.ComplexType.STRUCT) {
+    for (var table : metadata.featureTables) {
+      for (var column : table.columns) {
+        if (column.complexType != null
+            && column.complexType.physicalType == MltMetadata.ComplexType.STRUCT) {
           out.format(
               "Found column mapping: %s => %s%n",
-              table.getName(),
-              column.getComplexType().getChildrenList().stream()
-                  .map(f -> column.getName() + f.getName())
+              table.name,
+              column.complexType.children.stream()
+                  .map(f -> column.name + f.name)
                   .collect(Collectors.joining(", ")));
         }
       }
@@ -984,9 +1002,16 @@ public class Encode {
       MapboxVectorTile mvTile,
       boolean compareGeom,
       boolean compareProp,
+      ConversionConfig config,
       int verboseLevel) {
+    final Predicate<Layer> testFilter =
+        (Layer x) ->
+            (config.getLayerFilterPattern() == null)
+                || (config.getLayerFilterPattern().matcher(x.name()).matches()
+                    ^ config.getLayerFilterInvert());
+    final var mvtLayers =
+        mvTile.layers().stream().filter(x -> !x.features().isEmpty()).filter(testFilter).toList();
     final var mltLayers = mlTile.layers();
-    final var mvtLayers = mvTile.layers().stream().filter(x -> !x.features().isEmpty()).toList();
     if (mltLayers.size() != mvtLayers.size()) {
       final var mvtNames = mvtLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
       final var mltNames = mltLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
@@ -1040,15 +1065,27 @@ public class Encode {
           final var mvtGeomValid = mvtGeometry.isValid();
           if (mltGeomValid != mvtGeomValid) {
             throw new RuntimeException(
-                "Geometry validity in MLT and MVT layers do not match: \nMVT:\n"
+                "Geometry validity in MLT and MVT layers do not match for feature index "
+                    + j
+                    + " in layer '"
+                    + mvtLayer.name()
+                    + "': \nMVT:\n"
                     + mvtGeomValid
+                    + " : "
+                    + mvtGeometry
                     + "\nMLT:\n"
-                    + mltGeomValid);
+                    + mltGeomValid
+                    + " : "
+                    + mltGeometry);
           }
 
           if (mvtGeomValid && !mltGeometry.equals(mvtGeometry)) {
             throw new RuntimeException(
-                "Geometries in MLT and MVT layers do not match: \nMVT:\n"
+                "Geometries in MLT and MVT layers do not match for feature index "
+                    + j
+                    + " in layer '"
+                    + mvtLayer.name()
+                    + "': \nMVT:\n"
                     + mvtGeometry
                     + "\nMLT:\n"
                     + mltGeometry
@@ -1162,6 +1199,7 @@ public class Encode {
   private static final String DUMP_STREAMS_OPTION = "rawstreams";
   private static final String VERBOSE_OPTION = "verbose";
   private static final String HELP_OPTION = "help";
+  private static final String SERVER_ARG = "server";
 
   /// Resolve an output filename.
   /// If an output filename is specified directly, use it.
@@ -1555,6 +1593,15 @@ Add an explicit column mapping on the specified layers:
               .desc("Show this output.")
               .required(false)
               .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(SERVER_ARG)
+              .hasArg(true)
+              .optionalArg(true)
+              .argName("port")
+              .desc("Start encoding server")
+              .required(false)
+              .get());
 
       var cmd = new DefaultParser().parse(options, args);
 
@@ -1570,7 +1617,9 @@ Add an explicit column mapping on the specified layers:
         var ignored = Pattern.compile(filterRegex);
       }
 
-      if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
+      if (cmd.hasOption(SERVER_ARG)) {
+        return cmd;
+      } else if (cmd.getOptions().length == 0 || cmd.hasOption(HELP_OPTION)) {
         final var autoUsage = true;
         final var header =
             "\nConvert an MVT tile file or MBTiles containing MVT tiles to MLT format.\n\n";

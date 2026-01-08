@@ -10,7 +10,7 @@ import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
-import org.maplibre.mlt.metadata.tileset.MltTilesetMetadata;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class StringDecoder {
 
@@ -39,7 +39,7 @@ public class StringDecoder {
   }
 
   public static Triple<HashMap<String, Integer>, HashMap<String, BitSet>, Map<String, List<String>>>
-      decodeSharedDictionary(byte[] data, IntWrapper offset, MltTilesetMetadata.Column column)
+      decodeSharedDictionary(byte[] data, IntWrapper offset, MltMetadata.Column column)
           throws IOException {
     List<Integer> dictionaryLengthStream = null;
     byte[] dictionaryStream = null;
@@ -87,12 +87,13 @@ public class StringDecoder {
 
     List<String> dictionary = null;
     if (symbolLengthStream != null && symbolTableStream != null && dictionaryLengthStream != null) {
-      @SuppressWarnings("deprecation")
+      var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
       var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
               symbolLengthStream.stream().mapToInt(i -> i).toArray(),
-              dictionaryStream);
+              dictionaryStream,
+              decompressedLength);
       dictionary = decodeDictionary(dictionaryLengthStream, utf8Values);
     } else if (dictionaryLengthStream != null) {
       dictionary = decodeDictionary(dictionaryLengthStream, dictionaryStream);
@@ -103,12 +104,11 @@ public class StringDecoder {
     var presentStreams = new HashMap<String, BitSet>();
     var numValues = new HashMap<String, Integer>();
     var values = new HashMap<String, List<String>>();
-    for (var childField : column.getComplexType().getChildrenList()) {
+    for (var childField : column.complexType.children) {
       var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
       if (numStreams != 2
-          || childField.hasComplexField()
-          || childField.getScalarField().getPhysicalType()
-              != MltTilesetMetadata.ScalarType.STRING) {
+          || childField.complexType != null
+          || childField.scalarType.physicalType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
             "Currently only optional string fields are implemented for a struct.");
       }
@@ -134,7 +134,7 @@ public class StringDecoder {
         }
       }
 
-      final var columnName = column.getName() + childField.getName();
+      final var columnName = column.name + childField.name;
       // TODO: refactor to work also when present stream is null
       numValues.put(columnName, presentStreamMetadata.numValues());
       presentStreams.put(columnName, presentStream);
@@ -209,11 +209,13 @@ public class StringDecoder {
     }
 
     if (symbolTableStream != null && symbolLengthStream != null && dictionaryLengthStream != null) {
+      var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
       var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
               symbolLengthStream.stream().mapToInt(i -> i).toArray(),
-              dictionaryStream);
+              dictionaryStream,
+              decompressedLength);
       return Triple.of(
           numValues,
           presentStream,
@@ -287,7 +289,7 @@ public class StringDecoder {
 
   public static List<String> decodeFsstDictionaryEncodedStringColumn(byte[] data, IntWrapper offset)
       throws IOException {
-    /* FsstDictionary -> SymbolTable, SymbolLength, CompressedCorups, Length, Data */
+    /* FsstDictionary -> SymbolTable, SymbolLength, CompressedCorpus, Length, Data */
     // TODO: get rid of that IntWrapper creation
     var symbolTableOffset = new IntWrapper(offset.get());
     var symbolTableMetadata = StreamMetadataDecoder.decode(data, symbolTableOffset);
@@ -317,12 +319,14 @@ public class StringDecoder {
             compressedCorpusOffset.get(),
             compressedCorpusOffset.get() + compressedCorpusMetadata.byteLength());
 
-    @SuppressWarnings("deprecation")
+    var length = IntegerDecoder.decodeIntStream(data, lengthOffset, lengthMetadata, false);
+    var decompressedLength = length.stream().mapToInt(i -> i).sum();
     var values =
         FsstEncoder.decode(
-            symbols, symbolLength.stream().mapToInt(i -> i).toArray(), compressedCorpus);
-
-    var length = IntegerDecoder.decodeIntStream(data, lengthOffset, lengthMetadata, false);
+            symbols,
+            symbolLength.stream().mapToInt(i -> i).toArray(),
+            compressedCorpus,
+            decompressedLength);
     var decodedData = IntegerDecoder.decodeIntStream(data, dataOffset, dataMetadata, false);
 
     var decodedDictionary = new ArrayList<String>();
