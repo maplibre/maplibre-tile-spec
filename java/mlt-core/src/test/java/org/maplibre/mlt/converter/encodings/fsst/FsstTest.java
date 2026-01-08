@@ -127,7 +127,7 @@ class FsstTest {
                   .formatted(input.length, encodedJava, encodedJni));
 
       // Native implementation doesn't produce the expected symbol order.  Do we care?
-      //assertSymbolSortOrder(encodedJni);
+      // assertSymbolSortOrder(encodedJni);
 
       assertArrayEquals(input, JNI.decode(encodedJava));
       assertArrayEquals(input, JNI.decode(encodedJni));
