@@ -17,11 +17,6 @@ import java.util.zip.GZIPOutputStream;
 import me.lemire.integercompression.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.orc.PhysicalWriter;
-import org.apache.orc.impl.OutStream;
-import org.apache.orc.impl.RunLengthByteWriter;
-import org.apache.orc.impl.RunLengthIntegerWriter;
-import org.apache.orc.impl.writer.StreamOptions;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtils {
@@ -111,29 +106,12 @@ public class EncodingUtils {
     return encodeVarints(values.stream().mapToLong(x -> x).toArray(), zigZagEncode, deltaEncode);
   }
 
-  public static byte[] encodeLongVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
-      throws IOException {
-    return encodeVarints(values, zigZagEncode, deltaEncode);
-  }
-
   public static byte[] encodeVarint(int value, boolean zigZagEncode) throws IOException {
     if (zigZagEncode) {
       value = encodeZigZag(value);
     }
     var varintBuffer = new byte[MAX_VARLONG_SIZE];
     return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
-  }
-
-  public static byte[] encodeVarint(long value, boolean zigZagEncode) throws IOException {
-    if (zigZagEncode) {
-      value = encodeZigZag(value);
-    }
-    var varintBuffer = new byte[MAX_VARLONG_SIZE];
-    return Arrays.copyOfRange(varintBuffer, 0, putVarInt(value, varintBuffer, 0));
-  }
-
-  private static int putVarInt(int v, byte[] sink) throws IOException {
-    return putVarInt(v, sink, 0);
   }
 
   // Source:
@@ -199,13 +177,6 @@ public class EncodingUtils {
     return stream;
   }
 
-  @SuppressWarnings("UnusedReturnValue")
-  public static DataOutputStream putVarInt(DataOutputStream stream, long v) throws IOException {
-    final var buffer = new byte[MAX_VARLONG_SIZE];
-    stream.write(buffer, 0, putVarInt(v, buffer, 0));
-    return stream;
-  }
-
   private static final int DATA_BITS_PER_ENCODED_BYTE = 7;
 
   public static int getVarIntSize(int value) {
@@ -262,19 +233,6 @@ public class EncodingUtils {
       previousValue = value;
     }
     return deltaValues;
-  }
-
-  /* RLE V1 encoding of the ORC format */
-  public static byte[] encodeDeltaRle(long[] values, boolean signed) throws IOException {
-    var testOutputCatcher = new OutputCatcher();
-    var writer =
-        new RunLengthIntegerWriter(
-            new OutStream("test", new StreamOptions(1), testOutputCatcher), signed);
-    for (var value : values) {
-      writer.write(value);
-    }
-    writer.flush();
-    return testOutputCatcher.getBuffer();
   }
 
   /**
@@ -369,16 +327,7 @@ public class EncodingUtils {
   }
 
   public static byte[] encodeByteRle(byte[] values) throws IOException {
-    var outputCatcher = new OutputCatcher();
-    var writer =
-        new RunLengthByteWriter(new OutStream("test", new StreamOptions(1), outputCatcher));
-
-    for (var value : values) {
-      writer.write(value);
-    }
-
-    writer.flush();
-    return outputCatcher.getBuffer();
+    return ByteRleEncoder.encode(values);
   }
 
   public static byte[] encodeBooleanRle(BitSet bitSet, int numValues) throws IOException {
@@ -392,49 +341,5 @@ public class EncodingUtils {
     }
 
     return EncodingUtils.encodeByteRle(presentStream);
-  }
-
-  public static byte[] encodeIntegersLe(int[] values) {
-    var buffer = ByteBuffer.allocate(values.length * 4).order(ByteOrder.LITTLE_ENDIAN);
-    for (var value : values) {
-      buffer.putInt(value);
-    }
-    return buffer.array();
-  }
-
-  private static class OutputCatcher implements PhysicalWriter.OutputReceiver {
-    int currentBuffer = 0;
-    List<ByteBuffer> buffers = new ArrayList<>();
-
-    @Override
-    public void output(ByteBuffer buffer) throws IOException {
-      buffers.add(buffer);
-    }
-
-    @Override
-    public void suppress() {}
-
-    public ByteBuffer getCurrentBuffer() {
-      while (currentBuffer < buffers.size() && buffers.get(currentBuffer).remaining() == 0) {
-        currentBuffer += 1;
-      }
-      return currentBuffer < buffers.size() ? buffers.get(currentBuffer) : null;
-    }
-
-    public byte[] getBuffer() throws IOException {
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      for (var buffer : this.buffers) {
-        outputStream.write(buffer.array());
-      }
-      return outputStream.toByteArray();
-    }
-
-    public int getBufferSize() {
-      var size = 0;
-      for (var buffer : buffers) {
-        size += buffer.array().length;
-      }
-      return size;
-    }
   }
 }

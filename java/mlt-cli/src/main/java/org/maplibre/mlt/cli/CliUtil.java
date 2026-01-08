@@ -7,25 +7,10 @@ import java.util.stream.Collectors;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
-import org.maplibre.mlt.vector.FeatureTable;
 
 public class CliUtil {
 
   private CliUtil() {}
-
-  // The method calls below are used to trigger lazy decoding of features, and their return values
-  // are intentionally ignored.
-  @SuppressWarnings("ResultOfMethodCallIgnored")
-  public static void decodeFeatureTables(FeatureTable[] featureTables) {
-    for (FeatureTable featureTable : featureTables) {
-      for (Feature mltFeature : featureTable) {
-        // Trigger decoding of the feature
-        mltFeature.id();
-        mltFeature.geometry();
-        mltFeature.properties();
-      }
-    }
-  }
 
   public static String printMLT(MapLibreTile mlTile) {
     final var gson = new GsonBuilder().setPrettyPrinting().create();

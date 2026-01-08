@@ -3,6 +3,42 @@ import type TopologyVector from "../../vector/geometry/topologyVector";
 import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 
+export function createConstGeometryVector(
+    numGeometries: number,
+    geometryType: number,
+    topologyVector: TopologyVector,
+    vertexOffsets: Int32Array,
+    vertexBuffer: Int32Array,
+): ConstGeometryVector {
+    return new ConstGeometryVector(
+        numGeometries,
+        geometryType,
+        VertexBufferType.VEC_2,
+        topologyVector,
+        vertexOffsets,
+        vertexBuffer,
+    );
+}
+
+export function createMortonEncodedConstGeometryVector(
+    numGeometries: number,
+    geometryType: number,
+    topologyVector: TopologyVector,
+    vertexOffsets: Int32Array,
+    vertexBuffer: Int32Array,
+    mortonInfo: MortonSettings,
+): ConstGeometryVector {
+    return new ConstGeometryVector(
+        numGeometries,
+        geometryType,
+        VertexBufferType.MORTON,
+        topologyVector,
+        vertexOffsets,
+        vertexBuffer,
+        mortonInfo,
+    );
+}
+
 export class ConstGeometryVector extends GeometryVector {
     constructor(
         private readonly _numGeometries: number,
@@ -14,42 +50,6 @@ export class ConstGeometryVector extends GeometryVector {
         mortonSettings?: MortonSettings,
     ) {
         super(vertexBufferType, topologyVector, vertexOffsets, vertexBuffer, mortonSettings);
-    }
-
-    static createMortonEncoded(
-        numGeometries: number,
-        geometryType: number,
-        topologyVector: TopologyVector,
-        vertexOffsets: Int32Array,
-        vertexBuffer: Int32Array,
-        mortonInfo: MortonSettings,
-    ): ConstGeometryVector {
-        return new ConstGeometryVector(
-            numGeometries,
-            geometryType,
-            VertexBufferType.MORTON,
-            topologyVector,
-            vertexOffsets,
-            vertexBuffer,
-            mortonInfo,
-        );
-    }
-
-    static create(
-        numGeometries: number,
-        geometryType: number,
-        topologyVector: TopologyVector,
-        vertexOffsets: Int32Array,
-        vertexBuffer: Int32Array,
-    ): ConstGeometryVector {
-        return new ConstGeometryVector(
-            numGeometries,
-            geometryType,
-            VertexBufferType.VEC_2,
-            topologyVector,
-            vertexOffsets,
-            vertexBuffer,
-        );
     }
 
     geometryType(index: number): number {

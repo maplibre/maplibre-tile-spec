@@ -1,5 +1,5 @@
-import {describe, expect, it} from "vitest";
-import {LongSequenceVector} from "./longSequenceVector";
+import { describe, expect, it } from "vitest";
+import { LongSequenceVector } from "./longSequenceVector";
 
 describe("LongSequenceVector", () => {
     it("should generate bigint sequence values", () => {
