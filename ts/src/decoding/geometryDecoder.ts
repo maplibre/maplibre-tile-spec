@@ -39,15 +39,18 @@ export function decodeGeometryColumn(
     const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
     const geometryTypesVectorType = getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
 
-    let geometryOffsets: Int32Array = null;
-    let partOffsets: Int32Array = null;
-    let ringOffsets: Int32Array = null;
+    let geometryOffsets: Uint32Array = null;
+    let partOffsets: Uint32Array = null;
+    let ringOffsets: Uint32Array = null;
+    let geometryLengths: Int32Array = null;
+    let partLengths: Int32Array = null;
+    let ringLengths: Int32Array = null;
     let vertexOffsets: Int32Array = null;
     let vertexBuffer: Int32Array = null;
     let mortonSettings: MortonSettings = null;
     //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
     // in one FeatureTable?
-    let triangleOffsets: Int32Array = null;
+    let triangleOffsets: Uint32Array = null;
     let indexBuffer: Int32Array = null;
 
     if (geometryTypesVectorType === VectorType.CONST) {
@@ -145,13 +148,13 @@ export function decodeGeometryColumn(
             case PhysicalStreamType.LENGTH:
                 switch (geometryStreamMetadata.logicalStreamType.lengthType) {
                     case LengthType.GEOMETRIES:
-                        geometryOffsets = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        geometryLengths = decodeIntStream(tile, offset, geometryStreamMetadata, false);
                         break;
                     case LengthType.PARTS:
-                        partOffsets = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        partLengths = decodeIntStream(tile, offset, geometryStreamMetadata, false);
                         break;
                     case LengthType.RINGS:
-                        ringOffsets = decodeIntStream(tile, offset, geometryStreamMetadata, false);
+                        ringLengths = decodeIntStream(tile, offset, geometryStreamMetadata, false);
                         break;
                     case LengthType.TRIANGLES:
                         triangleOffsets = decodeLengthStreamToOffsetBuffer(tile, offset, geometryStreamMetadata);
@@ -182,27 +185,27 @@ export function decodeGeometryColumn(
         }
     }
 
+    // TODO: refactor the following instructions -> decode in one pass for performance reasons
+    /* Calculate the offsets from the length buffer for util access */
+    if (geometryLengths !== null) {
+        geometryOffsets = decodeRootLengthStream(geometryTypeVector, geometryLengths, 2);
+        if (partLengths !== null && ringLengths !== null) {
+            partOffsets = decodeLevel1LengthStream(geometryTypeVector, geometryOffsets, partLengths, false);
+            ringOffsets = decodeLevel2LengthStream(geometryTypeVector, geometryOffsets, partOffsets, ringLengths);
+        } else if (partLengths !== null) {
+            partOffsets = decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, geometryOffsets, partLengths);
+        }
+    } else if (partLengths !== null && ringLengths !== null) {
+        partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 1);
+        ringOffsets = decodeLevel1LengthStream(geometryTypeVector, partOffsets, ringLengths, true);
+    } else if (partLengths !== null) {
+        partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 0);
+    }
+
     if (indexBuffer !== null && partOffsets === null) {
         /* Case when the indices of a Polygon outline are not encoded in the data so no
          *  topology data are present in the tile */
         return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
-    }
-
-    // TODO: refactor the following instructions -> decode in one pass for performance reasons
-    /* Calculate the offsets from the length buffer for util access */
-    if (geometryOffsets !== null) {
-        geometryOffsets = decodeRootLengthStream(geometryTypeVector, geometryOffsets, 2);
-        if (partOffsets !== null && ringOffsets !== null) {
-            partOffsets = decodeLevel1LengthStream(geometryTypeVector, geometryOffsets, partOffsets, false);
-            ringOffsets = decodeLevel2LengthStream(geometryTypeVector, geometryOffsets, partOffsets, ringOffsets);
-        } else if (partOffsets !== null) {
-            partOffsets = decodeLevel1WithoutRingBufferLengthStream(geometryTypeVector, geometryOffsets, partOffsets);
-        }
-    } else if (partOffsets !== null && ringOffsets !== null) {
-        partOffsets = decodeRootLengthStream(geometryTypeVector, partOffsets, 1);
-        ringOffsets = decodeLevel1LengthStream(geometryTypeVector, partOffsets, ringOffsets, true);
-    } else if (partOffsets !== null) {
-        partOffsets = decodeRootLengthStream(geometryTypeVector, partOffsets, 0);
     }
 
     if (indexBuffer !== null) {
@@ -236,8 +239,8 @@ export function decodeGeometryColumn(
  * Handle the parsing of the different topology length buffers separate not generic to reduce the
  * branching and improve the performance
  */
-function decodeRootLengthStream(geometryTypes: Int32Array, rootLengthStream: Int32Array, bufferId: number): Int32Array {
-    const rootBufferOffsets = new Int32Array(geometryTypes.length + 1);
+function decodeRootLengthStream(geometryTypes: Int32Array, rootLengthStream: Int32Array | Uint32Array, bufferId: number): Uint32Array {
+    const rootBufferOffsets = new Uint32Array(geometryTypes.length + 1);
     let previousOffset = 0;
     rootBufferOffsets[0] = previousOffset;
     let rootLengthCounter = 0;
@@ -256,11 +259,11 @@ function decodeRootLengthStream(geometryTypes: Int32Array, rootLengthStream: Int
 
 function decodeLevel1LengthStream(
     geometryTypes: Int32Array,
-    rootOffsetBuffer: Int32Array,
+    rootOffsetBuffer: Uint32Array,
     level1LengthBuffer: Int32Array,
     isLineStringPresent: boolean,
-): Int32Array {
-    const level1BufferOffsets = new Int32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
+): Uint32Array {
+    const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
     let previousOffset = 0;
     level1BufferOffsets[0] = previousOffset;
     let level1BufferCounter = 1;
@@ -296,10 +299,10 @@ function decodeLevel1LengthStream(
  */
 function decodeLevel1WithoutRingBufferLengthStream(
     geometryTypes: Int32Array,
-    rootOffsetBuffer: Int32Array,
+    rootOffsetBuffer: Uint32Array,
     level1LengthBuffer: Int32Array,
-): Int32Array {
-    const level1BufferOffsets = new Int32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
+): Uint32Array {
+    const level1BufferOffsets = new Uint32Array(rootOffsetBuffer[rootOffsetBuffer.length - 1] + 1);
     let previousOffset = 0;
     level1BufferOffsets[0] = previousOffset;
     let level1OffsetBufferCounter = 1;
@@ -326,11 +329,11 @@ function decodeLevel1WithoutRingBufferLengthStream(
 
 function decodeLevel2LengthStream(
     geometryTypes: Int32Array,
-    rootOffsetBuffer: Int32Array,
-    level1OffsetBuffer: Int32Array,
+    rootOffsetBuffer: Uint32Array,
+    level1OffsetBuffer: Uint32Array,
     level2LengthBuffer: Int32Array,
-): Int32Array {
-    const level2BufferOffsets = new Int32Array(level1OffsetBuffer[level1OffsetBuffer.length - 1] + 1);
+): Uint32Array {
+    const level2BufferOffsets = new Uint32Array(level1OffsetBuffer[level1OffsetBuffer.length - 1] + 1);
     let previousOffset = 0;
     level2BufferOffsets[0] = previousOffset;
     let level1OffsetBufferCounter = 1;

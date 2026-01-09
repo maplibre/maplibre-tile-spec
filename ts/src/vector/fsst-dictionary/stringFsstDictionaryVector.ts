@@ -14,9 +14,9 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
     constructor(
         name: string,
         private readonly indexBuffer: Int32Array,
-        offsetBuffer: Int32Array,
+        offsetBuffer: Uint32Array,
         dictionaryBuffer: Uint8Array,
-        private readonly symbolOffsetBuffer: Int32Array,
+        private readonly symbolOffsetBuffer: Uint32Array,
         private readonly symbolTableBuffer: Uint8Array,
         nullabilityBuffer: BitVector,
     ) {
@@ -75,7 +75,7 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
     }
 
     // TODO: get rid of that conversion
-    private offsetToLengthBuffer(offsetBuffer: Int32Array): Uint32Array {
+    private offsetToLengthBuffer(offsetBuffer: Uint32Array): Uint32Array {
         const lengthBuffer = new Uint32Array(offsetBuffer.length - 1);
         let previousOffset = offsetBuffer[0];
         for (let i = 1; i < offsetBuffer.length; i++) {

@@ -5,7 +5,7 @@ import type TopologyVector from "./topologyVector";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {
     protected constructor(
-        private readonly _triangleOffsets: Int32Array,
+        private readonly _triangleOffsets: Uint32Array,
         private readonly _indexBuffer: Int32Array,
         private readonly _vertexBuffer: Int32Array,
         private readonly _topologyVector?: TopologyVector | null,
@@ -17,7 +17,7 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
 
     abstract containsSingleGeometryType(): boolean;
 
-    get triangleOffsets(): Int32Array {
+    get triangleOffsets(): Uint32Array {
         return this._triangleOffsets;
     }
 
