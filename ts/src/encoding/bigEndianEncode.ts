@@ -1,3 +1,10 @@
+const IS_LE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
+
+function bswap32(value: number): number {
+    const x = value >>> 0;
+    return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
+}
+
 /**
  * Serializes an `Int32Array` to a big-endian byte stream.
  *
@@ -6,13 +13,16 @@
  */
 export function encodeBigEndianInt32s(values: Int32Array): Uint8Array {
     const bytes = new Uint8Array(values.length * 4);
-    for (let i = 0; i < values.length; i++) {
-        const v = values[i];
-        const base = i * 4;
-        bytes[base] = (v >>> 24) & 0xff;
-        bytes[base + 1] = (v >>> 16) & 0xff;
-        bytes[base + 2] = (v >>> 8) & 0xff;
-        bytes[base + 3] = v & 0xff;
+    const u32 = new Uint32Array(bytes.buffer, bytes.byteOffset, values.length);
+
+    if (IS_LE) {
+        for (let i = 0; i < values.length; i++) {
+            u32[i] = bswap32(values[i]);
+        }
+    } else {
+        for (let i = 0; i < values.length; i++) {
+            u32[i] = values[i] >>> 0;
+        }
     }
     return bytes;
 }

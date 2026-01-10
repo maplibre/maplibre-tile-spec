@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeBigEndianInt32s } from "./bigEndianDecode";
+import { decodeBigEndianInt32s, decodeBigEndianInt32sInto } from "./bigEndianDecode";
 import { encodeBigEndianInt32s } from "../encoding/bigEndianEncode";
 
 function assertDecodeEncodeRoundTrip(bytes: Uint8Array, offset: number, byteLength: number): Int32Array {
@@ -80,5 +80,26 @@ describe("decodeBigEndianInt32s", () => {
 
         const decoded = decodeBigEndianInt32s(buffer, 3, bytes.length);
         expect(decoded).toEqual(input);
+    });
+
+    it("decodes into a provided buffer", () => {
+        const input = new Int32Array([0x01020304, -123456789, 0, 42]);
+        const bytes = encodeBigEndianInt32s(input);
+
+        const out = new Int32Array(input.length + 8);
+        const written = decodeBigEndianInt32sInto(bytes, 0, bytes.length, out);
+        expect(written).toBe(input.length);
+
+        const decoded = out.subarray(0, written);
+        expect(decoded).toEqual(input);
+
+        const encoded = encodeBigEndianInt32s(decoded);
+        expect(encoded).toEqual(bytes);
+    });
+
+    it("decodeBigEndianInt32sInto throws when output buffer is too small", () => {
+        const bytes = new Uint8Array([0x12, 0x34, 0x56, 0x78]);
+        const out = new Int32Array(0);
+        expect(() => decodeBigEndianInt32sInto(bytes, 0, bytes.length, out)).toThrow();
     });
 });

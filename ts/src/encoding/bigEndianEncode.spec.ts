@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { encodeBigEndianInt32s } from "./bigEndianEncode";
+import { decodeBigEndianInt32s } from "../decoding/bigEndianDecode";
 
 describe("encodeBigEndianInt32s", () => {
     it("converts Int32Array to Big-Endian Uint8Array", () => {
@@ -28,5 +29,12 @@ describe("encodeBigEndianInt32s", () => {
         const input = new Int32Array([0x01020304]);
         const output = encodeBigEndianInt32s(input);
         expect(output).toEqual(new Uint8Array([0x01, 0x02, 0x03, 0x04]));
+    });
+
+    it("round-trips through decodeBigEndianInt32s", () => {
+        const input = new Int32Array([0x12345678, -1, 0, 1]);
+        const bytes = encodeBigEndianInt32s(input);
+        const decoded = decodeBigEndianInt32s(bytes, 0, bytes.length);
+        expect(decoded).toEqual(input);
     });
 });
