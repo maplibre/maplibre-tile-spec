@@ -1,4 +1,4 @@
-const IS_LE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
+export const IS_LE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 
 function bswap32(value: number): number {
     const x = value >>> 0;
