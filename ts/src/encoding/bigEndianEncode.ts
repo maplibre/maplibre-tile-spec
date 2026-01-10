@@ -1,8 +1,4 @@
 /**
- * Encodes int32 words to big-endian bytes.
- */
-
-/**
  * Serializes an `Int32Array` to a big-endian byte stream.
  *
  * @param values - Int32 words to serialize.

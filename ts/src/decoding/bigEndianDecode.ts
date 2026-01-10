@@ -1,7 +1,3 @@
-/**
- * Decodes big-endian bytes to int32 words.
- */
-
 function bswap32(value: number): number {
     const x = value >>> 0;
     return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;

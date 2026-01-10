@@ -2,13 +2,26 @@ import { describe, expect, it } from "vitest";
 import { decodeBigEndianInt32s } from "./bigEndianDecode";
 import { encodeBigEndianInt32s } from "../encoding/bigEndianEncode";
 
+function assertDecodeEncodeRoundTrip(bytes: Uint8Array, offset: number, byteLength: number): Int32Array {
+    const decoded = decodeBigEndianInt32s(bytes, offset, byteLength);
+    const encoded = encodeBigEndianInt32s(decoded);
+
+    expect(encoded.subarray(0, byteLength)).toEqual(bytes.subarray(offset, offset + byteLength));
+
+    for (let i = byteLength; i < encoded.length; i++) {
+        expect(encoded[i]).toBe(0);
+    }
+
+    return decoded;
+}
+
 describe("decodeBigEndianInt32s", () => {
     it("converts aligned byte buffer back to Int32Array", () => {
         const bytes = new Uint8Array([
             0x12, 0x34, 0x56, 0x78,
             0xff, 0xff, 0xff, 0xff,
         ]);
-        const ints = decodeBigEndianInt32s(bytes, 0, bytes.length);
+        const ints = assertDecodeEncodeRoundTrip(bytes, 0, bytes.length);
 
         expect(ints.length).toBe(2);
         expect(ints[0]).toBe(0x12345678);
@@ -21,7 +34,7 @@ describe("decodeBigEndianInt32s", () => {
         buffer[2] = 0x00;
         buffer[3] = 0x00;
         buffer[4] = 0x42;
-        const ints = decodeBigEndianInt32s(buffer, 1, 4);
+        const ints = assertDecodeEncodeRoundTrip(buffer, 1, 4);
         expect(ints[0]).toBe(0x42);
     });
 
@@ -31,7 +44,7 @@ describe("decodeBigEndianInt32s", () => {
             0xAB,
         ]);
 
-        const ints = decodeBigEndianInt32s(bytes, 0, 5);
+        const ints = assertDecodeEncodeRoundTrip(bytes, 0, 5);
         expect(ints.length).toBe(2);
         expect(ints[0]).toBe(256);
         expect(ints[1]).toBe(0xAB000000 | 0);
@@ -39,7 +52,7 @@ describe("decodeBigEndianInt32s", () => {
 
     it("handles 3 trailing bytes", () => {
         const bytes = new Uint8Array([0xAA, 0xBB, 0xCC]);
-        const ints = decodeBigEndianInt32s(bytes, 0, 3);
+        const ints = assertDecodeEncodeRoundTrip(bytes, 0, 3);
         expect(ints.length).toBe(1);
         expect(ints[0]).toBe((0xAA << 24) | (0xBB << 16) | (0xCC << 8));
     });
