@@ -2,17 +2,10 @@ import { describe, expect, it } from "vitest";
 import { decodeBigEndianInt32s, decodeBigEndianInt32sInto } from "./bigEndianDecode";
 import { encodeBigEndianInt32s } from "../encoding/bigEndianEncode";
 
-function assertDecodeEncodeRoundTrip(bytes: Uint8Array, offset: number, byteLength: number): Int32Array {
+function decodeEncode(bytes: Uint8Array, offset: number, byteLength: number): { decoded: Int32Array; encoded: Uint8Array } {
     const decoded = decodeBigEndianInt32s(bytes, offset, byteLength);
     const encoded = encodeBigEndianInt32s(decoded);
-
-    expect(encoded.subarray(0, byteLength)).toEqual(bytes.subarray(offset, offset + byteLength));
-
-    for (let i = byteLength; i < encoded.length; i++) {
-        expect(encoded[i]).toBe(0);
-    }
-
-    return decoded;
+    return { decoded, encoded };
 }
 
 describe("decodeBigEndianInt32s", () => {
@@ -21,11 +14,12 @@ describe("decodeBigEndianInt32s", () => {
             0x12, 0x34, 0x56, 0x78,
             0xff, 0xff, 0xff, 0xff,
         ]);
-        const ints = assertDecodeEncodeRoundTrip(bytes, 0, bytes.length);
+        const { decoded, encoded } = decodeEncode(bytes, 0, bytes.length);
+        expect(encoded).toEqual(bytes);
 
-        expect(ints.length).toBe(2);
-        expect(ints[0]).toBe(0x12345678);
-        expect(ints[1]).toBe(-1);
+        expect(decoded.length).toBe(2);
+        expect(decoded[0]).toBe(0x12345678);
+        expect(decoded[1]).toBe(-1);
     });
 
     it("handles non-aligned offsets", () => {
@@ -34,8 +28,11 @@ describe("decodeBigEndianInt32s", () => {
         buffer[2] = 0x00;
         buffer[3] = 0x00;
         buffer[4] = 0x42;
-        const ints = assertDecodeEncodeRoundTrip(buffer, 1, 4);
-        expect(ints[0]).toBe(0x42);
+        const { decoded, encoded } = decodeEncode(buffer, 1, 4);
+        expect(encoded.subarray(0, 4)).toEqual(buffer.subarray(1, 5));
+        for (let i = 4; i < encoded.length; i++) expect(encoded[i]).toBe(0);
+
+        expect(decoded[0]).toBe(0x42);
     });
 
     it("handles trailing bytes (length not multiple of 4)", () => {
@@ -44,17 +41,25 @@ describe("decodeBigEndianInt32s", () => {
             0xAB,
         ]);
 
-        const ints = assertDecodeEncodeRoundTrip(bytes, 0, 5);
-        expect(ints.length).toBe(2);
-        expect(ints[0]).toBe(256);
-        expect(ints[1]).toBe(0xAB000000 | 0);
+        const byteLength = 5;
+        const { decoded, encoded } = decodeEncode(bytes, 0, byteLength);
+        expect(encoded.subarray(0, byteLength)).toEqual(bytes);
+        for (let i = byteLength; i < encoded.length; i++) expect(encoded[i]).toBe(0);
+
+        expect(decoded.length).toBe(2);
+        expect(decoded[0]).toBe(256);
+        expect(decoded[1]).toBe(0xAB000000 | 0);
     });
 
     it("handles 3 trailing bytes", () => {
         const bytes = new Uint8Array([0xAA, 0xBB, 0xCC]);
-        const ints = assertDecodeEncodeRoundTrip(bytes, 0, 3);
-        expect(ints.length).toBe(1);
-        expect(ints[0]).toBe((0xAA << 24) | (0xBB << 16) | (0xCC << 8));
+        const byteLength = 3;
+        const { decoded, encoded } = decodeEncode(bytes, 0, byteLength);
+        expect(encoded.subarray(0, byteLength)).toEqual(bytes);
+        for (let i = byteLength; i < encoded.length; i++) expect(encoded[i]).toBe(0);
+
+        expect(decoded.length).toBe(1);
+        expect(decoded[0]).toBe((0xAA << 24) | (0xBB << 16) | (0xCC << 8));
     });
 
     it("throws on out of bounds", () => {

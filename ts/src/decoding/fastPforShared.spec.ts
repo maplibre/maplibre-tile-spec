@@ -1,8 +1,46 @@
 
 import { describe, expect, it } from "vitest";
-import { BLOCK_SIZE, DEFAULT_PAGE_SIZE, MASKS, greatestMultiple, normalizePageSize, roundUpToMultipleOf32 } from "./fastPforShared";
+import {
+    BLOCK_SIZE,
+    DEFAULT_PAGE_SIZE,
+    IS_LE,
+    MASKS,
+    bswap32,
+    greatestMultiple,
+    normalizePageSize,
+    roundUpToMultipleOf32,
+} from "./fastPforShared";
 
 describe("FastPforShared", () => {
+    describe("MASKS", () => {
+        it("contains 33 masks (0..32) and matches expected bit patterns", () => {
+            expect(MASKS.length).toBe(33);
+            expect(MASKS[0]).toBe(0);
+            expect(MASKS[32]).toBe(0xffffffff);
+
+            for (let bw = 1; bw < 32; bw++) {
+                const expected = (1n << BigInt(bw)) - 1n;
+                expect(BigInt(MASKS[bw] >>> 0)).toBe(expected);
+            }
+        });
+    });
+
+    describe("endian helpers", () => {
+        it("IS_LE matches runtime endianness", () => {
+            const buf = new ArrayBuffer(4);
+            new Uint32Array(buf)[0] = 0x11223344;
+            const firstByte = new Uint8Array(buf)[0];
+            expect(IS_LE).toBe(firstByte === 0x44);
+        });
+
+        it("bswap32 swaps bytes", () => {
+            expect(bswap32(0x11223344)).toBe(0x44332211);
+            expect(bswap32(0x00000000)).toBe(0x00000000);
+            expect(bswap32(0xffffffff)).toBe(0xffffffff);
+            expect(bswap32(0x89abcdef)).toBe(0xefcdab89);
+        });
+    });
+
     describe("normalizePageSize", () => {
         it("returns DEFAULT_PAGE_SIZE for invalid inputs", () => {
             expect(normalizePageSize(0)).toBe(DEFAULT_PAGE_SIZE);

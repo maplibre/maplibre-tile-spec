@@ -1,9 +1,4 @@
-export const IS_LE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
-
-function bswap32(value: number): number {
-    const x = value >>> 0;
-    return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
-}
+import { IS_LE, bswap32 } from "./fastPforShared";
 
 /**
  * Decodes big-endian bytes into `out` without allocating.

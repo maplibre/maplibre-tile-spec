@@ -33,3 +33,10 @@ export function normalizePageSize(pageSize: number): number {
     const aligned = greatestMultiple(Math.floor(pageSize), BLOCK_SIZE);
     return aligned === 0 ? BLOCK_SIZE : aligned;
 }
+
+export const IS_LE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
+
+export function bswap32(value: number): number {
+    const x = value >>> 0;
+    return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
+}
