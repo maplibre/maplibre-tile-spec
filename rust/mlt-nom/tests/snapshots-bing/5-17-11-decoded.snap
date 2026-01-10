@@ -1,0 +1,459 @@
+---
+source: mlt-nom/tests/snapshots.rs
+---
+[
+    Tag01(
+        Layer01 {
+            name: "water_feature",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0,0,0,0,0,0,0]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,MultiPolygon,Point],
+                    geometry_offsets: [0,52,128,130,143,281,288,289],
+                    part_offsets: [0,2,3,4,5,6,7,8, ...; 290],
+                    ring_offsets: [0,74,78,81,86,101,112,136, ...; 319],
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [470,1819,463,1828,476,1842,458,1849, ...; 9496],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "gt",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "id",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "label-importance",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "max-text-width",
+                        values: F32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name-f",
+                        values: F32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "road",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0,0,0,0,0,0,0,0, ...; 129]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [LineString,MultiLineString,MultiLineString,MultiLineString,MultiLineString,LineString,MultiLineString,MultiLineString, ...; 129],
+                    geometry_offsets: [0,1,18,20,23,59,60,73, ...; 130],
+                    part_offsets: [0,2,4,6,8,10,12,14, ...; 16692],
+                    ring_offsets: None,
+                    vertex_offsets: [342,362,4813,4809,874,872,872,873, ...; 38393],
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [41,-44,38,-45,23,-80,24,-79, ...; 33608],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "st-et",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "land_cover_grass",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,43],
+                    part_offsets: [0,2,3,4,5,6,8,24, ...; 44],
+                    ring_offsets: [0,222,239,288,304,356,435,506, ...; 82],
+                    vertex_offsets: None,
+                    index_buffer: [221,0,1,1,2,3,3,4, ...; 8220],
+                    triangles: [2740],
+                    vertices: [2048,489,2033,518,2048,555,2048,562, ...; 5538],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "reserve",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,122],
+                    part_offsets: [0,1,2,3,4,5,6,7, ...; 123],
+                    ring_offsets: [0,7,11,24,28,42,45,52, ...; 124],
+                    vertex_offsets: None,
+                    index_buffer: [1,2,3,4,5,6,0,1, ...; 4239],
+                    triangles: [1413],
+                    vertices: [1220,-65,1212,-51,1202,-56,1210,-56, ...; 3322],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "water_pattern_area",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,2],
+                    part_offsets: [0,1,2],
+                    ring_offsets: [0,7,14],
+                    vertex_offsets: None,
+                    index_buffer: [5,6,0,0,1,2,2,3, ...; 30],
+                    triangles: [10],
+                    vertices: [1156,1703,1153,1721,1134,1713,1130,1703, ...; 28],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "st-fill-pattern",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "country_region",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0,0,0,0,0,0,0,0, ...; 14]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [MultiLineString,MultiLineString,Point,Point,Point,Point,Point,Point, ...; 14],
+                    geometry_offsets: [0,8,88,89,90,91,92,93, ...; 15],
+                    part_offsets: [0,5,8,38,51,53,56,60, ...; 101],
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [2781,1615,2787,1618,2774,1629,2786,1644, ...; 4678],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "clk-as",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "gt",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "id",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "label-importance",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "max-text-width",
+                        values: F32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name-f",
+                        values: F32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "land_cover_forest",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [MultiPolygon],
+                    geometry_offsets: [0,30],
+                    part_offsets: [0,1,5,6,10,11,12,13, ...; 31],
+                    ring_offsets: [0,8,391,403,415,437,450,727, ...; 52],
+                    vertex_offsets: None,
+                    index_buffer: [6,7,0,0,1,2,2,3, ...; 6693],
+                    triangles: [2231],
+                    vertices: [2021,1724,2048,1724,2048,1852,2042,1859, ...; 4500],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "vector_background",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Polygon],
+                    geometry_offsets: [0,1],
+                    part_offsets: [0,1],
+                    ring_offsets: [0,4],
+                    vertex_offsets: None,
+                    index_buffer: [2,3,0,0,1,2],
+                    triangles: [2],
+                    vertices: [0,0,4096,0,4096,4096,0,4096],
+                },
+            ),
+            properties: [],
+        },
+    ),
+    Tag01(
+        Layer01 {
+            name: "populated_place",
+            extent: 4096,
+            id: Decoded(
+                DecodedId([0,0,0,0,0,0,0,0, ...; 43]),
+            ),
+            geometry: Decoded(
+                DecodedGeometry {
+                    vector_types: [Point,Point,Point,Point,Point,Point,Point,Point, ...; 43],
+                    geometry_offsets: None,
+                    part_offsets: None,
+                    ring_offsets: None,
+                    vertex_offsets: None,
+                    index_buffer: None,
+                    triangles: None,
+                    vertices: [3708,3604,3356,2188,2132,420,2596,2676, ...; 86],
+                },
+            ),
+            properties: [
+                Decoded(
+                    DecodedProperty {
+                        name: "bkt",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "clk-as",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "has-icon",
+                        values: Bool(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "id",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "label-importance",
+                        values: I32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "max-text-width",
+                        values: F32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "name-f",
+                        values: F32(
+                            [],
+                        ),
+                    },
+                ),
+                Decoded(
+                    DecodedProperty {
+                        name: "st-tag",
+                        values: Str(
+                            [],
+                        ),
+                    },
+                ),
+            ],
+        },
+    ),
+]
