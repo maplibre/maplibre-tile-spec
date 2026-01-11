@@ -11,12 +11,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import me.lemire.integercompression.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtils {
@@ -97,13 +97,12 @@ public class EncodingUtils {
 
   public static byte[] encodeVarints(
       Collection<Integer> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
-    return encodeVarints(
-        values.stream().mapToInt(Integer::intValue).toArray(), zigZagEncode, deltaEncode);
+    return encodeVarints(CollectionUtils.unboxInts(values), zigZagEncode, deltaEncode);
   }
 
-  public static byte[] encodeLongVarints(
-      Collection<Long> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
-    return encodeVarints(values.stream().mapToLong(x -> x).toArray(), zigZagEncode, deltaEncode);
+  public static byte[] encodeLongVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
+      throws IOException {
+    return encodeVarints(values, zigZagEncode, deltaEncode);
   }
 
   public static byte[] encodeVarint(int value, boolean zigZagEncode) throws IOException {
@@ -238,7 +237,7 @@ public class EncodingUtils {
   /**
    * @return Pair of runs and values.
    */
-  public static Pair<List<Integer>, List<Integer>> encodeRle(int[] values) {
+  public static Pair<int[], int[]> encodeRle(int[] values) {
     var valueBuffer = new ArrayList<Integer>();
     var runsBuffer = new ArrayList<Integer>();
     var previousValue = 0;
@@ -258,14 +257,14 @@ public class EncodingUtils {
     valueBuffer.add(values[values.length - 1]);
     runsBuffer.add(runs);
 
-    return Pair.of(runsBuffer, valueBuffer);
+    return Pair.of(CollectionUtils.unboxInts(runsBuffer), CollectionUtils.unboxInts(valueBuffer));
   }
 
   /**
    * @return Pair of runs and values.
    */
   // TODO: merge this method with the int variant
-  public static Pair<List<Integer>, List<Long>> encodeRle(long[] values) {
+  public static Pair<long[], long[]> encodeRle(long[] values) {
     var valueBuffer = new ArrayList<Long>();
     var runsBuffer = new ArrayList<Integer>();
     var previousValue = 0L;
@@ -284,7 +283,7 @@ public class EncodingUtils {
 
     valueBuffer.add(values[values.length - 1]);
     runsBuffer.add(runs);
-    return Pair.of(runsBuffer, valueBuffer);
+    return Pair.of(CollectionUtils.unboxLongs(runsBuffer), CollectionUtils.unboxLongs(valueBuffer));
   }
 
   public static byte[] encodeFastPfor128(int[] values, boolean zigZagEncode, boolean deltaEncode) {

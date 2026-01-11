@@ -15,7 +15,6 @@ repositories {
 
 dependencies {
     implementation 'com.carrotsearch:hppc:0.10.0'
-    implementation 'com.github.davidmoten:hilbert-curve:0.2.3'
     implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'com.google.guava:guava:33.5.0-jre'
     implementation 'org.apache.commons:commons-lang3:3.20.0'
@@ -66,7 +65,7 @@ spotless {
         target 'src/*/java/**/*.java'
         googleJavaFormat()
         removeUnusedImports()
-     }
+    }
 }
 
 tasks.register('compileWrapper', Exec) {
