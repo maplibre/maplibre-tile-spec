@@ -141,9 +141,8 @@ public class EncodingUtils {
     } while (v != 0);
 
     // ensure that the result decodes back into the input
-    if (DecodingUtils.decodeVarints(sink, new IntWrapper(offset), 1)[0] != checkValue) {
-      throw new IOException("Varint Overflow");
-    }
+    assert DecodingUtils.decodeVarints(sink, new IntWrapper(offset), 1)[0] == checkValue
+        : "Varint Overflow";
 
     return offset + sinkUsed;
   }
@@ -163,9 +162,8 @@ public class EncodingUtils {
       sink[offset + sinkUsed++] = b;
     } while (v != 0);
 
-    if (DecodingUtils.decodeLongVarint(sink, new IntWrapper(offset)) != checkValue) {
-      throw new IOException("Varint Overflow");
-    }
+    assert DecodingUtils.decodeLongVarint(sink, new IntWrapper(offset)) == checkValue
+        : "Varint Overflow";
     return offset + sinkUsed;
   }
 
@@ -197,11 +195,19 @@ public class EncodingUtils {
   }
 
   public static long[] encodeZigZag(long[] values) {
-    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
+    long[] result = new long[values.length];
+    for (int i = 0; i < values.length; i++) {
+      result[i] = encodeZigZag(values[i]);
+    }
+    return result;
   }
 
   public static int[] encodeZigZag(int[] values) {
-    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
+    int[] result = new int[values.length];
+    for (int i = 0; i < values.length; i++) {
+      result[i] = encodeZigZag(values[i]);
+    }
+    return result;
   }
 
   public static long encodeZigZag(long value) {
