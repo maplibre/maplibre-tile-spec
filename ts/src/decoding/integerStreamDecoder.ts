@@ -58,7 +58,7 @@ export function decodeLengthStreamToOffsetBuffer(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
-): Int32Array {
+): Uint32Array {
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
     return decodeLengthToOffsetBuffer(values, streamMetadata);
 }
@@ -320,7 +320,7 @@ export function decodeFloat64(values: Float64Array, streamMetadata: StreamMetada
     }
 }
 
-function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMetadata): Int32Array {
+function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMetadata): Uint32Array {
     if (
         streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA &&
         streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.NONE
@@ -343,7 +343,7 @@ function decodeLengthToOffsetBuffer(values: Int32Array, streamMetadata: StreamMe
         //TODO: use fastInverseDelta again and check what are the performance problems in zoom 14
         //fastInverseDelta(values);
         inverseDelta(values);
-        const offsets = new Int32Array(streamMetadata.numValues + 1);
+        const offsets = new Uint32Array(streamMetadata.numValues + 1);
         offsets[0] = 0;
         offsets.set(values, 1);
         return offsets;

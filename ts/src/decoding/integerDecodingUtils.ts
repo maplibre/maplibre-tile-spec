@@ -369,7 +369,7 @@ export function decodeZigZagRleFloat64(data: Float64Array, numRuns: number, numT
 /*
  * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
  */
-export function fastInverseDelta(data: Int32Array) {
+export function fastInverseDelta(data: Uint32Array | Int32Array) {
     const sz0 = (data.length / 4) * 4;
     let i = 1;
     if (sz0 >= 4) {
@@ -463,7 +463,7 @@ function clamp(n: number, min: number, max: number): number {
 
 /* Transform data to allow util access ------------------------------------------------------------------------ */
 
-export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Int32Array {
+export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
     const decodedData = new Int32Array(data.length + 1);
     decodedData[0] = 0;
     decodedData[1] = decodeZigZagInt32Value(data[0]);
@@ -475,10 +475,10 @@ export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Int32Array {
         decodedData[i] = decodedData[i - 1] + deltaSum;
     }
 
-    return decodedData;
+    return new Uint32Array(decodedData);
 }
 
-export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Uint32Array {
     const decodedValues = new Int32Array(numTotalValues + 1);
     decodedValues[0] = 0;
     let offset = 1;
@@ -494,10 +494,10 @@ export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, num
 
         offset += runLength;
     }
-    return decodedValues;
+    return new Uint32Array(decodedValues);
 }
 
-export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Int32Array {
+export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalValues: number): Uint32Array {
     const decodedValues = new Int32Array(numTotalValues + 1);
     decodedValues[0] = 0;
     let offset = 1;
@@ -513,7 +513,7 @@ export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalV
         offset += runLength;
     }
 
-    return decodedValues;
+    return new Uint32Array(decodedValues);
 }
 
 /**

@@ -4,7 +4,7 @@ import type TopologyVector from "./topologyVector";
 export function createConstGpuVector(
     numGeometries: number,
     geometryType: number,
-    triangleOffsets: Int32Array,
+    triangleOffsets: Uint32Array,
     indexBuffer: Int32Array,
     vertexBuffer: Int32Array,
     topologyVector?: TopologyVector | null,
@@ -17,7 +17,7 @@ export class ConstGpuVector extends GpuVector {
     constructor(
         private readonly _numGeometries: number,
         private readonly _geometryType: number,
-        triangleOffsets: Int32Array,
+        triangleOffsets: Uint32Array,
         indexBuffer: Int32Array,
         vertexBuffer: Int32Array,
         topologyVector?: TopologyVector | null,
