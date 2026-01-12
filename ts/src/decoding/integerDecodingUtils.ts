@@ -469,7 +469,9 @@ export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
     decodedData[1] = decodeZigZagInt32Value(data[0]);
 
     if (decodedData[1] < 0) {
-        throw new Error(`Invalid offset buffer: negative value ${decodedData[1]} at index 1. This indicates corrupted or invalid tile data.`);
+        throw new Error(
+            `Invalid offset buffer: negative value ${decodedData[1]} at index 1. This indicates corrupted or invalid tile data.`,
+        );
     }
 
     let deltaSum = decodedData[1];
@@ -480,7 +482,9 @@ export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
         decodedData[i] = decodedData[i - 1] + deltaSum;
 
         if (decodedData[i] < 0) {
-            throw new Error(`Invalid offset buffer: negative value ${decodedData[i]} at index ${i}. This indicates corrupted or invalid tile data.`);
+            throw new Error(
+                `Invalid offset buffer: negative value ${decodedData[i]} at index ${i}. This indicates corrupted or invalid tile data.`,
+            );
         }
     }
 
@@ -500,7 +504,9 @@ export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, num
             decodedValues[j] = value + previousValue;
 
             if (decodedValues[j] < 0) {
-                throw new Error(`Invalid offset buffer: negative value ${decodedValues[j]} at index ${j}. This indicates corrupted or invalid tile data.`);
+                throw new Error(
+                    `Invalid offset buffer: negative value ${decodedValues[j]} at index ${j}. This indicates corrupted or invalid tile data.`,
+                );
             }
 
             previousValue = decodedValues[j];
@@ -523,7 +529,9 @@ export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalV
             decodedValues[j] = value + previousValue;
 
             if (decodedValues[j] < 0) {
-                throw new Error(`Invalid offset buffer: negative value ${decodedValues[j]} at index ${j}. This indicates corrupted or invalid tile data.`);
+                throw new Error(
+                    `Invalid offset buffer: negative value ${decodedValues[j]} at index ${j}. This indicates corrupted or invalid tile data.`,
+                );
             }
 
             previousValue = decodedValues[j];

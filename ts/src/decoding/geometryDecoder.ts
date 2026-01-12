@@ -239,7 +239,11 @@ export function decodeGeometryColumn(
  * Handle the parsing of the different topology length buffers separate not generic to reduce the
  * branching and improve the performance
  */
-function decodeRootLengthStream(geometryTypes: Int32Array, rootLengthStream: Int32Array | Uint32Array, bufferId: number): Uint32Array {
+function decodeRootLengthStream(
+    geometryTypes: Int32Array,
+    rootLengthStream: Int32Array | Uint32Array,
+    bufferId: number,
+): Uint32Array {
     const rootBufferOffsets = new Uint32Array(geometryTypes.length + 1);
     let previousOffset = 0;
     rootBufferOffsets[0] = previousOffset;

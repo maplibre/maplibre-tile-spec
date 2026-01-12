@@ -304,9 +304,9 @@ describe("IntegerDecodingUtils", () => {
         expect(Array.from(decoded)).toEqual([0, 1, 2, 3, 4]);
     });
 
-    // Edge case tests for offset buffer validation
     describe("Edge cases for offset buffer decoding (Uint32Array result)", () => {
         it("should throw error for corrupted data producing negative offsets (zigzag RLE delta)", () => {
+            // Manually create corrupted encoded data that would produce negative offset
             const corruptedData = new Int32Array([1, encodeZigZagInt32Value(-100)]);
             const numRuns = 1;
             const numTotalValues = 1;
@@ -317,6 +317,7 @@ describe("IntegerDecodingUtils", () => {
         });
 
         it("should throw error for corrupted data producing negative offsets (RLE delta)", () => {
+            // Manually create corrupted encoded data that would produce negative offset
             const corruptedData = new Int32Array([1, 1, 10, -20]);
             const numRuns = 2;
             const numTotalValues = 2;
