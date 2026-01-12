@@ -39,23 +39,22 @@ export function decodeGeometryColumn(
     const geometryTypeMetadata = decodeStreamMetadata(tile, offset);
     const geometryTypesVectorType = getVectorType(geometryTypeMetadata, numFeatures, tile, offset);
 
-    let geometryOffsets: Uint32Array = null;
-    let partOffsets: Uint32Array = null;
-    let ringOffsets: Uint32Array = null;
-    let geometryLengths: Int32Array = null;
-    let partLengths: Int32Array = null;
-    let ringLengths: Int32Array = null;
     let vertexOffsets: Int32Array = null;
     let vertexBuffer: Int32Array = null;
     let mortonSettings: MortonSettings = null;
-    //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
-    // in one FeatureTable?
-    let triangleOffsets: Uint32Array = null;
     let indexBuffer: Int32Array = null;
 
     if (geometryTypesVectorType === VectorType.CONST) {
         /* All geometries in the colum have the same geometry type */
         const geometryType = decodeConstIntStream(tile, offset, geometryTypeMetadata, false);
+
+        // Variables for const geometry path (directly decoded as offsets)
+        let geometryOffsets: Uint32Array = null;
+        let partOffsets: Uint32Array = null;
+        let ringOffsets: Uint32Array = null;
+        //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
+        // in one FeatureTable?
+        let triangleOffsets: Uint32Array = null;
 
         for (let i = 0; i < numStreams - 1; i++) {
             const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
@@ -142,6 +141,14 @@ export function decodeGeometryColumn(
     /* Different geometry types are mixed in the geometry column */
     const geometryTypeVector = decodeIntStream(tile, offset, geometryTypeMetadata, false);
 
+    // Variables for flat geometry path (decoded as lengths, then converted to offsets)
+    let geometryLengths: Int32Array = null;
+    let partLengths: Int32Array = null;
+    let ringLengths: Int32Array = null;
+    //TODO: use geometryOffsets for that? -> but then tessellated polygons can't be used with normal polygons
+    // in one FeatureTable?
+    let triangleOffsets: Uint32Array = null;
+
     for (let i = 0; i < numStreams - 1; i++) {
         const geometryStreamMetadata = decodeStreamMetadata(tile, offset);
         switch (geometryStreamMetadata.physicalStreamType) {
@@ -187,6 +194,10 @@ export function decodeGeometryColumn(
 
     // TODO: refactor the following instructions -> decode in one pass for performance reasons
     /* Calculate the offsets from the length buffer for util access */
+    let geometryOffsets: Uint32Array = null;
+    let partOffsets: Uint32Array = null;
+    let ringOffsets: Uint32Array = null;
+
     if (geometryLengths !== null) {
         geometryOffsets = decodeRootLengthStream(geometryTypeVector, geometryLengths, 2);
         if (partLengths !== null && ringLengths !== null) {
