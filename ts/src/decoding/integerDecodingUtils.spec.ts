@@ -303,26 +303,4 @@ describe("IntegerDecodingUtils", () => {
         // The decoder is adding a 0 at the start
         expect(Array.from(decoded)).toEqual([0, 1, 2, 3, 4]);
     });
-
-    describe("Edge cases for offset buffer decoding (Uint32Array result)", () => {
-        it("should throw error for corrupted data producing negative offsets (zigzag RLE delta)", () => {
-            const corruptedData = new Int32Array([1, encodeZigZagInt32Value(-100)]);
-            const numRuns = 1;
-            const numTotalValues = 1;
-
-            expect(() => {
-                decodeZigZagRleDeltaInt32(corruptedData, numRuns, numTotalValues);
-            }).toThrow("Invalid offset buffer: negative value -100 at index 1");
-        });
-
-        it("should throw error for corrupted data producing negative offsets (RLE delta)", () => {
-            const corruptedData = new Int32Array([1, 1, 10, -20]);
-            const numRuns = 2;
-            const numTotalValues = 2;
-
-            expect(() => {
-                decodeRleDeltaInt32(corruptedData, numRuns, numTotalValues);
-            }).toThrow("Invalid offset buffer: negative value -10 at index 2");
-        });
-    });
 });

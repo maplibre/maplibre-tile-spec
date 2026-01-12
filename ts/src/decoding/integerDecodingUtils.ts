@@ -467,25 +467,12 @@ export function decodeZigZagDeltaOfDeltaInt32(data: Int32Array): Uint32Array {
     const decodedData = new Int32Array(data.length + 1);
     decodedData[0] = 0;
     decodedData[1] = decodeZigZagInt32Value(data[0]);
-
-    if (decodedData[1] < 0) {
-        throw new Error(
-            `Invalid offset buffer: negative value ${decodedData[1]} at index 1. This indicates corrupted or invalid tile data.`,
-        );
-    }
-
     let deltaSum = decodedData[1];
     for (let i = 2; i != decodedData.length; ++i) {
         const zigZagValue = data[i - 1];
         const delta = decodeZigZagInt32Value(zigZagValue);
         deltaSum += delta;
         decodedData[i] = decodedData[i - 1] + deltaSum;
-
-        if (decodedData[i] < 0) {
-            throw new Error(
-                `Invalid offset buffer: negative value ${decodedData[i]} at index ${i}. This indicates corrupted or invalid tile data.`,
-            );
-        }
     }
 
     return new Uint32Array(decodedData);
@@ -502,13 +489,6 @@ export function decodeZigZagRleDeltaInt32(data: Int32Array, numRuns: number, num
         value = decodeZigZagInt32Value(value);
         for (let j = offset; j < offset + runLength; j++) {
             decodedValues[j] = value + previousValue;
-
-            if (decodedValues[j] < 0) {
-                throw new Error(
-                    `Invalid offset buffer: negative value ${decodedValues[j]} at index ${j}. This indicates corrupted or invalid tile data.`,
-                );
-            }
-
             previousValue = decodedValues[j];
         }
 
@@ -527,13 +507,6 @@ export function decodeRleDeltaInt32(data: Int32Array, numRuns: number, numTotalV
         const value = data[i + numRuns];
         for (let j = offset; j < offset + runLength; j++) {
             decodedValues[j] = value + previousValue;
-
-            if (decodedValues[j] < 0) {
-                throw new Error(
-                    `Invalid offset buffer: negative value ${decodedValues[j]} at index ${j}. This indicates corrupted or invalid tile data.`,
-                );
-            }
-
             previousValue = decodedValues[j];
         }
 
