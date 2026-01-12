@@ -23,13 +23,13 @@ export function decodeString(
     numStreams: number,
     bitVector?: BitVector,
 ): Vector {
-    let dictionaryLengthStream: Int32Array = null;
+    let dictionaryLengthStream: Uint32Array = null;
     let offsetStream: Int32Array = null;
     let dictionaryStream: Uint8Array = null;
-    let symbolLengthStream: Int32Array = null;
+    let symbolLengthStream: Uint32Array = null;
     let symbolTableStream: Uint8Array = null;
     let presentStream: BitVector = null;
-    let plainLengthStream: Int32Array = null;
+    let plainLengthStream: Uint32Array = null;
     let plainDataStream: Uint8Array = null;
 
     for (let i = 0; i < numStreams; i++) {
@@ -110,9 +110,9 @@ function decodeFsstDictionaryVector(
     name: string,
     symbolTableStream: Uint8Array | null,
     offsetStream: Int32Array | null,
-    dictionaryLengthStream: Int32Array | null,
+    dictionaryLengthStream: Uint32Array | null,
     dictionaryStream: Uint8Array | null,
-    symbolLengthStream: Int32Array | null,
+    symbolLengthStream: Uint32Array | null,
     nullabilityBuffer: BitVector | null,
 ): Vector | null {
     if (!symbolTableStream) {
@@ -133,7 +133,7 @@ function decodeDictionaryVector(
     name: string,
     dictionaryStream: Uint8Array | null,
     offsetStream: Int32Array | null,
-    dictionaryLengthStream: Int32Array | null,
+    dictionaryLengthStream: Uint32Array | null,
     nullabilityBuffer: BitVector | null,
 ): Vector | null {
     if (!dictionaryStream) {
@@ -146,7 +146,7 @@ function decodeDictionaryVector(
 
 function decodePlainStringVector(
     name: string,
-    plainLengthStream: Int32Array | null,
+    plainLengthStream: Uint32Array | null,
     plainDataStream: Uint8Array | null,
     offsetStream: Int32Array | null,
     nullabilityBuffer: BitVector | null,
@@ -192,9 +192,9 @@ export function decodeSharedDictionary(
     numFeatures: number,
     propertyColumnNames?: Set<string>,
 ): Vector[] {
-    let dictionaryOffsetBuffer: Int32Array = null;
+    let dictionaryOffsetBuffer: Uint32Array = null;
     let dictionaryBuffer: Uint8Array = null;
-    let symbolOffsetBuffer: Int32Array = null;
+    let symbolOffsetBuffer: Uint32Array = null;
     let symbolTableBuffer: Uint8Array = null;
 
     let dictionaryStreamDecoded = false;

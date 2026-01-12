@@ -3,7 +3,7 @@ import type TopologyVector from "./topologyVector";
 
 export function createFlatGpuVector(
     geometryTypes: Int32Array,
-    triangleOffsets: Int32Array,
+    triangleOffsets: Uint32Array,
     indexBuffer: Int32Array,
     vertexBuffer: Int32Array,
     topologyVector?: TopologyVector | null,
@@ -15,7 +15,7 @@ export function createFlatGpuVector(
 export class FlatGpuVector extends GpuVector {
     constructor(
         private readonly _geometryTypes: Int32Array,
-        triangleOffsets: Int32Array,
+        triangleOffsets: Uint32Array,
         indexBuffer: Int32Array,
         vertexBuffer: Int32Array,
         topologyVector: TopologyVector | null,
