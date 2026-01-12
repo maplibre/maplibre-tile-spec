@@ -123,6 +123,27 @@ describe("decodingUtils", () => {
             expect(result[9]).toBe(0);
             expect(offset.get()).toBe(2); // Should stop at byteLength boundary
         });
+
+        it("should decode mixed literals and runs", () => {
+            const data = new Uint8Array([1, 2, 5, 5, 5, 5, 5, 7, 8]);
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 9, encoded.length, offset);
+
+            expect(result).toEqual(data);
+        });
+
+        it("should handle 128 literal max", () => {
+            const data = new Uint8Array(130);
+            for (let i = 0; i < 130; i++) {
+                data[i] = i % 256;
+            }
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 130, encoded.length, offset);
+
+            expect(result).toEqual(data);
+        });
     });
 
     describe("decodeString", () => {
