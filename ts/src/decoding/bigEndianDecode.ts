@@ -1,7 +1,11 @@
 import { IS_LE, bswap32 } from "./fastPforShared";
 
 /**
- * Decodes big-endian bytes into `out` without allocating.
+ * Decodes big-endian bytes into `out` without allocating the output buffer.
+ *
+ * This function does not copy `bytes`; it writes decoded words into the provided `out` array.
+ * For aligned inputs it may create a temporary typed-array view (`Uint32Array`) over `bytes.buffer`
+ * to speed up decoding.
  *
  * If `byteLength` is not a multiple of 4, the final word is padded with zeros.
  *
@@ -65,25 +69,4 @@ export function decodeBigEndianInt32sInto(
     }
 
     return numInts;
-}
-
-/**
- * Reads a big-endian byte range as int32 words.
- *
- * If `byteLength` is not a multiple of 4, the final word is padded with zeros.
- *
- * @param bytes - Source byte buffer.
- * @param offset - Start offset within `bytes`.
- * @param byteLength - Number of bytes to read.
- * @returns Decoded int32 words.
- * @throws RangeError If `(offset, byteLength)` is out of bounds for `bytes`.
- */
-export function decodeBigEndianInt32s(bytes: Uint8Array, offset: number, byteLength: number): Int32Array {
-    const numCompleteInts = Math.floor(byteLength / 4);
-    const hasTrailingBytes = byteLength % 4 !== 0;
-    const numInts = hasTrailingBytes ? numCompleteInts + 1 : numCompleteInts;
-
-    const ints = new Int32Array(numInts);
-    decodeBigEndianInt32sInto(bytes, offset, byteLength, ints);
-    return ints;
 }

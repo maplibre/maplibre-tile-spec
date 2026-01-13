@@ -34,6 +34,10 @@ export function normalizePageSize(pageSize: number): number {
     return aligned === 0 ? BLOCK_SIZE : aligned;
 }
 
+/**
+ * True if `TypedArray` views use little-endian byte order on this runtime.
+ * (Most JS engines run on little-endian platforms, but big-endian platforms exist.)
+ */
 export const IS_LE = new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44;
 
 export function bswap32(value: number): number {
