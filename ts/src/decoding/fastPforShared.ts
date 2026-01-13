@@ -1,7 +1,3 @@
-/**
- * Shared constants and helpers for the FastPFOR codec.
- */
-
 export type Int32Buf = Int32Array<ArrayBufferLike>;
 export type Uint8Buf = Uint8Array<ArrayBufferLike>;
 
