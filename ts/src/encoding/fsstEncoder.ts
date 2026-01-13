@@ -22,6 +22,8 @@ export function createSymbolTable(symbolStrings: string[]): { symbols: Uint8Arra
 
 /**
  * Encode data using FSST compression with pre-defined symbol table
+ * Encoder requires pre-defined symbol table. Real FSST learns optimal symbols from data. This
+ * implementation is for testing decoder only.
  *
  * @param symbols           Array of symbols, where each symbol can be between 1 and 8 bytes
  * @param symbolLengths     Array of symbol lengths, length of each symbol in symbols array
