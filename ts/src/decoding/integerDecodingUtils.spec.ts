@@ -395,3 +395,7 @@ describe("IntegerDecodingUtils", () => {
         });
     });
 });
+
+describe("decodeFastPfor (wire format)", () => {
+    it.todo("Add encodeFastPfor -> decodeFastPfor round-trip tests in PR8");
+});
