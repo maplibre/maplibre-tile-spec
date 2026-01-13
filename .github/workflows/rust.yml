@@ -20,7 +20,7 @@ jobs:
     defaults:
       run: { working-directory: ./rust/mlt-nom }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
@@ -34,7 +34,7 @@ jobs:
     defaults:
       run: { working-directory: ./rust/mlt-nom }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
@@ -56,7 +56,7 @@ jobs:
     defaults:
       run: { working-directory: ./rust/mlt-nom }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.1
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-llvm-cov' }
