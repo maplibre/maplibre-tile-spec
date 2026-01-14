@@ -40,6 +40,59 @@ export function encodeBooleanRle(values: boolean[]): Uint8Array {
     return result;
 }
 
+export function encodeByteRle(values: Uint8Array): Uint8Array {
+    const result: number[] = [];
+    let i = 0;
+
+    while (i < values.length) {
+        const currentByte = values[i];
+        let runLength = 1;
+
+        while (i + runLength < values.length && values[i + runLength] === currentByte && runLength < 131) {
+            runLength++;
+        }
+
+        if (runLength >= 3) {
+            const header = runLength - 3;
+            result.push(Math.min(header, 0x7f));
+            result.push(currentByte);
+            i += runLength;
+        } else {
+            const literalStart = i;
+            while (i < values.length) {
+                let nextRunLength = 1;
+                if (i + 1 < values.length) {
+                    while (
+                        i + nextRunLength < values.length &&
+                        values[i + nextRunLength] === values[i] &&
+                        nextRunLength < 3
+                    ) {
+                        nextRunLength++;
+                    }
+                }
+
+                if (nextRunLength >= 3) {
+                    break;
+                }
+                i++;
+
+                if (i - literalStart >= 128) {
+                    break;
+                }
+            }
+
+            const numLiterals = i - literalStart;
+            const header = 256 - numLiterals;
+            result.push(header);
+            for (let j = literalStart; j < i; j++) {
+                result.push(values[j]);
+            }
+        }
+    }
+
+    return new Uint8Array(result);
+}
+
 export function encodeStrings(strings: string[]): Uint8Array {
     const encoder = new TextEncoder();
     const encoded = strings.map((s) => encoder.encode(s));

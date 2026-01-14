@@ -462,7 +462,7 @@ public class PropertyEncoder {
             : new byte[0];
     var encodedDataStream =
         IntegerEncoder.encodeIntStream(
-            values,
+            CollectionUtils.unboxInts(values),
             physicalLevelTechnique,
             isSigned,
             PhysicalStreamType.DATA,
@@ -490,7 +490,7 @@ public class PropertyEncoder {
           isID ? Long.valueOf(feature.id()) : getLongPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
-        values.add((long) propertyValue);
+        values.add(propertyValue);
       }
       if (presentValues != null) {
         presentValues.add(present);
@@ -507,7 +507,7 @@ public class PropertyEncoder {
             : new byte[0];
     var encodedDataStream =
         IntegerEncoder.encodeLongStream(
-            values,
+            CollectionUtils.unboxLongs(values),
             isSigned,
             PhysicalStreamType.DATA,
             null,
