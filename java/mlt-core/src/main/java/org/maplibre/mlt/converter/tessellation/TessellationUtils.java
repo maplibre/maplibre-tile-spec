@@ -14,7 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import nl.bartlouwers.earcut4j.Earcut;
+import org.maplibre.earcut4j.Earcut;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.*;
 import org.maplibre.mlt.converter.geometry.Vertex;
