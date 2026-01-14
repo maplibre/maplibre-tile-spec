@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decodeFloatsLE, decodeDoublesLE, decodeBooleanRle, decodeString, decodeByteRle } from "./decodingUtils";
+import { decodeFloatsLE, decodeDoublesLE, decodeBooleanRle, decodeString, decodeByteRle, getVectorTypeBooleanStream } from "./decodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 import {
@@ -167,7 +167,6 @@ describe("decodingUtils", () => {
             const encoded = encodeStrings([prefix, expectedText]);
             const prefixLength = new TextEncoder().encode(prefix).length;
 
-            // decodeString takes (buffer, start, end) where end is the position after the last byte
             const result = decodeString(encoded, prefixLength, encoded.length);
 
             expect(result).toBe(expectedText);
