@@ -3,15 +3,15 @@ package org.maplibre.mlt.converter.encodings;
 import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeFastPfor;
 import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 
+import com.carrotsearch.hppc.IntArrayList;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -55,103 +55,84 @@ public class GeometryEncoder {
     final var vertexBuffer = new ArrayList<Vertex>();
     final var containsPolygon = containsPolygon(geometries);
     for (var geometry : geometries) {
-      final var geometryType = geometry.getGeometryType();
-      switch (geometryType) {
-        case Geometry.TYPENAME_POINT:
-          {
-            geometryTypes.add(GeometryType.POINT.ordinal());
-            var point = (Point) geometry;
+      switch (geometry) {
+        case Point point -> {
+          geometryTypes.add(GeometryType.POINT.ordinal());
+          var x = (int) point.getX();
+          var y = (int) point.getY();
+          vertexBuffer.add(new Vertex(x, y));
+        }
+        case LineString lineString -> {
+          // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
+          geometryTypes.add(GeometryType.LINESTRING.ordinal());
+          var numVertices = lineString.getCoordinates().length;
+          addLineString(containsPolygon, numVertices, numParts, numRings);
+          var vertices = flatLineString(lineString);
+          vertexBuffer.addAll(vertices);
+        }
+        case Polygon polygon -> {
+          geometryTypes.add(GeometryType.POLYGON.ordinal());
+          flatPolygon(polygon, vertexBuffer, numParts, numRings);
+
+          var tessellatedPolygon =
+              TessellationUtils.tessellatePolygon(polygon, 0, tessellateSource);
+          numTriangles.add(tessellatedPolygon.numTriangles());
+          indexBuffer.addAll(tessellatedPolygon.indexBuffer());
+
+          if (polygon.getNumInteriorRing() > 500) {
+            System.err.println(
+                "Polygon with more than 500 rings ----------------------------------------------");
+          }
+        }
+        case MultiLineString multiLineString -> {
+          // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
+          geometryTypes.add(GeometryType.MULTILINESTRING.ordinal());
+          var numLineStrings = multiLineString.getNumGeometries();
+          numGeometries.add(numLineStrings);
+          for (var i = 0; i < numLineStrings; i++) {
+            var lineString = (LineString) multiLineString.getGeometryN(i);
+            var numVertices = lineString.getCoordinates().length;
+            addLineString(containsPolygon, numVertices, numParts, numRings);
+            vertexBuffer.addAll(flatLineString(lineString));
+          }
+        }
+        case MultiPolygon multiPolygon -> {
+          geometryTypes.add(GeometryType.MULTIPOLYGON.ordinal());
+          var numPolygons = multiPolygon.getNumGeometries();
+          numGeometries.add(numPolygons);
+          var numRings2 = 0;
+          for (var i = 0; i < numPolygons; i++) {
+            var polygon = (Polygon) multiPolygon.getGeometryN(i);
+            flatPolygon(polygon, vertexBuffer, numParts, numRings);
+
+            numRings2 += polygon.getNumInteriorRing();
+          }
+
+          // TODO: use also a vertex dictionary encoding for MultiPolygon geometries
+          var tessellatedPolygon =
+              TessellationUtils.tessellateMultiPolygon(multiPolygon, tessellateSource);
+          numTriangles.add(tessellatedPolygon.numTriangles());
+          indexBuffer.addAll(tessellatedPolygon.indexBuffer());
+
+          if (numRings2 > 500) {
+            System.err.println(
+                "MultiPolygon with more than 500 rings --------------------------------------------");
+          }
+        }
+        case MultiPoint multiPoint -> {
+          geometryTypes.add(GeometryType.MULTIPOINT.ordinal());
+          var numPoints = multiPoint.getNumGeometries();
+          numGeometries.add(numPoints);
+          for (var i = 0; i < numPoints; i++) {
+            var point = (Point) multiPoint.getGeometryN(i);
             var x = (int) point.getX();
             var y = (int) point.getY();
             vertexBuffer.add(new Vertex(x, y));
-            break;
           }
-        case Geometry.TYPENAME_LINESTRING:
-          {
-            // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
-            geometryTypes.add(GeometryType.LINESTRING.ordinal());
-            var lineString = (LineString) geometry;
-            var numVertices = lineString.getCoordinates().length;
-            addLineString(containsPolygon, numVertices, numParts, numRings);
-            var vertices = flatLineString(lineString);
-            vertexBuffer.addAll(vertices);
-            break;
-          }
-        case Geometry.TYPENAME_POLYGON:
-          {
-            geometryTypes.add(GeometryType.POLYGON.ordinal());
-            final var polygon = (Polygon) geometry;
-            flatPolygon(polygon, vertexBuffer, numParts, numRings);
-
-            var tessellatedPolygon =
-                TessellationUtils.tessellatePolygon(polygon, 0, tessellateSource);
-            numTriangles.add(tessellatedPolygon.numTriangles());
-            indexBuffer.addAll(tessellatedPolygon.indexBuffer());
-
-            if (polygon.getNumInteriorRing() > 500) {
-              System.err.println(
-                  "Polygon with more than 500 rings ----------------------------------------------");
-            }
-            break;
-          }
-        case Geometry.TYPENAME_MULTILINESTRING:
-          {
-            // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
-            geometryTypes.add(GeometryType.MULTILINESTRING.ordinal());
-            var multiLineString = (MultiLineString) geometry;
-            var numLineStrings = multiLineString.getNumGeometries();
-            numGeometries.add(numLineStrings);
-            for (var i = 0; i < numLineStrings; i++) {
-              var lineString = (LineString) multiLineString.getGeometryN(i);
-              var numVertices = lineString.getCoordinates().length;
-              addLineString(containsPolygon, numVertices, numParts, numRings);
-              vertexBuffer.addAll(flatLineString(lineString));
-            }
-            break;
-          }
-        case Geometry.TYPENAME_MULTIPOLYGON:
-          {
-            geometryTypes.add(GeometryType.MULTIPOLYGON.ordinal());
-            var multiPolygon = (MultiPolygon) geometry;
-            var numPolygons = multiPolygon.getNumGeometries();
-            numGeometries.add(numPolygons);
-            var numRings2 = 0;
-            for (var i = 0; i < numPolygons; i++) {
-              var polygon = (Polygon) multiPolygon.getGeometryN(i);
-              flatPolygon(polygon, vertexBuffer, numParts, numRings);
-
-              numRings2 += polygon.getNumInteriorRing();
-            }
-
-            // TODO: use also a vertex dictionary encoding for MultiPolygon geometries
-            var tessellatedPolygon =
-                TessellationUtils.tessellateMultiPolygon(multiPolygon, tessellateSource);
-            numTriangles.add(tessellatedPolygon.numTriangles());
-            indexBuffer.addAll(tessellatedPolygon.indexBuffer());
-
-            if (numRings2 > 500) {
-              System.err.println(
-                  "MultiPolygon with more than 500 rings --------------------------------------------");
-            }
-            break;
-          }
-        case Geometry.TYPENAME_MULTIPOINT:
-          {
-            geometryTypes.add(GeometryType.MULTIPOINT.ordinal());
-            var multiPoint = (MultiPoint) geometry;
-            var numPoints = multiPoint.getNumGeometries();
-            numGeometries.add(numPoints);
-            for (var i = 0; i < numPoints; i++) {
-              var point = (Point) multiPoint.getGeometryN(i);
-              var x = (int) point.getX();
-              var y = (int) point.getY();
-              vertexBuffer.add(new Vertex(x, y));
-            }
-            break;
-          }
-        default:
-          throw new IllegalArgumentException(
-              "Specified geometry type is not (yet) supported: " + geometryType);
+        }
+        default ->
+            throw new IllegalArgumentException(
+                "Specified geometry type is not (yet) supported: " + geometry.getGeometryType());
       }
     }
 
@@ -160,12 +141,14 @@ public class GeometryEncoder {
     }
 
     // TODO: get rid of that separate calculation
-    var minVertexValue =
-        Collections.min(
-            vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
-    var maxVertexValue =
-        Collections.max(
-            vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
+    var minVertexValue = Integer.MAX_VALUE;
+    var maxVertexValue = Integer.MIN_VALUE;
+    for (var vertex : vertexBuffer) {
+      if (vertex.x() < minVertexValue) minVertexValue = vertex.x();
+      if (vertex.y() < minVertexValue) minVertexValue = vertex.y();
+      if (vertex.x() > maxVertexValue) maxVertexValue = vertex.x();
+      if (vertex.y() > maxVertexValue) maxVertexValue = vertex.y();
+    }
 
     HilbertCurve hilbertCurve = null;
     try {
@@ -180,13 +163,11 @@ public class GeometryEncoder {
     var vertexDictionary = addVerticesToDictionary(vertexBuffer, hilbertCurve);
     var mortonEncodedDictionary = addVerticesToMortonDictionary(vertexBuffer, zOrderCurve);
 
-    int[] hilbertIds = vertexDictionary.keySet().stream().mapToInt(d -> d).toArray();
     var dictionaryOffsets =
-        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(hilbertIds, id), hilbertCurve);
+        getVertexOffsets(vertexBuffer, reverseMap(vertexDictionary.getLeft())::get, hilbertCurve);
 
-    int[] mortonIds = mortonEncodedDictionary.stream().mapToInt(d -> d).toArray();
     var mortonEncodedDictionaryOffsets =
-        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(mortonIds, id), zOrderCurve);
+        getVertexOffsets(vertexBuffer, reverseMap(mortonEncodedDictionary)::get, zOrderCurve);
 
     /* Test if Plain, Vertex Dictionary or Morton Encoded Vertex Dictionary is the most efficient
      * -> Plain -> convert VertexBuffer with Delta Encoding and specified Physical Level Technique
@@ -194,24 +175,17 @@ public class GeometryEncoder {
      * -> Morton Encoded Dictionary -> convert VertexOffsets with Integer Encoder and VertexBuffer with IntegerEncoder
      * */
     var zigZagDeltaVertexBuffer = zigZagDeltaEncodeVertices(vertexBuffer);
-    var zigZagDeltaVertexDictionary = zigZagDeltaEncodeVertices(vertexDictionary.values());
+    var zigZagDeltaVertexDictionary = zigZagDeltaEncodeVertices(vertexDictionary.getRight());
 
     // TODO: get rid of that conversions
     // TODO: should we do a potential recursive encoding again
     var encodedVertexBuffer =
-        IntegerEncoder.encodeInt(
-            Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
-            physicalLevelTechnique,
-            false);
+        IntegerEncoder.encodeInt(zigZagDeltaVertexBuffer, physicalLevelTechnique, false);
     // TODO: should we do a potential recursive encoding again
     var encodedVertexDictionary =
-        IntegerEncoder.encodeInt(
-            Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
-            physicalLevelTechnique,
-            false);
+        IntegerEncoder.encodeInt(zigZagDeltaVertexDictionary, physicalLevelTechnique, false);
     var encodedMortonVertexDictionary =
-        IntegerEncoder.encodeMortonCodes(
-            new ArrayList<>(mortonEncodedDictionary), physicalLevelTechnique);
+        IntegerEncoder.encodeMortonCodes(mortonEncodedDictionary, physicalLevelTechnique);
     var encodedDictionaryOffsets =
         IntegerEncoder.encodeInt(dictionaryOffsets, physicalLevelTechnique, false);
     var encodedMortonEncodedDictionaryOffsets =
@@ -231,10 +205,7 @@ public class GeometryEncoder {
         GeometryUtils.sortPoints(vertexBuffer, hilbertCurve, sortSettings.featureIds);
         zigZagDeltaVertexBuffer = zigZagDeltaEncodeVertices(vertexBuffer);
         encodedVertexBuffer =
-            IntegerEncoder.encodeInt(
-                Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
-                physicalLevelTechnique,
-                false);
+            IntegerEncoder.encodeInt(zigZagDeltaVertexBuffer, physicalLevelTechnique, false);
         geometryColumnSorted = true;
       }
     }
@@ -307,10 +278,7 @@ public class GeometryEncoder {
       // TODO: also support Vertex Dictionary and Morton Encoded Vertex Dictionary encoding?
       var encodedVertexBufferStream =
           encodeVertexBuffer(
-              Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
-              vertexBuffer,
-              physicalLevelTechnique,
-              streamObserver);
+              zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique, streamObserver);
 
       if (encodePolygonOutlines) {
         var encodedPretessellationStreams =
@@ -346,10 +314,7 @@ public class GeometryEncoder {
       // TODO: get rid of extra conversion
       var encodedVertexBufferStream =
           encodeVertexBuffer(
-              Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
-              vertexBuffer,
-              physicalLevelTechnique,
-              streamObserver);
+              zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique, streamObserver);
 
       return new EncodedGeometryColumn(
           numStreams + 1,
@@ -371,8 +336,8 @@ public class GeometryEncoder {
 
       var encodedVertexDictionaryStream =
           encodeVertexBuffer(
-              Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
-              vertexDictionary.values(),
+              zigZagDeltaVertexDictionary,
+              vertexDictionary.getRight(),
               physicalLevelTechnique,
               streamObserver);
 
@@ -399,7 +364,7 @@ public class GeometryEncoder {
 
       var encodedMortonEncodedVertexDictionaryStream =
           IntegerEncoder.encodeMortonStream(
-              new ArrayList<>(mortonEncodedDictionary),
+              mortonEncodedDictionary,
               zOrderCurve.numBits(),
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
@@ -536,77 +501,58 @@ public class GeometryEncoder {
     var vertexBuffer = new ArrayList<Vertex>();
     final var containsPolygon = containsPolygon(geometries);
     for (var geometry : geometries) {
-      var geometryType = geometry.getGeometryType();
-      switch (geometryType) {
-        case Geometry.TYPENAME_POINT:
-          {
-            geometryTypes.add(GeometryType.POINT.ordinal());
-            final var point = (Point) geometry;
-            vertexBuffer.add(new Vertex((int) point.getX(), (int) point.getY()));
-            break;
-          }
-        case Geometry.TYPENAME_LINESTRING:
-          {
-            // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
-            geometryTypes.add(GeometryType.LINESTRING.ordinal());
-            var lineString = (LineString) geometry;
+      switch (geometry) {
+        case Point point -> {
+          geometryTypes.add(GeometryType.POINT.ordinal());
+          vertexBuffer.add(new Vertex((int) point.getX(), (int) point.getY()));
+        }
+        case LineString lineString -> {
+          // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
+          geometryTypes.add(GeometryType.LINESTRING.ordinal());
+          var numVertices = lineString.getCoordinates().length;
+          addLineString(containsPolygon, numVertices, numParts, numRings);
+          var vertices = flatLineString(lineString);
+          vertexBuffer.addAll(vertices);
+        }
+        case Polygon polygon -> {
+          geometryTypes.add(GeometryType.POLYGON.ordinal());
+          flatPolygon(polygon, vertexBuffer, numParts, numRings);
+        }
+        case MultiLineString multiLineString -> {
+          // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
+          geometryTypes.add(GeometryType.MULTILINESTRING.ordinal());
+          var numLineStrings = multiLineString.getNumGeometries();
+          numGeometries.add(numLineStrings);
+          for (var i = 0; i < numLineStrings; i++) {
+            var lineString = (LineString) multiLineString.getGeometryN(i);
             var numVertices = lineString.getCoordinates().length;
             addLineString(containsPolygon, numVertices, numParts, numRings);
-            var vertices = flatLineString(lineString);
-            vertexBuffer.addAll(vertices);
-            break;
+            vertexBuffer.addAll(flatLineString(lineString));
           }
-        case Geometry.TYPENAME_POLYGON:
-          {
-            geometryTypes.add(GeometryType.POLYGON.ordinal());
-            final var polygon = (Polygon) geometry;
+        }
+        case MultiPolygon multiPolygon -> {
+          geometryTypes.add(GeometryType.MULTIPOLYGON.ordinal());
+          var numPolygons = multiPolygon.getNumGeometries();
+          numGeometries.add(numPolygons);
+          for (var i = 0; i < numPolygons; i++) {
+            var polygon = (Polygon) multiPolygon.getGeometryN(i);
             flatPolygon(polygon, vertexBuffer, numParts, numRings);
-            break;
           }
-        case Geometry.TYPENAME_MULTILINESTRING:
-          {
-            // TODO: verify if part of a MultiPolygon or Polygon geometry add then to numRings?
-            geometryTypes.add(GeometryType.MULTILINESTRING.ordinal());
-            var multiLineString = (MultiLineString) geometry;
-            var numLineStrings = multiLineString.getNumGeometries();
-            numGeometries.add(numLineStrings);
-            for (var i = 0; i < numLineStrings; i++) {
-              var lineString = (LineString) multiLineString.getGeometryN(i);
-              var numVertices = lineString.getCoordinates().length;
-              addLineString(containsPolygon, numVertices, numParts, numRings);
-              vertexBuffer.addAll(flatLineString(lineString));
-            }
-            break;
+        }
+        case MultiPoint multiPoint -> {
+          geometryTypes.add(GeometryType.MULTIPOINT.ordinal());
+          var numPoints = multiPoint.getNumGeometries();
+          numGeometries.add(numPoints);
+          for (var i = 0; i < numPoints; i++) {
+            var point = (Point) multiPoint.getGeometryN(i);
+            var x = (int) point.getX();
+            var y = (int) point.getY();
+            vertexBuffer.add(new Vertex(x, y));
           }
-        case Geometry.TYPENAME_MULTIPOLYGON:
-          {
-            geometryTypes.add(GeometryType.MULTIPOLYGON.ordinal());
-            var multiPolygon = (MultiPolygon) geometry;
-            var numPolygons = multiPolygon.getNumGeometries();
-            numGeometries.add(numPolygons);
-            for (var i = 0; i < numPolygons; i++) {
-              var polygon = (Polygon) multiPolygon.getGeometryN(i);
-              flatPolygon(polygon, vertexBuffer, numParts, numRings);
-            }
-            break;
-          }
-        case Geometry.TYPENAME_MULTIPOINT:
-          {
-            geometryTypes.add(GeometryType.MULTIPOINT.ordinal());
-            var multiPoint = (MultiPoint) geometry;
-            var numPoints = multiPoint.getNumGeometries();
-            numGeometries.add(numPoints);
-            for (var i = 0; i < numPoints; i++) {
-              var point = (Point) multiPoint.getGeometryN(i);
-              var x = (int) point.getX();
-              var y = (int) point.getY();
-              vertexBuffer.add(new Vertex(x, y));
-            }
-            break;
-          }
-        default:
-          throw new IllegalArgumentException(
-              "Specified geometry type is not (yet) supported: " + geometryType);
+        }
+        default ->
+            throw new IllegalArgumentException(
+                "Specified geometry type is not (yet) supported: " + geometry.getGeometryType());
       }
     }
 
@@ -614,13 +560,14 @@ public class GeometryEncoder {
       throw new IllegalArgumentException("The geometry column contains no vertices");
     }
 
-    // TODO: get rid of that separate calculation
-    var minVertexValue =
-        Collections.min(
-            vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
-    var maxVertexValue =
-        Collections.max(
-            vertexBuffer.stream().flatMapToInt(v -> IntStream.of(v.x(), v.y())).boxed().toList());
+    var minVertexValue = Integer.MAX_VALUE;
+    var maxVertexValue = Integer.MIN_VALUE;
+    for (var vertex : vertexBuffer) {
+      if (vertex.x() < minVertexValue) minVertexValue = vertex.x();
+      if (vertex.y() < minVertexValue) minVertexValue = vertex.y();
+      if (vertex.x() > maxVertexValue) maxVertexValue = vertex.x();
+      if (vertex.y() > maxVertexValue) maxVertexValue = vertex.y();
+    }
 
     var hilbertCurve = new HilbertCurve(minVertexValue, maxVertexValue);
     var zOrderCurve = new ZOrderCurve(minVertexValue, maxVertexValue);
@@ -628,13 +575,11 @@ public class GeometryEncoder {
     var vertexDictionary = addVerticesToDictionary(vertexBuffer, hilbertCurve);
     var mortonEncodedDictionary = addVerticesToMortonDictionary(vertexBuffer, zOrderCurve);
 
-    int[] hilbertIds = vertexDictionary.keySet().stream().mapToInt(d -> d).toArray();
     var dictionaryOffsets =
-        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(hilbertIds, id), hilbertCurve);
+        getVertexOffsets(vertexBuffer, reverseMap(vertexDictionary.getLeft())::get, hilbertCurve);
 
-    int[] mortonIds = mortonEncodedDictionary.stream().mapToInt(d -> d).toArray();
     var mortonEncodedDictionaryOffsets =
-        getVertexOffsets(vertexBuffer, (id) -> Arrays.binarySearch(mortonIds, id), zOrderCurve);
+        getVertexOffsets(vertexBuffer, reverseMap(mortonEncodedDictionary)::get, zOrderCurve);
 
     /* Test if Plain, Vertex Dictionary or Morton Encoded Vertex Dictionary is the most efficient
      * -> Plain -> convert VertexBuffer with Delta Encoding and specified Physical Level Technique
@@ -642,24 +587,17 @@ public class GeometryEncoder {
      * -> Morton Encoded Dictionary -> convert VertexOffsets with Integer Encoder and VertexBuffer with IntegerEncoder
      * */
     var zigZagDeltaVertexBuffer = zigZagDeltaEncodeVertices(vertexBuffer);
-    var zigZagDeltaVertexDictionary = zigZagDeltaEncodeVertices(vertexDictionary.values());
+    var zigZagDeltaVertexDictionary = zigZagDeltaEncodeVertices(vertexDictionary.getRight());
 
     // TODO: get rid of that conversions
     // TODO: should we do a potential recursive encoding again
     var encodedVertexBuffer =
-        IntegerEncoder.encodeInt(
-            Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
-            physicalLevelTechnique,
-            false);
+        IntegerEncoder.encodeInt(zigZagDeltaVertexBuffer, physicalLevelTechnique, false);
     // TODO: should we do a potential recursive encoding again
     var encodedVertexDictionary =
-        IntegerEncoder.encodeInt(
-            Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
-            physicalLevelTechnique,
-            false);
+        IntegerEncoder.encodeInt(zigZagDeltaVertexDictionary, physicalLevelTechnique, false);
     var encodedMortonVertexDictionary =
-        IntegerEncoder.encodeMortonCodes(
-            new ArrayList<>(mortonEncodedDictionary), physicalLevelTechnique);
+        IntegerEncoder.encodeMortonCodes(mortonEncodedDictionary, physicalLevelTechnique);
     var encodedDictionaryOffsets =
         IntegerEncoder.encodeInt(dictionaryOffsets, physicalLevelTechnique, false);
     var encodedMortonEncodedDictionaryOffsets =
@@ -679,10 +617,7 @@ public class GeometryEncoder {
         GeometryUtils.sortPoints(vertexBuffer, hilbertCurve, sortSettings.featureIds);
         zigZagDeltaVertexBuffer = zigZagDeltaEncodeVertices(vertexBuffer);
         encodedVertexBuffer =
-            IntegerEncoder.encodeInt(
-                Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
-                physicalLevelTechnique,
-                false);
+            IntegerEncoder.encodeInt(zigZagDeltaVertexBuffer, physicalLevelTechnique, false);
         geometryColumnSorted = true;
       }
     }
@@ -751,10 +686,7 @@ public class GeometryEncoder {
       // TODO: get rid of extra conversion
       var encodedVertexBufferStream =
           encodeVertexBuffer(
-              Arrays.stream(zigZagDeltaVertexBuffer).boxed().collect(Collectors.toList()),
-              vertexBuffer,
-              physicalLevelTechnique,
-              streamObserver);
+              zigZagDeltaVertexBuffer, vertexBuffer, physicalLevelTechnique, streamObserver);
 
       return new EncodedGeometryColumn(
           numStreams + 1,
@@ -774,8 +706,8 @@ public class GeometryEncoder {
               "geom_vertex_offsets");
       var encodedVertexDictionaryStream =
           encodeVertexBuffer(
-              Arrays.stream(zigZagDeltaVertexDictionary).boxed().collect(Collectors.toList()),
-              vertexDictionary.values(),
+              zigZagDeltaVertexDictionary,
+              vertexDictionary.getRight(),
               physicalLevelTechnique,
               streamObserver);
 
@@ -800,7 +732,7 @@ public class GeometryEncoder {
 
       var encodedMortonEncodedVertexDictionaryStream =
           IntegerEncoder.encodeMortonStream(
-              new ArrayList<>(mortonEncodedDictionary),
+              mortonEncodedDictionary,
               zOrderCurve.numBits(),
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
@@ -845,37 +777,73 @@ public class GeometryEncoder {
     return deltaValues;
   }
 
-  private static List<Integer> getVertexOffsets(
+  private static int[] getVertexOffsets(
       List<Vertex> vertexBuffer,
       Function<Integer, Integer> vertexOffsetSupplier,
       SpaceFillingCurve curve) {
-    return vertexBuffer.stream()
-        .map(
-            vertex -> {
-              var sfcId = curve.encode(vertex);
-              return vertexOffsetSupplier.apply(sfcId);
-            })
-        .collect(Collectors.toList());
+    int[] result = new int[vertexBuffer.size()];
+    int i = 0;
+    for (var vertex : vertexBuffer) {
+      result[i++] = vertexOffsetSupplier.apply(curve.encode(vertex));
+    }
+    return result;
   }
 
-  private static TreeMap<Integer, Vertex> addVerticesToDictionary(
+  private static Map<Integer, Integer> reverseMap(Collection<Integer> mortonEncodedDictionary) {
+    Map<Integer, Integer> morton = HashMap.newHashMap(mortonEncodedDictionary.size());
+    int i = 0;
+    for (var item : mortonEncodedDictionary) {
+      morton.put(item, i++);
+    }
+    return morton;
+  }
+
+  private static Map<Integer, Integer> reverseMap(int[] mortonEncodedDictionary) {
+    Map<Integer, Integer> morton = HashMap.newHashMap(mortonEncodedDictionary.length);
+    int i = 0;
+    for (var item : mortonEncodedDictionary) {
+      morton.put(item, i++);
+    }
+    return morton;
+  }
+
+  record Indexed(int hilbert, Vertex vertex) implements Comparable<Indexed> {
+    @Override
+    public int compareTo(@NotNull GeometryEncoder.Indexed o) {
+      return Integer.compare(hilbert, o.hilbert);
+    }
+  }
+
+  private static Pair<List<Integer>, List<Vertex>> addVerticesToDictionary(
       List<Vertex> vertices, HilbertCurve hilbertCurve) {
-    var vertexDictionary = new TreeMap<Integer, Vertex>();
+    ArrayList<Indexed> vertexDictionary = new ArrayList<>();
     for (var vertex : vertices) {
       var hilbertId = hilbertCurve.encode(vertex);
-      vertexDictionary.put(hilbertId, vertex);
+      vertexDictionary.add(new Indexed(hilbertId, vertex));
     }
-    return vertexDictionary;
+    vertexDictionary.sort(Comparator.naturalOrder());
+    List<Integer> a = new ArrayList<>();
+    List<Vertex> b = new ArrayList<>();
+    int last = Integer.MIN_VALUE;
+    for (var item : vertexDictionary) {
+      if (item.hilbert != last) {
+        a.add(item.hilbert);
+        b.add(item.vertex);
+      }
+    }
+    return Pair.of(a, b);
   }
 
-  private static TreeSet<Integer> addVerticesToMortonDictionary(
+  private static int[] addVerticesToMortonDictionary(
       List<Vertex> vertices, ZOrderCurve zOrderCurve) {
-    var mortonVertexDictionary = new TreeSet<Integer>();
+    IntArrayList result = new IntArrayList(vertices.size());
     for (var vertex : vertices) {
       var mortonCode = zOrderCurve.encode(vertex);
-      mortonVertexDictionary.add(mortonCode);
+      result.add(mortonCode);
     }
-    return mortonVertexDictionary;
+    int[] resultArray = result.toArray();
+    Arrays.sort(resultArray);
+    return resultArray;
   }
 
   private static List<Vertex> flatLineString(LineString lineString) {
@@ -918,7 +886,7 @@ public class GeometryEncoder {
    * Encodes the StreamMetadata and applies the specified physical level technique to the values.
    */
   private static byte[] encodeVertexBuffer(
-      List<Integer> values,
+      int[] values,
       Collection<Vertex> vertices,
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull MLTStreamObserver streamObserver)
@@ -935,7 +903,7 @@ public class GeometryEncoder {
                 LogicalLevelTechnique.COMPONENTWISE_DELTA,
                 LogicalLevelTechnique.NONE,
                 physicalLevelTechnique,
-                values.size(),
+                values.length,
                 encodedValues.length)
             .encode();
 
