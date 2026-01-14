@@ -2,7 +2,6 @@ package org.maplibre.mlt.converter.tessellation;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import earcut4j.Earcut;
 import jakarta.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -17,6 +16,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.*;
+import org.maplibre.earcut4j.Earcut;
 import org.maplibre.mlt.converter.geometry.Vertex;
 
 public class TessellationUtils {
