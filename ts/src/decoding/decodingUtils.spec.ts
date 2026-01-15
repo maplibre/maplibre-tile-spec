@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decodeFloatsLE, decodeDoublesLE, decodeBooleanRle, decodeString, decodeByteRle } from "./decodingUtils";
+import { decodeFloatsLE, decodeDoublesLE, decodeBooleanRle, decodeString, decodeByteRle, getVectorTypeBooleanStream } from "./decodingUtils";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
 import {
@@ -38,36 +38,34 @@ describe("decodingUtils", () => {
 
     describe("decodeFloatsLE with nullability", () => {
         it("should decode nullable float values with nullability buffer", () => {
-            // Only encode non-null values
             const data = new Float32Array([1.5, 2.5]);
             const encoded = encodeFloatsLE(data);
             const offset = new IntWrapper(0);
-            const bitVectorData = new Uint8Array([0b00000101]); // bits 0 and 2 are set
+            const bitVectorData = new Uint8Array([0b00000101]);
             const nullabilityBuffer = new BitVector(bitVectorData, 3);
 
             const result = decodeFloatsLE(encoded, offset, 2, nullabilityBuffer);
 
             expect(result.length).toBe(3);
-            expect(result[0]).toBeCloseTo(1.5); // bit 0 is set
-            expect(result[1]).toBe(0); // bit 1 is not set (null)
-            expect(result[2]).toBeCloseTo(2.5); // bit 2 is set
+            expect(result[0]).toBeCloseTo(1.5);
+            expect(result[1]).toBe(0);
+            expect(result[2]).toBeCloseTo(2.5);
         });
     });
 
     describe("decodeDoublesLE with nullability", () => {
         it("should decode nullable double values with nullability buffer", () => {
-            // Only encode non-null values
             const data = new Float32Array([3.14159, 2.71828]);
             const encoded = encodeDoubleLE(data);
             const offset = new IntWrapper(0);
-            const bitVectorData = new Uint8Array([0b00000011]); // bits 0 and 1 are set
+            const bitVectorData = new Uint8Array([0b00000011]);
             const nullabilityBuffer = new BitVector(bitVectorData, 2);
 
             const result = decodeDoublesLE(encoded, offset, 2, nullabilityBuffer);
 
             expect(result.length).toBe(2);
-            expect(result[0]).toBeCloseTo(3.14159); // bit 0 is set
-            expect(result[1]).toBeCloseTo(2.71828); // bit 1 is set
+            expect(result[0]).toBeCloseTo(3.14159);
+            expect(result[1]).toBeCloseTo(2.71828);
         });
     });
 
@@ -169,7 +167,6 @@ describe("decodingUtils", () => {
             const encoded = encodeStrings([prefix, expectedText]);
             const prefixLength = new TextEncoder().encode(prefix).length;
 
-            // decodeString takes (buffer, start, end) where end is the position after the last byte
             const result = decodeString(encoded, prefixLength, encoded.length);
 
             expect(result).toBe(expectedText);

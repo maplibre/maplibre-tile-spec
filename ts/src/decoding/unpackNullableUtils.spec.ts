@@ -3,7 +3,7 @@ import { unpackNullable, unpackNullableBoolean, unpackWithRepeat } from "./unpac
 import BitVector from "../vector/flat/bitVector";
 import { packNullable, packNullableBoolean } from "../encoding/packNullableUtils";
 
-describe("nullableUtils - non-nullable case", () => {
+describe("unpackNullableUtils", () => {
     describe("unpackNullable", () => {
         it("should return the original array when presentBits is null", () => {
             const dataStream = new Int32Array([1, 2, 3]);
