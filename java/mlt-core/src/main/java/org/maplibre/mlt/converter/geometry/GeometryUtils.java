@@ -2,6 +2,7 @@ package org.maplibre.mlt.converter.geometry;
 
 import com.google.common.collect.Lists;
 import java.util.*;
+import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Triple;
 
 public class GeometryUtils {
@@ -9,7 +10,9 @@ public class GeometryUtils {
   private GeometryUtils() {}
 
   public static void sortVertexOffsets(
-      List<Integer> numParts, List<Integer> mortonEncodedDictionaryOffsets, List<Long> featureIds) {
+      List<Integer> numParts, int[] mortonEncodedDictionaryOffsetsIn, List<Long> featureIds) {
+    List<Integer> mortonEncodedDictionaryOffsets =
+        IntStream.of(mortonEncodedDictionaryOffsetsIn).boxed().toList();
     // TODO: use an different proper optimization approach
     /*
      * Quick and dirty approach to sort the VertexOffsets of a VertexBuffer to reduce the deltas
@@ -50,8 +53,10 @@ public class GeometryUtils {
     var updatedNumParts =
         sortedDictionaryOffsets.values().stream().flatMap(e -> e.getRight().stream()).toList();
 
-    mortonEncodedDictionaryOffsets.clear();
-    mortonEncodedDictionaryOffsets.addAll(sortedOffsets);
+    int i = 0;
+    for (var morton : sortedOffsets) {
+      mortonEncodedDictionaryOffsetsIn[i++] = morton;
+    }
     featureIds.clear();
     featureIds.addAll(updatedFeatureIds);
     numParts.clear();

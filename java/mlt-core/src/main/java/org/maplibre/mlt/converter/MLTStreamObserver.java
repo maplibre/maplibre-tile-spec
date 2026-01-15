@@ -2,6 +2,8 @@ package org.maplibre.mlt.converter;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 /** Interface for observing streams of encoded data in the MapLibre MLT conversion process. */
 public interface MLTStreamObserver {
@@ -32,4 +34,18 @@ public interface MLTStreamObserver {
   <T> void observeStream(
       String streamName, Collection<T> values, byte[] rawMetaData, byte[] rawData)
       throws IOException;
+
+  default void observeStream(String streamName, int[] values, byte[] rawMetaData, byte[] rawData)
+      throws IOException {
+    if (isActive()) {
+      observeStream(streamName, IntStream.of(values).boxed().toList(), rawMetaData, rawData);
+    }
+  }
+
+  default void observeStream(String streamName, long[] values, byte[] rawMetaData, byte[] rawData)
+      throws IOException {
+    if (isActive()) {
+      observeStream(streamName, LongStream.of(values).boxed().toList(), rawMetaData, rawData);
+    }
+  }
 }
