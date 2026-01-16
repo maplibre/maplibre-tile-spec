@@ -23,7 +23,7 @@ dependencies {
 
     // Additional dependencies needed by CLI classes
     implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.google.protobuf:protobuf-java:4.33.2'
+    implementation 'com.google.protobuf:protobuf-java:4.33.4'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
     implementation 'org.jetbrains:annotations:26.0.2-1'
     implementation 'org.locationtech.jts:jts-core:1.20.0'
