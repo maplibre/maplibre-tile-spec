@@ -166,6 +166,32 @@ public class MltGenerator {
     }
   }
 
+  @Test
+  public void testConvertMvtToMlt() throws IOException {
+    var inputPath = Paths.get("/Users/weixingzhang/work/maplibre-tile-spec/test/fixtures/simple/point-boolean.mvt");
+    var outputPath = Paths.get("/Users/weixingzhang/work/maplibre-tile-spec/tmp/output.mlt");
+    MltGenerator.convertMvtToMlt(inputPath, outputPath);
+    System.out.println("Converted: " + inputPath + " -> " + outputPath);
+  }
+
+  public static void convertMvtToMlt(Path inputMvtPath, Path outputMltPath) throws IOException {
+    var mvtTile = MvtUtils.decodeMvt(inputMvtPath);
+    var metadata = MltConverter.createTilesetMetadata(
+        mvtTile, Collections.emptyMap(), true, false, false);
+    var config = ConversionConfig.builder()
+        .includeIds(true)
+        .useFastPFOR(false)
+        .useFSST(false)
+        .useMortonEncoding(true)
+        .preTessellatePolygons(true)
+        .outlineFeatureTableNames(List.of("ALL"))
+        .integerEncoding(ConversionConfig.IntegerEncodingOption.AUTO)
+        .build();
+    byte[] mltData = MltConverter.convertMvt(mvtTile, metadata, config, null);
+    Files.createDirectories(outputMltPath.getParent());
+    Files.write(outputMltPath, mltData);
+  }
+
   private Map<String, FeatureTableOptimizations> getOptimizations() {
     var allowSorting = OPTIMIZATION == TestUtils.Optimization.SORTED;
     // TODO: account for per-layer mappings
