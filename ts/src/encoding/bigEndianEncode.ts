@@ -1,4 +1,4 @@
-import { IS_LE, bswap32 } from "../decoding/fastPforShared";
+import { bswap32 } from "../decoding/fastPforShared";
 
 /**
  * Serializes an `Int32Array` to a big-endian byte stream.
@@ -10,14 +10,8 @@ export function encodeBigEndianInt32s(values: Int32Array): Uint8Array {
     const bytes = new Uint8Array(values.length * 4);
     const u32 = new Uint32Array(bytes.buffer, bytes.byteOffset, values.length);
 
-    if (IS_LE) {
-        for (let i = 0; i < values.length; i++) {
-            u32[i] = bswap32(values[i]);
-        }
-    } else {
-        for (let i = 0; i < values.length; i++) {
-            u32[i] = values[i] >>> 0;
-        }
+    for (let i = 0; i < values.length; i++) {
+        u32[i] = bswap32(values[i]);
     }
     return bytes;
 }

@@ -1,4 +1,4 @@
-import { IS_LE, bswap32 } from "./fastPforShared";
+import { bswap32 } from "./fastPforShared";
 
 /**
  * Decodes big-endian bytes into `out` without allocating the output buffer.
@@ -36,14 +36,8 @@ export function decodeBigEndianInt32sInto(
         const absoluteOffset = bytes.byteOffset + offset;
         if ((absoluteOffset & 3) === 0) {
             const u32 = new Uint32Array(bytes.buffer, absoluteOffset, numCompleteInts);
-            if (IS_LE) {
-                for (let i = 0; i < numCompleteInts; i++) {
-                    out[i] = bswap32(u32[i]) | 0;
-                }
-            } else {
-                for (let i = 0; i < numCompleteInts; i++) {
-                    out[i] = u32[i] | 0;
-                }
+            for (let i = 0; i < numCompleteInts; i++) {
+                out[i] = bswap32(u32[i]) | 0;
             }
         } else {
             for (let i = 0; i < numCompleteInts; i++) {
