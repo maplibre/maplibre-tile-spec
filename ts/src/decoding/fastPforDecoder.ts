@@ -6,7 +6,6 @@ import {
     greatestMultiple,
     roundUpToMultipleOf32,
     normalizePageSize,
-    IS_LE,
 } from "./fastPforShared";
 import {
     fastUnpack32_2,
@@ -57,7 +56,7 @@ export function createDecoderWorkspace(): FastPforDecoderWorkspace {
         dataToBePacked: new Array(33),
         dataPointers: new Int32Array(33),
         byteContainer,
-        byteContainerI32: IS_LE ? new Int32Array(byteContainer.buffer, byteContainer.byteOffset, byteContainer.byteLength >>> 2) : undefined,
+        byteContainerI32: new Int32Array(byteContainer.buffer, byteContainer.byteOffset, byteContainer.byteLength >>> 2),
         exceptionSizes: new Int32Array(33),
     };
 }
@@ -75,7 +74,7 @@ function materializeByteContainer(
     const byteContainer = ws.byteContainer;
     const numFullInts = byteSize >>> 2;
 
-    if (IS_LE && (byteContainer.byteOffset & 3) === 0) {
+    if ((byteContainer.byteOffset & 3) === 0) {
         let intView = ws.byteContainerI32;
         if (
             !intView ||
