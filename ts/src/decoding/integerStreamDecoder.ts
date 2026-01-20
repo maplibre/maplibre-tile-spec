@@ -194,10 +194,10 @@ function decodeInt32(
                 return unpackNullable(compactRle32, nullabilityBuffer, 0);
             case LogicalLevelTechnique.MORTON:
                 fastInverseDelta(values);
-                return values;
+                return unpackNullable(values, nullabilityBuffer, 0);
             case LogicalLevelTechnique.COMPONENTWISE_DELTA:
                 decodeComponentwiseDeltaVec2(values);
-                return values;
+                return unpackNullable(values, nullabilityBuffer, 0);
             case LogicalLevelTechnique.NONE:
                 if (isSigned) {
                     decodeZigZagInt32(values);
