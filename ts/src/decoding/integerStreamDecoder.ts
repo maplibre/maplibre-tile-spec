@@ -177,70 +177,50 @@ function decodeInt32(
     scalingData?: GeometryScaling,
     nullabilityBuffer?: BitVector,
 ): Int32Array {
-    // If nullable, handle special cases that integrate nullability into decoding
-    if (nullabilityBuffer) {
-        switch (streamMetadata.logicalLevelTechnique1) {
-            case LogicalLevelTechnique.DELTA:
-                if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
-                // Decode deltas first, then unpack with repeat for nulls
-                decodeZigZagDeltaInt32(values);
-                return unpackWithRepeat(values, nullabilityBuffer, 0);
-            case LogicalLevelTechnique.RLE:
-                const rleMetadata32 = streamMetadata as RleEncodedStreamMetadata;
-                const compactRle32 = decodeRleInt32(values, rleMetadata32, isSigned);
-                return unpackNullable(compactRle32, nullabilityBuffer, 0);
-            case LogicalLevelTechnique.MORTON:
-                fastInverseDelta(values);
-                return unpackNullable(values, nullabilityBuffer, 0);
-            case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-                decodeComponentwiseDeltaVec2(values);
-                return unpackNullable(values, nullabilityBuffer, 0);
-            case LogicalLevelTechnique.NONE:
-                if (isSigned) {
-                    decodeZigZagInt32(values);
-                }
-                return unpackNullable(values, nullabilityBuffer, 0);
-            default:
-                throw new Error(
-                    `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-                );
-        }
-    }
+    let useRepeatUnpack = false;
 
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                return decodeDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+                if (!nullabilityBuffer) {
+                    return decodeDeltaRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
+                }
+                values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
             }
             decodeZigZagDeltaInt32(values);
-            return values;
+            useRepeatUnpack = true;
+            break;
         case LogicalLevelTechnique.RLE:
-            return decodeRleInt32(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
+            values = decodeRleInt32(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
+            break;
         case LogicalLevelTechnique.MORTON:
             fastInverseDelta(values);
-            return values;
+            break;
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData) {
+            if (scalingData && !nullabilityBuffer) {
                 decodeComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
                 return values;
             }
-
             decodeComponentwiseDeltaVec2(values);
-            return values;
+            break;
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
                 decodeZigZagInt32(values);
             }
-            return values;
+            break;
         default:
             throw new Error(
                 `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
             );
     }
+
+    if (nullabilityBuffer) {
+        return useRepeatUnpack
+            ? unpackWithRepeat(values, nullabilityBuffer, 0)
+            : unpackNullable(values, nullabilityBuffer, 0);
+    }
+    return values;
 }
 
 function decodeInt64(
@@ -249,52 +229,40 @@ function decodeInt64(
     isSigned: boolean,
     nullabilityBuffer?: BitVector,
 ): BigInt64Array {
-    if (nullabilityBuffer) {
-        switch (streamMetadata.logicalLevelTechnique1) {
-            case LogicalLevelTechnique.DELTA:
-                if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
-                    const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                    values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
-                }
-                // Decode deltas first, then unpack with repeat for nulls
-                decodeZigZagDeltaInt64(values);
-                return unpackWithRepeat(values, nullabilityBuffer, 0n);
-            case LogicalLevelTechnique.RLE:
-                const rleMetadata64 = streamMetadata as RleEncodedStreamMetadata;
-                const compactRle64 = decodeRleInt64(values, rleMetadata64, isSigned);
-                return unpackNullable(compactRle64, nullabilityBuffer, 0n);
-            case LogicalLevelTechnique.NONE:
-                if (isSigned) {
-                    decodeZigZagInt64(values);
-                }
-                return unpackNullable(values, nullabilityBuffer, 0n);
-            default:
-                throw new Error(
-                    `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
-                );
-        }
-    }
+    let useRepeatUnpack = false;
 
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
                 const rleMetadata = streamMetadata as RleEncodedStreamMetadata;
-                return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                if (!nullabilityBuffer) {
+                    return decodeDeltaRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
+                }
+                values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
             }
             decodeZigZagDeltaInt64(values);
-            return values;
+            useRepeatUnpack = true;
+            break;
         case LogicalLevelTechnique.RLE:
-            return decodeRleInt64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
+            values = decodeRleInt64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
+            break;
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
                 decodeZigZagInt64(values);
             }
-            return values;
+            break;
         default:
             throw new Error(
                 `The specified Logical level technique is not supported: ${streamMetadata.logicalLevelTechnique1}`,
             );
     }
+
+    if (nullabilityBuffer) {
+        return useRepeatUnpack
+            ? unpackWithRepeat(values, nullabilityBuffer, 0n)
+            : unpackNullable(values, nullabilityBuffer, 0n);
+    }
+    return values;
 }
 
 export function decodeFloat64(values: Float64Array, streamMetadata: StreamMetadata, isSigned: boolean): Float64Array {
