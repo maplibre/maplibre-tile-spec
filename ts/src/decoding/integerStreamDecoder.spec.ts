@@ -104,6 +104,18 @@ describe("decodeIntStream", () => {
         expect(result).toEqual(expectedValues);
     });
 
+    it("should decode nullable MORTON partially populated", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 3);
+        const expectedValues = new Int32Array([10, 0, 15, 0, 18]);
+        const bitVector = new BitVector(new Uint8Array([0b10101]), 5); // positions 0, 2, 4 non-null
+        const data = encodeIntStream(expectedValues, metadata, false, bitVector);
+
+        const result = decodeIntStream(data, new IntWrapper(0), metadata, false, undefined, bitVector);
+
+        expect(result.length).toBe(5);
+        expect(result).toEqual(expectedValues);
+    });
+
     it("should decode NONE signed with Int32", () => {
         const expectedValues = new Int32Array([2, -4, 6, -8]);
         const metadata = createStreamMetadata(
