@@ -112,7 +112,6 @@ describe("decodeIntStream", () => {
 
         const result = decodeIntStream(data, new IntWrapper(0), metadata, false, undefined, bitVector);
 
-        expect(result.length).toBe(5);
         expect(result).toEqual(expectedValues);
     });
 
