@@ -104,7 +104,7 @@ describe("decodeIntStream", () => {
         expect(result).toEqual(expectedValues);
     });
 
-    it("should decode nullable MORTON partially populated", () => {
+    it("should decode nullable MORTON null values", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.MORTON, LogicalLevelTechnique.NONE, 3);
         const expectedValues = new Int32Array([10, 0, 15, 0, 18]);
         const bitVector = new BitVector(new Uint8Array([0b10101]), 5);
@@ -147,6 +147,17 @@ describe("decodeIntStream", () => {
         );
         const data = encodeIntStream(expectedValues, metadata, true);
         const result = decodeIntStream(data, new IntWrapper(0), metadata, true);
+
+        expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode nullable DELTA signed Int32 with null values", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 5);
+        const expectedValues = new Int32Array([0, 2, 2, 4, 6]);
+        const bitVector = new BitVector(new Uint8Array([0b00011010]), 5);
+        const data = encodeIntStream(expectedValues, metadata, true, bitVector);
+
+        const result = decodeIntStream(data, new IntWrapper(0), metadata, true, undefined, bitVector);
 
         expect(result).toEqual(expectedValues);
     });
