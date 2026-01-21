@@ -14,18 +14,22 @@ import {
     encodeVarintInt64,
     encodeZigZagInt64Value,
     encodeFastPfor,
+    encodeComponentwiseDeltaVec2,
+    encodeComponentwiseDeltaVec2Scaled,
 } from "./integerEncodingUtils";
 import type BitVector from "../vector/flat/bitVector";
 import { packNullable } from "./packNullableUtils";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
+import type GeometryScaling from "../decoding/geometryScaling";
 
 export function encodeIntStream(
     values: Int32Array,
     metadata: StreamMetadata,
     isSigned: boolean,
     bitVector?: BitVector,
+    scalingData?: GeometryScaling,
 ): Uint8Array {
-    const { data } = encodeInt32(values, metadata, isSigned, bitVector);
+    const { data } = encodeInt32(values, metadata, isSigned, bitVector, scalingData);
     return encodePhysicalLevelTechnique(data, metadata);
 }
 
@@ -51,6 +55,7 @@ function encodeInt32(
     streamMetadata: StreamMetadata,
     isSigned: boolean,
     bitVector?: BitVector,
+    scalingData?: GeometryScaling,
 ): { data: Int32Array; runs?: number } {
     const data = bitVector ? packNullable(values, bitVector) : new Int32Array(values);
     switch (streamMetadata.logicalLevelTechnique1) {
@@ -74,7 +79,12 @@ function encodeInt32(
             encodeDeltaInt32(data);
             return { data };
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            throw new Error("COMPONENTWISE_DELTA encoding not implemented yet");
+            if (scalingData && !bitVector) {
+                encodeComponentwiseDeltaVec2Scaled(data, scalingData.scale);
+                return { data };
+            }
+            encodeComponentwiseDeltaVec2(data);
+            return { data };
         case LogicalLevelTechnique.NONE:
             if (isSigned) {
                 encodeZigZagInt32(data);
