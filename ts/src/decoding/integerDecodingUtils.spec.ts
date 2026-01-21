@@ -26,6 +26,8 @@ import {
     decodeZigZagDeltaInt32,
     decodeZigZagDeltaFloat64,
     decodeRleDeltaInt32,
+    decodeComponentwiseDeltaVec2,
+    decodeComponentwiseDeltaVec2Scaled,
 } from "./integerDecodingUtils";
 import IntWrapper from "./intWrapper";
 import {
@@ -51,6 +53,8 @@ import {
     encodeVarintFloat64,
     encodeZigZagRleDeltaInt32,
     encodeRleDeltaInt32,
+    encodeComponentwiseDeltaVec2,
+    encodeComponentwiseDeltaVec2Scaled,
 } from "../encoding/integerEncodingUtils";
 
 describe("IntegerDecodingUtils", () => {
@@ -232,6 +236,73 @@ describe("IntegerDecodingUtils", () => {
                 fastInverseDelta(data);
                 encodeDeltaInt32(data);
                 expect(Array.from(data)).toEqual([10, 15, 18, 20]);
+            });
+        });
+
+        describe("Componentwise Delta Vec2", () => {
+            it("should decode empty array", () => {
+                const data = new Int32Array([]);
+                const expected = new Int32Array(data);
+                encodeComponentwiseDeltaVec2(data);
+                decodeComponentwiseDeltaVec2(data);
+                expect(Array.from(data)).toEqual(Array.from(expected));
+            });
+
+            it("should decode single vertex", () => {
+                const data = new Int32Array([10, 20]);
+                const expected = new Int32Array(data);
+                encodeComponentwiseDeltaVec2(data);
+                decodeComponentwiseDeltaVec2(data);
+                expect(Array.from(data)).toEqual(Array.from(expected));
+            });
+
+            it("should decode many vertices (unrolled loop test)", () => {
+                const data = new Int32Array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9]);
+                const expected = new Int32Array(data);
+                encodeComponentwiseDeltaVec2(data);
+                decodeComponentwiseDeltaVec2(data);
+                expect(Array.from(data)).toEqual(Array.from(expected));
+            });
+        });
+
+        describe("Componentwise Delta Vec2 Scaled", () => {
+            const scale = 2.0;
+            const min = 0;
+            const max = 4096;
+
+            it("should decode empty array", () => {
+                const data = new Int32Array([]);
+                const expected = new Int32Array(data);
+                encodeComponentwiseDeltaVec2Scaled(data, scale);
+                decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
+                expect(Array.from(data)).toEqual(Array.from(expected));
+            });
+
+            it("should decode single vertex", () => {
+                const data = new Int32Array([100, 200]);
+                const expected = new Int32Array(data);
+                encodeComponentwiseDeltaVec2Scaled(data, scale);
+                decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
+                expect(Array.from(data)).toEqual(Array.from(expected));
+            });
+
+            it("should decode with different scale", () => {
+                const testScale = 10.0;
+                const data = new Int32Array([1000, 2000, 1100, 2200]);
+                const expected = new Int32Array(data);
+                encodeComponentwiseDeltaVec2Scaled(data, testScale);
+                decodeComponentwiseDeltaVec2Scaled(data, testScale, min, max);
+                expect(Array.from(data)).toEqual(Array.from(expected));
+            });
+
+            it("should decode many vertices (unrolled loop test)", () => {
+                const data = new Int32Array([
+                    0, 0, 10, 10, 20, 20, 30, 30, 40, 40, 50, 50, 60, 60, 70, 70, 80, 80, 90, 90,
+                ]);
+                const expected = new Int32Array(data);
+                encodeComponentwiseDeltaVec2Scaled(data, scale);
+                decodeComponentwiseDeltaVec2Scaled(data, scale, min, max);
+                expect(Array.from(data)).toEqual(Array.from(expected));
             });
         });
 
