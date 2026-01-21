@@ -40,7 +40,7 @@ import { type StreamMetadata, type RleEncodedStreamMetadata } from "../metadata/
 import BitVector from "../vector/flat/bitVector";
 import { VectorType } from "../vector/vectorType";
 import type GeometryScaling from "./geometryScaling";
-import { unpackNullable, unpackWithRepeat } from "./unpackNullableUtils";
+import { unpackNullable } from "./unpackNullableUtils";
 
 export function decodeIntStream(
     data: Uint8Array,
@@ -177,8 +177,6 @@ function decodeInt32(
     scalingData?: GeometryScaling,
     nullabilityBuffer?: BitVector,
 ): Int32Array {
-    let useRepeatUnpack = false;
-
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -189,7 +187,6 @@ function decodeInt32(
                 values = decodeUnsignedRleInt32(values, rleMetadata.runs, rleMetadata.numRleValues);
             }
             decodeZigZagDeltaInt32(values);
-            useRepeatUnpack = true;
             break;
         case LogicalLevelTechnique.RLE:
             values = decodeRleInt32(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
@@ -216,9 +213,7 @@ function decodeInt32(
     }
 
     if (nullabilityBuffer) {
-        return useRepeatUnpack
-            ? unpackWithRepeat(values, nullabilityBuffer, 0)
-            : unpackNullable(values, nullabilityBuffer, 0);
+        return unpackNullable(values, nullabilityBuffer, 0);
     }
     return values;
 }
@@ -229,8 +224,6 @@ function decodeInt64(
     isSigned: boolean,
     nullabilityBuffer?: BitVector,
 ): BigInt64Array {
-    let useRepeatUnpack = false;
-
     switch (streamMetadata.logicalLevelTechnique1) {
         case LogicalLevelTechnique.DELTA:
             if (streamMetadata.logicalLevelTechnique2 === LogicalLevelTechnique.RLE) {
@@ -241,7 +234,6 @@ function decodeInt64(
                 values = decodeUnsignedRleInt64(values, rleMetadata.runs, rleMetadata.numRleValues);
             }
             decodeZigZagDeltaInt64(values);
-            useRepeatUnpack = true;
             break;
         case LogicalLevelTechnique.RLE:
             values = decodeRleInt64(values, streamMetadata as RleEncodedStreamMetadata, isSigned);
@@ -258,9 +250,7 @@ function decodeInt64(
     }
 
     if (nullabilityBuffer) {
-        return useRepeatUnpack
-            ? unpackWithRepeat(values, nullabilityBuffer, 0n)
-            : unpackNullable(values, nullabilityBuffer, 0n);
+        return unpackNullable(values, nullabilityBuffer, 0n);
     }
     return values;
 }

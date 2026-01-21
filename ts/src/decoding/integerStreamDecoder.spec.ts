@@ -153,7 +153,7 @@ describe("decodeIntStream", () => {
 
     it("should decode nullable DELTA signed Int32 with null values", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 5);
-        const expectedValues = new Int32Array([0, 2, 2, 4, 6]);
+        const expectedValues = new Int32Array([0, 2, 0, 4, 6]);
         const bitVector = new BitVector(new Uint8Array([0b00011010]), 5);
         const data = encodeIntStream(expectedValues, metadata, true, bitVector);
 
@@ -323,7 +323,7 @@ describe("decodeLongStream", () => {
             const numRleValues = 3;
             const runs = 2;
             const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
-            const expectedValues = new BigInt64Array([10n, 10n, 12n, 12n, 14n]);
+            const expectedValues = new BigInt64Array([10n, 0n, 12n, 0n, 14n]);
             const data = encodeInt64SignedDeltaRle([
                 [1, 10n],
                 [2, 2n],
@@ -363,7 +363,7 @@ describe("decodeLongStream", () => {
 
         it("should decode DELTA without RLE with null values", () => {
             const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 5);
-            const expectedValues = new BigInt64Array([0n, 2n, 2n, 4n, 6n]);
+            const expectedValues = new BigInt64Array([0n, 2n, 0n, 4n, 6n]);
             const nonNullValues = new BigInt64Array([2n, 4n, 6n]);
             const data = encodeInt64SignedDelta(nonNullValues);
             const offset = new IntWrapper(0);
