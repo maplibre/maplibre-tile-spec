@@ -400,6 +400,7 @@ export function inverseDelta(data: Int32Array) {
  * Inspired by https://github.com/lemire/JavaFastPFOR/blob/master/src/main/java/me/lemire/integercompression/differential/Delta.java
  */
 export function decodeComponentwiseDeltaVec2(data: Int32Array): void {
+    if (data.length < 2) return;
     data[0] = decodeZigZagInt32Value(data[0]);
     data[1] = decodeZigZagInt32Value(data[1]);
     const sz0 = (data.length / 4) * 4;
@@ -425,6 +426,7 @@ export function decodeComponentwiseDeltaVec2(data: Int32Array): void {
 }
 
 export function decodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: number, min: number, max: number): void {
+    if (data.length < 2) return;
     let previousVertexX = decodeZigZagInt32Value(data[0]);
     let previousVertexY = decodeZigZagInt32Value(data[1]);
     data[0] = clamp(Math.round(previousVertexX * scale), min, max);
