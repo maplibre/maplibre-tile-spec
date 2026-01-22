@@ -1362,6 +1362,28 @@ public class Encode {
               .desc("Don't include feature IDs.")
               .required(false)
               .get());
+
+      options.addOption(
+          Option.builder()
+              .longOpt(SORT_FEATURES_OPTION)
+              .hasArg(true)
+              .optionalArg(true)
+              .argName("pattern")
+              .desc(
+                  "Reorder features of matching layers (default all) by ID, for optimal encoding of ID values.")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(REGEN_IDS_OPTION)
+              .hasArg(false)
+              .optionalArg(true)
+              .argName("pattern")
+              .desc(
+                  "Re-generate ID values of matching layers (default all).  Sequential values are assigned for optimal encoding, when ID values have no special meaning.")
+              .required(false)
+              .get());
+
       options.addOption(
           Option.builder()
               .longOpt(SORT_FEATURES_OPTION)
