@@ -1,4 +1,3 @@
-import BitVector from "../vector/flat/bitVector";
 import IntWrapper from "../decoding/intWrapper";
 
 export function encodeVarintInt32Value(value: number, dst: Uint8Array, offset: IntWrapper): void {
@@ -521,9 +520,43 @@ export function encodeDeltaInt32(data: Int32Array): void {
     }
 }
 
-// HM TODO:
-// encodeComponentwiseDeltaVec2
-// decodeComponentwiseDeltaVec2Scaled
+export function encodeComponentwiseDeltaVec2(data: Int32Array): void {
+    if (data.length < 2) return;
+
+    // Reverse iterate to avoid overwriting data needed for delta computation
+    for (let i = data.length - 2; i >= 2; i -= 2) {
+        const deltaX = data[i] - data[i - 2];
+        const deltaY = data[i + 1] - data[i - 1];
+        data[i] = encodeZigZagInt32Value(deltaX);
+        data[i + 1] = encodeZigZagInt32Value(deltaY);
+    }
+
+    // Encode first vertex last (after computing all deltas)
+    data[0] = encodeZigZagInt32Value(data[0]);
+    data[1] = encodeZigZagInt32Value(data[1]);
+}
+
+export function encodeComponentwiseDeltaVec2Scaled(data: Int32Array, scale: number): void {
+    if (data.length < 2) return;
+
+    // First, inverse scale all values (tile space -> original space)
+    for (let i = 0; i < data.length; i++) {
+        data[i] = Math.round(data[i] / scale);
+    }
+
+    // Then apply componentwise delta encoding (same as non-scaled version)
+    // Reverse iterate to avoid overwriting data needed for delta computation
+    for (let i = data.length - 2; i >= 2; i -= 2) {
+        const deltaX = data[i] - data[i - 2];
+        const deltaY = data[i + 1] - data[i - 1];
+        data[i] = encodeZigZagInt32Value(deltaX);
+        data[i + 1] = encodeZigZagInt32Value(deltaY);
+    }
+
+    // Encode first vertex last (after computing all deltas)
+    data[0] = encodeZigZagInt32Value(data[0]);
+    data[1] = encodeZigZagInt32Value(data[1]);
+}
 
 // HM TODO:
 // zigZagDeltaOfDeltaDecoding
