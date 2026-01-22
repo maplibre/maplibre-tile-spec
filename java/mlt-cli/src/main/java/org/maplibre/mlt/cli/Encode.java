@@ -1362,7 +1362,6 @@ public class Encode {
               .desc("Don't include feature IDs.")
               .required(false)
               .get());
-
       options.addOption(
           Option.builder()
               .longOpt(SORT_FEATURES_OPTION)
@@ -1383,7 +1382,6 @@ public class Encode {
                   "Re-generate ID values of matching layers (default all).  Sequential values are assigned for optimal encoding, when ID values have no special meaning.")
               .required(false)
               .get());
-
       options.addOption(
           Option.builder()
               .longOpt(SORT_FEATURES_OPTION)
