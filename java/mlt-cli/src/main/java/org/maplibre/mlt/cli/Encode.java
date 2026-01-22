@@ -344,8 +344,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
-      Pattern sortFeaturesPattern,
-      Pattern regenIDsPattern,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       boolean enableElideOnTypeMismatch,
       int verboseLevel)
       throws IOException {
@@ -462,8 +462,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       MltMetadata.TileSetMetadata metadata,
-      Pattern sortFeaturesPattern,
-      Pattern regenIDsPattern) {
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern) {
     // If the config already has optimizations, don't modify it
     if (!conversionConfig.getOptimizations().isEmpty()) {
       return conversionConfig;
@@ -528,8 +528,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
-      Pattern sortFeaturesPattern,
-      Pattern regenIDsPattern,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       int minZoom,
       int maxZoom,
@@ -660,8 +660,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
-      Pattern sortFeaturesPattern,
-      Pattern regenIDsPattern,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
       int verboseLevel)
@@ -814,8 +814,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
-      Pattern sortFeaturesPattern,
-      Pattern regenIDsPattern,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
       int verboseLevel)
@@ -860,8 +860,8 @@ public class Encode {
       ConversionConfig conversionConfig,
       Map<Pattern, List<ColumnMapping>> columnMappings,
       URI tessellateSource,
-      Pattern sortFeaturesPattern,
-      Pattern regenIDsPattern,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       MutableBoolean didCompress,
       boolean enableElideOnMismatch,
@@ -1362,7 +1362,6 @@ public class Encode {
               .desc("Don't include feature IDs.")
               .required(false)
               .get());
-
       options.addOption(
           Option.builder()
               .longOpt(SORT_FEATURES_OPTION)
@@ -1383,7 +1382,6 @@ public class Encode {
                   "Re-generate ID values of matching layers (default all).  Sequential values are assigned for optimal encoding, when ID values have no special meaning.")
               .required(false)
               .get());
-
       options.addOption(
           Option.builder()
               .longOpt(FILTER_LAYERS_OPTION)
