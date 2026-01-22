@@ -1376,7 +1376,7 @@ public class Encode {
       options.addOption(
           Option.builder()
               .longOpt(REGEN_IDS_OPTION)
-              .hasArg(false)
+              .hasArg(true)
               .optionalArg(true)
               .argName("pattern")
               .desc(
