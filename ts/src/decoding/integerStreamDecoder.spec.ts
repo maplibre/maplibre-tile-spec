@@ -1,19 +1,19 @@
-import { describe, it, expect } from "vitest";
-import { getVectorType, decodeIntStream, decodeFloat64, decodeLongStream } from "./integerStreamDecoder";
+import { describe, expect, it } from "vitest";
+import { decodeFloat64, decodeIntStream, decodeLongStream, getVectorType } from "./integerStreamDecoder";
 import { LogicalLevelTechnique } from "../metadata/tile/logicalLevelTechnique";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import { VectorType } from "../vector/vectorType";
 import IntWrapper from "./intWrapper";
 import BitVector from "../vector/flat/bitVector";
-import { createStreamMetadata, createRleMetadata } from "./decodingTestUtils";
+import { createRleMetadata, createStreamMetadata } from "./decodingTestUtils";
 import {
-    encodeInt64SignedNone,
+    encodeFloat64,
     encodeInt64SignedDelta,
-    encodeInt64SignedRle,
     encodeInt64SignedDeltaRle,
+    encodeInt64SignedNone,
+    encodeInt64SignedRle,
     encodeInt64UnsignedNone,
     encodeIntStream,
-    encodeFloat64,
 } from "../encoding/integerStreamEncoder";
 
 describe("getVectorType", () => {
@@ -158,6 +158,27 @@ describe("decodeIntStream", () => {
         const data = encodeIntStream(expectedValues, metadata, true, bitVector);
 
         const result = decodeIntStream(data, new IntWrapper(0), metadata, true, undefined, bitVector);
+
+        expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode Componentwise Delta with Int32", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.COMPONENTWISE_DELTA, LogicalLevelTechnique.NONE, 4);
+        const expectedValues = new Int32Array([10, 20, 11, 21]);
+        const data = encodeIntStream(expectedValues, metadata, true);
+
+        const result = decodeIntStream(data, new IntWrapper(0), metadata, true);
+
+        expect(result).toEqual(expectedValues);
+    });
+
+    it("should decode Componentwise Delta Scaled with Int32", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.COMPONENTWISE_DELTA, LogicalLevelTechnique.NONE, 4);
+        const expectedValues = new Int32Array([100, 200, 110, 220]);
+        const scalingData = { extent: 4096, min: 0, max: 4096, scale: 2.0 };
+        const data = encodeIntStream(expectedValues, metadata, true, undefined, scalingData);
+
+        const result = decodeIntStream(data, new IntWrapper(0), metadata, true, scalingData);
 
         expect(result).toEqual(expectedValues);
     });
