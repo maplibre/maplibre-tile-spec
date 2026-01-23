@@ -12,4 +12,3 @@ export function encodeZOrderCurve(
     }
     return code
 }
-
