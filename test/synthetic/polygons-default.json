@@ -1,0 +1,26 @@
+{
+  "layers": [
+    {
+      "extent": 4096,
+      "features": [
+        {
+          "geometry": "POLYGON ((500 500, 1500 500, 1500 1500, 500 1500, 500 500))",
+          "id": 1,
+          "properties": {
+            "area": 1000000,
+            "name": "Simple Polygon 1"
+          }
+        },
+        {
+          "geometry": "POLYGON ((1000 1000, 2000 1000, 2000 2000, 1000 2000, 1000 1000))",
+          "id": 2,
+          "properties": {
+            "area": 1000000,
+            "name": "Simple Polygon 2"
+          }
+        }
+      ],
+      "name": "polygons"
+    }
+  ]
+}
