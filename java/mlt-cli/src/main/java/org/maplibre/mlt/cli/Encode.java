@@ -121,6 +121,7 @@ public class Encode {
     final var useFastPFOR = cmd.hasOption(FASTPFOR_ENCODING_OPTION);
     final var useFSSTJava = cmd.hasOption(FSST_ENCODING_OPTION);
     final var useFSSTNative = cmd.hasOption(FSST_NATIVE_ENCODING_OPTION);
+    final var integerEncodingStr = cmd.getOptionValue(INTEGER_ENCODING_OPTION, "AUTO");
     final var tessellateSource = cmd.getOptionValue(TESSELLATE_URL_OPTION, (String) null);
     final var tessellateURI = (tessellateSource != null) ? new URI(tessellateSource) : null;
     final var tessellatePolygons =
@@ -160,7 +161,8 @@ public class Encode {
             (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
             filterPattern,
             filterInvert,
-            ConversionConfig.IntegerEncodingOption.AUTO);
+            integerEncodingOption
+        );
 
     if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
@@ -1232,6 +1234,7 @@ public class Encode {
   private static final String FASTPFOR_ENCODING_OPTION = "enable-fastpfor";
   private static final String FSST_ENCODING_OPTION = "enable-fsst";
   private static final String FSST_NATIVE_ENCODING_OPTION = "enable-fsst-native";
+  private static final String INTEGER_ENCODING_OPTION = "integer-encoding";
   private static final String COLUMN_MAPPING_AUTO_OPTION = "colmap-auto";
   private static final String COLUMN_MAPPING_DELIM_OPTION = "colmap-delim";
   private static final String COLUMN_MAPPING_LIST_OPTION = "colmap-list";
@@ -1476,6 +1479,13 @@ public class Encode {
                   "Enable FSST encodings of string columns (Native implementation: "
                       + (FsstJni.isLoaded() ? "" : "Not ")
                       + " available)")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(INTEGER_ENCODING_OPTION)
+              .hasArg(true)
+              .desc("Integer encoding method: AUTO, PLAIN, DELTA, RLE, DELTA_RLE (default: AUTO)")
               .required(false)
               .get());
       options.addOption(
