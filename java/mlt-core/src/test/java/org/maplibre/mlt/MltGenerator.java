@@ -166,6 +166,31 @@ public class MltGenerator {
     }
   }
 
+  @Test
+  public void testConvertMvtToMlt() throws IOException {
+    var inputPath = Paths.get("/Users/weixingzhang/work/maplibre-tile-spec/test/fixtures/simple/point-boolean.mvt");
+    var outputPath = Paths.get("/Users/weixingzhang/work/maplibre-tile-spec/tmp/output.mlt");
+    var config = ConversionConfig.builder()
+        .includeIds(true)
+        .useFastPFOR(false)
+        .useFSST(false)
+        .useMortonEncoding(true)
+        .preTessellatePolygons(true)
+        .outlineFeatureTableNames(List.of("ALL"))
+        .integerEncoding(ConversionConfig.IntegerEncodingOption.AUTO)
+        .build();
+    var isIdPresent = true;
+
+    /* Conversion */
+    var mvtTile = MvtUtils.decodeMvt(inputPath);
+    var metadata = MltConverter.createTilesetMetadata(
+        mvtTile, COLUMN_MAPPINGS, isIdPresent, false, false);
+    byte[] mltData = MltConverter.convertMvt(mvtTile, metadata, config, null);
+    Files.createDirectories(outputPath.getParent());
+    Files.write(outputPath, mltData);
+    System.out.println("Converted: " + inputPath + " -> " + outputPath);
+  }
+
   private Map<String, FeatureTableOptimizations> getOptimizations() {
     var allowSorting = OPTIMIZATION == TestUtils.Optimization.SORTED;
     // TODO: account for per-layer mappings
