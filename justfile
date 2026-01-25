@@ -189,6 +189,10 @@ _generate-one-expected-mlt file:
         --coerce-mismatch \
         --verbose
 
+[working-directory: 'java']
+generate-mlt-fixtures:
+    ./gradlew generateFixtures
+
 # Extract version from a tag by removing language prefix and 'v' prefix
 extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"

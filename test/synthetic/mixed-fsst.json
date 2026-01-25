@@ -1,0 +1,46 @@
+{
+  "layers": [
+    {
+      "extent": 4096,
+      "features": [
+        {
+          "geometry": "POINT (2993 411)",
+          "id": 1,
+          "properties": {
+            "name": "Point 1"
+          }
+        },
+        {
+          "geometry": "POINT (2993 411)",
+          "id": 2,
+          "properties": {
+            "name": "Point 2"
+          }
+        }
+      ],
+      "name": "points"
+    },
+    {
+      "extent": 4096,
+      "features": [
+        {
+          "geometry": "POLYGON ((500 500, 1500 500, 1500 1500, 500 1500, 500 500))",
+          "id": 3,
+          "properties": {
+            "area": 1000000,
+            "name": "Simple Polygon 3"
+          }
+        },
+        {
+          "geometry": "POLYGON ((1000 1000, 2000 1000, 2000 2000, 1000 2000, 1000 1000))",
+          "id": 4,
+          "properties": {
+            "area": 1000000,
+            "name": "Simple Polygon 4"
+          }
+        }
+      ],
+      "name": "polygons"
+    }
+  ]
+}
