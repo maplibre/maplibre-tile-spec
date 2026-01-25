@@ -65,6 +65,7 @@ import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.MLTStreamObserverDefault;
 import org.maplibre.mlt.converter.MLTStreamObserverFile;
 import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
@@ -161,7 +162,7 @@ public class Encode {
             (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
             filterPattern,
             filterInvert,
-            integerEncodingOption
+            IntegerEncodingOption.fromString(integerEncodingStr)
         );
 
     if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
