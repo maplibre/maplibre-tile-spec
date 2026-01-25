@@ -170,14 +170,6 @@ public class MltGenerator {
   public void testConvertMvtToMlt() throws IOException {
     var inputPath = Paths.get("/Users/weixingzhang/work/maplibre-tile-spec/test/fixtures/simple/point-boolean.mvt");
     var outputPath = Paths.get("/Users/weixingzhang/work/maplibre-tile-spec/tmp/output.mlt");
-    MltGenerator.convertMvtToMlt(inputPath, outputPath);
-    System.out.println("Converted: " + inputPath + " -> " + outputPath);
-  }
-
-  public static void convertMvtToMlt(Path inputMvtPath, Path outputMltPath) throws IOException {
-    var mvtTile = MvtUtils.decodeMvt(inputMvtPath);
-    var metadata = MltConverter.createTilesetMetadata(
-        mvtTile, Collections.emptyMap(), true, false, false);
     var config = ConversionConfig.builder()
         .includeIds(true)
         .useFastPFOR(false)
@@ -187,9 +179,16 @@ public class MltGenerator {
         .outlineFeatureTableNames(List.of("ALL"))
         .integerEncoding(ConversionConfig.IntegerEncodingOption.AUTO)
         .build();
+    var isIdPresent = true;
+
+    /* Conversion */
+    var mvtTile = MvtUtils.decodeMvt(inputPath);
+    var metadata = MltConverter.createTilesetMetadata(
+        mvtTile, COLUMN_MAPPINGS, isIdPresent, false, false);
     byte[] mltData = MltConverter.convertMvt(mvtTile, metadata, config, null);
-    Files.createDirectories(outputMltPath.getParent());
-    Files.write(outputMltPath, mltData);
+    Files.createDirectories(outputPath.getParent());
+    Files.write(outputPath, mltData);
+    System.out.println("Converted: " + inputPath + " -> " + outputPath);
   }
 
   private Map<String, FeatureTableOptimizations> getOptimizations() {
