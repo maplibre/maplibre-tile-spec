@@ -13,19 +13,7 @@ public class ConversionConfig {
     PLAIN, // Force plain encoding
     DELTA, // Force delta encoding
     RLE, // Force RLE encoding (only for const streams)
-    DELTA_RLE; // Force delta-RLE encoding
-
-    public static IntegerEncodingOption fromString(String s) {
-      if (s == null || s.isBlank()) {
-       return DEFAULT_INTEGER_ENCODING;
-      }
-      final var normalized = s.trim().replace('-', '_').toUpperCase();
-      try {
-        return IntegerEncodingOption.valueOf(normalized);
-      } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException("Invalid integer encoding: " + s, e);
-      }
-    }
+    DELTA_RLE // Force delta-RLE encoding
   }
 
   public static final boolean DEFAULT_INCLUDE_IDS = true;
