@@ -1,13 +1,6 @@
-import type { Int32Buf } from "../decoding/fastPforShared";
-import { MASKS } from "../decoding/fastPforShared";
+import { MASKS, type Int32Buf } from "../decoding/fastPforShared";
 
-export function fastPack32(
-    inValues: Int32Array,
-    inPos: number,
-    out: Int32Buf,
-    outPos: number,
-    bitWidth: number,
-): void {
+export function fastPack32(inValues: Int32Array, inPos: number, out: Int32Buf, outPos: number, bitWidth: number): void {
     if (bitWidth === 0) return;
     if (bitWidth === 32) {
         out.set(inValues.subarray(inPos, inPos + 32), outPos);
