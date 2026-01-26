@@ -28,6 +28,11 @@ dependencies {
     implementation 'org.jetbrains:annotations:26.0.2-1'
     implementation 'org.locationtech.jts:jts-core:1.20.0'
 
+    // pmtiles support
+    implementation platform('io.tileverse:tileverse-bom:1.1.0')
+    implementation 'io.tileverse.rangereader:tileverse-rangereader-all'
+    implementation 'io.tileverse.pmtiles:tileverse-pmtiles'
+
     testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.2'
