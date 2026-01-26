@@ -77,4 +77,3 @@ If you use MapLibre Tile in your research, please cite our paper:
   url       = {https://doi.org/10.1145/3748636.3763208}
 }
 ```
-
