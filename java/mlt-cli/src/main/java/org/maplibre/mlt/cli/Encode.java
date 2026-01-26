@@ -1517,6 +1517,10 @@ public class Encode {
           new File(inputFileName).isFile()
               ? Path.of(inputFileName).toUri()
               : URI.create(inputFileName);
+      if (inputURI.getPath() == null) {
+        System.err.println("ERROR: Unable to determine input filename for output path");
+        return null;
+      }
       final var inputPath = Paths.get(inputURI.getPath());
       final var baseName = FilenameUtils.getBaseName(inputPath.getFileName().toString());
       outputPath = Paths.get(outputDir, baseName + ext);
