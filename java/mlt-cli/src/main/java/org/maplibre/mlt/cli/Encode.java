@@ -908,15 +908,19 @@ public class Encode {
         }
         metadataStr = gson.toJson(metadata);
       } catch (JsonSyntaxException ex) {
+        // Write the original metadata, unchanged, if we can't parse it
         System.err.printf("WARNING: Failed to parse metadata%n");
       }
+
+      final int actualMinZoom = Math.max(header.minZoom(), minZoom);
+      final int actualMaxZoom = Math.min(header.maxZoom(), maxZoom);
 
       try (var writer =
           PMTilesWriter.builder()
               .outputPath(outputPath)
               .center(header.centerLon(), header.centerLat(), header.centerZoom())
-              .minZoom(header.minZoom())
-              .maxZoom(header.maxZoom())
+              .minZoom(actualMinZoom)
+              .maxZoom(actualMaxZoom)
               .tileCompression(targetCompressType)
               .tileType(PMT_MLT_TILE_TYPE)
               .bounds(header.minLon(), header.minLat(), header.maxLon(), header.maxLat())
@@ -930,8 +934,7 @@ public class Encode {
         var lastZ = new MutableInt(-1);
 
         // Process each tile in each relevant zoom level
-        IntStream.rangeClosed(
-                Math.max(header.minZoom(), minZoom), Math.min(header.maxZoom(), maxZoom))
+        IntStream.rangeClosed(actualMinZoom, actualMaxZoom)
             .mapToObj(Integer::valueOf)
             .flatMap(reader::getTileIndicesByZoomLevel)
             .forEach(
@@ -972,8 +975,8 @@ public class Encode {
 
                     var mltData =
                         convertTile(
-                            (int) tileIndex.x(),
-                            (int) tileIndex.y(),
+                            tileIndex.x(),
+                            tileIndex.y(),
                             tileIndex.z(),
                             mvtData,
                             conversionConfig,
@@ -981,12 +984,16 @@ public class Encode {
                             tessellateSource,
                             sortFeaturesPattern,
                             regenIDsPattern,
-                            "none", // PMTilesWriter will handle compression
+                            null, // PMTilesWriter will handle compression
                             null,
                             enableCoerceOrElideMismatch,
                             verboseLevel);
 
-                    writer.addTile(tileIndex, mltData);
+                    if (mltData != null && mltData.length > 0) {
+                      writer.addTile(tileIndex, mltData);
+                    } else if (verboseLevel > 1) {
+                      System.err.printf("  Converted tile is empty, skipping%n");
+                    }
                   } catch (IOException ex) {
                     System.err.printf("Failed to get tile '%s': %s%n", tileIndex, ex.getMessage());
                     if (verboseLevel > 1) {
@@ -1070,8 +1077,8 @@ public class Encode {
    */
   @Nullable
   private static byte[] convertTile(
-      int x,
-      int y,
+      long x,
+      long y,
       int z,
       byte[] srcTileData,
       ConversionConfig conversionConfig,
@@ -1146,9 +1153,7 @@ public class Encode {
                   "  Compression of %d:%d,%d not effective, saving uncompressed (%d vs %d bytes)%n",
                   z, x, y, tileData.length, outputStream.size());
             }
-            if (didCompress != null) {
-              didCompress.setFalse();
-            }
+            didCompress.setFalse();
           }
         }
       }
@@ -1505,7 +1510,13 @@ public class Encode {
       outputPath = Paths.get(cmd.getOptionValue(OUTPUT_FILE_ARG));
     } else {
       final var outputDir = cmd.getOptionValue(OUTPUT_DIR_ARG, "./");
-      final var inputURI = URI.create(inputFileName);
+
+      // Get the file basename without extension.  The input may be a local path or a URI (for
+      // pmtiles)
+      final var inputURI =
+          new File(inputFileName).isFile()
+              ? Path.of(inputFileName).toUri()
+              : URI.create(inputFileName);
       final var inputPath = Paths.get(inputURI.getPath());
       final var baseName = FilenameUtils.getBaseName(inputPath.getFileName().toString());
       outputPath = Paths.get(outputDir, baseName + ext);
@@ -1588,26 +1599,6 @@ public class Encode {
               .longOpt(EXCLUDE_IDS_OPTION)
               .hasArg(false)
               .desc("Don't include feature IDs.")
-              .required(false)
-              .get());
-      options.addOption(
-          Option.builder()
-              .longOpt(SORT_FEATURES_OPTION)
-              .hasArg(true)
-              .optionalArg(true)
-              .argName("pattern")
-              .desc(
-                  "Reorder features of matching layers (default all) by ID, for optimal encoding of ID values.")
-              .required(false)
-              .get());
-      options.addOption(
-          Option.builder()
-              .longOpt(REGEN_IDS_OPTION)
-              .hasArg(true)
-              .optionalArg(true)
-              .argName("pattern")
-              .desc(
-                  "Re-generate ID values of matching layers (default all).  Sequential values are assigned for optimal encoding, when ID values have no special meaning.")
               .required(false)
               .get());
       options.addOption(
@@ -1972,14 +1963,14 @@ Add an explicit column mapping on the specified layers:
                 + INPUT_MBTILES_ARG
                 + "', '--"
                 + INPUT_OFFLINEDB_ARG
-                + "', and '--"
+                + "', or '--"
                 + INPUT_PMTILES_ARG
                 + "'.");
       } else if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
         System.err.println(
-            "Cannot specify both '-"
+            "Cannot specify both '--"
                 + OUTPUT_FILE_ARG
-                + "' and '-"
+                + "' and '--"
                 + OUTPUT_DIR_ARG
                 + "' options.");
       } else if (!new HashSet<>(
