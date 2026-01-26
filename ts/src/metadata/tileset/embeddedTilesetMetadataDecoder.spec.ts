@@ -1,9 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { decodeField } from "./embeddedTilesetMetadataDecoder";
 import IntWrapper from "../../decoding/intWrapper";
 import { encodeVarintInt32Value } from "../../encoding/integerEncodingUtils";
 import { concatenateBuffers } from "../../decoding/decodingTestUtils";
-import { ScalarType, ComplexType } from "./tilesetMetadata";
+import { ComplexType, ScalarType } from "./tilesetMetadata";
+
+const STRUCT_TYPE_CODE = 30;
 
 /**
  * Encodes a single typeCode as a varint.
@@ -38,15 +40,49 @@ function encodeChildCount(count: number): Uint8Array {
     return buffer.slice(0, offset.get());
 }
 
+function scalarTypeCode(scalarType: number, nullable: boolean): number {
+    return 10 + scalarType * 2 + (nullable ? 1 : 0);
+}
+
 describe("embeddedTilesetMetadataDecoder", () => {
     describe("decodeField", () => {
         describe("scalar fields", () => {
             it.each([
-                { typeCode: 28, name: "street", nullable: false, physicalType: ScalarType.STRING, desc: "non-nullable STRING" },
-                { typeCode: 23, name: "population", nullable: true, physicalType: ScalarType.UINT_64, desc: "nullable UINT_64" },
-                { typeCode: 10, name: "isActive", nullable: false, physicalType: ScalarType.BOOLEAN, desc: "BOOLEAN" },
-                { typeCode: 18, name: "count", nullable: false, physicalType: ScalarType.UINT_32, desc: "non-nullable UINT_32" },
-                { typeCode: 25, name: "temperature", nullable: true, physicalType: ScalarType.FLOAT, desc: "nullable FLOAT" },
+                {
+                    typeCode: scalarTypeCode(ScalarType.STRING, false),
+                    name: "street",
+                    nullable: false,
+                    physicalType: ScalarType.STRING,
+                    desc: "non-nullable STRING",
+                },
+                {
+                    typeCode: scalarTypeCode(ScalarType.UINT_64, true),
+                    name: "population",
+                    nullable: true,
+                    physicalType: ScalarType.UINT_64,
+                    desc: "nullable UINT_64",
+                },
+                {
+                    typeCode: scalarTypeCode(ScalarType.BOOLEAN, false),
+                    name: "isActive",
+                    nullable: false,
+                    physicalType: ScalarType.BOOLEAN,
+                    desc: "BOOLEAN",
+                },
+                {
+                    typeCode: scalarTypeCode(ScalarType.UINT_32, false),
+                    name: "count",
+                    nullable: false,
+                    physicalType: ScalarType.UINT_32,
+                    desc: "non-nullable UINT_32",
+                },
+                {
+                    typeCode: scalarTypeCode(ScalarType.FLOAT, true),
+                    name: "temperature",
+                    nullable: true,
+                    physicalType: ScalarType.FLOAT,
+                    desc: "nullable FLOAT",
+                },
             ])("should decode $desc field", ({ typeCode, name, nullable, physicalType }) => {
                 const buffer = concatenateBuffers(encodeTypeCode(typeCode), encodeFieldName(name));
                 const field = decodeField(buffer, new IntWrapper(0));
@@ -61,12 +97,22 @@ describe("embeddedTilesetMetadataDecoder", () => {
         describe("complex fields", () => {
             it("should decode STRUCT field with nested children", () => {
                 const children = [
-                    { typeCode: 28, name: "street", nullable: false, physicalType: ScalarType.STRING },
-                    { typeCode: 19, name: "zipcode", nullable: true, physicalType: ScalarType.UINT_32 },
+                    {
+                        typeCode: scalarTypeCode(ScalarType.STRING, false),
+                        name: "street",
+                        nullable: false,
+                        physicalType: ScalarType.STRING,
+                    },
+                    {
+                        typeCode: scalarTypeCode(ScalarType.UINT_32, true),
+                        name: "zipcode",
+                        nullable: true,
+                        physicalType: ScalarType.UINT_32,
+                    },
                 ];
 
                 const buffer = concatenateBuffers(
-                    encodeTypeCode(30),
+                    encodeTypeCode(STRUCT_TYPE_CODE),
                     encodeFieldName("address"),
                     encodeChildCount(children.length),
                     ...children.flatMap((c) => [encodeTypeCode(c.typeCode), encodeFieldName(c.name)]),
@@ -91,21 +137,21 @@ describe("embeddedTilesetMetadataDecoder", () => {
         describe("deeply nested structures", () => {
             it("should decode 3-level nested STRUCT", () => {
                 const leafChildren = [
-                    { typeCode: 24, name: "lat" },
-                    { typeCode: 24, name: "lon" },
+                    { typeCode: scalarTypeCode(ScalarType.FLOAT, false), name: "lat" },
+                    { typeCode: scalarTypeCode(ScalarType.FLOAT, false), name: "lon" },
                 ];
 
                 const buffer = concatenateBuffers(
                     // Parent STRUCT "location"
-                    encodeTypeCode(30),
+                    encodeTypeCode(STRUCT_TYPE_CODE),
                     encodeFieldName("location"),
                     encodeChildCount(1),
                     // Child STRUCT "address"
-                    encodeTypeCode(30),
+                    encodeTypeCode(STRUCT_TYPE_CODE),
                     encodeFieldName("address"),
                     encodeChildCount(1),
                     // Grandchild STRUCT "coordinates"
-                    encodeTypeCode(30),
+                    encodeTypeCode(STRUCT_TYPE_CODE),
                     encodeFieldName("coordinates"),
                     encodeChildCount(leafChildren.length),
                     // Great-grandchildren
@@ -135,7 +181,10 @@ describe("embeddedTilesetMetadataDecoder", () => {
 
         describe("offset tracking", () => {
             it("should correctly advance offset", () => {
-                const buffer = concatenateBuffers(encodeTypeCode(28), encodeFieldName("test"));
+                const buffer = concatenateBuffers(
+                    encodeTypeCode(scalarTypeCode(ScalarType.STRING, false)),
+                    encodeFieldName("test"),
+                );
                 const offset = new IntWrapper(0);
 
                 decodeField(buffer, offset);
