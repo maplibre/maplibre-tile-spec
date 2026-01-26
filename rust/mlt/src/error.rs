@@ -46,7 +46,7 @@ pub enum MltError {
     #[error("metadata decode error: invalid type={0}")]
     MetaDecodeInvalidType(&'static str),
     #[error("metadata decode error: unsupported type={0}")]
-    MetaDecodeUnsupporteddType(&'static str),
+    MetaDecodeUnsupportedType(&'static str),
     #[error("missing required logical metadata: {which}")]
     MissingLogicalMetadata { which: &'static str },
 
