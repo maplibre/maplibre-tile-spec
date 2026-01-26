@@ -43,7 +43,7 @@ function columnToField(column: Column): Field {
 /**
  * Decodes a Field used as part of complex types (STRUCT children).
  */
-function decodeField(src: Uint8Array, offset: IntWrapper): Field {
+export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
     const column = decodeColumnType(typeCode);
 
