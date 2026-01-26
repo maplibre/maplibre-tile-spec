@@ -650,11 +650,7 @@ public class MltConverter {
       return ((long) propertyValue > Integer.MAX_VALUE || (long) propertyValue < Integer.MIN_VALUE)
           ? MltMetadata.ScalarType.INT_64
           : MltMetadata.ScalarType.INT_32;
-    }
-    // TODO: also handle unsigned long to avoid zigZag coding
-    /*else if (propertyValue instanceof Long) {
-      return MltMetadata.ScalarType.INT_64;
-    }*/ else if (propertyValue instanceof Float) {
+    } else if (propertyValue instanceof Float) {
       return MltMetadata.ScalarType.FLOAT;
     } else if (propertyValue instanceof Double) {
       return MltMetadata.ScalarType.DOUBLE;
