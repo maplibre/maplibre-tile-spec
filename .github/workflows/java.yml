@@ -2,10 +2,8 @@ name: Java CI
 
 on:
   push:
-    paths:
-      - '.github/**'
-      - 'java/**'
-      - 'test/**'
+    branches:
+      - main
   pull_request:
     paths:
       - '.github/**'
