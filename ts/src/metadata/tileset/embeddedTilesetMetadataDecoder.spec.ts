@@ -190,7 +190,7 @@ describe("embeddedTilesetMetadataDecoder", () => {
 
                 expect(() => {
                     decodeField(buffer, new IntWrapper(0));
-                }).toThrow("Unsupported field type code: 999");
+                }).toThrow("Unsupported field type code 999. Supported: 10-29(scalars), 30(STRUCT)");
             });
         });
     });

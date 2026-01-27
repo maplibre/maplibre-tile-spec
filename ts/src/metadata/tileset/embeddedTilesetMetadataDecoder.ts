@@ -43,11 +43,12 @@ function columnToField(column: Column): Field {
  */
 export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-    const column = decodeColumnType(typeCode);
 
-    if (typeCode <= 4) {
+    if (typeCode < 10 || typeCode > 30) {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
+
+    const column = decodeColumnType(typeCode);
 
     if (columnTypeHasName(typeCode)) {
         column.name = decodeString(src, offset);
