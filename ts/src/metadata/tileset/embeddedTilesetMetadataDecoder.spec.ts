@@ -1,48 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { decodeField } from "./embeddedTilesetMetadataDecoder";
 import IntWrapper from "../../decoding/intWrapper";
-import { encodeVarintInt32Value } from "../../encoding/integerEncodingUtils";
 import { concatenateBuffers } from "../../decoding/decodingTestUtils";
 import { ComplexType, ScalarType } from "./tilesetMetadata";
+import {
+    encodeChildCount,
+    encodeFieldName,
+    encodeTypeCode,
+    scalarTypeCode,
+} from "../../encoding/embeddedTilesetMetadataEncoder";
 
 const STRUCT_TYPE_CODE = 30;
-
-/**
- * Encodes a single typeCode as a varint.
- */
-function encodeTypeCode(typeCode: number): Uint8Array {
-    const buffer = new Uint8Array(5);
-    const offset = new IntWrapper(0);
-    encodeVarintInt32Value(typeCode, buffer, offset);
-    return buffer.slice(0, offset.get());
-}
-
-/**
- * Encodes a field name as a length-prefixed UTF-8 string.
- */
-function encodeFieldName(name: string): Uint8Array {
-    const textEncoder = new TextEncoder();
-    const nameBytes = textEncoder.encode(name);
-    const lengthBuf = new Uint8Array(5);
-    const offset = new IntWrapper(0);
-    encodeVarintInt32Value(nameBytes.length, lengthBuf, offset);
-    const lengthSlice = lengthBuf.slice(0, offset.get());
-    return concatenateBuffers(lengthSlice, nameBytes);
-}
-
-/**
- * Encodes a child count as a varint.
- */
-function encodeChildCount(count: number): Uint8Array {
-    const buffer = new Uint8Array(5);
-    const offset = new IntWrapper(0);
-    encodeVarintInt32Value(count, buffer, offset);
-    return buffer.slice(0, offset.get());
-}
-
-function scalarTypeCode(scalarType: number, nullable: boolean): number {
-    return 10 + scalarType * 2 + (nullable ? 1 : 0);
-}
 
 describe("embeddedTilesetMetadataDecoder", () => {
     describe("decodeField", () => {
