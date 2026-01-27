@@ -19,6 +19,8 @@ defaults:
 
 jobs:
   test-java:
+    permissions:
+      id-token: write  # for OIDC Codecov
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -44,3 +46,10 @@ jobs:
         working-directory: java/encoding-server
       - run: npm run checkstyle
         working-directory: java/encoding-server
+
+      - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          directory: java
