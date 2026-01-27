@@ -88,8 +88,10 @@ tasks.withType(Test).configureEach {
         archiveFileName = name + ".jar"
         archiveClassifier = "cli"
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from {
-            configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+        from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } } {
+            // Filter dependency JAR signatures to prevent
+            //  `SecurityException: Invalid signature file digest for Manifest main attributes`
+            exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
         }
         manifest.from jar.manifest
         with jar
