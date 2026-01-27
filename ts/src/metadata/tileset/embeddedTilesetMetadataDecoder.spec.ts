@@ -15,50 +15,69 @@ const STRUCT_TYPE_CODE = 30;
 describe("embeddedTilesetMetadataDecoder", () => {
     describe("decodeField", () => {
         describe("scalar fields", () => {
-            it.each([
-                {
-                    typeCode: scalarTypeCode(ScalarType.STRING, false),
-                    name: "street",
-                    nullable: false,
-                    physicalType: ScalarType.STRING,
-                    desc: "non-nullable STRING",
-                },
-                {
-                    typeCode: scalarTypeCode(ScalarType.UINT_64, true),
-                    name: "population",
-                    nullable: true,
-                    physicalType: ScalarType.UINT_64,
-                    desc: "nullable UINT_64",
-                },
-                {
-                    typeCode: scalarTypeCode(ScalarType.BOOLEAN, false),
-                    name: "isActive",
-                    nullable: false,
-                    physicalType: ScalarType.BOOLEAN,
-                    desc: "BOOLEAN",
-                },
-                {
-                    typeCode: scalarTypeCode(ScalarType.UINT_32, false),
-                    name: "count",
-                    nullable: false,
-                    physicalType: ScalarType.UINT_32,
-                    desc: "non-nullable UINT_32",
-                },
-                {
-                    typeCode: scalarTypeCode(ScalarType.FLOAT, true),
-                    name: "temperature",
-                    nullable: true,
-                    physicalType: ScalarType.FLOAT,
-                    desc: "nullable FLOAT",
-                },
-            ])("should decode $desc field", ({ typeCode, name, nullable, physicalType }) => {
-                const buffer = concatenateBuffers(encodeTypeCode(typeCode), encodeFieldName(name));
+            it("should decode non-nullable STRING field", () => {
+                const buffer = concatenateBuffers(
+                    encodeTypeCode(scalarTypeCode(ScalarType.STRING, false)),
+                    encodeFieldName("street"),
+                );
                 const field = decodeField(buffer, new IntWrapper(0));
 
-                expect(field.name).toBe(name);
-                expect(field.nullable).toBe(nullable);
+                expect(field.name).toBe("street");
+                expect(field.nullable).toBe(false);
                 expect(field.type).toBe("scalarField");
-                expect(field.scalarField?.physicalType).toBe(physicalType);
+                expect(field.scalarField?.physicalType).toBe(ScalarType.STRING);
+            });
+
+            it("should decode nullable UINT_64 field", () => {
+                const buffer = concatenateBuffers(
+                    encodeTypeCode(scalarTypeCode(ScalarType.UINT_64, true)),
+                    encodeFieldName("population"),
+                );
+                const field = decodeField(buffer, new IntWrapper(0));
+
+                expect(field.name).toBe("population");
+                expect(field.nullable).toBe(true);
+                expect(field.type).toBe("scalarField");
+                expect(field.scalarField?.physicalType).toBe(ScalarType.UINT_64);
+            });
+
+            it("should decode BOOLEAN field", () => {
+                const buffer = concatenateBuffers(
+                    encodeTypeCode(scalarTypeCode(ScalarType.BOOLEAN, false)),
+                    encodeFieldName("isActive"),
+                );
+                const field = decodeField(buffer, new IntWrapper(0));
+
+                expect(field.name).toBe("isActive");
+                expect(field.nullable).toBe(false);
+                expect(field.type).toBe("scalarField");
+                expect(field.scalarField?.physicalType).toBe(ScalarType.BOOLEAN);
+            });
+
+            it("should decode non-nullable UINT_32 field", () => {
+                const buffer = concatenateBuffers(
+                    encodeTypeCode(scalarTypeCode(ScalarType.UINT_32, false)),
+                    encodeFieldName("count"),
+                );
+                const field = decodeField(buffer, new IntWrapper(0));
+
+                expect(field.name).toBe("count");
+                expect(field.nullable).toBe(false);
+                expect(field.type).toBe("scalarField");
+                expect(field.scalarField?.physicalType).toBe(ScalarType.UINT_32);
+            });
+
+            it("should decode nullable FLOAT field", () => {
+                const buffer = concatenateBuffers(
+                    encodeTypeCode(scalarTypeCode(ScalarType.FLOAT, true)),
+                    encodeFieldName("temperature"),
+                );
+                const field = decodeField(buffer, new IntWrapper(0));
+
+                expect(field.name).toBe("temperature");
+                expect(field.nullable).toBe(true);
+                expect(field.type).toBe("scalarField");
+                expect(field.scalarField?.physicalType).toBe(ScalarType.FLOAT);
             });
         });
 
