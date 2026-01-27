@@ -1,23 +1,12 @@
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
-import {
-    type Column,
-    type ComplexField,
-    type FeatureTableSchema,
-    type Field,
-    type ScalarField,
-    type TileSetMetadata,
-} from "./tilesetMetadata";
+import { type Column, type FeatureTableSchema, type Field, type TileSetMetadata } from "./tilesetMetadata";
 import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
-const enum FieldOptions {
-    nullable = 1 << 0,
-    complexType = 1 << 1,
-    logicalType = 1 << 2,
-    hasChildren = 1 << 3,
-}
-
 const textDecoder = new TextDecoder();
+
+const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT)";
+const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT)";
 
 /**
  * Decodes a length-prefixed UTF-8 string.
@@ -36,54 +25,44 @@ function decodeString(src: Uint8Array, offset: IntWrapper): string {
 }
 
 /**
- * Decodes a Field used as part of complex types (STRUCT children).
- * Unlike Column, Field still uses the fieldOptions bitfield for flexibility.
+ * Converts a Column to a Field.
+ * Used when decoding Field metadata which has the same format as Column.
  */
-function decodeField(src: Uint8Array, offset: IntWrapper): Field {
-    const fieldOptions = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-    const isLogical = (fieldOptions & FieldOptions.logicalType) !== 0;
-    const isComplex = (fieldOptions & FieldOptions.complexType) !== 0;
+function columnToField(column: Column): Field {
+    return {
+        name: column.name,
+        nullable: column.nullable,
+        scalarField: column.scalarType,
+        complexField: column.complexType,
+        type: column.type === "scalarType" ? "scalarField" : "complexField",
+    };
+}
 
-    const typeValue = decodeVarintInt32(src, offset, 1)[0] >>> 0;
+/**
+ * Decodes a Field used as part of complex types (STRUCT children).
+ */
+export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
+    const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
 
-    const field = {} as Field;
-    if ((fieldOptions & FieldOptions.nullable) !== 0) {
-        field.nullable = true;
+    if (typeCode < 10 || typeCode > 30) {
+        throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
 
-    if (isComplex) {
-        const complex = {} as ComplexField;
-        if (isLogical) {
-            complex.type = "logicalType";
-            complex.logicalType = typeValue;
-        } else {
-            complex.type = "physicalType";
-            complex.physicalType = typeValue;
-        }
+    const column = decodeColumnType(typeCode);
 
-        if ((fieldOptions & FieldOptions.hasChildren) !== 0) {
-            const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-            complex.children = new Array(childCount);
-            for (let i = 0; i < childCount; i++) {
-                complex.children[i] = decodeField(src, offset);
-            }
-        }
-        field.type = "complexField";
-        field.complexField = complex;
-    } else {
-        const scalar = {} as ScalarField;
-        if (isLogical) {
-            scalar.type = "logicalType";
-            scalar.logicalType = typeValue;
-        } else {
-            scalar.type = "physicalType";
-            scalar.physicalType = typeValue;
-        }
-        field.type = "scalarField";
-        field.scalarField = scalar;
+    if (columnTypeHasName(typeCode)) {
+        column.name = decodeString(src, offset);
     }
 
-    return field;
+    if (columnTypeHasChildren(typeCode)) {
+        const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
+        column.complexType.children = new Array(childCount);
+        for (let i = 0; i < childCount; i++) {
+            column.complexType.children[i] = decodeField(src, offset);
+        }
+    }
+
+    return columnToField(column);
 }
 
 /**
@@ -94,7 +73,7 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     const column = decodeColumnType(typeCode);
 
     if (!column) {
-        throw new Error(`Unsupported column type code: ${typeCode}`);
+        throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
     }
 
     if (columnTypeHasName(typeCode)) {

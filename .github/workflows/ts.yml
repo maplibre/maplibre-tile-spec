@@ -2,10 +2,8 @@ name: TypeScript CI
 
 on:
   push:
-    paths:
-      - '.github/**'
-      - 'ts/**'
-      - 'test/**'
+    branches:
+      - main
   pull_request:
     paths:
       - '.github/**'
