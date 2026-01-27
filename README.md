@@ -16,7 +16,7 @@ but has been redesigned from the ground up to address the challenges of rapidly 
 and complex next-generation geospatial source formats as well as to leverage the capabilities of modern hardware and APIs.
 MLT is specifically designed for modern and next generation graphics APIs to enable high-performance processing and rendering of
 large (planet-scale) 2D and 2.5 basemaps. In particular, MLT offers the following features:
-- **Improved compression ratio**: up to 6x on large tiles, based on a column oriented layout with recursively applied (custom)
+- **Improved compression ratio**: up to 6x on large encoded tiles, based on a column oriented layout with recursively applied (custom)
     lightweight encodings. This leads to reduced latency, storage, and egress costs and, in particular, improved cache utilization
 - **Better decoding performance**: fast lightweight encodings which can be used in combination with SIMD/vectorization instructions
 - **Support for linear referencing and m-values** to efficiently support the upcoming next generation source formats such as Overture Maps (GeoParquet)
@@ -27,26 +27,7 @@ allowing for efficient processing on both CPU and GPU. The formats are designed 
 GPU buffers with little or no additional processing
 
 📝 For a more in-depth exploration of MLT have a look at the [following slides](https://github.com/mactrem/presentations/blob/main/FOSS4G_2024_Europe/FOSS4G_2024_Europe.pdf), watch
-[this talk](https://www.youtube.com/watch?v=YHcoAFcsES0) or read [this paper](https://www.arxiv.org/abs/2508.10791) by MLT inventor Markus Tremmel.
-
-## Comparing with MVT
-
-In the following, the size of MLT and MVT files are compared based on a selected set of representative tiles of an OpenMapTiles scheme based OSM dataset. While showing an up to factor 6 reduction in size on large tiles, initial tests also showed equal or mostly even better (between 2x and 3x even without the usage of SIMD) decoding performance compared to MVT in the browser.
-
-| Zoom | Tile indices <br/>(minX,maxX,minY,maxY) | Tile Size Reduction |
-|------|-----------------------------------------|---------------------|
-| 2    | 2, 2, 2, 2                              | 53%                 |
-| 3    | 4, 4, 5, 5                              | 48%                 |
-| 4    |                                         | 80%                 |
-| 5    | 16, 17, 20, 21                          | 81%                 |
-| 6    | 32, 34, 41, 42                          | 76%                 |
-| 7    | 66, 68, 83, 85                          | 74%                 |
-| 8    | 132, 135, 170, 171                      | 74%                 |
-| 9    | 264, 266, 340, 342                      | 68%                 |
-| 10   | 530, 533, 682, 684                      | 60%                 |
-| 12   | 2130, 2134, 2733, 2734                  | 65%                 |
-| 13   | 4264, 4267, 5467, 5468                  | 50%                 |
-| 14   | 8296, 8300, 10748, 10749                | 59%                 |
+[this talk](https://www.youtube.com/watch?v=YHcoAFcsES0) or read [this paper](https://dl.acm.org/doi/10.1145/3748636.3763208) by MLT inventor Markus Tremmel.
 
 ## Directory Structure
 
@@ -79,3 +60,20 @@ submitted for inclusion in the work by you, as defined in the
 Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions. Similarly, any documentation or specification
 contributions shall be licensed under CC0 1.0 Universal.
+
+## Citing
+
+If you use MapLibre Tile in your research, please cite our paper:
+
+```bibtex
+@inproceedings{tremmel2025maplibretile,
+  title     = {MapLibre Tile: A Next Generation Vector Tile Format},
+  author    = {Tremmel, Markus and Zink, Roland},
+  booktitle = {Proceedings of the 33rd ACM International Conference on Advances in Geographic Information Systems},
+  series    = {SIGSPATIAL '25},
+  year      = {2025},
+  pages     = {1118--1121},
+  doi       = {10.1145/3748636.3763208},
+  url       = {https://doi.org/10.1145/3748636.3763208}
+}
+```
