@@ -97,9 +97,8 @@ function decodeScalarPropertyColumn(
         case ScalarType.INT_64:
             return decodeLongColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer, column);
         case ScalarType.FLOAT:
+        case ScalarType.DOUBLE: // doubles currently written as floats
             return decodeFloatColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
-        case ScalarType.DOUBLE:
-            return decodeDoubleColumn(data, offset, columnMetadata, sizeOrNullabilityBuffer);
         default:
             throw new Error(`The specified data type for the field is currently not supported: ${column}`);
     }
