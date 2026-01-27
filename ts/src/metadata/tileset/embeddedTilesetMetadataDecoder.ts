@@ -5,6 +5,9 @@ import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./ty
 
 const textDecoder = new TextDecoder();
 
+const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT)";
+const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT)";
+
 /**
  * Decodes a length-prefixed UTF-8 string.
  * Layout: [len: varint32][bytes: len]
@@ -42,8 +45,8 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
     const column = decodeColumnType(typeCode);
 
-    if (!column) {
-        throw new Error(`Unsupported field type code: ${typeCode}`);
+    if (typeCode <= 4) {
+        throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
 
     if (columnTypeHasName(typeCode)) {
@@ -69,7 +72,7 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     const column = decodeColumnType(typeCode);
 
     if (!column) {
-        throw new Error(`Unsupported column type code: ${typeCode}`);
+        throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
     }
 
     if (columnTypeHasName(typeCode)) {
