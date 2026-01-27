@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-
 import io.tileverse.pmtiles.PMTilesHeader;
 import io.tileverse.pmtiles.PMTilesReader;
 import io.tileverse.pmtiles.PMTilesWriter;
@@ -869,7 +868,6 @@ public class Encode {
 
       final var header = reader.getHeader();
 
-
       if (header.tileType() != PMTilesHeader.TILETYPE_MVT) {
         System.err.printf(
             "ERROR: Input PMTiles tile type is %d, expected %d (MVT)%n",
@@ -894,10 +892,10 @@ public class Encode {
                         "Compression type not supported: " + compressionType);
               };
 
-        final int actualMinZoom = Math.max(header.minZoom(), minZoom);
-        final int actualMaxZoom = Math.min(header.maxZoom(), maxZoom);
+      final int actualMinZoom = Math.max(header.minZoom(), minZoom);
+      final int actualMaxZoom = Math.min(header.maxZoom(), maxZoom);
 
-        // `getMetadata` drops values it doesn't understand, like "format".
+      // `getMetadata` drops values it doesn't understand, like "format".
       // `PMTilesWriter` doesn't accept a `PMTilesMetadata` anyway.
       var metadataStr = reader.getMetadataAsString();
       try {
@@ -996,7 +994,7 @@ public class Encode {
                       System.err.printf("  Converted tile is empty, skipping%n");
                     }
                   } catch (IOException ex) {
-                      // Exceptions within a `forEach` don't propagate, log it and continue.
+                    // Exceptions within a `forEach` don't propagate, log it and continue.
                     System.err.printf("Failed to get tile '%s': %s%n", tileIndex, ex.getMessage());
                     if (verboseLevel > 1) {
                       ex.printStackTrace(System.err);
@@ -2006,9 +2004,9 @@ Add an explicit column mapping on the specified layers:
   }
 
   // Not yet available in `io.tileverse.pmtiles.PMTilesHeader`
-    private static final byte PMT_MLT_TILE_TYPE = 6;
+  private static final byte PMT_MLT_TILE_TYPE = 6;
 
-    private static long totalCompressedInput = 0;
+  private static long totalCompressedInput = 0;
   private static long totalCompressedOutput = 0;
 
   private static final String MetadataMIMEType = "application/vnd.maplibre-vector-tile";
