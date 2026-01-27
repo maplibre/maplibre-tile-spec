@@ -113,11 +113,13 @@ describe("embeddedTilesetMetadataDecoder", () => {
                 expect(field.complexField?.physicalType).toBe(ComplexType.STRUCT);
                 expect(field.complexField?.children).toHaveLength(children.length);
 
-                children.forEach((child, i) => {
+                for (let i = 0; i < children.length; i++) {
+                    const child = children[i];
+
                     expect(field.complexField?.children[i].name).toBe(child.name);
                     expect(field.complexField?.children[i].nullable).toBe(child.nullable);
                     expect(field.complexField?.children[i].scalarField?.physicalType).toBe(child.physicalType);
-                });
+                }
             });
         });
 
@@ -159,10 +161,12 @@ describe("embeddedTilesetMetadataDecoder", () => {
                 expect(coordinates?.name).toBe("coordinates");
                 expect(coordinates?.complexField?.children).toHaveLength(leafChildren.length);
 
-                leafChildren.forEach((child, i) => {
+                for (let i = 0; i < leafChildren.length; i++) {
+                    const child = leafChildren[i];
+
                     expect(coordinates?.complexField?.children[i].name).toBe(child.name);
                     expect(coordinates?.complexField?.children[i].scalarField?.physicalType).toBe(ScalarType.FLOAT);
-                });
+                }
             });
         });
 
