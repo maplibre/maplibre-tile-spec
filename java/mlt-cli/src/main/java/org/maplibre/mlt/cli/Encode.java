@@ -248,7 +248,11 @@ public class Encode {
       if (!ext.isEmpty()) {
         ext = "." + ext;
       }
-      var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext).toAbsolutePath();
+      var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
+      if (outputPath == null) {
+        return;
+      }
+      outputPath = outputPath.toAbsolutePath();
       encodePMTiles(
           URI.create(inputPath),
           outputPath,
@@ -1445,6 +1449,17 @@ public class Encode {
     return diff;
   }
 
+  private static boolean validateCompression(CommandLine cmd) {
+    final var allowed =
+        new HashSet<>(
+            Arrays.asList(COMPRESS_OPTION_GZIP, COMPRESS_OPTION_DEFLATE, COMPRESS_OPTION_NONE));
+    if (cmd.hasOption(INPUT_PMTILES_ARG)) {
+      allowed.add(COMPRESS_OPTION_BROTLI);
+      allowed.add(COMPRESS_OPTION_ZSTD);
+    }
+    return allowed.contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE));
+  }
+
   private static final String INPUT_TILE_ARG = "mvt";
   private static final String INPUT_MBTILES_ARG = "mbtiles";
   private static final String INPUT_OFFLINEDB_ARG = "offlinedb";
@@ -1484,6 +1499,8 @@ public class Encode {
   private static final String COMPRESS_OPTION_DEFLATE = "deflate";
   private static final String COMPRESS_OPTION_GZIP = "gzip";
   private static final String COMPRESS_OPTION_NONE = "none";
+  private static final String COMPRESS_OPTION_BROTLI = "brotli";
+  private static final String COMPRESS_OPTION_ZSTD = "zstd";
   private static final String DUMP_STREAMS_OPTION = "rawstreams";
   private static final String VERBOSE_OPTION = "verbose";
   private static final String HELP_OPTION = "help";
@@ -1977,9 +1994,7 @@ Add an explicit column mapping on the specified layers:
                 + "' and '--"
                 + OUTPUT_DIR_ARG
                 + "' options.");
-      } else if (!new HashSet<>(
-              Arrays.asList(COMPRESS_OPTION_GZIP, COMPRESS_OPTION_DEFLATE, COMPRESS_OPTION_NONE))
-          .contains(cmd.getOptionValue(COMPRESS_OPTION, COMPRESS_OPTION_NONE))) {
+      } else if (!validateCompression(cmd)) {
         System.err.println("Invalid compression type.");
       } else {
         return cmd;
