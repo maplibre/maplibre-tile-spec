@@ -2,10 +2,8 @@ name: C++ CI
 
 on:
   push:
-    paths:
-      - '.github/**'
-      - 'cpp/**'
-      - 'test/**'
+    branches:
+      - main
   pull_request:
     paths:
       - '.github/**'
