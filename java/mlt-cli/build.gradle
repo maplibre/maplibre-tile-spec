@@ -1,13 +1,14 @@
 plugins {
     id 'java-library'
-    id('com.diffplug.spotless') version '8.1.0'
+    id('com.diffplug.spotless') version '8.2.0'
     id 'jacoco'
+    id 'com.gradleup.shadow' version '9.3.1'
 }
 
 repositories {
     mavenCentral()
     maven {
-        url 'https://maven.ecc.no/releases'
+        url = 'https://maven.ecc.no/releases'
     }
 }
 
@@ -44,7 +45,7 @@ test {
         outputs.upToDateWhen { false }
         showStandardStreams = true
         events "passed", "skipped", "failed"
-        exceptionFormat "full"
+        exceptionFormat = "full"
     }
     finalizedBy jacocoTestReport
 }
@@ -64,12 +65,19 @@ java {
 }
 
 spotless {
+    groovy {
+        target 'build.gradle'
+        indentWithSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+
+    }
     java {
         importOrder()
         target 'src/*/java/**/*.java'
         googleJavaFormat()
         removeUnusedImports()
-     }
+    }
 }
 
 gradle.projectsEvaluated {
@@ -88,15 +96,22 @@ tasks.withType(Test).configureEach {
 
 // Create CLI JARs
 ["encode", "decode"].each { name ->
-    task "$name"(type: Jar, dependsOn: [compileJava, ':mlt-core:jar']) {
+    task "$name"(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar, dependsOn: [compileJava, ':mlt-core:jar']) {
         archiveFileName = name + ".jar"
         archiveClassifier = "cli"
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } } {
-            // Filter dependency JAR signatures to prevent
-            //  `SecurityException: Invalid signature file digest for Manifest main attributes`
-            exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+        configurations = project.configurations.named('runtimeClasspath').map { [it] }
+
+        // Filter out dependency JAR signatures to prevent `SecurityException: Invalid signature file digest for Manifest main attributes`
+        exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+
+        // Tileverse relies on the contents of META-INF/services to register service providers.
+        // By default, these are ignored when building a fat JAR, so we need to merge them.
+        filesMatching('META-INF/services/**') {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
         }
+        mergeServiceFiles()
+
         manifest.from jar.manifest
         with jar
     }
