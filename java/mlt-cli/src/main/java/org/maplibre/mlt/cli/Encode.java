@@ -9,6 +9,7 @@ import io.tileverse.pmtiles.PMTilesReader;
 import io.tileverse.pmtiles.PMTilesWriter;
 import io.tileverse.rangereader.RangeReaderFactory;
 import io.tileverse.rangereader.cache.CachingRangeReader;
+import io.tileverse.tiling.pyramid.TileIndex;
 import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -59,7 +61,6 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
-import org.apache.commons.lang3.mutable.MutableInt;
 import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
@@ -141,8 +142,10 @@ public class Encode {
     final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
     final var columnMappings = getColumnMappings(cmd);
-    final var minZoom = cmd.getParsedOptionValue(MIN_ZOOM_OPTION, 0);
-    final var maxZoom = cmd.getParsedOptionValue(MAX_ZOOM_OPTION, Integer.MAX_VALUE);
+    final var minZoom = cmd.getParsedOptionValue(MIN_ZOOM_OPTION, 0L).intValue();
+    final var maxZoom =
+        cmd.getParsedOptionValue(MAX_ZOOM_OPTION, (long) Integer.MAX_VALUE).intValue();
+    final var parallel = cmd.hasOption(PARALLEL_OPTION);
 
     if (verbose > 0 && !columnMappings.isEmpty()) {
       System.err.println("Using Column Mappings:");
@@ -266,6 +269,7 @@ public class Encode {
           minZoom,
           maxZoom,
           enableElideOnTypeMismatch,
+          parallel,
           verbose);
     }
 
@@ -853,6 +857,7 @@ public class Encode {
       int minZoom,
       int maxZoom,
       boolean enableCoerceOrElideMismatch,
+      boolean parallel,
       int verboseLevel)
       throws IOException {
 
@@ -923,33 +928,65 @@ public class Encode {
               .tileCompression(targetCompressType)
               .tileType(PMT_MLT_TILE_TYPE)
               .bounds(header.minLon(), header.minLat(), header.maxLon(), header.maxLat())
+              .internalCompression(reader.getHeader().internalCompression())
               .build()) {
+
         if (verboseLevel > 1) {
           System.err.printf("Opened '%s'%n", outputPath);
         }
 
         writer.setMetadata(metadataStr);
 
-        var lastZ = new MutableInt(-1);
+        final var writerLock = new Object();
+        final var zoomsStream =
+            IntStream.rangeClosed(actualMinZoom, actualMaxZoom).mapToObj(Integer::valueOf);
+
+        if (verboseLevel > 0) {
+          System.err.printf(
+              "Collecting tile indices for zoom %d - %d...%n", actualMinZoom, actualMaxZoom);
+        }
+        final List<TileIndex> allTileIDs =
+            (parallel ? zoomsStream.parallel() : zoomsStream)
+                .flatMap(
+                    zoom -> {
+                      var indices = reader.getTileIndicesByZoomLevel(zoom);
+                      if (verboseLevel > 1) {
+                        final var list = indices.toList();
+                        indices = list.stream();
+                        final var totalTiles = 1L << (zoom * 2);
+                        System.err.printf(
+                            "  Zoom %d : %d / %d tiles (%.1f%%)%n",
+                            zoom, list.size(), totalTiles, 100.0 * list.size() / totalTiles);
+                      }
+                      return indices;
+                    })
+                .toList();
+
+        final var tilesProcessed = new AtomicInteger(0);
 
         // Process each tile in each relevant zoom level
-        IntStream.rangeClosed(actualMinZoom, actualMaxZoom)
-            .mapToObj(Integer::valueOf)
-            .flatMap(reader::getTileIndicesByZoomLevel)
+        (parallel ? allTileIDs.stream().parallel() : allTileIDs.stream())
             .forEach(
                 tileIndex -> {
+                  final var tileLabel =
+                      String.format("%d:%d,%d", tileIndex.z(), tileIndex.x(), tileIndex.y());
+
                   try {
-                    if (verboseLevel > 0) {
-                      System.err.printf("  %s%n", tileIndex);
-                    } else if (tileIndex.z() != lastZ.intValue()) {
-                      lastZ.setValue(tileIndex.z());
-                      System.err.printf("Processing Zoom %d%n", tileIndex.z());
+                    if (verboseLevel == 0) {
+                      final var tileCount = tilesProcessed.incrementAndGet();
+                      final var progress = 100.0 * tileCount / allTileIDs.size();
+                      if ((int) (progress * 1000.0) != (int) ((progress - 1) * 1000.0)) {
+                        if (tileCount == 1) {
+                          System.err.println();
+                        }
+                        System.err.printf("\rProcessing tiles: %.1f%%    ", progress);
+                      }
                     }
 
                     final var maybeTile = reader.getTile(tileIndex);
                     if (!maybeTile.isPresent()) {
                       if (verboseLevel > 1) {
-                        System.err.printf("  No tile data present '%s'%n", tileIndex);
+                        System.err.printf("%s :  No tile data present%n", tileLabel);
                       }
                       return;
                     }
@@ -959,7 +996,9 @@ public class Encode {
                           tileBuffer.hasRemaining()
                               ? String.format("%d bytes", tileBuffer.remaining())
                               : "unknown size";
-                      System.err.printf("  Tile Loaded (%s)%n", info);
+                      System.err.printf("%s : Loaded (%s)%n", tileLabel, info);
+                    } else if (verboseLevel > 0) {
+                      System.err.printf("%s%n", tileLabel);
                     }
 
                     final byte[] mvtData;
@@ -989,20 +1028,52 @@ public class Encode {
                             verboseLevel);
 
                     if (mltData != null && mltData.length > 0) {
-                      writer.addTile(tileIndex, mltData);
+                      synchronized (writerLock) {
+                        writer.addTile(tileIndex, mltData);
+                      }
                     } else if (verboseLevel > 1) {
                       System.err.printf("  Converted tile is empty, skipping%n");
                     }
                   } catch (IOException ex) {
                     // Exceptions within a `forEach` don't propagate, log it and continue.
-                    System.err.printf("Failed to get tile '%s': %s%n", tileIndex, ex.getMessage());
+                    System.err.printf("Failed to get tile '%s': %s%n", tileLabel, ex.getMessage());
                     if (verboseLevel > 1) {
                       ex.printStackTrace(System.err);
                     }
                   }
                 });
 
+        if (verboseLevel > 0) {
+          var writerListener =
+              new PMTilesWriter.ProgressListener() {
+                private String lastProgress = "";
+
+                @Override
+                public void onProgress(double progress) {
+                  final var progressStr = String.format("%.1f", 100 * progress);
+                  if (!progressStr.equals(lastProgress)) {
+                    lastProgress = progressStr;
+                    System.err.printf("\rWriting PMTiles : %s%%    ", progressStr);
+                  }
+                }
+
+                @Override
+                public boolean isCancelled() {
+                  return false;
+                }
+              };
+          writer.setProgressListener(writerListener);
+        } else {
+          System.err.printf("\rProcessing tiles: 100%%  %nWriting PMTiles...%n");
+        }
+
+        // actually write the file
         writer.complete();
+
+        if (verboseLevel > 0) {
+          System.err.println("");
+        }
+
       } catch (IOException ex) {
         System.err.println("ERROR: PMTiles conversion failed: " + ex.getMessage());
         if (verboseLevel > 1) {
@@ -1498,6 +1569,7 @@ public class Encode {
   private static final String COMPRESS_OPTION_BROTLI = "brotli";
   private static final String COMPRESS_OPTION_ZSTD = "zstd";
   private static final String DUMP_STREAMS_OPTION = "rawstreams";
+  private static final String PARALLEL_OPTION = "parallel";
   private static final String VERBOSE_OPTION = "verbose";
   private static final String HELP_OPTION = "help";
   private static final String SERVER_ARG = "server";
@@ -1911,6 +1983,14 @@ Add an explicit column mapping on the specified layers:
               .desc(
                   "Compress tile data with one of 'deflate', 'gzip'. "
                       + "Only applies to MBTiles and offline databases.")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .option("j")
+              .longOpt(PARALLEL_OPTION)
+              .hasArg(false)
+              .desc("Enable parallel encoding of tiles.  Only applies to PMTiles.")
               .required(false)
               .get());
       options.addOption(
