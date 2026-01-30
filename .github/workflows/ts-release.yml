@@ -37,8 +37,6 @@ jobs:
     defaults:
       run:
         working-directory: ts
-    permissions:
-      contents: write         # allow making a release
     steps:
       - uses: actions/checkout@v6
 
