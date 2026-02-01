@@ -145,7 +145,7 @@ if(MLT_WITH_FASTPFOR)
     set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
 
     add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
-    
+
     # Disable warnings-as-errors for FastPFOR to prevent compilation failures from its warnings
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(FastPFOR PRIVATE -Wno-error=conversion -Wno-error=effc++)
