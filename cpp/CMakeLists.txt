@@ -146,12 +146,8 @@ if(MLT_WITH_FASTPFOR)
 
     add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
 
-    # Disable warnings-as-errors for FastPFOR to prevent compilation failures from its warnings
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(FastPFOR PRIVATE -Wno-error=conversion -Wno-error=effc++)
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-        target_compile_options(FastPFOR PRIVATE -Wshorten-64-to-32 -Wno-error=shorten-64-to-32 -Wno-error=conversion)
-    endif()
+    # Disable all warnings for FastPFOR
+    target_compile_options(FastPFOR PRIVATE -w)
 
     target_link_libraries(mlt-cpp FastPFOR)
     target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
