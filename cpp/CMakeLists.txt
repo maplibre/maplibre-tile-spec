@@ -147,7 +147,11 @@ if(MLT_WITH_FASTPFOR)
     add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
 
     # Disable all warnings for FastPFOR
-    target_compile_options(FastPFOR PRIVATE -w)
+    if(MSVC)
+        target_compile_options(FastPFOR PRIVATE /w)
+    else()
+        target_compile_options(FastPFOR PRIVATE -w)
+    endif()
 
     target_link_libraries(mlt-cpp FastPFOR)
     target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
