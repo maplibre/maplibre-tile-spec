@@ -34,6 +34,15 @@ import {
 } from "./fastPforUnpack";
 
 /**
+ * FastPFOR decoding implementation.
+ *
+ * @remarks
+ * Terminology note: "exceptions" in FastPFOR refer to **outlier values** within a block that do not fit in the
+ * chosen base bit-width for that block. These are stored in separate "exception streams" and later applied back
+ * to the unpacked base values. This is unrelated to JavaScript/TypeScript runtime exceptions.
+ */
+
+/**
  * Workspace for the FastPFOR decoder.
  */
 export type FastPforDecoderWorkspace = {
@@ -60,7 +69,11 @@ export function createDecoderWorkspace(): FastPforDecoderWorkspace {
         dataToBePacked: new Array(BIT_WIDTH_SLOTS),
         dataPointers: new Int32Array(BIT_WIDTH_SLOTS),
         byteContainer,
-        byteContainerI32: new Int32Array(byteContainer.buffer, byteContainer.byteOffset, byteContainer.byteLength >>> 2),
+        byteContainerI32: new Int32Array(
+            byteContainer.buffer,
+            byteContainer.byteOffset,
+            byteContainer.byteLength >>> 2,
+        ),
         exceptionSizes: new Int32Array(BIT_WIDTH_SLOTS),
     };
 }
@@ -118,53 +131,77 @@ function materializeByteContainer(
     return byteContainer;
 }
 
-function unpackExceptionStreams(
-    inValues: Int32Array,
-    inExcept: number,
-    workspace: FastPforDecoderWorkspace,
-): number {
+/**
+ * Unpacks the per-bitWidth "exception streams" described by the page's bitmap.
+ *
+ * @remarks
+ * For each bit-width present in the bitmap, a stream header gives the count of outlier values for that
+ * bit-width, followed by packed bits representing those values.
+ *
+ * @param inValues - Packed input (32-bit words).
+ * @param inExcept - Offset (32-bit word index) where the exception bitmap starts.
+ * @param workspace - Decoder workspace used to store the unpacked exception streams.
+ * @returns The new input offset (32-bit word index) after consuming all exception streams.
+ */
+function unpackExceptionStreams(inValues: Int32Array, inExcept: number, workspace: FastPforDecoderWorkspace): number {
     const bitmap = inValues[inExcept++] | 0;
     const dataToBePacked = workspace.dataToBePacked;
 
     for (let bitWidth = 2; bitWidth <= MAX_BIT_WIDTH; bitWidth = (bitWidth + 1) | 0) {
-        if (((bitmap >>> (bitWidth - 1)) & 1) !== 0) {
-            if (inExcept >= inValues.length) {
-                throw new Error(
-                    `FastPFOR decode: truncated exception stream header (bitWidth=${bitWidth}, needWords=1, availableWords=${inValues.length - inExcept})`,
-                );
-            }
-            const size = inValues[inExcept++] >>> 0;
-            const roundedUp = roundUpToMultipleOf32(size);
+        if (((bitmap >>> (bitWidth - 1)) & 1) === 0) continue;
 
-            const wordsNeeded = ((size * bitWidth) + 31) >>> 5;
-            if (inExcept + wordsNeeded > inValues.length) {
-                throw new Error(
-                    `FastPFOR decode: truncated exception stream (bitWidth=${bitWidth}, size=${size}, needWords=${wordsNeeded}, availableWords=${inValues.length - inExcept})`,
-                );
-            }
-
-            let exceptionStream = dataToBePacked[bitWidth];
-            if (!exceptionStream || exceptionStream.length < roundedUp) {
-                exceptionStream = dataToBePacked[bitWidth] = new Int32Array(roundedUp);
-            }
-
-            let j = 0;
-            for (; j < size; j = (j + 32) | 0) {
-                fastUnpack32(inValues, inExcept, exceptionStream, j, bitWidth);
-                inExcept = (inExcept + bitWidth) | 0;
-            }
-
-            const overflow = (j - size) | 0;
-            inExcept = (inExcept - ((overflow * bitWidth) >>> 5)) | 0;
-
-            workspace.exceptionSizes[bitWidth] = size;
+        if (inExcept >= inValues.length) {
+            throw new Error(
+                `FastPFOR decode: truncated exception stream header (bitWidth=${bitWidth}, needWords=1, availableWords=${inValues.length - inExcept})`,
+            );
         }
+        const size = inValues[inExcept++] >>> 0;
+        const roundedUp = roundUpToMultipleOf32(size);
+
+        const wordsNeeded = (size * bitWidth + 31) >>> 5;
+        if (inExcept + wordsNeeded > inValues.length) {
+            throw new Error(
+                `FastPFOR decode: truncated exception stream (bitWidth=${bitWidth}, size=${size}, needWords=${wordsNeeded}, availableWords=${inValues.length - inExcept})`,
+            );
+        }
+
+        let exceptionStream = dataToBePacked[bitWidth];
+        if (!exceptionStream || exceptionStream.length < roundedUp) {
+            exceptionStream = dataToBePacked[bitWidth] = new Int32Array(roundedUp);
+        }
+
+        let j = 0;
+        for (; j < size; j = (j + 32) | 0) {
+            fastUnpack32(inValues, inExcept, exceptionStream, j, bitWidth);
+            inExcept = (inExcept + bitWidth) | 0;
+        }
+
+        const overflow = (j - size) | 0;
+        inExcept = (inExcept - ((overflow * bitWidth) >>> 5)) | 0;
+
+        workspace.exceptionSizes[bitWidth] = size;
     }
 
     return inExcept;
 }
 
-function unpackBlock256(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number, bitWidth: number): number {
+/**
+ * Unpacks one 256-value block from the packed bitstream using a specialized implementation for common widths.
+ *
+ * @param inValues - Packed input (32-bit words).
+ * @param inPos - Input offset (32-bit word index) where the packed block starts.
+ * @param out - Output buffer.
+ * @param outPos - Output offset where the 256 values will be written.
+ * @param bitWidth - Base bit-width used for this block.
+ * @returns The new input offset (32-bit word index) right after the packed block data.
+ */
+function unpackBlock256(
+    inValues: Int32Array,
+    inPos: number,
+    out: Int32Array,
+    outPos: number,
+    bitWidth: number,
+): number {
     switch (bitWidth) {
         case 1:
             fastUnpack256_1(inValues, inPos, out, outPos);
@@ -201,17 +238,71 @@ function unpackBlock256(inValues: Int32Array, inPos: number, out: Int32Array, ou
     return (inPos + (bitWidth << 3)) | 0;
 }
 
-function applyBlockExceptions(
-    out: Int32Array,
-    blockOutPos: number,
-    bitWidth: number,
-    exceptionCount: number,
+/**
+ * Reads and validates the 2-byte block header from the byteContainer.
+ *
+ * @remarks
+ * The header is `[bitWidth, exceptionCount]`, both stored as single bytes.
+ *
+ * @param byteContainer - Byte metadata buffer for the page.
+ * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
+ * @param bytePosIn - Current offset in `byteContainer`.
+ * @param block - Block index within the page (for error messages).
+ * @returns The parsed header and the updated `bytePosIn`.
+ */
+function readBlockHeader(
     byteContainer: Uint8Array,
     byteContainerLen: number,
     bytePosIn: number,
-    workspace: FastPforDecoderWorkspace,
     block: number,
-): number {
+): { bitWidth: number; exceptionCount: number; bytePosIn: number } {
+    if (bytePosIn + 2 > byteContainerLen) {
+        throw new Error(
+            `FastPFOR decode: byteContainer underflow at block=${block} (need 2 bytes for [bitWidth, exceptionCount], bytePos=${bytePosIn}, byteSize=${byteContainerLen})`,
+        );
+    }
+
+    const bitWidth = byteContainer[bytePosIn++];
+    const exceptionCount = byteContainer[bytePosIn++];
+
+    if (bitWidth > MAX_BIT_WIDTH) {
+        throw new Error(
+            `FastPFOR decode: invalid bitWidth=${bitWidth} at block=${block} (expected 0..${MAX_BIT_WIDTH}). This likely indicates corrupted or truncated input.`,
+        );
+    }
+
+    if (exceptionCount > BLOCK_SIZE) {
+        throw new Error(
+            `FastPFOR decode: invalid exceptionCount=${exceptionCount} at block=${block} (expected 0..${BLOCK_SIZE})`,
+        );
+    }
+
+    return { bitWidth, exceptionCount, bytePosIn };
+}
+
+/**
+ * Reads and validates the exception header for a block.
+ *
+ * @remarks
+ * The header contains `maxBits` (1 byte), which defines the width of the outlier values as
+ * `exceptionBitWidth = maxBits - bitWidth`.
+ *
+ * @param byteContainer - Byte metadata buffer for the page.
+ * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
+ * @param bytePosIn - Current offset in `byteContainer`.
+ * @param bitWidth - Base bit-width for the block.
+ * @param exceptionCount - Number of exceptions/outliers in this block.
+ * @param block - Block index within the page (for error messages).
+ * @returns Parsed `maxBits`, `exceptionBitWidth`, and the updated `bytePosIn`.
+ */
+function readBlockExceptionHeader(
+    byteContainer: Uint8Array,
+    byteContainerLen: number,
+    bytePosIn: number,
+    bitWidth: number,
+    exceptionCount: number,
+    block: number,
+): { maxBits: number; exceptionBitWidth: number; bytePosIn: number } {
     if (bytePosIn + 1 > byteContainerLen) {
         throw new Error(
             `FastPFOR decode: exception header underflow at block=${block} (need 1 byte for maxBits, bytePos=${bytePosIn}, byteSize=${byteContainerLen})`,
@@ -237,12 +328,56 @@ function applyBlockExceptions(
         );
     }
 
+    return { maxBits, exceptionBitWidth, bytePosIn };
+}
+
+/**
+ * Applies (block-local) FastPFOR "exceptions" (outliers) to an already-unpacked base 256-value block.
+ *
+ * @param out - Output buffer containing the base unpacked values for the block.
+ * @param blockOutPos - Offset in `out` where the 256-value block starts.
+ * @param bitWidth - Base bit-width for the block.
+ * @param exceptionCount - Number of exceptions/outliers in this block.
+ * @param byteContainer - Byte metadata buffer for the page.
+ * @param byteContainerLen - The valid byte length in `byteContainer` for this page.
+ * @param bytePosIn - Current offset in `byteContainer` (right after `[bitWidth, exceptionCount]`).
+ * @param workspace - Decoder workspace holding the unpacked exception streams.
+ * @param block - Block index within the page (for error messages).
+ * @returns The updated `bytePosIn` after consuming the exception metadata bytes.
+ *
+ * The exception metadata is stored in `byteContainer`:
+ * - `maxBits` (1 byte): the maximum bit-width of any value in the block
+ * - `exceptionCount` exception positions (1 byte each, 0..255)
+ *
+ * The exception values themselves are read from the pre-unpacked exception streams stored in `workspace`.
+ * Returns the new position in the byteContainer after consuming the exception metadata bytes.
+ */
+function applyBlockExceptions(
+    out: Int32Array,
+    blockOutPos: number,
+    bitWidth: number,
+    exceptionCount: number,
+    byteContainer: Uint8Array,
+    byteContainerLen: number,
+    bytePosIn: number,
+    workspace: FastPforDecoderWorkspace,
+    block: number,
+): number {
+    const {
+        maxBits,
+        exceptionBitWidth,
+        bytePosIn: afterHeaderPos,
+    } = readBlockExceptionHeader(byteContainer, byteContainerLen, bytePosIn, bitWidth, exceptionCount, block);
+    bytePosIn = afterHeaderPos;
+
     if (exceptionBitWidth === 1) {
         const shift = 1 << bitWidth;
         for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
             const pos = byteContainer[bytePosIn++];
             if (pos >= BLOCK_SIZE) {
-                throw new Error(`FastPFOR decode: invalid exception pos=${pos} at block=${block} (expected 0..${BLOCK_SIZE - 1})`);
+                throw new Error(
+                    `FastPFOR decode: invalid exception pos=${pos} at block=${block} (expected 0..${BLOCK_SIZE - 1})`,
+                );
             }
             out[(pos + blockOutPos) | 0] |= shift;
         }
@@ -269,7 +404,9 @@ function applyBlockExceptions(
     for (let k = 0; k < exceptionCount; k = (k + 1) | 0) {
         const pos = byteContainer[bytePosIn++];
         if (pos >= BLOCK_SIZE) {
-            throw new Error(`FastPFOR decode: invalid exception pos=${pos} at block=${block} (expected 0..${BLOCK_SIZE - 1})`);
+            throw new Error(
+                `FastPFOR decode: invalid exception pos=${pos} at block=${block} (expected 0..${BLOCK_SIZE - 1})`,
+            );
         }
         const val = exceptionValues[exPtr++] | 0;
         out[(pos + blockOutPos) | 0] |= val << bitWidth;
@@ -294,28 +431,12 @@ function decodePageBlocks(
     let bytePosIn = 0;
 
     for (let run = 0; run < blocks; run = (run + 1) | 0) {
-        if (bytePosIn + 2 > byteContainerLen) {
-            throw new Error(
-                `FastPFOR decode: byteContainer underflow at block=${run} (need 2 bytes for [bitWidth, exceptionCount], bytePos=${bytePosIn}, byteSize=${byteContainerLen})`,
-            );
-        }
+        const header = readBlockHeader(byteContainer, byteContainerLen, bytePosIn, run);
+        bytePosIn = header.bytePosIn;
+        const bitWidth = header.bitWidth;
+        const exceptionCount = header.exceptionCount;
 
-        const bitWidth = byteContainer[bytePosIn++];
-        const exceptionCount = byteContainer[bytePosIn++];
-
-        if (bitWidth > MAX_BIT_WIDTH) {
-            throw new Error(
-                `FastPFOR decode: invalid bitWidth=${bitWidth} at block=${run} (expected 0..${MAX_BIT_WIDTH}). This likely indicates corrupted or truncated input.`,
-            );
-        }
-
-        if (exceptionCount > BLOCK_SIZE) {
-            throw new Error(
-                `FastPFOR decode: invalid exceptionCount=${exceptionCount} at block=${run} (expected 0..${BLOCK_SIZE})`,
-            );
-        }
-
-        const blockOutPos = (outPos + (run * BLOCK_SIZE)) | 0;
+        const blockOutPos = (outPos + run * BLOCK_SIZE) | 0;
 
         switch (bitWidth) {
             case 0:
@@ -504,7 +625,11 @@ function decodeVByte(
  * @param numValues The number of integers expected to be decoded.
  * @param workspace Optional workspace for reuse across calls. If omitted, a new workspace is created per call.
  */
-export function decodeFastPforInt32(encoded: Int32Buf, numValues: number, workspace?: FastPforDecoderWorkspace): Int32Array {
+export function decodeFastPforInt32(
+    encoded: Int32Buf,
+    numValues: number,
+    workspace?: FastPforDecoderWorkspace,
+): Int32Array {
     let inPos = 0;
     let outPos = 0;
     const decoded = new Int32Array(numValues);
@@ -516,7 +641,9 @@ export function decodeFastPforInt32(encoded: Int32Buf, numValues: number, worksp
         inPos = (inPos + 1) | 0;
 
         if (alignedLength < 0 || (alignedLength & (BLOCK_SIZE - 1)) !== 0) {
-            throw new Error(`FastPFOR decode: invalid alignedLength=${alignedLength} (expected >= 0 and multiple of ${BLOCK_SIZE})`);
+            throw new Error(
+                `FastPFOR decode: invalid alignedLength=${alignedLength} (expected >= 0 and multiple of ${BLOCK_SIZE})`,
+            );
         }
 
         if (outPos + alignedLength > decoded.length) {
@@ -543,18 +670,42 @@ export function decodeFastPforInt32(encoded: Int32Buf, numValues: number, worksp
 
 function fastUnpack32(inValues: Int32Array, inPos: number, out: Int32Array, outPos: number, bitWidth: number): void {
     switch (bitWidth) {
-        case 2: fastUnpack32_2(inValues, inPos, out, outPos); return;
-        case 3: fastUnpack32_3(inValues, inPos, out, outPos); return;
-        case 4: fastUnpack32_4(inValues, inPos, out, outPos); return;
-        case 5: fastUnpack32_5(inValues, inPos, out, outPos); return;
-        case 6: fastUnpack32_6(inValues, inPos, out, outPos); return;
-        case 7: fastUnpack32_7(inValues, inPos, out, outPos); return;
-        case 8: fastUnpack32_8(inValues, inPos, out, outPos); return;
-        case 9: fastUnpack32_9(inValues, inPos, out, outPos); return;
-        case 10: fastUnpack32_10(inValues, inPos, out, outPos); return;
-        case 11: fastUnpack32_11(inValues, inPos, out, outPos); return;
-        case 12: fastUnpack32_12(inValues, inPos, out, outPos); return;
-        case 16: fastUnpack32_16(inValues, inPos, out, outPos); return;
+        case 2:
+            fastUnpack32_2(inValues, inPos, out, outPos);
+            return;
+        case 3:
+            fastUnpack32_3(inValues, inPos, out, outPos);
+            return;
+        case 4:
+            fastUnpack32_4(inValues, inPos, out, outPos);
+            return;
+        case 5:
+            fastUnpack32_5(inValues, inPos, out, outPos);
+            return;
+        case 6:
+            fastUnpack32_6(inValues, inPos, out, outPos);
+            return;
+        case 7:
+            fastUnpack32_7(inValues, inPos, out, outPos);
+            return;
+        case 8:
+            fastUnpack32_8(inValues, inPos, out, outPos);
+            return;
+        case 9:
+            fastUnpack32_9(inValues, inPos, out, outPos);
+            return;
+        case 10:
+            fastUnpack32_10(inValues, inPos, out, outPos);
+            return;
+        case 11:
+            fastUnpack32_11(inValues, inPos, out, outPos);
+            return;
+        case 12:
+            fastUnpack32_12(inValues, inPos, out, outPos);
+            return;
+        case 16:
+            fastUnpack32_16(inValues, inPos, out, outPos);
+            return;
         case 32:
             for (let i = 0; i < 32; i = (i + 1) | 0) {
                 out[(outPos + i) | 0] = inValues[(inPos + i) | 0] | 0;
