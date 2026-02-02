@@ -135,31 +135,7 @@ target_sources(mlt-cpp PRIVATE
 # SIMD Everywhere (needed on ARM)
 target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
-if(MLT_WITH_FASTPFOR)
-    message(STATUS "[MLT] Including FastPFOR support")
-
-    # FastPFor
-    set(FASTPFOR_WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
-
-    # SUPPORT_NEON results in trying to link simde (`-lsimde`) but it's a header-only library
-    set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
-
-    add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
-
-    # Disable all warnings for FastPFOR
-    if(MSVC)
-        target_compile_options(FastPFOR PRIVATE /w)
-    else()
-        target_compile_options(FastPFOR PRIVATE -w)
-    endif()
-
-    target_link_libraries(mlt-cpp FastPFOR)
-    target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
-    target_compile_definitions(mlt-cpp PUBLIC MLT_ENABLE_FASTPFOR=1)
-    list(APPEND MLT_EXPORT_TARGETS FastPFOR)
-else()
-    message(STATUS "[MLT] No FastPFOR support")
-endif(MLT_WITH_FASTPFOR)
+include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 
 # json
 if(MLT_WITH_JSON)
