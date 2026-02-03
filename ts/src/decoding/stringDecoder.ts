@@ -233,9 +233,11 @@ export function decodeSharedDictionary(
             continue;
         }
 
-        const columnName = `${column.name}${
-            childField.name === ROOT_COLUMN_NAME ? "" : NESTED_COLUMN_SEPARATOR + childField.name
-        }`;
+        const columnName = childField.name === ROOT_COLUMN_NAME || !childField.name
+            ? column.name
+            : childField.name.startsWith(NESTED_COLUMN_SEPARATOR)
+              ? `${column.name}${childField.name}`
+              : `${column.name}${NESTED_COLUMN_SEPARATOR}${childField.name}`;
         if (propertyColumnNames) {
             if (!propertyColumnNames.has(columnName)) {
                 //TODO: add size of sub column to Mlt for faster skipping

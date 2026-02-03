@@ -127,7 +127,7 @@ export default function decodeTile(
                 const hasStreamCnt = hasStreamCount(columnMetadata);
                 const numStreams = hasStreamCnt ? decodeVarintInt32(tile, offset, 1)[0] : 1;
 
-                if (numStreams === 0 && columnMetadata.type === "scalarType") {
+                if (numStreams === 0) {
                     continue;
                 }
 
