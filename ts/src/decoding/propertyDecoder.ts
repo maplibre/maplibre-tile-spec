@@ -49,7 +49,7 @@ export function decodePropertyColumn(
         );
     }
 
-    if (numStreams != 1) {
+    if (numStreams === 0) {
         return null;
     }
 
