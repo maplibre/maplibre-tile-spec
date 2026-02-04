@@ -157,22 +157,8 @@ target_sources(mlt-cpp-encoder PRIVATE
 # SIMD Everywhere (decoder, needed on ARM)
 target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
-# FSST (Fast Static Symbol Table) — vendored from https://github.com/cwida/fsst (MIT)
-add_library(fsst-lib STATIC
-    "${PROJECT_SOURCE_DIR}/vendor/fsst/libfsst.cpp"
-    "${PROJECT_SOURCE_DIR}/vendor/fsst/fsst_avx512.cpp"
-)
-target_include_directories(fsst-lib PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
-set_target_properties(fsst-lib PROPERTIES CXX_STANDARD 17)
-target_compile_options(fsst-lib PRIVATE -w)
-
-# earcut (encoder, header-only tessellation)
-target_include_directories(mlt-cpp-encoder PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/earcut/include")
-
-# FSST and earcut are encoder-only
-target_link_libraries(mlt-cpp-encoder fsst-lib)
-target_include_directories(mlt-cpp-encoder PRIVATE "${PROJECT_SOURCE_DIR}/vendor/fsst")
-
+include("${PROJECT_SOURCE_DIR}/vendor/fsst.cmake")
+include("${PROJECT_SOURCE_DIR}/vendor/earcut.cmake")
 include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 
 # json
@@ -196,5 +182,5 @@ if(MLT_WITH_TOOLS)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
 endif(MLT_WITH_TOOLS)
 
-list(APPEND MLT_EXPORT_TARGETS mlt-cpp-encoder fsst-lib)
+list(APPEND MLT_EXPORT_TARGETS mlt-cpp-encoder)
 export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)
