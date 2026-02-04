@@ -13,7 +13,6 @@ import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 
-const ROOT_COLUMN_NAME = "default";
 
 export function decodeString(
     name: string,
@@ -232,9 +231,7 @@ export function decodeSharedDictionary(
             continue;
         }
 
-        const columnName = !childField.name || childField.name === ROOT_COLUMN_NAME
-            ? column.name
-            : `${column.name}${childField.name}`;
+        const columnName = childField.name ? `${column.name}${childField.name}` : column.name;
         if (propertyColumnNames) {
             if (!propertyColumnNames.has(columnName)) {
                 //TODO: add size of sub column to Mlt for faster skipping
