@@ -123,6 +123,7 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/fsst.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/zigzag.hpp
@@ -146,6 +147,17 @@ target_sources(mlt-cpp PRIVATE
 
 # SIMD Everywhere (needed on ARM)
 target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
+
+# FSST (Fast Static Symbol Table) — vendored from https://github.com/cwida/fsst (MIT)
+add_library(fsst-lib STATIC
+    "${PROJECT_SOURCE_DIR}/vendor/fsst/libfsst.cpp"
+    "${PROJECT_SOURCE_DIR}/vendor/fsst/fsst_avx512.cpp"
+)
+target_include_directories(fsst-lib PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
+set_target_properties(fsst-lib PROPERTIES CXX_STANDARD 17)
+target_compile_options(fsst-lib PRIVATE -w)
+target_link_libraries(mlt-cpp fsst-lib)
+target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/fsst")
 
 if(MLT_WITH_FASTPFOR)
     message(STATUS "[MLT] Including FastPFOR support")
@@ -190,4 +202,5 @@ if(MLT_WITH_TOOLS)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
 endif(MLT_WITH_TOOLS)
 
+list(APPEND MLT_EXPORT_TARGETS fsst-lib)
 export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)

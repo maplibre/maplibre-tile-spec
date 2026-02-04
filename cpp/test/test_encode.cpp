@@ -6,10 +6,13 @@
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/encoding/fsst.hpp>
 #include <mlt/util/encoding/varint.hpp>
 #include <mlt/util/encoding/zigzag.hpp>
 #include <mlt/util/varint.hpp>
 #include <mlt/util/zigzag.hpp>
+
+#include <mlt/decode/string.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -720,4 +723,99 @@ TEST(CrossValidate, JavaMultiPolygonBoolean) {
     EXPECT_EQ(mpoly.getPolygons().size(), 2u);
     EXPECT_EQ(mpoly.getPolygons()[0].size(), 1u); // first polygon: 1 ring
     EXPECT_EQ(mpoly.getPolygons()[1].size(), 2u); // second polygon: 2 rings (exterior + hole)
+}
+
+TEST(FSST, EncodeDecodeRoundtrip) {
+    std::string input = "AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC";
+    std::vector<std::uint8_t> data(input.begin(), input.end());
+
+    auto result = mlt::util::encoding::fsst::encode(data);
+
+    EXPECT_FALSE(result.symbols.empty());
+    EXPECT_FALSE(result.symbolLengths.empty());
+    EXPECT_FALSE(result.compressedData.empty());
+    EXPECT_EQ(result.decompressedLength, data.size());
+    EXPECT_LT(result.compressedData.size(), data.size());
+
+    auto decoded = mlt::decoder::StringDecoder::decodeFSST(
+        result.symbols, result.symbolLengths, result.compressedData, data.size());
+
+    EXPECT_EQ(decoded.size(), data.size());
+    EXPECT_EQ(0, memcmp(data.data(), decoded.data(), data.size()));
+}
+
+TEST(FSST, EncodeDecodeRealisticStrings) {
+    std::vector<std::string> strings;
+    for (int i = 0; i < 100; ++i) {
+        strings.push_back("residential");
+        strings.push_back("secondary");
+        strings.push_back("tertiary");
+        strings.push_back("primary");
+        strings.push_back("unclassified");
+        strings.push_back("service");
+        strings.push_back("footway");
+        strings.push_back("track");
+        strings.push_back("path");
+        strings.push_back("cycleway");
+    }
+
+    std::vector<std::uint8_t> joined;
+    for (const auto& s : strings) {
+        joined.insert(joined.end(), s.begin(), s.end());
+    }
+
+    auto result = mlt::util::encoding::fsst::encode(joined);
+
+    EXPECT_LT(result.compressedData.size(), joined.size());
+
+    auto decoded = mlt::decoder::StringDecoder::decodeFSST(
+        result.symbols, result.symbolLengths, result.compressedData, joined.size());
+
+    EXPECT_EQ(decoded.size(), joined.size());
+    EXPECT_EQ(0, memcmp(joined.data(), decoded.data(), joined.size()));
+}
+
+TEST(Encode, FsstStringRoundtrip) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "roads";
+    layer.extent = 4096;
+
+    std::vector<std::string> roadTypes = {
+        "residential", "secondary", "tertiary", "primary",
+        "unclassified", "service", "footway", "track", "path", "cycleway"};
+
+    for (int i = 0; i < 200; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+        f.geometry.coordinates = {{i * 10, i * 10}, {i * 10 + 100, i * 10 + 100}};
+        f.properties["highway"] = roadTypes[i % roadTypes.size()];
+        f.properties["name"] = std::string("Road ") + std::to_string(i);
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("roads");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 200u);
+
+    const auto& props = decoded->getProperties();
+    ASSERT_TRUE(props.contains("highway"));
+    ASSERT_TRUE(props.contains("name"));
+
+    for (int i = 0; i < 200; ++i) {
+        auto highway = props.at("highway").getProperty(i);
+        ASSERT_TRUE(highway.has_value());
+        auto sv = std::get<std::string_view>(*highway);
+        EXPECT_EQ(sv, roadTypes[i % roadTypes.size()]) << "Mismatch at feature " << i;
+
+        auto name = props.at("name").getProperty(i);
+        ASSERT_TRUE(name.has_value());
+        auto nameSv = std::get<std::string_view>(*name);
+        EXPECT_EQ(nameSv, std::string("Road ") + std::to_string(i)) << "Mismatch at feature " << i;
+    }
 }
