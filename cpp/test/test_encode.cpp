@@ -636,9 +636,11 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
             case metadata::tileset::GeometryType::POLYGON: {
                 const auto& poly = dynamic_cast<const geometry::Polygon&>(geom);
                 for (const auto& ring : poly.getRings()) {
-                    ef.geometry.ringSizes.push_back(static_cast<std::uint32_t>(ring.size()));
-                    for (const auto& c : ring) {
-                        ef.geometry.coordinates.push_back(toEncVertex(c));
+                    auto count = ring.size();
+                    if (count > 1 && ring.front() == ring.back()) --count;
+                    ef.geometry.ringSizes.push_back(static_cast<std::uint32_t>(count));
+                    for (std::size_t j = 0; j < count; ++j) {
+                        ef.geometry.coordinates.push_back(toEncVertex(ring[j]));
                     }
                 }
                 break;
@@ -667,9 +669,11 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
                     std::vector<Encoder::Vertex> partVerts;
                     std::vector<std::uint32_t> ringSizes;
                     for (const auto& ring : polygon) {
-                        ringSizes.push_back(static_cast<std::uint32_t>(ring.size()));
-                        for (const auto& c : ring) {
-                            partVerts.push_back(toEncVertex(c));
+                        auto count = ring.size();
+                        if (count > 1 && ring.front() == ring.back()) --count;
+                        ringSizes.push_back(static_cast<std::uint32_t>(count));
+                        for (std::size_t j = 0; j < count; ++j) {
+                            partVerts.push_back(toEncVertex(ring[j]));
                         }
                     }
                     ef.geometry.parts.push_back(std::move(partVerts));
@@ -719,15 +723,22 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
     ASSERT_EQ(a.getFeatures().size(), b.getFeatures().size());
 
     std::map<std::uint64_t, std::size_t> bById;
+    bool hasDuplicateIds = false;
     for (std::size_t i = 0; i < b.getFeatures().size(); ++i) {
-        bById[b.getFeatures()[i].getID()] = i;
+        auto [_, inserted] = bById.try_emplace(b.getFeatures()[i].getID(), i);
+        if (!inserted) hasDuplicateIds = true;
     }
 
     for (std::size_t ai = 0; ai < a.getFeatures().size(); ++ai) {
         const auto& fa = a.getFeatures()[ai];
-        auto it = bById.find(fa.getID());
-        ASSERT_TRUE(it != bById.end()) << "missing feature id " << fa.getID();
-        auto bi = it->second;
+        std::size_t bi;
+        if (hasDuplicateIds || sortedByEncoder) {
+            bi = ai;
+        } else {
+            auto it = bById.find(fa.getID());
+            ASSERT_TRUE(it != bById.end()) << "missing feature id " << fa.getID();
+            bi = it->second;
+        }
         const auto& fb = b.getFeatures()[bi];
 
         ASSERT_EQ(fa.getGeometry().type, fb.getGeometry().type)
@@ -1703,3 +1714,65 @@ TEST(Encode, PretessellatedSkippedForMixedGeometry) {
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 2u);
 }
+
+class ReencodeOMT : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(ReencodeOMT, Roundtrip) {
+    auto fixture = loadFixture("omt/" + GetParam());
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found: " << GetParam();
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+
+    Encoder encoder;
+    std::vector<Encoder::Layer> encoderLayers;
+    for (const auto& layer : javaTile.getLayers()) {
+        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    }
+    ASSERT_FALSE(encoderLayers.empty()) << "No layers in " << GetParam();
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto encoded = encoder.encode(encoderLayers, config);
+    ASSERT_FALSE(encoded.empty()) << "Encode produced empty output for " << GetParam();
+
+    auto redecodedTile = Decoder().decode(
+        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+
+    for (const auto& javaLayer : javaTile.getLayers()) {
+        const auto* reLayer = redecodedTile.getLayer(javaLayer.getName());
+        ASSERT_TRUE(reLayer) << "Missing layer " << javaLayer.getName()
+                             << " in re-encoded " << GetParam();
+        ASSERT_EQ(javaLayer.getFeatures().size(), reLayer->getFeatures().size())
+            << "Feature count mismatch in layer " << javaLayer.getName()
+            << " of " << GetParam();
+        compareDecodedTiles(javaLayer, *reLayer, false);
+    }
+}
+
+std::vector<std::string> discoverOMTFixtures() {
+    std::vector<std::string> result;
+    for (const auto& base : {"../test/expected/tag0x01/omt/",
+                              "../../test/expected/tag0x01/omt/",
+                              "../../../test/expected/tag0x01/omt/",
+                              "test/expected/tag0x01/omt/"}) {
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+            if (!ec && entry.path().extension() == ".mlt") {
+                result.push_back(entry.path().filename().string());
+            }
+        }
+        if (!result.empty()) break;
+    }
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AllOMT,
+    ReencodeOMT,
+    ::testing::ValuesIn(discoverOMTFixtures()),
+    [](const auto& info) {
+        auto name = info.param;
+        std::replace(name.begin(), name.end(), '.', '_');
+        return name;
+    });
