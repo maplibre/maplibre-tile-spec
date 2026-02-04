@@ -1405,3 +1405,130 @@ TEST(Encode, StructColumnRoundtrip) {
         }
     }
 }
+
+TEST(CrossValidate, StructColumnOMTRoundtrip) {
+    auto fixture = loadFixture("omt/2_2_2.mlt");
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found";
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    const auto* javaLayer = javaTile.getLayer("water_name");
+    if (!javaLayer) GTEST_SKIP() << "water_name layer not found";
+    ASSERT_GT(javaLayer->getFeatures().size(), 0u);
+
+    const auto& javaProps = javaLayer->getProperties();
+    ASSERT_TRUE(javaProps.contains("class"));
+
+    std::set<std::string> structChildNames;
+    for (const auto& [name, _] : javaProps) {
+        if (name.starts_with("name")) {
+            structChildNames.insert(name.substr(4));
+        }
+    }
+    ASSERT_GT(structChildNames.size(), 5u);
+
+    Encoder::Layer encLayer;
+    encLayer.name = javaLayer->getName();
+    encLayer.extent = javaLayer->getExtent();
+
+    for (std::size_t fi = 0; fi < javaLayer->getFeatures().size(); ++fi) {
+        const auto& feat = javaLayer->getFeatures()[fi];
+        Encoder::Feature ef;
+        ef.id = feat.getID();
+
+        const auto& geom = feat.getGeometry();
+        ef.geometry.type = geom.type;
+        switch (geom.type) {
+            case metadata::tileset::GeometryType::POINT: {
+                const auto& pt = dynamic_cast<const geometry::Point&>(geom);
+                ef.geometry.coordinates = {toEncVertex(pt.getCoordinate())};
+                break;
+            }
+            case metadata::tileset::GeometryType::LINESTRING: {
+                const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
+                for (const auto& c : ls.getCoordinates())
+                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                break;
+            }
+            default:
+                break;
+        }
+
+        Encoder::StructValue nameStruct;
+        for (const auto& childName : structChildNames) {
+            const auto propName = "name" + childName;
+            auto it = javaProps.find(propName);
+            if (it == javaProps.end()) continue;
+            auto val = it->second.getProperty(static_cast<std::uint32_t>(fi));
+            if (!val.has_value()) continue;
+            if (auto* sv = std::get_if<std::string_view>(&*val)) {
+                nameStruct[childName] = std::string(*sv);
+            }
+        }
+        if (!nameStruct.empty()) {
+            ef.properties["name"] = std::move(nameStruct);
+        }
+
+        if (javaProps.contains("class")) {
+            auto val = javaProps.at("class").getProperty(static_cast<std::uint32_t>(fi));
+            if (val.has_value()) {
+                if (auto* sv = std::get_if<std::string_view>(&*val)) {
+                    ef.properties["class"] = std::string(*sv);
+                }
+            }
+        }
+        if (javaProps.contains("intermittent")) {
+            auto val = javaProps.at("intermittent").getProperty(static_cast<std::uint32_t>(fi));
+            if (val.has_value()) {
+                if (auto* bv = std::get_if<bool>(&*val)) {
+                    ef.properties["intermittent"] = *bv;
+                }
+            }
+        }
+
+        encLayer.features.push_back(std::move(ef));
+    }
+
+    Encoder encoder;
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto reencoded = encoder.encode({encLayer}, config);
+    ASSERT_FALSE(reencoded.empty());
+
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    const auto* cppLayer = cppTile.getLayer("water_name");
+    ASSERT_TRUE(cppLayer);
+    ASSERT_EQ(cppLayer->getFeatures().size(), javaLayer->getFeatures().size());
+
+    const auto& cppProps = cppLayer->getProperties();
+
+    for (const auto& childName : structChildNames) {
+        const auto propName = "name" + childName;
+        ASSERT_TRUE(cppProps.contains(propName))
+            << "missing struct child property: " << propName;
+
+        const auto& javaPP = javaProps.at(propName);
+        const auto& cppPP = cppProps.at(propName);
+
+        for (std::size_t fi = 0; fi < javaLayer->getFeatures().size(); ++fi) {
+            auto javaId = javaLayer->getFeatures()[fi].getID();
+            std::size_t cppIdx = 0;
+            for (std::size_t ci = 0; ci < cppLayer->getFeatures().size(); ++ci) {
+                if (cppLayer->getFeatures()[ci].getID() == javaId) {
+                    cppIdx = ci;
+                    break;
+                }
+            }
+
+            auto javaVal = javaPP.getProperty(static_cast<std::uint32_t>(fi));
+            auto cppVal = cppPP.getProperty(static_cast<std::uint32_t>(cppIdx));
+            EXPECT_EQ(javaVal.has_value(), cppVal.has_value())
+                << propName << " id=" << javaId;
+            if (javaVal.has_value() && cppVal.has_value()) {
+                auto jSV = std::get_if<std::string_view>(&*javaVal);
+                auto cSV = std::get_if<std::string_view>(&*cppVal);
+                ASSERT_TRUE(jSV && cSV) << propName << " id=" << javaId;
+                EXPECT_EQ(*jSV, *cSV) << propName << " id=" << javaId;
+            }
+        }
+    }
+}
