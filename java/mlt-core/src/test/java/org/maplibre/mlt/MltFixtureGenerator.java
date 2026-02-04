@@ -85,89 +85,88 @@ public class MltFixtureGenerator {
     return new MapboxVectorTile(List.of(pointsLayer, polygonsLayer));
   }
 
-  private static Map<String, MapboxVectorTile> generateTiles() {
+  private static Map<String, MapboxVectorTile> generateTileGeometry() {
     var gf = new GeometryFactory();
-    var tiles = new HashMap<String, MapboxVectorTile>();
-    tiles.put("points", buildPointsTile(gf));
-    tiles.put("polygons", buildPolygonsTile(gf));
-    tiles.put("mixed", buildMixedGeometriesTile(gf));
-    return tiles;
+    var tileGeometry = new HashMap<String, MapboxVectorTile>();
+    tileGeometry.put("points", buildPointsTile(gf));
+    tileGeometry.put("polygons", buildPolygonsTile(gf));
+    tileGeometry.put("mixed", buildMixedGeometriesTile(gf));
+    return tileGeometry;
   }
 
-  // Config generation
-  private static Map<String, ConversionConfig> generateConversionConfigs() {
-    var configs = new HashMap<String, ConversionConfig>();
+  // Simple fixture case: just the output name, tile to use, and config
+  private record FixtureCase(String outputName, String tileGeometryKey, ConversionConfig config) {}
+
+  // Define all the fixture cases - just pick short names that make sense
+  private static List<FixtureCase> defineFixtureCases() {
     var outlineNames = List.<String>of();
-    var auto = ConversionConfig.IntegerEncodingOption.AUTO;
-    configs.put(
-        "default",
-        ConversionConfig.builder()
-            .includeIds(true)
-            .useFastPFOR(false)
-            .useFSST(false)
-            .useMortonEncoding(true)
-            .preTessellatePolygons(false)
-            .outlineFeatureTableNames(outlineNames)
-            .integerEncoding(auto)
-            .build());
-    configs.put(
-        "fastpfor",
-        ConversionConfig.builder()
-            .includeIds(true)
-            .useFastPFOR(true)
-            .useFSST(false)
-            .useMortonEncoding(true)
-            .preTessellatePolygons(false)
-            .outlineFeatureTableNames(outlineNames)
-            .integerEncoding(auto)
-            .build());
-    configs.put(
-        "fsst",
-        ConversionConfig.builder()
-            .includeIds(true)
-            .useFastPFOR(false)
-            .useFSST(true)
-            .useMortonEncoding(true)
-            .preTessellatePolygons(false)
-            .outlineFeatureTableNames(outlineNames)
-            .integerEncoding(auto)
-            .build());
-    configs.put(
-        "fastpfor-fsst",
-        ConversionConfig.builder()
-            .includeIds(true)
-            .useFastPFOR(true)
-            .useFSST(true)
-            .useMortonEncoding(true)
-            .preTessellatePolygons(false)
-            .outlineFeatureTableNames(outlineNames)
-            .integerEncoding(auto)
-            .build());
-    return configs;
+    var plain = ConversionConfig.IntegerEncodingOption.PLAIN;
+    var delta = ConversionConfig.IntegerEncodingOption.DELTA;
+    var rle = ConversionConfig.IntegerEncodingOption.RLE;
+
+    return List.of(
+        new FixtureCase(
+            "points-plain",
+            "points",
+            ConversionConfig.builder()
+                .includeIds(true)
+                .useFastPFOR(false)
+                .useFSST(false)
+                .coercePropertyValues(false)
+                .useMortonEncoding(false)
+                .preTessellatePolygons(false)
+                .outlineFeatureTableNames(outlineNames)
+                .integerEncoding(plain)
+                .build()),
+        new FixtureCase(
+            "polygons-fsst-delta",
+            "polygons",
+            ConversionConfig.builder()
+                .includeIds(true)
+                .useFastPFOR(false)
+                .useFSST(true)
+                .coercePropertyValues(false)
+                .useMortonEncoding(false)
+                .preTessellatePolygons(false)
+                .outlineFeatureTableNames(outlineNames)
+                .integerEncoding(delta)
+                .build()),
+        new FixtureCase(
+            "mixed-fastpfor-rle",
+            "mixed",
+            ConversionConfig.builder()
+                .includeIds(true)
+                .useFastPFOR(true)
+                .useFSST(false)
+                .coercePropertyValues(false)
+                .useMortonEncoding(false)
+                .preTessellatePolygons(false)
+                .outlineFeatureTableNames(outlineNames)
+                .integerEncoding(rle)
+                .build()));
   }
 
   private static void exportMltFixture(
-      String testCase, MapboxVectorTile tile, ConversionConfig config, String outputDir)
+      String outputName, MapboxVectorTile tileGeometry, ConversionConfig config)
       throws IOException {
-    var metadata = MltConverter.createTilesetMetadata(tile, Map.of(), config.getIncludeIds());
-    byte[] mltData = MltConverter.convertMvt(tile, metadata, config, null);
-    var outputPath = Paths.get(outputDir, testCase + ".mlt");
+    var metadata =
+        MltConverter.createTilesetMetadata(tileGeometry, Map.of(), config.getIncludeIds());
+    byte[] mltData = MltConverter.convertMvt(tileGeometry, metadata, config, null);
+    var outputPath = Paths.get(OUTPUT_DIR, outputName + ".mlt");
     Files.createDirectories(outputPath.getParent());
     Files.write(outputPath, mltData);
     var decodedTile = MltDecoder.decodeMlTile(mltData);
     String jsonOutput = CliUtil.printMLT(decodedTile);
-    var jsonOutputPath = Paths.get(outputDir, testCase + ".json");
+    var jsonOutputPath = Paths.get(OUTPUT_DIR, outputName + ".json");
     Files.write(jsonOutputPath, jsonOutput.getBytes(StandardCharsets.UTF_8));
   }
 
   private static void generateMltFixtures() throws IOException {
     Files.createDirectories(Paths.get(OUTPUT_DIR));
-    var tiles = generateTiles();
-    var configs = generateConversionConfigs();
-    exportMltFixture("points-default", tiles.get("points"), configs.get("default"), OUTPUT_DIR);
-    exportMltFixture("points-fastpfor", tiles.get("points"), configs.get("fastpfor"), OUTPUT_DIR);
-    exportMltFixture("polygons-default", tiles.get("polygons"), configs.get("default"), OUTPUT_DIR);
-    exportMltFixture("mixed-fsst", tiles.get("mixed"), configs.get("fsst"), OUTPUT_DIR);
+    var tileGeometry = generateTileGeometry();
+    for (var c : defineFixtureCases()) {
+      exportMltFixture(c.outputName(), tileGeometry.get(c.tileGeometryKey()), c.config());
+    }
   }
 
   public static void main(String[] args) throws IOException {
@@ -178,9 +177,9 @@ public class MltFixtureGenerator {
   @Disabled("Only for generating fixtures")
   void testGenerateMltFixtures() throws Exception {
     generateMltFixtures();
-    var cases =
-        new String[] {"points-default", "points-fastpfor", "polygons-default", "mixed-fsst"};
-    for (var name : cases) {
+
+    for (var c : defineFixtureCases()) {
+      var name = c.outputName();
       assertTrue(Files.isRegularFile(Paths.get(OUTPUT_DIR, name + ".mlt")), name + ".mlt");
       assertTrue(Files.isRegularFile(Paths.get(OUTPUT_DIR, name + ".json")), name + ".json");
     }
