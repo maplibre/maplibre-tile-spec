@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <mlt/decoder.hpp>
+#include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/projection.hpp>
@@ -125,6 +126,18 @@ TEST(Decode, SimpleLineBoolean) {
 TEST(Decode, SimplePolygonBoolean) {
     const auto tile = loadTile(basePath + "/simple/polygon-boolean.mlt");
     ASSERT_TRUE(tile.first);
+
+    const auto* layer = tile.first->getLayer("layer");
+    ASSERT_TRUE(layer);
+    ASSERT_EQ(layer->getFeatures().size(), 1);
+
+    const auto& geom = layer->getFeatures()[0].getGeometry();
+    EXPECT_EQ(geom.type, mlt::metadata::tileset::GeometryType::POLYGON);
+    const auto& poly = dynamic_cast<const mlt::geometry::Polygon&>(geom);
+    ASSERT_EQ(poly.getRings().size(), 1);
+    // MLT stores rings without closing points; decoder must add them back
+    const auto& ring = poly.getRings()[0];
+    EXPECT_EQ(ring.front(), ring.back()) << "polygon ring should be closed by decoder";
 }
 
 TEST(Decode, SimpleMultiPointBoolean) {
