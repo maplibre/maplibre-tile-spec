@@ -99,7 +99,9 @@ private:
                                           streamType, std::move(logicalType));
     }
 
-    /// Zigzag-delta encode vertex pairs, then encode with the integer encoder.
+    /// Zigzag-delta encode vertex pairs, then physical-encode only (varint/fastpfor).
+    /// The logical encoding (COMPONENTWISE_DELTA) is recorded in metadata but applied
+    /// *before* this function — no additional delta/RLE on top.
     static std::vector<std::uint8_t> encodeVertexBuffer(
         std::span<const Vertex> vertices,
         PhysicalLevelTechnique physicalTechnique,
@@ -116,8 +118,22 @@ private:
             prev = vertices[i];
         }
 
-        // Encode with the physical technique (varint or fastpfor)
-        auto encoded = intEncoder.encodeInt(zigZagDelta, physicalTechnique, /*isSigned=*/false);
+        // Physical encoding only — Java does encodeVarint/encodeFastPfor directly,
+        // not IntegerEncoder.encodeInt which would add delta/RLE on top.
+        auto encodedValues = intEncoder.encodeIntStream(
+            zigZagDelta, physicalTechnique, /*isSigned=*/false,
+            PhysicalStreamType::DATA, LogicalStreamType{DictionaryType::VERTEX});
+
+        // Replace the stream metadata with the correct COMPONENTWISE_DELTA header.
+        // encodeIntStream wrote its own header with whatever encoding it chose;
+        // we need to overwrite that with the fixed COMPONENTWISE_DELTA metadata.
+        //
+        // Instead, build metadata + raw physical data manually:
+        std::vector<std::uint8_t> rawPhysical;
+        rawPhysical.reserve(zigZagDelta.size() * 2);
+        for (auto v : zigZagDelta) {
+            util::encoding::encodeVarint(static_cast<std::uint32_t>(v), rawPhysical);
+        }
 
         auto metadata = StreamMetadata(
                             PhysicalStreamType::DATA,
@@ -126,13 +142,13 @@ private:
                             LogicalLevelTechnique::NONE,
                             physicalTechnique,
                             static_cast<std::uint32_t>(zigZagDelta.size()),
-                            static_cast<std::uint32_t>(encoded.encodedValues.size()))
+                            static_cast<std::uint32_t>(rawPhysical.size()))
                             .encode();
 
         std::vector<std::uint8_t> result;
-        result.reserve(metadata.size() + encoded.encodedValues.size());
+        result.reserve(metadata.size() + rawPhysical.size());
         result.insert(result.end(), metadata.begin(), metadata.end());
-        result.insert(result.end(), encoded.encodedValues.begin(), encoded.encodedValues.end());
+        result.insert(result.end(), rawPhysical.begin(), rawPhysical.end());
         return result;
     }
 };
