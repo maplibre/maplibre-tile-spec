@@ -22,7 +22,6 @@
 
 using namespace mlt;
 
-
 TEST(EncodePrimitives, ZigZagRoundtrip) {
     for (std::int32_t v : {0, 1, -1, 42, -42, 127, -128, 65535, -65536, 2147483647, -2147483647}) {
         auto encoded = util::encoding::encodeZigZag(v);
@@ -57,17 +56,16 @@ TEST(EncodePrimitives, VarintRoundtrip) {
     }
 }
 
-
 TEST(EncodeMetadata, StreamMetadataRoundtrip) {
     using namespace metadata::stream;
 
-    StreamMetadata original(
-        PhysicalStreamType::DATA,
-        LogicalStreamType{DictionaryType::SINGLE},
-        LogicalLevelTechnique::DELTA,
-        LogicalLevelTechnique::NONE,
-        PhysicalLevelTechnique::VARINT,
-        42, 100);
+    StreamMetadata original(PhysicalStreamType::DATA,
+                            LogicalStreamType{DictionaryType::SINGLE},
+                            LogicalLevelTechnique::DELTA,
+                            LogicalLevelTechnique::NONE,
+                            PhysicalLevelTechnique::VARINT,
+                            42,
+                            100);
 
     auto encoded = original.encode();
     BufferStream stream({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
@@ -85,11 +83,15 @@ TEST(EncodeMetadata, StreamMetadataRoundtrip) {
 TEST(EncodeMetadata, RleStreamMetadataRoundtrip) {
     using namespace metadata::stream;
 
-    RleEncodedStreamMetadata original(
-        PhysicalStreamType::DATA, std::nullopt,
-        LogicalLevelTechnique::RLE, LogicalLevelTechnique::NONE,
-        PhysicalLevelTechnique::VARINT,
-        10, 50, 3, 100);
+    RleEncodedStreamMetadata original(PhysicalStreamType::DATA,
+                                      std::nullopt,
+                                      LogicalLevelTechnique::RLE,
+                                      LogicalLevelTechnique::NONE,
+                                      PhysicalLevelTechnique::VARINT,
+                                      10,
+                                      50,
+                                      3,
+                                      100);
 
     auto encoded = original.encode();
     BufferStream stream({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
@@ -154,7 +156,6 @@ TEST(EncodeMetadata, FeatureTableRoundtrip) {
     EXPECT_EQ(decoded.columns[3].getScalarType().getPhysicalType(), ScalarType::STRING);
 }
 
-
 // --- Helpers ---
 
 namespace {
@@ -166,7 +167,8 @@ MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers, EncoderConf
     return Decoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
 }
 
-Encoder::Feature makePointFeature(std::uint64_t id, Encoder::Vertex v,
+Encoder::Feature makePointFeature(std::uint64_t id,
+                                  Encoder::Vertex v,
                                   std::map<std::string, Encoder::PropertyValue> props = {}) {
     Encoder::Feature f;
     f.id = id;
@@ -176,8 +178,7 @@ Encoder::Feature makePointFeature(std::uint64_t id, Encoder::Vertex v,
     return f;
 }
 
-Encoder::Layer makeLayer(std::string name, std::vector<Encoder::Feature> features,
-                         std::uint32_t extent = 4096) {
+Encoder::Layer makeLayer(std::string name, std::vector<Encoder::Feature> features, std::uint32_t extent = 4096) {
     Encoder::Layer layer;
     layer.name = std::move(name);
     layer.extent = extent;
@@ -187,27 +188,29 @@ Encoder::Layer makeLayer(std::string name, std::vector<Encoder::Feature> feature
 
 template <typename T>
 T unwrapProperty(const Property& prop) {
-    return std::visit([](const auto& v) -> T {
-        using V = std::decay_t<decltype(v)>;
-        if constexpr (std::is_same_v<V, T>) {
-            return v;
-        } else if constexpr (std::is_same_v<V, std::optional<T>>) {
-            return v.value();
-        } else {
-            throw std::bad_variant_access();
-        }
-    }, prop);
+    return std::visit(
+        [](const auto& v) -> T {
+            using V = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<V, T>) {
+                return v;
+            } else if constexpr (std::is_same_v<V, std::optional<T>>) {
+                return v.value();
+            } else {
+                throw std::bad_variant_access();
+            }
+        },
+        prop);
 }
 
 } // namespace
 
-
 // --- Encode roundtrip tests ---
 
 TEST(Encode, PointRoundtrip) {
-    auto layer = makeLayer("layer", {
-        makePointFeature(1, {100, 200}, {{"flag", true}}),
-    });
+    auto layer = makeLayer("layer",
+                           {
+                               makePointFeature(1, {100, 200}, {{"flag", true}}),
+                           });
 
     auto tile = encodeDecode({layer});
     const auto* decoded = tile.getLayer("layer");
@@ -260,10 +263,12 @@ TEST(Encode, PolygonRoundtrip) {
 TEST(Encode, MultipleFeatures) {
     std::vector<Encoder::Feature> features;
     for (int i = 0; i < 100; ++i) {
-        features.push_back(makePointFeature(i, {i * 10, i * 20}, {
-            {"rank", std::int32_t{i}},
-            {"name", std::string("POI #" + std::to_string(i))},
-        }));
+        features.push_back(makePointFeature(i,
+                                            {i * 10, i * 20},
+                                            {
+                                                {"rank", std::int32_t{i}},
+                                                {"name", std::string("POI #" + std::to_string(i))},
+                                            }));
     }
     auto layer = makeLayer("pois", std::move(features));
 
@@ -282,11 +287,12 @@ TEST(Encode, MultipleFeatures) {
 }
 
 TEST(Encode, NullableIntProperty) {
-    auto layer = makeLayer("test", {
-        makePointFeature(1, {10, 20}, {{"pop", std::int32_t{100}}}),
-        makePointFeature(2, {30, 40}),
-        makePointFeature(3, {50, 60}, {{"pop", std::int32_t{200}}}),
-    });
+    auto layer = makeLayer("test",
+                           {
+                               makePointFeature(1, {10, 20}, {{"pop", std::int32_t{100}}}),
+                               makePointFeature(2, {30, 40}),
+                               makePointFeature(3, {50, 60}, {{"pop", std::int32_t{200}}}),
+                           });
 
     auto tile = encodeDecode({layer});
     const auto* decoded = tile.getLayer("test");
@@ -305,15 +311,18 @@ TEST(Encode, NullableIntProperty) {
 }
 
 TEST(Encode, PropertyValueTypes) {
-    auto layer = makeLayer("types", {
-        makePointFeature(1, {100, 200}, {
-            {"bool_val", true},
-            {"int32_val", std::int32_t{-42}},
-            {"int64_val", std::int64_t{9999999999LL}},
-            {"float_val", 1.5f},
-            {"string_val", std::string("hello world")},
-        }),
-    });
+    auto layer = makeLayer("types",
+                           {
+                               makePointFeature(1,
+                                                {100, 200},
+                                                {
+                                                    {"bool_val", true},
+                                                    {"int32_val", std::int32_t{-42}},
+                                                    {"int64_val", std::int64_t{9999999999LL}},
+                                                    {"float_val", 1.5f},
+                                                    {"string_val", std::string("hello world")},
+                                                }),
+                           });
 
     auto tile = encodeDecode({layer});
     const auto* decoded = tile.getLayer("types");
@@ -334,16 +343,18 @@ TEST(Encode, PropertyValueTypes) {
 TEST(Encode, AllPropertyTypes) {
     std::vector<Encoder::Feature> features;
     for (int i = 0; i < 10; ++i) {
-        features.push_back(makePointFeature(i, {i * 100, i * 100}, {
-            {"bool_val", (i % 2 == 0)},
-            {"int32_val", std::int32_t{-100 + i * 20}},
-            {"int64_val", std::int64_t{-9999999999LL + i}},
-            {"uint32_val", std::uint32_t(3000000000u + i)},
-            {"uint64_val", std::uint64_t(18000000000000000000ULL + i)},
-            {"float_val", float(i) * 0.5f},
-            {"double_val", double(i) * 0.5},
-            {"string_val", std::string("str_") + std::to_string(i)},
-        }));
+        features.push_back(makePointFeature(i,
+                                            {i * 100, i * 100},
+                                            {
+                                                {"bool_val", (i % 2 == 0)},
+                                                {"int32_val", std::int32_t{-100 + i * 20}},
+                                                {"int64_val", std::int64_t{-9999999999LL + i}},
+                                                {"uint32_val", std::uint32_t(3000000000u + i)},
+                                                {"uint64_val", std::uint64_t(18000000000000000000ULL + i)},
+                                                {"float_val", float(i) * 0.5f},
+                                                {"double_val", double(i) * 0.5},
+                                                {"string_val", std::string("str_") + std::to_string(i)},
+                                            }));
     }
     auto layer = makeLayer("all_types", std::move(features));
 
@@ -372,9 +383,13 @@ TEST(Encode, NullableAllTypes) {
         std::map<std::string, Encoder::PropertyValue> props;
         if (i % 2 == 0) {
             props = {
-                {"int32_val", std::int32_t{i}}, {"int64_val", std::int64_t{i}},
-                {"uint32_val", std::uint32_t(i)}, {"uint64_val", std::uint64_t(i)},
-                {"float_val", float(i)}, {"double_val", double(i)}, {"bool_val", true},
+                {"int32_val", std::int32_t{i}},
+                {"int64_val", std::int64_t{i}},
+                {"uint32_val", std::uint32_t(i)},
+                {"uint64_val", std::uint64_t(i)},
+                {"float_val", float(i)},
+                {"double_val", double(i)},
+                {"bool_val", true},
             };
         }
         features.push_back(makePointFeature(i, {i * 100, i * 100}, std::move(props)));
@@ -427,7 +442,11 @@ TEST(Encode, SingleVertexLineString) {
 
 TEST(Encode, BoundaryCoordinates) {
     std::vector<std::pair<std::int32_t, std::int32_t>> coords = {
-        {0, 0}, {4096, 4096}, {-4096, -4096}, {4096, 0}, {0, 4096},
+        {0, 0},
+        {4096, 4096},
+        {-4096, -4096},
+        {4096, 0},
+        {0, 4096},
     };
 
     std::vector<Encoder::Feature> features;
@@ -452,7 +471,9 @@ TEST(Encode, BoundaryCoordinates) {
 
 TEST(Encode, MaxUint64Id) {
     std::vector<std::uint64_t> testIds = {
-        0, 1, std::numeric_limits<std::uint32_t>::max(),
+        0,
+        1,
+        std::numeric_limits<std::uint32_t>::max(),
         static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()) + 1,
         std::numeric_limits<std::uint64_t>::max() / 2,
     };
@@ -476,10 +497,13 @@ TEST(Encode, MaxUint64Id) {
 TEST(Encode, LongStrings) {
     std::vector<Encoder::Feature> features;
     for (int i = 0; i < 10; ++i) {
-        features.push_back(makePointFeature(i, {i, i}, {
-            {"long_str", std::string(10000 + i * 1000, 'a' + (i % 26))},
-            {"unicode_str", std::string("Ünïcödé_τεστ_") + std::to_string(i) + "_日本語"},
-        }));
+        features.push_back(
+            makePointFeature(i,
+                             {i, i},
+                             {
+                                 {"long_str", std::string(10000 + i * 1000, 'a' + (i % 26))},
+                                 {"unicode_str", std::string("Ünïcödé_τεστ_") + std::to_string(i) + "_日本語"},
+                             }));
     }
     auto layer = makeLayer("strings", std::move(features));
 
@@ -525,9 +549,11 @@ TEST(Encode, ManyFeatures) {
     constexpr int N = 10000;
     std::vector<Encoder::Feature> features;
     for (int i = 0; i < N; ++i) {
-        features.push_back(makePointFeature(i, {i % 4096, i / 4096}, {
-            {"idx", std::int32_t{i}},
-        }));
+        features.push_back(makePointFeature(i,
+                                            {i % 4096, i / 4096},
+                                            {
+                                                {"idx", std::int32_t{i}},
+                                            }));
     }
     auto layer = makeLayer("many", std::move(features));
 
@@ -555,9 +581,7 @@ TEST(Encode, MultiPolygonManyParts) {
     for (int p = 0; p < 20; ++p) {
         int ox = (p % 5) * 800;
         int oy = (p / 5) * 800;
-        f.geometry.parts.push_back({
-            {ox, oy}, {ox + 100, oy}, {ox + 100, oy + 100}, {ox, oy + 100}
-        });
+        f.geometry.parts.push_back({{ox, oy}, {ox + 100, oy}, {ox + 100, oy + 100}, {ox, oy + 100}});
         f.geometry.partRingSizes.push_back({4});
     }
     layer.features.push_back(std::move(f));
@@ -658,15 +682,20 @@ TEST(Encode, PolygonWithHoleRoundtrip) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::POLYGON;
     f.geometry.coordinates = {
-        {0, 0}, {1000, 0}, {1000, 1000}, {0, 1000},
-        {200, 200}, {800, 200}, {800, 800}, {200, 800},
+        {0, 0},
+        {1000, 0},
+        {1000, 1000},
+        {0, 1000},
+        {200, 200},
+        {800, 200},
+        {800, 800},
+        {200, 800},
     };
     f.geometry.ringSizes = {4, 4};
     layer.features.push_back(std::move(f));
 
     auto tile = encodeDecode({layer});
-    const auto& poly = dynamic_cast<const geometry::Polygon&>(
-        tile.getLayer("layer")->getFeatures()[0].getGeometry());
+    const auto& poly = dynamic_cast<const geometry::Polygon&>(tile.getLayer("layer")->getFeatures()[0].getGeometry());
     ASSERT_EQ(poly.getRings().size(), 2u);
     EXPECT_EQ(poly.getRings()[0].size(), 5u);
     EXPECT_EQ(poly.getRings()[1].size(), 5u);
@@ -690,7 +719,6 @@ TEST(Encode, MultipleLayers) {
     EXPECT_EQ(tile.getLayer("lines")->getFeatures().size(), 1u);
 }
 
-
 // --- FSST ---
 
 TEST(FSST, EncodeDecodeRoundtrip) {
@@ -711,8 +739,16 @@ TEST(FSST, EncodeDecodeRoundtrip) {
 TEST(FSST, EncodeDecodeRealisticStrings) {
     std::vector<std::string> strings;
     for (int i = 0; i < 100; ++i) {
-        for (const auto& s : {"residential", "secondary", "tertiary", "primary",
-                               "unclassified", "service", "footway", "track", "path", "cycleway"}) {
+        for (const auto& s : {"residential",
+                              "secondary",
+                              "tertiary",
+                              "primary",
+                              "unclassified",
+                              "service",
+                              "footway",
+                              "track",
+                              "path",
+                              "cycleway"}) {
             strings.emplace_back(s);
         }
     }
@@ -732,9 +768,16 @@ TEST(FSST, EncodeDecodeRealisticStrings) {
 }
 
 TEST(Encode, FsstStringRoundtrip) {
-    std::vector<std::string> roadTypes = {
-        "residential", "secondary", "tertiary", "primary",
-        "unclassified", "service", "footway", "track", "path", "cycleway"};
+    std::vector<std::string> roadTypes = {"residential",
+                                          "secondary",
+                                          "tertiary",
+                                          "primary",
+                                          "unclassified",
+                                          "service",
+                                          "footway",
+                                          "track",
+                                          "path",
+                                          "cycleway"};
 
     std::vector<Encoder::Feature> features;
     for (int i = 0; i < 200; ++i) {
@@ -754,32 +797,58 @@ TEST(Encode, FsstStringRoundtrip) {
 
     const auto& props = decoded->getProperties();
     for (int i = 0; i < 200; ++i) {
-        EXPECT_EQ(std::get<std::string_view>(*props.at("highway").getProperty(i)),
-                  roadTypes[i % roadTypes.size()]);
+        EXPECT_EQ(std::get<std::string_view>(*props.at("highway").getProperty(i)), roadTypes[i % roadTypes.size()]);
         EXPECT_EQ(std::get<std::string_view>(*props.at("name").getProperty(i)),
                   std::string("Road ") + std::to_string(i));
     }
 }
-
 
 // --- Hilbert curve ---
 
 TEST(HilbertCurve, JavaCrossValidation) {
     using mlt::util::HilbertCurve;
 
-    struct TestCase { std::uint32_t bits, x, y, expected; };
+    struct TestCase {
+        std::uint32_t bits, x, y, expected;
+    };
     const TestCase cases[] = {
-        {2, 0, 0, 0}, {2, 1, 0, 1}, {2, 1, 1, 2}, {2, 0, 1, 3},
-        {2, 0, 2, 4}, {2, 0, 3, 5}, {2, 1, 3, 6}, {2, 1, 2, 7},
-        {2, 2, 2, 8}, {2, 2, 3, 9}, {2, 3, 3, 10}, {2, 3, 2, 11},
-        {2, 3, 1, 12}, {2, 2, 1, 13}, {2, 2, 0, 14}, {2, 3, 0, 15},
-        {3, 0, 0, 0}, {3, 7, 7, 42}, {3, 4, 4, 32}, {3, 3, 3, 10},
-        {3, 1, 6, 23}, {3, 5, 2, 55},
-        {5, 0, 0, 0}, {5, 31, 31, 682}, {5, 16, 16, 512}, {5, 3, 4, 31},
-        {5, 10, 20, 476}, {5, 25, 7, 982},
-        {13, 0, 0, 0}, {13, 4095, 4095, 11184810}, {13, 2048, 2048, 8388608},
-        {13, 100, 200, 52442}, {13, 3000, 1000, 4889386}, {13, 500, 4000, 16519952},
-        {14, 0, 0, 0}, {14, 8191, 8191, 44739242}, {14, 4096, 4096, 33554432},
+        {2, 0, 0, 0},
+        {2, 1, 0, 1},
+        {2, 1, 1, 2},
+        {2, 0, 1, 3},
+        {2, 0, 2, 4},
+        {2, 0, 3, 5},
+        {2, 1, 3, 6},
+        {2, 1, 2, 7},
+        {2, 2, 2, 8},
+        {2, 2, 3, 9},
+        {2, 3, 3, 10},
+        {2, 3, 2, 11},
+        {2, 3, 1, 12},
+        {2, 2, 1, 13},
+        {2, 2, 0, 14},
+        {2, 3, 0, 15},
+        {3, 0, 0, 0},
+        {3, 7, 7, 42},
+        {3, 4, 4, 32},
+        {3, 3, 3, 10},
+        {3, 1, 6, 23},
+        {3, 5, 2, 55},
+        {5, 0, 0, 0},
+        {5, 31, 31, 682},
+        {5, 16, 16, 512},
+        {5, 3, 4, 31},
+        {5, 10, 20, 476},
+        {5, 25, 7, 982},
+        {13, 0, 0, 0},
+        {13, 4095, 4095, 11184810},
+        {13, 2048, 2048, 8388608},
+        {13, 100, 200, 52442},
+        {13, 3000, 1000, 4889386},
+        {13, 500, 4000, 16519952},
+        {14, 0, 0, 0},
+        {14, 8191, 8191, 44739242},
+        {14, 4096, 4096, 33554432},
         {14, 1000, 2000, 3147584},
     };
 
@@ -802,13 +871,20 @@ TEST(HilbertCurve, RoundtripThroughSpaceFillingCurve) {
     }
 }
 
-
 // --- Vertex dictionary ---
 
 TEST(Encode, VertexDictionaryRoundtrip) {
     std::vector<Encoder::Vertex> sharedVerts = {
-        {100, 200}, {300, 400}, {500, 600}, {700, 800}, {900, 1000},
-        {1200, 1400}, {1600, 1800}, {2000, 2200}, {2500, 2800}, {3000, 3200},
+        {100, 200},
+        {300, 400},
+        {500, 600},
+        {700, 800},
+        {900, 1000},
+        {1200, 1400},
+        {1600, 1800},
+        {2000, 2200},
+        {2500, 2800},
+        {3000, 3200},
     };
 
     std::vector<Encoder::Feature> features;
@@ -843,21 +919,29 @@ TEST(Encode, VertexDictionaryRoundtrip) {
     }
 }
 
-
 // --- Feature sorting ---
 
 TEST(Encode, FeatureSortingPoints) {
     std::vector<Encoder::Vertex> positions = {
-        {3000, 3000}, {100, 100}, {2000, 500}, {500, 3500},
-        {1500, 1500}, {3500, 100}, {200, 2000}, {2500, 2500},
-        {800, 800}, {3200, 1800},
+        {3000, 3000},
+        {100, 100},
+        {2000, 500},
+        {500, 3500},
+        {1500, 1500},
+        {3500, 100},
+        {200, 2000},
+        {2500, 2500},
+        {800, 800},
+        {3200, 1800},
     };
 
     std::vector<Encoder::Feature> features;
     for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
-        features.push_back(makePointFeature(i + 1, positions[i], {
-            {"name", std::string("P" + std::to_string(i))},
-        }));
+        features.push_back(makePointFeature(i + 1,
+                                            positions[i],
+                                            {
+                                                {"name", std::string("P" + std::to_string(i))},
+                                            }));
     }
     auto layer = makeLayer("sorted_points", std::move(features));
 
@@ -892,8 +976,10 @@ TEST(Encode, FeatureSortingPoints) {
 
 TEST(Encode, FeatureSortingLineStrings) {
     std::vector<std::pair<Encoder::Vertex, Encoder::Vertex>> segments = {
-        {{3000, 3000}, {3100, 3100}}, {{100, 100}, {200, 200}},
-        {{2000, 500}, {2100, 600}}, {{500, 3500}, {600, 3600}},
+        {{3000, 3000}, {3100, 3100}},
+        {{100, 100}, {200, 200}},
+        {{2000, 500}, {2100, 600}},
+        {{500, 3500}, {600, 3600}},
         {{1500, 1500}, {1600, 1600}},
     };
 
@@ -955,7 +1041,6 @@ TEST(Encode, NoSortingForMixedTypes) {
     EXPECT_EQ(decoded->getFeatures()[1].getID(), 2u);
 }
 
-
 // --- Struct columns ---
 
 TEST(Encode, StructColumnRoundtrip) {
@@ -992,8 +1077,7 @@ TEST(Encode, StructColumnRoundtrip) {
 
     for (int i = 0; i < 50; ++i) {
         auto idx = static_cast<std::uint32_t>(idToIdx.at(i));
-        EXPECT_EQ(std::get<std::string_view>(*props.at("namedefault").getProperty(idx)),
-                  "Road " + std::to_string(i));
+        EXPECT_EQ(std::get<std::string_view>(*props.at("namedefault").getProperty(idx)), "Road " + std::to_string(i));
 
         auto enName = props.at("nameen").getProperty(idx);
         if (i % 3 == 0) {
@@ -1010,7 +1094,6 @@ TEST(Encode, StructColumnRoundtrip) {
         }
     }
 }
-
 
 // --- Pre-tessellation ---
 
@@ -1033,8 +1116,8 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
         Encoder::Feature f;
         f.id = 2;
         f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-        f.geometry.coordinates = {{0, 0}, {400, 0}, {400, 400}, {0, 400},
-                                  {100, 100}, {300, 100}, {300, 300}, {100, 300}};
+        f.geometry.coordinates = {
+            {0, 0}, {400, 0}, {400, 400}, {0, 400}, {100, 100}, {300, 100}, {300, 300}, {100, 300}};
         f.geometry.ringSizes = {4, 4};
         f.properties["height"] = std::int32_t{20};
         layer.features.push_back(std::move(f));
@@ -1094,8 +1177,7 @@ TEST(Encode, PretessellatedMultiPolygonWithHoles) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
     f.geometry.parts = {
-        {{0, 0}, {10, 0}, {10, 10}, {0, 10},
-         {5, 5}, {5, 7}, {7, 7}, {7, 5}},
+        {{0, 0}, {10, 0}, {10, 10}, {0, 10}, {5, 5}, {5, 7}, {7, 7}, {7, 5}},
         {{20, 20}, {40, 20}, {40, 40}, {20, 40}},
     };
     f.geometry.partRingSizes = {{4, 4}, {4}};
@@ -1135,7 +1217,6 @@ TEST(Encode, PretessellatedSkippedForMixedGeometry) {
     ASSERT_EQ(tile.getLayer("mixed")->getFeatures().size(), 2u);
 }
 
-
 // --- Fixture helpers ---
 
 namespace {
@@ -1152,9 +1233,9 @@ std::vector<char> loadFile(const std::filesystem::path& path) {
 
 std::filesystem::path fixtureBasePath() {
     for (const auto& base : {"../test/expected/tag0x01/",
-                              "../../test/expected/tag0x01/",
-                              "../../../test/expected/tag0x01/",
-                              "test/expected/tag0x01/"}) {
+                             "../../test/expected/tag0x01/",
+                             "../../../test/expected/tag0x01/",
+                             "test/expected/tag0x01/"}) {
         if (std::filesystem::exists(base)) return base;
     }
     return {};
@@ -1212,8 +1293,7 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
             }
             case metadata::tileset::GeometryType::LINESTRING: {
                 const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
-                for (const auto& c : ls.getCoordinates())
-                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                for (const auto& c : ls.getCoordinates()) ef.geometry.coordinates.push_back(toEncVertex(c));
                 break;
             }
             case metadata::tileset::GeometryType::POLYGON: {
@@ -1222,15 +1302,13 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
                     auto count = ring.size();
                     if (count > 1 && ring.front() == ring.back()) --count;
                     ef.geometry.ringSizes.push_back(static_cast<std::uint32_t>(count));
-                    for (std::size_t j = 0; j < count; ++j)
-                        ef.geometry.coordinates.push_back(toEncVertex(ring[j]));
+                    for (std::size_t j = 0; j < count; ++j) ef.geometry.coordinates.push_back(toEncVertex(ring[j]));
                 }
                 break;
             }
             case metadata::tileset::GeometryType::MULTIPOINT: {
                 const auto& mp = dynamic_cast<const geometry::MultiPoint&>(geom);
-                for (const auto& c : mp.getCoordinates())
-                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                for (const auto& c : mp.getCoordinates()) ef.geometry.coordinates.push_back(toEncVertex(c));
                 break;
             }
             case metadata::tileset::GeometryType::MULTILINESTRING: {
@@ -1251,8 +1329,7 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
                         auto count = ring.size();
                         if (count > 1 && ring.front() == ring.back()) --count;
                         ringSizes.push_back(static_cast<std::uint32_t>(count));
-                        for (std::size_t j = 0; j < count; ++j)
-                            partVerts.push_back(toEncVertex(ring[j]));
+                        for (std::size_t j = 0; j < count; ++j) partVerts.push_back(toEncVertex(ring[j]));
                     }
                     ef.geometry.parts.push_back(std::move(partVerts));
                     ef.geometry.partRingSizes.push_back(std::move(ringSizes));
@@ -1265,29 +1342,31 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
             const auto& pp = props.at(name);
             auto val = pp.getProperty(static_cast<std::uint32_t>(fi));
             if (!val.has_value()) continue;
-            std::visit([&](const auto& v) {
-                using T = std::decay_t<decltype(v)>;
-                if constexpr (std::is_same_v<T, std::nullptr_t>) {
-                } else if constexpr (std::is_same_v<T, std::string_view>) {
-                    ef.properties[name] = std::string(v);
-                } else if constexpr (std::is_same_v<T, std::optional<bool>>) {
-                    if (v) ef.properties[name] = *v;
-                } else if constexpr (std::is_same_v<T, std::optional<std::int32_t>>) {
-                    if (v) ef.properties[name] = *v;
-                } else if constexpr (std::is_same_v<T, std::optional<std::int64_t>>) {
-                    if (v) ef.properties[name] = *v;
-                } else if constexpr (std::is_same_v<T, std::optional<std::uint32_t>>) {
-                    if (v) ef.properties[name] = *v;
-                } else if constexpr (std::is_same_v<T, std::optional<std::uint64_t>>) {
-                    if (v) ef.properties[name] = *v;
-                } else if constexpr (std::is_same_v<T, std::optional<float>>) {
-                    if (v) ef.properties[name] = *v;
-                } else if constexpr (std::is_same_v<T, std::optional<double>>) {
-                    if (v) ef.properties[name] = *v;
-                } else {
-                    ef.properties[name] = v;
-                }
-            }, *val);
+            std::visit(
+                [&](const auto& v) {
+                    using T = std::decay_t<decltype(v)>;
+                    if constexpr (std::is_same_v<T, std::nullptr_t>) {
+                    } else if constexpr (std::is_same_v<T, std::string_view>) {
+                        ef.properties[name] = std::string(v);
+                    } else if constexpr (std::is_same_v<T, std::optional<bool>>) {
+                        if (v) ef.properties[name] = *v;
+                    } else if constexpr (std::is_same_v<T, std::optional<std::int32_t>>) {
+                        if (v) ef.properties[name] = *v;
+                    } else if constexpr (std::is_same_v<T, std::optional<std::int64_t>>) {
+                        if (v) ef.properties[name] = *v;
+                    } else if constexpr (std::is_same_v<T, std::optional<std::uint32_t>>) {
+                        if (v) ef.properties[name] = *v;
+                    } else if constexpr (std::is_same_v<T, std::optional<std::uint64_t>>) {
+                        if (v) ef.properties[name] = *v;
+                    } else if constexpr (std::is_same_v<T, std::optional<float>>) {
+                        if (v) ef.properties[name] = *v;
+                    } else if constexpr (std::is_same_v<T, std::optional<double>>) {
+                        if (v) ef.properties[name] = *v;
+                    } else {
+                        ef.properties[name] = v;
+                    }
+                },
+                *val);
         }
 
         layer.features.push_back(std::move(ef));
@@ -1313,8 +1392,7 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
 
         const auto& fb = b.getFeatures()[bi];
 
-        ASSERT_EQ(fa.getGeometry().type, fb.getGeometry().type)
-            << "geometry type mismatch for id=" << fa.getID();
+        ASSERT_EQ(fa.getGeometry().type, fb.getGeometry().type) << "geometry type mismatch for id=" << fa.getID();
 
         switch (fa.getGeometry().type) {
             case metadata::tileset::GeometryType::POINT: {
@@ -1370,7 +1448,6 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
 
 } // namespace
 
-
 // --- Cross-validation: decode Java fixture → re-encode → decode → compare ---
 
 struct SimpleFixtureParams {
@@ -1401,21 +1478,21 @@ TEST_P(CrossValidateJava, DecodeAndRoundtrip) {
 }
 
 using GT = metadata::tileset::GeometryType;
-INSTANTIATE_TEST_SUITE_P(Simple, CrossValidateJava, ::testing::Values(
-    SimpleFixtureParams{"simple/point-boolean.mlt", GT::POINT},
-    SimpleFixtureParams{"simple/line-boolean.mlt", GT::LINESTRING},
-    SimpleFixtureParams{"simple/polygon-boolean.mlt", GT::POLYGON},
-    SimpleFixtureParams{"simple/multipoint-boolean.mlt", GT::MULTIPOINT},
-    SimpleFixtureParams{"simple/multiline-boolean.mlt", GT::MULTILINESTRING},
-    SimpleFixtureParams{"simple/multipolygon-boolean.mlt", GT::MULTIPOLYGON}
-), [](const auto& info) {
-    auto name = info.param.path;
-    std::replace(name.begin(), name.end(), '/', '_');
-    std::replace(name.begin(), name.end(), '.', '_');
-    std::replace(name.begin(), name.end(), '-', '_');
-    return name;
-});
-
+INSTANTIATE_TEST_SUITE_P(Simple,
+                         CrossValidateJava,
+                         ::testing::Values(SimpleFixtureParams{"simple/point-boolean.mlt", GT::POINT},
+                                           SimpleFixtureParams{"simple/line-boolean.mlt", GT::LINESTRING},
+                                           SimpleFixtureParams{"simple/polygon-boolean.mlt", GT::POLYGON},
+                                           SimpleFixtureParams{"simple/multipoint-boolean.mlt", GT::MULTIPOINT},
+                                           SimpleFixtureParams{"simple/multiline-boolean.mlt", GT::MULTILINESTRING},
+                                           SimpleFixtureParams{"simple/multipolygon-boolean.mlt", GT::MULTIPOLYGON}),
+                         [](const auto& info) {
+                             auto name = info.param.path;
+                             std::replace(name.begin(), name.end(), '/', '_');
+                             std::replace(name.begin(), name.end(), '.', '_');
+                             std::replace(name.begin(), name.end(), '-', '_');
+                             return name;
+                         });
 
 // --- Byte-level cross-validation ---
 
@@ -1426,18 +1503,15 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
     auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
-    for (const auto& layer : javaTile.getLayers())
-        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
 
     EncoderConfig config;
     config.sortFeatures = false;
     auto reencoded = Encoder().encode(encoderLayers, config);
 
-    EXPECT_LE(reencoded.size(), fixture.size())
-        << "C++ encoder output larger than Java for " << fixturePath;
+    EXPECT_LE(reencoded.size(), fixture.size()) << "C++ encoder output larger than Java for " << fixturePath;
 
-    auto cppTile = Decoder().decode(
-        {reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
     for (const auto& javaLayer : javaTile.getLayers()) {
         const auto* cppLayer = cppTile.getLayer(javaLayer.getName());
         ASSERT_TRUE(cppLayer);
@@ -1445,13 +1519,24 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
     }
 }
 
-TEST(ByteCompare, PointBoolean)        { byteCompareFixtureTest("simple/point-boolean.mlt"); }
-TEST(ByteCompare, LineBoolean)         { byteCompareFixtureTest("simple/line-boolean.mlt"); }
-TEST(ByteCompare, PolygonBoolean)      { byteCompareFixtureTest("simple/polygon-boolean.mlt"); }
-TEST(ByteCompare, MultiPointBoolean)   { byteCompareFixtureTest("simple/multipoint-boolean.mlt"); }
-TEST(ByteCompare, MultiLineBoolean)    { byteCompareFixtureTest("simple/multiline-boolean.mlt"); }
-TEST(ByteCompare, MultiPolygonBoolean) { byteCompareFixtureTest("simple/multipolygon-boolean.mlt"); }
-
+TEST(ByteCompare, PointBoolean) {
+    byteCompareFixtureTest("simple/point-boolean.mlt");
+}
+TEST(ByteCompare, LineBoolean) {
+    byteCompareFixtureTest("simple/line-boolean.mlt");
+}
+TEST(ByteCompare, PolygonBoolean) {
+    byteCompareFixtureTest("simple/polygon-boolean.mlt");
+}
+TEST(ByteCompare, MultiPointBoolean) {
+    byteCompareFixtureTest("simple/multipoint-boolean.mlt");
+}
+TEST(ByteCompare, MultiLineBoolean) {
+    byteCompareFixtureTest("simple/multiline-boolean.mlt");
+}
+TEST(ByteCompare, MultiPolygonBoolean) {
+    byteCompareFixtureTest("simple/multipolygon-boolean.mlt");
+}
 
 // --- Struct column OMT cross-validation ---
 
@@ -1468,8 +1553,7 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
 
     std::set<std::string> structChildNames;
     for (const auto& [name, _] : javaProps) {
-        if (name.starts_with("name"))
-            structChildNames.insert(name.substr(4));
+        if (name.starts_with("name")) structChildNames.insert(name.substr(4));
     }
     ASSERT_GT(structChildNames.size(), 5u);
 
@@ -1492,8 +1576,7 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
             }
             case metadata::tileset::GeometryType::LINESTRING: {
                 const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
-                for (const auto& c : ls.getCoordinates())
-                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                for (const auto& c : ls.getCoordinates()) ef.geometry.coordinates.push_back(toEncVertex(c));
                 break;
             }
             default:
@@ -1506,11 +1589,9 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
             if (it == javaProps.end()) continue;
             auto val = it->second.getProperty(static_cast<std::uint32_t>(fi));
             if (!val.has_value()) continue;
-            if (auto* sv = std::get_if<std::string_view>(&*val))
-                nameStruct[childName] = std::string(*sv);
+            if (auto* sv = std::get_if<std::string_view>(&*val)) nameStruct[childName] = std::string(*sv);
         }
-        if (!nameStruct.empty())
-            ef.properties["name"] = std::move(nameStruct);
+        if (!nameStruct.empty()) ef.properties["name"] = std::move(nameStruct);
 
         for (const auto& propName : {"class", "intermittent"}) {
             if (!javaProps.contains(propName)) continue;
@@ -1547,7 +1628,10 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
             auto javaId = javaLayer->getFeatures()[fi].getID();
             std::size_t cppIdx = 0;
             for (std::size_t ci = 0; ci < cppLayer->getFeatures().size(); ++ci) {
-                if (cppLayer->getFeatures()[ci].getID() == javaId) { cppIdx = ci; break; }
+                if (cppLayer->getFeatures()[ci].getID() == javaId) {
+                    cppIdx = ci;
+                    break;
+                }
             }
 
             auto javaVal = javaPP.getProperty(static_cast<std::uint32_t>(fi));
@@ -1563,7 +1647,6 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
     }
 }
 
-
 // --- Parameterized corpus re-encode tests ---
 
 void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
@@ -1573,8 +1656,7 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
-    for (const auto& layer : javaTile.getLayers())
-        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
     ASSERT_FALSE(encoderLayers.empty());
 
     EncoderConfig config;
@@ -1582,8 +1664,7 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto encoded = Encoder().encode(encoderLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = Decoder().decode(
-        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     for (const auto& javaLayer : javaTile.getLayers()) {
         const auto* reLayer = redecodedTile.getLayer(javaLayer.getName());
@@ -1600,17 +1681,17 @@ std::string sanitizeFixtureName(const ::testing::TestParamInfo<std::string>& inf
     return name;
 }
 
-#define REENCODE_CORPUS_SUITE(SuiteName, subdir)                               \
-    class SuiteName : public ::testing::TestWithParam<std::string> {};          \
-    TEST_P(SuiteName, Roundtrip) { reencodeRoundtrip(subdir, GetParam()); }    \
-    INSTANTIATE_TEST_SUITE_P(All, SuiteName,                                   \
-        ::testing::ValuesIn(discoverFixtures(subdir)), sanitizeFixtureName)
+#define REENCODE_CORPUS_SUITE(SuiteName, subdir)                       \
+    class SuiteName : public ::testing::TestWithParam<std::string> {}; \
+    TEST_P(SuiteName, Roundtrip) {                                     \
+        reencodeRoundtrip(subdir, GetParam());                         \
+    }                                                                  \
+    INSTANTIATE_TEST_SUITE_P(All, SuiteName, ::testing::ValuesIn(discoverFixtures(subdir)), sanitizeFixtureName)
 
 REENCODE_CORPUS_SUITE(ReencodeOMT, "omt");
 REENCODE_CORPUS_SUITE(ReencodeBing, "bing");
 REENCODE_CORPUS_SUITE(ReencodeAmazon, "amazon");
 REENCODE_CORPUS_SUITE(ReencodeAmazonHere, "amazon_here");
-
 
 // --- Sorted re-encode ---
 
@@ -1618,8 +1699,7 @@ namespace {
 
 std::string featureFingerprint(const Encoder::Feature& f) {
     std::string fp = std::to_string(f.id) + "|" + std::to_string(static_cast<int>(f.geometry.type));
-    for (const auto& v : f.geometry.coordinates)
-        fp += "|" + std::to_string(v.x) + "," + std::to_string(v.y);
+    for (const auto& v : f.geometry.coordinates) fp += "|" + std::to_string(v.x) + "," + std::to_string(v.y);
     return fp;
 }
 
@@ -1632,8 +1712,7 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> originalLayers;
-    for (const auto& layer : javaTile.getLayers())
-        originalLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) originalLayers.push_back(decodedToEncoderLayer(layer));
     ASSERT_FALSE(originalLayers.empty());
 
     EncoderConfig config;
@@ -1641,8 +1720,7 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     auto encoded = Encoder().encode(originalLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = Decoder().decode(
-        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     for (const auto& origLayer : originalLayers) {
         const auto* reDecodedLayer = redecodedTile.getLayer(origLayer.name);
@@ -1663,10 +1741,10 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
 }
 
 class ReencodeOMTSorted : public ::testing::TestWithParam<std::string> {};
-TEST_P(ReencodeOMTSorted, Roundtrip) { reencodeRoundtripSorted("omt", GetParam()); }
-INSTANTIATE_TEST_SUITE_P(All, ReencodeOMTSorted,
-    ::testing::ValuesIn(discoverFixtures("omt")), sanitizeFixtureName);
-
+TEST_P(ReencodeOMTSorted, Roundtrip) {
+    reencodeRoundtripSorted("omt", GetParam());
+}
+INSTANTIATE_TEST_SUITE_P(All, ReencodeOMTSorted, ::testing::ValuesIn(discoverFixtures("omt")), sanitizeFixtureName);
 
 // --- Tessellated re-encode ---
 
@@ -1677,8 +1755,7 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
-    for (const auto& layer : javaTile.getLayers())
-        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
     ASSERT_FALSE(encoderLayers.empty());
 
     EncoderConfig config;
@@ -1687,8 +1764,7 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     auto encoded = Encoder().encode(encoderLayers, config);
     ASSERT_FALSE(encoded.empty());
 
-    auto redecodedTile = Decoder().decode(
-        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+    auto redecodedTile = Decoder().decode({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
 
     using GT2 = metadata::tileset::GeometryType;
     for (const auto& origLayer : encoderLayers) {
@@ -1712,6 +1788,10 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
 }
 
 class ReencodeOMTTessellated : public ::testing::TestWithParam<std::string> {};
-TEST_P(ReencodeOMTTessellated, Roundtrip) { reencodeTessellated("omt", GetParam()); }
-INSTANTIATE_TEST_SUITE_P(All, ReencodeOMTTessellated,
-    ::testing::ValuesIn(discoverFixtures("omt")), sanitizeFixtureName);
+TEST_P(ReencodeOMTTessellated, Roundtrip) {
+    reencodeTessellated("omt", GetParam());
+}
+INSTANTIATE_TEST_SUITE_P(All,
+                         ReencodeOMTTessellated,
+                         ::testing::ValuesIn(discoverFixtures("omt")),
+                         sanitizeFixtureName);

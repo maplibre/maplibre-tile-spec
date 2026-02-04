@@ -618,10 +618,11 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     auto it = f.properties.find(colName);
                     if (it != f.properties.end()) {
                         values.push_back(std::visit(util::overloaded{
-                            [](double v) -> double { return v; },
-                            [](float v) -> double { return static_cast<double>(v); },
-                            [](auto) -> double { return 0.0; },
-                        }, it->second));
+                                                        [](double v) -> double { return v; },
+                                                        [](float v) -> double { return static_cast<double>(v); },
+                                                        [](auto) -> double { return 0.0; },
+                                                    },
+                                                    it->second));
                     } else {
                         values.push_back(std::nullopt);
                     }

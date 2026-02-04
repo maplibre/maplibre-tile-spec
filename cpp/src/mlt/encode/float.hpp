@@ -13,7 +13,7 @@ public:
     using StreamMetadata = metadata::stream::StreamMetadata;
 
     template <typename T>
-        requires (std::same_as<T, float> || std::same_as<T, double>)
+        requires(std::same_as<T, float> || std::same_as<T, double>)
     static std::vector<std::uint8_t> encodeStream(std::span<const T> values) {
         const auto byteLength = static_cast<std::uint32_t>(values.size() * sizeof(T));
 
@@ -35,13 +35,9 @@ public:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeFloatStream(std::span<const float> values) {
-        return encodeStream(values);
-    }
+    static std::vector<std::uint8_t> encodeFloatStream(std::span<const float> values) { return encodeStream(values); }
 
-    static std::vector<std::uint8_t> encodeDoubleStream(std::span<const double> values) {
-        return encodeStream(values);
-    }
+    static std::vector<std::uint8_t> encodeDoubleStream(std::span<const double> values) { return encodeStream(values); }
 };
 
 } // namespace mlt::encoder

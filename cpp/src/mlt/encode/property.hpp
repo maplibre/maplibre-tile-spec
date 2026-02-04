@@ -102,7 +102,7 @@ public:
     }
 
     template <typename T>
-        requires (std::same_as<T, float> || std::same_as<T, double>)
+        requires(std::same_as<T, float> || std::same_as<T, double>)
     static std::vector<std::uint8_t> encodeFloatingPointColumn(std::span<const std::optional<T>> values) {
         std::vector<bool> presentValues;
         std::vector<T> dataValues;
