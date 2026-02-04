@@ -1,8 +1,7 @@
 if(NOT MLT_WITH_FASTPFOR)
   message(STATUS "[MLT] No FastPFOR support")
   return()
-endif(MLT_WITH_FASTPFOR)
-
+endif(NOT MLT_WITH_FASTPFOR)
 
 message(STATUS "[MLT] Including FastPFOR support")
 
@@ -25,3 +24,4 @@ target_link_libraries(mlt-cpp FastPFOR)
 target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
 target_compile_definitions(mlt-cpp PUBLIC MLT_ENABLE_FASTPFOR=1)
 list(APPEND MLT_EXPORT_TARGETS FastPFOR)
+

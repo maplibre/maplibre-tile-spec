@@ -3,7 +3,6 @@ project(mlt-cpp LANGUAGES CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(AddCXXCompilerFlag)
-include(CheckCXXSourceCompiles)
 
 # Use the same deployment target as the parent project, if set.
 if (NOT MLT_OSX_DEPLOYMENT_TARGET)
@@ -132,9 +131,6 @@ target_sources(mlt-cpp PRIVATE
     ${MLT_INCLUDE_FILES}
     ${MLT_SRC_FILES}
 )
-
-# SIMD Everywhere (needed on ARM)
-target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
 include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 
