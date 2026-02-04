@@ -464,7 +464,7 @@ describe("decodePropertyColumn - STRING", () => {
             const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
             const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
             const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetadata = createColumnMetadataForStruct("address", [{ name: "street" }]);
+            const columnMetadata = createColumnMetadataForStruct("address:", [{ name: "street" }]);
             const offset = new IntWrapper(0);
             const result = decodePropertyColumn(completeData, offset, columnMetadata, 1, dictionaryStrings.length);
 
@@ -481,7 +481,7 @@ describe("decodePropertyColumn - STRING", () => {
             const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
             const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
             const completeData = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetadata = createColumnMetadataForStruct("address", [{ name: "street" }]);
+            const columnMetadata = createColumnMetadataForStruct("address:", [{ name: "street" }]);
             const offset = new IntWrapper(0);
             const result = decodePropertyColumn(completeData, offset, columnMetadata, 5, dictionaryStrings.length);
 

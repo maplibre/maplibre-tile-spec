@@ -267,7 +267,7 @@ describe("decodeSharedDictionary", () => {
 
             const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetaencodedStrings = createColumnMetadataForStruct("address", [{ name: "street" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("address:", [{ name: "street" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -338,7 +338,7 @@ describe("decodeSharedDictionary", () => {
 
             const fieldStreams = encodeStructField([0, 2], [true, false, true, false]);
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetaencodedStrings = createColumnMetadataForStruct("colors", [{ name: "primary" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("colors:", [{ name: "primary" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -361,7 +361,7 @@ describe("decodeSharedDictionary", () => {
             // Simulating implicit nullability by mismatched counts
             const fieldStreams = encodeStructField([0, 1], [true, false, false, true]);
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
-            const columnMetaencodedStrings = createColumnMetadataForStruct("greek", [{ name: "letter" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("greek:", [{ name: "letter" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -394,7 +394,7 @@ describe("decodeSharedDictionary", () => {
                 dataStream,
                 fieldStreams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings", [{ name: "value" }]);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings:", [{ name: "value" }]);
 
             const result = decodeSharedDictionary(
                 completeencodedStrings,
@@ -425,7 +425,7 @@ describe("decodeSharedDictionary", () => {
                 field2Streams,
                 field3Streams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("multi", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("multi:", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
@@ -460,7 +460,7 @@ describe("decodeSharedDictionary", () => {
                 field2Streams,
                 field3Streams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("test", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("test:", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
@@ -493,7 +493,7 @@ describe("decodeSharedDictionary", () => {
                 field2Streams,
                 field3Streams,
             );
-            const columnMetaencodedStrings = createColumnMetadataForStruct("mixed", [
+            const columnMetaencodedStrings = createColumnMetadataForStruct("mixed:", [
                 { name: "field1" },
                 { name: "field2" },
                 { name: "field3" },
