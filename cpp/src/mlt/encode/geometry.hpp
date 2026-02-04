@@ -146,7 +146,7 @@ public:
 
         std::vector<std::uint8_t> result;
         result.insert(result.end(), encodedGeomTypes.begin(), encodedGeomTypes.end());
-        std::uint32_t nStreams = 1;
+        std::uint32_t numStreams = 1;
 
         if (encodeOutlines) {
             if (!numGeometries.empty()) {
@@ -154,21 +154,21 @@ public:
                                                        PhysicalStreamType::LENGTH,
                                                        LogicalStreamType{LengthType::GEOMETRIES});
                 result.insert(result.end(), data.begin(), data.end());
-                ++nStreams;
+                ++numStreams;
             }
             if (!numParts.empty()) {
                 auto data = encodeUint32AsInt32Stream(numParts, physicalTechnique, intEncoder,
                                                        PhysicalStreamType::LENGTH,
                                                        LogicalStreamType{LengthType::PARTS});
                 result.insert(result.end(), data.begin(), data.end());
-                ++nStreams;
+                ++numStreams;
             }
             if (!numRings.empty()) {
                 auto data = encodeUint32AsInt32Stream(numRings, physicalTechnique, intEncoder,
                                                        PhysicalStreamType::LENGTH,
                                                        LogicalStreamType{LengthType::RINGS});
                 result.insert(result.end(), data.begin(), data.end());
-                ++nStreams;
+                ++numStreams;
             }
         }
 
@@ -176,26 +176,24 @@ public:
                                                            PhysicalStreamType::LENGTH,
                                                            LogicalStreamType{LengthType::TRIANGLES});
         result.insert(result.end(), encodedTriangles.begin(), encodedTriangles.end());
-        ++nStreams;
+        ++numStreams;
 
         auto encodedIndices = encodeUint32AsInt32Stream(indexBuffer, physicalTechnique, intEncoder,
                                                          PhysicalStreamType::OFFSET,
                                                          LogicalStreamType{OffsetType::INDEX});
         result.insert(result.end(), encodedIndices.begin(), encodedIndices.end());
-        ++nStreams;
+        ++numStreams;
 
         auto encodedVertices = encodeVertexBufferPlain(vertexBuffer, physicalTechnique);
         result.insert(result.end(), encodedVertices.begin(), encodedVertices.end());
-        ++nStreams;
+        ++numStreams;
 
-        auto minVal = std::numeric_limits<std::int32_t>::max();
         auto maxVal = std::numeric_limits<std::int32_t>::min();
         for (const auto& v : vertexBuffer) {
-            minVal = std::min({minVal, v.x, v.y});
             maxVal = std::max({maxVal, v.x, v.y});
         }
 
-        return {nStreams, std::move(result), maxVal};
+        return {numStreams, std::move(result), maxVal};
     }
 
 private:

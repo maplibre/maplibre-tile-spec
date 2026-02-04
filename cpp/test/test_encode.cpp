@@ -1553,9 +1553,7 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
         Encoder::Feature f;
         f.id = 2;
         f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-        // Exterior ring
         f.geometry.coordinates = {{0, 0}, {400, 0}, {400, 400}, {0, 400},
-        // Hole
                                   {100, 100}, {300, 100}, {300, 300}, {100, 300}};
         f.geometry.ringSizes = {4, 4};
         f.properties["height"] = std::int32_t{20};
@@ -1564,6 +1562,7 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
 
     EncoderConfig config;
     config.preTessellate = true;
+    config.sortFeatures = false;
     auto tileData = encoder.encode({layer}, config);
     ASSERT_FALSE(tileData.empty());
 
@@ -1571,9 +1570,27 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
     const auto* decoded = tile.getLayer("buildings");
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 2u);
+
+    const auto& features = decoded->getFeatures();
+
+    // Simple quad → 2 triangles = 6 indices
+    const auto& simplePoly = features[0].getGeometry();
+    EXPECT_EQ(simplePoly.getTriangles().size(), 6u);
+    for (auto idx : simplePoly.getTriangles()) {
+        EXPECT_LT(idx, 4u);
+    }
+
+    // Quad with hole → 8 triangles = 24 indices
+    const auto& holedPoly = features[1].getGeometry();
+    EXPECT_EQ(holedPoly.getTriangles().size(), 24u);
+    for (auto idx : holedPoly.getTriangles()) {
+        EXPECT_LT(idx, 8u);
+    }
 }
 
-TEST(Encode, PretessellatedMultiPolygonRoundtrip) {
+TEST(Encode, PretessellatedMultiPolygonCrossValidation) {
+    // Cross-validates against Java TessellationUtilsTest.tessellateMultiPolygon_PolygonsWithoutHoles
+    // Expected: 4 triangles total, indices [3,0,1, 1,2,3, 7,4,5, 5,6,7]
     Encoder encoder;
     Encoder::Layer layer;
     layer.name = "landuse";
@@ -1583,14 +1600,15 @@ TEST(Encode, PretessellatedMultiPolygonRoundtrip) {
     f.id = 1;
     f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
     f.geometry.parts = {
-        {{10, 10}, {50, 10}, {50, 50}, {10, 50}},
-        {{100, 100}, {200, 100}, {200, 200}, {100, 200}},
+        {{0, 0}, {10, 0}, {10, 10}, {0, 10}},
+        {{20, 20}, {40, 20}, {40, 40}, {20, 40}},
     };
     f.geometry.partRingSizes = {{4}, {4}};
     layer.features.push_back(std::move(f));
 
     EncoderConfig config;
     config.preTessellate = true;
+    config.sortFeatures = false;
     auto tileData = encoder.encode({layer}, config);
     ASSERT_FALSE(tileData.empty());
 
@@ -1598,4 +1616,90 @@ TEST(Encode, PretessellatedMultiPolygonRoundtrip) {
     const auto* decoded = tile.getLayer("landuse");
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 1u);
+
+    const auto& features = decoded->getFeatures();
+    ASSERT_EQ(features.size(), 1u);
+
+    auto triangles = features[0].getGeometry().getTriangles();
+
+    // 4 triangles = 12 indices (Java expected: [3,0,1, 1,2,3, 7,4,5, 5,6,7])
+    EXPECT_EQ(triangles.size(), 12u);
+
+    for (auto idx : triangles) {
+        EXPECT_LT(idx, 8u);
+    }
+}
+
+TEST(Encode, PretessellatedMultiPolygonWithHoles) {
+    // Cross-validates against Java TessellationUtilsTest.tessellateMultiPolygon_PolygonsWithHoles
+    // Expected: 10 triangles total
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "landuse";
+    layer.extent = 4096;
+
+    Encoder::Feature f;
+    f.id = 1;
+    f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
+    f.geometry.parts = {
+        {{0, 0}, {10, 0}, {10, 10}, {0, 10},
+         {5, 5}, {5, 7}, {7, 7}, {7, 5}},
+        {{20, 20}, {40, 20}, {40, 40}, {20, 40}},
+    };
+    f.geometry.partRingSizes = {{4, 4}, {4}};
+    layer.features.push_back(std::move(f));
+
+    EncoderConfig config;
+    config.preTessellate = true;
+    config.sortFeatures = false;
+    auto tileData = encoder.encode({layer}, config);
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("landuse");
+    ASSERT_TRUE(decoded);
+
+    const auto& features = decoded->getFeatures();
+    ASSERT_EQ(features.size(), 1u);
+
+    auto triangles = features[0].getGeometry().getTriangles();
+
+    // 10 triangles = 30 indices (Java TessellationUtilsTest expected: 10)
+    EXPECT_EQ(triangles.size() / 3, 10u);
+}
+
+TEST(Encode, PretessellatedSkippedForMixedGeometry) {
+    // Pre-tessellation should NOT activate when layer has mixed geometry types
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "mixed";
+    layer.extent = 4096;
+
+    {
+        Encoder::Feature f;
+        f.id = 1;
+        f.geometry.type = metadata::tileset::GeometryType::POLYGON;
+        f.geometry.coordinates = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};
+        f.geometry.ringSizes = {4};
+        layer.features.push_back(std::move(f));
+    }
+    {
+        Encoder::Feature f;
+        f.id = 2;
+        f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+        f.geometry.coordinates = {{0, 0}, {10, 10}};
+        layer.features.push_back(std::move(f));
+    }
+
+    EncoderConfig config;
+    config.preTessellate = true;
+    config.sortFeatures = false;
+    auto tileData = encoder.encode({layer}, config);
+    ASSERT_FALSE(tileData.empty());
+
+    // Should still decode fine — just no tessellation data
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("mixed");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 2u);
 }
