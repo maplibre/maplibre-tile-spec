@@ -146,6 +146,8 @@ public class MltFixtureGenerator {
                 .build()));
   }
 
+
+  // Export the MLT fixture to the output directory, plus a JSON dump of the decoded tile for readability
   private static void exportMltFixture(
       String outputName, MapboxVectorTile tileGeometry, ConversionConfig config)
       throws IOException {
