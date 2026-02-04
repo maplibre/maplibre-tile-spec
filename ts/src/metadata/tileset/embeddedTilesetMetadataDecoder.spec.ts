@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeField } from "./embeddedTilesetMetadataDecoder";
+import { decodeField, decodeEmbeddedTileSetMetadata } from "./embeddedTilesetMetadataDecoder";
 import IntWrapper from "../../decoding/intWrapper";
 import { concatenateBuffers } from "../../decoding/decodingTestUtils";
 import { ComplexType, ScalarType } from "./tilesetMetadata";
@@ -192,6 +192,28 @@ describe("embeddedTilesetMetadataDecoder", () => {
                     decodeField(buffer, new IntWrapper(0));
                 }).toThrow("Unsupported field type code 999. Supported: 10-29(scalars), 30(STRUCT)");
             });
+        });
+
+    });
+
+    describe("decodeEmbeddedTileSetMetadata", () => {
+        it("should decode tileset with STRUCT column", () => {
+            const buffer = concatenateBuffers(
+                encodeFieldName(""),
+                encodeTypeCode(4096),
+                encodeChildCount(1),
+                encodeTypeCode(STRUCT_TYPE_CODE),
+                encodeFieldName("props"),
+                encodeChildCount(1),
+                encodeTypeCode(scalarTypeCode(ScalarType.STRING, false)),
+                encodeFieldName("name"),
+            );
+
+            const [metadata, extent] = decodeEmbeddedTileSetMetadata(buffer, new IntWrapper(0));
+
+            expect(extent).toBe(4096);
+            expect(metadata.featureTables[0].name).toBe("");
+            expect(metadata.featureTables[0].columns[0].complexType.children).toHaveLength(1);
         });
     });
 });
