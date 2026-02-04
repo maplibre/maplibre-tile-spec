@@ -22,7 +22,6 @@ struct EncoderDeleter {
     void operator()(fsst_encoder_t* e) const { fsst_destroy(e); }
 };
 
-/// Train an FSST symbol table on `data` and compress it, returning the MLT wire format components.
 inline FsstResult encode(std::span<const std::uint8_t> data) {
     if (data.empty()) {
         return {{}, {}, {}, 0};

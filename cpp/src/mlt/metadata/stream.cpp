@@ -48,7 +48,6 @@ std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& tileData) {
         auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData);
         return std::make_unique<MortonEncodedStreamMetadata>(std::move(result));
     }
-    // Boolean RLE doesn't need additional information
     else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE ||
               streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
              streamMetadata.getPhysicalLevelTechnique() != PhysicalLevelTechnique::NONE) {

@@ -6,11 +6,8 @@
 
 namespace mlt::util::encoding::rle {
 
-/// ORC-style byte RLE encoding.
-/// Encodes bytes using runs (repeated values) and literals (non-repeated sequences).
-/// Format: control byte followed by data.
-///   - If high bit set: literal run of (0xFF ^ control + 1) bytes
-///   - Otherwise: repeated run of (control + 3) copies of the following byte
+/// ORC-style byte RLE. Control byte: high bit set = literal run of (0xFF ^ control + 1) bytes,
+/// otherwise repeated run of (control + 3) copies of the following byte.
 inline void encodeByte(const std::uint8_t* data, std::size_t count, std::vector<std::uint8_t>& out) {
     static constexpr std::size_t MIN_REPEAT = 3;
     static constexpr std::size_t MAX_REPEAT = 127 + MIN_REPEAT;
@@ -18,7 +15,6 @@ inline void encodeByte(const std::uint8_t* data, std::size_t count, std::vector<
 
     std::size_t pos = 0;
     while (pos < count) {
-        // Check for a run of identical values
         std::size_t runLength = 1;
         while (pos + runLength < count && data[pos + runLength] == data[pos] && runLength < MAX_REPEAT) {
             ++runLength;
@@ -29,7 +25,6 @@ inline void encodeByte(const std::uint8_t* data, std::size_t count, std::vector<
             out.push_back(data[pos]);
             pos += runLength;
         } else {
-            // Gather literals
             const auto literalStart = pos;
             std::size_t literalCount = 0;
             while (pos < count && literalCount < MAX_LITERAL) {
@@ -49,9 +44,6 @@ inline void encodeByte(const std::uint8_t* data, std::size_t count, std::vector<
     }
 }
 
-/// Encode a bitset (packed into bytes) using ORC byte RLE.
-/// @param bits Packed bitset data (LSB first within each byte)
-/// @param numBits Total number of valid bits
 inline std::vector<std::uint8_t> encodeBooleanRle(const std::uint8_t* bits, std::uint32_t numBits) {
     const auto numBytes = (numBits + 7) / 8;
     std::vector<std::uint8_t> result;
@@ -67,7 +59,6 @@ struct IntRleResult {
     std::vector<T> values;
 };
 
-/// @return {runs, values} where runs[i] is the count and values[i] is the repeated value
 template <typename T>
     requires(std::is_integral_v<T>)
 IntRleResult<T> encodeIntRle(std::span<const T> data) {

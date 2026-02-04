@@ -2,7 +2,6 @@
 
 #include <mlt/util/space_filling_curve.hpp>
 
-#include <algorithm>
 #include <cstdint>
 #include <utility>
 
@@ -27,8 +26,6 @@ public:
                 static_cast<float>(static_cast<std::int32_t>(y) - coordinateShift)};
     }
 
-    /// Skilling's AxesToTranspose: transforms 2D coordinates into a transposed index,
-    /// then interleaves bits to produce the final Hilbert distance.
     static std::uint32_t xy2d(std::uint32_t bits, std::uint32_t x, std::uint32_t y) {
         std::uint32_t coords[2] = {x, y};
         axesToTranspose(bits, coords, 2);
@@ -43,7 +40,6 @@ public:
     }
 
 private:
-    /// Skilling's AxestoTranspose
     static void axesToTranspose(std::uint32_t bits, std::uint32_t* x, int n) {
         auto M = static_cast<std::uint32_t>(1u << (bits - 1));
         for (auto q = M; q > 1; q >>= 1) {
@@ -72,7 +68,6 @@ private:
         }
     }
 
-    /// Skilling's TransposeToAxes
     static void transposeToAxes(std::uint32_t bits, std::uint32_t* x, int n) {
         auto N = static_cast<std::uint32_t>(2u << (bits - 1));
         auto t = x[n - 1] >> 1;
@@ -94,7 +89,6 @@ private:
         }
     }
 
-    /// Interleave transposed index bits into a single integer (big-endian bit order).
     static std::uint32_t untranspose(std::uint32_t bits, const std::uint32_t* x, int n) {
         std::uint32_t d = 0;
         auto length = bits * n;
@@ -112,7 +106,6 @@ private:
         return d;
     }
 
-    /// De-interleave a Hilbert index into transposed form.
     static void transpose(std::uint32_t bits, std::uint32_t d, std::uint32_t* x, int n) {
         auto length = bits * n;
         x[0] = 0;

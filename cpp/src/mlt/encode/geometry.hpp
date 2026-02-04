@@ -150,7 +150,6 @@ private:
         return result;
     }
 
-    /// Plain vertex buffer: componentwise delta + zigzag, then varint-encoded directly.
     static std::vector<std::uint8_t> encodeVertexBufferPlain(
         std::span<const Vertex> vertices,
         PhysicalLevelTechnique physicalTechnique) {
@@ -180,8 +179,6 @@ private:
         result.insert(result.end(), encodedData.begin(), encodedData.end());
         return result;
     }
-
-    // -- Hilbert dictionary --
 
     struct HilbertDictionary {
         std::vector<Vertex> vertices;
@@ -231,8 +228,6 @@ private:
         return result;
     }
 
-    // -- Morton dictionary --
-
     struct MortonDictionary {
         std::vector<std::uint32_t> mortonCodes;
     };
@@ -273,8 +268,6 @@ private:
         return result;
     }
 
-    // -- Shared utilities --
-
     static std::vector<std::int32_t> computeOffsets(
         std::span<const Vertex> vertexBuffer,
         std::span<const std::uint32_t> sortedIds,
@@ -289,7 +282,6 @@ private:
         return offsets;
     }
 
-    /// Encode pre-zigzag-delta-encoded vertex data with varint, wrapped in COMPONENTWISE_DELTA metadata.
     static std::vector<std::uint8_t> encodeVertexBufferRaw(
         std::span<const std::int32_t> zigZagDelta,
         PhysicalLevelTechnique physicalTechnique) {
@@ -318,7 +310,6 @@ private:
         return result;
     }
 
-    /// Morton codes: delta-encoded, wrapped in MortonEncodedStreamMetadata.
     static std::vector<std::uint8_t> encodeMortonCodes(
         std::span<const std::uint32_t> mortonCodes,
         std::uint32_t numBits, std::int32_t coordinateShift,

@@ -22,7 +22,6 @@
 
 using namespace mlt;
 
-// --- Encoding primitive roundtrip tests ---
 
 TEST(EncodePrimitives, ZigZagRoundtrip) {
     for (std::int32_t v : {0, 1, -1, 42, -42, 127, -128, 65535, -65536, 2147483647, -2147483647}) {
@@ -58,7 +57,6 @@ TEST(EncodePrimitives, VarintRoundtrip) {
     }
 }
 
-// --- Stream metadata roundtrip tests ---
 
 TEST(EncodeMetadata, StreamMetadataRoundtrip) {
     using namespace metadata::stream;
@@ -112,21 +110,18 @@ TEST(EncodeMetadata, FeatureTableRoundtrip) {
     table.name = "test_layer";
     table.extent = 4096;
 
-    // ID column
     Column idCol;
     idCol.nullable = false;
     idCol.columnScope = ColumnScope::FEATURE;
     idCol.type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = false};
     table.columns.push_back(std::move(idCol));
 
-    // Geometry column
     Column geomCol;
     geomCol.nullable = false;
     geomCol.columnScope = ColumnScope::FEATURE;
     geomCol.type = ComplexColumn{.type = ComplexType::GEOMETRY};
     table.columns.push_back(std::move(geomCol));
 
-    // Int property
     Column intCol;
     intCol.name = "population";
     intCol.nullable = true;
@@ -134,7 +129,6 @@ TEST(EncodeMetadata, FeatureTableRoundtrip) {
     intCol.type = ScalarColumn{.type = ScalarType::INT_32};
     table.columns.push_back(std::move(intCol));
 
-    // String property
     Column strCol;
     strCol.name = "name";
     strCol.nullable = true;
@@ -160,7 +154,6 @@ TEST(EncodeMetadata, FeatureTableRoundtrip) {
     EXPECT_EQ(decoded.columns[3].getScalarType().getPhysicalType(), ScalarType::STRING);
 }
 
-// --- Full encode→decode roundtrip tests ---
 
 TEST(Encode, PointRoundtrip) {
     Encoder encoder;
@@ -347,7 +340,6 @@ TEST(Encode, PropertyValueTypes) {
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 1u);
 
-    // Verify each property type was decoded
     const auto& props = decoded->getProperties();
     EXPECT_TRUE(props.contains("bool_val"));
     EXPECT_TRUE(props.contains("int32_val"));
@@ -355,31 +347,26 @@ TEST(Encode, PropertyValueTypes) {
     EXPECT_TRUE(props.contains("float_val"));
     EXPECT_TRUE(props.contains("string_val"));
 
-    // Check int32 value
     const auto& intProp = props.at("int32_val");
     EXPECT_EQ(intProp.getType(), metadata::tileset::ScalarType::INT_32);
     auto intVal = intProp.getProperty(0);
     ASSERT_TRUE(intVal.has_value());
     EXPECT_EQ(std::get<std::int32_t>(*intVal), -42);
 
-    // Check boolean value
     const auto& boolProp = props.at("bool_val");
     EXPECT_EQ(boolProp.getType(), metadata::tileset::ScalarType::BOOLEAN);
     auto boolVal = boolProp.getProperty(0);
     ASSERT_TRUE(boolVal.has_value());
     EXPECT_EQ(std::get<bool>(*boolVal), true);
 
-    // Check int64 value
     const auto& longProp = props.at("int64_val");
     EXPECT_EQ(longProp.getType(), metadata::tileset::ScalarType::INT_64);
 
-    // Check float value
     const auto& floatProp = props.at("float_val");
     auto floatVal = floatProp.getProperty(0);
     ASSERT_TRUE(floatVal.has_value());
     EXPECT_FLOAT_EQ(std::get<float>(*floatVal), 1.5f);
 
-    // Check string value
     const auto& strProp = props.at("string_val");
     EXPECT_EQ(strProp.getType(), metadata::tileset::ScalarType::STRING);
     auto strVal = strProp.getProperty(0);
@@ -421,12 +408,10 @@ TEST(Encode, LargeIntegerEncoding) {
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 100u);
 
-    // Verify sequential IDs survived
     for (int i = 0; i < 100; ++i) {
         EXPECT_EQ(decoded->getFeatures()[i].getID(), static_cast<uint64_t>(i));
     }
 
-    // Verify integer property values
     const auto& seqProp = decoded->getProperties().at("seq");
     for (int i = 0; i < 50; ++i) {
         auto val = seqProp.getProperty(i);
@@ -588,7 +573,6 @@ TEST(Encode, MultipleLayers) {
     EXPECT_EQ(tile.getLayer("lines")->getFeatures().size(), 1u);
 }
 
-// --- Cross-validation: decode Java-generated fixtures ---
 
 namespace {
 std::vector<char> loadFile(const std::filesystem::path& path) {
@@ -601,7 +585,6 @@ std::vector<char> loadFile(const std::filesystem::path& path) {
     return buffer;
 }
 
-// Try multiple base paths since tests may run from different directories
 std::vector<char> loadFixture(const std::string& relativePath) {
     for (const auto& base : {"../test/expected/tag0x01/",
                               "../../test/expected/tag0x01/",
@@ -614,13 +597,198 @@ std::vector<char> loadFixture(const std::string& relativePath) {
 }
 }
 
+Encoder::Vertex toEncVertex(const Coordinate& c) {
+    return {static_cast<std::int32_t>(c.x), static_cast<std::int32_t>(c.y)};
+}
+
+Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
+    Encoder::Layer layer;
+    layer.name = decoded.getName();
+    layer.extent = decoded.getExtent();
+
+    const auto& props = decoded.getProperties();
+    std::vector<std::string> propNames;
+    for (const auto& [name, _] : props) {
+        propNames.push_back(name);
+    }
+
+    for (std::size_t fi = 0; fi < decoded.getFeatures().size(); ++fi) {
+        const auto& feat = decoded.getFeatures()[fi];
+        Encoder::Feature ef;
+        ef.id = feat.getID();
+
+        const auto& geom = feat.getGeometry();
+        ef.geometry.type = geom.type;
+
+        switch (geom.type) {
+            case metadata::tileset::GeometryType::POINT: {
+                const auto& pt = dynamic_cast<const geometry::Point&>(geom);
+                ef.geometry.coordinates = {toEncVertex(pt.getCoordinate())};
+                break;
+            }
+            case metadata::tileset::GeometryType::LINESTRING: {
+                const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
+                for (const auto& c : ls.getCoordinates()) {
+                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                }
+                break;
+            }
+            case metadata::tileset::GeometryType::POLYGON: {
+                const auto& poly = dynamic_cast<const geometry::Polygon&>(geom);
+                for (const auto& ring : poly.getRings()) {
+                    ef.geometry.ringSizes.push_back(static_cast<std::uint32_t>(ring.size()));
+                    for (const auto& c : ring) {
+                        ef.geometry.coordinates.push_back(toEncVertex(c));
+                    }
+                }
+                break;
+            }
+            case metadata::tileset::GeometryType::MULTIPOINT: {
+                const auto& mp = dynamic_cast<const geometry::MultiPoint&>(geom);
+                for (const auto& c : mp.getCoordinates()) {
+                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                }
+                break;
+            }
+            case metadata::tileset::GeometryType::MULTILINESTRING: {
+                const auto& mls = dynamic_cast<const geometry::MultiLineString&>(geom);
+                for (const auto& ls : mls.getLineStrings()) {
+                    std::vector<Encoder::Vertex> part;
+                    for (const auto& c : ls) {
+                        part.push_back(toEncVertex(c));
+                    }
+                    ef.geometry.parts.push_back(std::move(part));
+                }
+                break;
+            }
+            case metadata::tileset::GeometryType::MULTIPOLYGON: {
+                const auto& mpoly = dynamic_cast<const geometry::MultiPolygon&>(geom);
+                for (const auto& polygon : mpoly.getPolygons()) {
+                    std::vector<Encoder::Vertex> partVerts;
+                    std::vector<std::uint32_t> ringSizes;
+                    for (const auto& ring : polygon) {
+                        ringSizes.push_back(static_cast<std::uint32_t>(ring.size()));
+                        for (const auto& c : ring) {
+                            partVerts.push_back(toEncVertex(c));
+                        }
+                    }
+                    ef.geometry.parts.push_back(std::move(partVerts));
+                    ef.geometry.partRingSizes.push_back(std::move(ringSizes));
+                }
+                break;
+            }
+        }
+
+        for (const auto& name : propNames) {
+            const auto& pp = props.at(name);
+            auto val = pp.getProperty(static_cast<std::uint32_t>(fi));
+            if (!val.has_value()) continue;
+            std::visit([&](const auto& v) {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, std::nullptr_t>) {
+                } else if constexpr (std::is_same_v<T, std::string_view>) {
+                    ef.properties[name] = std::string(v);
+                } else if constexpr (std::is_same_v<T, std::optional<bool>>) {
+                    if (v) ef.properties[name] = *v;
+                } else if constexpr (std::is_same_v<T, std::optional<std::int32_t>>) {
+                    if (v) ef.properties[name] = *v;
+                } else if constexpr (std::is_same_v<T, std::optional<std::int64_t>>) {
+                    if (v) ef.properties[name] = *v;
+                } else if constexpr (std::is_same_v<T, std::optional<std::uint32_t>>) {
+                    if (v) ef.properties[name] = *v;
+                } else if constexpr (std::is_same_v<T, std::optional<std::uint64_t>>) {
+                    if (v) ef.properties[name] = *v;
+                } else if constexpr (std::is_same_v<T, std::optional<float>>) {
+                    if (v) ef.properties[name] = *v;
+                } else if constexpr (std::is_same_v<T, std::optional<double>>) {
+                    if (v) ef.properties[name] = *v;
+                } else {
+                    ef.properties[name] = v;
+                }
+            }, *val);
+        }
+
+        layer.features.push_back(std::move(ef));
+    }
+    return layer;
+}
+
+void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
+    ASSERT_EQ(a.getName(), b.getName());
+    ASSERT_EQ(a.getExtent(), b.getExtent());
+    ASSERT_EQ(a.getFeatures().size(), b.getFeatures().size());
+
+    std::map<std::uint64_t, std::size_t> bById;
+    for (std::size_t i = 0; i < b.getFeatures().size(); ++i) {
+        bById[b.getFeatures()[i].getID()] = i;
+    }
+
+    for (std::size_t ai = 0; ai < a.getFeatures().size(); ++ai) {
+        const auto& fa = a.getFeatures()[ai];
+        auto it = bById.find(fa.getID());
+        ASSERT_TRUE(it != bById.end()) << "missing feature id " << fa.getID();
+        auto bi = it->second;
+        const auto& fb = b.getFeatures()[bi];
+
+        ASSERT_EQ(fa.getGeometry().type, fb.getGeometry().type)
+            << "geometry type mismatch for id=" << fa.getID();
+
+        switch (fa.getGeometry().type) {
+            case metadata::tileset::GeometryType::POINT: {
+                const auto& pa = dynamic_cast<const geometry::Point&>(fa.getGeometry());
+                const auto& pb = dynamic_cast<const geometry::Point&>(fb.getGeometry());
+                EXPECT_FLOAT_EQ(pa.getCoordinate().x, pb.getCoordinate().x);
+                EXPECT_FLOAT_EQ(pa.getCoordinate().y, pb.getCoordinate().y);
+                break;
+            }
+            case metadata::tileset::GeometryType::LINESTRING: {
+                const auto& la = dynamic_cast<const geometry::LineString&>(fa.getGeometry());
+                const auto& lb = dynamic_cast<const geometry::LineString&>(fb.getGeometry());
+                ASSERT_EQ(la.getCoordinates().size(), lb.getCoordinates().size());
+                for (std::size_t j = 0; j < la.getCoordinates().size(); ++j) {
+                    EXPECT_FLOAT_EQ(la.getCoordinates()[j].x, lb.getCoordinates()[j].x);
+                    EXPECT_FLOAT_EQ(la.getCoordinates()[j].y, lb.getCoordinates()[j].y);
+                }
+                break;
+            }
+            case metadata::tileset::GeometryType::POLYGON: {
+                const auto& pa = dynamic_cast<const geometry::Polygon&>(fa.getGeometry());
+                const auto& pb = dynamic_cast<const geometry::Polygon&>(fb.getGeometry());
+                ASSERT_EQ(pa.getRings().size(), pb.getRings().size());
+                for (std::size_t r = 0; r < pa.getRings().size(); ++r) {
+                    ASSERT_EQ(pa.getRings()[r].size(), pb.getRings()[r].size());
+                    for (std::size_t j = 0; j < pa.getRings()[r].size(); ++j) {
+                        EXPECT_FLOAT_EQ(pa.getRings()[r][j].x, pb.getRings()[r][j].x);
+                        EXPECT_FLOAT_EQ(pa.getRings()[r][j].y, pb.getRings()[r][j].y);
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+        }
+
+        for (const auto& [name, ppA] : a.getProperties()) {
+            ASSERT_TRUE(b.getProperties().contains(name)) << "missing property " << name;
+            const auto& ppB = b.getProperties().at(name);
+            auto valA = ppA.getProperty(static_cast<std::uint32_t>(ai));
+            auto valB = ppB.getProperty(static_cast<std::uint32_t>(bi));
+            EXPECT_EQ(valA.has_value(), valB.has_value())
+                << "property " << name << " presence mismatch for id=" << fa.getID();
+            if (valA.has_value() && valB.has_value()) {
+                EXPECT_EQ(valA->index(), valB->index())
+                    << "property " << name << " type mismatch for id=" << fa.getID();
+            }
+        }
+    }
+}
+
 TEST(CrossValidate, JavaPointBoolean) {
     auto fixture = loadFixture("simple/point-boolean.mlt");
     if (fixture.empty()) {
         GTEST_SKIP() << "Fixture not found";
     }
 
-    // Decode the Java-generated fixture
     auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
     const auto* javaLayer = javaTile.getLayer("layer");
     ASSERT_TRUE(javaLayer);
@@ -628,11 +796,9 @@ TEST(CrossValidate, JavaPointBoolean) {
     ASSERT_EQ(javaLayer->getFeatures().size(), 1u);
     EXPECT_EQ(javaLayer->getFeatures()[0].getID(), 1u);
 
-    // Verify geometry type
     const auto& geom = javaLayer->getFeatures()[0].getGeometry();
     EXPECT_EQ(geom.type, metadata::tileset::GeometryType::POINT);
 
-    // Verify property
     const auto& props = javaLayer->getProperties();
     EXPECT_TRUE(props.contains("key"));
     auto keyVal = props.at("key").getProperty(0);
@@ -728,6 +894,120 @@ TEST(CrossValidate, JavaMultiPolygonBoolean) {
     EXPECT_EQ(mpoly.getPolygons().size(), 2u);
     EXPECT_EQ(mpoly.getPolygons()[0].size(), 1u); // first polygon: 1 ring
     EXPECT_EQ(mpoly.getPolygons()[1].size(), 2u); // second polygon: 2 rings (exterior + hole)
+}
+
+TEST(CrossValidate, RoundtripPointBoolean) {
+    auto fixture = loadFixture("simple/point-boolean.mlt");
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found";
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    const auto* javaLayer = javaTile.getLayer("layer");
+    ASSERT_TRUE(javaLayer);
+
+    auto encLayer = decodedToEncoderLayer(*javaLayer);
+    Encoder encoder;
+    auto reencoded = encoder.encode({encLayer});
+    ASSERT_FALSE(reencoded.empty());
+
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    const auto* cppLayer = cppTile.getLayer("layer");
+    ASSERT_TRUE(cppLayer);
+    compareDecodedTiles(*javaLayer, *cppLayer, true);
+}
+
+TEST(CrossValidate, RoundtripLineBoolean) {
+    auto fixture = loadFixture("simple/line-boolean.mlt");
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found";
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    const auto* javaLayer = javaTile.getLayer("layer");
+    ASSERT_TRUE(javaLayer);
+
+    auto encLayer = decodedToEncoderLayer(*javaLayer);
+    Encoder encoder;
+    auto reencoded = encoder.encode({encLayer});
+    ASSERT_FALSE(reencoded.empty());
+
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    const auto* cppLayer = cppTile.getLayer("layer");
+    ASSERT_TRUE(cppLayer);
+    compareDecodedTiles(*javaLayer, *cppLayer, true);
+}
+
+TEST(CrossValidate, RoundtripPolygonBoolean) {
+    auto fixture = loadFixture("simple/polygon-boolean.mlt");
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found";
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    const auto* javaLayer = javaTile.getLayer("layer");
+    ASSERT_TRUE(javaLayer);
+
+    auto encLayer = decodedToEncoderLayer(*javaLayer);
+    Encoder encoder;
+    auto reencoded = encoder.encode({encLayer});
+    ASSERT_FALSE(reencoded.empty());
+
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    const auto* cppLayer = cppTile.getLayer("layer");
+    ASSERT_TRUE(cppLayer);
+    compareDecodedTiles(*javaLayer, *cppLayer, true);
+}
+
+TEST(CrossValidate, RoundtripMultiPointBoolean) {
+    auto fixture = loadFixture("simple/multipoint-boolean.mlt");
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found";
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    const auto* javaLayer = javaTile.getLayer("layer");
+    ASSERT_TRUE(javaLayer);
+
+    auto encLayer = decodedToEncoderLayer(*javaLayer);
+    Encoder encoder;
+    auto reencoded = encoder.encode({encLayer});
+    ASSERT_FALSE(reencoded.empty());
+
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    const auto* cppLayer = cppTile.getLayer("layer");
+    ASSERT_TRUE(cppLayer);
+    compareDecodedTiles(*javaLayer, *cppLayer, false);
+}
+
+TEST(CrossValidate, RoundtripMultiLineBoolean) {
+    auto fixture = loadFixture("simple/multiline-boolean.mlt");
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found";
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    const auto* javaLayer = javaTile.getLayer("layer");
+    ASSERT_TRUE(javaLayer);
+
+    auto encLayer = decodedToEncoderLayer(*javaLayer);
+    Encoder encoder;
+    auto reencoded = encoder.encode({encLayer});
+    ASSERT_FALSE(reencoded.empty());
+
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    const auto* cppLayer = cppTile.getLayer("layer");
+    ASSERT_TRUE(cppLayer);
+    compareDecodedTiles(*javaLayer, *cppLayer, false);
+}
+
+TEST(CrossValidate, RoundtripMultiPolygonBoolean) {
+    auto fixture = loadFixture("simple/multipolygon-boolean.mlt");
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found";
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+    const auto* javaLayer = javaTile.getLayer("layer");
+    ASSERT_TRUE(javaLayer);
+
+    auto encLayer = decodedToEncoderLayer(*javaLayer);
+    Encoder encoder;
+    auto reencoded = encoder.encode({encLayer});
+    ASSERT_FALSE(reencoded.empty());
+
+    auto cppTile = Decoder().decode({reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    const auto* cppLayer = cppTile.getLayer("layer");
+    ASSERT_TRUE(cppLayer);
+    compareDecodedTiles(*javaLayer, *cppLayer, false);
 }
 
 TEST(FSST, EncodeDecodeRoundtrip) {
@@ -874,7 +1154,6 @@ TEST(Encode, VertexDictionaryRoundtrip) {
     layer.name = "dense";
     layer.extent = 4096;
 
-    // Many features sharing the same vertices — dictionary encoding should win
     std::vector<Encoder::Vertex> sharedVerts = {
         {100, 200}, {300, 400}, {500, 600}, {700, 800}, {900, 1000},
         {1200, 1400}, {1600, 1800}, {2000, 2200}, {2500, 2800}, {3000, 3200},
@@ -928,7 +1207,6 @@ TEST(Encode, FeatureSortingPoints) {
     layer.name = "sorted_points";
     layer.extent = 4096;
 
-    // Create points scattered across the tile
     std::vector<Encoder::Vertex> positions = {
         {3000, 3000}, {100, 100}, {2000, 500}, {500, 3500},
         {1500, 1500}, {3500, 100}, {200, 2000}, {2500, 2500},
@@ -952,7 +1230,6 @@ TEST(Encode, FeatureSortingPoints) {
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), positions.size());
 
-    // Verify all features present with correct data
     std::map<std::uint64_t, const mlt::Feature*> byId;
     for (const auto& f : decoded->getFeatures()) {
         byId[f.getID()] = &f;
@@ -965,7 +1242,6 @@ TEST(Encode, FeatureSortingPoints) {
         EXPECT_EQ(static_cast<int>(pt.getCoordinate().y), positions[i].y);
     }
 
-    // Verify Hilbert ordering: decoded features should be in Hilbert-sorted order
     mlt::util::HilbertCurve curve(0, 4096);
     std::uint32_t prevHilbert = 0;
     for (const auto& f : decoded->getFeatures()) {
@@ -1006,7 +1282,6 @@ TEST(Encode, FeatureSortingLineStrings) {
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), segments.size());
 
-    // Verify all data preserved
     std::map<std::uint64_t, const mlt::Feature*> byId;
     for (const auto& f : decoded->getFeatures()) {
         byId[f.getID()] = &f;
@@ -1022,7 +1297,6 @@ TEST(Encode, FeatureSortingLineStrings) {
         EXPECT_EQ(static_cast<int>(ls.getCoordinates()[1].y), segments[i].second.y);
     }
 
-    // Verify Hilbert ordering of first vertex
     mlt::util::HilbertCurve curve(0, 4096);
     std::uint32_t prevHilbert = 0;
     for (const auto& f : decoded->getFeatures()) {
@@ -1058,7 +1332,6 @@ TEST(Encode, NoSortingForMixedTypes) {
     const auto* decoded = tile.getLayer("mixed");
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 2u);
-    // Mixed types: features should stay in original order
     EXPECT_EQ(decoded->getFeatures()[0].getID(), 1u);
     EXPECT_EQ(decoded->getFeatures()[1].getID(), 2u);
 }

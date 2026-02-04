@@ -36,8 +36,6 @@ struct Encoder::Impl {
                          std::vector<std::uint32_t>& numRings,
                          std::vector<GeometryEncoder::Vertex>& vertexBuffer);
 
-    /// Returns a sorted copy of features if sorting is beneficial, or the original reference.
-    /// Points are sorted by Hilbert index; LineStrings by first vertex Hilbert index.
     static bool canSort(const std::vector<Encoder::Feature>& features);
     static std::vector<Encoder::Feature> sortFeatures(const std::vector<Encoder::Feature>& features);
 };
@@ -101,7 +99,6 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
     }
 
     for (auto& [key, info] : propertyColumns) {
-        // String columns always require a present stream per the decoder contract
         if (info.type == ScalarType::STRING) {
             info.nullable = true;
             continue;
