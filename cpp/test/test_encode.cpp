@@ -863,3 +863,51 @@ TEST(HilbertCurve, RoundtripThroughSpaceFillingCurve) {
         }
     }
 }
+
+TEST(Encode, VertexDictionaryRoundtrip) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "dense";
+    layer.extent = 4096;
+
+    // Many features sharing the same vertices — dictionary encoding should win
+    std::vector<Encoder::Vertex> sharedVerts = {
+        {100, 200}, {300, 400}, {500, 600}, {700, 800}, {900, 1000},
+        {1200, 1400}, {1600, 1800}, {2000, 2200}, {2500, 2800}, {3000, 3200},
+    };
+
+    for (int i = 0; i < 200; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+        auto& v1 = sharedVerts[i % sharedVerts.size()];
+        auto& v2 = sharedVerts[(i + 1) % sharedVerts.size()];
+        auto& v3 = sharedVerts[(i + 2) % sharedVerts.size()];
+        f.geometry.coordinates = {v1, v2, v3};
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("dense");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 200u);
+
+    for (int i = 0; i < 200; ++i) {
+        const auto& geom = decoded->getFeatures()[i].getGeometry();
+        ASSERT_EQ(geom.type, metadata::tileset::GeometryType::LINESTRING);
+        const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
+        ASSERT_EQ(ls.getCoordinates().size(), 3u);
+        auto& v1 = sharedVerts[i % sharedVerts.size()];
+        auto& v2 = sharedVerts[(i + 1) % sharedVerts.size()];
+        auto& v3 = sharedVerts[(i + 2) % sharedVerts.size()];
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[0].x), v1.x) << "feature " << i;
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[0].y), v1.y) << "feature " << i;
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[1].x), v2.x) << "feature " << i;
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[1].y), v2.y) << "feature " << i;
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[2].x), v3.x) << "feature " << i;
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[2].y), v3.y) << "feature " << i;
+    }
+}
