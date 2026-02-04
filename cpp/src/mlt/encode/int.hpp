@@ -38,22 +38,18 @@ public:
     IntegerEncoder(IntegerEncoder&&) = delete;
     IntegerEncoder& operator=(IntegerEncoder&&) = delete;
 
-    /// Encode a 32-bit integer stream, selecting the best logical encoding.
     IntegerEncodingResult encodeInt(std::span<const std::int32_t> values,
                                     PhysicalLevelTechnique,
                                     bool isSigned);
 
-    /// Encode a 64-bit integer stream, selecting the best logical encoding.
     IntegerEncodingResult encodeLong(std::span<const std::int64_t> values, bool isSigned);
 
-    /// Encode a complete integer stream: metadata header + encoded values.
     std::vector<std::uint8_t> encodeIntStream(std::span<const std::int32_t> values,
                                               PhysicalLevelTechnique,
                                               bool isSigned,
                                               PhysicalStreamType,
                                               std::optional<LogicalStreamType>);
 
-    /// Encode a complete 64-bit integer stream: metadata header + encoded values.
     std::vector<std::uint8_t> encodeLongStream(std::span<const std::int64_t> values,
                                                bool isSigned,
                                                PhysicalStreamType,

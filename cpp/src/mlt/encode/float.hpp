@@ -3,7 +3,6 @@
 #include <mlt/metadata/stream.hpp>
 
 #include <cstdint>
-#include <cstring>
 #include <span>
 #include <vector>
 

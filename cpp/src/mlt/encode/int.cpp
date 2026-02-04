@@ -7,7 +7,6 @@
 #endif
 
 #include <cassert>
-#include <cstdint>
 
 namespace mlt::encoder {
 
@@ -68,19 +67,6 @@ std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor(
     throw std::runtime_error("FastPFOR encoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
 #endif
 }
-
-namespace {
-
-template <typename T>
-struct EncodingCandidate {
-    LogicalLevelTechnique technique1;
-    LogicalLevelTechnique technique2;
-    std::vector<std::uint8_t> data;
-    std::uint32_t numRuns = 0;
-    std::uint32_t physicalLength = 0;
-};
-
-} // namespace
 
 IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
                                                 PhysicalLevelTechnique physicalTechnique,

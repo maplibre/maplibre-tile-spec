@@ -139,7 +139,6 @@ public:
         return result;
     }
 
-    /// String columns always require a present stream per the decoder contract.
     static std::vector<std::uint8_t> encodeStringColumn(
         std::span<const std::optional<std::string_view>> values,
         PhysicalLevelTechnique physicalTechnique,

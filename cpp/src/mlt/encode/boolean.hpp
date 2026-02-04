@@ -14,7 +14,6 @@ public:
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
     using StreamMetadata = metadata::stream::StreamMetadata;
 
-    /// Accepts any bool-like container to work around vector<bool> / span incompatibility.
     template <typename Container>
     static std::vector<std::uint8_t> encodeBooleanStream(const Container& values,
                                                           PhysicalStreamType streamType) {

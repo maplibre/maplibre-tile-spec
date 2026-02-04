@@ -226,31 +226,7 @@ private:
     static std::vector<std::uint8_t> encodeVertexBufferPlain(
         std::span<const Vertex> vertices,
         PhysicalLevelTechnique physicalTechnique) {
-        using namespace metadata::stream;
-
-        auto zigZagDelta = zigZagDeltaEncode(vertices);
-
-        std::vector<std::uint8_t> encodedData;
-        encodedData.reserve(zigZagDelta.size() * 2);
-        for (auto v : zigZagDelta) {
-            util::encoding::encodeVarint(static_cast<std::uint32_t>(v), encodedData);
-        }
-
-        auto metadata = StreamMetadata(
-                            PhysicalStreamType::DATA,
-                            LogicalStreamType{DictionaryType::VERTEX},
-                            LogicalLevelTechnique::COMPONENTWISE_DELTA,
-                            LogicalLevelTechnique::NONE,
-                            physicalTechnique,
-                            static_cast<std::uint32_t>(zigZagDelta.size()),
-                            static_cast<std::uint32_t>(encodedData.size()))
-                            .encode();
-
-        std::vector<std::uint8_t> result;
-        result.reserve(metadata.size() + encodedData.size());
-        result.insert(result.end(), metadata.begin(), metadata.end());
-        result.insert(result.end(), encodedData.begin(), encodedData.end());
-        return result;
+        return encodeVertexBufferRaw(zigZagDeltaEncode(vertices), physicalTechnique);
     }
 
     struct HilbertDictionary {

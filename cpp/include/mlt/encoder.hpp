@@ -70,7 +70,6 @@ public:
     Encoder(Encoder&&) = delete;
     Encoder& operator=(Encoder&&) = delete;
 
-    /// Encode a complete MLT tile from a set of layers.
     std::vector<std::uint8_t> encode(const std::vector<Layer>& layers,
                                      const EncoderConfig& config = {});
 

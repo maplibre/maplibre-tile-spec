@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include <span>
-#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -26,7 +25,6 @@ public:
         std::vector<std::uint8_t> data;
     };
 
-    /// @param values Non-null string values (nulls handled by the present stream in the caller)
     static EncodeResult encode(std::span<const std::string_view> values,
                                PhysicalLevelTechnique physicalTechnique,
                                IntegerEncoder& intEncoder,
@@ -221,7 +219,6 @@ private:
         return result;
     }
 
-    /// Produces: symbolLengths, symbolTable(DATA/FSST), dictionaryLengths, compressedCorpus(DATA/SINGLE|SHARED)
     static std::vector<std::uint8_t> encodeFsst(
         std::span<const std::string_view> values,
         PhysicalLevelTechnique physicalTechnique,
