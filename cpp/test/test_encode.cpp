@@ -13,6 +13,7 @@
 #include <mlt/util/zigzag.hpp>
 
 #include <mlt/decode/string.hpp>
+#include <mlt/util/hilbert_curve.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -817,5 +818,48 @@ TEST(Encode, FsstStringRoundtrip) {
         ASSERT_TRUE(name.has_value());
         auto nameSv = std::get<std::string_view>(*name);
         EXPECT_EQ(nameSv, std::string("Road ") + std::to_string(i)) << "Mismatch at feature " << i;
+    }
+}
+
+TEST(HilbertCurve, JavaCrossValidation) {
+    using mlt::util::HilbertCurve;
+
+    struct TestCase {
+        std::uint32_t bits, x, y;
+        std::uint32_t expected;
+    };
+
+    const TestCase cases[] = {
+        {2, 0, 0, 0}, {2, 1, 0, 1}, {2, 1, 1, 2}, {2, 0, 1, 3},
+        {2, 0, 2, 4}, {2, 0, 3, 5}, {2, 1, 3, 6}, {2, 1, 2, 7},
+        {2, 2, 2, 8}, {2, 2, 3, 9}, {2, 3, 3, 10}, {2, 3, 2, 11},
+        {2, 3, 1, 12}, {2, 2, 1, 13}, {2, 2, 0, 14}, {2, 3, 0, 15},
+        {3, 0, 0, 0}, {3, 7, 7, 42}, {3, 4, 4, 32}, {3, 3, 3, 10},
+        {3, 1, 6, 23}, {3, 5, 2, 55},
+        {5, 0, 0, 0}, {5, 31, 31, 682}, {5, 16, 16, 512}, {5, 3, 4, 31},
+        {5, 10, 20, 476}, {5, 25, 7, 982},
+        {13, 0, 0, 0}, {13, 4095, 4095, 11184810}, {13, 2048, 2048, 8388608},
+        {13, 100, 200, 52442}, {13, 3000, 1000, 4889386}, {13, 500, 4000, 16519952},
+        {14, 0, 0, 0}, {14, 8191, 8191, 44739242}, {14, 4096, 4096, 33554432},
+        {14, 1000, 2000, 3147584},
+    };
+
+    for (const auto& tc : cases) {
+        auto actual = HilbertCurve::xy2d(tc.bits, tc.x, tc.y);
+        EXPECT_EQ(actual, tc.expected)
+            << "bits=" << tc.bits << " x=" << tc.x << " y=" << tc.y;
+    }
+}
+
+TEST(HilbertCurve, RoundtripThroughSpaceFillingCurve) {
+    mlt::util::HilbertCurve curve(0, 4095);
+
+    for (int x = 0; x < 4096; x += 512) {
+        for (int y = 0; y < 4096; y += 512) {
+            auto d = curve.encode({static_cast<float>(x), static_cast<float>(y)});
+            auto pt = curve.decode(d);
+            EXPECT_EQ(static_cast<int>(pt.x), x) << "x=" << x << " y=" << y;
+            EXPECT_EQ(static_cast<int>(pt.y), y) << "x=" << x << " y=" << y;
+        }
     }
 }

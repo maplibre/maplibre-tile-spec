@@ -127,6 +127,7 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/zigzag.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/hilbert_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
