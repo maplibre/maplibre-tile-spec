@@ -591,8 +591,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
                 break;
             }
-            case ScalarType::FLOAT:
-            case ScalarType::DOUBLE: {
+            case ScalarType::FLOAT: {
                 std::vector<std::optional<float>> values;
                 values.reserve(features.size());
                 for (const auto& f : features) {
@@ -609,6 +608,25 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     }
                 }
                 auto encoded = PropertyEncoder::encodeFloatColumn(values);
+                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+                break;
+            }
+            case ScalarType::DOUBLE: {
+                std::vector<std::optional<double>> values;
+                values.reserve(features.size());
+                for (const auto& f : features) {
+                    auto it = f.properties.find(colName);
+                    if (it != f.properties.end()) {
+                        values.push_back(std::visit(util::overloaded{
+                            [](double v) -> double { return v; },
+                            [](float v) -> double { return static_cast<double>(v); },
+                            [](auto) -> double { return 0.0; },
+                        }, it->second));
+                    } else {
+                        values.push_back(std::nullopt);
+                    }
+                }
+                auto encoded = PropertyEncoder::encodeDoubleColumn(values);
                 bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
                 break;
             }

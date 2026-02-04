@@ -12,8 +12,10 @@ class FloatEncoder {
 public:
     using StreamMetadata = metadata::stream::StreamMetadata;
 
-    static std::vector<std::uint8_t> encodeFloatStream(std::span<const float> values) {
-        const auto byteLength = static_cast<std::uint32_t>(values.size() * sizeof(float));
+    template <typename T>
+        requires (std::same_as<T, float> || std::same_as<T, double>)
+    static std::vector<std::uint8_t> encodeStream(std::span<const T> values) {
+        const auto byteLength = static_cast<std::uint32_t>(values.size() * sizeof(T));
 
         auto metadata = StreamMetadata(metadata::stream::PhysicalStreamType::DATA,
                                        std::nullopt,
@@ -31,6 +33,14 @@ public:
         const auto* bytes = reinterpret_cast<const std::uint8_t*>(values.data());
         result.insert(result.end(), bytes, bytes + byteLength);
         return result;
+    }
+
+    static std::vector<std::uint8_t> encodeFloatStream(std::span<const float> values) {
+        return encodeStream(values);
+    }
+
+    static std::vector<std::uint8_t> encodeDoubleStream(std::span<const double> values) {
+        return encodeStream(values);
     }
 };
 

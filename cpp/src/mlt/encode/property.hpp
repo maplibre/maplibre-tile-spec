@@ -101,9 +101,11 @@ public:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeFloatColumn(std::span<const std::optional<float>> values) {
+    template <typename T>
+        requires (std::same_as<T, float> || std::same_as<T, double>)
+    static std::vector<std::uint8_t> encodeFloatingPointColumn(std::span<const std::optional<T>> values) {
         std::vector<bool> presentValues;
-        std::vector<float> dataValues;
+        std::vector<T> dataValues;
         bool hasNull = false;
         for (const auto& v : values) {
             if (v.has_value()) {
@@ -121,9 +123,17 @@ public:
             result.insert(result.end(), presentStream.begin(), presentStream.end());
         }
 
-        auto dataStream = FloatEncoder::encodeFloatStream(dataValues);
+        auto dataStream = FloatEncoder::encodeStream(std::span<const T>{dataValues});
         result.insert(result.end(), dataStream.begin(), dataStream.end());
         return result;
+    }
+
+    static std::vector<std::uint8_t> encodeFloatColumn(std::span<const std::optional<float>> values) {
+        return encodeFloatingPointColumn(values);
+    }
+
+    static std::vector<std::uint8_t> encodeDoubleColumn(std::span<const std::optional<double>> values) {
+        return encodeFloatingPointColumn(values);
     }
 
     static std::vector<std::uint8_t> encodeStringColumn(std::span<const std::optional<std::string_view>> values,
