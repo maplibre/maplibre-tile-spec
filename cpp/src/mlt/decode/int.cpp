@@ -67,8 +67,9 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
     // TODO: change to little endian in the encoder?
     const auto intLength = (byteLength + sizeof(std::uint32_t) - 1) / sizeof(std::uint32_t);
     const auto leBuffer = getTempBuffer<std::uint32_t>(intLength);
-    std::transform(
-        inputValues, inputValues + intLength, leBuffer.get(), [](std::uint32_t v) noexcept { return std::byteswap(v); });
+    std::transform(inputValues, inputValues + intLength, leBuffer.get(), [](std::uint32_t v) noexcept {
+        return std::byteswap(v);
+    });
 
     auto resultCount = numValues;
     impl->codec.decodeArray(leBuffer, intLength, result, resultCount);
