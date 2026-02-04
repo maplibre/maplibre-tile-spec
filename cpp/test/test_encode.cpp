@@ -260,8 +260,12 @@ TEST(Encode, MultipleFeatures) {
     ASSERT_TRUE(decoded);
     EXPECT_EQ(decoded->getFeatures().size(), 100u);
 
+    std::set<std::uint64_t> decodedIds;
+    for (const auto& f : decoded->getFeatures()) {
+        decodedIds.insert(f.getID());
+    }
     for (int i = 0; i < 100; ++i) {
-        EXPECT_EQ(decoded->getFeatures()[i].getID(), static_cast<std::uint64_t>(i));
+        EXPECT_TRUE(decodedIds.count(i)) << "missing feature id " << i;
     }
 }
 
@@ -895,8 +899,14 @@ TEST(Encode, VertexDictionaryRoundtrip) {
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 200u);
 
+    std::map<std::uint64_t, const mlt::Feature*> byId;
+    for (const auto& f : decoded->getFeatures()) {
+        byId[f.getID()] = &f;
+    }
     for (int i = 0; i < 200; ++i) {
-        const auto& geom = decoded->getFeatures()[i].getGeometry();
+        auto it = byId.find(i);
+        ASSERT_TRUE(it != byId.end()) << "missing feature id " << i;
+        const auto& geom = it->second->getGeometry();
         ASSERT_EQ(geom.type, metadata::tileset::GeometryType::LINESTRING);
         const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
         ASSERT_EQ(ls.getCoordinates().size(), 3u);
@@ -910,4 +920,145 @@ TEST(Encode, VertexDictionaryRoundtrip) {
         EXPECT_EQ(static_cast<int>(ls.getCoordinates()[2].x), v3.x) << "feature " << i;
         EXPECT_EQ(static_cast<int>(ls.getCoordinates()[2].y), v3.y) << "feature " << i;
     }
+}
+
+TEST(Encode, FeatureSortingPoints) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "sorted_points";
+    layer.extent = 4096;
+
+    // Create points scattered across the tile
+    std::vector<Encoder::Vertex> positions = {
+        {3000, 3000}, {100, 100}, {2000, 500}, {500, 3500},
+        {1500, 1500}, {3500, 100}, {200, 2000}, {2500, 2500},
+        {800, 800}, {3200, 1800},
+    };
+
+    for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
+        Encoder::Feature f;
+        f.id = i + 1;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {positions[i]};
+        f.properties["name"] = std::string("P" + std::to_string(i));
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("sorted_points");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), positions.size());
+
+    // Verify all features present with correct data
+    std::map<std::uint64_t, const mlt::Feature*> byId;
+    for (const auto& f : decoded->getFeatures()) {
+        byId[f.getID()] = &f;
+    }
+    for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
+        auto it = byId.find(i + 1);
+        ASSERT_TRUE(it != byId.end()) << "missing id " << (i + 1);
+        const auto& pt = dynamic_cast<const geometry::Point&>(it->second->getGeometry());
+        EXPECT_EQ(static_cast<int>(pt.getCoordinate().x), positions[i].x);
+        EXPECT_EQ(static_cast<int>(pt.getCoordinate().y), positions[i].y);
+    }
+
+    // Verify Hilbert ordering: decoded features should be in Hilbert-sorted order
+    mlt::util::HilbertCurve curve(0, 4096);
+    std::uint32_t prevHilbert = 0;
+    for (const auto& f : decoded->getFeatures()) {
+        const auto& pt = dynamic_cast<const geometry::Point&>(f.getGeometry());
+        auto h = curve.encode({pt.getCoordinate().x, pt.getCoordinate().y});
+        EXPECT_GE(h, prevHilbert) << "features not in Hilbert order at id=" << f.getID();
+        prevHilbert = h;
+    }
+}
+
+TEST(Encode, FeatureSortingLineStrings) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "sorted_lines";
+    layer.extent = 4096;
+
+    std::vector<std::pair<Encoder::Vertex, Encoder::Vertex>> segments = {
+        {{3000, 3000}, {3100, 3100}},
+        {{100, 100}, {200, 200}},
+        {{2000, 500}, {2100, 600}},
+        {{500, 3500}, {600, 3600}},
+        {{1500, 1500}, {1600, 1600}},
+    };
+
+    for (int i = 0; i < static_cast<int>(segments.size()); ++i) {
+        Encoder::Feature f;
+        f.id = i + 1;
+        f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+        f.geometry.coordinates = {segments[i].first, segments[i].second};
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("sorted_lines");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), segments.size());
+
+    // Verify all data preserved
+    std::map<std::uint64_t, const mlt::Feature*> byId;
+    for (const auto& f : decoded->getFeatures()) {
+        byId[f.getID()] = &f;
+    }
+    for (int i = 0; i < static_cast<int>(segments.size()); ++i) {
+        auto it = byId.find(i + 1);
+        ASSERT_TRUE(it != byId.end());
+        const auto& ls = dynamic_cast<const geometry::LineString&>(it->second->getGeometry());
+        ASSERT_EQ(ls.getCoordinates().size(), 2u);
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[0].x), segments[i].first.x);
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[0].y), segments[i].first.y);
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[1].x), segments[i].second.x);
+        EXPECT_EQ(static_cast<int>(ls.getCoordinates()[1].y), segments[i].second.y);
+    }
+
+    // Verify Hilbert ordering of first vertex
+    mlt::util::HilbertCurve curve(0, 4096);
+    std::uint32_t prevHilbert = 0;
+    for (const auto& f : decoded->getFeatures()) {
+        const auto& ls = dynamic_cast<const geometry::LineString&>(f.getGeometry());
+        auto h = curve.encode(ls.getCoordinates()[0]);
+        EXPECT_GE(h, prevHilbert) << "lines not in Hilbert order at id=" << f.getID();
+        prevHilbert = h;
+    }
+}
+
+TEST(Encode, NoSortingForMixedTypes) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "mixed";
+    layer.extent = 4096;
+
+    Encoder::Feature f1;
+    f1.id = 1;
+    f1.geometry.type = metadata::tileset::GeometryType::POINT;
+    f1.geometry.coordinates = {{3000, 3000}};
+    layer.features.push_back(std::move(f1));
+
+    Encoder::Feature f2;
+    f2.id = 2;
+    f2.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+    f2.geometry.coordinates = {{100, 100}, {200, 200}};
+    layer.features.push_back(std::move(f2));
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("mixed");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 2u);
+    // Mixed types: features should stay in original order
+    EXPECT_EQ(decoded->getFeatures()[0].getID(), 1u);
+    EXPECT_EQ(decoded->getFeatures()[1].getID(), 2u);
 }

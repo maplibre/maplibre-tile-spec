@@ -18,6 +18,7 @@ namespace mlt {
 struct EncoderConfig {
     bool useFastPfor = false;
     bool includeIds = true;
+    bool sortFeatures = true;
 };
 
 class Encoder : public util::noncopyable {
