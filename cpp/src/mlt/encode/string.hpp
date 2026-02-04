@@ -115,7 +115,7 @@ public:
             result.insert(result.end(), offsetData.begin(), offsetData.end());
         }
 
-        const auto numStreams = dictStreams + static_cast<std::uint32_t>(columns.size()) * 2;
+        const auto numStreams = dictStreams + (static_cast<std::uint32_t>(columns.size()) * 2);
         return {numStreams, std::move(result)};
     }
 

@@ -212,7 +212,7 @@ private:
 
     static std::vector<std::int32_t> zigZagDeltaEncode(std::span<const Vertex> vertices) {
         std::vector<std::int32_t> result(vertices.size() * 2);
-        Vertex prev{0, 0};
+        Vertex prev{.x = 0, .y = 0};
         for (std::size_t i = 0; i < vertices.size(); ++i) {
             result[i * 2] = static_cast<std::int32_t>(
                 util::encoding::encodeZigZag(vertices[i].x - prev.x));
@@ -332,7 +332,7 @@ private:
 
         auto encodedDict = encodeMortonCodes(
             dict.mortonCodes, curve.getNumBits(), curve.getCoordinateShift(),
-            physicalTechnique, intEncoder);
+            physicalTechnique);
 
         std::vector<std::uint8_t> result;
         result.reserve(encodedOffsets.size() + encodedDict.size());
@@ -386,8 +386,7 @@ private:
     static std::vector<std::uint8_t> encodeMortonCodes(
         std::span<const std::uint32_t> mortonCodes,
         std::uint32_t numBits, std::int32_t coordinateShift,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder) {
+        PhysicalLevelTechnique physicalTechnique) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> deltaValues(mortonCodes.size());

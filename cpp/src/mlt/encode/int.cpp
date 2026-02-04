@@ -151,7 +151,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         const auto rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
         if (isConstStream || rleEncoded.size() < best.data->size()) {
             best = {LogicalLevelTechnique::RLE, LogicalLevelTechnique::NONE,
-                    &rleEncoded, static_cast<std::uint32_t>(runs), rlePhysicalLength};
+                    &rleEncoded, runs, rlePhysicalLength};
         }
     }
 
@@ -170,7 +170,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         const auto drlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
         if (deltaRleEncoded.size() < best.data->size()) {
             best = {LogicalLevelTechnique::DELTA, LogicalLevelTechnique::RLE,
-                    &deltaRleEncoded, static_cast<std::uint32_t>(deltaRuns), drlePhysicalLength};
+                    &deltaRleEncoded, deltaRuns, drlePhysicalLength};
         }
     }
 
@@ -239,7 +239,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
         const auto rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
         if (rleEncoded.size() < best.data->size()) {
             best = {LogicalLevelTechnique::RLE, LogicalLevelTechnique::NONE,
-                    &rleEncoded, static_cast<std::uint32_t>(runs), rlePhysicalLength};
+                    &rleEncoded, runs, rlePhysicalLength};
         }
     }
 
@@ -260,7 +260,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
         const auto drlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
         if (deltaRleEncoded.size() < best.data->size()) {
             best = {LogicalLevelTechnique::DELTA, LogicalLevelTechnique::RLE,
-                    &deltaRleEncoded, static_cast<std::uint32_t>(deltaRuns), drlePhysicalLength};
+                    &deltaRleEncoded, deltaRuns, drlePhysicalLength};
         }
     }
 
