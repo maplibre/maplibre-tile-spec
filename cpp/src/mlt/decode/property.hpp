@@ -159,9 +159,9 @@ protected:
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::INT_64: {
-                std::vector<std::uint64_t> longBuffer;
+                std::vector<std::int64_t> longBuffer;
                 longBuffer.reserve(streamMetadata->getNumValues());
-                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t>(
+                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::int64_t>(
                     tileData, longBuffer, *streamMetadata, /*isSigned=*/true);
 
                 PropertyVec result{std::move(longBuffer)};
@@ -178,15 +178,30 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
-            case ScalarType::DOUBLE: // doubles currently written as floats
+            case ScalarType::DOUBLE:
             case ScalarType::FLOAT: {
-                std::vector<float> floatBuffer;
-                floatBuffer.reserve(streamMetadata->getNumValues());
-                decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
+                const auto numValues = streamMetadata->getNumValues();
+                const auto byteLength = streamMetadata->getByteLength();
+                // Per spec, DOUBLE is 8 bytes and FLOAT is 4 bytes per value.
+                // Java encoder writes 4-byte floats even for DOUBLE columns;
+                // detect via byteLength and decode accordingly.
+                if (byteLength == numValues * sizeof(double)) {
+                    std::vector<double> doubleBuffer;
+                    doubleBuffer.reserve(numValues);
+                    decodeRaw(tileData, doubleBuffer, *streamMetadata, /*consume=*/true);
 
-                PropertyVec result{std::move(floatBuffer)};
-                checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
+                    PropertyVec result{std::move(doubleBuffer)};
+                    checkBits(presentStream, result);
+                    return {scalarType, std::move(result), std::move(presentStream)};
+                } else {
+                    std::vector<float> floatBuffer;
+                    floatBuffer.reserve(numValues);
+                    decodeRaw(tileData, floatBuffer, *streamMetadata, /*consume=*/true);
+
+                    PropertyVec result{std::move(floatBuffer)};
+                    checkBits(presentStream, result);
+                    return {scalarType, std::move(result), std::move(presentStream)};
+                }
             }
             case ScalarType::STRING: {
                 const auto stringCount = presentStream.empty() ? presentValueCount : countSetBits(presentStream);
