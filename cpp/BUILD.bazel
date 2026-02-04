@@ -2,7 +2,10 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "mlt_internal_headers",
-    hdrs = glob(["src/mlt/**/*.hpp"]),
+    hdrs = glob(
+        ["src/mlt/**/*.hpp"],
+        exclude = ["src/mlt/encode/**"],
+    ),
     include_prefix = "",
     strip_include_prefix = "src",
     visibility = ["//visibility:private"],
@@ -10,12 +13,14 @@ cc_library(
 
 cc_library(
     name = "mlt_cpp",
-    srcs = glob([
-        "src/mlt/**/*.cpp",
-    ]),
-    hdrs = glob([
-        "include/mlt/**/*.hpp",
-    ]),
+    srcs = glob(
+        ["src/mlt/**/*.cpp"],
+        exclude = ["src/mlt/encode/**", "src/mlt/encoder.cpp"],
+    ),
+    hdrs = glob(
+        ["include/mlt/**/*.hpp"],
+        exclude = ["include/mlt/encoder.hpp"],
+    ),
     copts = select({
         "@platforms//os:windows": [
             "/std:c++20",
