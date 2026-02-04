@@ -374,6 +374,377 @@ TEST(Encode, PropertyValueTypes) {
     EXPECT_EQ(std::get<std::string_view>(*strVal), "hello world");
 }
 
+namespace {
+template <typename T>
+T unwrapProperty(const Property& prop) {
+    return std::visit([](const auto& v) -> T {
+        using V = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<V, T>) {
+            return v;
+        } else if constexpr (std::is_same_v<V, std::optional<T>>) {
+            return v.value();
+        } else {
+            throw std::bad_variant_access();
+        }
+    }, prop);
+}
+}
+
+TEST(Encode, AllPropertyTypes) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "all_types";
+    layer.extent = 4096;
+
+    for (int i = 0; i < 10; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {{i * 100, i * 100}};
+        f.properties["bool_val"] = (i % 2 == 0);
+        f.properties["int32_val"] = std::int32_t{-100 + i * 20};
+        f.properties["int64_val"] = std::int64_t{-9999999999LL + i};
+        f.properties["uint32_val"] = std::uint32_t(3000000000u + i);
+        f.properties["uint64_val"] = std::uint64_t(18000000000000000000ULL + i);
+        f.properties["float_val"] = float(i) * 0.5f;
+        f.properties["double_val"] = double(i) * 0.5;
+        f.properties["string_val"] = std::string("str_") + std::to_string(i);
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("all_types");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 10u);
+
+    const auto& props = decoded->getProperties();
+    for (int i = 0; i < 10; ++i) {
+        auto boolVal = props.at("bool_val").getProperty(i);
+        ASSERT_TRUE(boolVal.has_value());
+        EXPECT_EQ(unwrapProperty<bool>(*boolVal), (i % 2 == 0));
+
+        auto i32Val = props.at("int32_val").getProperty(i);
+        ASSERT_TRUE(i32Val.has_value());
+        EXPECT_EQ(unwrapProperty<std::int32_t>(*i32Val), -100 + i * 20);
+
+        auto i64Val = props.at("int64_val").getProperty(i);
+        ASSERT_TRUE(i64Val.has_value());
+        EXPECT_EQ(unwrapProperty<std::int64_t>(*i64Val), -9999999999LL + i);
+
+        auto u32Val = props.at("uint32_val").getProperty(i);
+        ASSERT_TRUE(u32Val.has_value());
+        EXPECT_EQ(unwrapProperty<std::uint32_t>(*u32Val), 3000000000u + i);
+
+        auto u64Val = props.at("uint64_val").getProperty(i);
+        ASSERT_TRUE(u64Val.has_value());
+        EXPECT_EQ(unwrapProperty<std::uint64_t>(*u64Val), 18000000000000000000ULL + i);
+
+        auto fVal = props.at("float_val").getProperty(i);
+        ASSERT_TRUE(fVal.has_value());
+        EXPECT_FLOAT_EQ(unwrapProperty<float>(*fVal), float(i) * 0.5f);
+
+        auto dVal = props.at("double_val").getProperty(i);
+        ASSERT_TRUE(dVal.has_value());
+        EXPECT_FLOAT_EQ(unwrapProperty<float>(*dVal), float(i) * 0.5f);
+
+        auto sVal = props.at("string_val").getProperty(i);
+        ASSERT_TRUE(sVal.has_value());
+        EXPECT_EQ(std::get<std::string_view>(*sVal), std::string("str_") + std::to_string(i));
+    }
+}
+
+TEST(Encode, NullableAllTypes) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "nullable";
+    layer.extent = 4096;
+
+    for (int i = 0; i < 6; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {{i * 100, i * 100}};
+        if (i % 2 == 0) {
+            f.properties["int32_val"] = std::int32_t{i};
+            f.properties["int64_val"] = std::int64_t{i};
+            f.properties["uint32_val"] = std::uint32_t(i);
+            f.properties["uint64_val"] = std::uint64_t(i);
+            f.properties["float_val"] = float(i);
+            f.properties["double_val"] = double(i);
+            f.properties["bool_val"] = true;
+        }
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("nullable");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 6u);
+
+    for (const auto& [name, pp] : decoded->getProperties()) {
+        for (int i = 0; i < 6; ++i) {
+            auto val = pp.getProperty(i);
+            if (i % 2 == 0) {
+                EXPECT_TRUE(val.has_value()) << name << " at " << i << " should be present";
+            } else {
+                EXPECT_FALSE(val.has_value()) << name << " at " << i << " should be null";
+            }
+        }
+    }
+}
+
+TEST(Encode, EmptyLayer) {
+    Encoder encoder;
+
+    Encoder::Layer empty;
+    empty.name = "empty";
+    empty.extent = 4096;
+
+    Encoder::Layer nonempty;
+    nonempty.name = "nonempty";
+    nonempty.extent = 4096;
+    Encoder::Feature f;
+    f.id = 1;
+    f.geometry.type = metadata::tileset::GeometryType::POINT;
+    f.geometry.coordinates = {{50, 50}};
+    nonempty.features.push_back(std::move(f));
+
+    auto tileData = encoder.encode({empty, nonempty});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    EXPECT_FALSE(tile.getLayer("empty"));
+    EXPECT_TRUE(tile.getLayer("nonempty"));
+}
+
+TEST(Encode, SingleVertexLineString) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "degenerate";
+    layer.extent = 4096;
+
+    Encoder::Feature f;
+    f.id = 1;
+    f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+    f.geometry.coordinates = {{100, 200}};
+    layer.features.push_back(std::move(f));
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("degenerate");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 1u);
+    const auto& ls = dynamic_cast<const geometry::LineString&>(decoded->getFeatures()[0].getGeometry());
+    EXPECT_EQ(ls.getCoordinates().size(), 1u);
+}
+
+TEST(Encode, BoundaryCoordinates) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "boundary";
+    layer.extent = 4096;
+
+    std::vector<std::pair<std::int32_t, std::int32_t>> coords = {
+        {0, 0}, {4096, 4096}, {-4096, -4096}, {4096, 0}, {0, 4096},
+    };
+
+    for (std::size_t i = 0; i < coords.size(); ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {{coords[i].first, coords[i].second}};
+        layer.features.push_back(std::move(f));
+    }
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto tileData = encoder.encode({layer}, config);
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("boundary");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), coords.size());
+
+    for (std::size_t i = 0; i < coords.size(); ++i) {
+        const auto& pt = dynamic_cast<const geometry::Point&>(decoded->getFeatures()[i].getGeometry());
+        EXPECT_FLOAT_EQ(pt.getCoordinate().x, static_cast<float>(coords[i].first));
+        EXPECT_FLOAT_EQ(pt.getCoordinate().y, static_cast<float>(coords[i].second));
+    }
+}
+
+TEST(Encode, MaxUint64Id) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "big_ids";
+    layer.extent = 4096;
+
+    std::vector<std::uint64_t> testIds = {
+        0, 1, std::numeric_limits<std::uint32_t>::max(),
+        static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()) + 1,
+        std::numeric_limits<std::uint64_t>::max() / 2,
+    };
+
+    for (auto id : testIds) {
+        Encoder::Feature f;
+        f.id = id;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {{50, 50}};
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("big_ids");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), testIds.size());
+
+    for (std::size_t i = 0; i < testIds.size(); ++i) {
+        EXPECT_EQ(decoded->getFeatures()[i].getID(), testIds[i]);
+    }
+}
+
+TEST(Encode, LongStrings) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "strings";
+    layer.extent = 4096;
+
+    for (int i = 0; i < 10; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {{i, i}};
+        f.properties["long_str"] = std::string(10000 + i * 1000, 'a' + (i % 26));
+        f.properties["unicode_str"] = std::string("Ünïcödé_τεστ_") + std::to_string(i) + "_日本語";
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("strings");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 10u);
+
+    const auto& longProp = decoded->getProperties().at("long_str");
+    for (int i = 0; i < 10; ++i) {
+        auto val = longProp.getProperty(i);
+        ASSERT_TRUE(val.has_value());
+        auto sv = std::get<std::string_view>(*val);
+        EXPECT_EQ(sv.size(), 10000u + i * 1000u);
+        EXPECT_EQ(sv[0], 'a' + (i % 26));
+    }
+
+    const auto& uniProp = decoded->getProperties().at("unicode_str");
+    for (int i = 0; i < 10; ++i) {
+        auto val = uniProp.getProperty(i);
+        ASSERT_TRUE(val.has_value());
+        auto expected = std::string("Ünïcödé_τεστ_") + std::to_string(i) + "_日本語";
+        EXPECT_EQ(std::get<std::string_view>(*val), expected);
+    }
+}
+
+TEST(Encode, DegeneratePolygon) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "degenerate_poly";
+    layer.extent = 4096;
+
+    Encoder::Feature f;
+    f.id = 1;
+    f.geometry.type = metadata::tileset::GeometryType::POLYGON;
+    f.geometry.coordinates = {{0, 0}, {100, 0}, {100, 100}};
+    f.geometry.ringSizes = {3};
+    layer.features.push_back(std::move(f));
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("degenerate_poly");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 1u);
+    const auto& poly = dynamic_cast<const geometry::Polygon&>(decoded->getFeatures()[0].getGeometry());
+    ASSERT_EQ(poly.getRings().size(), 1u);
+    EXPECT_GE(poly.getRings()[0].size(), 3u);
+}
+
+TEST(Encode, ManyFeatures) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "many";
+    layer.extent = 4096;
+
+    constexpr int N = 10000;
+    for (int i = 0; i < N; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::POINT;
+        f.geometry.coordinates = {{i % 4096, i / 4096}};
+        f.properties["idx"] = std::int32_t{i};
+        layer.features.push_back(std::move(f));
+    }
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto tileData = encoder.encode({layer}, config);
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("many");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), N);
+
+    const auto& idxProp = decoded->getProperties().at("idx");
+    for (int i = 0; i < N; ++i) {
+        auto val = idxProp.getProperty(i);
+        ASSERT_TRUE(val.has_value());
+        EXPECT_EQ(unwrapProperty<std::int32_t>(*val), i);
+    }
+}
+
+TEST(Encode, MultiPolygonManyParts) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "multi_many";
+    layer.extent = 4096;
+
+    Encoder::Feature f;
+    f.id = 1;
+    f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
+    for (int p = 0; p < 20; ++p) {
+        int ox = (p % 5) * 800;
+        int oy = (p / 5) * 800;
+        f.geometry.parts.push_back({
+            {ox, oy}, {ox + 100, oy}, {ox + 100, oy + 100}, {ox, oy + 100}
+        });
+        f.geometry.partRingSizes.push_back({4});
+    }
+    layer.features.push_back(std::move(f));
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("multi_many");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 1u);
+    const auto& mp = dynamic_cast<const geometry::MultiPolygon&>(decoded->getFeatures()[0].getGeometry());
+    EXPECT_EQ(mp.getPolygons().size(), 20u);
+}
+
 TEST(Encode, LargeIntegerEncoding) {
     Encoder encoder;
     Encoder::Layer layer;
@@ -1022,6 +1393,42 @@ TEST(CrossValidate, RoundtripMultiPolygonBoolean) {
     ASSERT_TRUE(cppLayer);
     compareDecodedTiles(*javaLayer, *cppLayer, false);
 }
+
+void byteCompareFixtureTest(const std::string& fixturePath) {
+    auto fixture = loadFixture(fixturePath);
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found: " << fixturePath;
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+
+    Encoder encoder;
+    std::vector<Encoder::Layer> encoderLayers;
+    for (const auto& layer : javaTile.getLayers()) {
+        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    }
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto reencoded = encoder.encode(encoderLayers, config);
+
+    EXPECT_LE(reencoded.size(), fixture.size())
+        << "C++ encoder output larger than Java for " << fixturePath;
+
+    auto cppTile = Decoder().decode(
+        {reinterpret_cast<const char*>(reencoded.data()), reencoded.size()});
+    for (const auto& javaLayer : javaTile.getLayers()) {
+        const auto* cppLayer = cppTile.getLayer(javaLayer.getName());
+        ASSERT_TRUE(cppLayer);
+        compareDecodedTiles(javaLayer, *cppLayer, true);
+    }
+}
+
+TEST(ByteCompare, PointBoolean)      { byteCompareFixtureTest("simple/point-boolean.mlt"); }
+TEST(ByteCompare, LineBoolean)       { byteCompareFixtureTest("simple/line-boolean.mlt"); }
+TEST(ByteCompare, PolygonBoolean)    { byteCompareFixtureTest("simple/polygon-boolean.mlt"); }
+TEST(ByteCompare, MultiPointBoolean) { byteCompareFixtureTest("simple/multipoint-boolean.mlt"); }
+TEST(ByteCompare, MultiLineBoolean)  { byteCompareFixtureTest("simple/multiline-boolean.mlt"); }
+TEST(ByteCompare, MultiPolygonBoolean) { byteCompareFixtureTest("simple/multipolygon-boolean.mlt"); }
+
 
 TEST(FSST, EncodeDecodeRoundtrip) {
     std::string input = "AAAAAAABBBAAACCdddddEEEEEEfffEEEEAAAAAddddCC";
@@ -1731,48 +2138,14 @@ TEST(Encode, PretessellatedSkippedForMixedGeometry) {
     ASSERT_EQ(decoded->getFeatures().size(), 2u);
 }
 
-class ReencodeOMT : public ::testing::TestWithParam<std::string> {};
-
-TEST_P(ReencodeOMT, Roundtrip) {
-    auto fixture = loadFixture("omt/" + GetParam());
-    if (fixture.empty()) GTEST_SKIP() << "Fixture not found: " << GetParam();
-
-    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
-
-    Encoder encoder;
-    std::vector<Encoder::Layer> encoderLayers;
-    for (const auto& layer : javaTile.getLayers()) {
-        encoderLayers.push_back(decodedToEncoderLayer(layer));
-    }
-    ASSERT_FALSE(encoderLayers.empty()) << "No layers in " << GetParam();
-
-    EncoderConfig config;
-    config.sortFeatures = false;
-    auto encoded = encoder.encode(encoderLayers, config);
-    ASSERT_FALSE(encoded.empty()) << "Encode produced empty output for " << GetParam();
-
-    auto redecodedTile = Decoder().decode(
-        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
-
-    for (const auto& javaLayer : javaTile.getLayers()) {
-        const auto* reLayer = redecodedTile.getLayer(javaLayer.getName());
-        ASSERT_TRUE(reLayer) << "Missing layer " << javaLayer.getName()
-                             << " in re-encoded " << GetParam();
-        ASSERT_EQ(javaLayer.getFeatures().size(), reLayer->getFeatures().size())
-            << "Feature count mismatch in layer " << javaLayer.getName()
-            << " of " << GetParam();
-        compareDecodedTiles(javaLayer, *reLayer, false);
-    }
-}
-
-std::vector<std::string> discoverOMTFixtures() {
+std::vector<std::string> discoverFixtures(const std::string& subdir) {
     std::vector<std::string> result;
-    for (const auto& base : {"../test/expected/tag0x01/omt/",
-                              "../../test/expected/tag0x01/omt/",
-                              "../../../test/expected/tag0x01/omt/",
-                              "test/expected/tag0x01/omt/"}) {
+    for (const auto& prefix : {"../test/expected/tag0x01/",
+                                "../../test/expected/tag0x01/",
+                                "../../../test/expected/tag0x01/",
+                                "test/expected/tag0x01/"}) {
         std::error_code ec;
-        for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+        for (const auto& entry : std::filesystem::directory_iterator(prefix + subdir, ec)) {
             if (!ec && entry.path().extension() == ".mlt") {
                 result.push_back(entry.path().filename().string());
             }
@@ -1783,12 +2156,210 @@ std::vector<std::string> discoverOMTFixtures() {
     return result;
 }
 
+void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
+    auto fixture = loadFixture(subdir + "/" + filename);
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found: " << filename;
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+
+    Encoder encoder;
+    std::vector<Encoder::Layer> encoderLayers;
+    for (const auto& layer : javaTile.getLayers()) {
+        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    }
+    ASSERT_FALSE(encoderLayers.empty()) << "No layers in " << filename;
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    auto encoded = encoder.encode(encoderLayers, config);
+    ASSERT_FALSE(encoded.empty()) << "Encode produced empty output for " << filename;
+
+    auto redecodedTile = Decoder().decode(
+        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+
+    for (const auto& javaLayer : javaTile.getLayers()) {
+        const auto* reLayer = redecodedTile.getLayer(javaLayer.getName());
+        ASSERT_TRUE(reLayer) << "Missing layer " << javaLayer.getName()
+                             << " in re-encoded " << filename;
+        ASSERT_EQ(javaLayer.getFeatures().size(), reLayer->getFeatures().size())
+            << "Feature count mismatch in layer " << javaLayer.getName()
+            << " of " << filename;
+        compareDecodedTiles(javaLayer, *reLayer, false);
+    }
+}
+
+class ReencodeOMT : public ::testing::TestWithParam<std::string> {};
+TEST_P(ReencodeOMT, Roundtrip) { reencodeRoundtrip("omt", GetParam()); }
 INSTANTIATE_TEST_SUITE_P(
-    AllOMT,
-    ReencodeOMT,
-    ::testing::ValuesIn(discoverOMTFixtures()),
+    AllOMT, ReencodeOMT,
+    ::testing::ValuesIn(discoverFixtures("omt")),
     [](const auto& info) {
         auto name = info.param;
         std::replace(name.begin(), name.end(), '.', '_');
+        std::replace(name.begin(), name.end(), '-', '_');
+        return name;
+    });
+
+class ReencodeBing : public ::testing::TestWithParam<std::string> {};
+TEST_P(ReencodeBing, Roundtrip) { reencodeRoundtrip("bing", GetParam()); }
+INSTANTIATE_TEST_SUITE_P(
+    AllBing, ReencodeBing,
+    ::testing::ValuesIn(discoverFixtures("bing")),
+    [](const auto& info) {
+        auto name = info.param;
+        std::replace(name.begin(), name.end(), '.', '_');
+        std::replace(name.begin(), name.end(), '-', '_');
+        return name;
+    });
+
+class ReencodeAmazon : public ::testing::TestWithParam<std::string> {};
+TEST_P(ReencodeAmazon, Roundtrip) { reencodeRoundtrip("amazon", GetParam()); }
+INSTANTIATE_TEST_SUITE_P(
+    AllAmazon, ReencodeAmazon,
+    ::testing::ValuesIn(discoverFixtures("amazon")),
+    [](const auto& info) {
+        auto name = info.param;
+        std::replace(name.begin(), name.end(), '.', '_');
+        std::replace(name.begin(), name.end(), '-', '_');
+        return name;
+    });
+
+class ReencodeAmazonHere : public ::testing::TestWithParam<std::string> {};
+TEST_P(ReencodeAmazonHere, Roundtrip) { reencodeRoundtrip("amazon_here", GetParam()); }
+INSTANTIATE_TEST_SUITE_P(
+    AllAmazonHere, ReencodeAmazonHere,
+    ::testing::ValuesIn(discoverFixtures("amazon_here")),
+    [](const auto& info) {
+        auto name = info.param;
+        std::replace(name.begin(), name.end(), '.', '_');
+        std::replace(name.begin(), name.end(), '-', '_');
+        return name;
+    });
+
+
+std::string featureFingerprint(const Encoder::Feature& f) {
+    std::string fp = std::to_string(f.id) + "|" + std::to_string(static_cast<int>(f.geometry.type));
+    for (const auto& v : f.geometry.coordinates) {
+        fp += "|" + std::to_string(v.x) + "," + std::to_string(v.y);
+    }
+    return fp;
+}
+
+void compareEncoderLayersSorted(const Encoder::Layer& a, const Encoder::Layer& b) {
+    ASSERT_EQ(a.name, b.name);
+    ASSERT_EQ(a.extent, b.extent);
+    ASSERT_EQ(a.features.size(), b.features.size());
+
+    std::multimap<std::string, const Encoder::Feature*> aByFp, bByFp;
+    for (const auto& f : a.features) aByFp.emplace(featureFingerprint(f), &f);
+    for (const auto& f : b.features) bByFp.emplace(featureFingerprint(f), &f);
+
+    ASSERT_EQ(aByFp.size(), bByFp.size());
+
+    for (auto itA = aByFp.begin(), itB = bByFp.begin(); itA != aByFp.end(); ++itA, ++itB) {
+        ASSERT_EQ(itA->first, itB->first) << "Feature fingerprint mismatch in " << a.name;
+        ASSERT_EQ(itA->second->properties.size(), itB->second->properties.size())
+            << "Property count mismatch for " << itA->first;
+    }
+}
+
+void reencodeRoundtripSorted(const std::string& subdir, const std::string& filename) {
+    auto fixture = loadFixture(subdir + "/" + filename);
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found: " << filename;
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+
+    Encoder encoder;
+    std::vector<Encoder::Layer> originalLayers;
+    for (const auto& layer : javaTile.getLayers()) {
+        originalLayers.push_back(decodedToEncoderLayer(layer));
+    }
+    ASSERT_FALSE(originalLayers.empty()) << "No layers in " << filename;
+
+    EncoderConfig config;
+    config.sortFeatures = true;
+    auto encoded = encoder.encode(originalLayers, config);
+    ASSERT_FALSE(encoded.empty()) << "Encode produced empty output for " << filename;
+
+    auto redecodedTile = Decoder().decode(
+        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+
+    for (const auto& origLayer : originalLayers) {
+        const auto* reDecodedLayer = redecodedTile.getLayer(origLayer.name);
+        ASSERT_TRUE(reDecodedLayer) << "Missing layer " << origLayer.name
+                                    << " in re-encoded " << filename;
+        auto reEncoderLayer = decodedToEncoderLayer(*reDecodedLayer);
+        compareEncoderLayersSorted(origLayer, reEncoderLayer);
+    }
+}
+
+class ReencodeOMTSorted : public ::testing::TestWithParam<std::string> {};
+TEST_P(ReencodeOMTSorted, Roundtrip) { reencodeRoundtripSorted("omt", GetParam()); }
+INSTANTIATE_TEST_SUITE_P(
+    AllOMTSorted, ReencodeOMTSorted,
+    ::testing::ValuesIn(discoverFixtures("omt")),
+    [](const auto& info) {
+        auto name = info.param;
+        std::replace(name.begin(), name.end(), '.', '_');
+        std::replace(name.begin(), name.end(), '-', '_');
+        return name;
+    });
+
+
+void reencodeTessellated(const std::string& subdir, const std::string& filename) {
+    auto fixture = loadFixture(subdir + "/" + filename);
+    if (fixture.empty()) GTEST_SKIP() << "Fixture not found: " << filename;
+
+    auto javaTile = Decoder().decode({fixture.data(), fixture.size()});
+
+    Encoder encoder;
+    std::vector<Encoder::Layer> encoderLayers;
+    for (const auto& layer : javaTile.getLayers()) {
+        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    }
+    ASSERT_FALSE(encoderLayers.empty()) << "No layers in " << filename;
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    config.preTessellate = true;
+    auto encoded = encoder.encode(encoderLayers, config);
+    ASSERT_FALSE(encoded.empty()) << "Encode produced empty output for " << filename;
+
+    auto redecodedTile = Decoder().decode(
+        {reinterpret_cast<const char*>(encoded.data()), encoded.size()});
+
+    using GT = metadata::tileset::GeometryType;
+    for (std::size_t li = 0; li < encoderLayers.size(); ++li) {
+        const auto& origLayer = encoderLayers[li];
+        const auto* reLayer = redecodedTile.getLayer(origLayer.name);
+        ASSERT_TRUE(reLayer) << "Missing layer " << origLayer.name;
+        ASSERT_EQ(origLayer.features.size(), reLayer->getFeatures().size());
+
+        bool allPoly = std::ranges::all_of(origLayer.features, [](const auto& f) {
+            return f.geometry.type == GT::POLYGON || f.geometry.type == GT::MULTIPOLYGON;
+        });
+
+        if (allPoly && !origLayer.features.empty()) {
+            for (const auto& feat : reLayer->getFeatures()) {
+                const auto& geom = feat.getGeometry();
+                EXPECT_FALSE(geom.getTriangles().empty())
+                    << "Expected triangles for polygon feature in layer " << origLayer.name
+                    << " of " << filename;
+            }
+        }
+
+        compareDecodedTiles(*javaTile.getLayer(origLayer.name), *reLayer, false);
+    }
+}
+
+class ReencodeOMTTessellated : public ::testing::TestWithParam<std::string> {};
+TEST_P(ReencodeOMTTessellated, Roundtrip) { reencodeTessellated("omt", GetParam()); }
+INSTANTIATE_TEST_SUITE_P(
+    AllOMTTessellated, ReencodeOMTTessellated,
+    ::testing::ValuesIn(discoverFixtures("omt")),
+    [](const auto& info) {
+        auto name = info.param;
+        std::replace(name.begin(), name.end(), '.', '_');
+        std::replace(name.begin(), name.end(), '-', '_');
         return name;
     });
