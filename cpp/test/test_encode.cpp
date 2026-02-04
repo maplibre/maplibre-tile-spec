@@ -1335,3 +1335,73 @@ TEST(Encode, NoSortingForMixedTypes) {
     EXPECT_EQ(decoded->getFeatures()[0].getID(), 1u);
     EXPECT_EQ(decoded->getFeatures()[1].getID(), 2u);
 }
+
+TEST(Encode, StructColumnRoundtrip) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "roads";
+    layer.extent = 4096;
+
+    for (int i = 0; i < 50; ++i) {
+        Encoder::Feature f;
+        f.id = i;
+        f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
+        f.geometry.coordinates = {{i * 10, i * 20}, {i * 10 + 5, i * 20 + 5}};
+
+        Encoder::StructValue names;
+        names["default"] = "Road " + std::to_string(i);
+        if (i % 3 == 0) {
+            names["en"] = "Road " + std::to_string(i);
+        }
+        if (i % 5 == 0) {
+            names["de"] = "Strasse " + std::to_string(i);
+        }
+        f.properties["name"] = std::move(names);
+        f.properties["class"] = std::string(i % 2 == 0 ? "primary" : "secondary");
+
+        layer.features.push_back(std::move(f));
+    }
+
+    auto tileData = encoder.encode({layer});
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("roads");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 50u);
+
+    const auto& props = decoded->getProperties();
+    EXPECT_TRUE(props.contains("class"));
+    EXPECT_TRUE(props.contains("namedefault"));
+    EXPECT_TRUE(props.contains("nameen"));
+    EXPECT_TRUE(props.contains("namede"));
+
+    std::map<std::uint64_t, std::size_t> idToIdx;
+    for (std::size_t i = 0; i < decoded->getFeatures().size(); ++i) {
+        idToIdx[decoded->getFeatures()[i].getID()] = i;
+    }
+
+    for (int i = 0; i < 50; ++i) {
+        auto idx = idToIdx.at(i);
+
+        auto defaultName = props.at("namedefault").getProperty(static_cast<std::uint32_t>(idx));
+        ASSERT_TRUE(defaultName.has_value()) << "feature " << i;
+        EXPECT_EQ(std::get<std::string_view>(*defaultName), "Road " + std::to_string(i));
+
+        auto enName = props.at("nameen").getProperty(static_cast<std::uint32_t>(idx));
+        if (i % 3 == 0) {
+            ASSERT_TRUE(enName.has_value()) << "feature " << i;
+            EXPECT_EQ(std::get<std::string_view>(*enName), "Road " + std::to_string(i));
+        } else {
+            EXPECT_FALSE(enName.has_value()) << "feature " << i;
+        }
+
+        auto deName = props.at("namede").getProperty(static_cast<std::uint32_t>(idx));
+        if (i % 5 == 0) {
+            ASSERT_TRUE(deName.has_value()) << "feature " << i;
+            EXPECT_EQ(std::get<std::string_view>(*deName), "Strasse " + std::to_string(i));
+        } else {
+            EXPECT_FALSE(deName.has_value()) << "feature " << i;
+        }
+    }
+}

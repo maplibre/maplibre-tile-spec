@@ -30,6 +30,8 @@ public:
         std::int32_t y;
     };
 
+    using StructValue = std::map<std::string, std::string>;
+
     using PropertyValue = std::variant<
         bool,
         std::int32_t,
@@ -38,7 +40,8 @@ public:
         std::uint64_t,
         float,
         double,
-        std::string>;
+        std::string,
+        StructValue>;
 
     struct Geometry {
         GeometryType type;

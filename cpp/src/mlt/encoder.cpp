@@ -66,10 +66,20 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         ScalarType type;
         bool nullable;
     };
-    std::map<std::string, ColumnInfo> propertyColumns;
+    std::map<std::string, ColumnInfo> scalarColumns;
+    std::map<std::string, std::set<std::string>> structColumns;
 
     for (const auto& feature : layer.features) {
         for (const auto& [key, value] : feature.properties) {
+            if (std::holds_alternative<Encoder::StructValue>(value)) {
+                const auto& sv = std::get<Encoder::StructValue>(value);
+                auto& children = structColumns[key];
+                for (const auto& [childName, _] : sv) {
+                    children.insert(childName);
+                }
+                continue;
+            }
+
             auto scalarType = std::visit(util::overloaded{
                 [](bool) { return ScalarType::BOOLEAN; },
                 [](std::int32_t) { return ScalarType::INT_32; },
@@ -79,9 +89,10 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
                 [](float) { return ScalarType::FLOAT; },
                 [](double) { return ScalarType::DOUBLE; },
                 [](const std::string&) { return ScalarType::STRING; },
+                [](const Encoder::StructValue&) { return ScalarType::STRING; },
             }, value);
 
-            auto [it, inserted] = propertyColumns.try_emplace(key, ColumnInfo{scalarType, false});
+            auto [it, inserted] = scalarColumns.try_emplace(key, ColumnInfo{scalarType, false});
             if (!inserted) {
                 auto& existing = it->second;
                 if (existing.type != scalarType) {
@@ -98,7 +109,7 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         }
     }
 
-    for (auto& [key, info] : propertyColumns) {
+    for (auto& [key, info] : scalarColumns) {
         if (info.type == ScalarType::STRING) {
             info.nullable = true;
             continue;
@@ -111,12 +122,32 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         }
     }
 
-    for (const auto& [name, info] : propertyColumns) {
+    for (const auto& [name, info] : scalarColumns) {
         Column col;
         col.name = name;
         col.nullable = info.nullable;
         col.columnScope = ColumnScope::FEATURE;
         col.type = ScalarColumn{.type = info.type};
+        table.columns.push_back(std::move(col));
+    }
+
+    for (const auto& [name, childNames] : structColumns) {
+        Column col;
+        col.name = name;
+        col.nullable = false;
+        col.columnScope = ColumnScope::FEATURE;
+
+        ComplexColumn complex;
+        complex.type = ComplexType::STRUCT;
+        for (const auto& childName : childNames) {
+            Column child;
+            child.name = childName;
+            child.nullable = true;
+            child.columnScope = ColumnScope::FEATURE;
+            child.type = ScalarColumn{.type = ScalarType::STRING};
+            complex.children.push_back(std::move(child));
+        }
+        col.type = std::move(complex);
         table.columns.push_back(std::move(col));
     }
 
@@ -317,6 +348,69 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             continue;
         }
 
+        if (column.isStruct()) {
+            const auto& complex = column.getComplexType();
+            const auto& rootName = column.name;
+            const auto numChildren = complex.children.size();
+
+            std::vector<std::vector<std::string>> ownedStrings(numChildren);
+            std::vector<std::vector<std::string_view>> viewStorage(numChildren);
+
+            for (std::size_t c = 0; c < numChildren; ++c) {
+                ownedStrings[c].reserve(features.size());
+                viewStorage[c].reserve(features.size());
+            }
+
+            for (const auto& f : features) {
+                auto it = f.properties.find(rootName);
+                const Encoder::StructValue* sv = nullptr;
+                if (it != f.properties.end() && std::holds_alternative<Encoder::StructValue>(it->second)) {
+                    sv = &std::get<Encoder::StructValue>(it->second);
+                }
+                for (std::size_t c = 0; c < numChildren; ++c) {
+                    if (sv) {
+                        auto childIt = sv->find(complex.children[c].name);
+                        if (childIt != sv->end()) {
+                            ownedStrings[c].push_back(childIt->second);
+                            continue;
+                        }
+                    }
+                    ownedStrings[c].emplace_back();
+                }
+            }
+
+            for (std::size_t c = 0; c < numChildren; ++c) {
+                for (const auto& s : ownedStrings[c]) {
+                    viewStorage[c].emplace_back(s);
+                }
+            }
+
+            std::vector<std::vector<const std::string_view*>> sharedCols(numChildren);
+            for (std::size_t c = 0; c < numChildren; ++c) {
+                sharedCols[c].reserve(features.size());
+                for (std::size_t fi = 0; fi < features.size(); ++fi) {
+                    auto it = features[fi].properties.find(rootName);
+                    const Encoder::StructValue* sv = nullptr;
+                    if (it != features[fi].properties.end() &&
+                        std::holds_alternative<Encoder::StructValue>(it->second)) {
+                        sv = &std::get<Encoder::StructValue>(it->second);
+                    }
+                    if (sv && sv->contains(complex.children[c].name)) {
+                        sharedCols[c].push_back(&viewStorage[c][fi]);
+                    } else {
+                        sharedCols[c].push_back(nullptr);
+                    }
+                }
+            }
+
+            auto result = StringEncoder::encodeSharedDictionary(
+                sharedCols, physicalTechnique, intEncoder);
+
+            util::encoding::encodeVarint(result.numStreams, bodyBytes);
+            bodyBytes.insert(bodyBytes.end(), result.data.begin(), result.data.end());
+            continue;
+        }
+
         const auto& scalarCol = column.getScalarType();
         const auto scalarType = scalarCol.getPhysicalType();
         const auto& colName = column.name;
@@ -443,6 +537,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     if (it != f.properties.end()) {
                         auto& owned = ownedStrings.emplace_back(std::visit(util::overloaded{
                             [](const std::string& v) -> std::string { return v; },
+                            [](const Encoder::StructValue&) -> std::string { return {}; },
                             [](auto v) -> std::string { return std::to_string(v); },
                         }, it->second));
                         values.push_back(std::string_view{owned});
