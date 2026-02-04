@@ -60,8 +60,6 @@ inline std::vector<std::uint8_t> encodeBooleanRle(const std::uint8_t* bits, std:
     return result;
 }
 
-/// Encode integer values as RLE: [run_lengths..., values...]
-/// @return {runs, values} where runs[i] is the count and values[i] is the repeated value
 template <typename T>
     requires(std::is_integral_v<T>)
 struct IntRleResult {
@@ -69,6 +67,7 @@ struct IntRleResult {
     std::vector<T> values;
 };
 
+/// @return {runs, values} where runs[i] is the count and values[i] is the repeated value
 template <typename T>
     requires(std::is_integral_v<T>)
 IntRleResult<T> encodeIntRle(std::span<const T> data) {

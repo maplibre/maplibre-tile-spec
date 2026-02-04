@@ -22,7 +22,6 @@ public:
     using PhysicalLevelTechnique = metadata::stream::PhysicalLevelTechnique;
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
 
-    /// Encode a boolean property column (present stream if nullable + data stream).
     static std::vector<std::uint8_t> encodeBooleanColumn(
         std::span<const std::optional<bool>> values) {
         std::vector<bool> presentValues;
@@ -51,7 +50,6 @@ public:
         return result;
     }
 
-    /// Encode an int32 property column.
     static std::vector<std::uint8_t> encodeInt32Column(
         std::span<const std::optional<std::int32_t>> values,
         PhysicalLevelTechnique physicalTechnique,
@@ -60,7 +58,6 @@ public:
         return encodeIntColumn<std::int32_t>(values, physicalTechnique, isSigned, intEncoder);
     }
 
-    /// Encode a uint32 property column (e.g., IDs).
     static std::vector<std::uint8_t> encodeUint32Column(
         std::span<const std::uint32_t> values,
         PhysicalLevelTechnique physicalTechnique,
@@ -73,7 +70,6 @@ public:
             metadata::stream::PhysicalStreamType::DATA, std::nullopt);
     }
 
-    /// Encode a uint64 property column (e.g., long IDs).
     static std::vector<std::uint8_t> encodeUint64Column(
         std::span<const std::uint64_t> values,
         IntegerEncoder& intEncoder) {
@@ -85,7 +81,6 @@ public:
             metadata::stream::PhysicalStreamType::DATA, std::nullopt);
     }
 
-    /// Encode an int64 property column.
     static std::vector<std::uint8_t> encodeInt64Column(
         std::span<const std::optional<std::int64_t>> values,
         bool isSigned,
@@ -117,7 +112,6 @@ public:
         return result;
     }
 
-    /// Encode a float property column.
     static std::vector<std::uint8_t> encodeFloatColumn(
         std::span<const std::optional<float>> values) {
         std::vector<bool> presentValues;
@@ -145,7 +139,6 @@ public:
         return result;
     }
 
-    /// Encode a string property column: streamCount + present + string data.
     /// String columns always require a present stream per the decoder contract.
     static std::vector<std::uint8_t> encodeStringColumn(
         std::span<const std::optional<std::string_view>> values,
@@ -167,7 +160,7 @@ public:
 
         auto stringResult = StringEncoder::encode(dataValues, physicalTechnique, intEncoder);
 
-        const auto streamCount = stringResult.numStreams + 1; // +1 for present stream
+        const auto streamCount = stringResult.numStreams + 1;
 
         std::vector<std::uint8_t> result;
         util::encoding::encodeVarint(streamCount, result);

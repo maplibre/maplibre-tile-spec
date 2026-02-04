@@ -13,8 +13,6 @@ class FloatEncoder {
 public:
     using StreamMetadata = metadata::stream::StreamMetadata;
 
-    /// Encode floats as raw IEEE 754 little-endian bytes.
-    /// Returns metadata header + raw float data.
     static std::vector<std::uint8_t> encodeFloatStream(std::span<const float> values) {
         const auto byteLength = static_cast<std::uint32_t>(values.size() * sizeof(float));
 

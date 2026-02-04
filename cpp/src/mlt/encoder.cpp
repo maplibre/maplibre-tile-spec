@@ -51,14 +51,12 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         table.columns.push_back(std::move(idColumn));
     }
 
-    // Geometry column
     Column geomColumn;
     geomColumn.nullable = false;
     geomColumn.columnScope = ColumnScope::FEATURE;
     geomColumn.type = ComplexColumn{.type = ComplexType::GEOMETRY};
     table.columns.push_back(std::move(geomColumn));
 
-    // Discover property columns from features
     struct ColumnInfo {
         ScalarType type;
         bool nullable;
@@ -80,7 +78,6 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
 
             auto [it, inserted] = propertyColumns.try_emplace(key, ColumnInfo{scalarType, false});
             if (!inserted) {
-                // Type coercion: INT_32 → INT_64, FLOAT → DOUBLE
                 auto& existing = it->second;
                 if (existing.type != scalarType) {
                     if ((existing.type == ScalarType::INT_32 && scalarType == ScalarType::INT_64) ||
@@ -88,7 +85,6 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
                         existing.type = scalarType;
                     } else if ((existing.type == ScalarType::INT_64 && scalarType == ScalarType::INT_32) ||
                                (existing.type == ScalarType::DOUBLE && scalarType == ScalarType::FLOAT)) {
-                        // keep wider type
                     } else {
                         existing.type = ScalarType::STRING;
                     }
@@ -97,7 +93,6 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         }
     }
 
-    // Check for nullable columns (property not present in all features)
     for (auto& [key, info] : propertyColumns) {
         // String columns always require a present stream per the decoder contract
         if (info.type == ScalarType::STRING) {
@@ -219,7 +214,6 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
     std::vector<std::uint8_t> bodyBytes;
 
-    // 1. Encode ID column
     if (config.includeIds) {
         bool hasLongId = std::any_of(layer.features.begin(), layer.features.end(),
                                      [](const auto& f) { return f.id > std::numeric_limits<std::uint32_t>::max(); });
@@ -243,7 +237,6 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         }
     }
 
-    // 2. Encode geometry column
     std::vector<metadata::tileset::GeometryType> geometryTypes;
     std::vector<std::uint32_t> numGeometries, numParts, numRings;
     std::vector<GeometryEncoder::Vertex> vertexBuffer;
@@ -253,12 +246,9 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         geometryTypes, numGeometries, numParts, numRings, vertexBuffer,
         physicalTechnique, intEncoder);
 
-    // numStreams varint
     util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
     bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
 
-    // 3. Encode property columns
-    // Iterate through the metadata columns, skip ID and geometry
     for (const auto& column : featureTable.columns) {
         if (column.isID() || column.isGeometry()) {
             continue;
@@ -381,7 +371,6 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 break;
             }
             case ScalarType::STRING: {
-                // Collect string values, keeping originals alive for string_view
                 std::vector<std::string> ownedStrings;
                 ownedStrings.reserve(layer.features.size());
                 std::vector<std::optional<std::string_view>> values;
@@ -407,9 +396,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         }
     }
 
-    // Frame: tag(1) + metadata + body
     std::vector<std::uint8_t> layerBytes;
-    util::encoding::encodeVarint(static_cast<std::uint32_t>(1), layerBytes); // tag
+    util::encoding::encodeVarint(static_cast<std::uint32_t>(1), layerBytes);
     layerBytes.insert(layerBytes.end(), metadataBytes.begin(), metadataBytes.end());
     layerBytes.insert(layerBytes.end(), bodyBytes.begin(), bodyBytes.end());
     return layerBytes;
@@ -427,7 +415,6 @@ std::vector<std::uint8_t> Encoder::encode(const std::vector<Layer>& layers, cons
         if (layerBytes.empty()) {
             continue;
         }
-        // Framing: varint(layerLength) + layerData
         util::encoding::encodeVarint(static_cast<std::uint32_t>(layerBytes.size()), result);
         result.insert(result.end(), layerBytes.begin(), layerBytes.end());
     }

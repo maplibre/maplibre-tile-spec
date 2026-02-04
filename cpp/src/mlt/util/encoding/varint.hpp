@@ -6,7 +6,6 @@
 
 namespace mlt::util::encoding {
 
-/// Returns the number of bytes needed to encode this value as a varint.
 template <typename T>
     requires(std::is_integral_v<T> && std::is_unsigned_v<T>)
 constexpr std::size_t getVarintSize(T value) noexcept {
@@ -18,7 +17,6 @@ constexpr std::size_t getVarintSize(T value) noexcept {
     return size;
 }
 
-/// Encode a varint into a buffer. Returns the number of bytes written.
 template <typename T>
     requires(std::is_integral_v<T> && std::is_unsigned_v<T>)
 std::size_t encodeVarint(T value, std::uint8_t* out) noexcept {
@@ -31,7 +29,6 @@ std::size_t encodeVarint(T value, std::uint8_t* out) noexcept {
     return i;
 }
 
-/// Encode a varint, appending to a vector.
 template <typename T>
     requires(std::is_integral_v<T> && std::is_unsigned_v<T>)
 void encodeVarint(T value, std::vector<std::uint8_t>& out) {
@@ -40,7 +37,6 @@ void encodeVarint(T value, std::vector<std::uint8_t>& out) {
     out.insert(out.end(), buf, buf + n);
 }
 
-/// Encode multiple values as sequential varints.
 template <typename T>
     requires(std::is_integral_v<T>)
 void encodeVarints(const T* values, std::size_t count, std::vector<std::uint8_t>& out) {

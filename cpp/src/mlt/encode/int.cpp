@@ -90,10 +90,8 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
                          ? &IntegerEncoder::encodeFastPfor
                          : static_cast<Encoder>(&IntegerEncoder::encodeVarints);
 
-    // Plain encoding
     auto plainEncoded = (this->*encode)(values, isSigned);
 
-    // Delta encoding
     std::vector<std::int32_t> deltaValues(values.size());
     std::int32_t previousValue = 0;
     std::int32_t previousDelta = 0;
@@ -116,7 +114,6 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
 
     auto deltaEncoded = (this->*encode)(deltaValues, /*zigZag=*/true);
 
-    // Track best: [plain, delta, rle, delta-rle]
     struct Candidate {
         LogicalLevelTechnique t1;
         LogicalLevelTechnique t2;
@@ -133,14 +130,12 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
                 &deltaEncoded, 0, static_cast<std::uint32_t>(values.size())};
     }
 
-    // RLE (BTR-Blocks heuristic: size/runs >= 2)
     std::vector<std::uint8_t> rleEncoded;
     bool isConstStream = false;
     if (values.size() / runs >= 2) {
         auto rle = util::encoding::rle::encodeIntRle<std::int32_t>(values);
         isConstStream = (rle.runs.size() == 1);
 
-        // Flatten: [runs..., zigzag(values)...]
         std::vector<std::int32_t> flattened;
         flattened.reserve(rle.runs.size() + rle.values.size());
         flattened.insert(flattened.end(), rle.runs.begin(), rle.runs.end());
@@ -160,7 +155,6 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         }
     }
 
-    // Delta-RLE
     std::vector<std::uint8_t> deltaRleEncoded;
     if (deltaValues.size() / deltaRuns >= 2 && !isConstStream) {
         auto deltaRle = util::encoding::rle::encodeIntRle<std::int32_t>(deltaValues);
@@ -184,7 +178,6 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
 }
 
 IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values, bool isSigned) {
-    // 64-bit: always varint (FastPFOR is 32-bit only)
     auto plainEncoded = encodeVarints(values, isSigned);
 
     std::vector<std::int64_t> deltaValues(values.size());

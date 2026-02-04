@@ -14,13 +14,10 @@ public:
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
     using StreamMetadata = metadata::stream::StreamMetadata;
 
-    /// Encode a boolean stream: bitpack into bytes, then ORC byte-RLE.
-    /// Returns metadata header + encoded data.
-    /// Uses a template to accept any bool-like container (avoids vector<bool> span issues).
+    /// Accepts any bool-like container to work around vector<bool> / span incompatibility.
     template <typename Container>
     static std::vector<std::uint8_t> encodeBooleanStream(const Container& values,
                                                           PhysicalStreamType streamType) {
-        // Pack into bitset (LSB first within each byte)
         const auto count = values.size();
         const auto numBytes = (count + 7) / 8;
         std::vector<std::uint8_t> bitset(numBytes, 0);

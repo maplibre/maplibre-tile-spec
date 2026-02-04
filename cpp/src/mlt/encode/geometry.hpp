@@ -29,7 +29,6 @@ public:
         std::int32_t y;
     };
 
-    /// Encode a geometry column with plain vertex buffer (no dictionary/morton).
     static EncodedGeometryColumn encodeGeometryColumn(
         std::span<const GeometryType> geometryTypes,
         std::span<const std::uint32_t> numGeometries,
@@ -40,7 +39,6 @@ public:
         IntegerEncoder& intEncoder) {
         using namespace metadata::stream;
 
-        // Cast geometry types to int32 for encoding
         std::vector<std::int32_t> geomTypeValues(geometryTypes.size());
         std::transform(geometryTypes.begin(), geometryTypes.end(), geomTypeValues.begin(),
                        [](auto t) { return static_cast<std::int32_t>(t); });
@@ -77,7 +75,6 @@ public:
             ++numStreams;
         }
 
-        // Encode vertex buffer with componentwise delta + zigzag
         auto encodedVertices = encodeVertexBuffer(vertexBuffer, physicalTechnique, intEncoder);
         result.insert(result.end(), encodedVertices.begin(), encodedVertices.end());
         ++numStreams;
@@ -92,20 +89,19 @@ private:
         IntegerEncoder& intEncoder,
         PhysicalStreamType streamType,
         std::optional<LogicalStreamType> logicalType) {
-        std::vector<std::int32_t> signed_values(values.size());
-        std::transform(values.begin(), values.end(), signed_values.begin(),
+        std::vector<std::int32_t> signedValues(values.size());
+        std::transform(values.begin(), values.end(), signedValues.begin(),
                        [](auto v) { return static_cast<std::int32_t>(v); });
-        return intEncoder.encodeIntStream(signed_values, physicalTechnique, false,
+        return intEncoder.encodeIntStream(signedValues, physicalTechnique, false,
                                           streamType, std::move(logicalType));
     }
 
-    /// Zigzag-delta encode vertex pairs, then physical-encode only (varint/fastpfor).
-    /// The logical encoding (COMPONENTWISE_DELTA) is recorded in metadata but applied
-    /// *before* this function — no additional delta/RLE on top.
+    /// Componentwise delta + zigzag is applied here, then varint-encoded directly.
+    /// No additional logical encoding (delta/RLE) is layered on top.
     static std::vector<std::uint8_t> encodeVertexBuffer(
         std::span<const Vertex> vertices,
         PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder) {
+        [[maybe_unused]] IntegerEncoder& intEncoder) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> zigZagDelta(vertices.size() * 2);
@@ -118,21 +114,10 @@ private:
             prev = vertices[i];
         }
 
-        // Physical encoding only — Java does encodeVarint/encodeFastPfor directly,
-        // not IntegerEncoder.encodeInt which would add delta/RLE on top.
-        auto encodedValues = intEncoder.encodeIntStream(
-            zigZagDelta, physicalTechnique, /*isSigned=*/false,
-            PhysicalStreamType::DATA, LogicalStreamType{DictionaryType::VERTEX});
-
-        // Replace the stream metadata with the correct COMPONENTWISE_DELTA header.
-        // encodeIntStream wrote its own header with whatever encoding it chose;
-        // we need to overwrite that with the fixed COMPONENTWISE_DELTA metadata.
-        //
-        // Instead, build metadata + raw physical data manually:
-        std::vector<std::uint8_t> rawPhysical;
-        rawPhysical.reserve(zigZagDelta.size() * 2);
+        std::vector<std::uint8_t> encodedData;
+        encodedData.reserve(zigZagDelta.size() * 2);
         for (auto v : zigZagDelta) {
-            util::encoding::encodeVarint(static_cast<std::uint32_t>(v), rawPhysical);
+            util::encoding::encodeVarint(static_cast<std::uint32_t>(v), encodedData);
         }
 
         auto metadata = StreamMetadata(
@@ -142,13 +127,13 @@ private:
                             LogicalLevelTechnique::NONE,
                             physicalTechnique,
                             static_cast<std::uint32_t>(zigZagDelta.size()),
-                            static_cast<std::uint32_t>(rawPhysical.size()))
+                            static_cast<std::uint32_t>(encodedData.size()))
                             .encode();
 
         std::vector<std::uint8_t> result;
-        result.reserve(metadata.size() + rawPhysical.size());
+        result.reserve(metadata.size() + encodedData.size());
         result.insert(result.end(), metadata.begin(), metadata.end());
-        result.insert(result.end(), rawPhysical.begin(), rawPhysical.end());
+        result.insert(result.end(), encodedData.begin(), encodedData.end());
         return result;
     }
 };

@@ -25,7 +25,6 @@ public:
         std::vector<std::uint8_t> data;
     };
 
-    /// Encode a string column, selecting the smallest of plain vs dictionary.
     /// @param values Non-null string values (nulls handled by the present stream in the caller)
     static EncodeResult encode(std::span<const std::string_view> values,
                                PhysicalLevelTechnique physicalTechnique,
@@ -39,8 +38,6 @@ public:
         return {2, std::move(plain)};
     }
 
-    /// Encode a shared dictionary for struct columns with multiple string children.
-    /// Returns (numStreams, encoded data).
     static EncodeResult encodeSharedDictionary(
         const std::vector<std::vector<const std::string_view*>>& columns,
         PhysicalLevelTechnique physicalTechnique,
@@ -71,13 +68,11 @@ public:
             return {0, {}};
         }
 
-        // Encode shared dictionary: lengths + raw data
         auto dictData = encodeDictionaryData(dictionary, physicalTechnique, intEncoder, true);
 
         std::vector<std::uint8_t> result;
         result.insert(result.end(), dictData.begin(), dictData.end());
 
-        // Encode per-child: streamCount + present + offsets
         for (std::size_t col = 0; col < columns.size(); ++col) {
             if (dataStreams[col].empty()) {
                 util::encoding::encodeVarint(static_cast<std::uint32_t>(0), result);
@@ -101,7 +96,6 @@ public:
     }
 
 private:
-    /// Plain encoding: length stream + raw data stream
     static std::vector<std::uint8_t> encodePlain(std::span<const std::string_view> values,
                                                   PhysicalLevelTechnique physicalTechnique,
                                                   IntegerEncoder& intEncoder) {
@@ -135,7 +129,6 @@ private:
         return result;
     }
 
-    /// Dictionary encoding: length stream + offset stream + dictionary data stream
     static std::vector<std::uint8_t> encodeDictionary(std::span<const std::string_view> values,
                                                        PhysicalLevelTechnique physicalTechnique,
                                                        IntegerEncoder& intEncoder) {
@@ -167,7 +160,6 @@ private:
         return result;
     }
 
-    /// Encode the dictionary itself: length stream + data (raw UTF-8) stream
     static std::vector<std::uint8_t> encodeDictionaryData(
         std::span<const std::string_view> dictionary,
         PhysicalLevelTechnique physicalTechnique,

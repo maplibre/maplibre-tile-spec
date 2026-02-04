@@ -119,8 +119,6 @@ public:
 
     static std::unique_ptr<StreamMetadata> decode(BufferStream&);
 
-    /// Encode the stream metadata header into a byte vector.
-    /// Subclasses append additional fields.
     virtual std::vector<std::uint8_t> encode() const;
 
     PhysicalStreamType getPhysicalStreamType() const { return physicalStreamType; }

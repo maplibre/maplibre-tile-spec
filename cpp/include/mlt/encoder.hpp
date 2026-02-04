@@ -41,13 +41,9 @@ public:
 
     struct Geometry {
         GeometryType type;
-        /// Flat vertex list for simple geometries.
         std::vector<Vertex> coordinates;
-        /// For multi-geometries: each sub-geometry's vertices.
         std::vector<std::vector<Vertex>> parts;
-        /// For polygons: ring sizes (exterior ring first, then interior rings).
         std::vector<std::uint32_t> ringSizes;
-        /// For multi-polygons: per-polygon ring sizes.
         std::vector<std::vector<std::uint32_t>> partRingSizes;
     };
 
