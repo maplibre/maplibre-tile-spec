@@ -108,6 +108,14 @@ public class Encode {
       throws URISyntaxException, IOException, ClassNotFoundException, ParseException {
     final var tileFileNames = cmd.getOptionValues(INPUT_TILE_ARG);
     final var includeIds = !cmd.hasOption(EXCLUDE_IDS_OPTION);
+    final var sortFeaturesPattern =
+        cmd.hasOption(SORT_FEATURES_OPTION)
+            ? Pattern.compile(cmd.getOptionValue(SORT_FEATURES_OPTION, ".*"))
+            : null;
+    final var regenIDsPattern =
+        cmd.hasOption(REGEN_IDS_OPTION)
+            ? Pattern.compile(cmd.getOptionValue(REGEN_IDS_OPTION, ".*"))
+            : null;
     final var useMortonEncoding = !cmd.hasOption(NO_MORTON_OPTION);
     final var outlineFeatureTables = cmd.getOptionValues(OUTLINE_FEATURE_TABLES_OPTION);
     final var useFastPFOR = cmd.hasOption(FASTPFOR_ENCODING_OPTION);
@@ -140,23 +148,19 @@ public class Encode {
                       + value.stream().map(Object::toString).collect(Collectors.joining(", "))));
     }
 
-    var optimizations = new HashMap<String, FeatureTableOptimizations>();
-    // TODO: Load layer -> optimizations map
-    // each layer:
-    //  new FeatureTableOptimizations(allowSorting, allowIdRegeneration, columnMappings);
-
     var conversionConfig =
         new ConversionConfig(
             includeIds,
             useFastPFOR,
             useFSSTJava || useFSSTNative,
             enableCoerceOnTypeMismatch,
-            optimizations,
+            new HashMap<String, FeatureTableOptimizations>(),
             tessellatePolygons,
             useMortonEncoding,
             (outlineFeatureTables != null ? List.of(outlineFeatureTables) : List.of()),
             filterPattern,
-            filterInvert);
+            filterInvert,
+            ConversionConfig.IntegerEncodingOption.AUTO);
 
     if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
@@ -192,6 +196,8 @@ public class Encode {
             columnMappings,
             conversionConfig,
             tessellateURI,
+            sortFeaturesPattern,
+            regenIDsPattern,
             enableElideOnTypeMismatch,
             verbose);
       }
@@ -205,6 +211,8 @@ public class Encode {
           columnMappings,
           conversionConfig,
           tessellateURI,
+          sortFeaturesPattern,
+          regenIDsPattern,
           compressionType,
           minZoom,
           maxZoom,
@@ -223,6 +231,8 @@ public class Encode {
           columnMappings,
           conversionConfig,
           tessellateURI,
+          sortFeaturesPattern,
+          regenIDsPattern,
           compressionType,
           enableElideOnTypeMismatch,
           verbose);
@@ -334,6 +344,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       boolean enableElideOnTypeMismatch,
       int verboseLevel)
       throws IOException {
@@ -368,7 +380,8 @@ public class Encode {
     }
 
     conversionConfig =
-        applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
+        applyColumnMappingsToConversionConfig(
+            columnMappings, conversionConfig, metadata, sortFeaturesPattern, regenIDsPattern);
 
     MLTStreamObserver streamObserver = new MLTStreamObserverDefault();
     if (cmd.hasOption(DUMP_STREAMS_OPTION)) {
@@ -448,24 +461,48 @@ public class Encode {
   private static ConversionConfig applyColumnMappingsToConversionConfig(
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
-      MltMetadata.TileSetMetadata metadata) {
-    // If there are no column mappings, or the config already has optimizations, don't modify it
-    if (columnMappings.isEmpty() || !conversionConfig.getOptimizations().isEmpty()) {
+      MltMetadata.TileSetMetadata metadata,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern) {
+    // If the config already has optimizations, don't modify it
+    if (!conversionConfig.getOptimizations().isEmpty()) {
       return conversionConfig;
     }
 
+    // Warn if both patterns match on any tables
+    final var warnTables =
+        metadata.featureTables.stream()
+            .filter(
+                table ->
+                    sortFeaturesPattern != null
+                        && sortFeaturesPattern.matcher(table.name).matches())
+            .filter(
+                table -> regenIDsPattern != null && regenIDsPattern.matcher(table.name).matches())
+            .map(table -> table.name)
+            .collect(Collectors.joining(","));
+    if (!warnTables.isEmpty()) {
+      System.err.printf(
+          "WARNING: --"
+              + SORT_FEATURES_OPTION
+              + " and --"
+              + REGEN_IDS_OPTION
+              + " are incompatible: "
+              + warnTables
+              + "%n");
+    }
+
     // re-create the config with the column mappings applied to all feature tables
-    // TODO: Allow per-layer settings, and access to the other options
-    // final var commonOptimization = new FeatureTableOptimizations(false, false, columnMappings);
     final var optimizationMap =
         metadata.featureTables.stream()
             .collect(
                 Collectors.toUnmodifiableMap(
-                    t -> t.name,
+                    table -> table.name,
                     table ->
                         new FeatureTableOptimizations(
-                            false,
-                            false,
+                            sortFeaturesPattern != null
+                                && sortFeaturesPattern.matcher(table.name).matches(),
+                            regenIDsPattern != null
+                                && regenIDsPattern.matcher(table.name).matches(),
                             columnMappings.entrySet().stream()
                                 .filter(entry -> entry.getKey().matcher(table.name).matches())
                                 .flatMap(entry -> entry.getValue().stream())
@@ -480,7 +517,8 @@ public class Encode {
         conversionConfig.getUseMortonEncoding(),
         conversionConfig.getOutlineFeatureTableNames(),
         conversionConfig.getLayerFilterPattern(),
-        conversionConfig.getLayerFilterInvert());
+        conversionConfig.getLayerFilterInvert(),
+        conversionConfig.getIntegerEncodingOption());
   }
 
   /// Encode the entire contents of an MBTile file of MVT tiles
@@ -490,6 +528,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       int minZoom,
       int maxZoom,
@@ -545,6 +585,8 @@ public class Encode {
                   columnMappings,
                   conversionConfig,
                   tessellateSource,
+                  sortFeaturesPattern,
+                  regenIDsPattern,
                   compressionType,
                   enableCoerceOrElideMismatch,
                   verboseLevel);
@@ -618,6 +660,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
       int verboseLevel)
@@ -676,6 +720,8 @@ public class Encode {
                   conversionConfig,
                   columnMappings,
                   tessellateSource,
+                  sortFeaturesPattern,
+                  regenIDsPattern,
                   compressionType,
                   didCompress,
                   enableCoerceOrElideMismatch,
@@ -768,6 +814,8 @@ public class Encode {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       ConversionConfig conversionConfig,
       @Nullable URI tessellateSource,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       boolean enableCoerceOrElideMismatch,
       int verboseLevel)
@@ -791,6 +839,8 @@ public class Encode {
             conversionConfig,
             columnMappings,
             tessellateSource,
+            sortFeaturesPattern,
+            regenIDsPattern,
             compressionType,
             didCompress,
             enableCoerceOrElideMismatch,
@@ -810,6 +860,8 @@ public class Encode {
       ConversionConfig conversionConfig,
       Map<Pattern, List<ColumnMapping>> columnMappings,
       URI tessellateSource,
+      @Nullable Pattern sortFeaturesPattern,
+      @Nullable Pattern regenIDsPattern,
       String compressionType,
       MutableBoolean didCompress,
       boolean enableElideOnMismatch,
@@ -832,7 +884,8 @@ public class Encode {
       }
 
       conversionConfig =
-          applyColumnMappingsToConversionConfig(columnMappings, conversionConfig, metadata);
+          applyColumnMappingsToConversionConfig(
+              columnMappings, conversionConfig, metadata, sortFeaturesPattern, regenIDsPattern);
       var tileData =
           MltConverter.convertMvt(decodedMvTile, metadata, conversionConfig, tessellateSource);
 
@@ -1051,7 +1104,9 @@ public class Encode {
           throw new RuntimeException(
               "Feature IDs for index "
                   + j
-                  + " in MLT and MVT layers do not match: "
+                  + " in layer '"
+                  + mvtLayer.name()
+                  + "' do not match: "
                   + mvtFeature.id()
                   + " != "
                   + mltFeature.id());
@@ -1164,6 +1219,8 @@ public class Encode {
   private static final String OUTPUT_DIR_ARG = "dir";
   private static final String OUTPUT_FILE_ARG = "mlt";
   private static final String EXCLUDE_IDS_OPTION = "noids";
+  private static final String SORT_FEATURES_OPTION = "sort-ids";
+  private static final String REGEN_IDS_OPTION = "regen-ids";
   private static final String FILTER_LAYERS_OPTION = "filter-layers";
   private static final String MIN_ZOOM_OPTION = "minzoom";
   private static final String MAX_ZOOM_OPTION = "maxzoom";
@@ -1303,6 +1360,26 @@ public class Encode {
               .longOpt(EXCLUDE_IDS_OPTION)
               .hasArg(false)
               .desc("Don't include feature IDs.")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(SORT_FEATURES_OPTION)
+              .hasArg(true)
+              .optionalArg(true)
+              .argName("pattern")
+              .desc(
+                  "Reorder features of matching layers (default all) by ID, for optimal encoding of ID values.")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
+              .longOpt(REGEN_IDS_OPTION)
+              .hasArg(true)
+              .optionalArg(true)
+              .argName("pattern")
+              .desc(
+                  "Re-generate ID values of matching layers (default all).  Sequential values are assigned for optimal encoding, when ID values have no special meaning.")
               .required(false)
               .get());
       options.addOption(

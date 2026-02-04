@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
+import java.util.stream.IntStream;
 import me.lemire.integercompression.IntWrapper;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.decoder.DecodingUtils;
@@ -20,8 +21,8 @@ public class EncodingUtilsTest {
 
     var actualValues = EncodingUtils.encodeRle(values.stream().mapToInt(i -> i).toArray());
 
-    assertEquals(expectedRuns, actualValues.getLeft());
-    assertEquals(expectedValues, actualValues.getRight());
+    assertEquals(expectedRuns, IntStream.of(actualValues.getLeft()).boxed().toList());
+    assertEquals(expectedValues, IntStream.of(actualValues.getRight()).boxed().toList());
   }
 
   @Test
@@ -32,8 +33,8 @@ public class EncodingUtilsTest {
 
     var actualValues = EncodingUtils.encodeRle(values.stream().mapToInt(i -> i).toArray());
 
-    assertEquals(expectedRuns, actualValues.getLeft());
-    assertEquals(expectedValues, actualValues.getRight());
+    assertEquals(expectedRuns, IntStream.of(actualValues.getLeft()).boxed().toList());
+    assertEquals(expectedValues, IntStream.of(actualValues.getRight()).boxed().toList());
   }
 
   @Test
@@ -44,8 +45,8 @@ public class EncodingUtilsTest {
 
     var actualValues = EncodingUtils.encodeRle(values.stream().mapToInt(i -> i).toArray());
 
-    assertEquals(expectedRuns, actualValues.getLeft());
-    assertEquals(expectedValues, actualValues.getRight());
+    assertEquals(expectedRuns, IntStream.of(actualValues.getLeft()).boxed().toList());
+    assertEquals(expectedValues, IntStream.of(actualValues.getRight()).boxed().toList());
   }
 
   @Test

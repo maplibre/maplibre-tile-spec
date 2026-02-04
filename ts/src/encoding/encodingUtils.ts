@@ -1,68 +1,3 @@
-import IntWrapper from "../decoding/intWrapper";
-
-export function encodeSingleVarintInt32(value: number, dst: Uint8Array, offset: IntWrapper): void {
-    let v = value;
-    while (v > 0x7f) {
-        dst[offset.get()] = (v & 0x7f) | 0x80;
-        offset.increment();
-        v >>>= 7;
-    }
-    dst[offset.get()] = v & 0x7f;
-    offset.increment();
-}
-
-export function encodeVarintInt32Array(values: Int32Array): Uint8Array {
-    const buffer = new Uint8Array(values.length * 5);
-    const offset = new IntWrapper(0);
-
-    for (const value of values) {
-        encodeSingleVarintInt32(value, buffer, offset);
-    }
-    return buffer.slice(0, offset.get());
-}
-
-export function encodeSingleVarintInt64(value: bigint, dst: Uint8Array, offset: IntWrapper): void {
-    let v = value;
-    while (v > 0x7fn) {
-        dst[offset.get()] = Number(v & 0x7fn) | 0x80;
-        offset.increment();
-        v >>= 7n;
-    }
-    dst[offset.get()] = Number(v & 0x7fn);
-    offset.increment();
-}
-
-export function encodeVarintInt64Array(values: BigInt64Array): Uint8Array {
-    const buffer = new Uint8Array(values.length * 10);
-    const offset = new IntWrapper(0);
-
-    for (const value of values) {
-        encodeSingleVarintInt64(value, buffer, offset);
-    }
-    return buffer.slice(0, offset.get());
-}
-export function encodeZigZag32(value: number): number {
-    return (value << 1) ^ (value >> 31);
-}
-
-export function encodeZigZag64(value: bigint): bigint {
-    return (value << 1n) ^ (value >> 63n);
-}
-
-//Used for Morton encoding
-export function encodeDelta(values: Int32Array): Int32Array {
-    if (values.length === 0) return new Int32Array(0);
-
-    const result = new Int32Array(values.length);
-    result[0] = values[0];
-
-    for (let i = 1; i < values.length; i++) {
-        result[i] = values[i] - values[i - 1];
-    }
-
-    return result;
-}
-
 export function encodeFloatsLE(values: Float32Array): Uint8Array {
     const buffer = new Uint8Array(values.length * 4);
     const view = new DataView(buffer.buffer);
@@ -103,6 +38,59 @@ export function encodeBooleanRle(values: boolean[]): Uint8Array {
     result.set(packed, 1);
 
     return result;
+}
+
+export function encodeByteRle(values: Uint8Array): Uint8Array {
+    const result: number[] = [];
+    let i = 0;
+
+    while (i < values.length) {
+        const currentByte = values[i];
+        let runLength = 1;
+
+        while (i + runLength < values.length && values[i + runLength] === currentByte && runLength < 131) {
+            runLength++;
+        }
+
+        if (runLength >= 3) {
+            const header = runLength - 3;
+            result.push(Math.min(header, 0x7f));
+            result.push(currentByte);
+            i += runLength;
+        } else {
+            const literalStart = i;
+            while (i < values.length) {
+                let nextRunLength = 1;
+                if (i + 1 < values.length) {
+                    while (
+                        i + nextRunLength < values.length &&
+                        values[i + nextRunLength] === values[i] &&
+                        nextRunLength < 3
+                    ) {
+                        nextRunLength++;
+                    }
+                }
+
+                if (nextRunLength >= 3) {
+                    break;
+                }
+                i++;
+
+                if (i - literalStart >= 128) {
+                    break;
+                }
+            }
+
+            const numLiterals = i - literalStart;
+            const header = 256 - numLiterals;
+            result.push(header);
+            for (let j = literalStart; j < i; j++) {
+                result.push(values[j]);
+            }
+        }
+    }
+
+    return new Uint8Array(result);
 }
 
 export function encodeStrings(strings: string[]): Uint8Array {

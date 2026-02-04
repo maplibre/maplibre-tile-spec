@@ -8,7 +8,7 @@ export class StringDictionaryVector extends VariableSizeVector<Uint8Array, strin
     constructor(
         name: string,
         private readonly indexBuffer: Int32Array,
-        offsetBuffer: Int32Array,
+        offsetBuffer: Uint32Array,
         dictionaryBuffer: Uint8Array,
         nullabilityBuffer?: BitVector,
     ) {

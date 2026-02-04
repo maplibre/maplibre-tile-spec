@@ -11,16 +11,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import me.lemire.integercompression.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.orc.PhysicalWriter;
-import org.apache.orc.impl.OutStream;
-import org.apache.orc.impl.RunLengthByteWriter;
-import org.apache.orc.impl.writer.StreamOptions;
+import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.decoder.DecodingUtils;
 
 public class EncodingUtils {
@@ -101,13 +97,12 @@ public class EncodingUtils {
 
   public static byte[] encodeVarints(
       Collection<Integer> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
-    return encodeVarints(
-        values.stream().mapToInt(Integer::intValue).toArray(), zigZagEncode, deltaEncode);
+    return encodeVarints(CollectionUtils.unboxInts(values), zigZagEncode, deltaEncode);
   }
 
-  public static byte[] encodeLongVarints(
-      Collection<Long> values, boolean zigZagEncode, boolean deltaEncode) throws IOException {
-    return encodeVarints(values.stream().mapToLong(x -> x).toArray(), zigZagEncode, deltaEncode);
+  public static byte[] encodeLongVarints(long[] values, boolean zigZagEncode, boolean deltaEncode)
+      throws IOException {
+    return encodeVarints(values, zigZagEncode, deltaEncode);
   }
 
   public static byte[] encodeVarint(int value, boolean zigZagEncode) throws IOException {
@@ -146,9 +141,8 @@ public class EncodingUtils {
     } while (v != 0);
 
     // ensure that the result decodes back into the input
-    if (DecodingUtils.decodeVarints(sink, new IntWrapper(offset), 1)[0] != checkValue) {
-      throw new IOException("Varint Overflow");
-    }
+    assert DecodingUtils.decodeVarints(sink, new IntWrapper(offset), 1)[0] == checkValue
+        : "Varint Overflow";
 
     return offset + sinkUsed;
   }
@@ -168,9 +162,8 @@ public class EncodingUtils {
       sink[offset + sinkUsed++] = b;
     } while (v != 0);
 
-    if (DecodingUtils.decodeLongVarint(sink, new IntWrapper(offset)) != checkValue) {
-      throw new IOException("Varint Overflow");
-    }
+    assert DecodingUtils.decodeLongVarint(sink, new IntWrapper(offset)) == checkValue
+        : "Varint Overflow";
     return offset + sinkUsed;
   }
 
@@ -202,11 +195,19 @@ public class EncodingUtils {
   }
 
   public static long[] encodeZigZag(long[] values) {
-    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
+    long[] result = new long[values.length];
+    for (int i = 0; i < values.length; i++) {
+      result[i] = encodeZigZag(values[i]);
+    }
+    return result;
   }
 
   public static int[] encodeZigZag(int[] values) {
-    return Arrays.stream(values).map(EncodingUtils::encodeZigZag).toArray();
+    int[] result = new int[values.length];
+    for (int i = 0; i < values.length; i++) {
+      result[i] = encodeZigZag(values[i]);
+    }
+    return result;
   }
 
   public static long encodeZigZag(long value) {
@@ -242,7 +243,7 @@ public class EncodingUtils {
   /**
    * @return Pair of runs and values.
    */
-  public static Pair<List<Integer>, List<Integer>> encodeRle(int[] values) {
+  public static Pair<int[], int[]> encodeRle(int[] values) {
     var valueBuffer = new ArrayList<Integer>();
     var runsBuffer = new ArrayList<Integer>();
     var previousValue = 0;
@@ -262,14 +263,14 @@ public class EncodingUtils {
     valueBuffer.add(values[values.length - 1]);
     runsBuffer.add(runs);
 
-    return Pair.of(runsBuffer, valueBuffer);
+    return Pair.of(CollectionUtils.unboxInts(runsBuffer), CollectionUtils.unboxInts(valueBuffer));
   }
 
   /**
    * @return Pair of runs and values.
    */
   // TODO: merge this method with the int variant
-  public static Pair<List<Integer>, List<Long>> encodeRle(long[] values) {
+  public static Pair<long[], long[]> encodeRle(long[] values) {
     var valueBuffer = new ArrayList<Long>();
     var runsBuffer = new ArrayList<Integer>();
     var previousValue = 0L;
@@ -288,7 +289,7 @@ public class EncodingUtils {
 
     valueBuffer.add(values[values.length - 1]);
     runsBuffer.add(runs);
-    return Pair.of(runsBuffer, valueBuffer);
+    return Pair.of(CollectionUtils.unboxLongs(runsBuffer), CollectionUtils.unboxLongs(valueBuffer));
   }
 
   public static byte[] encodeFastPfor128(int[] values, boolean zigZagEncode, boolean deltaEncode) {
@@ -331,16 +332,7 @@ public class EncodingUtils {
   }
 
   public static byte[] encodeByteRle(byte[] values) throws IOException {
-    var outputCatcher = new OutputCatcher();
-    var writer =
-        new RunLengthByteWriter(new OutStream("test", new StreamOptions(1), outputCatcher));
-
-    for (var value : values) {
-      writer.write(value);
-    }
-
-    writer.flush();
-    return outputCatcher.getBuffer();
+    return ByteRleEncoder.encode(values);
   }
 
   public static byte[] encodeBooleanRle(BitSet bitSet, int numValues) throws IOException {
@@ -354,41 +346,5 @@ public class EncodingUtils {
     }
 
     return EncodingUtils.encodeByteRle(presentStream);
-  }
-
-  private static class OutputCatcher implements PhysicalWriter.OutputReceiver {
-    int currentBuffer = 0;
-    List<ByteBuffer> buffers = new ArrayList<>();
-
-    @Override
-    public void output(ByteBuffer buffer) throws IOException {
-      buffers.add(buffer);
-    }
-
-    @Override
-    public void suppress() {}
-
-    public ByteBuffer getCurrentBuffer() {
-      while (currentBuffer < buffers.size() && buffers.get(currentBuffer).remaining() == 0) {
-        currentBuffer += 1;
-      }
-      return currentBuffer < buffers.size() ? buffers.get(currentBuffer) : null;
-    }
-
-    public byte[] getBuffer() throws IOException {
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      for (var buffer : this.buffers) {
-        outputStream.write(buffer.array());
-      }
-      return outputStream.toByteArray();
-    }
-
-    public int getBufferSize() {
-      var size = 0;
-      for (var buffer : buffers) {
-        size += buffer.array().length;
-      }
-      return size;
-    }
   }
 }

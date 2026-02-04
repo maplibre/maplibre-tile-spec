@@ -13,6 +13,7 @@ import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.maplibre.mlt.decoder.MltDecoder;
 
 /**
  * Quick and dirty benchmarks for the decoding of OpenMapTiles schema based tiles into the MVT and
@@ -192,7 +193,7 @@ public class MltDecoderBenchmarkTest {
     var mltTimeElapsed = 0L;
     for (int i = 0; i <= 200; i++) {
       long start = System.currentTimeMillis();
-      // var decodedTile = MltDecoder.decodeMlTileVectorized(mlTile, tileMetadata);
+      var decodedTile = MltDecoder.decodeMlTile(mlTile);
       long finish = System.currentTimeMillis();
 
       if (i > 100) {

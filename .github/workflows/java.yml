@@ -2,10 +2,8 @@ name: Java CI
 
 on:
   push:
-    paths:
-      - '.github/**'
-      - 'java/**'
-      - 'test/**'
+    branches:
+      - main
   pull_request:
     paths:
       - '.github/**'
@@ -19,6 +17,8 @@ defaults:
 
 jobs:
   test-java:
+    permissions:
+      id-token: write  # for OIDC Codecov
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -33,8 +33,12 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         name: Lint Java code. If fails, run `just fmt-java` to reformat, and `just lint-java` to see issues locally
         run: just -v lint-java
-      - run: just -v test-java
+
+      - run: ./gradlew jacocoTestReport
+        working-directory: java
+
       - run: just -v test-java-cli
+
       - name: Test Maven local publishing
         run: cd java && ./gradlew publishMavenPublicationToMavenLocal
 
@@ -42,7 +46,12 @@ jobs:
         working-directory: java/encoding-server
       - run: npm run lint
         working-directory: java/encoding-server
-      - run: npm run format
+      - run: npm run checkstyle
         working-directory: java/encoding-server
-      - if: matrix.os != 'windows-latest'
-        uses: infotroph/tree-is-clean@69d598a958e8cb8f3d0e3d52b5ebcd8684f2adc2 # v1.0.6
+
+      - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          directory: java
