@@ -19,6 +19,7 @@ struct EncoderConfig {
     bool useFastPfor = false;
     bool includeIds = true;
     bool sortFeatures = true;
+    bool preTessellate = false;
 };
 
 class Encoder : public util::noncopyable {

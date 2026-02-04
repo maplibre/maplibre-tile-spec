@@ -11,7 +11,10 @@
 #include <mlt/util/hilbert_curve.hpp>
 #include <mlt/util/stl.hpp>
 
+#include <mapbox/earcut.hpp>
+
 #include <algorithm>
+#include <array>
 #include <numeric>
 #include <stdexcept>
 #include <unordered_set>
@@ -38,6 +41,11 @@ struct Encoder::Impl {
 
     static bool canSort(const std::vector<Encoder::Feature>& features);
     static std::vector<Encoder::Feature> sortFeatures(const std::vector<Encoder::Feature>& features);
+
+    static bool allPolygons(const std::vector<Encoder::Feature>& features);
+    static void tessellateFeatures(const std::vector<Feature>& features,
+                                   std::vector<std::uint32_t>& numTriangles,
+                                   std::vector<std::uint32_t>& indexBuffer);
 };
 
 FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfig& config) {
@@ -291,6 +299,62 @@ std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Enco
     return sorted;
 }
 
+bool Encoder::Impl::allPolygons(const std::vector<Encoder::Feature>& features) {
+    return !features.empty() && std::all_of(features.begin(), features.end(), [](const auto& f) {
+        return f.geometry.type == GeometryType::POLYGON || f.geometry.type == GeometryType::MULTIPOLYGON;
+    });
+}
+
+void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
+                                        std::vector<std::uint32_t>& numTriangles,
+                                        std::vector<std::uint32_t>& indexBuffer) {
+    using EarcutPoint = std::array<double, 2>;
+
+    auto tessellateOnePolygon = [](const std::vector<Vertex>& coords,
+                                   const std::vector<std::uint32_t>& ringSizes,
+                                   std::uint32_t indexOffset) -> std::pair<std::uint32_t, std::vector<std::uint32_t>> {
+        std::vector<std::vector<EarcutPoint>> polygon;
+        std::size_t vertIdx = 0;
+        for (auto ringSize : ringSizes) {
+            std::vector<EarcutPoint> ring;
+            ring.reserve(ringSize);
+            for (std::uint32_t i = 0; i < ringSize; ++i) {
+                ring.push_back({static_cast<double>(coords[vertIdx].x),
+                                static_cast<double>(coords[vertIdx].y)});
+                ++vertIdx;
+            }
+            polygon.push_back(std::move(ring));
+        }
+
+        auto indices = mapbox::earcut<std::uint32_t>(polygon);
+        if (indexOffset > 0) {
+            for (auto& idx : indices) idx += indexOffset;
+        }
+        return {static_cast<std::uint32_t>(indices.size() / 3), std::move(indices)};
+    };
+
+    for (const auto& feature : features) {
+        const auto& geom = feature.geometry;
+        if (geom.type == GeometryType::POLYGON) {
+            auto [nTri, indices] = tessellateOnePolygon(geom.coordinates, geom.ringSizes, 0);
+            numTriangles.push_back(nTri);
+            indexBuffer.insert(indexBuffer.end(), indices.begin(), indices.end());
+        } else if (geom.type == GeometryType::MULTIPOLYGON) {
+            std::uint32_t totalTri = 0;
+            std::uint32_t vertexOffset = 0;
+            std::vector<std::uint32_t> allIndices;
+            for (std::size_t p = 0; p < geom.parts.size(); ++p) {
+                auto [nTri, indices] = tessellateOnePolygon(geom.parts[p], geom.partRingSizes[p], vertexOffset);
+                totalTri += nTri;
+                allIndices.insert(allIndices.end(), indices.begin(), indices.end());
+                vertexOffset += static_cast<std::uint32_t>(geom.parts[p].size());
+            }
+            numTriangles.push_back(totalTri);
+            indexBuffer.insert(indexBuffer.end(), allIndices.begin(), allIndices.end());
+        }
+    }
+}
+
 std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const EncoderConfig& config) {
     if (layer.features.empty()) {
         return {};
@@ -336,12 +400,27 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     std::vector<GeometryEncoder::Vertex> vertexBuffer;
     collectGeometry(features, geometryTypes, numGeometries, numParts, numRings, vertexBuffer);
 
-    auto encodedGeom = GeometryEncoder::encodeGeometryColumn(
-        geometryTypes, numGeometries, numParts, numRings, vertexBuffer,
-        physicalTechnique, intEncoder);
+    const bool usePretessellation = config.preTessellate && allPolygons(features);
 
-    util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
-    bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
+    if (usePretessellation) {
+        std::vector<std::uint32_t> numTriangles;
+        std::vector<std::uint32_t> indexBuffer;
+        tessellateFeatures(features, numTriangles, indexBuffer);
+
+        auto encodedGeom = GeometryEncoder::encodePretessellatedGeometryColumn(
+            geometryTypes, numGeometries, numParts, numRings, vertexBuffer,
+            numTriangles, indexBuffer, physicalTechnique, intEncoder, true);
+
+        util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
+        bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
+    } else {
+        auto encodedGeom = GeometryEncoder::encodeGeometryColumn(
+            geometryTypes, numGeometries, numParts, numRings, vertexBuffer,
+            physicalTechnique, intEncoder);
+
+        util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
+        bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
+    }
 
     for (const auto& column : featureTable.columns) {
         if (column.isID() || column.isGeometry()) {

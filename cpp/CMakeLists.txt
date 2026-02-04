@@ -157,6 +157,7 @@ add_library(fsst-lib STATIC
 target_include_directories(fsst-lib PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
 set_target_properties(fsst-lib PROPERTIES CXX_STANDARD 17)
 target_compile_options(fsst-lib PRIVATE -w)
+target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/earcut/include")
 target_link_libraries(mlt-cpp fsst-lib)
 target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/fsst")
 

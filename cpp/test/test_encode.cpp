@@ -1532,3 +1532,70 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
         }
     }
 }
+
+TEST(Encode, PretessellatedPolygonRoundtrip) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "buildings";
+    layer.extent = 4096;
+
+    {
+        Encoder::Feature f;
+        f.id = 1;
+        f.geometry.type = metadata::tileset::GeometryType::POLYGON;
+        f.geometry.coordinates = {{100, 100}, {200, 100}, {200, 200}, {100, 200}};
+        f.geometry.ringSizes = {4};
+        f.properties["height"] = std::int32_t{10};
+        layer.features.push_back(std::move(f));
+    }
+
+    {
+        Encoder::Feature f;
+        f.id = 2;
+        f.geometry.type = metadata::tileset::GeometryType::POLYGON;
+        // Exterior ring
+        f.geometry.coordinates = {{0, 0}, {400, 0}, {400, 400}, {0, 400},
+        // Hole
+                                  {100, 100}, {300, 100}, {300, 300}, {100, 300}};
+        f.geometry.ringSizes = {4, 4};
+        f.properties["height"] = std::int32_t{20};
+        layer.features.push_back(std::move(f));
+    }
+
+    EncoderConfig config;
+    config.preTessellate = true;
+    auto tileData = encoder.encode({layer}, config);
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("buildings");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 2u);
+}
+
+TEST(Encode, PretessellatedMultiPolygonRoundtrip) {
+    Encoder encoder;
+    Encoder::Layer layer;
+    layer.name = "landuse";
+    layer.extent = 4096;
+
+    Encoder::Feature f;
+    f.id = 1;
+    f.geometry.type = metadata::tileset::GeometryType::MULTIPOLYGON;
+    f.geometry.parts = {
+        {{10, 10}, {50, 10}, {50, 50}, {10, 50}},
+        {{100, 100}, {200, 100}, {200, 200}, {100, 200}},
+    };
+    f.geometry.partRingSizes = {{4}, {4}};
+    layer.features.push_back(std::move(f));
+
+    EncoderConfig config;
+    config.preTessellate = true;
+    auto tileData = encoder.encode({layer}, config);
+    ASSERT_FALSE(tileData.empty());
+
+    auto tile = Decoder().decode({reinterpret_cast<const char*>(tileData.data()), tileData.size()});
+    const auto* decoded = tile.getLayer("landuse");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), 1u);
+}
