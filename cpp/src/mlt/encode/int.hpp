@@ -38,9 +38,7 @@ public:
     IntegerEncoder(IntegerEncoder&&) = delete;
     IntegerEncoder& operator=(IntegerEncoder&&) = delete;
 
-    IntegerEncodingResult encodeInt(std::span<const std::int32_t> values,
-                                    PhysicalLevelTechnique,
-                                    bool isSigned);
+    IntegerEncodingResult encodeInt(std::span<const std::int32_t> values, PhysicalLevelTechnique, bool isSigned);
 
     IntegerEncodingResult encodeLong(std::span<const std::int64_t> values, bool isSigned);
 

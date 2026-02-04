@@ -15,8 +15,7 @@ public:
     using StreamMetadata = metadata::stream::StreamMetadata;
 
     template <typename Container>
-    static std::vector<std::uint8_t> encodeBooleanStream(const Container& values,
-                                                          PhysicalStreamType streamType) {
+    static std::vector<std::uint8_t> encodeBooleanStream(const Container& values, PhysicalStreamType streamType) {
         const auto count = values.size();
         const auto numBytes = (count + 7) / 8;
         std::vector<std::uint8_t> bitset(numBytes, 0);
@@ -28,13 +27,13 @@ public:
 
         auto encodedData = util::encoding::rle::encodeBooleanRle(bitset.data(), static_cast<std::uint32_t>(count));
 
-        auto metadata = StreamMetadata(
-                            streamType, std::nullopt,
-                            metadata::stream::LogicalLevelTechnique::RLE,
-                            metadata::stream::LogicalLevelTechnique::NONE,
-                            metadata::stream::PhysicalLevelTechnique::NONE,
-                            static_cast<std::uint32_t>(count),
-                            static_cast<std::uint32_t>(encodedData.size()))
+        auto metadata = StreamMetadata(streamType,
+                                       std::nullopt,
+                                       metadata::stream::LogicalLevelTechnique::RLE,
+                                       metadata::stream::LogicalLevelTechnique::NONE,
+                                       metadata::stream::PhysicalLevelTechnique::NONE,
+                                       static_cast<std::uint32_t>(count),
+                                       static_cast<std::uint32_t>(encodedData.size()))
                             .encode();
 
         std::vector<std::uint8_t> result;

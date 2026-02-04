@@ -49,11 +49,10 @@ public:
         return {bestStreams, std::move(*best)};
     }
 
-    static EncodeResult encodeSharedDictionary(
-        const std::vector<std::vector<const std::string_view*>>& columns,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        bool useFsst = true) {
+    static EncodeResult encodeSharedDictionary(const std::vector<std::vector<const std::string_view*>>& columns,
+                                               PhysicalLevelTechnique physicalTechnique,
+                                               IntegerEncoder& intEncoder,
+                                               bool useFsst = true) {
         using namespace metadata::stream;
 
         std::vector<std::string_view> dictionary;
@@ -102,13 +101,14 @@ public:
 
             util::encoding::encodeVarint(static_cast<std::uint32_t>(2), result);
 
-            auto presentData = BooleanEncoder::encodeBooleanStream(
-                presentStreams[col], PhysicalStreamType::PRESENT);
+            auto presentData = BooleanEncoder::encodeBooleanStream(presentStreams[col], PhysicalStreamType::PRESENT);
             result.insert(result.end(), presentData.begin(), presentData.end());
 
-            auto offsetData = intEncoder.encodeIntStream(
-                dataStreams[col], physicalTechnique, false,
-                PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
+            auto offsetData = intEncoder.encodeIntStream(dataStreams[col],
+                                                         physicalTechnique,
+                                                         false,
+                                                         PhysicalStreamType::OFFSET,
+                                                         LogicalStreamType{OffsetType::STRING});
             result.insert(result.end(), offsetData.begin(), offsetData.end());
         }
 
@@ -118,8 +118,8 @@ public:
 
 private:
     static std::vector<std::uint8_t> encodePlain(std::span<const std::string_view> values,
-                                                  PhysicalLevelTechnique physicalTechnique,
-                                                  IntegerEncoder& intEncoder) {
+                                                 PhysicalLevelTechnique physicalTechnique,
+                                                 IntegerEncoder& intEncoder) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> lengths;
@@ -131,15 +131,15 @@ private:
         }
 
         auto encodedLengths = intEncoder.encodeIntStream(
-            lengths, physicalTechnique, false,
-            PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::VAR_BINARY});
+            lengths, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::VAR_BINARY});
 
-        auto dataMetadata = StreamMetadata(
-                                PhysicalStreamType::DATA, LogicalStreamType{DictionaryType::NONE},
-                                LogicalLevelTechnique::NONE, LogicalLevelTechnique::NONE,
-                                PhysicalLevelTechnique::NONE,
-                                static_cast<std::uint32_t>(values.size()),
-                                static_cast<std::uint32_t>(rawData.size()))
+        auto dataMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                           LogicalStreamType{DictionaryType::NONE},
+                                           LogicalLevelTechnique::NONE,
+                                           LogicalLevelTechnique::NONE,
+                                           PhysicalLevelTechnique::NONE,
+                                           static_cast<std::uint32_t>(values.size()),
+                                           static_cast<std::uint32_t>(rawData.size()))
                                 .encode();
 
         std::vector<std::uint8_t> result;
@@ -151,8 +151,8 @@ private:
     }
 
     static std::vector<std::uint8_t> encodeDictionary(std::span<const std::string_view> values,
-                                                       PhysicalLevelTechnique physicalTechnique,
-                                                       IntegerEncoder& intEncoder) {
+                                                      PhysicalLevelTechnique physicalTechnique,
+                                                      IntegerEncoder& intEncoder) {
         using namespace metadata::stream;
 
         std::vector<std::string_view> dictionary;
@@ -171,8 +171,7 @@ private:
         auto dictData = encodeDictionaryData(dictionary, physicalTechnique, intEncoder, false);
 
         auto encodedOffsets = intEncoder.encodeIntStream(
-            offsets, physicalTechnique, false,
-            PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
+            offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
 
         std::vector<std::uint8_t> result;
         result.reserve(dictData.size() + encodedOffsets.size());
@@ -181,12 +180,11 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeFsstDictionary(
-        std::span<const std::string_view> values,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        bool encodeOffsets,
-        bool isShared) {
+    static std::vector<std::uint8_t> encodeFsstDictionary(std::span<const std::string_view> values,
+                                                          PhysicalLevelTechnique physicalTechnique,
+                                                          IntegerEncoder& intEncoder,
+                                                          bool encodeOffsets,
+                                                          bool isShared) {
         using namespace metadata::stream;
 
         std::vector<std::string_view> dictionary;
@@ -209,8 +207,7 @@ private:
         }
 
         auto encodedOffsets = intEncoder.encodeIntStream(
-            offsets, physicalTechnique, false,
-            PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
+            offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
 
         std::vector<std::uint8_t> result;
         result.reserve(fsstData.size() + encodedOffsets.size());
@@ -219,11 +216,10 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeFsst(
-        std::span<const std::string_view> values,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        bool isShared) {
+    static std::vector<std::uint8_t> encodeFsst(std::span<const std::string_view> values,
+                                                PhysicalLevelTechnique physicalTechnique,
+                                                IntegerEncoder& intEncoder,
+                                                bool isShared) {
         using namespace metadata::stream;
         namespace fsst = util::encoding::fsst;
 
@@ -239,28 +235,31 @@ private:
 
         std::vector<std::int32_t> symLens(result.symbolLengths.begin(), result.symbolLengths.end());
         auto encodedSymbolLengths = intEncoder.encodeIntStream(
-            symLens, physicalTechnique, false,
-            PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::SYMBOL});
+            symLens, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::SYMBOL});
 
-        auto symbolTableMetadata = StreamMetadata(
-                                       PhysicalStreamType::DATA, LogicalStreamType{DictionaryType::FSST},
-                                       LogicalLevelTechnique::NONE, LogicalLevelTechnique::NONE,
-                                       PhysicalLevelTechnique::NONE,
-                                       static_cast<std::uint32_t>(result.symbolLengths.size()),
-                                       static_cast<std::uint32_t>(result.symbols.size()))
+        auto symbolTableMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                                  LogicalStreamType{DictionaryType::FSST},
+                                                  LogicalLevelTechnique::NONE,
+                                                  LogicalLevelTechnique::NONE,
+                                                  PhysicalLevelTechnique::NONE,
+                                                  static_cast<std::uint32_t>(result.symbolLengths.size()),
+                                                  static_cast<std::uint32_t>(result.symbols.size()))
                                        .encode();
 
-        auto encodedDictLengths = intEncoder.encodeIntStream(
-            valueLengths, physicalTechnique, false,
-            PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::DICTIONARY});
+        auto encodedDictLengths = intEncoder.encodeIntStream(valueLengths,
+                                                             physicalTechnique,
+                                                             false,
+                                                             PhysicalStreamType::LENGTH,
+                                                             LogicalStreamType{LengthType::DICTIONARY});
 
         const auto dictType = isShared ? DictionaryType::SHARED : DictionaryType::SINGLE;
-        auto corpusMetadata = StreamMetadata(
-                                  PhysicalStreamType::DATA, LogicalStreamType{dictType},
-                                  LogicalLevelTechnique::NONE, LogicalLevelTechnique::NONE,
-                                  PhysicalLevelTechnique::NONE,
-                                  static_cast<std::uint32_t>(values.size()),
-                                  static_cast<std::uint32_t>(result.compressedData.size()))
+        auto corpusMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                             LogicalStreamType{dictType},
+                                             LogicalLevelTechnique::NONE,
+                                             LogicalLevelTechnique::NONE,
+                                             PhysicalLevelTechnique::NONE,
+                                             static_cast<std::uint32_t>(values.size()),
+                                             static_cast<std::uint32_t>(result.compressedData.size()))
                                   .encode();
 
         std::vector<std::uint8_t> out;
@@ -275,11 +274,10 @@ private:
         return out;
     }
 
-    static std::vector<std::uint8_t> encodeDictionaryData(
-        std::span<const std::string_view> dictionary,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        bool isShared) {
+    static std::vector<std::uint8_t> encodeDictionaryData(std::span<const std::string_view> dictionary,
+                                                          PhysicalLevelTechnique physicalTechnique,
+                                                          IntegerEncoder& intEncoder,
+                                                          bool isShared) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> lengths;
@@ -291,16 +289,16 @@ private:
         }
 
         auto encodedLengths = intEncoder.encodeIntStream(
-            lengths, physicalTechnique, false,
-            PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::DICTIONARY});
+            lengths, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::DICTIONARY});
 
         const auto dictType = isShared ? DictionaryType::SHARED : DictionaryType::SINGLE;
-        auto dataMetadata = StreamMetadata(
-                                PhysicalStreamType::DATA, LogicalStreamType{dictType},
-                                LogicalLevelTechnique::NONE, LogicalLevelTechnique::NONE,
-                                PhysicalLevelTechnique::NONE,
-                                static_cast<std::uint32_t>(dictionary.size()),
-                                static_cast<std::uint32_t>(rawData.size()))
+        auto dataMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                           LogicalStreamType{dictType},
+                                           LogicalLevelTechnique::NONE,
+                                           LogicalLevelTechnique::NONE,
+                                           PhysicalLevelTechnique::NONE,
+                                           static_cast<std::uint32_t>(dictionary.size()),
+                                           static_cast<std::uint32_t>(rawData.size()))
                                 .encode();
 
         std::vector<std::uint8_t> result;

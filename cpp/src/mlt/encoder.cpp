@@ -56,8 +56,9 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
     if (config.includeIds) {
         // Use 64-bit when any ID exceeds INT32_MAX: delta encoding accumulates in
         // int32_t, so uint32 values with bit 31 set would sign-extend on widening.
-        bool hasLongId = std::any_of(layer.features.begin(), layer.features.end(),
-                                     [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
+        bool hasLongId = std::any_of(layer.features.begin(), layer.features.end(), [](const auto& f) {
+            return f.id > std::numeric_limits<std::int32_t>::max();
+        });
 
         Column idColumn;
         idColumn.nullable = false;
@@ -91,16 +92,17 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
             }
 
             auto scalarType = std::visit(util::overloaded{
-                [](bool) { return ScalarType::BOOLEAN; },
-                [](std::int32_t) { return ScalarType::INT_32; },
-                [](std::int64_t) { return ScalarType::INT_64; },
-                [](std::uint32_t) { return ScalarType::UINT_32; },
-                [](std::uint64_t) { return ScalarType::UINT_64; },
-                [](float) { return ScalarType::FLOAT; },
-                [](double) { return ScalarType::DOUBLE; },
-                [](const std::string&) { return ScalarType::STRING; },
-                [](const Encoder::StructValue&) { return ScalarType::STRING; },
-            }, value);
+                                             [](bool) { return ScalarType::BOOLEAN; },
+                                             [](std::int32_t) { return ScalarType::INT_32; },
+                                             [](std::int64_t) { return ScalarType::INT_64; },
+                                             [](std::uint32_t) { return ScalarType::UINT_32; },
+                                             [](std::uint64_t) { return ScalarType::UINT_64; },
+                                             [](float) { return ScalarType::FLOAT; },
+                                             [](double) { return ScalarType::DOUBLE; },
+                                             [](const std::string&) { return ScalarType::STRING; },
+                                             [](const Encoder::StructValue&) { return ScalarType::STRING; },
+                                         },
+                                         value);
 
             auto [it, inserted] = scalarColumns.try_emplace(key, ColumnInfo{scalarType, false});
             if (!inserted) {
@@ -124,9 +126,8 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
             info.nullable = true;
             continue;
         }
-        info.nullable = std::ranges::any_of(layer.features, [&](const auto& feature) {
-            return !feature.properties.contains(key);
-        });
+        info.nullable = std::ranges::any_of(layer.features,
+                                            [&](const auto& feature) { return !feature.properties.contains(key); });
     }
 
     for (const auto& [name, info] : scalarColumns) {
@@ -162,11 +163,11 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
 }
 
 void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
-                                     std::vector<metadata::tileset::GeometryType>& geometryTypes,
-                                     std::vector<std::uint32_t>& numGeometries,
-                                     std::vector<std::uint32_t>& numParts,
-                                     std::vector<std::uint32_t>& numRings,
-                                     std::vector<GeometryEncoder::Vertex>& vertexBuffer) {
+                                    std::vector<metadata::tileset::GeometryType>& geometryTypes,
+                                    std::vector<std::uint32_t>& numGeometries,
+                                    std::vector<std::uint32_t>& numParts,
+                                    std::vector<std::uint32_t>& numRings,
+                                    std::vector<GeometryEncoder::Vertex>& vertexBuffer) {
     using GT = metadata::tileset::GeometryType;
 
     const bool containsPolygon = std::any_of(features.begin(), features.end(), [](const auto& f) {
@@ -248,8 +249,8 @@ bool Encoder::Impl::canSort(const std::vector<Encoder::Feature>& features) {
     if (features.empty()) return false;
 
     auto firstType = features[0].geometry.type;
-    bool allSame = std::all_of(features.begin(), features.end(),
-        [firstType](const auto& f) { return f.geometry.type == firstType; });
+    bool allSame = std::all_of(
+        features.begin(), features.end(), [firstType](const auto& f) { return f.geometry.type == firstType; });
     if (!allSame) return false;
 
     return firstType == GT::POINT || firstType == GT::LINESTRING;
@@ -278,22 +279,21 @@ std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Enco
             const auto& v = features[i].geometry.coordinates[0];
             hilbertIds[i] = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
         }
-        std::sort(order.begin(), order.end(),
-            [&](std::size_t a, std::size_t b) { return hilbertIds[a] < hilbertIds[b]; });
+        std::sort(
+            order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return hilbertIds[a] < hilbertIds[b]; });
     } else {
         std::vector<std::uint32_t> firstVertexIds(features.size());
         for (std::size_t i = 0; i < features.size(); ++i) {
             const auto& v = features[i].geometry.coordinates[0];
             firstVertexIds[i] = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
         }
-        std::sort(order.begin(), order.end(),
-            [&](std::size_t a, std::size_t b) { return firstVertexIds[a] < firstVertexIds[b]; });
+        std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+            return firstVertexIds[a] < firstVertexIds[b];
+        });
     }
 
     std::vector<Feature> sorted(features.size());
-    std::transform(order.begin(), order.end(), sorted.begin(), [&](auto idx) {
-        return features[idx];
-    });
+    std::transform(order.begin(), order.end(), sorted.begin(), [&](auto idx) { return features[idx]; });
     return sorted;
 }
 
@@ -304,8 +304,8 @@ bool Encoder::Impl::allPolygons(const std::vector<Encoder::Feature>& features) {
 }
 
 void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
-                                        std::vector<std::uint32_t>& numTriangles,
-                                        std::vector<std::uint32_t>& indexBuffer) {
+                                       std::vector<std::uint32_t>& numTriangles,
+                                       std::vector<std::uint32_t>& indexBuffer) {
     using EarcutPoint = std::array<double, 2>;
 
     auto tessellateOnePolygon = [](const std::vector<Vertex>& coords,
@@ -317,8 +317,7 @@ void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
             std::vector<EarcutPoint> ring;
             ring.reserve(ringSize);
             for (std::uint32_t i = 0; i < ringSize; ++i) {
-                ring.push_back({static_cast<double>(coords[vertIdx].x),
-                                static_cast<double>(coords[vertIdx].y)});
+                ring.push_back({static_cast<double>(coords[vertIdx].x), static_cast<double>(coords[vertIdx].y)});
                 ++vertIdx;
             }
             polygon.push_back(std::move(ring));
@@ -362,8 +361,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     const auto sortedStorage = shouldSort ? sortFeatures(layer.features) : std::vector<Feature>{};
     const auto& features = shouldSort ? sortedStorage : layer.features;
 
-    auto physicalTechnique = config.useFastPfor ? PhysicalLevelTechnique::FAST_PFOR
-                                                : PhysicalLevelTechnique::VARINT;
+    auto physicalTechnique = config.useFastPfor ? PhysicalLevelTechnique::FAST_PFOR : PhysicalLevelTechnique::VARINT;
 
     auto featureTable = buildMetadata(layer, config);
     auto metadataBytes = encodeFeatureTable(featureTable);
@@ -371,14 +369,13 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     std::vector<std::uint8_t> bodyBytes;
 
     if (config.includeIds) {
-        bool hasLongId = std::any_of(features.begin(), features.end(),
-                                     [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
+        bool hasLongId = std::any_of(features.begin(), features.end(), [](const auto& f) {
+            return f.id > std::numeric_limits<std::int32_t>::max();
+        });
 
         if (hasLongId) {
             std::vector<std::uint64_t> ids(features.size());
-            std::transform(features.begin(), features.end(), ids.begin(), [](const auto& f) {
-                return f.id;
-            });
+            std::transform(features.begin(), features.end(), ids.begin(), [](const auto& f) { return f.id; });
             auto encoded = PropertyEncoder::encodeUint64Column(ids, intEncoder);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         } else {
@@ -403,16 +400,22 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         std::vector<std::uint32_t> indexBuffer;
         tessellateFeatures(features, numTriangles, indexBuffer);
 
-        auto encodedGeom = GeometryEncoder::encodePretessellatedGeometryColumn(
-            geometryTypes, numGeometries, numParts, numRings, vertexBuffer,
-            numTriangles, indexBuffer, physicalTechnique, intEncoder, true);
+        auto encodedGeom = GeometryEncoder::encodePretessellatedGeometryColumn(geometryTypes,
+                                                                               numGeometries,
+                                                                               numParts,
+                                                                               numRings,
+                                                                               vertexBuffer,
+                                                                               numTriangles,
+                                                                               indexBuffer,
+                                                                               physicalTechnique,
+                                                                               intEncoder,
+                                                                               true);
 
         util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
         bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
     } else {
         auto encodedGeom = GeometryEncoder::encodeGeometryColumn(
-            geometryTypes, numGeometries, numParts, numRings, vertexBuffer,
-            physicalTechnique, intEncoder);
+            geometryTypes, numGeometries, numParts, numRings, vertexBuffer, physicalTechnique, intEncoder);
 
         util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
         bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
@@ -478,8 +481,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 }
             }
 
-            auto result = StringEncoder::encodeSharedDictionary(
-                sharedCols, physicalTechnique, intEncoder);
+            auto result = StringEncoder::encodeSharedDictionary(sharedCols, physicalTechnique, intEncoder);
 
             util::encoding::encodeVarint(result.numStreams, bodyBytes);
             bodyBytes.insert(bodyBytes.end(), result.data.begin(), result.data.end());
@@ -512,11 +514,13 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 for (const auto& f : features) {
                     auto it = f.properties.find(colName);
                     if (it != f.properties.end()) {
-                        values.push_back(std::visit(util::overloaded{
-                            [](std::int32_t v) -> std::int32_t { return v; },
-                            [](std::int64_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
-                            [](auto) -> std::int32_t { return 0; },
-                        }, it->second));
+                        values.push_back(
+                            std::visit(util::overloaded{
+                                           [](std::int32_t v) -> std::int32_t { return v; },
+                                           [](std::int64_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
+                                           [](auto) -> std::int32_t { return 0; },
+                                       },
+                                       it->second));
                     } else {
                         values.push_back(std::nullopt);
                     }
@@ -531,11 +535,13 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 for (const auto& f : features) {
                     auto it = f.properties.find(colName);
                     if (it != f.properties.end()) {
-                        values.push_back(static_cast<std::int32_t>(std::visit(util::overloaded{
-                            [](std::uint32_t v) -> std::uint32_t { return v; },
-                            [](std::int32_t v) -> std::uint32_t { return static_cast<std::uint32_t>(v); },
-                            [](auto) -> std::uint32_t { return 0; },
-                        }, it->second)));
+                        values.push_back(static_cast<std::int32_t>(std::visit(
+                            util::overloaded{
+                                [](std::uint32_t v) -> std::uint32_t { return v; },
+                                [](std::int32_t v) -> std::uint32_t { return static_cast<std::uint32_t>(v); },
+                                [](auto) -> std::uint32_t { return 0; },
+                            },
+                            it->second)));
                     } else {
                         values.push_back(std::nullopt);
                     }
@@ -551,10 +557,11 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     auto it = f.properties.find(colName);
                     if (it != f.properties.end()) {
                         values.push_back(std::visit(util::overloaded{
-                            [](std::int64_t v) -> std::int64_t { return v; },
-                            [](std::int32_t v) -> std::int64_t { return v; },
-                            [](auto) -> std::int64_t { return 0; },
-                        }, it->second));
+                                                        [](std::int64_t v) -> std::int64_t { return v; },
+                                                        [](std::int32_t v) -> std::int64_t { return v; },
+                                                        [](auto) -> std::int64_t { return 0; },
+                                                    },
+                                                    it->second));
                     } else {
                         values.push_back(std::nullopt);
                     }
@@ -569,11 +576,13 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 for (const auto& f : features) {
                     auto it = f.properties.find(colName);
                     if (it != f.properties.end()) {
-                        values.push_back(static_cast<std::int64_t>(std::visit(util::overloaded{
-                            [](std::uint64_t v) -> std::uint64_t { return v; },
-                            [](std::int64_t v) -> std::uint64_t { return static_cast<std::uint64_t>(v); },
-                            [](auto) -> std::uint64_t { return 0; },
-                        }, it->second)));
+                        values.push_back(static_cast<std::int64_t>(std::visit(
+                            util::overloaded{
+                                [](std::uint64_t v) -> std::uint64_t { return v; },
+                                [](std::int64_t v) -> std::uint64_t { return static_cast<std::uint64_t>(v); },
+                                [](auto) -> std::uint64_t { return 0; },
+                            },
+                            it->second)));
                     } else {
                         values.push_back(std::nullopt);
                     }
@@ -590,10 +599,11 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     auto it = f.properties.find(colName);
                     if (it != f.properties.end()) {
                         values.push_back(std::visit(util::overloaded{
-                            [](float v) -> float { return v; },
-                            [](double v) -> float { return static_cast<float>(v); },
-                            [](auto) -> float { return 0.0f; },
-                        }, it->second));
+                                                        [](float v) -> float { return v; },
+                                                        [](double v) -> float { return static_cast<float>(v); },
+                                                        [](auto) -> float { return 0.0f; },
+                                                    },
+                                                    it->second));
                     } else {
                         values.push_back(std::nullopt);
                     }
@@ -610,11 +620,13 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 for (const auto& f : features) {
                     auto it = f.properties.find(colName);
                     if (it != f.properties.end()) {
-                        auto& owned = ownedStrings.emplace_back(std::visit(util::overloaded{
-                            [](const std::string& v) -> std::string { return v; },
-                            [](const Encoder::StructValue&) -> std::string { return {}; },
-                            [](auto v) -> std::string { return std::to_string(v); },
-                        }, it->second));
+                        auto& owned = ownedStrings.emplace_back(
+                            std::visit(util::overloaded{
+                                           [](const std::string& v) -> std::string { return v; },
+                                           [](const Encoder::StructValue&) -> std::string { return {}; },
+                                           [](auto v) -> std::string { return std::to_string(v); },
+                                       },
+                                       it->second));
                         values.push_back(std::string_view{owned});
                     } else {
                         values.push_back(std::nullopt);

@@ -38,49 +38,54 @@ public:
         bool operator==(const Vertex&) const = default;
     };
 
-    static EncodedGeometryColumn encodeGeometryColumn(
-        std::span<const GeometryType> geometryTypes,
-        std::span<const std::uint32_t> numGeometries,
-        std::span<const std::uint32_t> numParts,
-        std::span<const std::uint32_t> numRings,
-        std::span<const Vertex> vertexBuffer,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        bool useMortonEncoding = true) {
+    static EncodedGeometryColumn encodeGeometryColumn(std::span<const GeometryType> geometryTypes,
+                                                      std::span<const std::uint32_t> numGeometries,
+                                                      std::span<const std::uint32_t> numParts,
+                                                      std::span<const std::uint32_t> numRings,
+                                                      std::span<const Vertex> vertexBuffer,
+                                                      PhysicalLevelTechnique physicalTechnique,
+                                                      IntegerEncoder& intEncoder,
+                                                      bool useMortonEncoding = true) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> geomTypeValues(geometryTypes.size());
-        std::transform(geometryTypes.begin(), geometryTypes.end(), geomTypeValues.begin(),
-                       [](auto t) { return static_cast<std::int32_t>(t); });
+        std::transform(geometryTypes.begin(), geometryTypes.end(), geomTypeValues.begin(), [](auto t) {
+            return static_cast<std::int32_t>(t);
+        });
 
         auto encodedGeomTypes = intEncoder.encodeIntStream(
-            geomTypeValues, physicalTechnique, false,
-            PhysicalStreamType::LENGTH, std::nullopt);
+            geomTypeValues, physicalTechnique, false, PhysicalStreamType::LENGTH, std::nullopt);
 
         std::vector<std::uint8_t> topologyStreams;
         topologyStreams.insert(topologyStreams.end(), encodedGeomTypes.begin(), encodedGeomTypes.end());
         std::uint32_t numStreams = 1;
 
         if (!numGeometries.empty()) {
-            auto data = encodeUint32AsInt32Stream(numGeometries, physicalTechnique, intEncoder,
-                                                   PhysicalStreamType::LENGTH,
-                                                   LogicalStreamType{LengthType::GEOMETRIES});
+            auto data = encodeUint32AsInt32Stream(numGeometries,
+                                                  physicalTechnique,
+                                                  intEncoder,
+                                                  PhysicalStreamType::LENGTH,
+                                                  LogicalStreamType{LengthType::GEOMETRIES});
             topologyStreams.insert(topologyStreams.end(), data.begin(), data.end());
             ++numStreams;
         }
 
         if (!numParts.empty()) {
-            auto data = encodeUint32AsInt32Stream(numParts, physicalTechnique, intEncoder,
-                                                   PhysicalStreamType::LENGTH,
-                                                   LogicalStreamType{LengthType::PARTS});
+            auto data = encodeUint32AsInt32Stream(numParts,
+                                                  physicalTechnique,
+                                                  intEncoder,
+                                                  PhysicalStreamType::LENGTH,
+                                                  LogicalStreamType{LengthType::PARTS});
             topologyStreams.insert(topologyStreams.end(), data.begin(), data.end());
             ++numStreams;
         }
 
         if (!numRings.empty()) {
-            auto data = encodeUint32AsInt32Stream(numRings, physicalTechnique, intEncoder,
-                                                   PhysicalStreamType::LENGTH,
-                                                   LogicalStreamType{LengthType::RINGS});
+            auto data = encodeUint32AsInt32Stream(numRings,
+                                                  physicalTechnique,
+                                                  intEncoder,
+                                                  PhysicalStreamType::LENGTH,
+                                                  LogicalStreamType{LengthType::RINGS});
             topologyStreams.insert(topologyStreams.end(), data.begin(), data.end());
             ++numStreams;
         }
@@ -123,26 +128,25 @@ public:
         }
     }
 
-    static EncodedGeometryColumn encodePretessellatedGeometryColumn(
-        std::span<const GeometryType> geometryTypes,
-        std::span<const std::uint32_t> numGeometries,
-        std::span<const std::uint32_t> numParts,
-        std::span<const std::uint32_t> numRings,
-        std::span<const Vertex> vertexBuffer,
-        std::span<const std::uint32_t> numTriangles,
-        std::span<const std::uint32_t> indexBuffer,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        bool encodeOutlines) {
+    static EncodedGeometryColumn encodePretessellatedGeometryColumn(std::span<const GeometryType> geometryTypes,
+                                                                    std::span<const std::uint32_t> numGeometries,
+                                                                    std::span<const std::uint32_t> numParts,
+                                                                    std::span<const std::uint32_t> numRings,
+                                                                    std::span<const Vertex> vertexBuffer,
+                                                                    std::span<const std::uint32_t> numTriangles,
+                                                                    std::span<const std::uint32_t> indexBuffer,
+                                                                    PhysicalLevelTechnique physicalTechnique,
+                                                                    IntegerEncoder& intEncoder,
+                                                                    bool encodeOutlines) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> geomTypeValues(geometryTypes.size());
-        std::transform(geometryTypes.begin(), geometryTypes.end(), geomTypeValues.begin(),
-                       [](auto t) { return static_cast<std::int32_t>(t); });
+        std::transform(geometryTypes.begin(), geometryTypes.end(), geomTypeValues.begin(), [](auto t) {
+            return static_cast<std::int32_t>(t);
+        });
 
         auto encodedGeomTypes = intEncoder.encodeIntStream(
-            geomTypeValues, physicalTechnique, false,
-            PhysicalStreamType::LENGTH, std::nullopt);
+            geomTypeValues, physicalTechnique, false, PhysicalStreamType::LENGTH, std::nullopt);
 
         std::vector<std::uint8_t> result;
         result.insert(result.end(), encodedGeomTypes.begin(), encodedGeomTypes.end());
@@ -150,37 +154,47 @@ public:
 
         if (encodeOutlines) {
             if (!numGeometries.empty()) {
-                auto data = encodeUint32AsInt32Stream(numGeometries, physicalTechnique, intEncoder,
-                                                       PhysicalStreamType::LENGTH,
-                                                       LogicalStreamType{LengthType::GEOMETRIES});
+                auto data = encodeUint32AsInt32Stream(numGeometries,
+                                                      physicalTechnique,
+                                                      intEncoder,
+                                                      PhysicalStreamType::LENGTH,
+                                                      LogicalStreamType{LengthType::GEOMETRIES});
                 result.insert(result.end(), data.begin(), data.end());
                 ++numStreams;
             }
             if (!numParts.empty()) {
-                auto data = encodeUint32AsInt32Stream(numParts, physicalTechnique, intEncoder,
-                                                       PhysicalStreamType::LENGTH,
-                                                       LogicalStreamType{LengthType::PARTS});
+                auto data = encodeUint32AsInt32Stream(numParts,
+                                                      physicalTechnique,
+                                                      intEncoder,
+                                                      PhysicalStreamType::LENGTH,
+                                                      LogicalStreamType{LengthType::PARTS});
                 result.insert(result.end(), data.begin(), data.end());
                 ++numStreams;
             }
             if (!numRings.empty()) {
-                auto data = encodeUint32AsInt32Stream(numRings, physicalTechnique, intEncoder,
-                                                       PhysicalStreamType::LENGTH,
-                                                       LogicalStreamType{LengthType::RINGS});
+                auto data = encodeUint32AsInt32Stream(numRings,
+                                                      physicalTechnique,
+                                                      intEncoder,
+                                                      PhysicalStreamType::LENGTH,
+                                                      LogicalStreamType{LengthType::RINGS});
                 result.insert(result.end(), data.begin(), data.end());
                 ++numStreams;
             }
         }
 
-        auto encodedTriangles = encodeUint32AsInt32Stream(numTriangles, physicalTechnique, intEncoder,
-                                                           PhysicalStreamType::LENGTH,
-                                                           LogicalStreamType{LengthType::TRIANGLES});
+        auto encodedTriangles = encodeUint32AsInt32Stream(numTriangles,
+                                                          physicalTechnique,
+                                                          intEncoder,
+                                                          PhysicalStreamType::LENGTH,
+                                                          LogicalStreamType{LengthType::TRIANGLES});
         result.insert(result.end(), encodedTriangles.begin(), encodedTriangles.end());
         ++numStreams;
 
-        auto encodedIndices = encodeUint32AsInt32Stream(indexBuffer, physicalTechnique, intEncoder,
-                                                         PhysicalStreamType::OFFSET,
-                                                         LogicalStreamType{OffsetType::INDEX});
+        auto encodedIndices = encodeUint32AsInt32Stream(indexBuffer,
+                                                        physicalTechnique,
+                                                        intEncoder,
+                                                        PhysicalStreamType::OFFSET,
+                                                        LogicalStreamType{OffsetType::INDEX});
         result.insert(result.end(), encodedIndices.begin(), encodedIndices.end());
         ++numStreams;
 
@@ -197,35 +211,30 @@ public:
     }
 
 private:
-    static std::vector<std::uint8_t> encodeUint32AsInt32Stream(
-        std::span<const std::uint32_t> values,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        PhysicalStreamType streamType,
-        std::optional<LogicalStreamType> logicalType) {
+    static std::vector<std::uint8_t> encodeUint32AsInt32Stream(std::span<const std::uint32_t> values,
+                                                               PhysicalLevelTechnique physicalTechnique,
+                                                               IntegerEncoder& intEncoder,
+                                                               PhysicalStreamType streamType,
+                                                               std::optional<LogicalStreamType> logicalType) {
         std::vector<std::int32_t> signedValues(values.size());
-        std::transform(values.begin(), values.end(), signedValues.begin(),
-                       [](auto v) { return static_cast<std::int32_t>(v); });
-        return intEncoder.encodeIntStream(signedValues, physicalTechnique, false,
-                                          streamType, std::move(logicalType));
+        std::transform(
+            values.begin(), values.end(), signedValues.begin(), [](auto v) { return static_cast<std::int32_t>(v); });
+        return intEncoder.encodeIntStream(signedValues, physicalTechnique, false, streamType, std::move(logicalType));
     }
 
     static std::vector<std::int32_t> zigZagDeltaEncode(std::span<const Vertex> vertices) {
         std::vector<std::int32_t> result(vertices.size() * 2);
         Vertex prev{.x = 0, .y = 0};
         for (std::size_t i = 0; i < vertices.size(); ++i) {
-            result[i * 2] = static_cast<std::int32_t>(
-                util::encoding::encodeZigZag(vertices[i].x - prev.x));
-            result[i * 2 + 1] = static_cast<std::int32_t>(
-                util::encoding::encodeZigZag(vertices[i].y - prev.y));
+            result[i * 2] = static_cast<std::int32_t>(util::encoding::encodeZigZag(vertices[i].x - prev.x));
+            result[i * 2 + 1] = static_cast<std::int32_t>(util::encoding::encodeZigZag(vertices[i].y - prev.y));
             prev = vertices[i];
         }
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeVertexBufferPlain(
-        std::span<const Vertex> vertices,
-        PhysicalLevelTechnique physicalTechnique) {
+    static std::vector<std::uint8_t> encodeVertexBufferPlain(std::span<const Vertex> vertices,
+                                                             PhysicalLevelTechnique physicalTechnique) {
         return encodeVertexBufferRaw(zigZagDeltaEncode(vertices), physicalTechnique);
     }
 
@@ -234,9 +243,9 @@ private:
         std::vector<std::uint32_t> hilbertIds;
     };
 
-    static HilbertDictionary buildHilbertDictionary(
-        std::span<const Vertex> vertexBuffer,
-        std::int32_t minVal, std::int32_t maxVal) {
+    static HilbertDictionary buildHilbertDictionary(std::span<const Vertex> vertexBuffer,
+                                                    std::int32_t minVal,
+                                                    std::int32_t maxVal) {
         util::HilbertCurve curve(minVal, maxVal);
         std::map<std::uint32_t, Vertex> dict;
         for (const auto& v : vertexBuffer) {
@@ -253,19 +262,18 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeHilbertDictionary(
-        const HilbertDictionary& dict,
-        std::span<const Vertex> vertexBuffer,
-        std::int32_t minVal, std::int32_t maxVal,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder) {
+    static std::vector<std::uint8_t> encodeHilbertDictionary(const HilbertDictionary& dict,
+                                                             std::span<const Vertex> vertexBuffer,
+                                                             std::int32_t minVal,
+                                                             std::int32_t maxVal,
+                                                             PhysicalLevelTechnique physicalTechnique,
+                                                             IntegerEncoder& intEncoder) {
         using namespace metadata::stream;
 
         util::HilbertCurve curve(minVal, maxVal);
         auto offsets = computeOffsets(vertexBuffer, dict.hilbertIds, curve);
         auto encodedOffsets = intEncoder.encodeIntStream(
-            offsets, physicalTechnique, false,
-            PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::VERTEX});
+            offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::VERTEX});
 
         auto zigZagDelta = zigZagDeltaEncode(dict.vertices);
         auto encodedDict = encodeVertexBufferRaw(zigZagDelta, physicalTechnique);
@@ -281,9 +289,9 @@ private:
         std::vector<std::uint32_t> mortonCodes;
     };
 
-    static MortonDictionary buildMortonDictionary(
-        std::span<const Vertex> vertexBuffer,
-        std::int32_t minVal, std::int32_t maxVal) {
+    static MortonDictionary buildMortonDictionary(std::span<const Vertex> vertexBuffer,
+                                                  std::int32_t minVal,
+                                                  std::int32_t maxVal) {
         util::MortonCurve curve(minVal, maxVal);
         std::set<std::uint32_t> codes;
         for (const auto& v : vertexBuffer) {
@@ -292,23 +300,21 @@ private:
         return {{codes.begin(), codes.end()}};
     }
 
-    static std::vector<std::uint8_t> encodeMortonDictionary(
-        const MortonDictionary& dict,
-        std::span<const Vertex> vertexBuffer,
-        std::int32_t minVal, std::int32_t maxVal,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder) {
+    static std::vector<std::uint8_t> encodeMortonDictionary(const MortonDictionary& dict,
+                                                            std::span<const Vertex> vertexBuffer,
+                                                            std::int32_t minVal,
+                                                            std::int32_t maxVal,
+                                                            PhysicalLevelTechnique physicalTechnique,
+                                                            IntegerEncoder& intEncoder) {
         using namespace metadata::stream;
 
         util::MortonCurve curve(minVal, maxVal);
         auto offsets = computeOffsets(vertexBuffer, dict.mortonCodes, curve);
         auto encodedOffsets = intEncoder.encodeIntStream(
-            offsets, physicalTechnique, false,
-            PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::VERTEX});
+            offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::VERTEX});
 
         auto encodedDict = encodeMortonCodes(
-            dict.mortonCodes, curve.getNumBits(), curve.getCoordinateShift(),
-            physicalTechnique);
+            dict.mortonCodes, curve.getNumBits(), curve.getCoordinateShift(), physicalTechnique);
 
         std::vector<std::uint8_t> result;
         result.reserve(encodedOffsets.size() + encodedDict.size());
@@ -317,10 +323,9 @@ private:
         return result;
     }
 
-    static std::vector<std::int32_t> computeOffsets(
-        std::span<const Vertex> vertexBuffer,
-        std::span<const std::uint32_t> sortedIds,
-        const util::SpaceFillingCurve& curve) {
+    static std::vector<std::int32_t> computeOffsets(std::span<const Vertex> vertexBuffer,
+                                                    std::span<const std::uint32_t> sortedIds,
+                                                    const util::SpaceFillingCurve& curve) {
         std::vector<std::int32_t> offsets;
         offsets.reserve(vertexBuffer.size());
         for (const auto& v : vertexBuffer) {
@@ -331,9 +336,8 @@ private:
         return offsets;
     }
 
-    static std::vector<std::uint8_t> encodeVertexBufferRaw(
-        std::span<const std::int32_t> zigZagDelta,
-        PhysicalLevelTechnique physicalTechnique) {
+    static std::vector<std::uint8_t> encodeVertexBufferRaw(std::span<const std::int32_t> zigZagDelta,
+                                                           PhysicalLevelTechnique physicalTechnique) {
         using namespace metadata::stream;
 
         std::vector<std::uint8_t> encodedData;
@@ -342,14 +346,13 @@ private:
             util::encoding::encodeVarint(static_cast<std::uint32_t>(v), encodedData);
         }
 
-        auto metadata = StreamMetadata(
-                            PhysicalStreamType::DATA,
-                            LogicalStreamType{DictionaryType::VERTEX},
-                            LogicalLevelTechnique::COMPONENTWISE_DELTA,
-                            LogicalLevelTechnique::NONE,
-                            physicalTechnique,
-                            static_cast<std::uint32_t>(zigZagDelta.size()),
-                            static_cast<std::uint32_t>(encodedData.size()))
+        auto metadata = StreamMetadata(PhysicalStreamType::DATA,
+                                       LogicalStreamType{DictionaryType::VERTEX},
+                                       LogicalLevelTechnique::COMPONENTWISE_DELTA,
+                                       LogicalLevelTechnique::NONE,
+                                       physicalTechnique,
+                                       static_cast<std::uint32_t>(zigZagDelta.size()),
+                                       static_cast<std::uint32_t>(encodedData.size()))
                             .encode();
 
         std::vector<std::uint8_t> result;
@@ -359,10 +362,10 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeMortonCodes(
-        std::span<const std::uint32_t> mortonCodes,
-        std::uint32_t numBits, std::int32_t coordinateShift,
-        PhysicalLevelTechnique physicalTechnique) {
+    static std::vector<std::uint8_t> encodeMortonCodes(std::span<const std::uint32_t> mortonCodes,
+                                                       std::uint32_t numBits,
+                                                       std::int32_t coordinateShift,
+                                                       PhysicalLevelTechnique physicalTechnique) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> deltaValues(mortonCodes.size());
@@ -378,16 +381,15 @@ private:
             util::encoding::encodeVarint(static_cast<std::uint32_t>(v), encodedData);
         }
 
-        auto metadata = MortonEncodedStreamMetadata(
-                            PhysicalStreamType::DATA,
-                            LogicalStreamType{DictionaryType::MORTON},
-                            LogicalLevelTechnique::MORTON,
-                            LogicalLevelTechnique::DELTA,
-                            physicalTechnique,
-                            static_cast<std::uint32_t>(mortonCodes.size()),
-                            static_cast<std::uint32_t>(encodedData.size()),
-                            static_cast<int>(numBits),
-                            static_cast<int>(coordinateShift))
+        auto metadata = MortonEncodedStreamMetadata(PhysicalStreamType::DATA,
+                                                    LogicalStreamType{DictionaryType::MORTON},
+                                                    LogicalLevelTechnique::MORTON,
+                                                    LogicalLevelTechnique::DELTA,
+                                                    physicalTechnique,
+                                                    static_cast<std::uint32_t>(mortonCodes.size()),
+                                                    static_cast<std::uint32_t>(encodedData.size()),
+                                                    static_cast<int>(numBits),
+                                                    static_cast<int>(coordinateShift))
                             .encode();
 
         std::vector<std::uint8_t> result;

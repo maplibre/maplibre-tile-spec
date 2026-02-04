@@ -33,16 +33,15 @@ public:
 
     using StructValue = std::map<std::string, std::string>;
 
-    using PropertyValue = std::variant<
-        bool,
-        std::int32_t,
-        std::int64_t,
-        std::uint32_t,
-        std::uint64_t,
-        float,
-        double,
-        std::string,
-        StructValue>;
+    using PropertyValue = std::variant<bool,
+                                       std::int32_t,
+                                       std::int64_t,
+                                       std::uint32_t,
+                                       std::uint64_t,
+                                       float,
+                                       double,
+                                       std::string,
+                                       StructValue>;
 
     struct Geometry {
         GeometryType type;
@@ -70,8 +69,7 @@ public:
     Encoder(Encoder&&) = delete;
     Encoder& operator=(Encoder&&) = delete;
 
-    std::vector<std::uint8_t> encode(const std::vector<Layer>& layers,
-                                     const EncoderConfig& config = {});
+    std::vector<std::uint8_t> encode(const std::vector<Layer>& layers, const EncoderConfig& config = {});
 
 private:
     struct Impl;

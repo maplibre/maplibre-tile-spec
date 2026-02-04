@@ -47,10 +47,9 @@ std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& tileData) {
     if (streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::MORTON) {
         auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData);
         return std::make_unique<MortonEncodedStreamMetadata>(std::move(result));
-    }
-    else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE ||
-              streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
-             streamMetadata.getPhysicalLevelTechnique() != PhysicalLevelTechnique::NONE) {
+    } else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE ||
+                streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
+               streamMetadata.getPhysicalLevelTechnique() != PhysicalLevelTechnique::NONE) {
         auto result = RleEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData);
         return std::make_unique<RleEncodedStreamMetadata>(std::move(result));
     }
@@ -109,12 +108,11 @@ std::vector<std::uint8_t> StreamMetadata::encode() const {
     std::vector<std::uint8_t> result;
     result.reserve(16);
 
-    const auto encodedStreamType = static_cast<std::uint8_t>(
-        (std::to_underlying(physicalStreamType) << 4) | getLogicalType());
-    const auto encodedEncodingScheme = static_cast<std::uint8_t>(
-        (std::to_underlying(logicalLevelTechnique1) << 5) |
-        (std::to_underlying(logicalLevelTechnique2) << 2) |
-        std::to_underlying(physicalLevelTechnique));
+    const auto encodedStreamType = static_cast<std::uint8_t>((std::to_underlying(physicalStreamType) << 4) |
+                                                             getLogicalType());
+    const auto encodedEncodingScheme = static_cast<std::uint8_t>((std::to_underlying(logicalLevelTechnique1) << 5) |
+                                                                 (std::to_underlying(logicalLevelTechnique2) << 2) |
+                                                                 std::to_underlying(physicalLevelTechnique));
 
     result.push_back(encodedStreamType);
     result.push_back(encodedEncodingScheme);

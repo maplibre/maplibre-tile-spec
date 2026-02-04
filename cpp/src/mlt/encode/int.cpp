@@ -43,17 +43,16 @@ std::vector<std::uint8_t> IntegerEncoder::encodeVarints(std::span<const std::int
     return result;
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor(
-    [[maybe_unused]] std::span<const std::int32_t> values,
-    [[maybe_unused]] bool zigZag) {
+std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor([[maybe_unused]] std::span<const std::int32_t> values,
+                                                         [[maybe_unused]] bool zigZag) {
 #if MLT_WITH_FASTPFOR
     std::vector<std::uint32_t> input(values.size());
     if (zigZag) {
-        std::transform(values.begin(), values.end(), input.begin(),
-                       [](auto v) { return util::encoding::encodeZigZag(v); });
+        std::transform(
+            values.begin(), values.end(), input.begin(), [](auto v) { return util::encoding::encodeZigZag(v); });
     } else {
-        std::transform(values.begin(), values.end(), input.begin(),
-                       [](auto v) { return static_cast<std::uint32_t>(v); });
+        std::transform(
+            values.begin(), values.end(), input.begin(), [](auto v) { return static_cast<std::uint32_t>(v); });
     }
 
     std::vector<std::uint32_t> compressed(input.size() + 1024);
@@ -108,12 +107,18 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         std::uint32_t physicalLength;
     };
 
-    Candidate best{LogicalLevelTechnique::NONE, LogicalLevelTechnique::NONE,
-                    &plainEncoded, 0, static_cast<std::uint32_t>(values.size())};
+    Candidate best{LogicalLevelTechnique::NONE,
+                   LogicalLevelTechnique::NONE,
+                   &plainEncoded,
+                   0,
+                   static_cast<std::uint32_t>(values.size())};
 
     if (deltaEncoded.size() < best.data->size()) {
-        best = {LogicalLevelTechnique::DELTA, LogicalLevelTechnique::NONE,
-                &deltaEncoded, 0, static_cast<std::uint32_t>(values.size())};
+        best = {LogicalLevelTechnique::DELTA,
+                LogicalLevelTechnique::NONE,
+                &deltaEncoded,
+                0,
+                static_cast<std::uint32_t>(values.size())};
     }
 
     std::vector<std::uint8_t> rleEncoded;
@@ -136,8 +141,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
 
         const auto rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
         if (isConstStream || rleEncoded.size() < best.data->size()) {
-            best = {LogicalLevelTechnique::RLE, LogicalLevelTechnique::NONE,
-                    &rleEncoded, runs, rlePhysicalLength};
+            best = {LogicalLevelTechnique::RLE, LogicalLevelTechnique::NONE, &rleEncoded, runs, rlePhysicalLength};
         }
     }
 
@@ -155,8 +159,11 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
 
         const auto drlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
         if (deltaRleEncoded.size() < best.data->size()) {
-            best = {LogicalLevelTechnique::DELTA, LogicalLevelTechnique::RLE,
-                    &deltaRleEncoded, deltaRuns, drlePhysicalLength};
+            best = {LogicalLevelTechnique::DELTA,
+                    LogicalLevelTechnique::RLE,
+                    &deltaRleEncoded,
+                    deltaRuns,
+                    drlePhysicalLength};
         }
     }
 
@@ -196,12 +203,18 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
         std::uint32_t physicalLength;
     };
 
-    Candidate best{LogicalLevelTechnique::NONE, LogicalLevelTechnique::NONE,
-                    &plainEncoded, 0, static_cast<std::uint32_t>(values.size())};
+    Candidate best{LogicalLevelTechnique::NONE,
+                   LogicalLevelTechnique::NONE,
+                   &plainEncoded,
+                   0,
+                   static_cast<std::uint32_t>(values.size())};
 
     if (deltaEncoded.size() < best.data->size()) {
-        best = {LogicalLevelTechnique::DELTA, LogicalLevelTechnique::NONE,
-                &deltaEncoded, 0, static_cast<std::uint32_t>(values.size())};
+        best = {LogicalLevelTechnique::DELTA,
+                LogicalLevelTechnique::NONE,
+                &deltaEncoded,
+                0,
+                static_cast<std::uint32_t>(values.size())};
     }
 
     std::vector<std::uint8_t> rleEncoded;
@@ -224,8 +237,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
 
         const auto rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
         if (rleEncoded.size() < best.data->size()) {
-            best = {LogicalLevelTechnique::RLE, LogicalLevelTechnique::NONE,
-                    &rleEncoded, runs, rlePhysicalLength};
+            best = {LogicalLevelTechnique::RLE, LogicalLevelTechnique::NONE, &rleEncoded, runs, rlePhysicalLength};
         }
     }
 
@@ -245,8 +257,11 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
 
         const auto drlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
         if (deltaRleEncoded.size() < best.data->size()) {
-            best = {LogicalLevelTechnique::DELTA, LogicalLevelTechnique::RLE,
-                    &deltaRleEncoded, deltaRuns, drlePhysicalLength};
+            best = {LogicalLevelTechnique::DELTA,
+                    LogicalLevelTechnique::RLE,
+                    &deltaRleEncoded,
+                    deltaRuns,
+                    drlePhysicalLength};
         }
     }
 
@@ -254,27 +269,32 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
 }
 
 std::vector<std::uint8_t> IntegerEncoder::buildStream(const IntegerEncodingResult& encoded,
-                                                       std::uint32_t totalValues,
-                                                       PhysicalLevelTechnique physicalTechnique,
-                                                       PhysicalStreamType streamType,
-                                                       std::optional<LogicalStreamType> logicalType) {
+                                                      std::uint32_t totalValues,
+                                                      PhysicalLevelTechnique physicalTechnique,
+                                                      PhysicalStreamType streamType,
+                                                      std::optional<LogicalStreamType> logicalType) {
     const bool isRle = (encoded.logicalLevelTechnique1 == LogicalLevelTechnique::RLE ||
                         encoded.logicalLevelTechnique2 == LogicalLevelTechnique::RLE);
     std::vector<std::uint8_t> metadata;
     if (isRle) {
-        metadata = RleEncodedStreamMetadata(
-                       streamType, std::move(logicalType),
-                       encoded.logicalLevelTechnique1, encoded.logicalLevelTechnique2,
-                       physicalTechnique, encoded.physicalLevelEncodedValuesLength,
-                       static_cast<std::uint32_t>(encoded.encodedValues.size()),
-                       encoded.numRuns, totalValues)
+        metadata = RleEncodedStreamMetadata(streamType,
+                                            std::move(logicalType),
+                                            encoded.logicalLevelTechnique1,
+                                            encoded.logicalLevelTechnique2,
+                                            physicalTechnique,
+                                            encoded.physicalLevelEncodedValuesLength,
+                                            static_cast<std::uint32_t>(encoded.encodedValues.size()),
+                                            encoded.numRuns,
+                                            totalValues)
                        .encode();
     } else {
-        metadata = StreamMetadata(
-                       streamType, std::move(logicalType),
-                       encoded.logicalLevelTechnique1, encoded.logicalLevelTechnique2,
-                       physicalTechnique, encoded.physicalLevelEncodedValuesLength,
-                       static_cast<std::uint32_t>(encoded.encodedValues.size()))
+        metadata = StreamMetadata(streamType,
+                                  std::move(logicalType),
+                                  encoded.logicalLevelTechnique1,
+                                  encoded.logicalLevelTechnique2,
+                                  physicalTechnique,
+                                  encoded.physicalLevelEncodedValuesLength,
+                                  static_cast<std::uint32_t>(encoded.encodedValues.size()))
                        .encode();
     }
 
@@ -286,22 +306,25 @@ std::vector<std::uint8_t> IntegerEncoder::buildStream(const IntegerEncodingResul
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::int32_t> values,
-                                                           PhysicalLevelTechnique physicalTechnique,
-                                                           bool isSigned,
-                                                           PhysicalStreamType streamType,
-                                                           std::optional<LogicalStreamType> logicalType) {
+                                                          PhysicalLevelTechnique physicalTechnique,
+                                                          bool isSigned,
+                                                          PhysicalStreamType streamType,
+                                                          std::optional<LogicalStreamType> logicalType) {
     auto encoded = encodeInt(values, physicalTechnique, isSigned);
-    return buildStream(encoded, static_cast<std::uint32_t>(values.size()),
-                       physicalTechnique, streamType, std::move(logicalType));
+    return buildStream(
+        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
-                                                            bool isSigned,
-                                                            PhysicalStreamType streamType,
-                                                            std::optional<LogicalStreamType> logicalType) {
+                                                           bool isSigned,
+                                                           PhysicalStreamType streamType,
+                                                           std::optional<LogicalStreamType> logicalType) {
     auto encoded = encodeLong(values, isSigned);
-    return buildStream(encoded, static_cast<std::uint32_t>(values.size()),
-                       PhysicalLevelTechnique::VARINT, streamType, std::move(logicalType));
+    return buildStream(encoded,
+                       static_cast<std::uint32_t>(values.size()),
+                       PhysicalLevelTechnique::VARINT,
+                       streamType,
+                       std::move(logicalType));
 }
 
 } // namespace mlt::encoder

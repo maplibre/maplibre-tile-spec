@@ -15,13 +15,13 @@ public:
     static std::vector<std::uint8_t> encodeFloatStream(std::span<const float> values) {
         const auto byteLength = static_cast<std::uint32_t>(values.size() * sizeof(float));
 
-        auto metadata = StreamMetadata(
-                            metadata::stream::PhysicalStreamType::DATA, std::nullopt,
-                            metadata::stream::LogicalLevelTechnique::NONE,
-                            metadata::stream::LogicalLevelTechnique::NONE,
-                            metadata::stream::PhysicalLevelTechnique::NONE,
-                            static_cast<std::uint32_t>(values.size()),
-                            byteLength)
+        auto metadata = StreamMetadata(metadata::stream::PhysicalStreamType::DATA,
+                                       std::nullopt,
+                                       metadata::stream::LogicalLevelTechnique::NONE,
+                                       metadata::stream::LogicalLevelTechnique::NONE,
+                                       metadata::stream::PhysicalLevelTechnique::NONE,
+                                       static_cast<std::uint32_t>(values.size()),
+                                       byteLength)
                             .encode();
 
         std::vector<std::uint8_t> result;

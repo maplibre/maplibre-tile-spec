@@ -61,27 +61,44 @@ void encodeString(const std::string& str, std::vector<std::uint8_t>& out) {
 void encodeColumn(const Column& column, std::vector<std::uint8_t>& out) {
     const bool hasChildren = column.hasComplexType() && column.getComplexType().hasChildren();
     const auto typeCode = std::visit(util::overloaded{
-        [&](const ScalarColumn& scalar) -> std::optional<std::uint32_t> {
-            if (scalar.hasPhysicalType()) {
-                return type_map::Tag0x01::encodeColumnType(
-                    scalar.getPhysicalType(), std::nullopt, std::nullopt, std::nullopt,
-                    column.nullable, hasChildren, scalar.hasLongID);
-            }
-            return type_map::Tag0x01::encodeColumnType(
-                std::nullopt, scalar.getLogicalType(), std::nullopt, std::nullopt,
-                column.nullable, hasChildren, scalar.hasLongID);
-        },
-        [&](const ComplexColumn& complex) -> std::optional<std::uint32_t> {
-            if (complex.hasPhysicalType()) {
-                return type_map::Tag0x01::encodeColumnType(
-                    std::nullopt, std::nullopt, complex.getPhysicalType(), std::nullopt,
-                    column.nullable, hasChildren, false);
-            }
-            return type_map::Tag0x01::encodeColumnType(
-                std::nullopt, std::nullopt, std::nullopt, complex.getLogicalType(),
-                column.nullable, hasChildren, false);
-        },
-    }, column.type);
+                                         [&](const ScalarColumn& scalar) -> std::optional<std::uint32_t> {
+                                             if (scalar.hasPhysicalType()) {
+                                                 return type_map::Tag0x01::encodeColumnType(scalar.getPhysicalType(),
+                                                                                            std::nullopt,
+                                                                                            std::nullopt,
+                                                                                            std::nullopt,
+                                                                                            column.nullable,
+                                                                                            hasChildren,
+                                                                                            scalar.hasLongID);
+                                             }
+                                             return type_map::Tag0x01::encodeColumnType(std::nullopt,
+                                                                                        scalar.getLogicalType(),
+                                                                                        std::nullopt,
+                                                                                        std::nullopt,
+                                                                                        column.nullable,
+                                                                                        hasChildren,
+                                                                                        scalar.hasLongID);
+                                         },
+                                         [&](const ComplexColumn& complex) -> std::optional<std::uint32_t> {
+                                             if (complex.hasPhysicalType()) {
+                                                 return type_map::Tag0x01::encodeColumnType(std::nullopt,
+                                                                                            std::nullopt,
+                                                                                            complex.getPhysicalType(),
+                                                                                            std::nullopt,
+                                                                                            column.nullable,
+                                                                                            hasChildren,
+                                                                                            false);
+                                             }
+                                             return type_map::Tag0x01::encodeColumnType(std::nullopt,
+                                                                                        std::nullopt,
+                                                                                        std::nullopt,
+                                                                                        complex.getLogicalType(),
+                                                                                        column.nullable,
+                                                                                        hasChildren,
+                                                                                        false);
+                                         },
+                                     },
+                                     column.type);
 
     if (!typeCode) {
         throw std::runtime_error("Cannot encode column type for: " + column.name);
