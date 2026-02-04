@@ -22,7 +22,7 @@ inline Coordinate coord(std::int32_t x, std::int32_t y) {
 std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                             std::uint32_t startIndex,
                                             const std::uint32_t numVertices,
-                                            [[maybe_unused]] bool closeLineString) {
+                                            bool closeLineString) {
     std::vector<Coordinate> coords;
     coords.reserve(numVertices + 1);
     CHECK_BUFFER(startIndex + numVertices - 1, vertexBuffer);
@@ -31,11 +31,9 @@ std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& ver
         coords.push_back(coord(x, vertexBuffer[startIndex++]));
     }
 
-    // This breaks embedded tessellation because it changes the indexes.
-    // Disabling it doesn't seem to break anything, is it needed?
-    // if (closeLineString && !coords.empty() && coords.front() != coords.back()) {
-    //     coords.push_back(coords.front());
-    // }
+    if (closeLineString && !coords.empty() && coords.front() != coords.back()) {
+        coords.push_back(coords.front());
+    }
     return coords;
 }
 

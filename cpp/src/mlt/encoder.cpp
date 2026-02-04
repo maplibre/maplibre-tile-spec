@@ -54,8 +54,10 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
     table.extent = layer.extent;
 
     if (config.includeIds) {
+        // Use 64-bit when any ID exceeds INT32_MAX: delta encoding accumulates in
+        // int32_t, so uint32 values with bit 31 set would sign-extend on widening.
         bool hasLongId = std::any_of(layer.features.begin(), layer.features.end(),
-                                     [](const auto& f) { return f.id > std::numeric_limits<std::uint32_t>::max(); });
+                                     [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
 
         Column idColumn;
         idColumn.nullable = false;
@@ -374,7 +376,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
     if (config.includeIds) {
         bool hasLongId = std::any_of(features.begin(), features.end(),
-                                     [](const auto& f) { return f.id > std::numeric_limits<std::uint32_t>::max(); });
+                                     [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
 
         if (hasLongId) {
             std::vector<std::uint64_t> ids;

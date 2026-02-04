@@ -538,8 +538,8 @@ TEST(Encode, PolygonWithHoleRoundtrip) {
     EXPECT_EQ(geom.type, metadata::tileset::GeometryType::POLYGON);
     const auto& poly = dynamic_cast<const geometry::Polygon&>(geom);
     ASSERT_EQ(poly.getRings().size(), 2u);
-    EXPECT_EQ(poly.getRings()[0].size(), 4u);
-    EXPECT_EQ(poly.getRings()[1].size(), 4u);
+    EXPECT_EQ(poly.getRings()[0].size(), 5u);
+    EXPECT_EQ(poly.getRings()[1].size(), 5u);
 }
 
 TEST(Encode, MultipleLayers) {
@@ -768,7 +768,9 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
                 ASSERT_EQ(pa.getRings().size(), pb.getRings().size());
                 for (std::size_t r = 0; r < pa.getRings().size(); ++r) {
                     ASSERT_EQ(pa.getRings()[r].size(), pb.getRings()[r].size());
-                    for (std::size_t j = 0; j < pa.getRings()[r].size(); ++j) {
+                    auto count = pa.getRings()[r].size();
+                    if (count > 1 && pa.getRings()[r].front() == pa.getRings()[r].back()) --count;
+                    for (std::size_t j = 0; j < count; ++j) {
                         EXPECT_FLOAT_EQ(pa.getRings()[r][j].x, pb.getRings()[r][j].x);
                         EXPECT_FLOAT_EQ(pa.getRings()[r][j].y, pb.getRings()[r][j].y);
                     }
@@ -849,7 +851,7 @@ TEST(CrossValidate, JavaPolygonBoolean) {
     EXPECT_EQ(geom.type, metadata::tileset::GeometryType::POLYGON);
     const auto& poly = dynamic_cast<const geometry::Polygon&>(geom);
     EXPECT_EQ(poly.getRings().size(), 1u);
-    EXPECT_EQ(poly.getRings()[0].size(), 3u); // 3 unique vertices (closing vertex omitted)
+    EXPECT_EQ(poly.getRings()[0].size(), 4u);
 }
 
 TEST(CrossValidate, JavaMultiPointBoolean) {
@@ -1253,13 +1255,20 @@ TEST(Encode, FeatureSortingPoints) {
         EXPECT_EQ(static_cast<int>(pt.getCoordinate().y), positions[i].y);
     }
 
-    mlt::util::HilbertCurve curve(0, 4096);
-    std::uint32_t prevHilbert = 0;
-    for (const auto& f : decoded->getFeatures()) {
-        const auto& pt = dynamic_cast<const geometry::Point&>(f.getGeometry());
-        auto h = curve.encode({pt.getCoordinate().x, pt.getCoordinate().y});
-        EXPECT_GE(h, prevHilbert) << "features not in Hilbert order at id=" << f.getID();
-        prevHilbert = h;
+    {
+        int32_t minV = INT32_MAX, maxV = INT32_MIN;
+        for (const auto& p : positions) {
+            minV = std::min({minV, p.x, p.y});
+            maxV = std::max({maxV, p.x, p.y});
+        }
+        mlt::util::HilbertCurve curve(minV, maxV);
+        std::uint32_t prevHilbert = 0;
+        for (const auto& f : decoded->getFeatures()) {
+            const auto& pt = dynamic_cast<const geometry::Point&>(f.getGeometry());
+            auto h = curve.encode({pt.getCoordinate().x, pt.getCoordinate().y});
+            EXPECT_GE(h, prevHilbert) << "features not in Hilbert order at id=" << f.getID();
+            prevHilbert = h;
+        }
     }
 }
 
@@ -1308,13 +1317,20 @@ TEST(Encode, FeatureSortingLineStrings) {
         EXPECT_EQ(static_cast<int>(ls.getCoordinates()[1].y), segments[i].second.y);
     }
 
-    mlt::util::HilbertCurve curve(0, 4096);
-    std::uint32_t prevHilbert = 0;
-    for (const auto& f : decoded->getFeatures()) {
-        const auto& ls = dynamic_cast<const geometry::LineString&>(f.getGeometry());
-        auto h = curve.encode(ls.getCoordinates()[0]);
-        EXPECT_GE(h, prevHilbert) << "lines not in Hilbert order at id=" << f.getID();
-        prevHilbert = h;
+    {
+        int32_t minV = INT32_MAX, maxV = INT32_MIN;
+        for (const auto& [a, b] : segments) {
+            minV = std::min({minV, a.x, a.y, b.x, b.y});
+            maxV = std::max({maxV, a.x, a.y, b.x, b.y});
+        }
+        mlt::util::HilbertCurve curve(minV, maxV);
+        std::uint32_t prevHilbert = 0;
+        for (const auto& f : decoded->getFeatures()) {
+            const auto& ls = dynamic_cast<const geometry::LineString&>(f.getGeometry());
+            auto h = curve.encode(ls.getCoordinates()[0]);
+            EXPECT_GE(h, prevHilbert) << "lines not in Hilbert order at id=" << f.getID();
+            prevHilbert = h;
+        }
     }
 }
 
