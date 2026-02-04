@@ -1,5 +1,6 @@
 set(TEST_SOURCES
     test_decode.cpp
+    test_encode.cpp
     test_fsst.cpp
     test_packed_bitset.cpp
     test_util.cpp

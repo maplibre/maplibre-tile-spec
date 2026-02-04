@@ -84,6 +84,7 @@ target_include_directories(mlt-cpp
 list(APPEND MLT_INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/common.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/decoder.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/encoder.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/feature.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/geometry.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/geometry_vector.hpp
@@ -108,12 +109,23 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/int.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/property.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/string.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encoder.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/boolean.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/float.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/geometry.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/int.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/int.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/property.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/string.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/feature.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/geometry_vector.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/layer.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/rle.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/varint.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/zigzag.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
