@@ -12,20 +12,23 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
 
 set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
+add_library(mlt-cpp-encoder STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
-set_target_properties(
-    mlt-cpp
-    PROPERTIES
-    INTERFACE_MAPLIBRE_NAME "MapLibre Tile Format"
-    INTERFACE_MAPLIBRE_URL "https://github.com/maplibre/maplibre-tile-spec"
-    INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
-    INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
-)
+foreach(_target mlt-cpp mlt-cpp-encoder)
+    set_target_properties(
+        ${_target}
+        PROPERTIES
+        INTERFACE_MAPLIBRE_NAME "MapLibre Tile Format"
+        INTERFACE_MAPLIBRE_URL "https://github.com/maplibre/maplibre-tile-spec"
+        INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
+        INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
+    )
+endforeach()
 
 add_cxx_compiler_flag(-Wall)
 add_cxx_compiler_flag(-Werror)
@@ -76,15 +79,17 @@ add_cxx_compiler_flag(-wd4514) # MSVC: unreferenced inline function has been rem
 add_cxx_compiler_flag(-wd4710) # MSVC: function not inlined
 add_cxx_compiler_flag(-wd4820) # MSVC: padding added after data member
 
-target_include_directories(mlt-cpp
-    PUBLIC ${PROJECT_SOURCE_DIR}/include
-    PRIVATE ${PROJECT_SOURCE_DIR}/src
-)
+foreach(_target mlt-cpp mlt-cpp-encoder)
+    target_include_directories(${_target}
+        PUBLIC ${PROJECT_SOURCE_DIR}/include
+        PRIVATE ${PROJECT_SOURCE_DIR}/src
+    )
+endforeach()
 
-list(APPEND MLT_INCLUDE_FILES
+# --- Decoder (mlt-cpp) ---
+target_sources(mlt-cpp PRIVATE
     ${PROJECT_SOURCE_DIR}/include/mlt/common.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/decoder.hpp
-    ${PROJECT_SOURCE_DIR}/include/mlt/encoder.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/feature.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/geometry.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/geometry_vector.hpp
@@ -100,15 +105,37 @@ list(APPEND MLT_INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/util/noncopyable.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/varint.hpp
-)
-
-list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/decoder.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/geometry.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/int.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/int.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/property.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/string.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/feature.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/geometry_vector.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/layer.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/space_filling_curve.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/vectorized.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
+)
+
+# --- Encoder (mlt-cpp-encoder) ---
+target_sources(mlt-cpp-encoder PRIVATE
+    ${PROJECT_SOURCE_DIR}/include/mlt/common.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/encoder.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/metadata/stream.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/buffer_stream.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/noncopyable.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/encoder.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/boolean.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/float.hpp
@@ -117,36 +144,17 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/int.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/property.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/string.hpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/feature.cpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/geometry_vector.cpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/layer.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/fsst.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/varint.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/zigzag.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/hilbert_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.hpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/space_filling_curve.hpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/vectorized.hpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
 )
 
-if(MLT_WITH_JSON)
-    list(APPEND MLT_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/json.hpp)
-endif(MLT_WITH_JSON)
-
-target_sources(mlt-cpp PRIVATE
-    ${MLT_INCLUDE_FILES}
-    ${MLT_SRC_FILES}
-)
-
-# SIMD Everywhere (needed on ARM)
+# SIMD Everywhere (decoder, needed on ARM)
 target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
 # FSST (Fast Static Symbol Table) — vendored from https://github.com/cwida/fsst (MIT)
@@ -157,9 +165,13 @@ add_library(fsst-lib STATIC
 target_include_directories(fsst-lib PUBLIC "${PROJECT_SOURCE_DIR}/vendor/fsst")
 set_target_properties(fsst-lib PROPERTIES CXX_STANDARD 17)
 target_compile_options(fsst-lib PRIVATE -w)
-target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/earcut/include")
-target_link_libraries(mlt-cpp fsst-lib)
-target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/fsst")
+
+# earcut (encoder, header-only tessellation)
+target_include_directories(mlt-cpp-encoder PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/earcut/include")
+
+# FSST and earcut are encoder-only
+target_link_libraries(mlt-cpp-encoder fsst-lib)
+target_include_directories(mlt-cpp-encoder PRIVATE "${PROJECT_SOURCE_DIR}/vendor/fsst")
 
 include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 
@@ -184,5 +196,5 @@ if(MLT_WITH_TOOLS)
     add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
 endif(MLT_WITH_TOOLS)
 
-list(APPEND MLT_EXPORT_TARGETS fsst-lib)
+list(APPEND MLT_EXPORT_TARGETS mlt-cpp-encoder fsst-lib)
 export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)
