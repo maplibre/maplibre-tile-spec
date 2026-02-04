@@ -41,9 +41,8 @@ public:
             best = &dict;
         }
 
-        std::vector<std::uint8_t> fsstDict;
         if (useFsst) {
-            fsstDict = encodeFsstDictionary(values, physicalTechnique, intEncoder, true, false);
+            auto fsstDict = encodeFsstDictionary(values, physicalTechnique, intEncoder, true, false);
             if (fsstDict.size() < best->size()) {
                 return {5, std::move(fsstDict)};
             }

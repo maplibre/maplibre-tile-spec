@@ -32,12 +32,12 @@ struct Encoder::Impl {
 
     FeatureTable buildMetadata(const Layer& layer, const EncoderConfig& config);
 
-    void collectGeometry(const std::vector<Feature>& features,
-                         std::vector<GeometryType>& geometryTypes,
-                         std::vector<std::uint32_t>& numGeometries,
-                         std::vector<std::uint32_t>& numParts,
-                         std::vector<std::uint32_t>& numRings,
-                         std::vector<GeometryEncoder::Vertex>& vertexBuffer);
+    static void collectGeometry(const std::vector<Feature>& features,
+                                std::vector<GeometryType>& geometryTypes,
+                                std::vector<std::uint32_t>& numGeometries,
+                                std::vector<std::uint32_t>& numParts,
+                                std::vector<std::uint32_t>& numRings,
+                                std::vector<GeometryEncoder::Vertex>& vertexBuffer);
 
     static bool canSort(const std::vector<Encoder::Feature>& features);
     static std::vector<Encoder::Feature> sortFeatures(const std::vector<Encoder::Feature>& features);
@@ -124,12 +124,9 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
             info.nullable = true;
             continue;
         }
-        for (const auto& feature : layer.features) {
-            if (!feature.properties.contains(key)) {
-                info.nullable = true;
-                break;
-            }
-        }
+        info.nullable = std::ranges::any_of(layer.features, [&](const auto& feature) {
+            return !feature.properties.contains(key);
+        });
     }
 
     for (const auto& [name, info] : scalarColumns) {
@@ -293,11 +290,10 @@ std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Enco
             [&](std::size_t a, std::size_t b) { return firstVertexIds[a] < firstVertexIds[b]; });
     }
 
-    std::vector<Feature> sorted;
-    sorted.reserve(features.size());
-    for (auto idx : order) {
-        sorted.push_back(features[idx]);
-    }
+    std::vector<Feature> sorted(features.size());
+    std::transform(order.begin(), order.end(), sorted.begin(), [&](auto idx) {
+        return features[idx];
+    });
     return sorted;
 }
 
@@ -330,7 +326,7 @@ void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
 
         auto indices = mapbox::earcut<std::uint32_t>(polygon);
         if (indexOffset > 0) {
-            for (auto& idx : indices) idx += indexOffset;
+            std::ranges::for_each(indices, [=](auto& idx) { idx += indexOffset; });
         }
         return {static_cast<std::uint32_t>(indices.size() / 3), std::move(indices)};
     };
@@ -379,19 +375,17 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                      [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
 
         if (hasLongId) {
-            std::vector<std::uint64_t> ids;
-            ids.reserve(features.size());
-            for (const auto& f : features) {
-                ids.push_back(f.id);
-            }
+            std::vector<std::uint64_t> ids(features.size());
+            std::transform(features.begin(), features.end(), ids.begin(), [](const auto& f) {
+                return f.id;
+            });
             auto encoded = PropertyEncoder::encodeUint64Column(ids, intEncoder);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         } else {
-            std::vector<std::uint32_t> ids;
-            ids.reserve(features.size());
-            for (const auto& f : features) {
-                ids.push_back(static_cast<std::uint32_t>(f.id));
-            }
+            std::vector<std::uint32_t> ids(features.size());
+            std::transform(features.begin(), features.end(), ids.begin(), [](const auto& f) {
+                return static_cast<std::uint32_t>(f.id);
+            });
             auto encoded = PropertyEncoder::encodeUint32Column(ids, physicalTechnique, intEncoder);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         }
