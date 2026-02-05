@@ -11,6 +11,7 @@ import io.tileverse.rangereader.RangeReaderFactory;
 import io.tileverse.rangereader.cache.CachingRangeReader;
 import io.tileverse.tiling.pyramid.TileIndex;
 import jakarta.annotation.Nullable;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -40,10 +41,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -72,7 +77,6 @@ import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
 import org.imintel.mbtiles4j.MBTilesWriter;
-import org.imintel.mbtiles4j.Tile;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
@@ -142,8 +146,6 @@ public class Encode {
     final var compressionType = cmd.getOptionValue(COMPRESS_OPTION, (String) null);
     final var enableCoerceOnTypeMismatch = cmd.hasOption(ALLOW_COERCE_OPTION);
     final var enableElideOnTypeMismatch = cmd.hasOption(ALLOW_ELISION_OPTION);
-    final var verbose =
-        cmd.hasOption(VERBOSE_OPTION) ? cmd.getParsedOptionValue(VERBOSE_OPTION, 1L).intValue() : 0;
     final var filterRegex = cmd.getOptionValue(FILTER_LAYERS_OPTION, (String) null);
     final var filterPattern = (filterRegex != null) ? Pattern.compile(filterRegex) : null;
     final var filterInvert = cmd.hasOption(FILTER_LAYERS_INVERT_OPTION);
@@ -152,6 +154,10 @@ public class Encode {
     final var maxZoom =
         cmd.getParsedOptionValue(MAX_ZOOM_OPTION, (long) Integer.MAX_VALUE).intValue();
 
+    verboseLevel =
+        cmd.hasOption(VERBOSE_OPTION) ? cmd.getParsedOptionValue(VERBOSE_OPTION, 1L).intValue() : 0;
+    continueOnError = cmd.hasOption(CONTINUE_OPTION);
+
     final var threadCountOption =
         cmd.hasOption(PARALLEL_OPTION)
             ? cmd.getParsedOptionValue(PARALLEL_OPTION, 0L).intValue()
@@ -159,11 +165,11 @@ public class Encode {
     final var threadCount =
         (threadCountOption > 0) ? threadCountOption : Runtime.getRuntime().availableProcessors();
     threadPool = (threadCount > 1) ? Executors.newFixedThreadPool(threadCount) : null;
-    if (threadPool != null && verbose > 0) {
+    if (threadPool != null && verboseLevel > 0) {
       System.err.println("Using " + threadCount + " threads");
     }
 
-    if (verbose > 0 && !columnMappings.isEmpty()) {
+    if (verboseLevel > 0 && !columnMappings.isEmpty()) {
       System.err.println("Using Column Mappings:");
       columnMappings.forEach(
           (key, value) ->
@@ -188,7 +194,7 @@ public class Encode {
             filterInvert,
             ConversionConfig.IntegerEncodingOption.AUTO);
 
-    if (verbose > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
+    if (verboseLevel > 0 && outlineFeatureTables != null && outlineFeatureTables.length > 0) {
       System.err.println(
           "Including outlines for layers: " + String.join(", ", outlineFeatureTables));
     }
@@ -199,7 +205,7 @@ public class Encode {
         System.err.println(
             "Native FSST could not be loaded: "
                 + ((err != null) ? err.getMessage() : "(no error)"));
-        if (verbose > 0 && err != null) {
+        if (verboseLevel > 0 && err != null) {
           err.printStackTrace(System.err);
         }
       }
@@ -213,7 +219,7 @@ public class Encode {
             "Multiple input files not allowed with single output file, use --" + OUTPUT_DIR_ARG);
       }
       for (var tileFileName : tileFileNames) {
-        if (verbose > 0) {
+        if (verboseLevel > 0) {
           System.err.println("Converting " + tileFileName);
         }
         encodeTile(
@@ -224,14 +230,13 @@ public class Encode {
             tessellateURI,
             sortFeaturesPattern,
             regenIDsPattern,
-            enableElideOnTypeMismatch,
-            verbose);
+            enableElideOnTypeMismatch);
       }
     } else if (cmd.hasOption(INPUT_MBTILES_ARG)) {
       // Converting all the tiles in an MBTiles file
       var inputPath = cmd.getOptionValue(INPUT_MBTILES_ARG);
       var outputPath = getOutputPath(cmd, inputPath, "mlt.mbtiles");
-      encodeMBTiles(
+      if (!encodeMBTiles(
           inputPath,
           outputPath,
           columnMappings,
@@ -242,8 +247,9 @@ public class Encode {
           compressionType,
           minZoom,
           maxZoom,
-          enableElideOnTypeMismatch,
-          verbose);
+          enableElideOnTypeMismatch)) {
+        return false;
+      }
     } else if (cmd.hasOption(INPUT_OFFLINEDB_ARG)) {
       final var inputPath = cmd.getOptionValue(INPUT_OFFLINEDB_ARG);
       var ext = FilenameUtils.getExtension(inputPath);
@@ -251,7 +257,7 @@ public class Encode {
         ext = "." + ext;
       }
       var outputPath = getOutputPath(cmd, inputPath, "mlt" + ext);
-      encodeOfflineDB(
+      if (!encodeOfflineDB(
           Path.of(inputPath),
           outputPath,
           columnMappings,
@@ -260,8 +266,9 @@ public class Encode {
           sortFeaturesPattern,
           regenIDsPattern,
           compressionType,
-          enableElideOnTypeMismatch,
-          verbose);
+          enableElideOnTypeMismatch)) {
+        return false;
+      }
     } else if (cmd.hasOption(INPUT_PMTILES_ARG)) {
       final var inputPath = cmd.getOptionValue(INPUT_PMTILES_ARG);
       var ext = FilenameUtils.getExtension(inputPath);
@@ -287,13 +294,12 @@ public class Encode {
           compressionType,
           minZoom,
           maxZoom,
-          enableElideOnTypeMismatch,
-          verbose)) {
+          enableElideOnTypeMismatch)) {
         return false;
       }
     }
 
-    if (verbose > 0 && totalCompressedInput > 0) {
+    if (verboseLevel > 0 && totalCompressedInput > 0) {
       System.err.printf(
           "Compressed %d bytes to %d bytes (%.1f%%)%n",
           totalCompressedInput,
@@ -403,8 +409,7 @@ public class Encode {
       @Nullable URI tessellateSource,
       @Nullable Pattern sortFeaturesPattern,
       @Nullable Pattern regenIDsPattern,
-      boolean enableElideOnTypeMismatch,
-      int verboseLevel)
+      boolean enableElideOnTypeMismatch)
       throws IOException {
     final var willOutput = cmd.hasOption(OUTPUT_FILE_ARG) || cmd.hasOption(OUTPUT_DIR_ARG);
     final var willDecode = cmd.hasOption(DECODE_OPTION);
@@ -506,8 +511,7 @@ public class Encode {
         System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
-        compare(
-            decodedTile, decodedMvTile, compareGeom, compareProp, conversionConfig, verboseLevel);
+        compare(decodedTile, decodedMvTile, compareGeom, compareProp, conversionConfig);
       }
     }
   }
@@ -579,7 +583,7 @@ public class Encode {
   }
 
   /// Encode the entire contents of an MBTile file of MVT tiles
-  private static void encodeMBTiles(
+  private static boolean encodeMBTiles(
       String inputMBTilesPath,
       Path outputPath,
       Map<Pattern, List<ColumnMapping>> columnMappings,
@@ -590,9 +594,9 @@ public class Encode {
       String compressionType,
       int minZoom,
       int maxZoom,
-      boolean enableCoerceOrElideMismatch,
-      int verboseLevel) {
+      boolean enableCoerceOrElideMismatch) {
     MBTilesReader mbTilesReader = null;
+    final var success = new AtomicBoolean(true);
     try {
       mbTilesReader = new MBTilesReader(new File(inputMBTilesPath));
 
@@ -624,37 +628,81 @@ public class Encode {
 
         final var metadataJSON = MltConverter.createTilesetMetadataJSON(pbMeta);
 
+        // Read everything on the main thread for simplicity.
+        // Splitting reads by zoom level might improve performance.
         final var tiles = mbTilesReader.getTiles();
         try {
           while (tiles.hasNext()) {
             final var tile = tiles.next();
             try {
-              if (tile.getZoom() < minZoom || tile.getZoom() > maxZoom) {
-                if (verboseLevel > 1) {
-                  System.err.printf(
-                      "Skipping %d:%d,%d%n", tile.getZoom(), tile.getColumn(), tile.getRow());
+              if (!continueOnError && !success.get()) {
+                break;
+              }
+
+              final var x = tile.getColumn();
+              final var y = tile.getRow();
+              final var z = tile.getZoom();
+
+              if (z < minZoom || z > maxZoom) {
+                if (verboseLevel > 2) {
+                  System.err.printf("Skipping %d:%d,%d%n", z, x, y);
                 }
                 continue;
               }
-              convertTile(
-                  tile,
-                  mbTilesWriter,
-                  columnMappings,
-                  conversionConfig,
-                  tessellateSource,
-                  sortFeaturesPattern,
-                  regenIDsPattern,
-                  compressionType,
-                  enableCoerceOrElideMismatch,
-                  verboseLevel);
+
+              final var data = tile.getData().readAllBytes();
+
+              runTask(
+                  () -> {
+                    try {
+                      final var srcTileData = decompress(new ByteArrayInputStream(data));
+                      final var didCompress = new MutableBoolean(false);
+                      final var tileData =
+                          convertTile(
+                              x,
+                              y,
+                              z,
+                              srcTileData,
+                              conversionConfig,
+                              columnMappings,
+                              tessellateSource,
+                              sortFeaturesPattern,
+                              regenIDsPattern,
+                              compressionType,
+                              didCompress,
+                              enableCoerceOrElideMismatch);
+
+                      if (tileData != null) {
+                        synchronized (mbTilesWriter) {
+                          mbTilesWriter.addTile(tileData, z, x, y);
+                        }
+                      }
+
+                    } catch (IOException | MBTilesWriteException e) {
+                      success.set(false);
+                      System.err.printf(
+                          "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
+                          tile.getZoom(), tile.getColumn(), tile.getRow(), e.getMessage());
+                      if (verboseLevel > 1) {
+                        e.printStackTrace(System.err);
+                      }
+                    }
+                  });
             } catch (IllegalArgumentException ex) {
+              success.set(false);
               System.err.printf(
-                  "WARNING: Failed to convert tile (%d:%d,%d) : %s%n",
+                  "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
                   tile.getZoom(), tile.getColumn(), tile.getRow(), ex.getMessage());
               if (verboseLevel > 1) {
                 ex.printStackTrace(System.err);
               }
             }
+          }
+
+          joinThreadPool(true);
+
+          if (!continueOnError && !success.get()) {
+            return false;
           }
 
           // mbtiles4j doesn't support types other than png and jpg,
@@ -698,7 +746,12 @@ public class Encode {
       } finally {
         mbTilesWriter.close();
       }
-    } catch (MBTilesReadException | IOException | MBTilesWriteException | SQLException ex) {
+    } catch (InterruptedException
+        | MBTilesReadException
+        | IOException
+        | MBTilesWriteException
+        | SQLException ex) {
+      success.set(false);
       System.err.println("ERROR: MBTiles conversion failed: " + ex.getMessage());
       if (verboseLevel > 1) {
         ex.printStackTrace(System.err);
@@ -708,10 +761,11 @@ public class Encode {
         mbTilesReader.close();
       }
     }
+    return success.get();
   }
 
   /// Encode the MVT tiles in an offline database file
-  private static void encodeOfflineDB(
+  private static boolean encodeOfflineDB(
       Path inputPath,
       Path outputPath,
       Map<Pattern, List<ColumnMapping>> columnMappings,
@@ -720,18 +774,17 @@ public class Encode {
       @Nullable Pattern sortFeaturesPattern,
       @Nullable Pattern regenIDsPattern,
       String compressionType,
-      boolean enableCoerceOrElideMismatch,
-      int verboseLevel)
+      boolean enableCoerceOrElideMismatch)
       throws ClassNotFoundException {
     // Start with a copy of the source file so we don't have to rebuild the complex schema
-    if (verboseLevel > 1) {
-      System.err.println("Creating target file");
-    }
     try {
       if (outputPath == null) {
-        var tempFile = File.createTempFile("encode-", "-db");
+        final var tempFile = File.createTempFile("encode-", "-db");
         outputPath = tempFile.toPath();
         tempFile.deleteOnExit();
+      }
+      if (verboseLevel > 1) {
+        System.err.printf("Copying source to %s%n", outputPath);
       }
       Files.copy(
           inputPath,
@@ -740,61 +793,100 @@ public class Encode {
           StandardCopyOption.COPY_ATTRIBUTES);
     } catch (IOException ex) {
       System.err.println("ERROR: Failed to create target file: " + ex.getMessage());
-      return;
+      return false;
     }
 
     Class.forName("org.sqlite.JDBC");
-    var srcConnectionString = "jdbc:sqlite:" + inputPath.toAbsolutePath();
-    var dstConnectionString = "jdbc:sqlite:" + outputPath.toAbsolutePath();
-    var updateSql = "UPDATE tiles SET data = ?, compressed = ? WHERE id = ?";
-    try (var srcConnection = DriverManager.getConnection(srcConnectionString);
-        var dstConnection = DriverManager.getConnection(dstConnectionString)) {
+    final var srcConnectionString = "jdbc:sqlite:" + inputPath.toAbsolutePath();
+    final var dstConnectionString = "jdbc:sqlite:" + outputPath.toAbsolutePath();
+    final var updateSql = "UPDATE tiles SET data = ?, compressed = ? WHERE id = ?";
+    final var success = new AtomicBoolean(true);
+    try (final var srcConnection = DriverManager.getConnection(srcConnectionString);
+        final var dstConnection = DriverManager.getConnection(dstConnectionString)) {
       // Convert Tiles
-      try (var iterateStatement = srcConnection.createStatement();
-          var tileResults = iterateStatement.executeQuery("SELECT * FROM tiles");
-          var updateStatement = dstConnection.prepareStatement(updateSql)) {
+      try (final var iterateStatement = srcConnection.createStatement();
+          final var tileResults = iterateStatement.executeQuery("SELECT * FROM tiles");
+          final var updateStatement = dstConnection.prepareStatement(updateSql)) {
         while (tileResults.next()) {
-          var uniqueID = tileResults.getLong("id");
-          var x = tileResults.getInt("x");
-          var y = tileResults.getInt("y");
-          var z = tileResults.getInt("z");
-
-          byte[] srcTileData;
-          try {
-            srcTileData = decompress(tileResults.getBinaryStream("data"));
-          } catch (IOException | IllegalStateException ignore) {
-            System.err.printf("WARNING: Failed to decompress tile '%d', skipping%n", uniqueID);
-            continue;
+          if (!continueOnError && !success.get()) {
+            break;
           }
 
-          var didCompress = new MutableBoolean(false);
-          var tileData =
-              convertTile(
-                  x,
-                  y,
-                  z,
-                  srcTileData,
-                  conversionConfig,
-                  columnMappings,
-                  tessellateSource,
-                  sortFeaturesPattern,
-                  regenIDsPattern,
-                  compressionType,
-                  didCompress,
-                  enableCoerceOrElideMismatch,
-                  verboseLevel);
+          // Read on the main thread. Could be split by zoom level, etc., if needed.
+          final var uniqueID = tileResults.getLong("id");
+          final var x = tileResults.getInt("x");
+          final var y = tileResults.getInt("y");
+          final var z = tileResults.getInt("z");
+          final var data = tileResults.getBinaryStream("data").readAllBytes();
 
-          if (tileData != null) {
-            updateStatement.setBytes(1, tileData);
-            updateStatement.setBoolean(2, didCompress.booleanValue());
-            updateStatement.setLong(3, uniqueID);
-            updateStatement.execute();
+          runTask(
+              () -> {
+                if (verboseLevel > 0) {
+                  System.err.printf("Converting %d:%d,%d%n", z, x, y);
+                }
 
-            if (verboseLevel > 0) {
-              System.err.printf("Updated %d:%d,%d%n", z, x, y);
-            }
-          }
+                byte[] srcTileData;
+                try {
+                  srcTileData = decompress(new ByteArrayInputStream(data));
+                } catch (IOException | IllegalStateException ex) {
+                  success.set(false);
+                  System.err.printf(
+                      "ERROR: Failed to decompress tile '%d': %s%n", ex.getMessage(), uniqueID);
+                  if (verboseLevel > 1) {
+                    ex.printStackTrace(System.err);
+                  }
+                  return;
+                }
+
+                var didCompress = new MutableBoolean(false);
+                var tileData =
+                    convertTile(
+                        x,
+                        y,
+                        z,
+                        srcTileData,
+                        conversionConfig,
+                        columnMappings,
+                        tessellateSource,
+                        sortFeaturesPattern,
+                        regenIDsPattern,
+                        compressionType,
+                        didCompress,
+                        enableCoerceOrElideMismatch);
+
+                if (tileData != null) {
+                  try {
+                    // Parallel writes are possible, but only by creating a separate connection for
+                    // each thread
+                    synchronized (updateStatement) {
+                      updateStatement.setBytes(1, tileData);
+                      updateStatement.setBoolean(2, didCompress.booleanValue());
+                      updateStatement.setLong(3, uniqueID);
+                      updateStatement.execute();
+                    }
+                  } catch (SQLException ex) {
+                    success.set(false);
+                    System.err.printf(
+                        "ERROR: Failed to convert tile '%d': %s%n", ex.getMessage(), uniqueID);
+                    if (verboseLevel > 1) {
+                      ex.printStackTrace(System.err);
+                    }
+                  }
+                }
+              });
+
+          joinThreadPool(true);
         }
+      } catch (InterruptedException ex) {
+        System.err.printf("ERROR: Interrupted%n");
+        if (verboseLevel > 1) {
+          ex.printStackTrace(System.err);
+        }
+        return false;
+      }
+
+      if (!continueOnError && !success.get()) {
+        return false;
       }
 
       // Update metadata
@@ -862,7 +954,9 @@ public class Encode {
       if (verboseLevel > 1) {
         ex.printStackTrace(System.err);
       }
+      return false;
     }
+    return success.get();
   }
 
   /// Encode the MVT tiles in a PMTiles file
@@ -877,8 +971,7 @@ public class Encode {
       String compressionType,
       int minZoom,
       int maxZoom,
-      boolean enableCoerceOrElideMismatch,
-      int verboseLevel)
+      boolean enableCoerceOrElideMismatch)
       throws IOException {
 
     try (var rawReader = RangeReaderFactory.create(inputPath);
@@ -955,12 +1048,11 @@ public class Encode {
 
         writer.setMetadata(metadataStr);
 
-        final var success = new MutableBoolean(true);
-        final var writerLock = new Object();
+        final var success = new AtomicBoolean(true);
         final var totalZooms = actualMaxZoom - actualMinZoom + 1;
         final var zoomsToFetch = new AtomicInteger(totalZooms);
-        final var tilesProcessed = new AtomicInteger(0);
-        final var totalTileCount = new AtomicInteger(0);
+        final var tilesProcessed = new AtomicLong(0);
+        final var totalTileCount = new AtomicLong(0);
 
         final Function<Integer, List<TileIndex>> getIndexes =
             (zoom) -> {
@@ -994,8 +1086,11 @@ public class Encode {
                     }
                   } else {
                     System.err.printf(
-                        "\rProcessing zooms %d / %d, tiles: %d / ?    \r",
-                        totalZooms - zoomsToFetch.get(), totalZooms, tileCount);
+                        "\rProcessing zooms %d / %d, tiles: %d / %d    \r",
+                        totalZooms - zoomsToFetch.get(),
+                        totalZooms,
+                        tileCount,
+                        totalTileCount.get());
                   }
                 }
 
@@ -1040,11 +1135,10 @@ public class Encode {
                         regenIDsPattern,
                         null, // PMTilesWriter will handle compression
                         null,
-                        enableCoerceOrElideMismatch,
-                        verboseLevel);
+                        enableCoerceOrElideMismatch);
 
                 if (mltData != null && mltData.length > 0) {
-                  synchronized (writerLock) {
+                  synchronized (writer) {
                     writer.addTile(tileIndex, mltData);
                   }
                 } else if (verboseLevel > 1) {
@@ -1061,24 +1155,15 @@ public class Encode {
               }
             };
 
-        // Get and process each zoom level
+        // For each zoom level, get the list of tile indices, then convert them in parallel.
         IntStream.rangeClosed(actualMinZoom, actualMaxZoom)
             .mapToObj(Integer::valueOf)
-            .map(
-                (zoom) -> {
-                  return (threadPool != null)
-                      ? threadPool.submit(
-                          () -> {
-                            return getIndexes.apply(zoom);
-                          })
-                      : CompletableFuture.supplyAsync(
-                          () -> {
-                            ;
-                            return getIndexes.apply(zoom);
-                          });
-                })
+            .map(zoom -> runTask(() -> getIndexes.apply(zoom)))
             .forEach(
                 future -> {
+                  if (!continueOnError && !success.get()) {
+                    return;
+                  }
                   try {
                     final var indices = future.get();
                     totalTileCount.addAndGet(indices.size());
@@ -1086,43 +1171,47 @@ public class Encode {
 
                     // Convert tile in the zoom level
                     for (var tileIndex : indices) {
+                      if (!continueOnError && !success.get()) {
+                        break;
+                      }
                       if (threadPool != null) {
                         threadPool.submit(
                             () -> {
                               if (!processTile.apply(tileIndex)) {
-                                success.setFalse();
+                                success.set(false);
                               }
                             });
                       } else {
                         if (!processTile.apply(tileIndex)) {
-                          success.setFalse();
+                          success.set(false);
                         }
                       }
                     }
                     if (threadPool != null && zoomsRemaining == 0) {
+                      // This is the last task that can add more tasks
                       threadPool.close();
                     }
                   } catch (InterruptedException | ExecutionException e) {
                     System.err.printf("ERROR : Failed to get tile indexes: %s%n", e.getMessage());
-                    success.setFalse();
+                    success.set(false);
                   }
                 });
 
         if (threadPool != null) {
-          if (!success.get()) {
-            threadPool.close();
-          }
           try {
-            threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+            // The pool needs to be closed before awaiting termination but, since tasks add
+            // other tasks, we can't close it immediately.
+            // On success, it will be closed after processing the last zoom level.
+            joinThreadPool(!success.get());
           } catch (InterruptedException e) {
             System.err.println("ERROR : interrupted");
-            success.setFalse();
+            success.set(false);
           }
         }
 
         if (success.get()) {
           if (verboseLevel > 0) {
-            var writerListener =
+            final var writerListener =
                 new PMTilesWriter.ProgressListener() {
                   private String lastProgress = "";
 
@@ -1163,49 +1252,6 @@ public class Encode {
     }
   }
 
-  private static void convertTile(
-      Tile tile,
-      MBTilesWriter mbTilesWriter,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
-      ConversionConfig conversionConfig,
-      @Nullable URI tessellateSource,
-      @Nullable Pattern sortFeaturesPattern,
-      @Nullable Pattern regenIDsPattern,
-      String compressionType,
-      boolean enableCoerceOrElideMismatch,
-      int verboseLevel)
-      throws IOException, MBTilesWriteException {
-    final var x = tile.getColumn();
-    final var y = tile.getRow();
-    final var z = tile.getZoom();
-
-    if (verboseLevel > 0) {
-      System.err.printf("Converting %d:%d,%d%n", z, x, y);
-    }
-
-    final var srcTileData = getTileData(tile);
-    final var didCompress = new MutableBoolean(false);
-    final var tileData =
-        convertTile(
-            x,
-            y,
-            z,
-            srcTileData,
-            conversionConfig,
-            columnMappings,
-            tessellateSource,
-            sortFeaturesPattern,
-            regenIDsPattern,
-            compressionType,
-            didCompress,
-            enableCoerceOrElideMismatch,
-            verboseLevel);
-
-    if (tileData != null) {
-      mbTilesWriter.addTile(tileData, z, x, y);
-    }
-  }
-
   /**
    * Converts a tile from MVT to MLT, handling de- and re-compression
    *
@@ -1239,8 +1285,7 @@ public class Encode {
       @Nullable Pattern regenIDsPattern,
       String compressionType,
       @Nullable MutableBoolean didCompress,
-      boolean enableElideOnMismatch,
-      int verboseLevel) {
+      boolean enableElideOnMismatch) {
     try {
       // Decode the source tile data into an intermediate representation.
       final var decodedMvTile = MvtUtils.decodeMvt(srcTileData);
@@ -1335,10 +1380,6 @@ public class Encode {
       return new DeflateCompressorOutputStream(src);
     }
     return src;
-  }
-
-  private static byte[] getTileData(Tile tile) throws IOException {
-    return decompress(tile.getData());
   }
 
   private static byte[] decompress(InputStream srcStream) throws IOException {
@@ -1436,8 +1477,7 @@ public class Encode {
       MapboxVectorTile mvTile,
       boolean compareGeom,
       boolean compareProp,
-      ConversionConfig config,
-      int verboseLevel) {
+      ConversionConfig config) {
     final Predicate<Layer> testFilter =
         (Layer x) ->
             (config.getLayerFilterPattern() == null)
@@ -1651,6 +1691,7 @@ public class Encode {
   private static final String DUMP_STREAMS_OPTION = "rawstreams";
   private static final String PARALLEL_OPTION = "parallel";
   private static final String VERBOSE_OPTION = "verbose";
+  private static final String CONTINUE_OPTION = "continue";
   private static final String HELP_OPTION = "help";
   private static final String SERVER_ARG = "server";
 
@@ -2088,6 +2129,13 @@ Add an explicit column mapping on the specified layers:
               .get());
       options.addOption(
           Option.builder()
+              .longOpt(CONTINUE_OPTION)
+              .hasArg(false)
+              .desc("Continue on error when possible")
+              .required(false)
+              .get());
+      options.addOption(
+          Option.builder()
               .option("v")
               .longOpt(VERBOSE_OPTION)
               .hasArg(true)
@@ -2176,7 +2224,33 @@ Add an explicit column mapping on the specified layers:
     return null;
   }
 
-  private static ExecutorService threadPool;
+  private static void runTask(Runnable task) {
+    if (threadPool != null) {
+      threadPool.submit(() -> task.run());
+    } else {
+      task.run();
+    }
+  }
+
+  private static <T> Future<T> runTask(Supplier<T> task) {
+    return (threadPool != null)
+        ? threadPool.submit(() -> task.get())
+        : CompletableFuture.supplyAsync(task);
+  }
+
+  private static void joinThreadPool(boolean close) throws InterruptedException {
+    if (threadPool != null) {
+      if (close) {
+        threadPool.close();
+      }
+      threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+      threadPool = null;
+    }
+  }
+
+  private static int verboseLevel = 0;
+  private static boolean continueOnError = false;
+  private static ExecutorService threadPool = null;
 
   // Not yet available in `io.tileverse.pmtiles.PMTilesHeader`
   private static final byte PMT_MLT_TILE_TYPE = 6;
