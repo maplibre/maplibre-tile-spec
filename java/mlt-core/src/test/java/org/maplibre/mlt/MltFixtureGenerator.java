@@ -1,16 +1,11 @@
 package org.maplibre.mlt;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.maplibre.mlt.cli.CliUtil;
@@ -66,87 +61,29 @@ public class MltFixtureGenerator {
 
   // MapboxVectorTile tile generation
   // Note: MapboxVectorTile is in-memory object structure (it is not MVT file)
-  private static MapboxVectorTile buildPointsTile(GeometryFactory gf) {
+  private static MapboxVectorTile generatePointsTile() {
+    var gf = new GeometryFactory();
     long[] nextId = {1};
     var layer = generatePointsLayer(gf, nextId);
     return new MapboxVectorTile(List.of(layer));
   }
 
-  private static MapboxVectorTile buildPolygonsTile(GeometryFactory gf) {
+  private static MapboxVectorTile generatePolygonsTile() {
+    var gf = new GeometryFactory();
     long[] nextId = {1};
     var layer = generatePolygonsLayer(gf, nextId);
     return new MapboxVectorTile(List.of(layer));
   }
 
-  private static MapboxVectorTile buildMixedGeometriesTile(GeometryFactory gf) {
+  private static MapboxVectorTile generateMixedGeometriesTile() {
+    var gf = new GeometryFactory();
     long[] nextId = {1};
     var pointsLayer = generatePointsLayer(gf, nextId);
     var polygonsLayer = generatePolygonsLayer(gf, nextId);
     return new MapboxVectorTile(List.of(pointsLayer, polygonsLayer));
   }
 
-  private static Map<String, MapboxVectorTile> generateTileGeometry() {
-    var gf = new GeometryFactory();
-    var tileGeometry = new HashMap<String, MapboxVectorTile>();
-    tileGeometry.put("points", buildPointsTile(gf));
-    tileGeometry.put("polygons", buildPolygonsTile(gf));
-    tileGeometry.put("mixed", buildMixedGeometriesTile(gf));
-    return tileGeometry;
-  }
-
-  // Simple fixture case: just the output name, tile to use, and config
-  private record FixtureCase(String outputName, String tileGeometryKey, ConversionConfig config) {}
-
-  // Define all the fixture cases - just pick short names that make sense
-  private static List<FixtureCase> defineFixtureCases() {
-    var outlineNames = List.<String>of();
-    var plain = ConversionConfig.IntegerEncodingOption.PLAIN;
-    var delta = ConversionConfig.IntegerEncodingOption.DELTA;
-    var rle = ConversionConfig.IntegerEncodingOption.RLE;
-
-    return List.of(
-        new FixtureCase(
-            "points-plain",
-            "points",
-            ConversionConfig.builder()
-                .includeIds(true)
-                .useFastPFOR(false)
-                .useFSST(false)
-                .coercePropertyValues(false)
-                .useMortonEncoding(false)
-                .preTessellatePolygons(false)
-                .outlineFeatureTableNames(outlineNames)
-                .integerEncoding(plain)
-                .build()),
-        new FixtureCase(
-            "polygons-fsst-delta",
-            "polygons",
-            ConversionConfig.builder()
-                .includeIds(true)
-                .useFastPFOR(false)
-                .useFSST(true)
-                .coercePropertyValues(false)
-                .useMortonEncoding(false)
-                .preTessellatePolygons(false)
-                .outlineFeatureTableNames(outlineNames)
-                .integerEncoding(delta)
-                .build()),
-        new FixtureCase(
-            "mixed-fastpfor-rle",
-            "mixed",
-            ConversionConfig.builder()
-                .includeIds(true)
-                .useFastPFOR(true)
-                .useFSST(false)
-                .coercePropertyValues(false)
-                .useMortonEncoding(false)
-                .preTessellatePolygons(false)
-                .outlineFeatureTableNames(outlineNames)
-                .integerEncoding(rle)
-                .build()));
-  }
-
-  private static void exportMltFixture(
+  private static void writeMltFixture(
       String outputName, MapboxVectorTile tileGeometry, ConversionConfig config)
       throws IOException {
     var metadata =
@@ -163,25 +100,60 @@ public class MltFixtureGenerator {
 
   private static void generateMltFixtures() throws IOException {
     Files.createDirectories(Paths.get(OUTPUT_DIR));
-    var tileGeometry = generateTileGeometry();
-    for (var c : defineFixtureCases()) {
-      exportMltFixture(c.outputName(), tileGeometry.get(c.tileGeometryKey()), c.config());
-    }
+
+    // Common config parameters
+    var outlineNames = List.<String>of();
+    var plain = ConversionConfig.IntegerEncodingOption.PLAIN;
+    var delta = ConversionConfig.IntegerEncodingOption.DELTA;
+    var rle = ConversionConfig.IntegerEncodingOption.RLE;
+
+    // Case 1
+    writeMltFixture(
+        "points-plain",
+        generatePointsTile(),
+        ConversionConfig.builder()
+            .includeIds(true)
+            .useFastPFOR(false)
+            .useFSST(false)
+            .coercePropertyValues(false)
+            .useMortonEncoding(false)
+            .preTessellatePolygons(false)
+            .outlineFeatureTableNames(outlineNames)
+            .integerEncoding(plain)
+            .build());
+
+    // Case 2
+    writeMltFixture(
+        "polygons-fsst-delta",
+        generatePolygonsTile(),
+        ConversionConfig.builder()
+            .includeIds(true)
+            .useFastPFOR(false)
+            .useFSST(true)
+            .coercePropertyValues(false)
+            .useMortonEncoding(false)
+            .preTessellatePolygons(false)
+            .outlineFeatureTableNames(outlineNames)
+            .integerEncoding(delta)
+            .build());
+
+    // Case 3
+    writeMltFixture(
+        "mixed-fastpfor-rle",
+        generateMixedGeometriesTile(),
+        ConversionConfig.builder()
+            .includeIds(true)
+            .useFastPFOR(true)
+            .useFSST(false)
+            .coercePropertyValues(false)
+            .useMortonEncoding(false)
+            .preTessellatePolygons(false)
+            .outlineFeatureTableNames(outlineNames)
+            .integerEncoding(rle)
+            .build());
   }
 
   public static void main(String[] args) throws IOException {
     generateMltFixtures();
-  }
-
-  @Test
-  @Disabled("Only for generating fixtures")
-  void testGenerateMltFixtures() throws Exception {
-    generateMltFixtures();
-
-    for (var c : defineFixtureCases()) {
-      var name = c.outputName();
-      assertTrue(Files.isRegularFile(Paths.get(OUTPUT_DIR, name + ".mlt")), name + ".mlt");
-      assertTrue(Files.isRegularFile(Paths.get(OUTPUT_DIR, name + ".json")), name + ".json");
-    }
   }
 }
