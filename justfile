@@ -180,8 +180,8 @@ generate-one-expected-mlt file:
         --verbose
 
 [working-directory: 'java']
-generate-mlt-fixtures:
-    ./gradlew generateFixtures
+generate-synthetic-mlts:
+    ./gradlew :mlt-tools:generateSyntheticMlt
 
 # Extract version from a tag by removing language prefix and 'v' prefix
 extract-version language tag:
