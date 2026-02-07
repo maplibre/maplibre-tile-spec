@@ -4,6 +4,7 @@ import com.google.gson.GsonBuilder;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -28,7 +29,9 @@ public class CliUtil {
   private static Map<String, Object> toJSON(Feature feature) {
     var map = new TreeMap<String, Object>();
     map.put("id", feature.id());
-    map.put("geometry", feature.geometry().toString());
+    map.put("type", "Feature");
+    var writer = new GeoJsonWriter();
+    map.put("geometry", writer.write(feature.geometry()));
     // Print properties sorted by key and drop those with null
     // values to facilitate direct comparison with MVT output.
     map.put(
