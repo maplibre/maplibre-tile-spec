@@ -7,6 +7,7 @@
 | MapLibre Native | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [#3246](https://github.com/maplibre/maplibre-native/pull/3246). |
 | MapLibre GL JS | Supported since version 5.12.0. PR: [#6570](https://github.com/maplibre/maplibre-gl-js/pull/6570). |
 | Planetiler | Issue: [onthegomap/planetiler#1349](https://github.com/onthegomap/planetiler/issues/1349) |
+| PMTiles | Can store MLT, see [PMTiles v3 spec - Tile Type](https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt) |
 
 ## Implementations
 
