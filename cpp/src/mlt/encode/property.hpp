@@ -23,24 +23,10 @@ public:
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
 
     static std::vector<std::uint8_t> encodeBooleanColumn(std::span<const std::optional<bool>> values) {
-        std::vector<bool> presentValues;
-        std::vector<bool> dataValues;
-        bool hasNull = false;
-        for (const auto& v : values) {
-            if (v.has_value()) {
-                presentValues.push_back(true);
-                dataValues.push_back(*v);
-            } else {
-                presentValues.push_back(false);
-                hasNull = true;
-            }
-        }
+        auto [presentValues, dataValues, hasNull] = separateNulls<bool>(values);
 
         std::vector<std::uint8_t> result;
-        if (hasNull) {
-            auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
-            result.insert(result.end(), presentStream.begin(), presentStream.end());
-        }
+        appendPresentStream(result, presentValues, hasNull);
 
         auto dataStream = BooleanEncoder::encodeBooleanStream(dataValues, metadata::stream::PhysicalStreamType::DATA);
         result.insert(result.end(), dataStream.begin(), dataStream.end());
@@ -76,24 +62,10 @@ public:
     static std::vector<std::uint8_t> encodeInt64Column(std::span<const std::optional<std::int64_t>> values,
                                                        bool isSigned,
                                                        IntegerEncoder& intEncoder) {
-        std::vector<bool> presentValues;
-        std::vector<std::int64_t> dataValues;
-        bool hasNull = false;
-        for (const auto& v : values) {
-            if (v.has_value()) {
-                presentValues.push_back(true);
-                dataValues.push_back(*v);
-            } else {
-                presentValues.push_back(false);
-                hasNull = true;
-            }
-        }
+        auto [presentValues, dataValues, hasNull] = separateNulls<std::int64_t>(values);
 
         std::vector<std::uint8_t> result;
-        if (hasNull) {
-            auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
-            result.insert(result.end(), presentStream.begin(), presentStream.end());
-        }
+        appendPresentStream(result, presentValues, hasNull);
 
         auto dataStream = intEncoder.encodeLongStream(
             dataValues, isSigned, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
@@ -104,24 +76,10 @@ public:
     template <typename T>
         requires(std::same_as<T, float> || std::same_as<T, double>)
     static std::vector<std::uint8_t> encodeFloatingPointColumn(std::span<const std::optional<T>> values) {
-        std::vector<bool> presentValues;
-        std::vector<T> dataValues;
-        bool hasNull = false;
-        for (const auto& v : values) {
-            if (v.has_value()) {
-                presentValues.push_back(true);
-                dataValues.push_back(*v);
-            } else {
-                presentValues.push_back(false);
-                hasNull = true;
-            }
-        }
+        auto [presentValues, dataValues, hasNull] = separateNulls<T>(values);
 
         std::vector<std::uint8_t> result;
-        if (hasNull) {
-            auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
-            result.insert(result.end(), presentStream.begin(), presentStream.end());
-        }
+        appendPresentStream(result, presentValues, hasNull);
 
         auto dataStream = FloatEncoder::encodeStream(std::span<const T>{dataValues});
         result.insert(result.end(), dataStream.begin(), dataStream.end());
@@ -142,11 +100,9 @@ public:
         std::vector<bool> presentValues;
         std::vector<std::string_view> dataValues;
         for (const auto& v : values) {
+            presentValues.push_back(v.has_value());
             if (v.has_value()) {
-                presentValues.push_back(true);
                 dataValues.push_back(*v);
-            } else {
-                presentValues.push_back(false);
             }
         }
 
@@ -165,28 +121,51 @@ public:
 
 private:
     template <typename T>
-    static std::vector<std::uint8_t> encodeIntColumn(std::span<const std::optional<T>> values,
-                                                     PhysicalLevelTechnique physicalTechnique,
-                                                     bool isSigned,
-                                                     IntegerEncoder& intEncoder) {
-        std::vector<bool> presentValues;
-        std::vector<std::int32_t> dataValues;
-        bool hasNull = false;
+    struct SeparatedNulls {
+        std::vector<bool> present;
+        std::vector<T> data;
+        bool hasNull;
+    };
+
+    template <typename T>
+    static SeparatedNulls<T> separateNulls(std::span<const std::optional<T>> values) {
+        SeparatedNulls<T> result;
+        result.hasNull = false;
         for (const auto& v : values) {
             if (v.has_value()) {
-                presentValues.push_back(true);
-                dataValues.push_back(static_cast<std::int32_t>(*v));
+                result.present.push_back(true);
+                result.data.push_back(*v);
             } else {
-                presentValues.push_back(false);
-                hasNull = true;
+                result.present.push_back(false);
+                result.hasNull = true;
             }
         }
+        return result;
+    }
 
-        std::vector<std::uint8_t> result;
+    static void appendPresentStream(std::vector<std::uint8_t>& result,
+                                    const std::vector<bool>& presentValues,
+                                    bool hasNull) {
         if (hasNull) {
             auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
             result.insert(result.end(), presentStream.begin(), presentStream.end());
         }
+    }
+
+    template <typename T>
+    static std::vector<std::uint8_t> encodeIntColumn(std::span<const std::optional<T>> values,
+                                                     PhysicalLevelTechnique physicalTechnique,
+                                                     bool isSigned,
+                                                     IntegerEncoder& intEncoder) {
+        auto [presentValues, rawValues, hasNull] = separateNulls<T>(values);
+
+        std::vector<std::int32_t> dataValues(rawValues.size());
+        std::transform(rawValues.begin(), rawValues.end(), dataValues.begin(), [](auto v) {
+            return static_cast<std::int32_t>(v);
+        });
+
+        std::vector<std::uint8_t> result;
+        appendPresentStream(result, presentValues, hasNull);
 
         auto dataStream = intEncoder.encodeIntStream(
             dataValues, physicalTechnique, isSigned, metadata::stream::PhysicalStreamType::DATA, std::nullopt);

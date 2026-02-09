@@ -174,26 +174,22 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
         return f.geometry.type == GT::POLYGON || f.geometry.type == GT::MULTIPOLYGON;
     });
 
+    auto pushVertices = [&](const std::vector<Vertex>& coords) {
+        for (const auto& v : coords) vertexBuffer.push_back({v.x, v.y});
+    };
+
     for (const auto& feature : features) {
         const auto& geom = feature.geometry;
         geometryTypes.push_back(geom.type);
 
         switch (geom.type) {
             case GT::POINT:
-                for (const auto& v : geom.coordinates) {
-                    vertexBuffer.push_back({v.x, v.y});
-                }
+                pushVertices(geom.coordinates);
                 break;
 
             case GT::LINESTRING:
-                if (containsPolygon) {
-                    numRings.push_back(static_cast<std::uint32_t>(geom.coordinates.size()));
-                } else {
-                    numParts.push_back(static_cast<std::uint32_t>(geom.coordinates.size()));
-                }
-                for (const auto& v : geom.coordinates) {
-                    vertexBuffer.push_back({v.x, v.y});
-                }
+                (containsPolygon ? numRings : numParts).push_back(static_cast<std::uint32_t>(geom.coordinates.size()));
+                pushVertices(geom.coordinates);
                 break;
 
             case GT::POLYGON:
@@ -201,29 +197,19 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                 for (auto ringSize : geom.ringSizes) {
                     numRings.push_back(ringSize);
                 }
-                for (const auto& v : geom.coordinates) {
-                    vertexBuffer.push_back({v.x, v.y});
-                }
+                pushVertices(geom.coordinates);
                 break;
 
             case GT::MULTIPOINT:
                 numGeometries.push_back(static_cast<std::uint32_t>(geom.coordinates.size()));
-                for (const auto& v : geom.coordinates) {
-                    vertexBuffer.push_back({v.x, v.y});
-                }
+                pushVertices(geom.coordinates);
                 break;
 
             case GT::MULTILINESTRING:
                 numGeometries.push_back(static_cast<std::uint32_t>(geom.parts.size()));
                 for (const auto& part : geom.parts) {
-                    if (containsPolygon) {
-                        numRings.push_back(static_cast<std::uint32_t>(part.size()));
-                    } else {
-                        numParts.push_back(static_cast<std::uint32_t>(part.size()));
-                    }
-                    for (const auto& v : part) {
-                        vertexBuffer.push_back({v.x, v.y});
-                    }
+                    (containsPolygon ? numRings : numParts).push_back(static_cast<std::uint32_t>(part.size()));
+                    pushVertices(part);
                 }
                 break;
 
@@ -235,9 +221,7 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                     for (auto ringSize : rings) {
                         numRings.push_back(ringSize);
                     }
-                    for (const auto& v : geom.parts[p]) {
-                        vertexBuffer.push_back({v.x, v.y});
-                    }
+                    pushVertices(geom.parts[p]);
                 }
                 break;
         }
@@ -257,8 +241,6 @@ bool Encoder::Impl::canSort(const std::vector<Encoder::Feature>& features) {
 }
 
 std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Encoder::Feature>& features) {
-    using GT = metadata::tileset::GeometryType;
-
     auto minVal = std::numeric_limits<std::int32_t>::max();
     auto maxVal = std::numeric_limits<std::int32_t>::min();
     for (const auto& f : features) {
@@ -270,27 +252,15 @@ std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Enco
 
     util::HilbertCurve curve(minVal, maxVal);
 
+    std::vector<std::uint32_t> hilbertIds(features.size());
+    for (std::size_t i = 0; i < features.size(); ++i) {
+        const auto& v = features[i].geometry.coordinates[0];
+        hilbertIds[i] = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
+    }
+
     std::vector<std::size_t> order(features.size());
     std::iota(order.begin(), order.end(), 0);
-
-    if (features[0].geometry.type == GT::POINT) {
-        std::vector<std::uint32_t> hilbertIds(features.size());
-        for (std::size_t i = 0; i < features.size(); ++i) {
-            const auto& v = features[i].geometry.coordinates[0];
-            hilbertIds[i] = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
-        }
-        std::sort(
-            order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return hilbertIds[a] < hilbertIds[b]; });
-    } else {
-        std::vector<std::uint32_t> firstVertexIds(features.size());
-        for (std::size_t i = 0; i < features.size(); ++i) {
-            const auto& v = features[i].geometry.coordinates[0];
-            firstVertexIds[i] = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
-        }
-        std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
-            return firstVertexIds[a] < firstVertexIds[b];
-        });
-    }
+    std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return hilbertIds[a] < hilbertIds[b]; });
 
     std::vector<Feature> sorted(features.size());
     std::transform(order.begin(), order.end(), sorted.begin(), [&](auto idx) { return features[idx]; });
@@ -395,31 +365,28 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
     const bool usePretessellation = config.preTessellate && allPolygons(features);
 
-    if (usePretessellation) {
-        std::vector<std::uint32_t> numTriangles;
-        std::vector<std::uint32_t> indexBuffer;
-        tessellateFeatures(features, numTriangles, indexBuffer);
-
-        auto encodedGeom = GeometryEncoder::encodePretessellatedGeometryColumn(geometryTypes,
-                                                                               numGeometries,
-                                                                               numParts,
-                                                                               numRings,
-                                                                               vertexBuffer,
-                                                                               numTriangles,
-                                                                               indexBuffer,
-                                                                               physicalTechnique,
-                                                                               intEncoder,
-                                                                               true);
-
-        util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
-        bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
-    } else {
-        auto encodedGeom = GeometryEncoder::encodeGeometryColumn(
+    GeometryEncoder::EncodedGeometryColumn encodedGeom = [&] {
+        if (usePretessellation) {
+            std::vector<std::uint32_t> numTriangles;
+            std::vector<std::uint32_t> indexBuffer;
+            tessellateFeatures(features, numTriangles, indexBuffer);
+            return GeometryEncoder::encodePretessellatedGeometryColumn(geometryTypes,
+                                                                       numGeometries,
+                                                                       numParts,
+                                                                       numRings,
+                                                                       vertexBuffer,
+                                                                       numTriangles,
+                                                                       indexBuffer,
+                                                                       physicalTechnique,
+                                                                       intEncoder,
+                                                                       true);
+        }
+        return GeometryEncoder::encodeGeometryColumn(
             geometryTypes, numGeometries, numParts, numRings, vertexBuffer, physicalTechnique, intEncoder);
+    }();
 
-        util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
-        bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
-    }
+    util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
+    bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
 
     for (const auto& column : featureTable.columns) {
         if (column.isID() || column.isGeometry()) {
@@ -492,145 +459,85 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         const auto scalarType = scalarCol.getPhysicalType();
         const auto& colName = column.name;
 
+        auto extractColumn = [&]<typename T>(auto&& visitor) {
+            std::vector<std::optional<T>> values;
+            values.reserve(features.size());
+            for (const auto& f : features) {
+                auto it = f.properties.find(colName);
+                if (it != f.properties.end()) {
+                    values.push_back(std::visit(visitor, it->second));
+                } else {
+                    values.push_back(std::nullopt);
+                }
+            }
+            return values;
+        };
+
+        std::vector<std::uint8_t> encoded;
         switch (scalarType) {
-            case ScalarType::BOOLEAN: {
-                std::vector<std::optional<bool>> values;
-                values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
-                        values.push_back(std::get<bool>(it->second));
-                    } else {
-                        values.push_back(std::nullopt);
-                    }
-                }
-                auto encoded = PropertyEncoder::encodeBooleanColumn(values);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            case ScalarType::BOOLEAN:
+                encoded = PropertyEncoder::encodeBooleanColumn(extractColumn.template operator()<bool>(util::overloaded{
+                    [](bool v) -> bool { return v; },
+                    [](auto) -> bool { return false; },
+                }));
                 break;
-            }
-            case ScalarType::INT_32: {
-                std::vector<std::optional<std::int32_t>> values;
-                values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
-                        values.push_back(
-                            std::visit(util::overloaded{
-                                           [](std::int32_t v) -> std::int32_t { return v; },
-                                           [](std::int64_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
-                                           [](auto) -> std::int32_t { return 0; },
-                                       },
-                                       it->second));
-                    } else {
-                        values.push_back(std::nullopt);
-                    }
-                }
-                auto encoded = PropertyEncoder::encodeInt32Column(values, physicalTechnique, true, intEncoder);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            case ScalarType::INT_32:
+                encoded = PropertyEncoder::encodeInt32Column(
+                    extractColumn.template operator()<std::int32_t>(util::overloaded{
+                        [](std::int32_t v) -> std::int32_t { return v; },
+                        [](std::int64_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
+                        [](auto) -> std::int32_t { return 0; },
+                    }),
+                    physicalTechnique,
+                    true,
+                    intEncoder);
                 break;
-            }
-            case ScalarType::UINT_32: {
-                std::vector<std::optional<std::int32_t>> values;
-                values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
-                        values.push_back(static_cast<std::int32_t>(std::visit(
-                            util::overloaded{
-                                [](std::uint32_t v) -> std::uint32_t { return v; },
-                                [](std::int32_t v) -> std::uint32_t { return static_cast<std::uint32_t>(v); },
-                                [](auto) -> std::uint32_t { return 0; },
-                            },
-                            it->second)));
-                    } else {
-                        values.push_back(std::nullopt);
-                    }
-                }
-                auto encoded = PropertyEncoder::encodeInt32Column(values, physicalTechnique, false, intEncoder);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            case ScalarType::UINT_32:
+                encoded = PropertyEncoder::encodeInt32Column(
+                    extractColumn.template operator()<std::int32_t>(util::overloaded{
+                        [](std::uint32_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
+                        [](std::int32_t v) -> std::int32_t { return v; },
+                        [](auto) -> std::int32_t { return 0; },
+                    }),
+                    physicalTechnique,
+                    false,
+                    intEncoder);
                 break;
-            }
-            case ScalarType::INT_64: {
-                std::vector<std::optional<std::int64_t>> values;
-                values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
-                        values.push_back(std::visit(util::overloaded{
-                                                        [](std::int64_t v) -> std::int64_t { return v; },
-                                                        [](std::int32_t v) -> std::int64_t { return v; },
-                                                        [](auto) -> std::int64_t { return 0; },
-                                                    },
-                                                    it->second));
-                    } else {
-                        values.push_back(std::nullopt);
-                    }
-                }
-                auto encoded = PropertyEncoder::encodeInt64Column(values, true, intEncoder);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            case ScalarType::INT_64:
+                encoded = PropertyEncoder::encodeInt64Column(
+                    extractColumn.template operator()<std::int64_t>(util::overloaded{
+                        [](std::int64_t v) -> std::int64_t { return v; },
+                        [](std::int32_t v) -> std::int64_t { return v; },
+                        [](auto) -> std::int64_t { return 0; },
+                    }),
+                    true,
+                    intEncoder);
                 break;
-            }
-            case ScalarType::UINT_64: {
-                std::vector<std::optional<std::int64_t>> values;
-                values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
-                        values.push_back(static_cast<std::int64_t>(std::visit(
-                            util::overloaded{
-                                [](std::uint64_t v) -> std::uint64_t { return v; },
-                                [](std::int64_t v) -> std::uint64_t { return static_cast<std::uint64_t>(v); },
-                                [](auto) -> std::uint64_t { return 0; },
-                            },
-                            it->second)));
-                    } else {
-                        values.push_back(std::nullopt);
-                    }
-                }
-                auto encoded = PropertyEncoder::encodeInt64Column(values, false, intEncoder);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            case ScalarType::UINT_64:
+                encoded = PropertyEncoder::encodeInt64Column(
+                    extractColumn.template operator()<std::int64_t>(util::overloaded{
+                        [](std::uint64_t v) -> std::int64_t { return static_cast<std::int64_t>(v); },
+                        [](std::int64_t v) -> std::int64_t { return v; },
+                        [](auto) -> std::int64_t { return 0; },
+                    }),
+                    false,
+                    intEncoder);
                 break;
-            }
-            case ScalarType::FLOAT: {
-                std::vector<std::optional<float>> values;
-                values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
-                        values.push_back(std::visit(util::overloaded{
-                                                        [](float v) -> float { return v; },
-                                                        [](double v) -> float { return static_cast<float>(v); },
-                                                        [](auto) -> float { return 0.0f; },
-                                                    },
-                                                    it->second));
-                    } else {
-                        values.push_back(std::nullopt);
-                    }
-                }
-                auto encoded = PropertyEncoder::encodeFloatColumn(values);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            case ScalarType::FLOAT:
+                encoded = PropertyEncoder::encodeFloatColumn(extractColumn.template operator()<float>(util::overloaded{
+                    [](float v) -> float { return v; },
+                    [](double v) -> float { return static_cast<float>(v); },
+                    [](auto) -> float { return 0.0f; },
+                }));
                 break;
-            }
-            case ScalarType::DOUBLE: {
-                std::vector<std::optional<double>> values;
-                values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
-                        values.push_back(std::visit(util::overloaded{
-                                                        [](double v) -> double { return v; },
-                                                        [](float v) -> double { return static_cast<double>(v); },
-                                                        [](auto) -> double { return 0.0; },
-                                                    },
-                                                    it->second));
-                    } else {
-                        values.push_back(std::nullopt);
-                    }
-                }
-                auto encoded = PropertyEncoder::encodeDoubleColumn(values);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            case ScalarType::DOUBLE:
+                encoded = PropertyEncoder::encodeDoubleColumn(
+                    extractColumn.template operator()<double>(util::overloaded{
+                        [](double v) -> double { return v; },
+                        [](float v) -> double { return static_cast<double>(v); },
+                        [](auto) -> double { return 0.0; },
+                    }));
                 break;
-            }
             case ScalarType::STRING: {
                 std::vector<std::string> ownedStrings;
                 ownedStrings.reserve(features.size());
@@ -651,13 +558,13 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         values.push_back(std::nullopt);
                     }
                 }
-                auto encoded = PropertyEncoder::encodeStringColumn(values, physicalTechnique, intEncoder);
-                bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+                encoded = PropertyEncoder::encodeStringColumn(values, physicalTechnique, intEncoder);
                 break;
             }
             default:
                 throw std::runtime_error("Unsupported property type for column: " + colName);
         }
+        bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
     }
 
     std::vector<std::uint8_t> layerBytes;
