@@ -20,7 +20,7 @@ public class SyntheticMltGenerator {
 
   private static final int TILE_EXTENT = 4096;
   private static final long RANDOM_SEED = 1;
-  private static final String OUTPUT_DIR = "../../test/synthetic";
+  private static final String OUTPUT_DIR = "../test/synthetic";
 
   // Object generation
   private static Feature generateSinglePoint(GeometryFactory gf, long id) {
@@ -93,7 +93,7 @@ public class SyntheticMltGenerator {
     Files.createDirectories(outputPath.getParent());
     Files.write(outputPath, mltData);
     var decodedTile = MltDecoder.decodeMlTile(mltData);
-    String jsonOutput = CliUtil.printMLT(decodedTile);
+    String jsonOutput = CliUtil.printGeoJson(decodedTile);
     var jsonOutputPath = Paths.get(OUTPUT_DIR, outputName + ".json");
     Files.write(jsonOutputPath, jsonOutput.getBytes(StandardCharsets.UTF_8));
   }
