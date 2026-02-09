@@ -19,14 +19,10 @@ import org.maplibre.mlt.decoder.MltDecoder;
 public class SyntheticMltGenerator {
 
   private static final int TILE_EXTENT = 4096;
-  private static final long RANDOM_SEED = 1;
   private static final String OUTPUT_DIR = "../test/synthetic";
 
   // Object generation
-  private static Feature generateSinglePoint(GeometryFactory gf, long id) {
-    var rand = new java.util.Random(RANDOM_SEED);
-    int x = rand.nextInt(TILE_EXTENT);
-    int y = rand.nextInt(TILE_EXTENT);
+  private static Feature generateSinglePoint(GeometryFactory gf, long id, double x, double y) {
     var geom = gf.createPoint(new Coordinate(x, y));
     return new Feature(id, geom, Map.of("name", "Point " + id));
   }
@@ -48,14 +44,14 @@ public class SyntheticMltGenerator {
 
   // Layer generation
   private static Layer generatePointsLayer(GeometryFactory gf, long[] nextId) {
-    var f1 = generateSinglePoint(gf, nextId[0]++);
-    var f2 = generateSinglePoint(gf, nextId[0]++);
+    var f1 = generateSinglePoint(gf, nextId[0]++, 10.0, 50.0);
+    var f2 = generateSinglePoint(gf, nextId[0]++, 20.0, 40.0);
     return new Layer("points", List.of(f1, f2), TILE_EXTENT);
   }
 
   private static Layer generatePolygonsLayer(GeometryFactory gf, long[] nextId) {
-    var f1 = generateSimplePolygon(gf, nextId[0]++, 500, 500, 1000);
-    var f2 = generateSimplePolygon(gf, nextId[0]++, 1000, 1000, 1000);
+    var f1 = generateSimplePolygon(gf, nextId[0]++, 5.0, 45.0, 5.0);
+    var f2 = generateSimplePolygon(gf, nextId[0]++, 15.0, 35.0, 5.0);
     return new Layer("polygons", List.of(f1, f2), TILE_EXTENT);
   }
 
@@ -93,7 +89,7 @@ public class SyntheticMltGenerator {
     Files.createDirectories(outputPath.getParent());
     Files.write(outputPath, mltData);
     var decodedTile = MltDecoder.decodeMlTile(mltData);
-    String jsonOutput = CliUtil.printGeoJson(decodedTile);
+    String jsonOutput = CliUtil.printMltGeoJson(decodedTile);
     var jsonOutputPath = Paths.get(OUTPUT_DIR, outputName + ".json");
     Files.write(jsonOutputPath, jsonOutput.getBytes(StandardCharsets.UTF_8));
   }

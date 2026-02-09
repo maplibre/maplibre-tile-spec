@@ -1,26 +1,89 @@
 {
-  "layers": [
+  "features": [
     {
-      "extent": 4096,
-      "features": [
-        {
-          "geometry": "POLYGON ((500 500, 1500 500, 1500 1500, 500 1500, 500 500))",
-          "id": 1,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              5.0,
+              45.0
+            ],
+            [
+              10.0,
+              45.0
+            ],
+            [
+              10.0,
+              50.0
+            ],
+            [
+              5.0,
+              50.0
+            ],
+            [
+              5.0,
+              45.0
+            ]
+          ]
+        ],
+        "crs": {
+          "type": "name",
           "properties": {
-            "area": 1000000,
-            "name": "Simple Polygon 1"
-          }
-        },
-        {
-          "geometry": "POLYGON ((1000 1000, 2000 1000, 2000 2000, 1000 2000, 1000 1000))",
-          "id": 2,
-          "properties": {
-            "area": 1000000,
-            "name": "Simple Polygon 2"
+            "name": "EPSG:0"
           }
         }
-      ],
-      "name": "polygons"
+      },
+      "id": 1,
+      "properties": {
+        "area": 25,
+        "layer": "polygons",
+        "name": "Simple Polygon 1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              15.0,
+              35.0
+            ],
+            [
+              20.0,
+              35.0
+            ],
+            [
+              20.0,
+              40.0
+            ],
+            [
+              15.0,
+              40.0
+            ],
+            [
+              15.0,
+              35.0
+            ]
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 2,
+      "properties": {
+        "area": 25,
+        "layer": "polygons",
+        "name": "Simple Polygon 2"
+      },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }

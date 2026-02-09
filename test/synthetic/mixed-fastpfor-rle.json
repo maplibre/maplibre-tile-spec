@@ -1,46 +1,131 @@
 {
-  "layers": [
+  "features": [
     {
-      "extent": 4096,
-      "features": [
-        {
-          "geometry": "POINT (2993 411)",
-          "id": 1,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          50.0
+        ],
+        "crs": {
+          "type": "name",
           "properties": {
-            "name": "Point 1"
-          }
-        },
-        {
-          "geometry": "POINT (2993 411)",
-          "id": 2,
-          "properties": {
-            "name": "Point 2"
+            "name": "EPSG:0"
           }
         }
-      ],
-      "name": "points"
+      },
+      "id": 1,
+      "properties": {
+        "layer": "points",
+        "name": "Point 1"
+      },
+      "type": "Feature"
     },
     {
-      "extent": 4096,
-      "features": [
-        {
-          "geometry": "POLYGON ((500 500, 1500 500, 1500 1500, 500 1500, 500 500))",
-          "id": 3,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.0,
+          40.0
+        ],
+        "crs": {
+          "type": "name",
           "properties": {
-            "area": 1000000,
-            "name": "Simple Polygon 3"
-          }
-        },
-        {
-          "geometry": "POLYGON ((1000 1000, 2000 1000, 2000 2000, 1000 2000, 1000 1000))",
-          "id": 4,
-          "properties": {
-            "area": 1000000,
-            "name": "Simple Polygon 4"
+            "name": "EPSG:0"
           }
         }
-      ],
-      "name": "polygons"
+      },
+      "id": 2,
+      "properties": {
+        "layer": "points",
+        "name": "Point 2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              5.0,
+              45.0
+            ],
+            [
+              10.0,
+              45.0
+            ],
+            [
+              10.0,
+              50.0
+            ],
+            [
+              5.0,
+              50.0
+            ],
+            [
+              5.0,
+              45.0
+            ]
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 3,
+      "properties": {
+        "area": 25,
+        "layer": "polygons",
+        "name": "Simple Polygon 3"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              15.0,
+              35.0
+            ],
+            [
+              20.0,
+              35.0
+            ],
+            [
+              20.0,
+              40.0
+            ],
+            [
+              15.0,
+              40.0
+            ],
+            [
+              15.0,
+              35.0
+            ]
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 4,
+      "properties": {
+        "area": 25,
+        "layer": "polygons",
+        "name": "Simple Polygon 4"
+      },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }

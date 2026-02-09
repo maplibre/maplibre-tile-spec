@@ -1,24 +1,47 @@
 {
-  "layers": [
+  "features": [
     {
-      "extent": 4096,
-      "features": [
-        {
-          "geometry": "POINT (2993 411)",
-          "id": 1,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          50.0
+        ],
+        "crs": {
+          "type": "name",
           "properties": {
-            "name": "Point 1"
-          }
-        },
-        {
-          "geometry": "POINT (2993 411)",
-          "id": 2,
-          "properties": {
-            "name": "Point 2"
+            "name": "EPSG:0"
           }
         }
-      ],
-      "name": "points"
+      },
+      "id": 1,
+      "properties": {
+        "layer": "points",
+        "name": "Point 1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.0,
+          40.0
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 2,
+      "properties": {
+        "layer": "points",
+        "name": "Point 2"
+      },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }

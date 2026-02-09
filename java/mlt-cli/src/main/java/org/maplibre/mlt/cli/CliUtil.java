@@ -4,6 +4,8 @@ import com.google.gson.GsonBuilder;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -39,5 +41,46 @@ public class CliUtil {
                 Collectors.toMap(
                     Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1, TreeMap::new)));
     return map;
+  }
+
+  public static String printMltGeoJson(MapLibreTile mlTile) {
+    final var gson = new GsonBuilder().setPrettyPrinting().create();
+    var fc = new TreeMap<String, Object>();
+    fc.put("type", "FeatureCollection");
+    fc.put(
+        "features",
+        mlTile.layers().stream()
+            .flatMap(
+                layer ->
+                    layer.features().stream()
+                        .map(feature -> featureToGeoJson(layer.name(), feature)))
+            .toList());
+    return gson.toJson(fc);
+  }
+
+  private static Map<String, Object> featureToGeoJson(String layerName, Feature feature) {
+    var f = new TreeMap<String, Object>();
+    f.put("type", "Feature");
+    f.put("id", feature.id());
+    var props = getSortedNonNullProperties(feature);
+    props.put("layer", layerName);
+    f.put("properties", props);
+    var geom = feature.geometry();
+    f.put("geometry", geom == null ? null : geometryToGeoJson(geom));
+    return f;
+  }
+
+  // Filters out null values and returns properties sorted by key.
+  // Duplicate keys (if any) keep the first value.
+  private static TreeMap<String, Object> getSortedNonNullProperties(Feature feature) {
+    return feature.properties().entrySet().stream()
+        .filter(entry -> entry.getValue() != null)
+        .collect(
+            Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1, TreeMap::new));
+  }
+
+  private static Map<String, Object> geometryToGeoJson(Geometry geometry) {
+    var writer = new GeoJsonWriter();
+    return new GsonBuilder().create().fromJson(writer.write(geometry), Map.class);
   }
 }
