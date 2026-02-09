@@ -21,6 +21,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -1687,8 +1688,16 @@ public class Encode {
         System.err.println("ERROR: Unable to determine input filename for output path");
         return null;
       }
-      final var inputPath = Paths.get(inputURI.getPath());
-      final var baseName = FilenameUtils.getBaseName(inputPath.getFileName().toString());
+
+      String baseName;
+      try {
+        final var inputPath = Paths.get(inputURI.getPath());
+        baseName = FilenameUtils.getBaseName(inputPath.getFileName().toString());
+      } catch (InvalidPathException ignored) {
+        //  Windows can't handle getting the path part of a file URI
+        baseName = FilenameUtils.getBaseName(inputFileName);
+      }
+
       outputPath = Paths.get(outputDir, baseName + ext);
     }
     if (outputPath != null) {
