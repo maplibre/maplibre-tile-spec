@@ -1,2 +1,0 @@
-Downloaded from https://tile.openstreetmap.jp/static/planet-20260126.pmtiles
-Subset with `pmtiles extract planet-20260112.pmtiles planet-20260112.mvt.max1.pmtiles --maxzoom=1`

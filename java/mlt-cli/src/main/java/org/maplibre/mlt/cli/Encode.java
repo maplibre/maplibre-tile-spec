@@ -2074,7 +2074,8 @@ Add an explicit column mapping on the specified layers:
               .hasArg(true)
               .optionalArg(true)
               .argName("threads")
-              .desc("Enable parallel encoding of tiles")
+              .desc("Enable parallel encoding of tiles.  Only applies with --"
+                      + INPUT_PMTILES_ARG)
               .required(false)
               .converter(Converter.NUMBER)
               .get());

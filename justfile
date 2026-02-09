@@ -104,8 +104,8 @@ test-java-cli:
     # decode
     $DECODE --mlt output/advanced.mlt
     # Smoke-test container conversions
-    $ENCODE --mbtiles ../test/fixtures/omt/omt.max1.mbtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
-    $ENCODE --pmtiles ../test/fixtures/omt/planet-20260112.mvt.max1.pmtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
+    $ENCODE --mbtiles ../test/fixtures/omt.max1.mbtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
+    $ENCODE --pmtiles ../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
 
 # Run tests for JavaScript
 test-js: install-js
