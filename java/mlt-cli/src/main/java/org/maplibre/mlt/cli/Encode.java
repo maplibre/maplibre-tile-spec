@@ -1655,7 +1655,7 @@ public class Encode {
 
   private static URI getInputURI(String inputArg) {
     final var file = new File(inputArg);
-    return file.isFile() ? file.toURI().normalize() : URI.create(inputArg);
+    return file.isFile() ? file.getAbsoluteFile().toURI().normalize() : URI.create(inputArg);
   }
 
   /// Resolve an output filename.
