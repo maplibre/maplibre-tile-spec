@@ -271,9 +271,15 @@ public class Encode {
       if (outputPath == null) {
         return false;
       }
+
+      final var inputURI =
+          new File(inputPath).isFile()
+              ? Path.of(inputPath).toAbsolutePath().toUri()
+              : URI.create(inputPath);
+
       outputPath = outputPath.toAbsolutePath();
       if (!encodePMTiles(
-          URI.create(inputPath),
+          inputURI,
           outputPath,
           columnMappings,
           conversionConfig,
@@ -1676,7 +1682,7 @@ public class Encode {
       // pmtiles)
       final var inputURI =
           new File(inputFileName).isFile()
-              ? Path.of(inputFileName).toUri()
+              ? Path.of(inputFileName).toAbsolutePath().toUri()
               : URI.create(inputFileName);
       if (inputURI.getPath() == null) {
         System.err.println("ERROR: Unable to determine input filename for output path");

@@ -99,20 +99,13 @@ test-java-cli:
     ./gradlew cli
     # Test the encoding CLI
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
-    # ensure expected size
-    #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # ensure expected size is maintained (meta writes the same meta file as encode)
-    #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # Test the using advanced encodings
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --enable-fastpfor --enable-fsst --mlt output/advanced.mlt
-    # ensure expected sizes
-    #python3 -c 'import os; expected=67516; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    #python3 -c 'import os; expected=66523; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # decode without advanced
+    # decode
     $DECODE --mlt output/advanced.mlt
-    # ensure we can decode the advanced tile
-    # FIXME: enable vectorized decoding test
-    # $DECODE --mlt output/advanced.mlt --vectorized
+    # Smoke-test container conversions
+    $ENCODE --mbtiles ../test/fixtures/omt/omt.max1.mbtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
+    $ENCODE --pmtiles ../test/fixtures/omt/planet-20260112.mvt.max1.pmtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
 
 # Run tests for JavaScript
 test-js: install-js
