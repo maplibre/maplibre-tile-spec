@@ -272,10 +272,7 @@ public class Encode {
         return false;
       }
 
-      final var inputURI =
-          new File(inputPath).isFile()
-              ? Path.of(inputPath).toAbsolutePath().toUri()
-              : URI.create(inputPath);
+      final var inputURI = getInputURI(inputPath);
 
       outputPath = outputPath.toAbsolutePath();
       if (!encodePMTiles(
@@ -1656,6 +1653,11 @@ public class Encode {
   private static final String HELP_OPTION = "help";
   private static final String SERVER_ARG = "server";
 
+  private static URI getInputURI(String inputArg) {
+    final var file = new File(inputArg);
+    return file.isFile() ? file.toURI().normalize() : URI.create(inputArg);
+  }
+
   /// Resolve an output filename.
   /// If an output filename is specified directly, use it.
   /// If only an output directory is given, add the input filename and the specified extension.
@@ -1680,10 +1682,7 @@ public class Encode {
 
       // Get the file basename without extension.  The input may be a local path or a URI (for
       // pmtiles)
-      final var inputURI =
-          new File(inputFileName).isFile()
-              ? Path.of(inputFileName).toAbsolutePath().toUri()
-              : URI.create(inputFileName);
+      final var inputURI = getInputURI(inputFileName);
       if (inputURI.getPath() == null) {
         System.err.println("ERROR: Unable to determine input filename for output path");
         return null;
