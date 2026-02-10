@@ -1,7 +1,6 @@
 package org.maplibre.mlt.decoder;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.List;
@@ -10,7 +9,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -40,7 +38,7 @@ public class MltDecoderTest {
     return Stream.of(
         Triple.of(0, 0, 0),
         Triple.of(1, 1, 1),
-        Triple.of(2, 2, 2),
+        // Triple.of(2, 2, 2),   // TODO: fix -> 2_2_2
         Triple.of(3, 4, 5),
         Triple.of(4, 8, 10),
         Triple.of(5, 16, 21),
@@ -60,15 +58,10 @@ public class MltDecoderTest {
   @DisplayName("Decode scalar unsorted OpenMapTiles schema based vector tiles")
   @ParameterizedTest
   @MethodSource("omtTileIdProvider")
-  @Disabled
   public void decodeMlTile_UnsortedOMT(Triple<Integer, Integer, Integer> tileId)
       throws IOException, URISyntaxException {
-    // TODO: fix -> 2_2_2
-    if (tileId.getLeft() == 2) {
-      return;
-    }
-
-    var id = String.format("%s_%s_%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
+    final var id =
+        String.format("%s_%s_%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
     testTileSequential(id, TestSettings.OMT_MVT_PATH);
   }
 
@@ -122,10 +115,8 @@ public class MltDecoderTest {
     var config = new ConversionConfig(true, useFastPFOR, useFSST, optimizations);
 
     var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
-    // decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
 
-    mlTile =
-        MltConverter.convertMvt(mvTile, tileMetadata, config, new URI("http://localhost:3000"));
+    // Compare currently doesn't account for type changes
     // decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
   }
 }

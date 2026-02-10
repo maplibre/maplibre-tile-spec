@@ -54,13 +54,6 @@ public class MltConverter {
     // TODO: Allow determining whether ID is present automatically
     // TODO: Allow nullable ID columns
 
-    final boolean enableCoerceOnMismatch =
-        (config != null
-            && config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE);
-    final boolean enableElideOnMismatch =
-        (config != null
-            && config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.ELIDE);
-
     var tileset = new MltMetadata.TileSetMetadata();
 
     for (var layer : tile.layers()) {
@@ -83,8 +76,9 @@ public class MltConverter {
                       columnMappings,
                       columnSchemas,
                       complexPropertyColumnSchemas,
-                      enableCoerceOnMismatch,
-                      enableElideOnMismatch);
+                      (config != null)
+                          ? config.getTypeMismatchPolicy()
+                          : ConversionConfig.TypeMismatchPolicy.FAIL);
                 });
 
         if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
@@ -141,8 +135,7 @@ public class MltConverter {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       LinkedHashMap<String, MltMetadata.Column> columnSchemas,
       LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexColumnSchemas,
-      boolean enableCoerceOnMismatch,
-      boolean enableElideOnMismatch) {
+      ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
     final var mvtPropertyName = property.getKey();
 
     /* MVT can only contain scalar types */
@@ -174,11 +167,11 @@ public class MltConverter {
                 && scalarType == MltMetadata.ScalarType.FLOAT) {
               // no-op
               // keep DOUBLE
-            } else if (enableCoerceOnMismatch) {
+            } else if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.COERCE) {
               if (prevPhysicalType != MltMetadata.ScalarType.STRING) {
                 previousSchema.scalarType.physicalType = MltMetadata.ScalarType.STRING;
               }
-            } else if (!enableElideOnMismatch) {
+            } else if (typeMismatchPolicy != ConversionConfig.TypeMismatchPolicy.ELIDE) {
               throw new RuntimeException(
                   String.format(
                       "Layer '%s' Feature index %d Property '%s' has different type: %s / %s",
