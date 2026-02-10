@@ -29,7 +29,7 @@ public class MltConverter {
       MapboxVectorTile tile,
       Map<Pattern, List<ColumnMapping>> columnMappings,
       boolean isIdPresent) {
-    return createTilesetMetadata(tile, columnMappings, isIdPresent, false, false);
+    return createTilesetMetadata(tile, null, columnMappings, isIdPresent);
   }
 
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
@@ -38,9 +38,28 @@ public class MltConverter {
       boolean isIdPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
+    final var config =
+        ConversionConfig.builder()
+            .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
+            .build();
+    return createTilesetMetadata(tile, config, columnMappings, isIdPresent);
+  }
+
+  public static MltMetadata.TileSetMetadata createTilesetMetadata(
+      MapboxVectorTile tile,
+      @Nullable ConversionConfig config,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
+      boolean isIdPresent) {
 
     // TODO: Allow determining whether ID is present automatically
     // TODO: Allow nullable ID columns
+
+    final boolean enableCoerceOnMismatch =
+        (config != null
+            && config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE);
+    final boolean enableElideOnMismatch =
+        (config != null
+            && config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.ELIDE);
 
     var tileset = new MltMetadata.TileSetMetadata();
 
@@ -481,7 +500,7 @@ public class MltConverter {
                 sortedFeatures,
                 physicalLevelTechnique,
                 config.getUseFSST(),
-                config.getCoercePropertyValues(),
+                config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
                 config.getIntegerEncodingOption(),
                 streamRecorder);
       }
@@ -529,7 +548,7 @@ public class MltConverter {
         sortedFeatures,
         config.getUseFastPFOR(),
         config.getUseFSST(),
-        config.getCoercePropertyValues(),
+        config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
         columnMappings,
         config.getIntegerEncodingOption(),
         streamRecorder);

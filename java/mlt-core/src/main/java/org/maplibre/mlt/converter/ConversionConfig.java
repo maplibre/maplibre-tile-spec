@@ -8,6 +8,12 @@ import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 
 public class ConversionConfig {
+  public enum TypeMismatchPolicy {
+    COERCE, // Coerce values to the first type encountered
+    ELIDE, // Skip values that don't match the first type encountered
+    FAIL // Throw an error if a type mismatch is detected (default)
+  }
+
   public enum IntegerEncodingOption {
     AUTO, // Automatically select best encoding (default)
     PLAIN, // Force plain encoding
@@ -19,7 +25,7 @@ public class ConversionConfig {
   public static final boolean DEFAULT_INCLUDE_IDS = true;
   public static final boolean DEFAULT_USE_FAST_PFOR = false;
   public static final boolean DEFAULT_USE_FSST = false;
-  public static final boolean DEFAULT_COERCE_PROPERTY_VALUES = false;
+  public static final TypeMismatchPolicy DEFAULT_MISMATCH_POLICY = TypeMismatchPolicy.FAIL;
   public static final boolean DEFAULT_USE_MORTON_ENCODING = true;
   public static final boolean DEFAULT_PRE_TESSELLATE_POLYGONS = false;
   public static final boolean DEFAULT_LAYER_FILTER_INVERT = false;
@@ -28,7 +34,7 @@ public class ConversionConfig {
   private final boolean includeIds;
   private final boolean useFastPFOR;
   private final boolean useFSST;
-  private final boolean coercePropertyValues;
+  private final TypeMismatchPolicy mismatchPolicy;
   private final boolean useMortonEncoding;
   private final boolean preTessellatePolygons;
   private final @NotNull Map<String, FeatureTableOptimizations> optimizations;
@@ -54,7 +60,7 @@ public class ConversionConfig {
       boolean includeIds,
       boolean useFastPFOR,
       boolean useFSST,
-      boolean coercePropertyValues,
+      TypeMismatchPolicy mismatchPolicy,
       Map<String, FeatureTableOptimizations> optimizations,
       boolean preTessellatePolygons,
       boolean useMortonEncoding,
@@ -65,7 +71,7 @@ public class ConversionConfig {
     this.includeIds = includeIds;
     this.useFastPFOR = useFastPFOR;
     this.useFSST = useFSST;
-    this.coercePropertyValues = coercePropertyValues;
+    this.mismatchPolicy = mismatchPolicy;
     this.preTessellatePolygons = preTessellatePolygons;
     this.useMortonEncoding = useMortonEncoding;
     this.optimizations = (optimizations != null) ? optimizations : new HashMap<>();
@@ -80,7 +86,7 @@ public class ConversionConfig {
       boolean includeIds,
       boolean useFastPFOR,
       boolean useFSST,
-      boolean coercePropertyValues,
+      TypeMismatchPolicy mismatchPolicy,
       Map<String, FeatureTableOptimizations> optimizations,
       boolean preTessellatePolygons,
       boolean useMortonEncoding,
@@ -89,7 +95,7 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        coercePropertyValues,
+        mismatchPolicy,
         optimizations,
         preTessellatePolygons,
         useMortonEncoding,
@@ -110,7 +116,7 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations,
         preTessellatePolygons,
         useMortonEncoding,
@@ -131,7 +137,7 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations, // it was null before, now it is used
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
@@ -150,7 +156,7 @@ public class ConversionConfig {
         includeIds,
         useFastPFOR,
         useFSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         optimizations,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
@@ -165,7 +171,7 @@ public class ConversionConfig {
         includeIds,
         /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
         /* useFSST= */ DEFAULT_USE_FSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
@@ -180,7 +186,7 @@ public class ConversionConfig {
         includeIds,
         /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
         /* useFSST= */ DEFAULT_USE_FSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
@@ -195,7 +201,7 @@ public class ConversionConfig {
         /* includeIds= */ DEFAULT_INCLUDE_IDS,
         /* useFastPFOR= */ DEFAULT_USE_FAST_PFOR,
         /* useFSST= */ DEFAULT_USE_FSST,
-        /* coercePropertyValues= */ DEFAULT_COERCE_PROPERTY_VALUES,
+        /* mismatchPolicy= */ DEFAULT_MISMATCH_POLICY,
         /* optimizations= */ null,
         /* preTessellatePolygons= */ DEFAULT_PRE_TESSELLATE_POLYGONS,
         /* useMortonEncoding= */ DEFAULT_USE_MORTON_ENCODING,
@@ -217,8 +223,8 @@ public class ConversionConfig {
     return this.useFSST;
   }
 
-  public boolean getCoercePropertyValues() {
-    return this.coercePropertyValues;
+  public TypeMismatchPolicy getTypeMismatchPolicy() {
+    return this.mismatchPolicy;
   }
 
   public Map<String, FeatureTableOptimizations> getOptimizations() {
@@ -250,6 +256,21 @@ public class ConversionConfig {
     return integerEncodingOption;
   }
 
+  public Builder asBuilder() {
+    return new Builder()
+        .includeIds(this.includeIds)
+        .useFastPFOR(this.useFastPFOR)
+        .useFSST(this.useFSST)
+        .mismatchPolicy(this.mismatchPolicy)
+        .optimizations(this.optimizations)
+        .preTessellatePolygons(this.preTessellatePolygons)
+        .useMortonEncoding(this.useMortonEncoding)
+        .outlineFeatureTableNames(this.outlineFeatureTableNames)
+        .layerFilterPattern(this.layerFilterPattern)
+        .layerFilterInvert(this.layerFilterInvert)
+        .integerEncoding(this.integerEncodingOption);
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -263,11 +284,11 @@ public class ConversionConfig {
     private boolean includeIds = DEFAULT_INCLUDE_IDS;
     private boolean useFastPFOR = DEFAULT_USE_FAST_PFOR;
     private boolean useFSST = DEFAULT_USE_FSST;
-    private boolean coercePropertyValues = DEFAULT_COERCE_PROPERTY_VALUES;
-    private Map<String, FeatureTableOptimizations> optimizations = null;
+    private TypeMismatchPolicy mismatchPolicy = DEFAULT_MISMATCH_POLICY;
+    private Map<String, FeatureTableOptimizations> optimizations = Map.of();
     private boolean preTessellatePolygons = DEFAULT_PRE_TESSELLATE_POLYGONS;
     private boolean useMortonEncoding = DEFAULT_USE_MORTON_ENCODING;
-    private List<String> outlineFeatureTableNames = null;
+    private List<String> outlineFeatureTableNames = List.of();
     private Pattern layerFilterPattern = null;
     private boolean layerFilterInvert = DEFAULT_LAYER_FILTER_INVERT;
     private IntegerEncodingOption integerEncodingOption = DEFAULT_INTEGER_ENCODING;
@@ -287,9 +308,18 @@ public class ConversionConfig {
       return this;
     }
 
-    public Builder coercePropertyValues(boolean val) {
-      this.coercePropertyValues = val;
+    public Builder mismatchPolicy(TypeMismatchPolicy policy) {
+      this.mismatchPolicy = policy;
       return this;
+    }
+
+    public Builder mismatchPolicy(boolean coerceMismatches, boolean elideMismatches) {
+      return mismatchPolicy(
+          coerceMismatches
+              ? ConversionConfig.TypeMismatchPolicy.COERCE
+              : (elideMismatches
+                  ? ConversionConfig.TypeMismatchPolicy.ELIDE
+                  : ConversionConfig.TypeMismatchPolicy.FAIL));
     }
 
     public Builder optimizations(Map<String, FeatureTableOptimizations> val) {
@@ -332,7 +362,7 @@ public class ConversionConfig {
           includeIds,
           useFastPFOR,
           useFSST,
-          coercePropertyValues,
+          mismatchPolicy,
           optimizations,
           preTessellatePolygons,
           useMortonEncoding,

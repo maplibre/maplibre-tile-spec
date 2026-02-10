@@ -50,15 +50,14 @@ public class MltGenerator {
   private static final String MVT_OUTPUT_DIR = "..\\test\\data\\optimized\\omt\\mvt";
   private static final String MLT_OUTPUT_DIR = "..\\test\\data\\optimized\\omt\\mlt\\plain";
 
-  // TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.IDS_REASSIGNED;
-  // TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.SORTED;
-  TestUtils.Optimization OPTIMIZATION = TestUtils.Optimization.NONE;
+  private static final TestUtils.Optimization DEFAULT_OPTIMIZATION = TestUtils.Optimization.NONE;
   protected static final Map<Pattern, List<ColumnMapping>> COLUMN_MAPPINGS =
       Map.of(Pattern.compile(".*"), List.of(new ColumnMapping("name", "_", true)));
-  boolean USE_FAST_PFOR = false;
-  boolean USE_FSST = false;
-  boolean USE_POLYGON_TESSELLATION = false;
-  boolean USE_MORTON_ENCODING = false;
+  private static final boolean DEFAULT_USE_FAST_PFOR = false;
+  private static final boolean DEFAULT_USE_FSST = false;
+  private static final boolean DEFAULT_USE_POLYGON_TESSELLATION = false;
+  private static final boolean DEFAULT_USE_MORTON_ENCODING = false;
+  private static final boolean DEFAULT_INCLUDE_IDS = true;
   private static final List<String> OUTLINE_POLYGON_FEATURE_TABLE_NAMES = List.of("building");
 
   @Test
@@ -125,7 +124,8 @@ public class MltGenerator {
         final var tileMetadata =
             MltConverter.createTilesetMetadata(mvTile, COLUMN_MAPPINGS, isIdPresent);
 
-        var mlTile = convertMvtToMlt(optimizations, USE_POLYGON_TESSELLATION, mvTile, tileMetadata);
+        var mlTile =
+            convertMvtToMlt(optimizations, DEFAULT_USE_POLYGON_TESSELLATION, mvTile, tileMetadata);
 
         var mltFilename = tileName.toString().replace(".mvt", ".mlt");
         Files.write(Path.of(MLT_SPECIFIC_TILES_OUTPUT_DIR, mltFilename), mlTile);
@@ -152,7 +152,10 @@ public class MltGenerator {
 
           var mlTile =
               convertMvtToMlt(
-                  optimizations, USE_POLYGON_TESSELLATION, mvTile.getMiddle(), tileMetadata);
+                  optimizations,
+                  DEFAULT_USE_POLYGON_TESSELLATION,
+                  mvTile.getMiddle(),
+                  tileMetadata);
 
           var tileId = mvTile.getRight();
           var tileName = tileId.getLeft() + "_" + tileId.getMiddle() + "_" + tileId.getRight();
@@ -167,7 +170,7 @@ public class MltGenerator {
   }
 
   private Map<String, FeatureTableOptimizations> getOptimizations() {
-    var allowSorting = OPTIMIZATION == TestUtils.Optimization.SORTED;
+    var allowSorting = DEFAULT_OPTIMIZATION == TestUtils.Optimization.SORTED;
     // TODO: account for per-layer mappings
     final var mappings =
         COLUMN_MAPPINGS.entrySet().stream().flatMap(entry -> entry.getValue().stream()).toList();
@@ -177,7 +180,7 @@ public class MltGenerator {
             .collect(Collectors.toMap(l -> l, l -> featureTableOptimization));
 
     /* Only regenerate the ids for specific layers when the column is not sorted for comparison reasons */
-    if (OPTIMIZATION == TestUtils.Optimization.IDS_REASSIGNED) {
+    if (DEFAULT_OPTIMIZATION == TestUtils.Optimization.IDS_REASSIGNED) {
       for (var reassignableLayer : ID_REASSIGNABLE_MVT_LAYERS) {
         optimizations.put(reassignableLayer, new FeatureTableOptimizations(false, true, mappings));
       }
@@ -193,13 +196,13 @@ public class MltGenerator {
       throws IOException {
     var config =
         new ConversionConfig(
-            /* includeIds= */ true,
-            USE_FAST_PFOR,
-            USE_FSST,
-            /* coercePropertyValues= */ false,
+            DEFAULT_INCLUDE_IDS,
+            DEFAULT_USE_FAST_PFOR,
+            DEFAULT_USE_FSST,
+            ConversionConfig.TypeMismatchPolicy.FAIL,
             optimizations,
-            USE_POLYGON_TESSELLATION,
-            USE_MORTON_ENCODING,
+            preTessellatePolygons,
+            DEFAULT_USE_MORTON_ENCODING,
             OUTLINE_POLYGON_FEATURE_TABLE_NAMES);
     return MltConverter.convertMvt(mvTile, tileMetadata, config, null);
   }
