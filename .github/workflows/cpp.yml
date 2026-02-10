@@ -12,6 +12,8 @@ on:
 
 jobs:
   build:
+    permissions:
+      id-token: write  # for OIDC Codecov
     strategy:
       matrix:
         os: [macos-15, ubuntu-24.04]
