@@ -10,6 +10,9 @@ if (NOT MLT_OSX_DEPLOYMENT_TARGET)
 endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
 
+# generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
 
@@ -151,6 +154,7 @@ else()
 endif(MLT_WITH_JSON)
 
 if(MLT_WITH_TESTS)
+    include(CTest)
     add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
 endif(MLT_WITH_TESTS)
 
