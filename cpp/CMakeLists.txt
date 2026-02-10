@@ -155,6 +155,11 @@ endif(MLT_WITH_JSON)
 
 if(MLT_WITH_TESTS)
     include(CTest)
+    configure_file(
+        ${PROJECT_SOURCE_DIR}/CTestCustom.cmake
+        ${CMAKE_BINARY_DIR}/CTestCustom.cmake
+        COPYONLY
+    )
     add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
 endif(MLT_WITH_TESTS)
 
