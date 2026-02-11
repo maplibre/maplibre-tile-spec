@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v4
 
       - uses: taiki-e/install-action@v2
-        with: { tool: 'just' }
+        with: { tool: 'just,cargo-binstall' }
 
       - name: Build MLT documentation
         run: just -v mkdocs-build
@@ -23,3 +23,5 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository_owner == 'maplibre'
         uses: JamesIves/github-pages-deploy-action@4a3abc783e1a24aeb44c16e869ad83caf6b4cc23 # v4.7.4
         with: { branch: gh-pages, folder: mkdocs/site }
+
+      - run: just -v assert-git-is-clean
