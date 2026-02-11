@@ -193,6 +193,14 @@ _generate-one-expected-mlt file:
 generate-synthetic-mlts:
     ./gradlew :mlt-tools:generateSyntheticMlt
 
+ci-check-synthetic-mlts:
+    @echo "Making sure the repo is clean before generating synthetic MLT files."
+    {{just}} assert-git-is-clean
+    @echo "GIT is clean. Generating synthetic MLT files. If synthetic MLT files change, the git status will no longer be clean, and the CI check will fail."
+    {{just}} generate-synthetic-mlts
+    {{just}} assert-git-is-clean
+    @echo "GIT is still clean after generating synthetic MLT files. Synthetic MLT files are up to date."
+
 # Extract version from a tag by removing language prefix and 'v' prefix
 extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"

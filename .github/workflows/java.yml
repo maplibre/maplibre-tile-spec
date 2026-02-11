@@ -56,3 +56,6 @@ jobs:
         with:
           use_oidc: true
           directory: java
+
+      - name: Test synthetic MLT generation
+        run: just -v ci-check-synthetic-mlts
