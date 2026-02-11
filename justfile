@@ -189,9 +189,24 @@ _generate-one-expected-mlt file:
         --coerce-mismatch \
         --verbose
 
-[working-directory: 'java']
+# Generate synthetic .mlt files and ensure there are no duplicates
 generate-synthetic-mlts:
-    ./gradlew :mlt-tools:generateSyntheticMlt
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf test/synthetic
+    (cd java && ./gradlew :mlt-tools:generateSyntheticMlt)
+
+    # Check for duplicate .mlt files by computing their hashes
+    all_hashes=$(find "test/synthetic" -name '*.mlt' -exec sha256sum {} \; | sort)
+    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
+    if [ -n "$duplicates" ]; then
+        echo "::error::Duplicate synthetic MLT files found"
+        while IFS= read -r hash; do
+            echo ""
+            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
+        done <<< "$duplicates"
+        exit 1
+    fi
 
 ci-check-synthetic-mlts:
     @echo "Making sure the repo is clean before generating synthetic MLT files."

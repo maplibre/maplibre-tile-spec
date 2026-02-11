@@ -1,6 +1,7 @@
 package org.maplibre.mlt.cli;
 
 import com.google.gson.GsonBuilder;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -79,8 +80,25 @@ public class CliUtil {
             Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1, TreeMap::new));
   }
 
+  @SuppressWarnings("unchecked")
   private static Map<String, Object> geometryToGeoJson(Geometry geometry) {
     var writer = new GeoJsonWriter();
-    return new GsonBuilder().create().fromJson(writer.write(geometry), Map.class);
+    Map<String, Object> map =
+        new GsonBuilder().create().fromJson(writer.write(geometry), Map.class);
+    if (map.containsKey("coordinates")) {
+      map.put("coordinates", intifyCoordinates(map.get("coordinates")));
+    }
+    return map;
+  }
+
+  /** Recursively convert whole-number doubles to longs inside a coordinates structure. */
+  private static Object intifyCoordinates(Object obj) {
+    if (obj instanceof List<?> list) {
+      return list.stream().map(CliUtil::intifyCoordinates).toList();
+    }
+    if (obj instanceof Double d && d == Math.floor(d) && !Double.isInfinite(d)) {
+      return d.longValue();
+    }
+    return obj;
   }
 }
