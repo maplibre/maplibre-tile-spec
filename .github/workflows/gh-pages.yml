@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v4
 
       - uses: taiki-e/install-action@v2
-        with: { tool: 'just' }
+        with: { tool: 'just,cargo-binstall' }
 
       - name: Build MLT documentation
         run: just -v mkdocs-build

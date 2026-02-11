@@ -21,8 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: taiki-e/install-action@v2
-        with:
-          tool: just
+        with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-node
       - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
         run: just -v lint-js

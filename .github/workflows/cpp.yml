@@ -29,8 +29,7 @@ jobs:
           fetch-depth: 1
 
       - uses: taiki-e/install-action@v2
-        with:
-          tool: just
+        with: { tool: 'just,cargo-binstall' }
 
       - name: Configure with CMake
         run: cmake -B build -S .
