@@ -91,7 +91,7 @@ public class SyntheticMltGenerator {
     var decodedTile = MltDecoder.decodeMlTile(mltData);
     String jsonOutput = CliUtil.printMltGeoJson(decodedTile);
     var jsonOutputPath = Paths.get(OUTPUT_DIR, outputName + ".json");
-    Files.write(jsonOutputPath, jsonOutput.getBytes(StandardCharsets.UTF_8));
+    Files.write(jsonOutputPath, (jsonOutput + "\n").getBytes(StandardCharsets.UTF_8));
   }
 
   private static void generateMltFixtures() throws IOException {
