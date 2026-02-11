@@ -19,6 +19,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v6
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
 
       - name: Check if version has been updated
         id: check
@@ -41,6 +43,8 @@ jobs:
         working-directory: ts
     steps:
       - uses: actions/checkout@v6
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
 
       - uses: ./.github/actions/mlt-setup-node
 
@@ -58,8 +62,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: |
-          npm run build
+        run: npm run build
 
       - name: Merge license files into LICENSE.txt
         run: |
