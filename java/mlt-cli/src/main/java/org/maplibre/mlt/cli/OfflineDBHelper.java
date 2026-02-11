@@ -80,7 +80,7 @@ public class OfflineDBHelper {
                 } catch (IOException | IllegalStateException ex) {
                   success.set(false);
                   System.err.printf(
-                      "ERROR: Failed to decompress tile '%d': %s%n", ex.getMessage(), uniqueID);
+                      "ERROR: Failed to decompress tile '%d': %s%n", uniqueID, ex.getMessage());
                   if (config.verboseLevel() > 1) {
                     ex.printStackTrace(System.err);
                   }
@@ -110,9 +110,8 @@ public class OfflineDBHelper {
                   }
                 }
               });
-
-          CliUtil.joinThreadPool(config.threadPool(), true);
         }
+        CliUtil.joinThreadPool(config.threadPool(), true);
       } catch (InterruptedException ex) {
         System.err.printf("ERROR: Interrupted%n");
         if (config.verboseLevel() > 1) {

@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -115,6 +116,7 @@ public class MltDecoderTest {
     var config = new ConversionConfig(true, useFastPFOR, useFSST, optimizations);
 
     var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
+    Assertions.assertNotNull(mlTile);
 
     // Compare currently doesn't account for type changes
     // decodeAndCompare.apply(mlTile, tileMetadata, mvTile);

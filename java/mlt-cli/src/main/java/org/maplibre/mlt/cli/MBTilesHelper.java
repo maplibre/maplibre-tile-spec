@@ -30,6 +30,7 @@ public class MBTilesHelper {
     try {
       mbTilesReader = new MBTilesReader(new File(inputMBTilesPath));
 
+      // Remove any existing output file, as SQLite will add to it instead of replacing
       if (outputPath != null) {
         Files.deleteIfExists(outputPath);
       }
@@ -82,6 +83,7 @@ public class MBTilesHelper {
 
               final var data = tile.getData().readAllBytes();
 
+              final var writerCapture = mbTilesWriter;
               CliUtil.runTask(
                   config.threadPool(),
                   () -> {
@@ -92,8 +94,8 @@ public class MBTilesHelper {
                           Encode.convertTile(x, y, z, srcTileData, config, didCompress);
 
                       if (tileData != null) {
-                        synchronized (mbTilesWriter) {
-                          mbTilesWriter.addTile(tileData, z, x, y);
+                        synchronized (writerCapture) {
+                          writerCapture.addTile(tileData, z, x, y);
                         }
                       }
 
@@ -124,9 +126,14 @@ public class MBTilesHelper {
             return false;
           }
 
+          final var dbFile = mbTilesWriter.close();
+          if (outputPath == null) {
+            dbFile.deleteOnExit();
+          }
+          mbTilesWriter = null;
+
           // mbtiles4j doesn't support types other than png and jpg,
           // so we have to set the format metadata the hard way.
-          final var dbFile = mbTilesWriter.close();
           final var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
           try (var connection = DriverManager.getConnection(connectionString)) {
             if (config.verboseLevel() > 0) {
@@ -163,7 +170,12 @@ public class MBTilesHelper {
           tiles.close();
         }
       } finally {
-        mbTilesWriter.close();
+        if (mbTilesWriter != null) {
+          final var file = mbTilesWriter.close();
+          if (outputPath == null) {
+            file.delete();
+          }
+        }
       }
     } catch (InterruptedException
         | MBTilesReadException

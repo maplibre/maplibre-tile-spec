@@ -1,6 +1,8 @@
 package org.maplibre.mlt.cli;
 
 import com.google.gson.GsonBuilder;
+import jakarta.annotation.Nullable;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,7 +23,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
-import javax.annotation.Nullable;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorInputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateCompressorOutputStream;
 import org.apache.commons.compress.compressors.deflate.DeflateParameters;
@@ -87,7 +88,7 @@ public class CliUtil {
       @Nullable ExecutorService threadPool, @NotNull Supplier<T> task) {
     return (threadPool != null)
         ? threadPool.submit(() -> task.get())
-        : CompletableFuture.supplyAsync(task);
+        : CompletableFuture.completedFuture(task.get());
   }
 
   ///  Join the given thread pool if it is not null and optionally close it before joining
@@ -105,25 +106,28 @@ public class CliUtil {
   public static byte[] decompress(InputStream srcStream) throws IOException {
     try {
       InputStream decompressInputStream = null;
-      if (srcStream.available() > 3) {
-        var header = srcStream.readNBytes(4);
-        srcStream.reset();
+      try (final var readStream = new BufferedInputStream(srcStream)) {
+        if (readStream.available() > 3) {
+          readStream.mark(4);
+          final var header = readStream.readNBytes(4);
+          readStream.reset();
 
-        if (DeflateCompressorInputStream.matches(header, header.length)) {
-          // deflate with zlib header
-          var inflater = new Inflater(/* nowrap= */ false);
-          decompressInputStream = new InflaterInputStream(srcStream, inflater);
-        } else if (header[0] == 0x1f && header[1] == (byte) 0x8b) {
-          // TODO: why doesn't GZIPInputStream work here?
-          // decompressInputStream = new GZIPInputStream(srcStream);
-          decompressInputStream = new GzipCompressorInputStream(srcStream);
+          if (DeflateCompressorInputStream.matches(header, header.length)) {
+            // deflate with zlib header
+            final var inflater = new Inflater(/* nowrap= */ false);
+            decompressInputStream = new InflaterInputStream(readStream, inflater);
+          } else if (header[0] == 0x1f && header[1] == (byte) 0x8b) {
+            // TODO: why doesn't GZIPInputStream work here?
+            // decompressInputStream = new GZIPInputStream(readStream);
+            decompressInputStream = new GzipCompressorInputStream(readStream);
+          }
         }
-      }
 
-      if (decompressInputStream != null) {
-        try (var outputStream = new ByteArrayOutputStream()) {
-          decompressInputStream.transferTo(outputStream);
-          return outputStream.toByteArray();
+        if (decompressInputStream != null) {
+          try (final var outputStream = new ByteArrayOutputStream()) {
+            decompressInputStream.transferTo(outputStream);
+            return outputStream.toByteArray();
+          }
         }
       }
     } catch (IndexOutOfBoundsException | IOException ex) {
