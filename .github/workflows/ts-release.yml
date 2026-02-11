@@ -26,6 +26,8 @@ jobs:
         with:
           file-name: ts/package.json
 
+      - run: just -v assert-git-is-clean
+
     outputs:
       publish: ${{ steps.check.outputs.changed }}
 
@@ -87,3 +89,5 @@ jobs:
           tag_name: js-v${{ env.version }}
           name: js-v${{ env.version }}
           draft: false
+
+      - run: cd .. && just -v assert-git-is-clean

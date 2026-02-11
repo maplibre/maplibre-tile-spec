@@ -33,3 +33,4 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: ts/coverage/coverage-final.json
+      - run: just -v assert-git-is-clean

@@ -42,3 +42,5 @@ jobs:
 
       - name: Build with Bazel
         run: bazel build //cpp:mlt_cpp
+
+      - run: cd .. && just -v assert-git-is-clean

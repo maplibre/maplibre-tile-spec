@@ -23,3 +23,5 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository_owner == 'maplibre'
         uses: JamesIves/github-pages-deploy-action@4a3abc783e1a24aeb44c16e869ad83caf6b4cc23 # v4.7.4
         with: { branch: gh-pages, folder: mkdocs/site }
+
+      - run: just -v assert-git-is-clean

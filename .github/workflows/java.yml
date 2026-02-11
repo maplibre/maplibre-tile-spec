@@ -48,6 +48,7 @@ jobs:
         working-directory: java/encoding-server
       - run: npm run checkstyle
         working-directory: java/encoding-server
+      - run: just -v assert-git-is-clean
 
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'

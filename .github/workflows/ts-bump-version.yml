@@ -33,3 +33,5 @@ jobs:
           commit-message: bump @maplibre/mlt version to ${{ env.version }}
           branch: mlt-js-version-${{ env.version }}
           title: bump @maplibre/mlt version to ${{ env.version }}
+
+      - run: just -v assert-git-is-clean

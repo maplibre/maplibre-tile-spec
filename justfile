@@ -1,5 +1,11 @@
 #!/usr/bin/env just --justfile
 
+# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+just := quote(just_executable())
+
+# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
+# Use `CI=true just ci-test` to run the same tests as in GitHub CI.
+# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 # cargo-binstall needs a workaround due to caching
 # ci_mode might be manually set by user, so re-check the env var
@@ -175,6 +181,17 @@ generate-one-expected-mlt file:
 # Extract version from a tag by removing language prefix and 'v' prefix
 extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
+
+# Make sure the git repo has no uncommitted changes
+[private]
+assert-git-is-clean:
+    @if [ -n "$(git status --untracked-files --porcelain)" ]; then \
+        >&2 echo "ERROR: git repo is no longer clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
+        >&2 echo "######### git status ##########" ;\
+        git status ;\
+        git --no-pager diff ;\
+        exit 1 ;\
+    fi
 
 # Check if a certain Cargo command is installed, and install it if needed
 [private]
