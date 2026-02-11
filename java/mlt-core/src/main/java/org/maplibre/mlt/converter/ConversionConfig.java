@@ -276,9 +276,15 @@ public class ConversionConfig {
   }
 
   /**
-   * Short builder for ConversionConfig with sensible defaults. Example: var config =
-   * ConversionConfig.builder() .includeIds(true) .useFastPFOR(true)
-   * .integerEncoding(IntegerEncodingOption.DELTA) .build();
+   * Short builder for ConversionConfig with sensible defaults. Example:
+   *
+   * <pre>{@code
+   * var config = ConversionConfig.builder()
+   *     .includeIds(true)
+   *     .useFastPFOR(true)
+   *     .integerEncoding(IntegerEncodingOption.DELTA)
+   *     .build();
+   * }</pre>
    */
   public static class Builder {
     private boolean includeIds = DEFAULT_INCLUDE_IDS;
