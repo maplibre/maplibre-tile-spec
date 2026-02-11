@@ -42,7 +42,7 @@ jobs:
       - name: Test Maven local publishing
         run: cd java && ./gradlew publishMavenPublicationToMavenLocal
 
-      - run: npm install
+      - run: npm ci
         working-directory: java/encoding-server
       - run: npm run lint
         working-directory: java/encoding-server

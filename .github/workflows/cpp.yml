@@ -28,6 +28,10 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
       - name: Configure with CMake
         run: cmake -B build -S .
 
