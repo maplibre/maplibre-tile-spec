@@ -186,7 +186,7 @@ extract-version language tag:
 [private]
 assert-git-is-clean:
     @if [ -n "$(git status --untracked-files --porcelain)" ]; then \
-        >&2 echo "ERROR: git repo is no longer clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
+        >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
         >&2 echo "######### git status ##########" ;\
         git status ;\
         git --no-pager diff ;\
