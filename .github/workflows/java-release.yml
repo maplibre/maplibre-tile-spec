@@ -46,6 +46,7 @@ jobs:
       - name: Build CLI tool
         working-directory: java
         run: ./gradlew cli
+      - run: just -v assert-git-is-clean
 
       - name: Rename CLI artifacts
         run: |

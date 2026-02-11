@@ -28,6 +28,9 @@ jobs:
           submodules: recursive
           fetch-depth: 1
 
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
+
       - name: Configure with CMake
         run: cmake -B build -S .
 
@@ -42,3 +45,5 @@ jobs:
 
       - name: Build with Bazel
         run: bazel build //cpp:mlt_cpp
+
+      - run: cd .. && just -v assert-git-is-clean
