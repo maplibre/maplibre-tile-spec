@@ -103,7 +103,7 @@ public class OfflineDBHelper {
                   } catch (SQLException ex) {
                     success.set(false);
                     System.err.printf(
-                        "ERROR: Failed to convert tile '%d': %s%n", ex.getMessage(), uniqueID);
+                        "ERROR: Failed to convert tile '%d': %s%n", uniqueID, ex.getMessage());
                     if (config.verboseLevel() > 1) {
                       ex.printStackTrace(System.err);
                     }

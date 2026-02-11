@@ -63,22 +63,30 @@ public class MltDecoderTest {
       throws IOException, URISyntaxException {
     final var id =
         String.format("%s_%s_%s", tileId.getLeft(), tileId.getMiddle(), tileId.getRight());
-    testTileSequential(id, TestSettings.OMT_MVT_PATH);
+    final var useFastPFOR = (tileId.getLeft() & 1) != 0;
+    final var useFSST = (tileId.getMiddle() & 1) != 0;
+    // TODO: Why doesn't tessellation work for these
+    final var tessellate = false; // (tileId.getRight() & 1) != 0;
+    testTileSequential(id, TestSettings.OMT_MVT_PATH, useFastPFOR, useFSST, tessellate);
   }
 
-  private void testTileSequential(String tileId, String tileDirectory)
+  private void testTileSequential(
+      String tileId, String tileDirectory, boolean useFastPFOR, boolean useFSST, boolean tessellate)
       throws IOException, URISyntaxException {
     testTile(
         tileId,
         tileDirectory,
         (mlTile, tileMetadata, mvTile) -> {
-          var decodedTile = MltDecoder.decodeMlTile(mlTile);
-          TestUtils.compareTilesSequential(decodedTile, mvTile);
+          final var decodedTile = MltDecoder.decodeMlTile(mlTile);
+          Assertions.assertNotNull(decodedTile);
+          // Compare currently doesn't account for type changes
+          // TestUtils.compareTilesSequential(decodedTile, mvTile);
         },
         TestUtils.Optimization.NONE,
         List.of(),
         true,
-        true);
+        true,
+        tessellate);
   }
 
   private void testTile(
@@ -88,7 +96,8 @@ public class MltDecoderTest {
       @SuppressWarnings("SameParameterValue") TestUtils.Optimization optimization,
       List<String> reassignableLayers,
       @SuppressWarnings("SameParameterValue") boolean useFastPFOR,
-      @SuppressWarnings("SameParameterValue") boolean useFSST)
+      @SuppressWarnings("SameParameterValue") boolean useFSST,
+      @SuppressWarnings("SameParameterValue") boolean tessellate)
       throws IOException, URISyntaxException {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
@@ -113,12 +122,18 @@ public class MltDecoderTest {
       }
     }
 
-    var config = new ConversionConfig(true, useFastPFOR, useFSST, optimizations);
+    final var config =
+        ConversionConfig.builder()
+            .includeIds(true)
+            .useFastPFOR(useFastPFOR)
+            .useFSST(useFSST)
+            .optimizations(optimizations)
+            .preTessellatePolygons(tessellate)
+            .build();
 
-    var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
+    final var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
     Assertions.assertNotNull(mlTile);
 
-    // Compare currently doesn't account for type changes
-    // decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
+    decodeAndCompare.apply(mlTile, tileMetadata, mvTile);
   }
 }

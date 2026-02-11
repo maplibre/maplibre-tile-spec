@@ -259,7 +259,8 @@ public class Encode {
     final var inputTilePath = Paths.get(tileFileName);
     final var decodedMvTile = MvtUtils.decodeMvt(inputTilePath);
 
-    final Timer timer = config.willTime() ? new Timer() : null;
+    final var willTime = config.willTime();
+    final Timer timer = willTime ? new Timer() : null;
 
     final var isIdPresent = true;
     final var metadata =
@@ -285,7 +286,7 @@ public class Encode {
     var mlTile =
         MltConverter.convertMvt(
             decodedMvTile, metadata, targetConfig, config.tessellateSource(), streamObserver);
-    if (config.willTime()) {
+    if (willTime) {
       timer.stop("encoding");
     }
 
@@ -311,12 +312,12 @@ public class Encode {
       if (config.verboseLevel() > 1) {
         System.err.println("Decoding converted tile...");
       }
-      if (config.willTime()) {
+      if (willTime) {
         timer.restart();
       }
 
       var decodedTile = MltDecoder.decodeMlTile(mlTile);
-      if (config.willTime()) {
+      if (willTime) {
         timer.stop("decoding");
       }
       if (config.willPrintMLT()) {
