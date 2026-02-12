@@ -106,28 +106,29 @@ public class CliUtil {
   public static byte[] decompress(InputStream srcStream) throws IOException {
     try {
       InputStream decompressInputStream = null;
-      try (final var readStream = new BufferedInputStream(srcStream)) {
-        if (readStream.available() > 3) {
-          readStream.mark(4);
-          final var header = readStream.readNBytes(4);
-          readStream.reset();
+      // Check for common compression formats by looking at the header bytes
+      // Buffered stream is not closed here because it would also close the underlying stream
+      final var readStream = new BufferedInputStream(srcStream);
+      if (readStream.available() > 3) {
+        readStream.mark(4);
+        final var header = readStream.readNBytes(4);
+        readStream.reset();
 
-          if (DeflateCompressorInputStream.matches(header, header.length)) {
-            // deflate with zlib header
-            final var inflater = new Inflater(/* nowrap= */ false);
-            decompressInputStream = new InflaterInputStream(readStream, inflater);
-          } else if (header[0] == 0x1f && header[1] == (byte) 0x8b) {
-            // TODO: why doesn't GZIPInputStream work here?
-            // decompressInputStream = new GZIPInputStream(readStream);
-            decompressInputStream = new GzipCompressorInputStream(readStream);
-          }
+        if (DeflateCompressorInputStream.matches(header, header.length)) {
+          // deflate with zlib header
+          final var inflater = new Inflater(/* nowrap= */ false);
+          decompressInputStream = new InflaterInputStream(readStream, inflater);
+        } else if (header[0] == 0x1f && header[1] == (byte) 0x8b) {
+          // TODO: why doesn't GZIPInputStream work here?
+          // decompressInputStream = new GZIPInputStream(readStream);
+          decompressInputStream = new GzipCompressorInputStream(readStream);
         }
+      }
 
-        if (decompressInputStream != null) {
-          try (final var outputStream = new ByteArrayOutputStream()) {
-            decompressInputStream.transferTo(outputStream);
-            return outputStream.toByteArray();
-          }
+      if (decompressInputStream != null) {
+        try (final var outputStream = new ByteArrayOutputStream()) {
+          decompressInputStream.transferTo(outputStream);
+          return outputStream.toByteArray();
         }
       }
     } catch (IndexOutOfBoundsException | IOException ex) {

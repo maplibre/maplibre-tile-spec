@@ -423,8 +423,15 @@ Add an explicit column mapping on the specified layers:
               .hasArg(true)
               .argName("algorithm")
               .desc(
-                  "Compress tile data with one of 'deflate', 'gzip'. "
-                      + "Only applies to MBTiles and offline databases.")
+                  "Compress tile data with one of 'deflate', 'gzip', or 'none'. "
+                      + "Only applies with --"
+                      + INPUT_MBTILES_ARG
+                      + ", --"
+                      + INPUT_PMTILES_ARG
+                      + " or --"
+                      + INPUT_OFFLINEDB_ARG
+                      + "."
+                      + " Default: none for MBTiles and offline database, keep existing for PMTiles.")
               .required(false)
               .get());
       options.addOption(
@@ -437,9 +444,9 @@ Add an explicit column mapping on the specified layers:
               .desc(
                   "Enable parallel encoding of tiles.  Only applies with --"
                       + INPUT_MBTILES_ARG
-                      + "', '--"
+                      + ", --"
                       + INPUT_OFFLINEDB_ARG
-                      + "', or '--"
+                      + ", or --"
                       + INPUT_PMTILES_ARG)
               .required(false)
               .converter(Converter.NUMBER)
@@ -512,22 +519,18 @@ Add an explicit column mapping on the specified layers:
               .count()
           != 1) {
         System.err.println(
-            "Specify one of '--"
+            "Specify one of --"
                 + INPUT_TILE_ARG
-                + "', '--"
+                + ", --"
                 + INPUT_MBTILES_ARG
-                + "', '--"
+                + ", --"
                 + INPUT_OFFLINEDB_ARG
-                + "', or '--"
+                + ", or --"
                 + INPUT_PMTILES_ARG
-                + "'.");
+                + ".");
       } else if (cmd.hasOption(OUTPUT_FILE_ARG) && cmd.hasOption(OUTPUT_DIR_ARG)) {
         System.err.println(
-            "Cannot specify both '--"
-                + OUTPUT_FILE_ARG
-                + "' and '--"
-                + OUTPUT_DIR_ARG
-                + "' options.");
+            "Cannot specify both --" + OUTPUT_FILE_ARG + " and --" + OUTPUT_DIR_ARG + " options.");
       } else if (!validateCompression(cmd)) {
         System.err.println("Invalid compression type.");
       } else {

@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -23,18 +24,21 @@ import org.maplibre.mlt.decoder.MltDecoder;
 public class MltDecoderBenchmarkTest {
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z2() throws IOException {
     var tileId = String.format("%s_%s_%s", 2, 2, 2);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z3() throws IOException {
     var tileId = String.format("%s_%s_%s", 3, 4, 5);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z4() throws IOException {
     var tileId = String.format("%s_%s_%s", 4, 8, 10);
     benchmarkDecoding(tileId);
@@ -44,6 +48,7 @@ public class MltDecoderBenchmarkTest {
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z5() throws IOException {
     var tileId = String.format("%s_%s_%s", 5, 16, 21);
     benchmarkDecoding(tileId);
@@ -53,54 +58,63 @@ public class MltDecoderBenchmarkTest {
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z6() throws IOException {
     var tileId = String.format("%s_%s_%s", 6, 33, 42);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z7() throws IOException {
     var tileId = String.format("%s_%s_%s", 7, 66, 85);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z8() throws IOException {
     var tileId = String.format("%s_%s_%s", 8, 132, 170);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z9() throws IOException {
     var tileId = String.format("%s_%s_%s", 9, 265, 341);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z10() throws IOException {
     var tileId = String.format("%s_%s_%s", 10, 532, 682);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z11() throws IOException {
     var tileId = String.format("%s_%s_%s", 11, 1064, 1367);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z12() throws IOException {
     var tileId = String.format("%s_%s_%s", 12, 2132, 2734);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z13() throws IOException {
     var tileId = String.format("%s_%s_%s", 13, 4265, 5467);
     benchmarkDecoding(tileId);
   }
 
   @Test
+  @Tag("benchmark")
   public void decodeMlTileVectorized_Z14() throws IOException {
     var tileId = String.format("%s_%s_%s", 14, 8298, 10748);
     benchmarkDecoding(tileId);
@@ -110,6 +124,7 @@ public class MltDecoderBenchmarkTest {
   }
 
   @Test
+  @Tag("benchmark")
   public void benchmarkSuite() throws IOException {
     System.out.println("Zoom 2 ---------------------------------------");
     decodeMlTileVectorized_Z2();

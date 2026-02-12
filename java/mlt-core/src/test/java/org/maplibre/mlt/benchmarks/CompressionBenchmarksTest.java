@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.locationtech.jts.util.Assert;
@@ -33,6 +34,7 @@ public class CompressionBenchmarksTest {
   public static final String PLACEHOLDER_FILE = ".gitkeep";
 
   @ParameterizedTest
+  @Tag("benchmark")
   @ValueSource(booleans = {false, true})
   public void omtCompressionBenchmarks_Sort(boolean sorting) throws IOException {
     var results = runBenchmarks(OMT_PATH, sorting, List.of(), false);
@@ -46,6 +48,7 @@ public class CompressionBenchmarksTest {
   }
 
   @ParameterizedTest
+  @Tag("benchmark")
   @ValueSource(booleans = {false, true})
   public void omtCompressionBenchmarks_OptimizedIds(boolean tessellate) throws IOException {
     var results = runBenchmarks(OMT_PATH, true, ID_REASSIGNABLE_MVT_LAYERS, tessellate);

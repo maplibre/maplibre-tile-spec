@@ -15,7 +15,6 @@ import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
 
@@ -159,9 +158,11 @@ public class OfflineDBHelper {
           jsonString = json.toString();
 
           // Re-compress
+          final boolean compressed;
           try (var outputStream = new ByteArrayOutputStream()) {
             try (var compressStream =
                 CliUtil.compressStream(outputStream, config.compressionType())) {
+              compressed = (compressStream != outputStream);
               compressStream.write(jsonString.getBytes(StandardCharsets.UTF_8));
             }
             data = outputStream.toByteArray();
@@ -169,7 +170,7 @@ public class OfflineDBHelper {
 
           // Update the database
           updateStatement.setBytes(1, data);
-          updateStatement.setBoolean(2, !StringUtils.isEmpty(config.compressionType()));
+          updateStatement.setBoolean(2, compressed);
           updateStatement.setLong(3, uniqueID);
           updateStatement.execute();
 
