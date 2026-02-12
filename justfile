@@ -260,4 +260,5 @@ cpp-test: cpp-cmake-build
 cpp-coverage: cpp-test
     gcovr --root .. \
         --filter ../src \
+        --xml coverage.xml \
         --html-details coverage.html
