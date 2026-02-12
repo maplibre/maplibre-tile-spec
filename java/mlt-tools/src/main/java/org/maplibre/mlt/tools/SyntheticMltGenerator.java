@@ -59,9 +59,8 @@ public class SyntheticMltGenerator {
     var pol = feat(poly(c1, c2, c5, c1));
     write("polygon", pol, cfg());
     write("polygon-fpf", pol, cfg().fastPFOR());
-    // TODO: Tessellation tests cause decoder errors - skip for now
-    // write("polygon-tess", pol, cfg().tessellate());
-    // write("polygon-morton-tess", pol, cfg().fastPFOR().tessellate());
+    write("polygon-tess", pol, cfg().tessellate());
+    write("polygon-morton-tess", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
     var polWithHole = feat(poly(ring(c1, c2, c3, c4, c1), ring(c5, c6, c7, c8, c5)));
