@@ -140,13 +140,9 @@ class SyntheticMltUtil {
   }
 
   static void write(Layer layer, ConversionConfig.Builder cfg) throws IOException {
-    // The layer name is just the first portion to simplify binary file comparison
-    String name = layer.name();
-    int dashIndex = name.indexOf('-');
-    if (dashIndex != -1) {
-      name = name.substring(0, dashIndex);
-    }
-    write(layer.name(), List.of(new Layer(name, layer.features(), layer.tileExtent())), cfg);
+    // layer names should be identical to reduce variability in generated MLT files
+    // and ensure we observe differences in encoding rather than layer name variations
+    write(layer.name(), List.of(new Layer("layer1", layer.features(), layer.tileExtent())), cfg);
   }
 
   static void write(String fileName, List<Layer> layers, ConversionConfig.Builder cfg)

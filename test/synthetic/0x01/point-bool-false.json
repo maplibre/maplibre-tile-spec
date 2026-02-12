@@ -17,7 +17,7 @@
       "id": 0,
       "properties": {
         "flag": false,
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     }
