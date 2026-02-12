@@ -99,7 +99,6 @@ public class CliUtil {
         threadPool.close();
       }
       threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
-
     }
   }
 
@@ -145,7 +144,8 @@ public class CliUtil {
         parameters.setCompressionLevel(9);
         return new GzipCompressorOutputStream(src, parameters);
       } catch (IOException ex) {
-        System.err.println("Failed to create GzipCompressorOutputStream, falling back to uncompressed or alternative compression.");
+        System.err.println(
+            "Failed to create GzipCompressorOutputStream, falling back to uncompressed or alternative compression.");
         ex.printStackTrace(System.err);
       }
     }
