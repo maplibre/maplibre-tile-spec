@@ -277,12 +277,12 @@ public class MltGenerator {
     var multiPolygon = geometryFactory.createMultiPolygon(new Polygon[] {polygon1, polygon2});
 
     Map<String, Object> properties = Map.of("key", "test");
-    var feature = new Feature(1, multiPolygon, properties);
+    var feature = new Feature(1L, multiPolygon, properties);
     features.add(feature);
 
     var polygon4 = geometryFactory.createPolygon(shell4);
     Map<String, Object> properties2 = Map.of("key", "test");
-    var feature2 = new Feature(1, polygon4, properties);
+    var feature2 = new Feature(1L, polygon4, properties);
     features.add(feature2);
 
     return layer;

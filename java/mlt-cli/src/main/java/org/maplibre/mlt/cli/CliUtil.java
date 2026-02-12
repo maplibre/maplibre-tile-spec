@@ -30,7 +30,9 @@ public class CliUtil {
 
   private static Map<String, Object> toJSON(Feature feature) {
     var map = new TreeMap<String, Object>();
-    map.put("id", feature.id());
+    if (feature.id() != null) {
+      map.put("id", feature.id());
+    }
     map.put("geometry", feature.geometry().toString());
     // Print properties sorted by key and drop those with null
     // values to facilitate direct comparison with MVT output.

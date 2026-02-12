@@ -14,7 +14,6 @@
           }
         }
       },
-      "id": 0,
       "properties": {
         "layer": "layer1"
       },
@@ -56,7 +55,6 @@
           }
         }
       },
-      "id": 0,
       "properties": {
         "layer": "layer1"
       },

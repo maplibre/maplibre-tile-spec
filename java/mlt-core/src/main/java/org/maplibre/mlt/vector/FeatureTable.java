@@ -44,15 +44,18 @@ public class FeatureTable implements Iterable<Feature> {
 
       @Override
       public boolean hasNext() {
-        return index < idColumn.size();
+        return index < geometryColumn.numGeometries;
       }
 
       @Override
       public Feature next() {
-        var id =
-            isIntVector(idColumn)
-                ? ((Integer) idColumn.getValue(index).get()).longValue()
-                : (Long) idColumn.getValue(index).get();
+        Long id = null;
+        if (idColumn != null) {
+          id =
+              isIntVector(idColumn)
+                  ? ((Integer) idColumn.getValue(index).get()).longValue()
+                  : (Long) idColumn.getValue(index).get();
+        }
 
         var geometry = geometryIterator.next();
 

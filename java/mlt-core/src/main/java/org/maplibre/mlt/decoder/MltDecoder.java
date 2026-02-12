@@ -140,7 +140,7 @@ public class MltDecoder {
           p.put(propertyColumn.getKey(), v);
         }
       }
-      final var id = (ids != null) ? ids.get(j) : 0;
+      final Long id = (ids != null) ? ids.get(j) : null;
       var feature = new Feature(id, geometries[j], p);
       features.add(feature);
     }

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -32,14 +33,17 @@ public class TestUtils {
         var mltFeature = featureIterator.next();
         Feature mvtFeature =
             optimization == Optimization.SORTED
-                ? mvtFeatures.stream().filter(f -> f.id() == mltFeature.id()).findFirst().get()
+                ? mvtFeatures.stream()
+                    .filter(f -> Objects.equals(f.id(), mltFeature.id()))
+                    .findFirst()
+                    .get()
                 : mvtFeatures.get(j);
 
         /* Test for a sequential order if the  id was reassigned  */
         var mvtId =
             optimization == Optimization.IDS_REASSIGNED
                     && reassignableLayers.stream().anyMatch(l -> l.equals(featureTable.getName()))
-                ? j
+                ? (long) j
                 : mvtFeature.id();
         try {
           assertEquals(mvtId, mltFeature.id());
@@ -105,7 +109,10 @@ public class TestUtils {
       var mvtFeatures = mvtLayer.features();
       for (org.maplibre.mlt.data.Feature mvtFeature : mvtFeatures) {
         var mltFeature =
-            mltFeatures.stream().filter(f -> f.id() == mvtFeature.id()).findFirst().get();
+            mltFeatures.stream()
+                .filter(f -> Objects.equals(f.id(), mvtFeature.id()))
+                .findFirst()
+                .get();
         assertEquals(mvtFeature.id(), mltFeature.id());
 
         var mltGeometry = mltFeature.geometry();
