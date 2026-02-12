@@ -94,7 +94,11 @@ class SyntheticMltUtil {
     // c.optimizations(null); // Map<String, FeatureTableOptimizations>
     c.preTessellatePolygons(false);
     c.useMortonEncoding(false);
-    c.outlineFeatureTableNames(List.of());
+    // ALL is required here because if tesselation is enabled,
+    // a polygon outline also needs to be stored in the tile,
+    // or else it will store triangles only, and Java decoder does not currently support it.
+    // Plus, all other decoders would need to support triangle mesh without outline polygons.
+    c.outlineFeatureTableNames(List.of("ALL"));
     // c.layerFilterPattern(null); // Pattern
     c.layerFilterInvert(false);
     c.integerEncoding(encoding);
