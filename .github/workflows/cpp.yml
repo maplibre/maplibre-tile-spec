@@ -12,7 +12,7 @@ on:
       - 'test/**'
 
 jobs:
-  build:
+  cpp-build:
     permissions:
       id-token: write  # for OIDC Codecov
     strategy:
@@ -34,7 +34,12 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
 
-      - name: install gcovr
+      - name: install gcovr (macOS)
+        if: runner.os == 'macOS'
+        run: brew install gcovr
+
+      - name: install gcovr (Linux)
+        if: runner.os == 'Linux'
         run: pip3 install gcovr
 
       - name: Build, test and generate coverage report
