@@ -10,10 +10,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.*;
 import org.maplibre.mlt.cli.CliUtil;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MltConverter;
@@ -104,6 +101,34 @@ class SyntheticMltUtil {
     return c;
   }
 
+  static LineString line(Coordinate... coords) {
+    return gf.createLineString(coords);
+  }
+
+  static LinearRing ring(Coordinate... coords) {
+    return gf.createLinearRing(coords);
+  }
+
+  static Polygon poly(Coordinate... coords) {
+    return gf.createPolygon(coords);
+  }
+
+  static Polygon poly(LinearRing shell, LinearRing... holes) {
+    return gf.createPolygon(shell, holes);
+  }
+
+  static MultiPoint multi(Point... pts) {
+    return gf.createMultiPoint(pts);
+  }
+
+  static MultiPolygon multi(Polygon... polys) {
+    return gf.createMultiPolygon(polys);
+  }
+
+  static MultiLineString multi(LineString... lines) {
+    return gf.createMultiLineString(lines);
+  }
+
   static Map<String, Object> props(Object... keyValues) {
     if (keyValues.length % 2 != 0) {
       throw new IllegalArgumentException("Must provide key-value pairs");
@@ -140,13 +165,9 @@ class SyntheticMltUtil {
   }
 
   static void write(Layer layer, ConversionConfig.Builder cfg) throws IOException {
-    // The layer name is just the first portion to simplify binary file comparison
-    String name = layer.name();
-    int dashIndex = name.indexOf('-');
-    if (dashIndex != -1) {
-      name = name.substring(0, dashIndex);
-    }
-    write(layer.name(), List.of(new Layer(name, layer.features(), layer.tileExtent())), cfg);
+    // layer names should be identical to reduce variability in generated MLT files
+    // and ensure we observe differences in encoding rather than layer name variations
+    write(layer.name(), List.of(new Layer("layer1", layer.features(), layer.tileExtent())), cfg);
   }
 
   static void write(String fileName, List<Layer> layers, ConversionConfig.Builder cfg)

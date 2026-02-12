@@ -5,7 +5,6 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import org.locationtech.jts.geom.Coordinate;
 import org.maplibre.mlt.data.Feature;
 
 public class SyntheticMltGenerator {
@@ -22,6 +21,9 @@ public class SyntheticMltGenerator {
     generateIds();
     generateLines();
     generatePolygons();
+    generateMultiPoints();
+    generateMultiLineStrings();
+    generateMixed();
     generateProperties();
   }
 
@@ -39,15 +41,22 @@ public class SyntheticMltGenerator {
         };
     write(layer("point-ids", pts), cfg().ids());
     write(layer("point-ids-delta", pts), cfg(DELTA).ids());
+
+    write("point-id64", feat(p1, 9_234_567_890L), cfg().ids());
+    var pts64 =
+        new Feature[] {
+          feat(p1, 1L), feat(p2, 9_234_567_890L), feat(p3, 9_234_567_891L),
+        };
+    write(layer("point-ids64", pts64), cfg().ids());
+    write(layer("point-ids64-delta", pts64), cfg(DELTA).ids());
   }
 
   private static void generateLines() throws IOException {
-    var line = feat(gf.createLineString(new Coordinate[] {c1, c2}));
-    write("line", line, cfg());
+    write("line", feat(line(c1, c2)), cfg());
   }
 
   private static void generatePolygons() throws IOException {
-    var pol = feat(gf.createPolygon(new Coordinate[] {c1, c2, c5, c1}));
+    var pol = feat(poly(c1, c2, c5, c1));
     write("polygon", pol, cfg());
     write("polygon-fpf", pol, cfg().fastPFOR());
     // TODO: Tessellation tests cause decoder errors - skip for now
@@ -55,26 +64,40 @@ public class SyntheticMltGenerator {
     // write("polygon-morton-tess", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
-    var polWithHole =
-        feat(
-            gf.createPolygon(
-                gf.createLinearRing(new Coordinate[] {c1, c2, c3, c4, c1}),
-                new org.locationtech.jts.geom.LinearRing[] {
-                  gf.createLinearRing(new Coordinate[] {c5, c6, c7, c8, c5})
-                }));
+    var polWithHole = feat(poly(ring(c1, c2, c3, c4, c1), ring(c5, c6, c7, c8, c5)));
     write("polygon-hole", polWithHole, cfg());
     write("polygon-hole-fpf", polWithHole, cfg().fastPFOR());
 
     // MultiPolygon
-    var multiPol =
-        feat(
-            gf.createMultiPolygon(
-                new org.locationtech.jts.geom.Polygon[] {
-                  gf.createPolygon(new Coordinate[] {c1, c2, c6, c5, c1}),
-                  gf.createPolygon(new Coordinate[] {c8, c7, c3, c4, c8})
-                }));
+    var multiPol = feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)));
     write("polygon-multi", multiPol, cfg());
     write("polygon-multi-fpf", multiPol, cfg().fastPFOR());
+  }
+
+  private static void generateMultiPoints() throws IOException {
+    write("multipoint", feat(multi(p1, p2, p3)), cfg());
+  }
+
+  private static void generateMultiLineStrings() throws IOException {
+    write("multiline", feat(multi(line(c1, c2), line(c3, c4, c5))), cfg());
+  }
+
+  private static void generateMixed() throws IOException {
+    write(layer("mixed-pt-line", feat(p1), feat(line(c1, c2))), cfg());
+    write(layer("mixed-pt-poly", feat(p1), feat(poly(c1, c2, c5, c1))), cfg());
+    write(layer("mixed-line-poly", feat(line(c1, c2)), feat(poly(c1, c2, c5, c1))), cfg());
+
+    write(
+        layer("mixed-pt-multiline", feat(p1), feat(multi(line(c1, c2), line(c3, c4, c5)))), cfg());
+
+    write(
+        layer(
+            "mixed-all",
+            feat(p1),
+            feat(line(c1, c2)),
+            feat(poly(c1, c2, c5, c1)),
+            feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)))),
+        cfg());
   }
 
   private static void generateProperties() throws IOException {
