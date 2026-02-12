@@ -257,7 +257,7 @@ cpp-test: cpp-cmake-build
     ctest
 
 [working-directory: 'cpp/build']
-cpp-coverage: _check-gcovr cpp-test
+cpp-coverage: check-gcovr-is-installed cpp-test
     gcovr --root ../.. \
         --filter ../src --filter ../include \
         --txt coverage.txt \
@@ -265,5 +265,5 @@ cpp-coverage: _check-gcovr cpp-test
         --html-details coverage.html
     @echo "Coverage report at $PWD/coverage.html"
 
-_check-gcovr:
+check-gcovr-is-installed:
     @which gcovr > /dev/null || (echo "Error: gcovr is not installed. Please install it using: brew install gcovr (macOS) or pip3 install gcovr (Linux)" && exit 1)
