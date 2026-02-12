@@ -25,7 +25,7 @@ import org.maplibre.mlt.decoder.MltDecoder;
 /** Utility helpers for synthetic MLT generation. */
 class SyntheticMltUtil {
 
-  static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic");
+  static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic/0x01");
 
   // Using common coordinates everywhere to make sure generated MLT files are very similar,
   // ensuring we observe difference in encoding rather than geometry variations
