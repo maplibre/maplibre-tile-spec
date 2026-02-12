@@ -34,6 +34,9 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
 
+      - name: install gcovr
+        run: pip3 install gcovr
+
       - name: Build, test and generate coverage
         run: just cpp-coverage
 
