@@ -99,7 +99,7 @@ public class CliUtil {
         threadPool.close();
       }
       threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
-      threadPool = null;
+
     }
   }
 
@@ -144,7 +144,9 @@ public class CliUtil {
         var parameters = new GzipParameters();
         parameters.setCompressionLevel(9);
         return new GzipCompressorOutputStream(src, parameters);
-      } catch (IOException ignore) {
+      } catch (IOException ex) {
+        System.err.println("Failed to create GzipCompressorOutputStream, falling back to uncompressed or alternative compression.");
+        ex.printStackTrace(System.err);
       }
     }
     if (Objects.equals(compressionType, "deflate")) {

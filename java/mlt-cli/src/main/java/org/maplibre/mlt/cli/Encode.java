@@ -411,7 +411,7 @@ public class Encode {
    * @return The converted tile data as a byte array, or null if the conversion failed.
    */
   @Nullable
-  public static byte[] convertTile(
+  static byte[] convertTile(
       long x,
       long y,
       int z,
