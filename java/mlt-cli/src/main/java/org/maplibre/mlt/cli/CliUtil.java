@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -30,6 +31,8 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.jetbrains.annotations.NotNull;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
@@ -39,6 +42,64 @@ import org.maplibre.mlt.data.MapLibreTile;
 public class CliUtil {
 
   private CliUtil() {}
+
+  public static String printMltGeoJson(MapLibreTile mlTile) {
+    final var gson = new GsonBuilder().setPrettyPrinting().create();
+    var fc = new TreeMap<String, Object>();
+    fc.put("type", "FeatureCollection");
+    fc.put(
+        "features",
+        mlTile.layers().stream()
+            .flatMap(
+                layer ->
+                    layer.features().stream()
+                        .map(feature -> featureToGeoJson(layer.name(), feature)))
+            .toList());
+    return gson.toJson(fc);
+  }
+
+  private static Map<String, Object> featureToGeoJson(String layerName, Feature feature) {
+    var f = new TreeMap<String, Object>();
+    f.put("type", "Feature");
+    f.put("id", feature.id());
+    var props = getSortedNonNullProperties(feature);
+    props.put("layer", layerName);
+    f.put("properties", props);
+    var geom = feature.geometry();
+    f.put("geometry", geom == null ? null : geometryToGeoJson(geom));
+    return f;
+  }
+
+  // Filters out null values and returns properties sorted by key.
+  // Duplicate keys (if any) keep the first value.
+  private static TreeMap<String, Object> getSortedNonNullProperties(Feature feature) {
+    return feature.properties().entrySet().stream()
+        .filter(entry -> entry.getValue() != null)
+        .collect(
+            Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1, TreeMap::new));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> geometryToGeoJson(Geometry geometry) {
+    var writer = new GeoJsonWriter();
+    Map<String, Object> map =
+        new GsonBuilder().create().fromJson(writer.write(geometry), Map.class);
+    if (map.containsKey("coordinates")) {
+      map.put("coordinates", intifyCoordinates(map.get("coordinates")));
+    }
+    return map;
+  }
+
+  /** Recursively convert whole-number doubles to longs inside a coordinates structure. */
+  private static Object intifyCoordinates(Object obj) {
+    if (obj instanceof List<?> list) {
+      return list.stream().map(CliUtil::intifyCoordinates).toList();
+    }
+    if (obj instanceof Double d && d == Math.floor(d) && !Double.isInfinite(d)) {
+      return d.longValue();
+    }
+    return obj;
+  }
 
   public static String printMLT(MapLibreTile mlTile) {
     final var gson = new GsonBuilder().setPrettyPrinting().create();
