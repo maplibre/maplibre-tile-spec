@@ -54,6 +54,10 @@ clippy *args:
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov')
     cargo llvm-cov -p mlt-nom --all-features --all-targets --include-build-script {{args}}
 
+# Generate code coverage report for the synthetics test only
+coverage-synthetics *args='--open':  (cargo-install 'cargo-llvm-cov')
+    cargo llvm-cov -p mlt-nom --test synthetics {{args}}
+
 # Build and open code documentation
 docs *args='--open':
     DOCS_RS=1 cargo doc --no-deps {{args}} -p mlt-nom --all-features
