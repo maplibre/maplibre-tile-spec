@@ -5,9 +5,9 @@ use num_enum::TryFromPrimitive;
 
 use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
+use crate::geojson::Geometry as GeoGeom;
 use crate::utils::{OptSeq, SetOptionOnce};
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
-use crate::geojson::Geometry as GeoGeom;
 
 /// Geometry column representation, either raw or decoded
 #[borrowme]
@@ -67,9 +67,7 @@ impl DecodedGeometry {
         match geom_type {
             GeometryType::Point => {
                 let pt = match (go, po, ro) {
-                    (Some(go), Some(po), Some(ro)) => {
-                        v(ro[po[go[i] as usize] as usize] as usize)
-                    }
+                    (Some(go), Some(po), Some(ro)) => v(ro[po[go[i] as usize] as usize] as usize),
                     (Some(go), Some(po), None) => v(po[go[i] as usize] as usize),
                     (None, Some(po), Some(ro)) => v(ro[po[i] as usize] as usize),
                     (None, Some(po), None) => v(po[i] as usize),
@@ -105,16 +103,13 @@ impl DecodedGeometry {
                 ))
             }
             GeometryType::MultiPoint => {
-                let go =
-                    go.ok_or_else(|| err("missing geometry_offsets for MultiPoint"))?;
+                let go = go.ok_or_else(|| err("missing geometry_offsets for MultiPoint"))?;
                 let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
                 Ok(GeoGeom::multi_point((ps..pe).map(&v).collect()))
             }
             GeometryType::MultiLineString => {
-                let go =
-                    go.ok_or_else(|| err("missing geometry_offsets for MultiLineString"))?;
-                let po =
-                    po.ok_or_else(|| err("missing part_offsets for MultiLineString"))?;
+                let go = go.ok_or_else(|| err("missing geometry_offsets for MultiLineString"))?;
+                let po = po.ok_or_else(|| err("missing part_offsets for MultiLineString"))?;
                 let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
                 Ok(GeoGeom::multi_line_string(
                     (ps..pe)
