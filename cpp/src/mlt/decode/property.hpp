@@ -178,7 +178,7 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
-            case ScalarType::DOUBLE:
+            case ScalarType::DOUBLE: // wire format stores doubles as floats
             case ScalarType::FLOAT: {
                 const auto numValues = streamMetadata->getNumValues();
                 const auto byteLength = streamMetadata->getByteLength();

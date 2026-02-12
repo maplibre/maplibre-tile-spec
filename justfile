@@ -1,5 +1,11 @@
 #!/usr/bin/env just --justfile
 
+# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+just := quote(just_executable())
+
+# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
+# Use `CI=true just ci-test` to run the same tests as in GitHub CI.
+# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 # cargo-binstall needs a workaround due to caching
 # ci_mode might be manually set by user, so re-check the env var
@@ -7,21 +13,23 @@ binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-tele
 
 # By default, show the list of all available commands
 @_default:
-    {{quote(just_executable())}} --list
+    {{just}} --list
 
 bench: bench-js bench-java
 
+[working-directory: 'java']
 bench-java:
-    cd java && ./gradlew jmh
+    ./gradlew jmh
 
 bench-js: install-js
     echo "TODO: Add js benchmark command"
 
+[working-directory: 'ts']
 build-js: install-js
-    cd ts && npm run build
+    npm run build
 
 # Run integration tests, and override what we expect the output to be with the actual output
-bless: clean-int-test test-run-int
+bless: _clean-int-test _test-run-int
     rm -rf test/expected && mv test/output test/expected
 
 # Delete all build files for multiple languages
@@ -32,104 +40,108 @@ clean-java:
     echo "TODO: Add java cleanup command"
 
 # Delete build files for JavaScript
+[working-directory: 'ts']
 clean-js:
-    cd ts && rm -rf node_modules dist
+    rm -rf node_modules dist
 
 # Delete build files for Rust
+[working-directory: 'rust']
 clean-rust:
-    cd rust && cargo clean
+    cargo clean
 
 # Print Java environment info
+[working-directory: 'java']
 env-info-java:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    cd java && ./gradlew --version
+    ./gradlew --version
 
 # Run all formatting in every language
 fmt: fmt-java fmt-js fmt-rust
 
 # Run formatting for Java
+[working-directory: 'java']
 fmt-java:
-     cd java && ./gradlew spotlessApply
+     ./gradlew spotlessApply
 
 # Run formatting for JavaScript
+[working-directory: 'ts']
 fmt-js:
-    cd ts && npm run format
+    npm run format
 
 # Run formatting for Rust
+[working-directory: 'rust']
 fmt-rust:
-    cd rust && cargo fmt --all
+    cargo fmt --all
 
+[working-directory: 'ts']
 install-js:
-    cd ts && npm ci
+    npm ci
 
 # Run linting in every language, failing on lint suggestion or bad formatting. Run `just fmt` to fix formatting issues.
 lint: lint-java lint-js lint-rust
 
 # Run linting for Java
+[working-directory: 'java']
 lint-java:
-    cd java && ./gradlew spotlessJavaCheck
+    ./gradlew spotlessJavaCheck
 
 # Run linting for JavaScript
+[working-directory: 'ts']
 lint-js: install-js
-    cd ts && npm run lint
+    npm run lint
 
 # Run linting for Rust
+[working-directory: 'rust']
 lint-rust:
-    cd rust && cargo clippy
-    cd rust && cargo fmt --all -- --check
+    cargo clippy
+    cargo fmt --all -- --check
 
 # Run all tests in every language, including integration tests
 test: test-java test-java-cli test-js test-rust test-int
 
 # Run integration tests, ensuring that the output matches the expected output
-test-int: clean-int-test test-run-int (diff-dirs "test/output" "test/expected")
+test-int: _clean-int-test _test-run-int (_diff-dirs "test/output" "test/expected")
 
 # Run tests for Java
+[working-directory: 'java']
 test-java:
-    cd java && ./gradlew test
+    ./gradlew test
 
 # Run Java cli tests
+[working-directory: 'java']
 test-java-cli:
     #!/usr/bin/env bash
     set -euo pipefail
     JAVA="java -Dcom.google.protobuf.use_unsafe_pre22_gencode"
     ENCODE="$JAVA -jar ./mlt-cli/build/libs/encode.jar"
     DECODE="$JAVA -jar ./mlt-cli/build/libs/decode.jar"
-    cd java  # Changing directory requires this recipe to have the #!/... line at the top, i.e. be a proper script
     ./gradlew cli
     # Test the encoding CLI
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --mlt output/varint.mlt --decode
-    # ensure expected size
-    #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # ensure expected size is maintained (meta writes the same meta file as encode)
-    #python3 -c 'import os; expected=1512; ts=os.path.getsize("output/varint.mlt.meta"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
     # Test the using advanced encodings
     $ENCODE --mvt ../test/fixtures/omt/10_530_682.mvt --enable-fastpfor --enable-fsst --mlt output/advanced.mlt
-    # ensure expected sizes
-    #python3 -c 'import os; expected=67516; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    #python3 -c 'import os; expected=66523; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # decode without advanced
+    # decode
     $DECODE --mlt output/advanced.mlt
-    # ensure we can decode the advanced tile
-    # FIXME: enable vectorized decoding test
-    # $DECODE --mlt output/advanced.mlt --vectorized
+    # Smoke-test container conversions
+    $ENCODE --mbtiles ../test/fixtures/omt.max1.mbtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
+    $ENCODE --pmtiles ../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles --outlines ALL --colmap-delim '[]name/[:_]/' --tessellate --sort-ids --coerce-mismatch --verbose 0 --parallel
 
 # Run tests for JavaScript
+[working-directory: 'ts']
 test-js: install-js
-    cd ts && npm run test
+    npm run test
 
 # Run tests for Rust
+[working-directory: 'rust']
 test-rust:
-    cd rust && cargo test
+    cargo test
 
 # Delete integration test output files
-[private]
-clean-int-test:
+_clean-int-test:
     rm -rf test/output && mkdir -p test/output
 
 # Compare two directories to ensure they are the same
-[private]
-diff-dirs OUTPUT_DIR EXPECTED_DIR:
+_diff-dirs OUTPUT_DIR EXPECTED_DIR:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "** Comparing {{OUTPUT_DIR}} with {{EXPECTED_DIR}}..."
@@ -142,8 +154,7 @@ diff-dirs OUTPUT_DIR EXPECTED_DIR:
     fi
 
 # Run integration tests
-[private]
-test-run-int:
+_test-run-int:
     echo "TODO: Add integration test command, outputting to test/output"
     echo "fake output by copying expected into output so that the rest of the script works"
     # TODO: REMOVE THIS, and replace it with a real integration test run
@@ -161,12 +172,11 @@ mkdocs-build:
 [working-directory: 'java']
 generate-expected-mlt:  (cargo-install 'fd' 'fd-find')
     ./gradlew cli
-    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{quote(just_executable())}} generate-one-expected-mlt
+    fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{just}} _generate-one-expected-mlt
 
 # Generate a single .mlt file for a given .mvt or .pbf file, assuming JAR is built
 [working-directory: 'java']
-[private]
-generate-one-expected-mlt file:
+_generate-one-expected-mlt file:
     java \
         -Dcom.google.protobuf.use_unsafe_pre22_gencode \
         -jar mlt-cli/build/libs/encode.jar \
@@ -179,12 +189,48 @@ generate-one-expected-mlt file:
         --coerce-mismatch \
         --verbose
 
+# Generate synthetic .mlt files and ensure there are no duplicates
+generate-synthetic-mlts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf test/synthetic
+    (cd java && ./gradlew :mlt-tools:generateSyntheticMlt)
+
+    # Check for duplicate .mlt files by computing their hashes
+    all_hashes=$(find "test/synthetic" -name '*.mlt' -exec sha256sum {} \; | sort)
+    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
+    if [ -n "$duplicates" ]; then
+        echo "::error::Duplicate synthetic MLT files found"
+        while IFS= read -r hash; do
+            echo ""
+            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
+        done <<< "$duplicates"
+        exit 1
+    fi
+
+ci-check-synthetic-mlts:
+    @echo "Making sure the repo is clean before generating synthetic MLT files."
+    {{just}} assert-git-is-clean
+    @echo "GIT is clean. Generating synthetic MLT files. If synthetic MLT files change, the git status will no longer be clean, and the CI check will fail."
+    {{just}} generate-synthetic-mlts
+    {{just}} assert-git-is-clean
+    @echo "GIT is still clean after generating synthetic MLT files. Synthetic MLT files are up to date."
+
 # Extract version from a tag by removing language prefix and 'v' prefix
 extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
 
+# Make sure the git repo has no uncommitted changes
+assert-git-is-clean:
+    @if [ -n "$(git status --porcelain --untracked-files=all)" ]; then \
+        >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
+        >&2 echo "######### git status ##########" ;\
+        git status ;\
+        git --no-pager diff ;\
+        exit 1 ;\
+    fi
+
 # Check if a certain Cargo command is installed, and install it if needed
-[private]
 cargo-install $COMMAND $INSTALL_CMD='' *args='':
     #!/usr/bin/env bash
     set -euo pipefail
@@ -197,3 +243,24 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
         fi
     fi
+
+[working-directory: 'cpp']
+cpp-cmake-init:
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Coverage
+
+[working-directory: 'cpp']
+cpp-cmake-build: cpp-cmake-init
+    cmake --build build --target mlt-cpp-test mlt-cpp-json
+
+[working-directory: 'cpp/build']
+cpp-test: cpp-cmake-build
+    ctest
+
+[working-directory: 'cpp/build']
+cpp-coverage: cpp-test
+    gcovr --root ../.. \
+        --filter ../src --filter ../include \
+        --txt coverage.txt \
+        --cobertura-pretty --cobertura coverage.xml \
+        --html-details coverage.html
+    echo "Coverage report at $PWD/coverage.html"
