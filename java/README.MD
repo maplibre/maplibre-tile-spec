@@ -234,6 +234,9 @@ Example of converting MVT to MLT:
 java -jar mlt-cli/build/libs/encode.jar --mvt ../test/fixtures/simple/point-boolean.pbf --mlt /tmp/point-boolean.mlt --tessellate --outlines ALL --verbose
 
 java -jar mlt-cli/build/libs/encode.jar --mbtiles /path/to/input.mbtiles --mlt /tmp/output.mbtiles --tessellate --outlines ALL --compress=deflate --verbose
+
+java -jar mlt-cli/build/libs/encode.jar --pmtiles /path/to/input.pmtiles --mlt /tmp/output.pmtiles --tessellate --outlines ALL --parallel
+
 ```
 
 Example of decoding MLT files:
@@ -247,5 +250,6 @@ java -jar mlt-cli/build/libs/decode.jar -mlt /tmp/point-boolean.mlt
 Run the tests:
 
 ```
-./gradlew test
+just test-java
+just test-java-cli
 ```
