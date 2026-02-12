@@ -246,7 +246,7 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
 
 [working-directory: 'cpp']
 cpp-cmake-init:
-    cmake -B build -S .
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Coverage
 
 [working-directory: 'cpp']
 cpp-cmake-build: cpp-cmake-init
@@ -259,6 +259,6 @@ cpp-test: cpp-cmake-build
 [working-directory: 'cpp/build']
 cpp-coverage: cpp-test
     gcovr --root .. \
-        --filter ../src \
-        --xml coverage.xml \
+        --filter ../src --filter ../include \
         --html-details coverage.html
+    echo "Coverage report at $PWD/coverage.html"

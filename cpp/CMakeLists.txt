@@ -11,13 +11,20 @@ endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
 
 # generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
-# allows IDE completion via clangd
-# ln -s build/compile_commands.json .
-if(PROJECT_IS_TOP_LEVEL)
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-endif()
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 20)
+
+if(PROJECT_IS_TOP_LEVEL AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_CXX_FLAGS_COVERAGE "-g -O0 --coverage")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        string(APPEND CMAKE_CXX_FLAGS_COVERAGE " -fprofile-abs-path")
+    endif()
+    set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_MODULE_LINKER_FLAGS_COVERAGE "--coverage")
+endif()
+
 add_library(mlt-cpp STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
@@ -159,11 +166,6 @@ endif(MLT_WITH_JSON)
 
 if(MLT_WITH_TESTS)
     include(CTest)
-    configure_file(
-        ${PROJECT_SOURCE_DIR}/CTestCustom.cmake
-        ${CMAKE_BINARY_DIR}/CTestCustom.cmake
-        COPYONLY
-    )
     add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
 endif(MLT_WITH_TESTS)
 
