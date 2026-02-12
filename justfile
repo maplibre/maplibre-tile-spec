@@ -258,7 +258,7 @@ cpp-test: cpp-cmake-build
 
 [working-directory: 'cpp/build']
 cpp-coverage: cpp-test
-    gcovr --root .. \
+    gcovr --root ../.. \
         --filter ../src --filter ../include \
         --html-details coverage.html
     echo "Coverage report at $PWD/coverage.html"
