@@ -47,6 +47,7 @@ jobs:
           use_oidc: true
           files: cpp/build/coverage.xml
           fail_ci_if_error: true
+          disable_file_fixes: true
           root_dir: cpp
 
       - name: sanity test for mlt-cpp-json tool
