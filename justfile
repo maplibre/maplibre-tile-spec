@@ -257,7 +257,7 @@ cpp-test: cpp-cmake-build
     ctest
 
 [working-directory: 'cpp/build']
-cpp-coverage:
+cpp-coverage: cpp-test
     gcovr --root ../.. \
         --filter ../src --filter ../include \
         --txt coverage.txt \
