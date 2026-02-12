@@ -1,0 +1,41 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              50,
+              0
+            ],
+            [
+              10,
+              10
+            ],
+            [
+              0,
+              0
+            ]
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "layer": "layer1"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
