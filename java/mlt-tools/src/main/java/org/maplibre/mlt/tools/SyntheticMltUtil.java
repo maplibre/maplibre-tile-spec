@@ -10,10 +10,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.*;
 import org.maplibre.mlt.cli.CliUtil;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MltConverter;
@@ -102,6 +99,34 @@ class SyntheticMltUtil {
     c.layerFilterInvert(false);
     c.integerEncoding(encoding);
     return c;
+  }
+
+  static LineString lineString(Coordinate... coords) {
+    return gf.createLineString(coords);
+  }
+
+  static LinearRing linearRing(Coordinate... coords) {
+    return gf.createLinearRing(coords);
+  }
+
+  static Polygon polygon(Coordinate... coords) {
+    return gf.createPolygon(coords);
+  }
+
+  static Polygon polygon(LinearRing shell, LinearRing... holes) {
+    return gf.createPolygon(shell, holes);
+  }
+
+  static MultiPoint multiPoint(Point... pts) {
+    return gf.createMultiPoint(pts);
+  }
+
+  static MultiPolygon multiPolygon(Polygon... polys) {
+    return gf.createMultiPolygon(polys);
+  }
+
+  static MultiLineString multiLineStr(LineString... lines) {
+    return gf.createMultiLineString(lines);
   }
 
   static Map<String, Object> props(Object... keyValues) {
