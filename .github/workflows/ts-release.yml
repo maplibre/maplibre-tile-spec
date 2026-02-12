@@ -1,5 +1,9 @@
 name: TypeScript - Release
 
+permissions:
+  id-token: write  # Required for trusted publishing
+  contents: write
+
 on:
   push:
     branches:
@@ -14,13 +18,17 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
 
       - name: Check if version has been updated
         id: check
         uses: EndBug/version-check@5102328418c0130d66ca712d755c303e93368ce2
         with:
           file-name: ts/package.json
+
+      - run: just -v assert-git-is-clean
 
     outputs:
       publish: ${{ steps.check.outputs.changed }}
@@ -33,10 +41,10 @@ jobs:
     defaults:
       run:
         working-directory: ts
-    permissions:
-      contents: write         # allow making a release
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
 
       - uses: ./.github/actions/mlt-setup-node
 
@@ -54,8 +62,17 @@ jobs:
         run: npm ci
 
       - name: Build
+        run: npm run build
+
+      - name: Merge license files into LICENSE.txt
         run: |
-          npm run build
+          {
+            echo "===== MIT License ====="
+            cat ../LICENSE-MIT
+            echo
+            echo "===== Apache License 2.0 ====="
+            cat ../LICENSE-APACHE
+          } > LICENSE.txt
 
       - name: Merge license files into LICENSE.txt
         run: |
@@ -68,7 +85,7 @@ jobs:
           } > LICENSE.txt
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           name: js-v${{ env.version }}
           tag_name: js-v${{ env.version }}
@@ -78,12 +95,12 @@ jobs:
       - name: Publish npm package
         run: |
           npm publish --access=public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_ORG_TOKEN }}
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           tag_name: js-v${{ env.version }}
           name: js-v${{ env.version }}
           draft: false
+
+      - run: cd .. && just -v assert-git-is-clean

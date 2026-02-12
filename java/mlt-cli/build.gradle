@@ -1,13 +1,14 @@
 plugins {
     id 'java-library'
-    id('com.diffplug.spotless') version '8.0.0'
+    id('com.diffplug.spotless') version '8.2.1'
     id 'jacoco'
+    id 'com.gradleup.shadow' version '9.3.1'
 }
 
 repositories {
     mavenCentral()
     maven {
-        url 'https://maven.ecc.no/releases'
+        url = 'https://maven.ecc.no/releases'
     }
 }
 
@@ -16,21 +17,27 @@ dependencies {
     implementation project(':mlt-core')
 
     // CLI-specific dependencies
-    implementation 'commons-cli:commons-cli:1.10.0'
+    implementation 'commons-cli:commons-cli:1.11.0'
     implementation 'org.apache.commons:commons-compress:1.28.0'
     implementation 'org.imintel:mbtiles4j:1.0.6'
-    implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
+    implementation 'org.xerial:sqlite-jdbc:3.51.2.0'
 
     // Additional dependencies needed by CLI classes
     implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.google.protobuf:protobuf-java:4.32.1'
+    implementation 'com.google.protobuf:protobuf-java:4.33.5'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
-    implementation 'org.jetbrains:annotations:15.0'
+    implementation 'org.jetbrains:annotations:26.0.2-1'
     implementation 'org.locationtech.jts:jts-core:1.20.0'
+    implementation 'org.locationtech.jts.io:jts-io-common:1.20.0'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.3'
+    // pmtiles support
+    implementation platform('io.tileverse:tileverse-bom:1.1.0')
+    implementation 'io.tileverse.rangereader:tileverse-rangereader-all'
+    implementation 'io.tileverse.pmtiles:tileverse-pmtiles'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.2'
 }
 
 test {
@@ -39,12 +46,16 @@ test {
         outputs.upToDateWhen { false }
         showStandardStreams = true
         events "passed", "skipped", "failed"
-        exceptionFormat "full"
+        exceptionFormat = "full"
     }
     finalizedBy jacocoTestReport
 }
 
 jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = false
+    }
     dependsOn test
 }
 
@@ -55,12 +66,19 @@ java {
 }
 
 spotless {
+    groovy {
+        target 'build.gradle'
+        indentWithSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+
+    }
     java {
         importOrder()
         target 'src/*/java/**/*.java'
         googleJavaFormat()
         removeUnusedImports()
-     }
+    }
 }
 
 gradle.projectsEvaluated {
@@ -79,13 +97,22 @@ tasks.withType(Test).configureEach {
 
 // Create CLI JARs
 ["encode", "decode"].each { name ->
-    task "$name"(type: Jar, dependsOn: [compileJava, ':mlt-core:jar']) {
+    task "$name"(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar, dependsOn: [compileJava, ':mlt-core:jar']) {
         archiveFileName = name + ".jar"
         archiveClassifier = "cli"
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from {
-            configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+        configurations = project.configurations.named('runtimeClasspath').map { [it] }
+
+        // Filter out dependency JAR signatures to prevent `SecurityException: Invalid signature file digest for Manifest main attributes`
+        exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+
+        // Tileverse relies on the contents of META-INF/services to register service providers.
+        // By default, these are ignored when building a fat JAR, so we need to merge them.
+        filesMatching('META-INF/services/**') {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
         }
+        mergeServiceFiles()
+
         manifest.from jar.manifest
         with jar
     }

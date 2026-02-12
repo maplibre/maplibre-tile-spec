@@ -19,7 +19,9 @@ jobs:
   js-bump-version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
 
       - name: Update version, commit, and create tag
         working-directory: ts
@@ -28,8 +30,10 @@ jobs:
           echo version="$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        uses: peter-evans/create-pull-request@84ae59a2cdc2258d6fa0732dd66352dddae2a412 # v7.0.9
         with:
           commit-message: bump @maplibre/mlt version to ${{ env.version }}
           branch: mlt-js-version-${{ env.version }}
           title: bump @maplibre/mlt version to ${{ env.version }}
+
+      - run: just -v assert-git-is-clean

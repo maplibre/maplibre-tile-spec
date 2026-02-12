@@ -1,45 +1,72 @@
-import {describe, it, expect, beforeEach} from "vitest";
+import { describe, it, expect } from "vitest";
 import { decodeFsst } from "./fsstDecoder";
+import { encodeFsst, createSymbolTable } from "../encoding/fsstEncoder";
 
+const textEncoder = new TextEncoder();
 
-describe("Test fsstDecoder", () => {
-    it('should decode FSST compressed data correctly', () => {
-        // Setup: Create symbol table
-        // Symbol 0: "Hello" (5 bytes)
-        // Symbol 1: "World" (5 bytes)
-        // Symbol 2: "!" (1 byte)
-        const symbols = new Uint8Array([
-            72, 101, 108, 108, 111,
-            87, 111, 114, 108, 100,
-            33
-        ]);
+describe("decodeFsst", () => {
+    describe("basic functionality", () => {
+        it("should decode FSST compressed string data", () => {
+            const inputString = "HelloWorld !";
+            const originalBytes = textEncoder.encode(inputString);
 
-        const symbolLengths = new Uint32Array([5, 5, 1]);
+            const { symbols, symbolLengths } = createSymbolTable(["Hello", "World", "!"]);
+            const encoded = encodeFsst(symbols, symbolLengths, originalBytes);
+            const decoded = decodeFsst(symbols, symbolLengths, encoded);
 
-        // Compressed data:
-        // 0 = Symbol 0 ("Hello")
-        // 1 = Symbol 1 ("World")
-        // 255, 32 = Literal byte 32 (space character)
-        // 2 = Symbol 2 ("!")
-        const compressedData = new Uint8Array([0, 1, 255, 32, 2]);
+            expect(decoded).toEqual(originalBytes);
+            expect(new TextDecoder().decode(decoded)).toBe(inputString);
+        });
 
-        // Act
-        const result = decodeFsst(symbols, symbolLengths, compressedData);
+        it("should handle empty string", () => {
+            const inputString = "";
+            const originalBytes = textEncoder.encode(inputString);
 
-        // Assert
-        const expected = new Uint8Array([
-            72, 101, 108, 108, 111, // "Hello"
-            87, 111, 114, 108, 100, // "World"
-            32,                      // " " (space)
-            33                       // "!"
-        ]);
+            const { symbols, symbolLengths } = createSymbolTable(["A"]);
+            const encoded = encodeFsst(symbols, symbolLengths, originalBytes);
+            const decoded = decodeFsst(symbols, symbolLengths, encoded);
 
-        expect(result).toEqual(expected);
+            expect(decoded).toEqual(originalBytes);
+            expect(decoded.length).toBe(0);
+        });
 
-        // Verify decoded string
-        const decodedString = new TextDecoder().decode(result);
-        expect(decodedString).toBe('HelloWorld !');
+        it("should handle string with no matching symbols", () => {
+            const inputString = "12345";
+            const originalBytes = textEncoder.encode(inputString);
+
+            const { symbols, symbolLengths } = createSymbolTable(["abc", "def", "xyz"]);
+            const encoded = encodeFsst(symbols, symbolLengths, originalBytes);
+            const decoded = decodeFsst(symbols, symbolLengths, encoded);
+
+            expect(decoded).toEqual(originalBytes);
+            expect(new TextDecoder().decode(decoded)).toBe(inputString);
+        });
+
+        it("should handle string with all matching symbols", () => {
+            const inputString = "AAAA";
+            const originalBytes = textEncoder.encode(inputString);
+
+            const { symbols, symbolLengths } = createSymbolTable(["A"]);
+            const encoded = encodeFsst(symbols, symbolLengths, originalBytes);
+            const decoded = decodeFsst(symbols, symbolLengths, encoded);
+
+            expect(decoded).toEqual(originalBytes);
+            expect(new TextDecoder().decode(decoded)).toBe(inputString);
+        });
     });
 
+    describe("compression verification", () => {
+        it("should handle repeated strings efficiently", () => {
+            const inputString = "HelloWorldHelloWorld";
+            const originalBytes = textEncoder.encode(inputString);
 
-})
+            const { symbols, symbolLengths } = createSymbolTable(["Hello", "World"]);
+            const encoded = encodeFsst(symbols, symbolLengths, originalBytes);
+            const decoded = decodeFsst(symbols, symbolLengths, encoded);
+
+            expect(decoded).toEqual(originalBytes);
+            expect(new TextDecoder().decode(decoded)).toBe(inputString);
+            expect(encoded.length).toBeLessThan(originalBytes.length);
+        });
+    });
+});

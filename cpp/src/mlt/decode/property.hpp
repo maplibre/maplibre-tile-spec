@@ -159,9 +159,9 @@ protected:
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
             case ScalarType::INT_64: {
-                std::vector<std::uint64_t> longBuffer;
+                std::vector<std::int64_t> longBuffer;
                 longBuffer.reserve(streamMetadata->getNumValues());
-                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::uint64_t>(
+                intDecoder.decodeIntStream<std::uint64_t, std::uint64_t, std::int64_t>(
                     tileData, longBuffer, *streamMetadata, /*isSigned=*/true);
 
                 PropertyVec result{std::move(longBuffer)};
@@ -178,7 +178,7 @@ protected:
                 checkBits(presentStream, result);
                 return {scalarType, std::move(result), std::move(presentStream)};
             }
-            case ScalarType::DOUBLE: // doubles currently written as floats
+            case ScalarType::DOUBLE: // wire format stores doubles as floats
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
                 floatBuffer.reserve(streamMetadata->getNumValues());

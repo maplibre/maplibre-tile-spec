@@ -1,16 +1,29 @@
 import { describe, it, expect } from "vitest";
-import ZOrderCurve from "./zOrderCurve";
+import { decodeZOrderCurve } from "./zOrderCurve";
+import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder";
 
-describe("ZOrderCurve", () => {
-    it("decode", () => {
-        const expectedIndex = 38865244;
-        const expectedVertex = { x: 3358, y: 4130 };
-        const zCurve = new ZOrderCurve(288, 4150);
+describe("zOrderCurve", () => {
+    it("should encode and decode z-order curve", () => {
+        const x = 3358;
+        const y = 4130;
+        const numBits = 13;
+        const coordinateShift = 0;
 
-        const actualIndex = zCurve.encode(expectedVertex);
-        const actualVertex = zCurve.decode(actualIndex);
+        const encoded = encodeZOrderCurve(x, y, numBits, coordinateShift);
+        expect(encoded).toBe(38865244);
 
-        expect(actualIndex).toEqual(expectedIndex);
-        expect(actualVertex).toEqual(expectedVertex);
+        const decoded = decodeZOrderCurve(encoded, numBits, coordinateShift);
+        expect(decoded).toEqual({ x, y });
+    });
+
+    it("should handle coordinate shift", () => {
+        const x = -50;
+        const y = 30;
+        const numBits = 8;
+        const coordinateShift = 100;
+
+        const encoded = encodeZOrderCurve(x, y, numBits, coordinateShift);
+        const decoded = decodeZOrderCurve(encoded, numBits, coordinateShift);
+        expect(decoded).toEqual({ x, y });
     });
 });

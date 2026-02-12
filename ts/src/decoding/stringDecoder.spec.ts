@@ -1,460 +1,556 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { type LogicalStreamType } from "../metadata/tile/logicalStreamType";
-import IntegerStreamDecoder from "./integerStreamDecoder";
-import { StreamMetadataDecoder } from "../metadata/tile/streamMetadataDecoder";
-import { type StreamMetadata } from "../metadata/tile/streamMetadata";
-import { LengthType } from "../metadata/tile/lengthType";
+import { describe, it, expect } from "vitest";
+import IntWrapper from "./intWrapper";
+import { decodeString, decodeSharedDictionary } from "./stringDecoder";
+import { encodePlainStrings, encodeDictionaryStrings } from "../encoding/stringEncoder";
+import {
+    concatenateBuffers,
+    createColumnMetadataForStruct,
+    createStream,
+    encodeFsstStrings,
+    encodeSharedDictionary,
+    encodeStructField,
+} from "./decodingTestUtils";
+import { StringFlatVector } from "../vector/flat/stringFlatVector";
+import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
+import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
+import { ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
-import { DictionaryType } from "../metadata/tile/dictionaryType";
-import { ScalarType } from "../metadata/tile/scalarType";
-import type IntWrapper from "./intWrapper";
-import { type Column } from "../metadata/tileset/tilesetMetadata";
-import { StringDecoder } from "./stringDecoder";
-import * as integerDecoder from "./integerDecodingUtils";
+import { LengthType } from "../metadata/tile/lengthType";
+import { LogicalStreamType } from "../metadata/tile/logicalStreamType";
 
-function createMockStreamMetadata(
-    physicalStreamType: PhysicalStreamType,
-    logicalStreamType: LogicalStreamType,
-    byteLength: number
-): StreamMetadata {
-    return {
-        physicalStreamType,
-        logicalStreamType,
-        byteLength,
-        _physicalStreamType: physicalStreamType,
-        _logicalStreamType: logicalStreamType,
-        _logicalLevelTechnique1: undefined,
-        _logicalLevelTechnique2: undefined,
-    } as unknown as StreamMetadata;
-}
+describe("decodeString - Plain String Decoder", () => {
+    it("should decode plain strings with simple ASCII values", () => {
+        const expectedStrings = ["hello", "world", "test"];
+        const encodedStrings = encodePlainStrings(expectedStrings);
+        const offset = new IntWrapper(0);
 
-function createMockChildField(
-    name: string = 'fieldName',
-    type: string = 'scalarField',
-    physicalType: ScalarType = ScalarType.STRING
-) {
-    return {
-        name,
-        type,
-        scalarField: { physicalType },
-    };
-}
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
-function createMockColumn(name: string = 'testColumn', children: any[] = []): Column {
-    return {
-        name,
-        complexType: {
-            children: children.length > 0 ? children : [createMockChildField()],
-        },
-    } as unknown as Column;
-}
-
-function setupOffsetMock(initialValue: number = 0) {
-    let offsetValue = initialValue;
-    const mockOffset = {
-        get: vi.fn(() => offsetValue),
-        add: vi.fn((amount: number) => {
-            offsetValue += amount;
-        }),
-    } as unknown as IntWrapper;
-    return mockOffset;
-}
-
-/**
- * Setup StreamMetadataDecoder mock with a pool of metadata.
- * Cycles through the pool if more calls are made than metadata provided.
- */
-function setupStreamMetadataDecodeMock(metadata: StreamMetadata[]): void {
-    let callCount = 0;
-    vi.spyOn(StreamMetadataDecoder, 'decode').mockImplementation(() => {
-        const result = metadata[callCount % metadata.length];
-        callCount++;
-        return result;
-    });
-}
-
-function setupLengthStreamDecodeMock(offsetBuffer: Int32Array, streamMetadata: StreamMetadata): void {
-    vi.spyOn(IntegerStreamDecoder, 'decodeLengthStreamToOffsetBuffer')
-        .mockImplementation((data, offset, metadata) => {
-            offset.add(metadata.byteLength);
-            return offsetBuffer;
-        });
-}
-
-function setupVarintDecodeMock(value: number | number[] = 0): void {
-    const values = Array.isArray(value) ? value : [value];
-    let callCount = 0;
-    vi.spyOn(integerDecoder, 'decodeVarintInt32' as any).mockImplementation(() => {
-        const result = new Int32Array([values[callCount] ?? 0]);
-        callCount++;
-        return result;
-    });
-}
-
-describe('decodePlainStringVector', () => {
-    it('should return null when plainLengthStream is null', () => {
-        const result = (StringDecoder as any).decodePlainStringVector('test', null, new Uint8Array([1, 2, 3]), null, null);
-        expect(result).toBeNull();
+        expect(result).toBeInstanceOf(StringFlatVector);
+        const resultVec = result as StringFlatVector;
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    it('should return null when plainDataStream is null', () => {
-        const result = (StringDecoder as any).decodePlainStringVector('test', new Int32Array([0, 3]), null, null, null);
-        expect(result).toBeNull();
+    it("should decode plain strings with varying lengths", () => {
+        const expectedStrings = ["a", "abc", "hello world"];
+        const encodedStrings = encodePlainStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
+
+        const resultVec = result as StringFlatVector;
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    it('should return StringDictionaryVector when offsetStream exists (non-nullable)', () => {
-        const plainLengthStream = new Int32Array([0, 3, 7]);
-        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
-        const offsetStream = new Int32Array([0, 1]);
+    it("should decode plain strings with empty strings", () => {
+        const expectedStrings = ["", "encodedStrings", "", "more"];
+        const encodedStrings = encodePlainStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
-        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, offsetStream, null);
-
-        expect(result).toBeDefined();
-        expect(result.name).toBe('test');
+        expect(result).toBeInstanceOf(StringFlatVector);
+        const resultVec = result as StringFlatVector;
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    it('should return StringDictionaryVector when offsetStream exists (nullable)', () => {
-        const plainLengthStream = new Int32Array([0, 3, 7]);
-        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
-        const offsetStream = new Int32Array([0, 1]);
-        const nullabilityBuffer = { size: () => 2, get: (i: number) => true } as any;
+    it("should decode mixed null and empty strings", () => {
+        const expectedStrings = [null, "", "encodedStrings", null, ""];
+        const encodedStrings = encodePlainStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
-        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer);
-
-        expect(result).toBeDefined();
-        expect(result.name).toBe('test');
+        expect(result).not.toBeNull();
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(result.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    it('should return StringDictionaryVector with sparse offset when nullability mismatch', () => {
-        const plainLengthStream = new Int32Array([0, 3, 7]);
-        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
-        const nullabilityBuffer = {
-            size: () => 3,
-            get: (i: number) => i !== 1
-        } as any;
+    it("should decode mixed ASCII and UTF-8 strings", () => {
+        const expectedStrings = ["hello", "Привет", "world", "日本"];
+        const encodedStrings = encodePlainStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
 
-        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, null, nullabilityBuffer);
-
-        expect(result).toBeDefined();
-        expect(result.name).toBe('test');
-    });
-
-    it('should return StringFlatVector (non-nullable)', () => {
-        const plainLengthStream = new Int32Array([0, 3, 7]);
-        const plainDataStream = new Uint8Array([97, 98, 99, 100, 101, 102, 103]);
-
-        const result = (StringDecoder as any).decodePlainStringVector('test', plainLengthStream, plainDataStream, null, null);
-
-        expect(result).toBeDefined();
-        expect(result.name).toBe('test');
+        expect(result).toBeInstanceOf(StringFlatVector);
+        const resultVec = result as StringFlatVector;
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 });
 
-describe('decodeSharedDictionary', () => {
-    let mockData: Uint8Array;
-    let mockOffset: IntWrapper;
-    let mockColumn: Column;
-    let numFeatures: number;
+describe("decodeString - Dictionary String Decoder", () => {
+    it("should decode dictionary-compressed strings with repeated values", () => {
+        const expectedStrings = ["cat", "dog", "cat", "cat", "dog"];
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
-    beforeEach(() => {
-        mockData = new Uint8Array(256);
-        mockOffset = setupOffsetMock();
-        mockColumn = createMockColumn('testColumn', [createMockChildField()]);
-        numFeatures = 10;
-        vi.clearAllMocks();
+        expect(result).toBeInstanceOf(StringDictionaryVector);
+        const resultVec = result as StringDictionaryVector;
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    describe('basic dictionary stream decoding', () => {
-        it('should decode LENGTH stream for dictionary offset buffer', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const streamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dataLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dataStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dataLogicalType, 50);
-            const expectedOffsetBuffer = new Int32Array([0, 5, 10, 15, 20]);
+    it("should decode dictionary with single repeated string", () => {
+        const expectedStrings = ["same", "same", "same"];
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
-            setupStreamMetadataDecodeMock([streamMetadata, dataStreamMetadata]);
-            setupLengthStreamDecodeMock(expectedOffsetBuffer, streamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
-
-            expect(StreamMetadataDecoder.decode).toHaveBeenCalledWith(mockData, mockOffset);
-            expect(IntegerStreamDecoder.decodeLengthStreamToOffsetBuffer).toHaveBeenCalled();
-            expect(result).toBeDefined();
-            expect(Array.isArray(result)).toBe(true);
-        });
-
-        it('should decode LENGTH stream for symbol offset buffer', () => {
-            const lengthLogicalType = { lengthType: LengthType.SYMBOL } as unknown as LogicalStreamType;
-            const streamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dataLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dataStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dataLogicalType, 50);
-            const expectedOffsetBuffer = new Int32Array([0, 3, 6, 9]);
-
-            setupStreamMetadataDecodeMock([streamMetadata, dataStreamMetadata]);
-            setupLengthStreamDecodeMock(expectedOffsetBuffer, streamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
-
-            expect(result).toBeDefined();
-        });
+        expect(result).toBeInstanceOf(StringDictionaryVector);
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(result.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    describe('dictionary buffer decoding', () => {
-        it('should decode SINGLE dictionary type DATA stream', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SINGLE } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
+    it("should decode dictionary with UTF-8 strings", () => {
+        const expectedStrings = ["café", "日本", "café", "日本"];
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
-
-            expect(mockOffset.add).toHaveBeenCalledWith(40);
-            expect(result).toBeDefined();
-        });
-
-        it('should advance offset correctly through LENGTH and DATA streams', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SINGLE } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
-
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
-
-            expect(mockOffset.add).toHaveBeenNthCalledWith(1, 20);
-            expect(mockOffset.add).toHaveBeenNthCalledWith(2, 40);
-            expect(result).toBeDefined();
-        });
+        expect(result).toBeInstanceOf(StringDictionaryVector);
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(result.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    describe('symbol table buffer decoding', () => {
-        it('should decode symbol table buffer when dictionary type is not SINGLE or SHARED', () => {
-            const symbolTableLogicalType = { dictionaryType: DictionaryType.NONE } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, symbolTableLogicalType, 20);
-            const symbolTableMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, symbolTableLogicalType, 35);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryDataMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 50);
-            const offsetBuffer = new Int32Array([0, 10, 20]);
+    it("should decode dictionary with all unique strings", () => {
+        const expectedStrings = ["unique1", "unique2", "unique3", "unique4"];
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
 
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, symbolTableMetadata, dictionaryDataMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
-
-            expect(mockOffset.add).toHaveBeenNthCalledWith(1, 20);
-            expect(mockOffset.add).toHaveBeenNthCalledWith(2, 35);
-            expect(mockOffset.add).toHaveBeenNthCalledWith(3, 50);
-            expect(result).toBeDefined();
-        });
+        expect(result).toBeInstanceOf(StringDictionaryVector);
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(result.getValue(i)).toBe(expectedStrings[i]);
+        }
     });
 
-    describe('with propertyColumnNames filter', () => {
-        it('should accept optional propertyColumnNames parameter', () => {
-            const propertyColumnNames = new Set(['testColumn']);
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const skipStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 15);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
+    it("should decode nullable dictionary strings", () => {
+        const expectedStrings = [null, "", "encodedStrings", "", null];
+        const encodedStrings = encodeDictionaryStrings(expectedStrings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 4);
 
-            // Provide metadata for: LENGTH, DATA (for dictionary), DATA (for skipColumn)
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata, skipStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock([1, 1]); // First field has 1 stream, then 1 more stream to skip
+        expect(result).toBeInstanceOf(StringDictionaryVector);
+        for (let i = 0; i < expectedStrings.length; i++) {
+            expect(result.getValue(i)).toBe(expectedStrings[i]);
+        }
+    });
+});
 
-            const result = StringDecoder.decodeSharedDictionary(
-                mockData,
-                mockOffset,
-                mockColumn,
-                numFeatures,
-                propertyColumnNames
+describe("decodeString - FSST Dictionary Decoder (Basic Coverage)", () => {
+    it("should decode FSST-compressed strings with simple symbol table", () => {
+        const encodedStrings = encodeFsstStrings();
+        const offset = new IntWrapper(0);
+
+        const result = decodeString("testColumn", encodedStrings, offset, 6);
+
+        expect(result).toBeInstanceOf(StringFsstDictionaryVector);
+        const resultVec = result as StringFsstDictionaryVector;
+
+        const expectedValues = ["cat", "dog", "cat"];
+        for (let i = 0; i < expectedValues.length; i++) {
+            expect(resultVec.getValue(i)).toBe(expectedValues[i]);
+        }
+    });
+});
+
+describe("decodeString - Empty Column Edge Cases", () => {
+    it("should handle empty column with numStreams = 0 (returns null)", () => {
+        const fullStream = new Uint8Array([]);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", fullStream, offset, 0);
+        expect(result).toBeNull();
+    });
+
+    it("should handle column with all zero-length streams (returns null)", () => {
+        const emptyStream = createStream(PhysicalStreamType.LENGTH, new Uint8Array([]), {
+            logical: new LogicalStreamType(undefined, undefined, LengthType.VAR_BINARY),
+        });
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", emptyStream, offset, 1);
+        expect(result).toBeNull();
+    });
+
+    it("should handle single value plain string column", () => {
+        const strings = ["single"];
+        const encodedStrings = encodePlainStrings(strings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
+
+        expect(result).toBeInstanceOf(StringFlatVector);
+        expect((result as StringFlatVector).getValue(0)).toBe("single");
+    });
+
+    it("should handle single null value in plain string column (returns null)", () => {
+        const strings = [null];
+        const encodedStrings = encodePlainStrings(strings);
+        const offset = new IntWrapper(0);
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
+        expect(result).toBeNull();
+    });
+});
+
+describe("decodeString - Integration Tests", () => {
+    it("should correctly track offset through multiple streams", () => {
+        const strings = ["hello", "world"];
+        const encodedStrings = encodePlainStrings(strings);
+        const offset = new IntWrapper(0);
+        const initialOffset = offset.get();
+
+        const result = decodeString("testColumn", encodedStrings, offset, 2);
+
+        expect(result).toBeInstanceOf(StringFlatVector);
+        expect(offset.get()).toBeGreaterThan(initialOffset);
+        expect(offset.get()).toBe(encodedStrings.length);
+    });
+
+    it("should correctly track offset through nullable streams", () => {
+        const strings = ["test", null, "encodedStrings"];
+        const encodedStrings = encodePlainStrings(strings);
+        const offset = new IntWrapper(0);
+        const initialOffset = offset.get();
+
+        const result = decodeString("testColumn", encodedStrings, offset, 3);
+
+        expect(result).not.toBeNull();
+        expect(offset.get()).toBeGreaterThan(initialOffset);
+        expect(offset.get()).toBe(encodedStrings.length);
+    });
+
+    it("should correctly track offset through FSST dictionary streams", () => {
+        const encodedStrings = encodeFsstStrings();
+        const offset = new IntWrapper(0);
+        const initialOffset = offset.get();
+
+        const result = decodeString("testColumn", encodedStrings, offset, 6);
+
+        expect(result).toBeInstanceOf(StringFsstDictionaryVector);
+        expect(offset.get()).toBeGreaterThan(initialOffset);
+        expect(offset.get()).toBe(encodedStrings.length);
+    });
+
+    it("should handle consecutive decoding operations with shared offset tracker", () => {
+        const stream1 = encodePlainStrings(["first"]);
+        const stream2 = encodePlainStrings(["second"]);
+        const combinedStream = concatenateBuffers(stream1, stream2);
+
+        const offset = new IntWrapper(0);
+
+        const result1 = decodeString("column1", combinedStream, offset, 2);
+        expect((result1 as StringFlatVector).getValue(0)).toBe("first");
+
+        const offsetAfterFirst = offset.get();
+
+        const result2 = decodeString("column2", combinedStream, offset, 2);
+        expect((result2 as StringFlatVector).getValue(0)).toBe("second");
+
+        expect(offset.get()).toBeGreaterThan(offsetAfterFirst);
+        expect(offset.get()).toBe(combinedStream.length);
+    });
+});
+
+describe("decodeSharedDictionary", () => {
+    describe("basic functionality", () => {
+        it("should decode single field with shared dictionary", () => {
+            const dictionaryStrings = ["apple", "banana", "peach", "date"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+
+            const fieldStreams = encodeStructField([0, 1, 2, 3], [true, true, true, true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("address:", [{ name: "street" }]);
+
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                4,
             );
 
-            expect(result).toBeDefined();
-        });
-
-        it('should skip column when propertyColumnNames does not include column', () => {
-            const propertyColumnNames = new Set(['someOtherColumn']);
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const skipStream1 = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 15);
-            const skipStream2 = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 25);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
-
-            // Provide metadata for: LENGTH, DATA (for dictionary), and 2 streams to skip
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata, skipStream1, skipStream2]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock([2, 2]); // 2 streams in first field, 2 streams to skip
-
-            const result = StringDecoder.decodeSharedDictionary(
-                mockData,
-                mockOffset,
-                mockColumn,
-                numFeatures,
-                propertyColumnNames
-            );
-
-            expect(result).toBeDefined();
-        });
-    });
-
-    describe('offset management', () => {
-        it('should correctly advance offset through multiple streams', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 100);
-            const offsetBuffer = new Int32Array([0, 25, 50, 75, 100]);
-
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
-
-            StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
-
-            expect(mockOffset.add).toHaveBeenCalledWith(100);
-        });
-    });
-
-    describe('edge cases', () => {
-        it('should handle minimum feature count', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 4);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 10);
-            const offsetBuffer = new Int32Array([0, 10]);
-
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, 1);
-
-            expect(result).toBeDefined();
-        });
-
-        it('should handle large feature count', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 1000);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 5000);
-            const largeOffsetBuffer = new Int32Array(10001);
-            for (let i = 0; i < largeOffsetBuffer.length; i++) {
-                largeOffsetBuffer[i] = i * 500;
+            expect(result).toHaveLength(1);
+            expect(result[0]).toBeInstanceOf(StringDictionaryVector);
+            expect(result[0].name).toBe("address:street");
+            for (let i = 0; i < dictionaryStrings.length; i++) {
+                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
             }
-
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(largeOffsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, 10000);
-
-            expect(result).toBeDefined();
         });
 
-        it('should handle empty child fields list', () => {
-            const emptyColumnMock = createMockColumn('emptyColumn', []);
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 0);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 0);
-            const offsetBuffer = new Int32Array([0]);
+        it("should handle empty child field name (common prefix stripped)", () => {
+            const dictionaryStrings = ["Berlin", "London", "Paris"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
+            const fieldStreams = encodeStructField([0, 1, 2], [true, true, true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
 
-            expect(() => {
-                StringDecoder.decodeSharedDictionary(mockData, mockOffset, emptyColumnMock, 0);
-            }).not.toThrow();
-        });
-    });
+            const columnMetaencodedStrings = createColumnMetadataForStruct("name", [{ name: "" }]);
 
-    describe('stream count handling', () => {
-        it('should skip columns with 0 streams', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                3,
+            );
 
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
-
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
-
-            expect(result).toBeDefined();
+            expect(result).toHaveLength(1);
+            expect(result[0].name).toBe("name");
+            for (let i = 0; i < dictionaryStrings.length; i++) {
+                expect(result[0].getValue(i)).toBe(dictionaryStrings[i]);
+            }
         });
 
-        it('should throw error for non-string scalar fields', () => {
-            const childFieldNonString = createMockChildField('fieldName', 'scalarField', ScalarType.INT_32);
-            const columnWithNonStringField = createMockColumn('testColumn', [childFieldNonString]);
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const skipStream1 = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 15);
-            const skipStream2 = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 25);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
+        it("should handle mix of empty and delimited child names", () => {
+            const dict = ["value1", "value2", "value3"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dict);
 
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata, skipStream1, skipStream2]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock([2, 2]); // 2 streams in field, 2 streams to skip
+            const field1 = encodeStructField([0], [true]);
+            const field2 = encodeStructField([1], [true]);
+            const field3 = encodeStructField([2], [true]);
 
-            expect(() => {
-                StringDecoder.decodeSharedDictionary(mockData, mockOffset, columnWithNonStringField, numFeatures);
-            }).toThrow('Currently only optional string fields are implemented for a struct.');
+            const complete = concatenateBuffers(lengthStream, dataStream, field1, field2, field3);
+            const metadata = createColumnMetadataForStruct("name", [
+                { name: "" },
+                { name: ":en" },
+                { name: ":de" },
+            ]);
+
+            const result = decodeSharedDictionary(complete, new IntWrapper(0), metadata, 1);
+
+            expect(result).toHaveLength(3);
+            expect(result[0].name).toBe("name");
+            expect(result[1].name).toBe("name:en");
+            expect(result[2].name).toBe("name:de");
         });
     });
 
-    describe('return value validation', () => {
-        it('should return Vector array', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
+    describe("nullability", () => {
+        it("should handle nullable fields with PRESENT stream", () => {
+            const dictionaryStrings = ["red", "green", "blue"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
+            const fieldStreams = encodeStructField([0, 2], [true, false, true, false]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("colors:", [{ name: "primary" }]);
 
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                4,
+            );
 
-            expect(result).toBeInstanceOf(Array);
+            expect(result).toHaveLength(1);
+            const expected = ["red", null, "blue", null];
+            for (let i = 0; i < expected.length; i++) {
+                expect(result[0].getValue(i)).toBe(expected[i]);
+            }
         });
 
-        it('should not return null or undefined', () => {
-            const lengthLogicalType = { lengthType: LengthType.DICTIONARY } as unknown as LogicalStreamType;
-            const lengthStreamMetadata = createMockStreamMetadata(PhysicalStreamType.LENGTH, lengthLogicalType, 20);
-            const dictionaryLogicalType = { dictionaryType: DictionaryType.SHARED } as unknown as LogicalStreamType;
-            const dictionaryStreamMetadata = createMockStreamMetadata(PhysicalStreamType.DATA, dictionaryLogicalType, 40);
-            const offsetBuffer = new Int32Array([0, 10, 20, 40]);
+        it("should detect nullable fields when offsetCount < numFeatures", () => {
+            const dictionaryStrings = ["alpha", "beta"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
 
-            setupStreamMetadataDecodeMock([lengthStreamMetadata, dictionaryStreamMetadata]);
-            setupLengthStreamDecodeMock(offsetBuffer, lengthStreamMetadata);
-            setupVarintDecodeMock(0);
+            // Simulating implicit nullability by mismatched counts
+            const fieldStreams = encodeStructField([0, 1], [true, false, false, true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("greek:", [{ name: "letter" }]);
 
-            const result = StringDecoder.decodeSharedDictionary(mockData, mockOffset, mockColumn, numFeatures);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                4,
+            );
 
-            expect(result).not.toBeNull();
-            expect(result).not.toBeUndefined();
+            expect(result).toHaveLength(1);
+            const expected = ["alpha", null, null, "beta"];
+            for (let i = 0; i < expected.length; i++) {
+                expect(result[0].getValue(i)).toBe(expected[i]);
+            }
+        });
+    });
+
+    describe("FSST encoding", () => {
+        it("should decode FSST-compressed shared dictionary", () => {
+            const dictionaryStrings = ["compressed1", "compressed2"];
+            const { lengthStream, dataStream, symbolLengthStream, symbolDataStream } = encodeSharedDictionary(
+                dictionaryStrings,
+                { useFsst: true },
+            );
+
+            const fieldStreams = encodeStructField([0, 1], [true, true]);
+            const completeencodedStrings = concatenateBuffers(
+                lengthStream,
+                symbolLengthStream,
+                symbolDataStream,
+                dataStream,
+                fieldStreams,
+            );
+            const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings:", [{ name: "value" }]);
+
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                2,
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toBeInstanceOf(StringFsstDictionaryVector);
+            expect(result[0].name).toBe("encodedStrings:value");
+        });
+    });
+
+    describe("field filtering", () => {
+        it("should filter fields by propertyColumnNames", () => {
+            const dictionaryStrings = ["val1", "val2"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+
+            const field1Streams = encodeStructField([0], [true]);
+            const field2Streams = encodeStructField([1], [true]);
+            const field3Streams = encodeStructField([0], [true]);
+
+            const completeencodedStrings = concatenateBuffers(
+                lengthStream,
+                dataStream,
+                field1Streams,
+                field2Streams,
+                field3Streams,
+            );
+            const columnMetaencodedStrings = createColumnMetadataForStruct("multi:", [
+                { name: "field1" },
+                { name: "field2" },
+                { name: "field3" },
+            ]);
+
+            const propertyColumnNames = new Set(["multi:field1", "multi:field3"]);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                1,
+                propertyColumnNames,
+            );
+
+            expect(result).toHaveLength(2);
+            expect(result[0].name).toBe("multi:field1");
+            expect(result[1].name).toBe("multi:field3");
+        });
+
+        it("should skip fields with numStreams=0", () => {
+            const dictionaryStrings = ["present"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+
+            const field1Streams = encodeStructField([0], [true], true);
+            const field2Streams = encodeStructField([], [], false); // numStreams=0
+            const field3Streams = encodeStructField([0], [true], true);
+
+            const completeencodedStrings = concatenateBuffers(
+                lengthStream,
+                dataStream,
+                field1Streams,
+                field2Streams,
+                field3Streams,
+            );
+            const columnMetaencodedStrings = createColumnMetadataForStruct("test:", [
+                { name: "field1" },
+                { name: "field2" },
+                { name: "field3" },
+            ]);
+
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                1,
+            );
+
+            expect(result).toHaveLength(2);
+            expect(result[0].name).toBe("test:field1");
+            expect(result[1].name).toBe("test:field3");
+        });
+
+        it("should handle mixed present and filtered fields", () => {
+            const dictionaryStrings = ["encodedStrings"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+
+            const field1Streams = encodeStructField([0], [true], true);
+            const field2Streams = encodeStructField([], [], false);
+            const field3Streams = encodeStructField([0], [true], true);
+
+            const completeencodedStrings = concatenateBuffers(
+                lengthStream,
+                dataStream,
+                field1Streams,
+                field2Streams,
+                field3Streams,
+            );
+            const columnMetaencodedStrings = createColumnMetadataForStruct("mixed:", [
+                { name: "field1" },
+                { name: "field2" },
+                { name: "field3" },
+            ]);
+
+            const propertyColumnNames = new Set(["mixed:field3"]);
+            const result = decodeSharedDictionary(
+                completeencodedStrings,
+                new IntWrapper(0),
+                columnMetaencodedStrings,
+                1,
+                propertyColumnNames,
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].name).toBe("mixed:field3");
+        });
+    });
+
+    describe("error handling", () => {
+        it("should throw error for non-string field types", () => {
+            const dictionaryStrings = ["value"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+            const fieldStreams = encodeStructField([0], [true]);
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+
+            const columnMetaencodedStrings = createColumnMetadataForStruct("invalid", [
+                { name: "field1", type: ScalarType.INT_32 },
+            ]);
+
+            expect(() => {
+                decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings, 1);
+            }).toThrow("Currently only optional string fields are implemented for a struct.");
+        });
+    });
+
+    describe("offset tracking", () => {
+        it("should correctly advance offset through all streams", () => {
+            const dictionaryStrings = ["a", "b", "c"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+
+            const field1Streams = encodeStructField([0, 1], [true, true]);
+            const field2Streams = encodeStructField([1, 2], [true, true]);
+
+            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, field1Streams, field2Streams);
+            const columnMetaencodedStrings = createColumnMetadataForStruct("track", [
+                { name: "field1" },
+                { name: "field2" },
+            ]);
+
+            const offset = new IntWrapper(0);
+            const initialOffset = offset.get();
+            const result = decodeSharedDictionary(completeencodedStrings, offset, columnMetaencodedStrings, 2);
+
+            expect(result).toHaveLength(2);
+            expect(offset.get()).toBeGreaterThan(initialOffset);
+            expect(offset.get()).toBe(completeencodedStrings.length);
         });
     });
 });

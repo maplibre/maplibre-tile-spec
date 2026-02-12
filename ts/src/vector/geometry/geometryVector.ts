@@ -1,6 +1,6 @@
 import type TopologyVector from "../../vector/geometry/topologyVector";
 import { convertGeometryVector } from "./geometryVectorConverter";
-import ZOrderCurve from "./zOrderCurve";
+import { decodeZOrderCurve } from "./zOrderCurve";
 import { type GEOMETRY_TYPE } from "./geometryType";
 import { type VertexBufferType } from "./vertexBufferType";
 import type Point from "@mapbox/point-geometry";
@@ -67,7 +67,7 @@ export abstract class GeometryVector implements Iterable<Geometry> {
             const vertexOffset = this.vertexOffsets[index];
             const mortonEncodedVertex = this.vertexBuffer[vertexOffset];
             //TODO: improve performance -> inline calculation and move to decoding of VertexBuffer
-            const vertex = ZOrderCurve.decode(
+            const vertex = decodeZOrderCurve(
                 mortonEncodedVertex,
                 this.mortonSettings.numBits,
                 this.mortonSettings.coordinateShift,
