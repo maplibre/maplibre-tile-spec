@@ -12,7 +12,9 @@ on:
       - 'test/**'
 
 jobs:
-  build:
+  cpp-build:
+    permissions:
+      id-token: write  # for OIDC Codecov
     strategy:
       matrix:
         os: [macos-15, ubuntu-24.04]
@@ -32,14 +34,26 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
 
-      - name: Configure with CMake
-        run: cmake -B build -S .
+      - name: install gcovr (macOS)
+        if: runner.os == 'macOS'
+        run: brew install gcovr
 
-      - name: Build the project
-        run: cmake --build build --target mlt-cpp-test mlt-cpp-json
+      - name: install gcovr (Linux)
+        if: runner.os == 'Linux'
+        run: pip3 install gcovr
 
-      - name: Run C++ tests
-        run: build/test/mlt-cpp-test
+      - name: Build, test and generate coverage report
+        run: just cpp-coverage
+
+      - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          fail_ci_if_error: true
+          disable_file_fixes: true
+          disable_search: true
+          files: cpp/build/coverage.xml
 
       - name: sanity test for mlt-cpp-json tool
         run: build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
