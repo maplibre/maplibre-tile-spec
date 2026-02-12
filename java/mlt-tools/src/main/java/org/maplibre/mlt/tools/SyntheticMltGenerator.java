@@ -41,6 +41,14 @@ public class SyntheticMltGenerator {
         };
     write(layer("point-ids", pts), cfg().ids());
     write(layer("point-ids-delta", pts), cfg(DELTA).ids());
+
+    write("point-id64", feat(p1, 9_234_567_890L), cfg().ids());
+    var pts64 =
+        new Feature[] {
+          feat(p1, 1L), feat(p2, 9_234_567_890L), feat(p3, 9_234_567_891L),
+        };
+    write(layer("point-ids64", pts64), cfg().ids());
+    write(layer("point-ids64-delta", pts64), cfg(DELTA).ids());
   }
 
   private static void generateLines() throws IOException {
