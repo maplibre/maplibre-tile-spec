@@ -74,16 +74,6 @@ jobs:
             cat ../LICENSE-APACHE
           } > LICENSE.txt
 
-      - name: Merge license files into LICENSE.txt
-        run: |
-          {
-            echo "===== MIT License ====="
-            cat ../LICENSE-MIT
-            echo
-            echo "===== Apache License 2.0 ====="
-            cat ../LICENSE-APACHE
-          } > LICENSE.txt
-
       - name: Release (GitHub) - Create Draft
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:

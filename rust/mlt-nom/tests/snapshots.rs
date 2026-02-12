@@ -8,6 +8,11 @@ use insta::{assert_debug_snapshot, with_settings};
 use mlt_nom::parse_layers;
 use test_each_file::test_each_path;
 
+//
+// ATTENTION:  this test is likely to be deleted soon.
+//             use synthetics.rs test instead
+//
+
 // test_each_path! { for ["mlt"] in "../test/expected/tag0x01" as parse => parse }
 
 fn parse([path]: [&Path; 1]) {
