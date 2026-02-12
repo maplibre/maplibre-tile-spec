@@ -6,3 +6,4 @@ rootProject.name = 'maplibre-tiles'
 
 include 'mlt-core'
 include 'mlt-cli'
+include 'mlt-tools'

@@ -8,9 +8,7 @@ bin/
 coverage/
 dist/
 tmp/
-codecov
-codecov.SHA256SUM
-codecov.SHA256SUM.sig
+codecov*
 MODULE.bazel.lock
 *.diff.geojson
 *.new.geojson
