@@ -37,8 +37,8 @@ jobs:
       - name: install gcovr
         run: pip3 install gcovr
 
-      - name: Build and test
-        run: just cpp-test
+      - name: Build, test and generate coverage report
+        run: just cpp-coverage
 
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'
@@ -47,7 +47,8 @@ jobs:
           use_oidc: true
           fail_ci_if_error: true
           disable_file_fixes: true
-          working-directory: cpp
+          disable_search: true
+          files: cpp/build/coverage.xml
 
       - name: sanity test for mlt-cpp-json tool
         run: build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .

@@ -257,8 +257,10 @@ cpp-test: cpp-cmake-build
     ctest
 
 [working-directory: 'cpp/build']
-cpp-coverage: cpp-test
+cpp-coverage:
     gcovr --root ../.. \
         --filter ../src --filter ../include \
+        --txt coverage.txt \
+        --cobertura-pretty --cobertura coverage.xml \
         --html-details coverage.html
     echo "Coverage report at $PWD/coverage.html"
