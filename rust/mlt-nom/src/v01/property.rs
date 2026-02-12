@@ -98,32 +98,39 @@ impl<'a> FromRaw<'a> for DecodedProperty {
             RawPropValue::Bool(s) => {
                 PropValue::Bool(apply_present(present.as_ref(), s.decode_bools()))
             }
-            RawPropValue::I8(s) => {
-                PropValue::I8(apply_present(present.as_ref(), s.decode_signed_int_stream()?))
-            }
-            RawPropValue::U8(s) => {
-                PropValue::U8(apply_present(present.as_ref(), s.decode_unsigned_int_stream()?))
-            }
-            RawPropValue::I32(s) => {
-                PropValue::I32(apply_present(present.as_ref(), s.decode_signed_int_stream()?))
-            }
-            RawPropValue::U32(s) => {
-                PropValue::U32(apply_present(present.as_ref(), s.decode_unsigned_int_stream()?))
-            }
+            RawPropValue::I8(s) => PropValue::I8(apply_present(
+                present.as_ref(),
+                s.decode_signed_int_stream()?,
+            )),
+            RawPropValue::U8(s) => PropValue::U8(apply_present(
+                present.as_ref(),
+                s.decode_unsigned_int_stream()?,
+            )),
+            RawPropValue::I32(s) => PropValue::I32(apply_present(
+                present.as_ref(),
+                s.decode_signed_int_stream()?,
+            )),
+            RawPropValue::U32(s) => PropValue::U32(apply_present(
+                present.as_ref(),
+                s.decode_unsigned_int_stream()?,
+            )),
             RawPropValue::I64(s) => {
                 PropValue::I64(apply_present(present.as_ref(), s.decode_i64()?))
             }
             RawPropValue::U64(s) => {
                 PropValue::U64(apply_present(present.as_ref(), s.decode_u64()?))
             }
-            RawPropValue::F32(s) => PropValue::F32(apply_present(present.as_ref(), s.decode_f32s())),
+            RawPropValue::F32(s) => {
+                PropValue::F32(apply_present(present.as_ref(), s.decode_f32s()))
+            }
             RawPropValue::F64(s) => PropValue::F64(apply_present(
                 present.as_ref(),
                 s.decode_f32s().into_iter().map(f64::from).collect(),
             )),
-            RawPropValue::Str(streams) => {
-                PropValue::Str(apply_present(present.as_ref(), decode_string_streams(streams)?))
-            }
+            RawPropValue::Str(streams) => PropValue::Str(apply_present(
+                present.as_ref(),
+                decode_string_streams(streams)?,
+            )),
             RawPropValue::Struct(_) => PropValue::Struct,
         };
         Ok(DecodedProperty {
@@ -240,10 +247,7 @@ fn decode_dict_strings(dict_lengths: &[u32], dict_data: &[u8], offsets: &[u32]) 
     let mut offset = 0;
     for &len in dict_lengths {
         let len = len as usize;
-        dict.push(
-            String::from_utf8_lossy(&dict_data[offset..offset + len])
-                .into_owned(),
-        );
+        dict.push(String::from_utf8_lossy(&dict_data[offset..offset + len]).into_owned());
         offset += len;
     }
     // Look up values

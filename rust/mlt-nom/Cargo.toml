@@ -15,6 +15,7 @@ rust-version.workspace = true
 #mvt = "0.10.3"
 #mvt-reader = "2.1.0"
 borrowme = "0.0.15"
+serde = { version = "1", features = ["derive"] }
 hex = "0.4.3"
 integer-encoding = "4.0.2"
 num-traits = "0.2.19"

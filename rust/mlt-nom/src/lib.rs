@@ -4,6 +4,7 @@
 
 mod decodable;
 mod errors;
+pub mod geojson;
 mod layer;
 mod unknown;
 mod utils;
