@@ -75,24 +75,139 @@ impl<'a> Id<'a> {
 impl<'a> FromRaw<'a> for DecodedId {
     type Input = RawId<'a>;
 
-    fn from_raw(RawId { optional: _, value }: RawId<'_>) -> Result<Self, MltError> {
-        // Note: The optional/present stream is ignored for ID columns (following C++ implementation)
-        // The ID stream contains all IDs directly
-
-        match value {
+    fn from_raw(RawId { optional, value }: RawId<'_>) -> Result<Self, MltError> {
+        // Decode the ID values first
+        let ids_u64: Vec<u64> = match value {
             RawIdValue::Id32(stream) => {
                 // Decode 32-bit IDs as u32, then convert to u64
                 let ids: Vec<u32> = stream.decode_bits_u32()?.decode_u32()?;
-                let ids_u64: Vec<Option<u64>> =
-                    ids.into_iter().map(|id| Some(u64::from(id))).collect();
-                Ok(DecodedId(Some(ids_u64)))
+                ids.into_iter().map(u64::from).collect()
             }
             RawIdValue::Id64(stream) => {
                 // Decode 64-bit IDs directly as u64
-                let ids: Vec<u64> = stream.decode_u64()?;
-                let ids_u64: Vec<Option<u64>> = ids.into_iter().map(Some).collect();
-                Ok(DecodedId(Some(ids_u64)))
+                stream.decode_u64()?
             }
-        }
+        };
+
+        // Apply the offsets of these IDs via an optional/present bitmask
+        let ids_optional: Vec<Option<u64>> = if let Some(optional_stream) = optional {
+            let present_bits = optional_stream.decode_bools();
+
+            apply_present_bitset(&present_bits, &ids_u64)?
+        } else {
+            // No optional stream, so all IDs are present
+            ids_u64.into_iter().map(Some).collect()
+        };
+
+        Ok(DecodedId(Some(ids_optional)))
+    }
+}
+/// The `ids_u64` vector only contains values for features where the bit is set
+///
+/// We need to iterate through the bitset and pull from `ids_u64` when the bit is set.
+fn apply_present_bitset(
+    present_bits: &Vec<bool>,
+    ids_u64: &[u64],
+) -> Result<Vec<Option<u64>>, MltError> {
+    let present_bit_count = present_bits.iter().filter(|b| **b).count();
+    if present_bit_count != ids_u64.len() {
+        return Err(MltError::InvalidStreamData {
+            expected: "Number of ID values in the presence stream does not match the number of provided IDs",
+            got: format!(
+                "{present_bit_count} bits set in the present stream, but {} values for IDs",
+                ids_u64.len()
+            ),
+        });
+    }
+    debug_assert!(
+        ids_u64.len() <= present_bits.len(),
+        "Since present_bits.len() <= present_bit_count (upper bound: all bits set) and ids_u64.len() == present_bit_count, there cannot be more IDs than features"
+    );
+
+    let mut result = vec![None; present_bits.len()];
+    // todo: Currently, optional ids are not well supported by encoders
+    // Once this is the case, benchmark for real world usage if using a packed_bitset and possibly nextSetBit
+    // See present_bitset.cpp is faster
+    let present_ids = result
+        .iter_mut()
+        .zip(present_bits)
+        .filter_map(|(id, is_present)| if *is_present { Some(id) } else { None });
+    for (target_id, id_in_stream) in present_ids.zip(ids_u64) {
+        target_id.replace(*id_in_stream);
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::v01::{DataRaw, LogicalDecoder, PhysicalDecoder, PhysicalStreamType, StreamMeta};
+
+    #[test]
+    fn test_decode_id32_simple() {
+        // Create a simple stream with 3 ID values:
+        let ids: Vec<u32> = vec![1, 2, 3];
+        let data = ids.iter().flat_map(|i| i.to_le_bytes()).collect::<Vec<_>>();
+
+        let meta = StreamMeta {
+            physical_type: PhysicalStreamType::Data(crate::v01::DictionaryType::None),
+            num_values: 3,
+            logical_decoder: LogicalDecoder::None,
+            physical_decoder: PhysicalDecoder::None,
+        };
+
+        let stream = Stream::new(meta, DataRaw::new(&data));
+        let raw_id = RawId {
+            optional: None,
+            value: RawIdValue::Id32(stream),
+        };
+
+        let decoded = DecodedId::from_raw(raw_id).expect("Failed to decode IDs");
+
+        assert_eq!(
+            decoded,
+            DecodedId(Some(ids.into_iter().map(u64::from).map(Some).collect())),
+            "Decoded IDs should match expected values"
+        );
+    }
+
+    #[test]
+    fn test_decode_id32_with_nulls() {
+        // Test IDs with a present bitmask:
+        let expected = vec![Some(10), None, Some(30)];
+        // Only 2 values in the ID stream (10 and 30), not 3!
+        let ids: Vec<u32> = vec![10, 30];
+        let data = ids.iter().flat_map(|i| i.to_le_bytes()).collect::<Vec<_>>();
+        let present_data: Vec<u8> = vec![1, 0x1 << 0 | 0x1 << 2]; // RLE: one time the bit pattern
+
+        let id_meta = StreamMeta {
+            physical_type: PhysicalStreamType::Data(crate::v01::DictionaryType::None),
+            num_values: 2, // Only 2 actual values
+            logical_decoder: LogicalDecoder::None,
+            physical_decoder: PhysicalDecoder::None,
+        };
+
+        let present_meta = StreamMeta {
+            physical_type: PhysicalStreamType::Present,
+            num_values: 3, // 3 features total
+            logical_decoder: LogicalDecoder::None,
+            physical_decoder: PhysicalDecoder::None,
+        };
+
+        let id_stream = Stream::new(id_meta, DataRaw::new(&data));
+        let present_stream = Stream::new(present_meta, DataRaw::new(&present_data));
+
+        let raw_id = RawId {
+            optional: Some(present_stream),
+            value: RawIdValue::Id32(id_stream),
+        };
+
+        let decoded = DecodedId::from_raw(raw_id).expect("Failed to decode IDs with nulls");
+
+        assert_eq!(
+            decoded,
+            DecodedId(Some(expected)),
+            "Decoded IDs should respect the present bitmask"
+        );
     }
 }
