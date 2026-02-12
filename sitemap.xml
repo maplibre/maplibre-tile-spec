@@ -2,18 +2,18 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://www.maplibre.org/maplibre-tile-spec/</loc>
-         <lastmod>2026-02-11</lastmod>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
          <loc>https://www.maplibre.org/maplibre-tile-spec/encodings/</loc>
-         <lastmod>2026-02-11</lastmod>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
          <loc>https://www.maplibre.org/maplibre-tile-spec/implementation-status/</loc>
-         <lastmod>2026-02-11</lastmod>
+         <lastmod>2026-02-12</lastmod>
     </url>
     <url>
          <loc>https://www.maplibre.org/maplibre-tile-spec/specification/</loc>
-         <lastmod>2026-02-11</lastmod>
+         <lastmod>2026-02-12</lastmod>
     </url>
 </urlset>
