@@ -88,18 +88,22 @@ pub struct Feature {
 pub enum Geometry {
     Point {
         coordinates: [i32; 2],
+        #[serde(default)]
         crs: Crs,
     },
     LineString {
         coordinates: Vec<[i32; 2]>,
+        #[serde(default)]
         crs: Crs,
     },
     Polygon {
         coordinates: Vec<Vec<[i32; 2]>>,
+        #[serde(default)]
         crs: Crs,
     },
     MultiPolygon {
         coordinates: Vec<Vec<Vec<[i32; 2]>>>,
+        #[serde(default)]
         crs: Crs,
     },
 }
@@ -109,7 +113,7 @@ impl Geometry {
     pub fn point(coordinates: [i32; 2]) -> Self {
         Self::Point {
             coordinates,
-            crs: Crs::default(),
+            crs: Crs,
         }
     }
 
@@ -117,7 +121,7 @@ impl Geometry {
     pub fn line_string(coordinates: Vec<[i32; 2]>) -> Self {
         Self::LineString {
             coordinates,
-            crs: Crs::default(),
+            crs: Crs,
         }
     }
 
@@ -125,7 +129,7 @@ impl Geometry {
     pub fn polygon(coordinates: Vec<Vec<[i32; 2]>>) -> Self {
         Self::Polygon {
             coordinates,
-            crs: Crs::default(),
+            crs: Crs,
         }
     }
 
@@ -133,33 +137,40 @@ impl Geometry {
     pub fn multi_polygon(coordinates: Vec<Vec<Vec<[i32; 2]>>>) -> Self {
         Self::MultiPolygon {
             coordinates,
-            crs: Crs::default(),
+            crs: Crs,
         }
     }
 }
 
-/// Coordinate Reference System
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Crs {
-    #[serde(rename = "type")]
-    pub ty: String,
-    pub properties: CrsProperties,
-}
+/// Constant CRS — serializes as `{"type":"name","properties":{"name":"EPSG:0"}}`,
+/// ignores any value when deserializing.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Crs;
 
-/// CRS properties
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CrsProperties {
-    pub name: String,
-}
-
-impl Default for Crs {
-    fn default() -> Self {
-        Self {
-            ty: "name".into(),
-            properties: CrsProperties {
-                name: "EPSG:0".into(),
-            },
+impl Serialize for Crs {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Repr {
+            #[serde(rename = "type")]
+            ty: &'static str,
+            properties: Props,
         }
+        #[derive(Serialize)]
+        struct Props {
+            name: &'static str,
+        }
+        Repr {
+            ty: "name",
+            properties: Props { name: "EPSG:0" },
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Crs {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        serde::de::IgnoredAny::deserialize(deserializer)?;
+        Ok(Self)
     }
 }
 
