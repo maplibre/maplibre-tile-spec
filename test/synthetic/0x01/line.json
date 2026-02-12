@@ -1,0 +1,31 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0,
+            0
+          ],
+          [
+            50,
+            0
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "layer": "line"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

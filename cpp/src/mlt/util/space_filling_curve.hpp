@@ -12,7 +12,7 @@ public:
     SpaceFillingCurve(std::int32_t minVertexValue, std::int32_t maxVertexValue)
         : coordinateShift((minVertexValue < 0) ? std::abs(minVertexValue) : 0),
           tileExtent(maxVertexValue + coordinateShift),
-          numBits(static_cast<std::uint32_t>(std::ceil(std::log2(tileExtent)))),
+          numBits(static_cast<std::uint32_t>(std::ceil(std::log2(tileExtent + 1)))),
           minBound(minVertexValue),
           maxBound(maxVertexValue) {
         // TODO: fix tile buffer problem
