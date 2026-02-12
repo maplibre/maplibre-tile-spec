@@ -42,7 +42,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           use_oidc: true
-          directory: cpp
+          directory: cpp/build
 
       - name: sanity test for mlt-cpp-json tool
         run: build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .

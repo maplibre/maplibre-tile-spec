@@ -10,6 +10,16 @@ if (MLT_WITH_FASTPFOR)
     list(APPEND TEST_SOURCES test_fastpfor.cpp)
 endif()
 
+if(PROJECT_IS_TOP_LEVEL AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_CXX_FLAGS_COVERAGE "-g -O0 --coverage")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        string(APPEND CMAKE_CXX_FLAGS_COVERAGE " -fprofile-abs-path")
+    endif()
+    set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_MODULE_LINKER_FLAGS_COVERAGE "--coverage")
+endif()
+
 add_executable(mlt-cpp-test ${TEST_SOURCES})
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 
@@ -37,9 +47,6 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINA
 target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
 
 include(GoogleTest)
-
-target_compile_options(mlt-cpp-test PRIVATE -coverage)
-target_link_options(mlt-cpp-test PRIVATE -coverage)
 
 gtest_discover_tests(
     mlt-cpp-test
