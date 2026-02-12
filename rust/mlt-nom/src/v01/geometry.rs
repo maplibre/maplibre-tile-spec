@@ -103,6 +103,24 @@ impl DecodedGeometry {
                         .collect(),
                 ))
             }
+            GeometryType::MultiPoint => {
+                let go =
+                    go.ok_or_else(|| err("missing geometry_offsets for MultiPoint"))?;
+                let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
+                Ok(GeoGeom::multi_point((ps..pe).map(&v).collect()))
+            }
+            GeometryType::MultiLineString => {
+                let go =
+                    go.ok_or_else(|| err("missing geometry_offsets for MultiLineString"))?;
+                let po =
+                    po.ok_or_else(|| err("missing part_offsets for MultiLineString"))?;
+                let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
+                Ok(GeoGeom::multi_line_string(
+                    (ps..pe)
+                        .map(|p| line(po[p] as usize, po[p + 1] as usize))
+                        .collect(),
+                ))
+            }
             GeometryType::MultiPolygon => {
                 let go = go.ok_or_else(|| err("missing geometry_offsets for MultiPolygon"))?;
                 let po = po.ok_or_else(|| err("missing part_offsets for MultiPolygon"))?;
@@ -119,7 +137,6 @@ impl DecodedGeometry {
                         .collect(),
                 ))
             }
-            _ => Err(err(&format!("unsupported geometry type {geom_type:?}"))),
         }
     }
 }

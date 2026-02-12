@@ -99,6 +99,16 @@ pub enum Geometry {
         #[serde(default)]
         crs: Crs,
     },
+    MultiPoint {
+        coordinates: Vec<[i32; 2]>,
+        #[serde(default)]
+        crs: Crs,
+    },
+    MultiLineString {
+        coordinates: Vec<Vec<[i32; 2]>>,
+        #[serde(default)]
+        crs: Crs,
+    },
     MultiPolygon {
         coordinates: Vec<Vec<Vec<[i32; 2]>>>,
         #[serde(default)]
@@ -126,6 +136,22 @@ impl Geometry {
     #[must_use]
     pub fn polygon(coordinates: Vec<Vec<[i32; 2]>>) -> Self {
         Self::Polygon {
+            coordinates,
+            crs: Crs,
+        }
+    }
+
+    #[must_use]
+    pub fn multi_point(coordinates: Vec<[i32; 2]>) -> Self {
+        Self::MultiPoint {
+            coordinates,
+            crs: Crs,
+        }
+    }
+
+    #[must_use]
+    pub fn multi_line_string(coordinates: Vec<Vec<[i32; 2]>>) -> Self {
+        Self::MultiLineString {
             coordinates,
             crs: Crs,
         }

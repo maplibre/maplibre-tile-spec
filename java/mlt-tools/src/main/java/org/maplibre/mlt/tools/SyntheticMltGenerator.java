@@ -6,6 +6,7 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Point;
 import org.maplibre.mlt.data.Feature;
 
 public class SyntheticMltGenerator {
@@ -22,6 +23,8 @@ public class SyntheticMltGenerator {
     generateIds();
     generateLines();
     generatePolygons();
+    generateMultiPoints();
+    generateMultiLineStrings();
     generateProperties();
   }
 
@@ -75,6 +78,22 @@ public class SyntheticMltGenerator {
                 }));
     write("polygon-multi", multiPol, cfg());
     write("polygon-multi-fpf", multiPol, cfg().fastPFOR());
+  }
+
+  private static void generateMultiPoints() throws IOException {
+    var multiPoint = feat(gf.createMultiPoint(new Point[] {p1, p2, p3}));
+    write("multipoint", multiPoint, cfg());
+  }
+
+  private static void generateMultiLineStrings() throws IOException {
+    var multiLine =
+        feat(
+            gf.createMultiLineString(
+                new org.locationtech.jts.geom.LineString[] {
+                  gf.createLineString(new Coordinate[] {c1, c2}),
+                  gf.createLineString(new Coordinate[] {c3, c4, c5})
+                }));
+    write("multiline", multiLine, cfg());
   }
 
   private static void generateProperties() throws IOException {
