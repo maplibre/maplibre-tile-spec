@@ -94,10 +94,11 @@ class SyntheticMltUtil {
     // c.optimizations(null); // Map<String, FeatureTableOptimizations>
     c.preTessellatePolygons(false);
     c.useMortonEncoding(false);
-    // ALL is required here because if tesselation is enabled,
-    // a polygon outline also needs to be stored in the tile,
-    // or else it will store triangles only, and Java decoder does not currently support it.
-    // Plus, all other decoders would need to support triangle mesh without outline polygons.
+    // ALWAYS use outlines for synthetic tests. When tessellation is enabled, a polygon outline
+    // also needs to be stored in the tile, or else only triangles would be stored and the
+    // Java decoder (and other decoders) do not currently support triangle meshes without
+    // corresponding outline polygons. Using "ALL" here ensures outlines are present for both
+    // tessellated and non-tessellated cases in all synthetic test tiles.
     c.outlineFeatureTableNames(List.of("ALL"));
     // c.layerFilterPattern(null); // Pattern
     c.layerFilterInvert(false);
