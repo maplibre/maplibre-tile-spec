@@ -110,13 +110,9 @@ public class OfflineDBHelper {
                 }
               });
         }
-        CliUtil.joinThreadPool(config.threadPool(), true);
-      } catch (InterruptedException ex) {
-        System.err.printf("ERROR: Interrupted%n");
-        if (config.verboseLevel() > 1) {
-          ex.printStackTrace(System.err);
+        if (config.threadPool() != null) {
+          config.threadPool().close();
         }
-        return false;
       }
 
       if (!config.continueOnError() && !success.get()) {

@@ -18,7 +18,6 @@ import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -150,17 +149,6 @@ public class CliUtil {
     return (threadPool != null)
         ? threadPool.submit(() -> task.get())
         : CompletableFuture.completedFuture(task.get());
-  }
-
-  ///  Join the given thread pool if it is not null and optionally close it before joining
-  public static void joinThreadPool(@Nullable ExecutorService threadPool, boolean close)
-      throws InterruptedException {
-    if (threadPool != null) {
-      if (close) {
-        threadPool.close();
-      }
-      threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
-    }
   }
 
   public static byte[] decompress(InputStream srcStream) throws IOException {

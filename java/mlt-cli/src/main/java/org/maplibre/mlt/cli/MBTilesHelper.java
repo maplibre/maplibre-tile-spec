@@ -120,7 +120,9 @@ public class MBTilesHelper {
             }
           }
 
-          CliUtil.joinThreadPool(config.threadPool(), true);
+          if (config.threadPool() != null) {
+            config.threadPool().close();
+          }
 
           if (!config.continueOnError() && !success.get()) {
             return false;
@@ -177,11 +179,7 @@ public class MBTilesHelper {
           }
         }
       }
-    } catch (InterruptedException
-        | MBTilesReadException
-        | IOException
-        | MBTilesWriteException
-        | SQLException ex) {
+    } catch (MBTilesReadException | IOException | MBTilesWriteException | SQLException ex) {
       success.set(false);
       System.err.println("ERROR: MBTiles conversion failed: " + ex.getMessage());
       if (config.verboseLevel() > 1) {

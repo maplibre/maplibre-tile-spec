@@ -15,16 +15,16 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
@@ -109,7 +109,7 @@ public class PMTilesHelper {
         final var tilesProcessed = new AtomicLong(0);
         final var totalTileCount = new AtomicLong(0);
 
-        final Function<Integer, List<TileIndex>> getIndexes =
+        final Function<Integer, Stream<TileIndex>> getIndexes =
             (zoom) -> {
               final var indices = reader.getTileIndicesByZoomLevel(zoom).toList();
               if (config.verboseLevel() > 0) {
@@ -118,7 +118,7 @@ public class PMTilesHelper {
                     "Zoom %d : %d / %d tiles (%.1f%%)%n",
                     zoom, indices.size(), totalTiles, 100.0 * indices.size() / totalTiles);
               }
-              return indices;
+              return indices.stream();
             };
 
         final var state =
@@ -136,21 +136,20 @@ public class PMTilesHelper {
                 config.regenIDsPattern(),
                 config.continueOnError(),
                 config.verboseLevel());
+
         final var processTile = getProcessTileFunction(reader, writer, state);
         final var processZoom = getProcessZoomFunction(config.threadPool(), processTile, state);
 
-        // For each zoom level, get the list of tile indices, then convert them in parallel.
-        IntStream.rangeClosed(actualMinZoom, actualMaxZoom)
-            .mapToObj(Integer::valueOf)
-            .map(zoom -> CliUtil.runTask(config.threadPool(), () -> getIndexes.apply(zoom)))
-            .forEach(processZoom);
+        // Get and process the list of tile indices for each zoom level.
+        for (int i = actualMinZoom; i <= actualMaxZoom; i++) {
+          final int zoom = i;
+          CliUtil.runTask(config.threadPool(), () -> processZoom.accept(getIndexes.apply(zoom)));
+        }
 
         if (config.threadPool() != null) {
           try {
-            // The pool needs to be closed before awaiting termination but, since tasks add
-            // other tasks, we can't close it immediately.
-            // On success, it will already have been closed after processing the last zoom level.
-            CliUtil.joinThreadPool(config.threadPool(), !success.get());
+            // Wait for all tasks to finish
+            config.threadPool().awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
           } catch (InterruptedException e) {
             System.err.println("ERROR : interrupted");
             success.set(false);
@@ -183,46 +182,39 @@ public class PMTilesHelper {
     }
   }
 
-  ///  Produce a function for processing a single zoom level, with everything else it needs
-  // captured, suitable for submitting to a thread pool
-  private static Consumer<Future<List<TileIndex>>> getProcessZoomFunction(
+  /// Produce a function for processing a single zoom level, capturing everything it needs,
+  /// suitable for submitting to a thread pool
+  private static Consumer<Stream<TileIndex>> getProcessZoomFunction(
       @Nullable ExecutorService threadPool,
       @NotNull Function<TileIndex, Boolean> processTile,
       @NotNull ConversionState state) {
-    return (future) -> {
-      if (!state.continueOnError && !state.success.get()) {
-        return;
-      }
-      try {
-        final var indices = future.get();
-        state.totalTileCount.addAndGet(indices.size());
-        final var zoomsRemaining = state.zoomsToFetch.decrementAndGet();
-
+    return (indices) -> {
+      if (state.continueOnError || state.success.get()) {
         // Convert tile in the zoom level
-        for (var tileIndex : indices) {
-          if (!state.continueOnError && !state.success.get()) {
-            break;
-          }
-          if (threadPool != null) {
-            threadPool.submit(
-                () -> {
-                  if (!processTile.apply(tileIndex)) {
-                    state.success.set(false);
-                  }
-                });
-          } else {
-            if (!processTile.apply(tileIndex)) {
-              state.success.set(false);
-            }
-          }
-        }
-        if (threadPool != null && zoomsRemaining == 0) {
-          // This is the last task that can add more tasks
-          threadPool.close();
-        }
-      } catch (InterruptedException | ExecutionException e) {
-        System.err.printf("ERROR : Failed to get tile indexes: %s%n", e.getMessage());
-        state.success.set(false);
+        indices.forEach(
+            (tileIndex) -> {
+              state.totalTileCount.incrementAndGet();
+              if (state.continueOnError || state.success.get()) {
+                try {
+                  CliUtil.runTask(
+                      threadPool,
+                      () -> {
+                        if (!processTile.apply(tileIndex)) {
+                          state.success.set(false);
+                        }
+                      });
+                } catch (RejectedExecutionException ignored) {
+                  // This indicates the thread pool has been shut down due to an error
+                }
+              }
+            });
+      }
+
+      final var zoomsRemaining = state.zoomsToFetch.decrementAndGet();
+      if (threadPool != null && zoomsRemaining == 0) {
+        // This is the last task that can add more tasks, so shut down the pool.
+        // This must happen before `awaitTermination` can complete.
+        threadPool.shutdown();
       }
     };
   }
