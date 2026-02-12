@@ -70,6 +70,7 @@ impl DecodedGeometry {
                     (Some(go), Some(po), Some(ro)) => {
                         v(ro[po[go[i] as usize] as usize] as usize)
                     }
+                    (Some(go), Some(po), None) => v(po[go[i] as usize] as usize),
                     (None, Some(po), Some(ro)) => v(ro[po[i] as usize] as usize),
                     (None, Some(po), None) => v(po[i] as usize),
                     (None, None, None) => v(i),

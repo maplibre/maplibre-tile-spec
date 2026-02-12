@@ -109,11 +109,11 @@ class SyntheticMltUtil {
     return gf.createLinearRing(coords);
   }
 
-  static Polygon polygon(Coordinate... coords) {
+  static Polygon poly(Coordinate... coords) {
     return gf.createPolygon(coords);
   }
 
-  static Polygon polygon(LinearRing shell, LinearRing... holes) {
+  static Polygon poly(LinearRing shell, LinearRing... holes) {
     return gf.createPolygon(shell, holes);
   }
 
