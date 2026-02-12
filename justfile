@@ -243,3 +243,24 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
         fi
     fi
+
+[working-directory: 'cpp']
+cpp-cmake-init:
+    cmake -B build -S . -DCMAKE_BUILD_TYPE=Coverage
+
+[working-directory: 'cpp']
+cpp-cmake-build: cpp-cmake-init
+    cmake --build build --target mlt-cpp-test mlt-cpp-json
+
+[working-directory: 'cpp/build']
+cpp-test: cpp-cmake-build
+    ctest
+
+[working-directory: 'cpp/build']
+cpp-coverage: cpp-test
+    gcovr --root ../.. \
+        --filter ../src --filter ../include \
+        --txt coverage.txt \
+        --cobertura-pretty --cobertura coverage.xml \
+        --html-details coverage.html
+    echo "Coverage report at $PWD/coverage.html"

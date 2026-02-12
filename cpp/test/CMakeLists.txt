@@ -35,3 +35,10 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
 target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
+
+include(GoogleTest)
+
+gtest_discover_tests(
+    mlt-cpp-test
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+)
