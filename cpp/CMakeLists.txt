@@ -11,7 +11,11 @@ endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
 
 # generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# allows IDE completion via clangd
+# ln -s build/compile_commands.json .
+if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 add_library(mlt-cpp STATIC)
