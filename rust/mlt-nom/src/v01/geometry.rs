@@ -7,6 +7,7 @@ use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::{OptSeq, SetOptionOnce};
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
+use crate::geojson::Geometry as GeoGeom;
 
 /// Geometry column representation, either raw or decoded
 #[borrowme]
@@ -37,6 +38,90 @@ pub struct DecodedGeometry {
     pub index_buffer: Option<Vec<u32>>,
     pub triangles: Option<Vec<u32>>,
     pub vertices: Option<Vec<i32>>,
+}
+
+impl DecodedGeometry {
+    /// Build a `GeoJSON` geometry for a single feature at index `i`.
+    /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
+    /// (MLT omits the closing vertex).
+    pub fn to_geojson(&self, i: usize) -> Result<GeoGeom, MltError> {
+        let err = |msg: &str| MltError::DecodeError(format!("geometry[{i}]: {msg}"));
+        let verts = self.vertices.as_deref().unwrap_or(&[]);
+        let go = self.geometry_offsets.as_deref();
+        let po = self.part_offsets.as_deref();
+        let ro = self.ring_offsets.as_deref();
+
+        let v = |idx: usize| [verts[idx * 2], verts[idx * 2 + 1]];
+        let line = |start: usize, end: usize| (start..end).map(&v).collect();
+        let closed_ring = |start: usize, end: usize| {
+            let mut coords: Vec<[i32; 2]> = (start..end).map(&v).collect();
+            coords.push(v(start));
+            coords
+        };
+
+        let geom_type = *self
+            .vector_types
+            .get(i)
+            .ok_or_else(|| err("index out of bounds"))?;
+
+        match geom_type {
+            GeometryType::Point => {
+                let pt = match (go, po, ro) {
+                    (Some(go), Some(po), Some(ro)) => {
+                        v(ro[po[go[i] as usize] as usize] as usize)
+                    }
+                    (None, Some(po), Some(ro)) => v(ro[po[i] as usize] as usize),
+                    (None, Some(po), None) => v(po[i] as usize),
+                    (None, None, None) => v(i),
+                    _ => return Err(err("unexpected offset combination for Point")),
+                };
+                Ok(GeoGeom::point(pt))
+            }
+            GeometryType::LineString => {
+                let coords = match (po, ro) {
+                    (Some(po), Some(ro)) => {
+                        let ri = po[i] as usize;
+                        line(ro[ri] as usize, ro[ri + 1] as usize)
+                    }
+                    (Some(po), None) => line(po[i] as usize, po[i + 1] as usize),
+                    _ => return Err(err("missing part_offsets for LineString")),
+                };
+                Ok(GeoGeom::line_string(coords))
+            }
+            GeometryType::Polygon => {
+                let po = po.ok_or_else(|| err("missing part_offsets for Polygon"))?;
+                let ro = ro.ok_or_else(|| err("missing ring_offsets for Polygon"))?;
+                let (rs, re) = if let Some(go) = go {
+                    let pi = go[i] as usize;
+                    (po[pi] as usize, po[pi + 1] as usize)
+                } else {
+                    (po[i] as usize, po[i + 1] as usize)
+                };
+                Ok(GeoGeom::polygon(
+                    (rs..re)
+                        .map(|r| closed_ring(ro[r] as usize, ro[r + 1] as usize))
+                        .collect(),
+                ))
+            }
+            GeometryType::MultiPolygon => {
+                let go = go.ok_or_else(|| err("missing geometry_offsets for MultiPolygon"))?;
+                let po = po.ok_or_else(|| err("missing part_offsets for MultiPolygon"))?;
+                let ro = ro.ok_or_else(|| err("missing ring_offsets for MultiPolygon"))?;
+                let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
+                Ok(GeoGeom::multi_polygon(
+                    (ps..pe)
+                        .map(|p| {
+                            let (rs, re) = (po[p] as usize, po[p + 1] as usize);
+                            (rs..re)
+                                .map(|r| closed_ring(ro[r] as usize, ro[r + 1] as usize))
+                                .collect()
+                        })
+                        .collect(),
+                ))
+            }
+            _ => Err(err(&format!("unsupported geometry type {geom_type:?}"))),
+        }
+    }
 }
 
 /// Types of geometries supported in MLT

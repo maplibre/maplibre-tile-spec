@@ -62,6 +62,33 @@ pub enum PropValue {
     Struct,
 }
 
+impl PropValue {
+    /// Convert the value at index `i` to a [`serde_json::Value`]
+    #[must_use]
+    #[expect(clippy::cast_possible_truncation)] // f64 stored as f32 in wire format
+    pub fn to_geojson(&self, i: usize) -> Option<serde_json::Value> {
+        use serde_json::Value;
+        match self {
+            Self::Bool(v) => v[i].map(Value::Bool),
+            Self::I8(v) => v[i].map(Value::from),
+            Self::U8(v) => v[i].map(Value::from),
+            Self::I32(v) => v[i].map(Value::from),
+            Self::U32(v) => v[i].map(Value::from),
+            Self::I64(v) => v[i].map(Value::from),
+            Self::U64(v) => v[i].map(Value::from),
+            Self::F32(v) => v[i].map(f32_to_json),
+            Self::F64(v) => v[i].map(|f| f32_to_json(f as f32)),
+            Self::Str(v) => v[i].as_ref().map(|s| Value::String(s.clone())),
+            Self::Struct => None,
+        }
+    }
+}
+
+/// Convert f32 to JSON using shortest decimal representation (matches Java's `Float.toString()`)
+fn f32_to_json(f: f32) -> serde_json::Value {
+    serde_json::from_str(&f.to_string()).unwrap()
+}
+
 impl_decodable!(Property<'a>, RawProperty<'a>, DecodedProperty);
 
 impl<'a> From<RawProperty<'a>> for Property<'a> {

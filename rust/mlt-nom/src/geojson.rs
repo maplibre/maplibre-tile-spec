@@ -3,13 +3,11 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::MltError;
 use crate::layer::Layer;
-use crate::v01::{
-    DecodedGeometry, DecodedId, DecodedProperty, Geometry as MltGeometry, GeometryType, Id,
-    PropValue, Property,
-};
+use crate::v01::{DecodedId, DecodedProperty, Geometry as MltGeometry, Id, Property};
 
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -49,14 +47,14 @@ impl FeatureCollection {
 
             for i in 0..geom.vector_types.len() {
                 let id = ids.and_then(|v| v.get(i).copied().flatten()).unwrap_or(0);
-                let geometry = build_geometry(geom, i);
+                let geometry = geom.to_geojson(i)?;
                 let mut properties = HashMap::new();
                 for prop in &props {
-                    if let Some(val) = prop_to_val(&prop.values, i) {
+                    if let Some(val) = prop.values.to_geojson(i) {
                         properties.insert(prop.name.clone(), val);
                     }
                 }
-                properties.insert("layer".into(), PropVal::Str(l.name.to_string()));
+                properties.insert("layer".into(), Value::String(l.name.to_string()));
                 features.push(Feature {
                     geometry,
                     id,
@@ -77,7 +75,7 @@ impl FeatureCollection {
 pub struct Feature {
     pub geometry: Geometry,
     pub id: u64,
-    pub properties: HashMap<String, PropVal>,
+    pub properties: HashMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,
 }
@@ -171,107 +169,5 @@ impl<'de> Deserialize<'de> for Crs {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         serde::de::IgnoredAny::deserialize(deserializer)?;
         Ok(Self)
-    }
-}
-
-/// A single JSON-compatible property value
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PropVal {
-    Bool(bool),
-    Int(i64),
-    Float(f32),
-    Str(String),
-}
-
-/// Build a `GeoJSON` geometry for a single feature at index `i`.
-/// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec (MLT omits the closing vertex).
-fn build_geometry(geom: &DecodedGeometry, i: usize) -> Geometry {
-    let verts = geom.vertices.as_deref().unwrap_or(&[]);
-    let geom_type = geom.vector_types[i];
-    let go = geom.geometry_offsets.as_deref();
-    let po = geom.part_offsets.as_deref();
-    let ro = geom.ring_offsets.as_deref();
-
-    let v = |idx: usize| [verts[idx * 2], verts[idx * 2 + 1]];
-    let line = |start: usize, end: usize| (start..end).map(&v).collect();
-    let closed_ring = |start: usize, end: usize| {
-        let mut coords: Vec<[i32; 2]> = (start..end).map(&v).collect();
-        coords.push(v(start));
-        coords
-    };
-
-    match geom_type {
-        GeometryType::Point => {
-            let pt = match (go, po, ro) {
-                (Some(go), Some(po), Some(ro)) => v(ro[po[go[i] as usize] as usize] as usize),
-                (None, Some(po), Some(ro)) => v(ro[po[i] as usize] as usize),
-                (None, Some(po), None) => v(po[i] as usize),
-                (None, None, None) => v(i),
-                _ => unreachable!(),
-            };
-            Geometry::point(pt)
-        }
-        GeometryType::LineString => {
-            let coords = match (po, ro) {
-                (Some(po), Some(ro)) => {
-                    let ri = po[i] as usize;
-                    line(ro[ri] as usize, ro[ri + 1] as usize)
-                }
-                (Some(po), None) => line(po[i] as usize, po[i + 1] as usize),
-                _ => unreachable!(),
-            };
-            Geometry::line_string(coords)
-        }
-        GeometryType::Polygon => {
-            let (rs, re) = if let Some(go) = go {
-                let pi = go[i] as usize;
-                (po.unwrap()[pi] as usize, po.unwrap()[pi + 1] as usize)
-            } else {
-                (po.unwrap()[i] as usize, po.unwrap()[i + 1] as usize)
-            };
-            let ro = ro.unwrap();
-            Geometry::polygon(
-                (rs..re)
-                    .map(|r| closed_ring(ro[r] as usize, ro[r + 1] as usize))
-                    .collect(),
-            )
-        }
-        GeometryType::MultiPolygon => {
-            let go = go.unwrap();
-            let po = po.unwrap();
-            let ro = ro.unwrap();
-            let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
-            Geometry::multi_polygon(
-                (ps..pe)
-                    .map(|p| {
-                        let (rs, re) = (po[p] as usize, po[p + 1] as usize);
-                        (rs..re)
-                            .map(|r| closed_ring(ro[r] as usize, ro[r + 1] as usize))
-                            .collect()
-                    })
-                    .collect(),
-            )
-        }
-        t => todo!("geometry type {t:?}"),
-    }
-}
-
-/// Convert a decoded property value at index `i` to a [`PropVal`]
-#[allow(clippy::cast_possible_truncation)] // f64 stored as f32 in wire format
-#[allow(clippy::cast_possible_wrap)]
-fn prop_to_val(values: &PropValue, i: usize) -> Option<PropVal> {
-    match values {
-        PropValue::Bool(v) => v[i].map(PropVal::Bool),
-        PropValue::I8(v) => v[i].map(|n| PropVal::Int(i64::from(n))),
-        PropValue::U8(v) => v[i].map(|n| PropVal::Int(i64::from(n))),
-        PropValue::I32(v) => v[i].map(|n| PropVal::Int(i64::from(n))),
-        PropValue::U32(v) => v[i].map(|n| PropVal::Int(i64::from(n))),
-        PropValue::I64(v) => v[i].map(PropVal::Int),
-        PropValue::U64(v) => v[i].map(|n| PropVal::Int(n as i64)),
-        PropValue::F32(v) => v[i].map(PropVal::Float),
-        PropValue::F64(v) => v[i].map(|f| PropVal::Float(f as f32)),
-        PropValue::Str(v) => v[i].as_ref().map(|s| PropVal::Str(s.clone())),
-        PropValue::Struct => None,
     }
 }

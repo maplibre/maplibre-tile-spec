@@ -28,7 +28,7 @@ impl Layer01<'_> {
         let (input, column_count) = utils::parse_varint::<usize>(input)?;
 
         // !!!!!!!
-        // WARNING: make sure to never use `let (input, ...)` after this point, as input var is reused
+        // WARNING: make sure to never use `let (input, ...)` after this point: input var is reused
         let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count)?;
 
         let mut properties = Vec::with_capacity(prop_count);
