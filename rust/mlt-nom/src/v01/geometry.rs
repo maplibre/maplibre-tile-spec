@@ -44,12 +44,12 @@ impl DecodedGeometry {
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
-    pub fn to_geojson(&self, i: usize) -> Result<GeoGeom, MltError> {
-        let err = |msg: &str| MltError::DecodeError(format!("geometry[{i}]: {msg}"));
+    pub fn to_geojson(&self, index: usize) -> Result<GeoGeom, MltError> {
+        let err = |msg: &str| MltError::DecodeError(format!("geometry[{index}]: {msg}"));
         let verts = self.vertices.as_deref().unwrap_or(&[]);
-        let go = self.geometry_offsets.as_deref();
-        let po = self.part_offsets.as_deref();
-        let ro = self.ring_offsets.as_deref();
+        let geoms = self.geometry_offsets.as_deref();
+        let parts = self.part_offsets.as_deref();
+        let rings = self.ring_offsets.as_deref();
 
         let v = |idx: usize| [verts[idx * 2], verts[idx * 2 + 1]];
         let line = |start: usize, end: usize| (start..end).map(&v).collect();
@@ -61,73 +61,76 @@ impl DecodedGeometry {
 
         let geom_type = *self
             .vector_types
-            .get(i)
+            .get(index)
             .ok_or_else(|| err("index out of bounds"))?;
 
         match geom_type {
             GeometryType::Point => {
-                let pt = match (go, po, ro) {
-                    (Some(go), Some(po), Some(ro)) => v(ro[po[go[i] as usize] as usize] as usize),
-                    (Some(go), Some(po), None) => v(po[go[i] as usize] as usize),
-                    (None, Some(po), Some(ro)) => v(ro[po[i] as usize] as usize),
-                    (None, Some(po), None) => v(po[i] as usize),
-                    (None, None, None) => v(i),
+                let pt = match (geoms, parts, rings) {
+                    (Some(g), Some(p), Some(r)) => v(r[p[g[index] as usize] as usize] as usize),
+                    (Some(g), Some(p), None) => v(p[g[index] as usize] as usize),
+                    (None, Some(p), Some(r)) => v(r[p[index] as usize] as usize),
+                    (None, Some(p), None) => v(p[index] as usize),
+                    (None, None, None) => v(index),
                     _ => return Err(err("unexpected offset combination for Point")),
                 };
                 Ok(GeoGeom::point(pt))
             }
             GeometryType::LineString => {
-                let coords = match (po, ro) {
-                    (Some(po), Some(ro)) => {
-                        let ri = po[i] as usize;
-                        line(ro[ri] as usize, ro[ri + 1] as usize)
+                let coords = match (parts, rings) {
+                    (Some(p), Some(r)) => {
+                        let i = p[index] as usize;
+                        line(r[i] as usize, r[i + 1] as usize)
                     }
-                    (Some(po), None) => line(po[i] as usize, po[i + 1] as usize),
+                    (Some(p), None) => line(p[index] as usize, p[index + 1] as usize),
                     _ => return Err(err("missing part_offsets for LineString")),
                 };
                 Ok(GeoGeom::line_string(coords))
             }
             GeometryType::Polygon => {
-                let po = po.ok_or_else(|| err("missing part_offsets for Polygon"))?;
-                let ro = ro.ok_or_else(|| err("missing ring_offsets for Polygon"))?;
-                let (rs, re) = if let Some(go) = go {
-                    let pi = go[i] as usize;
-                    (po[pi] as usize, po[pi + 1] as usize)
+                let parts = parts.ok_or_else(|| err("missing part_offsets for Polygon"))?;
+                let rings = rings.ok_or_else(|| err("missing ring_offsets for Polygon"))?;
+                let (ring_start, ring_end) = if let Some(g) = geoms {
+                    let i = g[index] as usize;
+                    (parts[i] as usize, parts[i + 1] as usize)
                 } else {
-                    (po[i] as usize, po[i + 1] as usize)
+                    (parts[index] as usize, parts[index + 1] as usize)
                 };
                 Ok(GeoGeom::polygon(
-                    (rs..re)
-                        .map(|r| closed_ring(ro[r] as usize, ro[r + 1] as usize))
+                    (ring_start..ring_end)
+                        .map(|r| closed_ring(rings[r] as usize, rings[r + 1] as usize))
                         .collect(),
                 ))
             }
             GeometryType::MultiPoint => {
-                let go = go.ok_or_else(|| err("missing geometry_offsets for MultiPoint"))?;
-                let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
-                Ok(GeoGeom::multi_point((ps..pe).map(&v).collect()))
+                let geoms = geoms.ok_or_else(|| err("missing geometry_offsets for MultiPoint"))?;
+                Ok(GeoGeom::multi_point(
+                    (geoms[index] as usize..geoms[index + 1] as usize)
+                        .map(&v)
+                        .collect(),
+                ))
             }
             GeometryType::MultiLineString => {
-                let go = go.ok_or_else(|| err("missing geometry_offsets for MultiLineString"))?;
-                let po = po.ok_or_else(|| err("missing part_offsets for MultiLineString"))?;
-                let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
+                let geoms =
+                    geoms.ok_or_else(|| err("missing geometry_offsets for MultiLineString"))?;
+                let parts = parts.ok_or_else(|| err("missing part_offsets for MultiLineString"))?;
                 Ok(GeoGeom::multi_line_string(
-                    (ps..pe)
-                        .map(|p| line(po[p] as usize, po[p + 1] as usize))
+                    (geoms[index] as usize..geoms[index + 1] as usize)
+                        .map(|p| line(parts[p] as usize, parts[p + 1] as usize))
                         .collect(),
                 ))
             }
             GeometryType::MultiPolygon => {
-                let go = go.ok_or_else(|| err("missing geometry_offsets for MultiPolygon"))?;
-                let po = po.ok_or_else(|| err("missing part_offsets for MultiPolygon"))?;
-                let ro = ro.ok_or_else(|| err("missing ring_offsets for MultiPolygon"))?;
-                let (ps, pe) = (go[i] as usize, go[i + 1] as usize);
+                let geoms =
+                    geoms.ok_or_else(|| err("missing geometry_offsets for MultiPolygon"))?;
+                let parts = parts.ok_or_else(|| err("missing part_offsets for MultiPolygon"))?;
+                let rings = rings.ok_or_else(|| err("missing ring_offsets for MultiPolygon"))?;
                 Ok(GeoGeom::multi_polygon(
-                    (ps..pe)
+                    (geoms[index] as usize..geoms[index + 1] as usize)
                         .map(|p| {
-                            let (rs, re) = (po[p] as usize, po[p + 1] as usize);
+                            let (rs, re) = (parts[p] as usize, parts[p + 1] as usize);
                             (rs..re)
-                                .map(|r| closed_ring(ro[r] as usize, ro[r + 1] as usize))
+                                .map(|r| closed_ring(rings[r] as usize, rings[r + 1] as usize))
                                 .collect()
                         })
                         .collect(),
