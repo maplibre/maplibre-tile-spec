@@ -2,12 +2,12 @@ use std::io;
 use std::io::Write;
 
 use borrowme::borrowme;
-use integer_encoding::VarIntWriter;
+use integer_encoding::VarIntWriter as _;
 
-use crate::utils::SetOptionOnce;
+use crate::utils::SetOptionOnce as _;
 use crate::v01::column::ColumnType;
 use crate::v01::{Column, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream};
-use crate::{Decodable, MltError, MltRefResult, utils};
+use crate::{Decodable as _, MltError, MltRefResult, utils};
 
 /// Representation of a feature table layer encoded as MLT tag `0x01`
 #[borrowme]
