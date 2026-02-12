@@ -26,7 +26,11 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "key",
                         values: Bool(
-                            [],
+                            [
+                                Some(
+                                    true,
+                                ),
+                            ],
                         ),
                     },
                 ),

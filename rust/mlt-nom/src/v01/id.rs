@@ -35,7 +35,7 @@ pub enum RawIdValue<'a> {
 
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq)]
-pub struct DecodedId(Option<Vec<Option<u64>>>);
+pub struct DecodedId(pub Option<Vec<Option<u64>>>);
 
 impl_decodable!(Id<'a>, RawId<'a>, DecodedId);
 

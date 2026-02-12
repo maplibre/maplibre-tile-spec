@@ -26,7 +26,32 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    1222,
+                                ),
+                                Some(
+                                    1241,
+                                ),
+                                Some(
+                                    1245,
+                                ),
+                                Some(
+                                    1246,
+                                ),
+                                Some(
+                                    1809,
+                                ),
+                                Some(
+                                    1237,
+                                ),
+                                Some(
+                                    1228,
+                                ),
+                                Some(
+                                    1228,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -34,7 +59,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "gt",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some(
+                                    "pg",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -42,7 +78,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "id",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some(
+                                    "5471828012364201985",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -50,7 +97,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "max-text-width",
                         values: F32(
-                            [],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some(
+                                    100.0,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -58,7 +116,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some(
+                                    "English Channel",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -66,7 +135,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name-f",
                         values: F32(
-                            [],
+                            [
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                Some(
+                                    10.666667,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -97,7 +177,77 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    662,
+                                ),
+                                Some(
+                                    662,
+                                ),
+                                Some(
+                                    657,
+                                ),
+                                Some(
+                                    657,
+                                ),
+                                Some(
+                                    124,
+                                ),
+                                Some(
+                                    124,
+                                ),
+                                Some(
+                                    639,
+                                ),
+                                Some(
+                                    128,
+                                ),
+                                Some(
+                                    654,
+                                ),
+                                Some(
+                                    654,
+                                ),
+                                Some(
+                                    654,
+                                ),
+                                Some(
+                                    659,
+                                ),
+                                Some(
+                                    659,
+                                ),
+                                Some(
+                                    659,
+                                ),
+                                Some(
+                                    126,
+                                ),
+                                Some(
+                                    126,
+                                ),
+                                Some(
+                                    636,
+                                ),
+                                Some(
+                                    641,
+                                ),
+                                Some(
+                                    641,
+                                ),
+                                Some(
+                                    641,
+                                ),
+                                Some(
+                                    130,
+                                ),
+                                Some(
+                                    130,
+                                ),
+                                Some(
+                                    130,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -105,7 +255,77 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "st-et",
                         values: Str(
-                            [],
+                            [
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "highway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                                Some(
+                                    "controlledAccessHighway",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -136,7 +356,11 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    829,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -167,7 +391,11 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    948,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -198,7 +426,23 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    764,
+                                ),
+                                Some(
+                                    1651,
+                                ),
+                                Some(
+                                    1568,
+                                ),
+                                Some(
+                                    1773,
+                                ),
+                                Some(
+                                    1772,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -206,7 +450,23 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "clk-as",
                         values: Str(
-                            [],
+                            [
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -214,7 +474,21 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "gt",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    "pg",
+                                ),
+                                Some(
+                                    "pg",
+                                ),
+                                Some(
+                                    "pg",
+                                ),
+                                Some(
+                                    "pg",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -222,7 +496,21 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "id",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    "242",
+                                ),
+                                Some(
+                                    "68",
+                                ),
+                                Some(
+                                    "15126",
+                                ),
+                                Some(
+                                    "123",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -230,7 +518,21 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "label-importance",
                         values: I32(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    1,
+                                ),
+                                Some(
+                                    1,
+                                ),
+                                Some(
+                                    4,
+                                ),
+                                Some(
+                                    4,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -238,7 +540,21 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "max-text-width",
                         values: F32(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    5.6227055,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    4.6957464,
+                                ),
+                                Some(
+                                    2.7001953,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -246,7 +562,21 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    "United Kingdom",
+                                ),
+                                Some(
+                                    "Ireland",
+                                ),
+                                Some(
+                                    "Isle of Man",
+                                ),
+                                Some(
+                                    "Jersey",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -254,7 +584,21 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name-f",
                         values: F32(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    17.6,
+                                ),
+                                Some(
+                                    16.133335,
+                                ),
+                                Some(
+                                    9.777778,
+                                ),
+                                Some(
+                                    9.777778,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -262,7 +606,17 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name2",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                None,
+                                None,
+                                Some(
+                                    "(U.K.)",
+                                ),
+                                Some(
+                                    "(U.K.)",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -293,7 +647,11 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    1998,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -346,7 +704,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    73,
+                                ),
+                                Some(
+                                    74,
+                                ),
+                                Some(
+                                    87,
+                                ),
+                                Some(
+                                    87,
+                                ),
+                                Some(
+                                    87,
+                                ),
+                                Some(
+                                    87,
+                                ),
+                                Some(
+                                    84,
+                                ),
+                                Some(
+                                    84,
+                                ),
+                                Some(
+                                    84,
+                                ),
+                                Some(
+                                    89,
+                                ),
+                                Some(
+                                    89,
+                                ),
+                                Some(
+                                    89,
+                                ),
+                                Some(
+                                    89,
+                                ),
+                                Some(
+                                    89,
+                                ),
+                                Some(
+                                    89,
+                                ),
+                                Some(
+                                    89,
+                                ),
+                                Some(
+                                    602,
+                                ),
+                                Some(
+                                    602,
+                                ),
+                                Some(
+                                    602,
+                                ),
+                                Some(
+                                    602,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -354,7 +773,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "clk-as",
                         values: Str(
-                            [],
+                            [
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                                Some(
+                                    "lbl",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -362,7 +842,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "has-icon",
                         values: Bool(
-                            [],
+                            [
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                                Some(
+                                    true,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -370,7 +911,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "id",
                         values: Str(
-                            [],
+                            [
+                                Some(
+                                    "5469236016881598467",
+                                ),
+                                Some(
+                                    "5471798185326280713",
+                                ),
+                                Some(
+                                    "5471420093550297089",
+                                ),
+                                Some(
+                                    "5470569933580533764",
+                                ),
+                                Some(
+                                    "5470606763562631170",
+                                ),
+                                Some(
+                                    "5470681837795803137",
+                                ),
+                                Some(
+                                    "5468965953767211009",
+                                ),
+                                Some(
+                                    "5471226955279892482",
+                                ),
+                                Some(
+                                    "5469298618059980801",
+                                ),
+                                Some(
+                                    "5475154582311010305",
+                                ),
+                                Some(
+                                    "5471611648789708801",
+                                ),
+                                Some(
+                                    "5474271055411412993",
+                                ),
+                                Some(
+                                    "5471726962638585859",
+                                ),
+                                Some(
+                                    "5471738090764632065",
+                                ),
+                                Some(
+                                    "5470613117496983553",
+                                ),
+                                Some(
+                                    "5470939640137515009",
+                                ),
+                                Some(
+                                    "5470273268629897217",
+                                ),
+                                Some(
+                                    "5471720325974589441",
+                                ),
+                                Some(
+                                    "5471628382116511745",
+                                ),
+                                Some(
+                                    "5470623975711178753",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -378,7 +980,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "label-importance",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    6,
+                                ),
+                                Some(
+                                    3,
+                                ),
+                                Some(
+                                    8,
+                                ),
+                                Some(
+                                    13,
+                                ),
+                                Some(
+                                    19,
+                                ),
+                                Some(
+                                    23,
+                                ),
+                                Some(
+                                    21,
+                                ),
+                                Some(
+                                    22,
+                                ),
+                                Some(
+                                    35,
+                                ),
+                                Some(
+                                    7,
+                                ),
+                                Some(
+                                    10,
+                                ),
+                                Some(
+                                    13,
+                                ),
+                                Some(
+                                    31,
+                                ),
+                                Some(
+                                    32,
+                                ),
+                                Some(
+                                    47,
+                                ),
+                                Some(
+                                    90,
+                                ),
+                                Some(
+                                    32,
+                                ),
+                                Some(
+                                    35,
+                                ),
+                                Some(
+                                    48,
+                                ),
+                                Some(
+                                    75,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -386,7 +1049,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "max-text-width",
                         values: F32(
-                            [],
+                            [
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    100.0,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -394,7 +1118,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name",
                         values: Str(
-                            [],
+                            [
+                                Some(
+                                    "Dublin",
+                                ),
+                                Some(
+                                    "London",
+                                ),
+                                Some(
+                                    "Birmingham",
+                                ),
+                                Some(
+                                    "Manchester",
+                                ),
+                                Some(
+                                    "Sheffield",
+                                ),
+                                Some(
+                                    "Leeds",
+                                ),
+                                Some(
+                                    "Cork",
+                                ),
+                                Some(
+                                    "Cardiff",
+                                ),
+                                Some(
+                                    "Wexford",
+                                ),
+                                Some(
+                                    "Caen",
+                                ),
+                                Some(
+                                    "Bristol",
+                                ),
+                                Some(
+                                    "Plymouth",
+                                ),
+                                Some(
+                                    "Southampton",
+                                ),
+                                Some(
+                                    "Oxford",
+                                ),
+                                Some(
+                                    "Middlesbrough",
+                                ),
+                                Some(
+                                    "Chester",
+                                ),
+                                Some(
+                                    "Carlisle",
+                                ),
+                                Some(
+                                    "Poole",
+                                ),
+                                Some(
+                                    "Cheltenham",
+                                ),
+                                Some(
+                                    "Scarborough",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -402,7 +1187,68 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name-f",
                         values: F32(
-                            [],
+                            [
+                                Some(
+                                    16.0,
+                                ),
+                                Some(
+                                    18.181332,
+                                ),
+                                Some(
+                                    14.545334,
+                                ),
+                                Some(
+                                    14.545334,
+                                ),
+                                Some(
+                                    14.545334,
+                                ),
+                                Some(
+                                    14.545334,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                                Some(
+                                    14.544,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -410,7 +1256,60 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "st-tag",
                         values: Str(
-                            [],
+                            [
+                                Some(
+                                    "sovCap",
+                                ),
+                                Some(
+                                    "sovCap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin1Cap",
+                                ),
+                                Some(
+                                    "admin1Cap",
+                                ),
+                                Some(
+                                    "admin1Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                Some(
+                                    "admin2Cap",
+                                ),
+                                None,
+                                None,
+                                None,
+                                None,
+                            ],
                         ),
                     },
                 ),
@@ -441,7 +1340,20 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "bkt",
                         values: I32(
-                            [],
+                            [
+                                Some(
+                                    1900,
+                                ),
+                                Some(
+                                    2099,
+                                ),
+                                Some(
+                                    2099,
+                                ),
+                                Some(
+                                    2099,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -449,7 +1361,14 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "clk-as",
                         values: Str(
-                            [],
+                            [
+                                Some(
+                                    "lbl",
+                                ),
+                                None,
+                                None,
+                                None,
+                            ],
                         ),
                     },
                 ),
@@ -457,7 +1376,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "gt",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    "pg",
+                                ),
+                                Some(
+                                    "pg",
+                                ),
+                                Some(
+                                    "pg",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -465,7 +1395,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "id",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    "10270",
+                                ),
+                                Some(
+                                    "23739",
+                                ),
+                                Some(
+                                    "35651",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -473,7 +1414,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "label-importance",
                         values: I32(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    4,
+                                ),
+                                Some(
+                                    4,
+                                ),
+                                Some(
+                                    4,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -481,7 +1433,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "max-text-width",
                         values: F32(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    100.0,
+                                ),
+                                Some(
+                                    4.2484865,
+                                ),
+                                Some(
+                                    2.6530883,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -489,7 +1452,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    "England",
+                                ),
+                                Some(
+                                    "Northern Ireland",
+                                ),
+                                Some(
+                                    "Wales",
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -497,7 +1471,18 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "name-f",
                         values: F32(
-                            [],
+                            [
+                                None,
+                                Some(
+                                    12.466667,
+                                ),
+                                Some(
+                                    12.466667,
+                                ),
+                                Some(
+                                    12.466667,
+                                ),
+                            ],
                         ),
                     },
                 ),
@@ -505,7 +1490,14 @@ source: mlt-nom/tests/snapshots.rs
                     DecodedProperty {
                         name: "sec-name",
                         values: Str(
-                            [],
+                            [
+                                None,
+                                None,
+                                None,
+                                Some(
+                                    "Cymru",
+                                ),
+                            ],
                         ),
                     },
                 ),

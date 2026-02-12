@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use integer_encoding::VarInt;
-use num_traits::{AsPrimitive, PrimInt};
+use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
 
 use crate::{MltError, MltRefResult};
@@ -86,7 +86,9 @@ pub fn take(input: &[u8], size: usize) -> MltRefResult<'_, &[u8]> {
 
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component
-pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<Vec<T>, MltError> {
+pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
+    data: &[T::UInt],
+) -> Result<Vec<T>, MltError> {
     if data.is_empty() || !data.len().is_multiple_of(2) {
         return Err(MltError::InvalidPairStreamSize(data.len()));
     }
@@ -96,8 +98,8 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<V
     let mut last2 = T::zero();
 
     for i in (0..data.len()).step_by(2) {
-        last1 = T::decode(data[i]) + last1;
-        last2 = T::decode(data[i + 1]) + last2;
+        last1 = last1.wrapping_add(&T::decode(data[i]));
+        last2 = last2.wrapping_add(&T::decode(data[i + 1]));
         result.push(last1);
         result.push(last2);
     }
@@ -106,13 +108,12 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag>(data: &[T::UInt]) -> Result<V
 }
 
 /// Decode a vector of ZigZag-encoded unsigned deltas.
-pub fn decode_zigzag_delta<T: Copy + ZigZag + AsPrimitive<U>, U: 'static + Copy>(
+pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: 'static + Copy>(
     data: &[T::UInt],
 ) -> Vec<U> {
     data.iter()
         .scan(T::zero(), |state, &v| {
-            let decoded_delta = T::decode(v);
-            *state = *state + decoded_delta;
+            *state = state.wrapping_add(&T::decode(v));
             Some((*state).as_())
         })
         .collect()
@@ -172,6 +173,31 @@ pub fn bytes_to_u32s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<
 
 pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt]) -> Vec<T> {
     data.iter().map(|&v| T::decode(v)).collect()
+}
+
+/// Decode byte-level RLE as used in ORC for boolean and present streams.
+///
+/// Format: control byte determines the run type:
+/// - `control >= 128`: literal run of `(256 - control)` bytes follow
+/// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
+pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
+    let mut output = Vec::with_capacity(num_bytes);
+    let mut pos = 0;
+    while output.len() < num_bytes && pos < input.len() {
+        let control = input[pos];
+        pos += 1;
+        if control >= 128 {
+            let count = usize::from(control ^ 0xFF) + 1;
+            output.extend_from_slice(&input[pos..pos + count]);
+            pos += count;
+        } else {
+            let count = usize::from(control) + 3;
+            let value = input[pos];
+            pos += 1;
+            output.extend(std::iter::repeat_n(value, count));
+        }
+    }
+    output
 }
 
 /// Wrapper type for optional slices to provide a custom Debug implementation
