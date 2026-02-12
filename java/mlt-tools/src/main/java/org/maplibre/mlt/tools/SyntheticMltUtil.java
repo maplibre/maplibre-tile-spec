@@ -101,11 +101,11 @@ class SyntheticMltUtil {
     return c;
   }
 
-  static LineString lineString(Coordinate... coords) {
+  static LineString line(Coordinate... coords) {
     return gf.createLineString(coords);
   }
 
-  static LinearRing linearRing(Coordinate... coords) {
+  static LinearRing ring(Coordinate... coords) {
     return gf.createLinearRing(coords);
   }
 
@@ -117,15 +117,15 @@ class SyntheticMltUtil {
     return gf.createPolygon(shell, holes);
   }
 
-  static MultiPoint multiPoint(Point... pts) {
+  static MultiPoint multi(Point... pts) {
     return gf.createMultiPoint(pts);
   }
 
-  static MultiPolygon multiPolygon(Polygon... polys) {
+  static MultiPolygon multi(Polygon... polys) {
     return gf.createMultiPolygon(polys);
   }
 
-  static MultiLineString multiLineStr(LineString... lines) {
+  static MultiLineString multi(LineString... lines) {
     return gf.createMultiLineString(lines);
   }
 

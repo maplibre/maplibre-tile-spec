@@ -44,8 +44,7 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateLines() throws IOException {
-    var line = feat(lineString(c1, c2));
-    write("line", line, cfg());
+      write("line", feat(line(c1, c2)), cfg());
   }
 
   private static void generatePolygons() throws IOException {
@@ -57,36 +56,28 @@ public class SyntheticMltGenerator {
     // write("polygon-morton-tess", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
-    var polWithHole = feat(polygon(linearRing(c1, c2, c3, c4, c1), linearRing(c5, c6, c7, c8, c5)));
+    var polWithHole = feat(polygon(ring(c1, c2, c3, c4, c1), ring(c5, c6, c7, c8, c5)));
     write("polygon-hole", polWithHole, cfg());
     write("polygon-hole-fpf", polWithHole, cfg().fastPFOR());
 
     // MultiPolygon
-    var multiPol = feat(multiPolygon(polygon(c1, c2, c6, c5, c1), polygon(c8, c7, c3, c4, c8)));
+    var multiPol = feat(multi(polygon(c1, c2, c6, c5, c1), polygon(c8, c7, c3, c4, c8)));
     write("polygon-multi", multiPol, cfg());
     write("polygon-multi-fpf", multiPol, cfg().fastPFOR());
   }
 
   private static void generateMultiPoints() throws IOException {
-    var multiPoint = feat(multiPoint(p1, p2, p3));
-    write("multipoint", multiPoint, cfg());
+      write("multipoint", feat(multi(p1, p2, p3)), cfg());
   }
 
   private static void generateMultiLineStrings() throws IOException {
-    var multiLine = feat(multiLineStr(lineString(c1, c2), lineString(c3, c4, c5)));
-    write("multiline", multiLine, cfg());
+      write("multiline", feat(multi(line(c1, c2), line(c3, c4, c5))), cfg());
   }
 
   private static void generateMixed() throws IOException {
-    // Point + LineString in one layer -> covers Point(None, Some(po), None)
-    write(layer("mixed-points-lines", feat(p1), feat(lineString(c1, c2))), cfg());
-
-    // Point + Polygon in one layer -> covers Point(None, Some(po), Some(ro))
-    write(layer("mixed-points-polys", feat(p1), feat(polygon(c1, c2, c5, c1))), cfg());
-
-    // LineString + Polygon in one layer -> covers LineString(Some(po), Some(ro))
-    write(
-        layer("mixed-lines-polys", feat(lineString(c1, c2)), feat(polygon(c1, c2, c5, c1))), cfg());
+    write(layer("mixed-pt-line", feat(p1), feat(line(c1, c2))), cfg());
+    write(layer("mixed-pt-poly", feat(p1), feat(polygon(c1, c2, c5, c1))), cfg());
+    write(layer("mixed-line-poly", feat(line(c1, c2)), feat(polygon(c1, c2, c5, c1))), cfg());
 
     // Point + LineString + Polygon + MultiPolygon in one layer -> covers
     //   Point(Some(go), Some(po), Some(ro))
@@ -96,9 +87,9 @@ public class SyntheticMltGenerator {
         layer(
             "mixed-all",
             feat(p1),
-            feat(lineString(c1, c2)),
+            feat(line(c1, c2)),
             feat(polygon(c1, c2, c5, c1)),
-            feat(multiPolygon(polygon(c1, c2, c6, c5, c1), polygon(c8, c7, c3, c4, c8)))),
+            feat(multi(polygon(c1, c2, c6, c5, c1), polygon(c8, c7, c3, c4, c8)))),
         cfg());
   }
 
