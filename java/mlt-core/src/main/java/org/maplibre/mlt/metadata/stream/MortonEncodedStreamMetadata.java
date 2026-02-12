@@ -39,22 +39,6 @@ public class MortonEncodedStreamMetadata extends StreamMetadata {
     return ArrayUtils.addAll(super.encode(), mortonInfos);
   }
 
-  public static MortonEncodedStreamMetadata decode(byte[] tile, IntWrapper offset)
-      throws IOException {
-    var streamMetadata = StreamMetadata.decode(tile, offset);
-    var mortonInfo = DecodingUtils.decodeVarints(tile, offset, 2);
-    return new MortonEncodedStreamMetadata(
-        streamMetadata.physicalStreamType(),
-        streamMetadata.logicalStreamType(),
-        streamMetadata.logicalLevelTechnique1(),
-        streamMetadata.logicalLevelTechnique2(),
-        streamMetadata.physicalLevelTechnique(),
-        streamMetadata.numValues(),
-        streamMetadata.byteLength(),
-        mortonInfo[0],
-        mortonInfo[1]);
-  }
-
   public static MortonEncodedStreamMetadata decodePartial(
       StreamMetadata streamMetadata, byte[] tile, IntWrapper offset) throws IOException {
     var mortonInfo = DecodingUtils.decodeVarints(tile, offset, 2);

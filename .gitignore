@@ -8,3 +8,8 @@ bin/
 coverage/
 dist/
 tmp/
+codecov*
+MODULE.bazel.lock
+*.diff.geojson
+*.new.geojson
+*.gcov

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <mlt/decoder.hpp>
+#include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/projection.hpp>
@@ -56,7 +57,7 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
     return false;
 }
 
-const auto basePath = "../test/expected/tag0x01"s;
+const auto basePath = std::filesystem::path("../test/expected/tag0x01");
 
 #if MLT_WITH_JSON
 auto dump(const nlohmann::json& json) {
@@ -103,7 +104,7 @@ std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::str
 } // namespace
 
 TEST(Decode, SimplePointBoolean) {
-    const auto tile = loadTile(basePath + "/simple/point-boolean.mlt").first;
+    const auto tile = loadTile(basePath / "simple/point-boolean.mlt").first;
     ASSERT_TRUE(tile);
 
     const auto* mltLayer = tile->getLayer("layer");
@@ -117,59 +118,71 @@ TEST(Decode, SimplePointBoolean) {
 }
 
 TEST(Decode, SimpleLineBoolean) {
-    const auto tile = loadTile(basePath + "/simple/line-boolean.mlt");
+    const auto tile = loadTile(basePath / "simple/line-boolean.mlt");
     // TODO: check properties, geometry, etc.
     ASSERT_TRUE(tile.first);
 }
 
 TEST(Decode, SimplePolygonBoolean) {
-    const auto tile = loadTile(basePath + "/simple/polygon-boolean.mlt");
+    const auto tile = loadTile(basePath / "simple/polygon-boolean.mlt");
     ASSERT_TRUE(tile.first);
+
+    const auto* layer = tile.first->getLayer("layer");
+    ASSERT_TRUE(layer);
+    ASSERT_EQ(layer->getFeatures().size(), 1);
+
+    const auto& geom = layer->getFeatures()[0].getGeometry();
+    EXPECT_EQ(geom.type, mlt::metadata::tileset::GeometryType::POLYGON);
+    const auto& poly = dynamic_cast<const mlt::geometry::Polygon&>(geom);
+    ASSERT_EQ(poly.getRings().size(), 1);
+    // MLT stores rings without closing points; decoder must add them back
+    const auto& ring = poly.getRings()[0];
+    EXPECT_EQ(ring.front(), ring.back()) << "polygon ring should be closed by decoder";
 }
 
 TEST(Decode, SimpleMultiPointBoolean) {
-    const auto tile = loadTile(basePath + "/simple/multipoint-boolean.mlt");
+    const auto tile = loadTile(basePath / "simple/multipoint-boolean.mlt");
     ASSERT_TRUE(tile.first);
 }
 
 TEST(Decode, SimpleMultiLineBoolean) {
-    const auto tile = loadTile(basePath + "/simple/multiline-boolean.mlt");
+    const auto tile = loadTile(basePath / "simple/multiline-boolean.mlt");
     ASSERT_TRUE(tile.first);
 }
 
 TEST(Decode, SimpleMultiPolygonBoolean) {
-    const auto tile = loadTile(basePath + "/simple/multipolygon-boolean.mlt");
+    const auto tile = loadTile(basePath / "simple/multipolygon-boolean.mlt");
     ASSERT_TRUE(tile.first);
 }
 
 TEST(Decode, Bing) {
-    const auto tile = loadTile(basePath + "/bing/4-13-6.mlt");
+    const auto tile = loadTile(basePath / "bing/4-13-6.mlt");
     ASSERT_TRUE(tile.first) << tile.second;
 }
 
 TEST(Decode, OMT) {
-    const auto tile = loadTile(basePath + "/omt/2_2_2.mlt");
+    const auto tile = loadTile(basePath / "omt/2_2_2.mlt");
     ASSERT_TRUE(tile.first);
 }
 
 // Make sure everything else loads without errors
 TEST(Decode, AllBing) {
     const std::regex metadataFilePattern{".*\\.mlt"};
-    for (const auto& path : findFiles(basePath + "/bing", metadataFilePattern)) {
+    for (const auto& path : findFiles(basePath / "bing", metadataFilePattern)) {
         std::cout << "  Loading " << path.filename().string() << " ...\n";
         loadTile(path);
     }
 }
 TEST(Decode, AllAmazon) {
     const std::regex metadataFilePattern{".*\\.mlt"};
-    for (const auto& path : findFiles(basePath + "/amazon", metadataFilePattern)) {
+    for (const auto& path : findFiles(basePath / "amazon", metadataFilePattern)) {
         std::cout << "  Loading " << path.filename().string() << " ...\n";
         loadTile(path);
     }
 }
 TEST(Decode, AllOMT) {
     const std::regex metadataFilePattern{".*\\.mlt"};
-    for (const auto& path : findFiles(basePath + "/omt", metadataFilePattern)) {
+    for (const auto& path : findFiles(basePath / "omt", metadataFilePattern)) {
         try {
             if (auto result = loadTile(path); result.first) {
                 std::cout << "Loaded: " << path.filename().string() << "\n";

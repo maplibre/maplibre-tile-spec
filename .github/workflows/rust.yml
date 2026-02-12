@@ -6,6 +6,7 @@ on:
       - main
   pull_request:
     paths:
+      - 'justfile'
       - '.github/**'
       - 'rust/**'
       - 'test/**'
@@ -36,7 +37,7 @@ jobs:
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
-        with: { tool: 'just' }
+        with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
       - name: Read MSRV
         id: msrv
@@ -45,7 +46,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-      - run: just -v ci_mode=0 ci-test-msrv  # Ignore warnings in MSRV
+      - run: cd ../.. && just -v assert-git-is-clean
 
   coverage:
     name: Code Coverage
@@ -57,7 +58,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-llvm-cov' }
+        with: { tool: 'just,cargo-binstall,cargo-llvm-cov' }
       - uses: ./.github/actions/mlt-setup-java
       - name: Generate code coverage
         run: just -v ci-coverage
@@ -66,6 +67,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/llvm-cov/codecov.info
+      - run: cd ../.. && just -v assert-git-is-clean
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.

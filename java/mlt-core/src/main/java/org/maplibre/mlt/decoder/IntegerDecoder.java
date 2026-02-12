@@ -203,71 +203,11 @@ public class IntegerDecoder {
     return values;
   }
 
-  private static List<Integer> decodeDeltaRLE(int[] data, int numRuns) {
-    var deltaValues = new ArrayList<Integer>();
-    for (var i = 0; i < numRuns; i++) {
-      var run = data[i];
-      /* Only values are zig-zag encoded */
-      var delta = DecodingUtils.decodeZigZag(data[i + numRuns]);
-      // values.add(delta + previousValue);
-      for (var j = 0; j < run; j++) {
-        deltaValues.add(delta);
-      }
-    }
-
-    // TODO: merge rle and delta encoding
-    var values = new ArrayList<Integer>(deltaValues.size());
-    var previousValue = 0;
-    for (var delta : deltaValues) {
-      var value = delta + previousValue;
-      values.add(value);
-      previousValue = value;
-    }
-
-    return values;
-  }
-
-  private static List<Long> decodeDeltaRLE(long[] data, int numRuns) {
-    var deltaValues = new ArrayList<Long>();
-    for (var i = 0; i < numRuns; i++) {
-      var run = data[i];
-      /* Only values are zig-zag encoded */
-      var delta = DecodingUtils.decodeZigZag(data[i + numRuns]);
-      // values.add(delta + previousValue);
-      for (var j = 0; j < run; j++) {
-        deltaValues.add(delta);
-      }
-    }
-
-    // TODO: merge rle and delta encoding
-    var values = new ArrayList<Long>(deltaValues.size());
-    var previousValue = 0L;
-    for (var delta : deltaValues) {
-      var value = delta + previousValue;
-      values.add(value);
-      previousValue = value;
-    }
-
-    return values;
-  }
-
   private static List<Integer> decodeZigZagDelta(int[] data) {
     var values = new ArrayList<Integer>(data.length);
     var previousValue = 0;
     for (var zigZagDelta : data) {
       var delta = DecodingUtils.decodeZigZag(zigZagDelta);
-      var value = previousValue + delta;
-      values.add(value);
-      previousValue = value;
-    }
-
-    return values;
-  }
-
-  private static List<Integer> decodeDelta(int[] data) {
-    var values = new ArrayList<Integer>(data.length);
-    var previousValue = 0;
-    for (var delta : data) {
       var value = previousValue + delta;
       values.add(value);
       previousValue = value;
