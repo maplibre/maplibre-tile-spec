@@ -1,0 +1,89 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          0
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "int": 99,
+        "layer": "point"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          50,
+          0
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "int": 98,
+        "layer": "point"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          50,
+          50
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "int": 97,
+        "layer": "point"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          50
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "int": 96,
+        "layer": "point"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
