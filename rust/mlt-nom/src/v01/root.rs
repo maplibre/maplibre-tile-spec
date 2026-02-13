@@ -2,12 +2,12 @@ use std::io;
 use std::io::Write;
 
 use borrowme::borrowme;
-use integer_encoding::VarIntWriter;
+use integer_encoding::VarIntWriter as _;
 
-use crate::utils::SetOptionOnce;
+use crate::utils::SetOptionOnce as _;
 use crate::v01::column::ColumnType;
 use crate::v01::{Column, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream};
-use crate::{Decodable, MltError, MltRefResult, utils};
+use crate::{Decodable as _, MltError, MltRefResult, utils};
 
 /// Representation of a feature table layer encoded as MLT tag `0x01`
 #[borrowme]
@@ -28,7 +28,7 @@ impl Layer01<'_> {
         let (input, column_count) = utils::parse_varint::<usize>(input)?;
 
         // !!!!!!!
-        // WARNING: make sure to never use `let (input, ...)` after this point, as input var is reused
+        // WARNING: make sure to never use `let (input, ...)` after this point: input var is reused
         let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count)?;
 
         let mut properties = Vec::with_capacity(prop_count);
@@ -114,7 +114,9 @@ impl Layer01<'_> {
                     properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
                 }
                 ColumnType::Struct => {
-                    todo!("Struct column type not implemented yet");
+                    return Err(MltError::NotImplemented(
+                        "Struct column type not implemented yet",
+                    ));
                 }
             }
         }
@@ -132,10 +134,10 @@ impl Layer01<'_> {
     }
 
     pub fn decode_all(&mut self) -> Result<(), MltError> {
-        self.id.ensure_decoded()?;
-        self.geometry.ensure_decoded()?;
+        self.id.materialize()?;
+        self.geometry.materialize()?;
         for prop in &mut self.properties {
-            prop.ensure_decoded()?;
+            prop.materialize()?;
         }
         Ok(())
     }
@@ -191,9 +193,18 @@ impl OwnedLayer01 {
         writer.write_varint(column_count as u64)?;
         if has_id {
             // self.id.write_to(writer)?;
-            todo!()
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("{}", MltError::NotImplemented("ID write not implemented")),
+            ));
         }
 
-        todo!()
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!(
+                "{}",
+                MltError::NotImplemented("Layer write not fully implemented")
+            ),
+        ))
     }
 }
