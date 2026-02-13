@@ -13,22 +13,9 @@ fn pair_test([mlt, json]: [&Path; 2]) {
 
 fn test_one(mlt: &Path, json: &Path) {
     let buffer = fs::read(mlt).unwrap();
-    let mut data = match parse_layers(&buffer) {
-        Ok(v) => v,
-        Err(e) if e.to_string().contains("FastPFOR") => {
-            eprintln!("Skipping {}: {e}", mlt.display());
-            return;
-        }
-        Err(e) => panic!("{e}"),
-    };
+    let mut data = parse_layers(&buffer).unwrap();
     for layer in &mut data {
-        if let Err(e) = layer.decode_all() {
-            if e.to_string().contains("FastPFOR") {
-                eprintln!("Skipping {}: {e}", mlt.display());
-                return;
-            }
-            panic!("{e}");
-        }
+        layer.decode_all().unwrap();
     }
 
     let expected: FeatureCollection =
