@@ -14,4 +14,4 @@ runs:
         java-version: '22'
 
     - name: Setup Java Gradle
-      uses: gradle/actions/setup-gradle@v4
+      uses: gradle/actions/setup-gradle@v5

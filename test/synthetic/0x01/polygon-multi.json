@@ -1,0 +1,71 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                50,
+                0
+              ],
+              [
+                40,
+                10
+              ],
+              [
+                10,
+                10
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                10,
+                40
+              ],
+              [
+                40,
+                40
+              ],
+              [
+                50,
+                50
+              ],
+              [
+                0,
+                50
+              ],
+              [
+                10,
+                40
+              ]
+            ]
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "layer": "layer1"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
