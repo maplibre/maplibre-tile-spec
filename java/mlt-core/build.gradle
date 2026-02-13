@@ -9,7 +9,7 @@ plugins {
 repositories {
     mavenCentral()
     maven {
-        url 'https://maven.ecc.no/releases'
+        url = 'https://maven.ecc.no/releases'
     }
 }
 
@@ -44,7 +44,7 @@ test {
         outputs.upToDateWhen { false }
         showStandardStreams = true
         events "passed", "skipped", "failed"
-        exceptionFormat "full"
+        exceptionFormat = "full"
     }
     finalizedBy jacocoTestReport
 }
