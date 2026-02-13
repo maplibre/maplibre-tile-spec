@@ -39,7 +39,9 @@ dependencies {
 
 test {
     jvmArgs "-Dcom.google.protobuf.use_unsafe_pre22_gencode"
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'benchmark'
+    }
     testLogging {
         outputs.upToDateWhen { false }
         showStandardStreams = true
