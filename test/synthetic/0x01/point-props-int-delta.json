@@ -17,7 +17,7 @@
       "id": 0,
       "properties": {
         "int": 99,
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     },
@@ -38,7 +38,7 @@
       "id": 0,
       "properties": {
         "int": 98,
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     },
@@ -59,7 +59,7 @@
       "id": 0,
       "properties": {
         "int": 97,
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     },
@@ -80,7 +80,7 @@
       "id": 0,
       "properties": {
         "int": 96,
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     }
