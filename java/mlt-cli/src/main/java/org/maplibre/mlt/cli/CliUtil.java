@@ -64,7 +64,9 @@ public class CliUtil {
   private static Map<String, Object> featureToGeoJson(String layerName, Feature feature) {
     var f = new TreeMap<String, Object>();
     f.put("type", "Feature");
-    f.put("id", feature.id());
+    if (feature.id() != null) {
+      f.put("id", feature.id());
+    }
     var props = getSortedNonNullProperties(feature);
     props.put("layer", layerName);
     f.put("properties", props);

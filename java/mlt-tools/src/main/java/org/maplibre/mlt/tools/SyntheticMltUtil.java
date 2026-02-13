@@ -158,7 +158,7 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom, Long id, Map<String, Object> props) {
-    return new Feature(id != null ? id : 0, geom, props);
+    return new Feature(id, geom, props);
   }
 
   static Layer layer(String name, Feature... features) {

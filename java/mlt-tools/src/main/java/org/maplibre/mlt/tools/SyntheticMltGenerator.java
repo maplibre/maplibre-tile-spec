@@ -41,6 +41,11 @@ public class SyntheticMltGenerator {
     write(layer("ids", pts), cfg().ids());
     write(layer("ids-delta", pts), cfg(DELTA).ids());
 
+    var pts2 =
+        new Feature[] {feat(p1, 100L), feat(p2, 101L), feat(p3), feat(p4, 105L), feat(p5, 106L)};
+    write(layer("ids-opt", pts2), cfg().ids());
+    write(layer("ids-opt-delta", pts2), cfg(DELTA).ids());
+
     write("id64", feat(p1, 9_234_567_890L), cfg().ids());
     var pts64 = new Feature[] {feat(p1, 1L), feat(p2, 9_234_567_890L), feat(p3, 9_234_567_891L)};
     write(layer("ids64", pts64), cfg().ids());

@@ -100,7 +100,8 @@ public class MltConverter {
         final var newColumn =
             new MltMetadata.Column(
                 null, new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID));
-        newColumn.isNullable = false;
+        newColumn.isNullable =
+            layer.features().stream().anyMatch(feature -> feature.id() == null);
         newColumn.columnScope = MltMetadata.ColumnScope.FEATURE;
         newColumn.scalarType.hasLongId = hasLongId;
         featureTableSchema.columns.add(newColumn);
