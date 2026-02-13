@@ -1,10 +1,9 @@
 use std::fmt::Debug;
 
 use borrowme::borrowme;
+use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use hex::ToHex as _;
 use num_enum::TryFromPrimitive;
-
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 
 use crate::MltError::ParsingPhysicalStreamType;
 use crate::utils::{all, decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta, take};
@@ -263,9 +262,9 @@ impl<'a> Stream<'a> {
         let stream_data = match physical {
             PT::None | PT::FastPFOR => DataRaw::new(data),
             PT::VarInt => DataVarInt::new(data),
-            v => {
+            PT::Alp => {
                 return Err(MltError::DecodeError(format!(
-                    "Unsupported logical/physical technique combination: {v:?}"
+                    "Unsupported logical/physical technique combination: {physical:?}"
                 )));
             }
         };
@@ -450,9 +449,9 @@ impl<'a> Stream<'a> {
 /// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
 /// the C++ `CompositeCodec<FastPFor<8>, VariableByte>`. The wire format is:
 ///
-/// 1. First u32 = number of compressed u32 words from the primary codec (FastPFor)
-/// 2. Next N u32 words = primary codec (FastPFor) compressed data
-/// 3. Remaining u32 words = secondary codec (VByte) compressed data
+/// 1. First u32 = number of compressed u32 words from the primary codec (`FastPFor`)
+/// 2. Next N u32 words = primary codec (`FastPFor`) compressed data
+/// 3. Remaining u32 words = secondary codec (`VByte`) compressed data
 ///
 /// The compressed bytes are stored as big-endian u32 values by the Java encoder.
 fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u32>, MltError> {
@@ -461,7 +460,7 @@ fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u32>,
     }
 
     // Convert big-endian bytes to u32 values
-    if data.len() % 4 != 0 {
+    if !data.len().is_multiple_of(4) {
         return Err(MltError::DecodeError(format!(
             "FastPFOR data length {} is not a multiple of 4",
             data.len()
