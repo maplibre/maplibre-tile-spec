@@ -1,0 +1,35 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            0,
+            0
+          ],
+          [
+            50,
+            0
+          ],
+          [
+            50,
+            50
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "layer": "layer1"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

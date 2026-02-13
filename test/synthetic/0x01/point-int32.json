@@ -17,7 +17,7 @@
       "id": 0,
       "properties": {
         "count": 42,
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     }

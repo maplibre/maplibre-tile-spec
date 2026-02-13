@@ -1,9 +1,10 @@
-#![allow(dead_code)]
-#![allow(unused_assignments)]
-#![allow(unused_variables)]
+#![expect(dead_code)]
+#![expect(unused_assignments)]
+#![expect(unused_variables)]
 
 mod decodable;
 mod errors;
+pub mod geojson;
 mod layer;
 mod unknown;
 mod utils;

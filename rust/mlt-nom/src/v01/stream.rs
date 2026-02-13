@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use borrowme::borrowme;
+use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use hex::ToHex as _;
 use num_enum::TryFromPrimitive;
 
@@ -127,6 +128,7 @@ pub struct LogicalValue {
 #[derive(Debug, PartialEq)]
 pub enum LogicalData {
     VecU32(Vec<u32>),
+    VecU64(Vec<u64>),
 }
 
 /// Representation of the raw stream data, in various physical formats
@@ -258,10 +260,12 @@ impl<'a> Stream<'a> {
         };
 
         let stream_data = match physical {
-            PT::None => DataRaw::new(data),
+            PT::None | PT::FastPFOR => DataRaw::new(data),
             PT::VarInt => DataVarInt::new(data),
-            _ => {
-                panic!("Unsupported logical/physical technique combination: {physical:?}",)
+            PT::Alp => {
+                return Err(MltError::DecodeError(format!(
+                    "Unsupported logical/physical technique combination: {physical:?}"
+                )));
             }
         };
 
@@ -294,6 +298,76 @@ impl<'a> Stream<'a> {
             .map_err(Into::into)
     }
 
+    pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
+        let value = match self.meta.physical_decoder {
+            PhysicalDecoder::VarInt => match self.data {
+                StreamData::VarInt(data) => all(utils::parse_varint_vec::<u64, u64>(
+                    data.data,
+                    self.meta.num_values,
+                )?),
+                StreamData::Raw(_) => {
+                    return Err(MltError::InvalidStreamData {
+                        expected: "VarInt",
+                        got: "Raw".to_string(),
+                    });
+                }
+            },
+            PhysicalDecoder::None => {
+                // For raw data, we'd need to read 8 bytes per value
+                // But typically 64-bit IDs use VarInt encoding
+                return Err(MltError::DecodeError(
+                    "Raw physical decoder not supported for u64".to_string(),
+                ));
+            }
+            PhysicalDecoder::FastPFOR => {
+                return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"));
+            }
+            PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
+        }?;
+
+        Ok(LogicalValue::new(self.meta, LogicalData::VecU64(value)))
+    }
+
+    pub fn decode_u64(self) -> Result<Vec<u64>, MltError> {
+        self.decode_bits_u64()?.decode_u64()
+    }
+
+    /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`
+    #[must_use]
+    pub fn decode_bools(self) -> Vec<bool> {
+        let num_values = self.meta.num_values as usize;
+        let num_bytes = num_values.div_ceil(8);
+        let raw = match &self.data {
+            StreamData::Raw(d) => d.data,
+            StreamData::VarInt(d) => d.data,
+        };
+        let decoded = utils::decode_byte_rle(raw, num_bytes);
+        (0..num_values)
+            .map(|i| (decoded[i / 8] >> (i % 8)) & 1 == 1)
+            .collect()
+    }
+
+    /// Decode a stream of f32 values from raw little-endian bytes
+    #[must_use]
+    pub fn decode_f32s(self) -> Vec<f32> {
+        let raw = match &self.data {
+            StreamData::Raw(d) => d.data,
+            StreamData::VarInt(d) => d.data,
+        };
+        let num = self.meta.num_values as usize;
+        (0..num)
+            .map(|i| {
+                let o = i * 4;
+                f32::from_le_bytes([raw[o], raw[o + 1], raw[o + 2], raw[o + 3]])
+            })
+            .collect()
+    }
+
+    /// Decode a signed i64 stream
+    pub fn decode_i64(self) -> Result<Vec<i64>, MltError> {
+        self.decode_bits_u64()?.decode_i64()
+    }
+
     pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.physical_decoder {
             PhysicalDecoder::VarInt => match self.data {
@@ -319,17 +393,22 @@ impl<'a> Stream<'a> {
                     });
                 }
             },
-            PhysicalDecoder::FastPFOR => {
-                return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"));
-            }
+            PhysicalDecoder::FastPFOR => match self.data {
+                StreamData::Raw(data) => Ok(decode_fastpfor_composite(
+                    data.data,
+                    self.meta.num_values as usize,
+                )?),
+                StreamData::VarInt(_) => {
+                    return Err(MltError::InvalidStreamData {
+                        expected: "Raw",
+                        got: format!("{:?}", self.data),
+                    });
+                }
+            },
             PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
         }?;
 
         Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
-    }
-
-    fn decode_physical_u64(self) -> Result<Vec<u64>, MltError> {
-        todo!("decode 64 bit integer from stream")
     }
 
     // pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
@@ -363,6 +442,68 @@ impl<'a> Stream<'a> {
     //         }
     //     }
     // }
+}
+
+/// Decode FastPFOR-compressed data using the composite codec protocol.
+///
+/// The Java MLT encoder uses `Composition(FastPFOR(), VariableByte())`, matching
+/// the C++ `CompositeCodec<FastPFor<8>, VariableByte>`. The wire format is:
+///
+/// 1. First u32 = number of compressed u32 words from the primary codec (`FastPFor`)
+/// 2. Next N u32 words = primary codec (`FastPFor`) compressed data
+/// 3. Remaining u32 words = secondary codec (`VByte`) compressed data
+///
+/// The compressed bytes are stored as big-endian u32 values by the Java encoder.
+fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u32>, MltError> {
+    if num_values == 0 {
+        return Ok(vec![]);
+    }
+
+    // Convert big-endian bytes to u32 values
+    if !data.len().is_multiple_of(4) {
+        return Err(MltError::DecodeError(format!(
+            "FastPFOR data length {} is not a multiple of 4",
+            data.len()
+        )));
+    }
+    // The Java MLT encoder writes compressed int[] → byte[] in big-endian order.
+    // We must convert BE bytes → u32 to reconstruct the original integer values
+    // that the Composition(FastPFOR, VariableByte) codec produced.
+    let num_words = data.len() / 4;
+    let input: Vec<u32> = (0..num_words)
+        .map(|i| {
+            let o = i * 4;
+            u32::from_be_bytes([data[o], data[o + 1], data[o + 2], data[o + 3]])
+        })
+        .collect();
+
+    if input.is_empty() {
+        return Err(MltError::DecodeError(
+            "FastPFOR data is empty but num_values > 0".to_string(),
+        ));
+    }
+
+    // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
+    // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
+
+    // Over-allocate output buffer — the codec may decode padding beyond num_values.
+    let buf_size = num_values + 1024;
+    let mut result = vec![0u32; buf_size];
+
+    let codec = FastPFor256Codec::new();
+    let decoded = codec
+        .decode32(&input, &mut result)
+        .map_err(|e| MltError::DecodeError(format!("FastPFOR decode error: {e}")))?;
+
+    if decoded.len() < num_values {
+        return Err(MltError::DecodeError(format!(
+            "FastPFOR decoded {} values, expected {num_values}",
+            decoded.len()
+        )));
+    }
+
+    result.truncate(num_values);
+    Ok(result)
 }
 
 impl PhysicalStreamType {
@@ -401,11 +542,33 @@ impl LogicalValue {
 
     pub fn decode_i32(self) -> Result<Vec<i32>, MltError> {
         match self.meta.logical_decoder {
+            LogicalDecoder::None => match self.data {
+                LogicalData::VecU32(data) => Ok(utils::decode_zigzag::<i32>(&data)),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as i32".to_string(),
+                )),
+            },
+            LogicalDecoder::Rle(rle) => match self.data {
+                LogicalData::VecU32(data) => {
+                    let decoded =
+                        decode_rle(&data, rle.runs as usize, rle.num_rle_values as usize)?;
+                    Ok(utils::decode_zigzag::<i32>(&decoded))
+                }
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as i32".to_string(),
+                )),
+            },
             LogicalDecoder::ComponentwiseDelta => match self.data {
                 LogicalData::VecU32(data) => decode_componentwise_delta_vec2s(&data),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as i32".to_string(),
+                )),
             },
             LogicalDecoder::Delta => match self.data {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as i32".to_string(),
+                )),
             },
             LogicalDecoder::DeltaRle(rle_meta) => {
                 match self.data {
@@ -418,9 +581,14 @@ impl LogicalValue {
                         )?;
                         Ok(decode_zigzag_delta::<i32, _>(rle_decoded.as_slice()))
                     }
+                    LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                        "Cannot decode VecU64 as i32".to_string(),
+                    )),
                 }
             }
-            v => panic!("Unsupported LogicalDecoder {v:?} for i32"),
+            v => Err(MltError::DecodeError(format!(
+                "Unsupported LogicalDecoder {v:?} for i32"
+            ))),
         }
     }
 
@@ -428,16 +596,130 @@ impl LogicalValue {
         match self.meta.logical_decoder {
             LogicalDecoder::None => match self.data {
                 LogicalData::VecU32(data) => Ok(data),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as u32".to_string(),
+                )),
             },
             LogicalDecoder::Rle(value) => match self.data {
                 LogicalData::VecU32(data) => {
                     decode_rle(&data, value.runs as usize, value.num_rle_values as usize)
                 }
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as u32".to_string(),
+                )),
             },
             LogicalDecoder::Delta => match self.data {
-                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())),
+                LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, u32>(data.as_slice())),
+                LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU64 as u32".to_string(),
+                )),
             },
-            v => panic!("Unsupported LogicalDecoder {v:?} for u32"),
+            LogicalDecoder::DeltaRle(rle_meta) => {
+                match self.data {
+                    LogicalData::VecU32(data) => {
+                        // First decode RLE, then apply ZigZag Delta decoding
+                        let rle_decoded = decode_rle(
+                            &data,
+                            rle_meta.runs as usize,
+                            rle_meta.num_rle_values as usize,
+                        )?;
+                        Ok(decode_zigzag_delta::<i32, u32>(rle_decoded.as_slice()))
+                    }
+                    LogicalData::VecU64(_) => Err(MltError::DecodeError(
+                        "Cannot decode VecU64 as u32".to_string(),
+                    )),
+                }
+            }
+            v => Err(MltError::DecodeError(format!(
+                "Unsupported LogicalDecoder {v:?} for u32"
+            ))),
+        }
+    }
+
+    pub fn decode_i64(self) -> Result<Vec<i64>, MltError> {
+        match self.meta.logical_decoder {
+            LogicalDecoder::None => match self.data {
+                LogicalData::VecU64(data) => Ok(utils::decode_zigzag::<i64>(&data)),
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as i64".to_string(),
+                )),
+            },
+            LogicalDecoder::Delta => match self.data {
+                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, i64>(data.as_slice())),
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as i64".to_string(),
+                )),
+            },
+            LogicalDecoder::DeltaRle(rle_meta) => match self.data {
+                LogicalData::VecU64(data) => {
+                    let rle_decoded = decode_rle(
+                        &data,
+                        rle_meta.runs as usize,
+                        rle_meta.num_rle_values as usize,
+                    )?;
+                    Ok(decode_zigzag_delta::<i64, i64>(rle_decoded.as_slice()))
+                }
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as i64".to_string(),
+                )),
+            },
+            LogicalDecoder::Rle(value) => match self.data {
+                LogicalData::VecU64(data) => {
+                    let decoded =
+                        decode_rle(&data, value.runs as usize, value.num_rle_values as usize)?;
+                    Ok(utils::decode_zigzag::<i64>(&decoded))
+                }
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as i64".to_string(),
+                )),
+            },
+            v => Err(MltError::DecodeError(format!(
+                "Unsupported LogicalDecoder {v:?} for i64"
+            ))),
+        }
+    }
+
+    pub fn decode_u64(self) -> Result<Vec<u64>, MltError> {
+        match self.meta.logical_decoder {
+            LogicalDecoder::None => match self.data {
+                LogicalData::VecU64(data) => Ok(data),
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as u64".to_string(),
+                )),
+            },
+            LogicalDecoder::Rle(value) => match self.data {
+                LogicalData::VecU64(data) => {
+                    decode_rle(&data, value.runs as usize, value.num_rle_values as usize)
+                }
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as u64".to_string(),
+                )),
+            },
+            LogicalDecoder::Delta => match self.data {
+                LogicalData::VecU64(data) => Ok(decode_zigzag_delta::<i64, u64>(data.as_slice())),
+                LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                    "Cannot decode VecU32 as u64".to_string(),
+                )),
+            },
+            LogicalDecoder::DeltaRle(rle_meta) => {
+                match self.data {
+                    LogicalData::VecU64(data) => {
+                        // First decode RLE, then apply ZigZag Delta decoding
+                        let rle_decoded = decode_rle(
+                            &data,
+                            rle_meta.runs as usize,
+                            rle_meta.num_rle_values as usize,
+                        )?;
+                        Ok(decode_zigzag_delta::<i64, u64>(rle_decoded.as_slice()))
+                    }
+                    LogicalData::VecU32(_) => Err(MltError::DecodeError(
+                        "Cannot decode VecU32 as u64".to_string(),
+                    )),
+                }
+            }
+            v => Err(MltError::DecodeError(format!(
+                "Unsupported LogicalDecoder {v:?} for u64"
+            ))),
         }
     }
 }
