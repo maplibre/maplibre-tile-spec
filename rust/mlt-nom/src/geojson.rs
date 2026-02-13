@@ -46,7 +46,7 @@ impl FeatureCollection {
                 .collect::<Result<_, _>>()?;
 
             for i in 0..geom.vector_types.len() {
-                let id = ids.and_then(|v| v.get(i).copied().flatten()).unwrap_or(0);
+                let id = ids.and_then(|v| v.get(i).copied().flatten());
                 let geometry = geom.to_geojson(i)?;
                 let mut properties = HashMap::new();
                 for prop in &props {
@@ -74,7 +74,8 @@ impl FeatureCollection {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Feature {
     pub geometry: Geometry,
-    pub id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<u64>,
     pub properties: HashMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,
