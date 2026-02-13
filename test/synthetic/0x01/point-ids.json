@@ -16,7 +16,7 @@
       },
       "id": 100,
       "properties": {
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     },
@@ -36,7 +36,7 @@
       },
       "id": 101,
       "properties": {
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     },
@@ -56,7 +56,7 @@
       },
       "id": 103,
       "properties": {
-        "layer": "point"
+        "layer": "layer1"
       },
       "type": "Feature"
     }

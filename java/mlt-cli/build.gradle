@@ -68,7 +68,7 @@ java {
 spotless {
     groovy {
         target 'build.gradle'
-        indentWithSpaces(4)
+        leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
 

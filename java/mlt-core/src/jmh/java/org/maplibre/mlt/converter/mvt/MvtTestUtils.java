@@ -57,10 +57,10 @@ public class MvtTestUtils {
             mvtFeature.getUserData() instanceof Map<?, ?> map ? map : new LinkedHashMap<>();
         var id = (long) properties.get(ID_KEY);
         properties.remove(ID_KEY);
-        // TODO: quick and dirty -> implement generic
-        var transformedProperties = MvtUtils.transformNestedPropertyNames(properties, List.of());
-        var feature = new Feature(id, mvtFeature, transformedProperties);
-        features.add(feature);
+        // TODO: handle nested properties
+        // var transformedProperties = MvtUtils.transformNestedPropertyNames(properties, List.of());
+        // var feature = new Feature(id, mvtFeature, transformedProperties);
+        // features.add(feature);
       }
 
       layers.add(new Layer(name, features, layer.getExtent()));

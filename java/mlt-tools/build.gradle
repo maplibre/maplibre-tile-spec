@@ -6,7 +6,7 @@ plugins {
 repositories {
     mavenCentral()
     maven {
-        url 'https://maven.ecc.no/releases'
+        url = 'https://maven.ecc.no/releases'
     }
 }
 
