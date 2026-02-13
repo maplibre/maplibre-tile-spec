@@ -1,133 +1,106 @@
 package org.maplibre.mlt.cli;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
-import io.tileverse.pmtiles.PMTilesHeader;
-import io.tileverse.pmtiles.PMTilesReader;
-import io.tileverse.pmtiles.PMTilesWriter;
+import com.onthegomap.planetiler.archive.TileArchiveMetadata;
+import com.onthegomap.planetiler.archive.TileArchiveWriter;
+import com.onthegomap.planetiler.archive.TileCompression;
+import com.onthegomap.planetiler.archive.TileEncodingResult;
+import com.onthegomap.planetiler.archive.TileFormat;
+import com.onthegomap.planetiler.archive.WriteableTileArchive.TileWriter;
+import com.onthegomap.planetiler.geo.TileCoord;
+import com.onthegomap.planetiler.pmtiles.Pmtiles.Compression;
+import com.onthegomap.planetiler.pmtiles.Pmtiles.TileType;
+import com.onthegomap.planetiler.pmtiles.ReadablePmtiles;
+import com.onthegomap.planetiler.pmtiles.WriteablePmtiles;
+import com.onthegomap.planetiler.util.CloseableIterator;
 import io.tileverse.rangereader.RangeReaderFactory;
-import io.tileverse.rangereader.cache.CachingRangeReader;
-import io.tileverse.tiling.pyramid.TileIndex;
 import jakarta.annotation.Nullable;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 
 public class PMTilesHelper {
-  // Not yet available in `io.tileverse.pmtiles.PMTilesHeader`
-  private static final byte PMT_MLT_TILE_TYPE = 6;
-
   /// Encode the MVT tiles in a PMTiles file
-  static boolean encodePMTiles(URI inputPath, Path outputPath, EncodeConfig config)
+  static boolean encodePMTiles(URI inputURI, Path outputPath, EncodeConfig config)
       throws IOException {
 
-    try (var rawReader = RangeReaderFactory.create(inputPath);
-        var cachingReader =
-            CachingRangeReader.builder(rawReader)
-                .maximumWeight(50 * 1024 * 1024) // 50MB cache for headers/directories
-                .build()) {
-      var reader = new PMTilesReader(cachingReader::asByteChannel);
+    try (final var rawReader = RangeReaderFactory.create(inputURI);
+        final var readChannel = rawReader.asByteChannel();
+        final var reader = new ReadablePmtiles(readChannel)) {
+
       if (config.verboseLevel() > 1) {
-        System.err.printf("Opened '%s'%n", inputPath);
+        System.err.printf("Opened '%s'%n", inputURI);
       }
 
       final var header = reader.getHeader();
 
-      if (header.tileType() != PMTilesHeader.TILETYPE_MVT) {
+      if (header.tileType() != TileType.MVT) {
         System.err.printf(
             "ERROR: Input PMTiles tile type is %d, expected %d (MVT)%n",
-            header.tileType(), PMTilesHeader.TILETYPE_MVT);
+            header.tileType(), TileType.MVT);
         return false;
       }
 
       // If a compression type is given (including none) try to use that, otherwise
       // use the source compression type mapped to supported types.
-      final var targetCompressType =
+      final TileCompression targetCompressType =
           (config.compressionType() == null)
-              ? header.tileCompression()
-              : getCompressionType(config.compressionType());
+              ? toTileCompression(header.tileCompression())
+              : TileCompression.fromId(config.compressionType());
 
       final int actualMinZoom = Math.max(header.minZoom(), config.minZoom());
       final int actualMaxZoom = Math.min(header.maxZoom(), config.maxZoom());
 
-      // `getMetadata` drops values it doesn't understand, like "format".
-      // `PMTilesWriter` doesn't accept a `PMTilesMetadata` anyway.
-      var metadataStr = reader.getMetadataAsString();
-      try {
-        final var gson = new GsonBuilder().create();
-        final var metadata = gson.fromJson(metadataStr, JsonObject.class);
-        metadata.addProperty("format", "mlt");
-        if (config.minZoom() > 0) {
-          metadata.addProperty("minzoom", actualMinZoom);
-        }
-        if (config.maxZoom() < Integer.MAX_VALUE) {
-          metadata.addProperty("maxzoom", actualMaxZoom);
-        }
-        metadataStr = gson.toJson(metadata);
-      } catch (JsonSyntaxException ex) {
-        // Write the original metadata, unchanged, if we can't parse it
-        System.err.printf("WARNING: Failed to parse metadata%n");
-      }
+      final var oldMetadata = reader.metadata();
+      final var newMetadata =
+          new TileArchiveMetadata(
+              oldMetadata.name(),
+              oldMetadata.description(),
+              oldMetadata.attribution(),
+              oldMetadata.version(),
+              oldMetadata.type(),
+              TileFormat.MLT,
+              oldMetadata.bounds(),
+              oldMetadata.center(),
+              actualMinZoom,
+              actualMaxZoom,
+              oldMetadata.json(),
+              oldMetadata.others(),
+              targetCompressType);
 
-      try (var writer =
-          PMTilesWriter.builder()
-              .outputPath(outputPath)
-              .center(header.centerLon(), header.centerLat(), header.centerZoom())
-              .minZoom(actualMinZoom)
-              .maxZoom(actualMaxZoom)
-              .tileCompression(targetCompressType)
-              .tileType(PMT_MLT_TILE_TYPE)
-              .bounds(header.minLon(), header.minLat(), header.maxLon(), header.maxLat())
-              .internalCompression(reader.getHeader().internalCompression())
-              .build()) {
+      ;
 
+      try (final var fileWriter = WriteablePmtiles.newWriteToFile(outputPath);
+          final var tileWriter = fileWriter.newTileWriter()) {
         if (config.verboseLevel() > 1) {
           System.err.printf("Opened '%s'%n", outputPath);
         }
 
-        writer.setMetadata(metadataStr);
-
+        final var threadPool = config.threadPool();
         final var success = new AtomicBoolean(true);
-        final var totalZooms = actualMaxZoom - actualMinZoom + 1;
-        final var zoomsToFetch = new AtomicInteger(totalZooms);
         final var tilesProcessed = new AtomicLong(0);
         final var totalTileCount = new AtomicLong(0);
-
-        final Function<Integer, Stream<TileIndex>> getIndexes =
-            (zoom) -> {
-              final var indices = reader.getTileIndicesByZoomLevel(zoom).toList();
-              if (config.verboseLevel() > 0) {
-                final var totalTiles = 1L << (zoom * 2);
-                System.err.printf(
-                    "Zoom %d : %d / %d tiles (%.1f%%)%n",
-                    zoom, indices.size(), totalTiles, 100.0 * indices.size() / totalTiles);
-              }
-              return indices.stream();
-            };
 
         final var state =
             new ConversionState(
                 config,
-                totalZooms,
                 tilesProcessed,
                 totalTileCount,
-                zoomsToFetch,
+                new AtomicBoolean(false), // directoryComplete
                 success,
                 config.columnMappings(),
                 config.conversionConfig(),
@@ -137,19 +110,19 @@ public class PMTilesHelper {
                 config.continueOnError(),
                 config.verboseLevel());
 
-        final var processTile = getProcessTileFunction(reader, writer, state);
-        final var processZoom = getProcessZoomFunction(config.threadPool(), processTile, state);
+        final var processTile = getProcessTileFunction(reader, tileWriter, state);
 
-        // Get and process the list of tile indices for each zoom level.
-        for (int i = actualMinZoom; i <= actualMaxZoom; i++) {
-          final int zoom = i;
-          CliUtil.runTask(config.threadPool(), () -> processZoom.accept(getIndexes.apply(zoom)));
-        }
+        CliUtil.runTask(
+            threadPool,
+            () -> {
+              processTiles(
+                  threadPool, processTile, reader, state, config.minZoom(), config.maxZoom());
+            });
 
-        if (config.threadPool() != null) {
+        if (threadPool != null) {
           try {
             // Wait for all tasks to finish
-            config.threadPool().awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
           } catch (InterruptedException e) {
             System.err.println("ERROR : interrupted");
             success.set(false);
@@ -158,17 +131,15 @@ public class PMTilesHelper {
 
         if (success.get()) {
           if (config.verboseLevel() > 0) {
-            final var writerListener = new WriterProgressListener();
-            writer.setProgressListener(writerListener);
-          } else {
-            System.err.printf("%nProcessing tiles: 100%%  %nWriting PMTiles...%n");
+            System.err.printf("%nWriting PMTiles...%n");
           }
+          fileWriter.finish(newMetadata);
 
-          // actually write the file
-          writer.complete();
-
+          if (config.verboseLevel() > 1) {
+            System.err.println(fileWriter.toString());
+          }
           if (config.verboseLevel() > 0) {
-            System.err.println("");
+            System.err.printf("Done%n");
           }
         }
         return success.get();
@@ -182,164 +153,132 @@ public class PMTilesHelper {
     }
   }
 
-  /// Produce a function for processing a single zoom level, capturing everything it needs,
-  /// suitable for submitting to a thread pool
-  private static Consumer<Stream<TileIndex>> getProcessZoomFunction(
+  private static void processTiles(
       @Nullable ExecutorService threadPool,
-      @NotNull Function<TileIndex, Boolean> processTile,
-      @NotNull ConversionState state) {
-    return (indices) -> {
-      if (state.continueOnError || state.success.get()) {
-        // Convert tile in the zoom level
-        indices.forEach(
-            (tileIndex) -> {
-              state.totalTileCount.incrementAndGet();
-              if (state.continueOnError || state.success.get()) {
-                try {
-                  CliUtil.runTask(
-                      threadPool,
-                      () -> {
-                        if (!processTile.apply(tileIndex)) {
-                          state.success.set(false);
-                        }
-                      });
-                } catch (RejectedExecutionException ignored) {
-                  // This indicates the thread pool has been shut down due to an error
-                }
-              }
-            });
-      }
+      @NotNull Function<TileCoord, Boolean> processTile,
+      @NotNull ReadablePmtiles reader,
+      @NotNull ConversionState state,
+      int minZoom,
+      int maxZoom) {
+    final CloseableIterator<TileCoord> tileCoordIterator;
+    synchronized (reader) {
+      tileCoordIterator = reader.getAllTileCoords();
+    }
 
-      final var zoomsRemaining = state.zoomsToFetch.decrementAndGet();
-      if (threadPool != null && zoomsRemaining == 0) {
-        // This is the last task that can add more tasks, so shut down the pool.
-        // This must happen before `awaitTermination` can complete.
-        threadPool.shutdown();
+    while (true) {
+      TileCoord tileCoord;
+      synchronized (reader) {
+        if (!tileCoordIterator.hasNext()) {
+          state.directoryComplete.set(true);
+          break;
+        }
+        tileCoord = tileCoordIterator.next();
       }
-    };
+      if (tileCoord.z() < minZoom || tileCoord.z() > maxZoom) {
+        continue;
+      }
+      state.totalTileCount.incrementAndGet();
+      if (state.continueOnError || state.success.get()) {
+
+        // TODO: Limit the number of queued tasks.  Using LinkedBlockingQueue doesn't work.
+        try {
+          CliUtil.runTask(
+              threadPool,
+              () -> {
+                if (!processTile.apply(tileCoord)) {
+                  state.success.set(false);
+                }
+              });
+        } catch (RejectedExecutionException ignored) {
+          // This indicates the thread pool has been shut down due to an error
+        }
+      }
+    }
+    if (threadPool != null) {
+      threadPool.shutdown();
+    }
   }
 
-  ///  Produce a callable function for processing a single tile, with everything
-  /// else it needs captured, suitable for submitting to a thread pool
-  private static Function<TileIndex, Boolean> getProcessTileFunction(
-      @NotNull PMTilesReader reader,
-      @NotNull PMTilesWriter writer,
-      @NotNull ConversionState state) {
-    // PMTilesWriter will handle compression, so `encodeTile` must not compress the tile data
-    // itself.
-    final var encodeConfig = state.encodeConfig().asBuilder().compressionType(null).build();
-    return (tileIndex) -> {
-      final var tileLabel = String.format("%d:%d,%d", tileIndex.z(), tileIndex.x(), tileIndex.y());
+  /// Produce a callable function for processing a single tile,capturing everything
+  /// it needs, suitable for submitting to a thread pool
+  private static Function<TileCoord, Boolean> getProcessTileFunction(
+      @NotNull ReadablePmtiles reader, @NotNull TileWriter writer, @NotNull ConversionState state) {
+    return (tileCoord) -> {
+      final var tileLabel = String.format("%d:%d,%d", tileCoord.z(), tileCoord.x(), tileCoord.y());
       final var tileCount = state.tilesProcessed.incrementAndGet();
 
-      try {
-        if (state.verboseLevel == 0) {
-          if (state.zoomsToFetch.get() == 0) {
-            final var progress = 100.0 * tileCount / state.totalTileCount.get();
-            if ((int) (progress * 1000.0) != (int) ((progress - 1) * 1000.0)) {
-              if (tileCount == 1) {
-                System.err.println();
-              }
-              System.err.printf(
-                  "\rProcessing tile %d / %d (%.1f%%)       \r",
-                  tileCount, state.totalTileCount.get(), progress);
-            }
-          } else {
-            System.err.printf(
-                "\rProcessing zooms %d / %d, tiles: %d / %d    \r",
-                state.totalZooms - state.zoomsToFetch.get(),
-                state.totalZooms,
-                tileCount,
-                state.totalTileCount.get());
-          }
-        }
-
-        final var maybeTile = reader.getTile(tileIndex);
-        if (!maybeTile.isPresent()) {
-          if (state.verboseLevel > 1) {
-            System.err.printf("%s :  No tile data present%n", tileLabel);
-          }
-          return false;
-        }
-        var tileBuffer = maybeTile.get();
-        if (state.verboseLevel > 1) {
-          final var info =
-              tileBuffer.hasRemaining()
-                  ? String.format("%d bytes", tileBuffer.remaining())
-                  : "unknown size";
-          System.err.printf("%s : Loaded (%s)%n", tileLabel, info);
-        } else if (state.verboseLevel > 0) {
-          System.err.printf("%s%n", tileLabel);
-        }
-
-        final byte[] mvtData;
-        if (tileBuffer.hasRemaining()) {
-          mvtData = new byte[tileBuffer.remaining()];
-          tileBuffer.get(mvtData);
+      if (state.verboseLevel == 0) {
+        if (!state.directoryComplete.get()) {
+          // Still fetching tile coordinates
+          System.err.printf("\rProcessing tile %d         \r", tileCount);
         } else {
-          // Entire buffer capacity, with extra trailing bytes.
-          // PBF decoder is fine with that.
-          mvtData = tileBuffer.array();
+          System.err.printf(
+              "\rProcessing tiles: %d / %d      \r", tileCount, state.totalTileCount.get());
         }
+      }
 
-        var mltData =
-            Encode.convertTile(
-                tileIndex.x(), tileIndex.y(), tileIndex.z(), mvtData, encodeConfig, null);
-
-        if (mltData != null && mltData.length > 0) {
-          synchronized (writer) {
-            writer.addTile(tileIndex, mltData);
-          }
-        } else if (state.verboseLevel > 1) {
-          System.err.printf("  Converted tile is empty, skipping%n");
+      var tileData = reader.getTile(tileCoord);
+      if (tileData == null) {
+        if (state.verboseLevel > 1) {
+          System.err.printf("%s :  No tile data present%n", tileLabel);
         }
-        return true;
+        return false;
+      }
+
+      final var rawSize = tileData.length;
+      try {
+        tileData = CliUtil.decompress(new ByteArrayInputStream(tileData));
       } catch (IOException ex) {
-        // Exceptions within a `forEach` don't propagate, log it and continue.
-        System.err.printf("Failed to get tile '%s': %s%n", tileLabel, ex.getMessage());
+        System.err.printf("ERROR : Failed to decompress tile %s: %s%n", tileLabel, ex.getMessage());
         if (state.verboseLevel > 1) {
           ex.printStackTrace(System.err);
         }
         return false;
       }
+
+      if (state.verboseLevel > 0) {
+        final var extra =
+            (rawSize != tileData.length) ? String.format(", %d compressed", rawSize) : "";
+        System.err.printf("%s : Loaded (%d bytes%s)%n", tileLabel, tileData.length, extra);
+      }
+
+      final MutableBoolean didCompress = null; // force compression
+      var mltData =
+          Encode.convertTile(
+              tileCoord.x(),
+              tileCoord.y(),
+              tileCoord.z(),
+              tileData,
+              state.encodeConfig(),
+              didCompress);
+
+      if (mltData != null && mltData.length > 0) {
+        final var hash = TileArchiveWriter.generateContentHash(tileData);
+        synchronized (writer) {
+          writer.write(new TileEncodingResult(tileCoord, tileData, OptionalLong.of(hash)));
+        }
+      } else if (state.verboseLevel > 1) {
+        System.err.printf("  Converted tile is empty, skipping%n");
+      }
+      return true;
     };
   }
 
-  /// Print out progress of the PMTilesWriter as it's writing
-  private static class WriterProgressListener implements PMTilesWriter.ProgressListener {
-    private String lastProgress = "";
-
-    @Override
-    public void onProgress(double progress) {
-      final var progressStr = String.format("%.1f", 100 * progress);
-      if (!progressStr.equals(lastProgress)) {
-        lastProgress = progressStr;
-        System.err.printf("\rWriting PMTiles : %s%%    ", progressStr);
+  private static TileCompression toTileCompression(Compression compression) {
+    return switch (compression) {
+      case NONE -> TileCompression.NONE;
+      case GZIP -> TileCompression.GZIP;
+      default -> {
+        throw new IllegalArgumentException("Unsupported PMTiles compression type: " + compression);
       }
-    }
-
-    @Override
-    public boolean isCancelled() {
-      return false;
-    }
-  }
-
-  private static byte getCompressionType(String name) {
-    return switch (name) {
-      case "none" -> PMTilesHeader.COMPRESSION_NONE;
-      case "gzip" -> PMTilesHeader.COMPRESSION_GZIP;
-      case "brotli" -> PMTilesHeader.COMPRESSION_BROTLI;
-      case "zstd" -> PMTilesHeader.COMPRESSION_ZSTD;
-      default -> throw new RuntimeException("Compression type not supported: " + name);
     };
   }
 
   private record ConversionState(
       @NotNull EncodeConfig encodeConfig,
-      int totalZooms,
       @NotNull AtomicLong tilesProcessed,
       @NotNull AtomicLong totalTileCount,
-      @NotNull AtomicInteger zoomsToFetch,
+      @NotNull AtomicBoolean directoryComplete,
       @NotNull AtomicBoolean success,
       @NotNull Map<Pattern, List<ColumnMapping>> columnMappings,
       @NotNull ConversionConfig conversionConfig,

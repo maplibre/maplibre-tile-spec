@@ -424,8 +424,7 @@ public class Encode {
 
       final var isIdPresent = true;
       final var metadata =
-          MltConverter.createTilesetMetadata(
-              decodedMvTile, config.conversionConfig(), config.columnMappings(), isIdPresent);
+          MltConverter.createTilesetMetadata(decodedMvTile, config.columnMappings(), isIdPresent);
 
       // Print column mappings if verbosity level is high.
       if (config.verboseLevel() > 2) {

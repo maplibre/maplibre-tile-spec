@@ -29,12 +29,12 @@ import org.maplibre.mlt.decoder.MltDecoder;
 /*
  * Add the tiles which should be benchmarked to the respective directories.
  * */
+@Tag("benchmark")
 public class CompressionBenchmarksTest {
   private static final String OMT_PATH = "../../test/fixtures/omt";
   public static final String PLACEHOLDER_FILE = ".gitkeep";
 
   @ParameterizedTest
-  @Tag("benchmark")
   @ValueSource(booleans = {false, true})
   public void omtCompressionBenchmarks_Sort(boolean sorting) throws IOException {
     var results = runBenchmarks(OMT_PATH, sorting, List.of(), false);
@@ -48,7 +48,6 @@ public class CompressionBenchmarksTest {
   }
 
   @ParameterizedTest
-  @Tag("benchmark")
   @ValueSource(booleans = {false, true})
   public void omtCompressionBenchmarks_OptimizedIds(boolean tessellate) throws IOException {
     var results = runBenchmarks(OMT_PATH, true, ID_REASSIGNABLE_MVT_LAYERS, tessellate);

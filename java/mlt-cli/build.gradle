@@ -10,6 +10,9 @@ repositories {
     maven {
         url = 'https://maven.ecc.no/releases'
     }
+    maven {
+        url = 'https://nexus.terrestris.de/repository/public/'
+    }
 }
 
 dependencies {
@@ -31,9 +34,17 @@ dependencies {
     implementation 'org.locationtech.jts.io:jts-io-common:1.20.0'
 
     // pmtiles support
+    implementation("com.onthegomap.planetiler:planetiler-core:0.10.0") {
+        // Eliminate a duplicate binding warning emitted on stderr at startup by SLF4J.
+        //
+        // "libraries or frameworks should not declare a dependency on any SLF4J binding but only
+        //  depend on slf4j-api. When a library declares a compile-time dependency on a SLF4J
+        //  binding, it imposes that binding on the end-user, thus negating SLF4J's purpose."
+        // https://www.slf4j.org/codes.html#multiple_bindings
+        exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j2-impl'
+    }
     implementation platform('io.tileverse:tileverse-bom:1.1.0')
     implementation 'io.tileverse.rangereader:tileverse-rangereader-all'
-    implementation 'io.tileverse.pmtiles:tileverse-pmtiles'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
