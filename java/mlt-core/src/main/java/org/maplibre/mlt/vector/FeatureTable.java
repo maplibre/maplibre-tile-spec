@@ -63,11 +63,16 @@ public class FeatureTable implements Iterable<Feature> {
 
         Feature feature;
         if (idColumn != null) {
-          long id =
-              isIntVector(idColumn)
-                  ? ((Integer) idColumn.getValue(index).get()).longValue()
-                  : (Long) idColumn.getValue(index).get();
-          feature = new Feature(id, geometry, properties);
+          var idValue = idColumn.getValue(index);
+          if (idValue.isPresent()) {
+            long id =
+                isIntVector(idColumn)
+                    ? ((Integer) idValue.get()).longValue()
+                    : (Long) idValue.get();
+            feature = new Feature(id, geometry, properties);
+          } else {
+            feature = new Feature(geometry, properties);
+          }
         } else {
           feature = new Feature(geometry, properties);
         }

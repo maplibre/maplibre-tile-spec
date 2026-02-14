@@ -144,7 +144,10 @@ public class TestUtils {
       var mltFeature = mltFeatures.get(j);
       var mvtFeature =
           isFeatureTableSorted
-              ? mvtFeatures.stream().filter(f -> f.id() == mltFeature.id()).findFirst().get()
+              ? mvtFeatures.stream()
+                  .filter(f -> f.hasId() == mltFeature.hasId() && f.id() == mltFeature.id())
+                  .findFirst()
+                  .get()
               : mvtFeatures.get(j);
 
       // TODO: add id again

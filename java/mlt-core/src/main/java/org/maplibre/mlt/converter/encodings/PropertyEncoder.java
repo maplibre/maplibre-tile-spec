@@ -443,7 +443,7 @@ public class PropertyEncoder {
       // TODO: refactor -> handle long values for ids differently
       final var propertyValue =
           isID
-              ? (feature.hasId() ? Integer.valueOf((int) feature.id()) : null)
+              ? (feature.hasId() ? Integer.valueOf(Math.toIntExact(feature.id())) : null)
               : getIntPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
