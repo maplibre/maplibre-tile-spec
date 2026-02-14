@@ -27,6 +27,7 @@ class SyntheticMltUtil {
   // Using common coordinates everywhere to make sure generated MLT files are very similar,
   // ensuring we observe difference in encoding rather than geometry variations
   static final GeometryFactory gf = new GeometryFactory();
+  static final Coordinate c0 = new Coordinate(13, 42);
   static final Coordinate c1 = new Coordinate(0, 0);
   static final Coordinate c2 = new Coordinate(50, 0);
   static final Coordinate c3 = new Coordinate(50, 50);
@@ -36,6 +37,7 @@ class SyntheticMltUtil {
   static final Coordinate c7 = new Coordinate(40, 40);
   static final Coordinate c8 = new Coordinate(10, 40);
 
+  static final Point p0 = gf.createPoint(c0);
   static final Point p1 = gf.createPoint(c1);
   static final Point p2 = gf.createPoint(c2);
   static final Point p3 = gf.createPoint(c3);
@@ -140,13 +142,20 @@ class SyntheticMltUtil {
     return gf.createMultiLineString(lines);
   }
 
-  static Map<String, Object> props(Object... keyValues) {
-    if (keyValues.length % 2 != 0) {
-      throw new IllegalArgumentException("Must provide key-value pairs");
-    }
+  record KeyVal(String key, Object value) {}
+
+  static KeyVal kv(String key, Object value) {
+    return new KeyVal(key, value);
+  }
+
+  static Map<String, Object> prop(String key, Object value) {
+    return Map.of(key, value);
+  }
+
+  static Map<String, Object> props(KeyVal... keyValues) {
     var map = new java.util.HashMap<String, Object>();
-    for (int i = 0; i < keyValues.length; i += 2) {
-      map.put((String) keyValues[i], keyValues[i + 1]);
+    for (var kv : keyValues) {
+      map.put(kv.key, kv.value);
     }
     return map;
   }
@@ -160,12 +169,13 @@ class SyntheticMltUtil {
   }
 
   /** for testing IDs - always use the same geometry */
-  static Feature idFeat(Long id) {
-    if (id == null) {
-      return new Feature(p6, Map.of());
-    } else {
-      return new Feature(id, p6, Map.of());
-    }
+  static Feature idFeat(long id) {
+    return new Feature(id, p0, Map.of());
+  }
+
+  /** for testing IDs - simulate missing ID */
+  static Feature idFeat() {
+    return new Feature(p6, Map.of());
   }
 
   static Layer layer(String name, Feature... features) {
