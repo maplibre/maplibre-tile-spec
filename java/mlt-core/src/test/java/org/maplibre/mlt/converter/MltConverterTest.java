@@ -19,9 +19,9 @@ class MltConverterTest {
         new Layer(
             "layer",
             List.of(
-                new Feature(1L, factory.createEmpty(2), Map.of("key", 1.2)),
-                new Feature(2L, factory.createEmpty(2), Map.of("key", "2")),
-                new Feature(3L, factory.createEmpty(2), Map.of("key", 1))),
+                new Feature(1, factory.createEmpty(2), Map.of("key", 1.2)),
+                new Feature(2, factory.createEmpty(2), Map.of("key", "2")),
+                new Feature(3, factory.createEmpty(2), Map.of("key", 1))),
             4096);
     var tile = new MapboxVectorTile(List.of(layer));
     var metadata = MltConverter.createTilesetMetadata(tile, Map.of(), true, true, false);
