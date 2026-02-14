@@ -68,7 +68,9 @@ public class MltConverter {
                       enableElideOnMismatch);
                 });
 
-        if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
+        if (isIdPresent
+            && feature.hasId()
+            && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
           hasLongId = true;
         }
         featureIndex++;
@@ -98,7 +100,7 @@ public class MltConverter {
         final var newColumn =
             new MltMetadata.Column(
                 null, new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID));
-        newColumn.isNullable = false;
+        newColumn.isNullable = layer.features().stream().anyMatch(feature -> !feature.hasId());
         newColumn.columnScope = MltMetadata.ColumnScope.FEATURE;
         newColumn.scalarType.hasLongId = hasLongId;
         featureTableSchema.columns.add(newColumn);
@@ -568,7 +570,7 @@ public class MltConverter {
       sortedFeatures = sortFeaturesById(mvtFeatures);
     }
 
-    var ids = sortedFeatures.stream().map(Feature::id).collect(Collectors.toList());
+    var ids = sortedFeatures.stream().map(Feature::idOrNull).collect(Collectors.toList());
     var geometries = sortedFeatures.stream().map(Feature::geometry).collect(Collectors.toList());
 
     if (geometries.isEmpty()) {
@@ -602,7 +604,12 @@ public class MltConverter {
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
           ids.stream()
-              .map(id -> mvtFeatures.stream().filter(fe -> fe.id() == id).findFirst().orElseThrow())
+              .map(
+                  id ->
+                      mvtFeatures.stream()
+                          .filter(fe -> Objects.equals(fe.idOrNull(), id))
+                          .findFirst()
+                          .orElseThrow())
               .collect(Collectors.toList());
     }
 
@@ -624,13 +631,13 @@ public class MltConverter {
 
   private static List<Feature> sortFeaturesById(List<Feature> features) {
     return features.stream()
-        .sorted(Comparator.comparingLong(Feature::id))
+        .sorted(Comparator.comparing(Feature::hasId).thenComparingLong(Feature::id))
         .collect(Collectors.toList());
   }
 
   private static List<Feature> generateSequenceIds(List<Feature> features) {
     var sortedFeatures = new ArrayList<Feature>();
-    var idCounter = 0;
+    long idCounter = 0;
     for (var feature : features) {
       sortedFeatures.add(new Feature(idCounter++, feature.geometry(), feature.properties()));
     }

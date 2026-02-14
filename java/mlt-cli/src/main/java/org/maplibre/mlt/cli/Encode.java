@@ -1387,7 +1387,9 @@ public class Encode {
 
   private static Map<String, Object> toJSON(Feature feature) {
     var map = new TreeMap<String, Object>();
-    map.put("id", feature.id());
+    if (feature.hasId()) {
+      map.put("id", feature.id());
+    }
     map.put("geometry", feature.geometry().toString());
     // Print properties sorted by key to allow for direct comparison with MLT output.
     map.put(
@@ -1483,7 +1485,7 @@ public class Encode {
         final var mvtFeature = mvtFeatures.get(j);
         // Expect features to be written in the same order
         final var mltFeature = mltFeatures.get(j);
-        if (mvtFeature.id() != mltFeature.id()) {
+        if (mvtFeature.hasId() != mltFeature.hasId() || mvtFeature.id() != mltFeature.id()) {
           throw new RuntimeException(
               "Feature IDs for index "
                   + j

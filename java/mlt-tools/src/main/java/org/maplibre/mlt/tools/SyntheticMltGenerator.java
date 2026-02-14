@@ -97,6 +97,14 @@ public class SyntheticMltGenerator {
     write(layer("ids64-delta", ids64), cfg(DELTA).ids());
     write(layer("ids64-rle", ids64), cfg(RLE).ids());
     write(layer("ids64-delta-rle", ids64), cfg(DELTA_RLE).ids());
+
+    var optIds = array(idFeat(100), idFeat(101), idFeat(), idFeat(105), idFeat(106));
+    write(layer("ids-opt", optIds), cfg().ids());
+    write(layer("ids-opt-delta", optIds), cfg(DELTA).ids());
+
+    var optIds64 = array(idFeat(), idFeat(9_234_567_890L), idFeat(101), idFeat(105), idFeat(106));
+    write(layer("ids64-opt", optIds64), cfg().ids());
+    write(layer("ids64-opt-delta", optIds64), cfg(DELTA).ids());
   }
 
   private static void generateProperties() throws IOException {
