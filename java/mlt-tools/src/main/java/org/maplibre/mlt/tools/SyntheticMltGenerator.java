@@ -119,16 +119,16 @@ public class SyntheticMltGenerator {
                 0.123456789)),
         cfg());
 
-    var feat_delta_ints =
+    var feat_ints =
         array(
             feat(p1, props("int", 42)),
             feat(p2, props("int", 42)),
             feat(p3, props("int", 42)),
             feat(p4, props("int", 42)));
-    write(layer("props-int", feat_delta_ints), cfg());
-    write(layer("props-int-delta", feat_delta_ints), cfg(DELTA));
-    write(layer("props-int-rle", feat_delta_ints), cfg(RLE));
-    write(layer("props-int-delta-rle", feat_delta_ints), cfg(DELTA_RLE));
+    write(layer("props-int", feat_ints), cfg());
+    write(layer("props-int-delta", feat_ints), cfg(DELTA));
+    write(layer("props-int-rle", feat_ints), cfg(RLE));
+    write(layer("props-int-delta-rle", feat_ints), cfg(DELTA_RLE));
 
     var feat_str =
         array(
