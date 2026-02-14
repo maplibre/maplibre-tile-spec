@@ -35,18 +35,12 @@ public class SyntheticMltGenerator {
     write("point-id", feat(p1, 100L), cfg().ids());
     write("point-id0", feat(p1, 0L), cfg().ids());
 
-    var pts =
-        new Feature[] {
-          feat(p1, 100L), feat(p2, 101L), feat(p3, 103L),
-        };
+    var pts = new Feature[] {feat(p1, 100L), feat(p2, 101L), feat(p3, 103L)};
     write(layer("point-ids", pts), cfg().ids());
     write(layer("point-ids-delta", pts), cfg(DELTA).ids());
 
     write("point-id64", feat(p1, 9_234_567_890L), cfg().ids());
-    var pts64 =
-        new Feature[] {
-          feat(p1, 1L), feat(p2, 9_234_567_890L), feat(p3, 9_234_567_891L),
-        };
+    var pts64 = new Feature[] {feat(p1, 1L), feat(p2, 9_234_567_890L), feat(p3, 9_234_567_891L)};
     write(layer("point-ids64", pts64), cfg().ids());
     write(layer("point-ids64-delta", pts64), cfg(DELTA).ids());
   }
@@ -133,7 +127,7 @@ public class SyntheticMltGenerator {
           feat(p1, props("int", 99)),
           feat(p2, props("int", 98)),
           feat(p3, props("int", 97)),
-          feat(p4, props("int", 96)),
+          feat(p4, props("int", 96))
         };
     write(layer("point-props-int", feat_ints), cfg());
     write(layer("point-props-int-delta", feat_ints), cfg(DELTA));
