@@ -152,19 +152,16 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom) {
-    return feat(geom, null, Map.of());
+    return new Feature(0, geom, Map.of());
   }
 
   static Feature feat(Geometry geom, Map<String, Object> props) {
-    return feat(geom, null, props);
+    return new Feature(0, geom, props);
   }
 
-  static Feature feat(Geometry geom, Long id) {
-    return feat(geom, id, Map.of());
-  }
-
-  static Feature feat(Geometry geom, Long id, Map<String, Object> props) {
-    return new Feature(id != null ? id : 0, geom, props);
+  /** for testing IDs - always use the same geometry */
+  static Feature idFeat(Long id) {
+    return new Feature(id, p6, Map.of());
   }
 
   static Layer layer(String name, Feature... features) {

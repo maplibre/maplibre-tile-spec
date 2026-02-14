@@ -17,31 +17,17 @@ public class SyntheticMltGenerator {
     Files.createDirectories(SYNTHETICS_DIR);
 
     generatePoints();
-    generateIds();
     generateLines();
     generatePolygons();
     generateMultiPoints();
     generateMultiLineStrings();
     generateMixed();
+    generateIds();
     generateProperties();
   }
 
   private static void generatePoints() throws IOException {
     write("point", feat(p1), cfg());
-  }
-
-  private static void generateIds() throws IOException {
-    write("id", feat(p1, 100L), cfg().ids());
-    write("id0", feat(p1, 0L), cfg().ids());
-
-    var pts = array(feat(p1, 100L), feat(p2, 101L), feat(p3, 103L));
-    write(layer("ids", pts), cfg().ids());
-    write(layer("ids-delta", pts), cfg(DELTA).ids());
-
-    write("id64", feat(p1, 9_234_567_890L), cfg().ids());
-    var pts64 = array(feat(p1, 1L), feat(p2, 9_234_567_890L), feat(p3, 9_234_567_891L));
-    write(layer("ids64", pts64), cfg().ids());
-    write(layer("ids64-delta", pts64), cfg(DELTA).ids());
   }
 
   private static void generateLines() throws IOException {
@@ -78,6 +64,7 @@ public class SyntheticMltGenerator {
     write(layer("mixed-pt-line", feat(p1), feat(line(c1, c2))), cfg());
     write(layer("mixed-pt-poly", feat(p1), feat(poly(c1, c2, c5, c1))), cfg());
     write(layer("mixed-line-poly", feat(line(c1, c2)), feat(poly(c1, c2, c5, c1))), cfg());
+
     write(layer("mixed-pt-mline", feat(p1), feat(multi(line(c1, c2), line(c3, c4, c5)))), cfg());
 
     write(
@@ -88,6 +75,42 @@ public class SyntheticMltGenerator {
             feat(poly(c1, c2, c5, c1)),
             feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)))),
         cfg());
+  }
+
+  private static void generateIds() throws IOException {
+    write("id0", idFeat(0L), cfg().ids());
+    write("id", idFeat(100L), cfg().ids());
+    write("id64", idFeat(9_234_567_890L), cfg().ids());
+
+    var ids32 = array(idFeat(100L), idFeat(101L), idFeat(102L), idFeat(103L));
+    write(layer("ids", ids32), cfg().ids());
+    write(layer("ids-delta", ids32), cfg(DELTA).ids());
+    write(layer("ids-delta-rle", ids32), cfg(DELTA_RLE).ids());
+
+    var ids64 =
+        array(
+            idFeat(1L),
+            idFeat(9_234_567_890L),
+            idFeat(9_234_567_891L),
+            idFeat(9_234_567_892L),
+            idFeat(9_234_567_893L),
+            idFeat(9_234_567_894L));
+    write(layer("ids64", ids64), cfg().ids());
+    write(layer("ids64-delta", ids64), cfg(DELTA).ids());
+    write(layer("ids64-delta-rle", ids64), cfg(DELTA_RLE).ids());
+
+    // RLE for IDs does not actually make sense, but it is in the spec for some reason
+    // Dups - 32bit
+    var idsRle = array(idFeat(42L), idFeat(42L), idFeat(42L), idFeat(42L));
+    write(layer("ids-dups", idsRle), cfg().ids());
+    write(layer("ids-dups-delta", idsRle), cfg(DELTA).ids());
+    write(layer("ids-dups-rle", idsRle), cfg(RLE).ids());
+
+    // Dups - 64bit
+    var ids64RLE = array(idFeat(9_234_567_890L), idFeat(9_234_567_890L), idFeat(9_234_567_890L));
+    write(layer("ids64-dups", ids64RLE), cfg().ids());
+    write(layer("ids64-dups-delta", ids64RLE), cfg(DELTA).ids());
+    write(layer("ids64-dups-rle", ids64RLE), cfg(RLE).ids());
   }
 
   private static void generateProperties() throws IOException {
