@@ -21,10 +21,12 @@ import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.Unsigned;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltConverter {
+
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       Map<Pattern, List<ColumnMapping>> columnMappings,
@@ -38,7 +40,6 @@ public class MltConverter {
       boolean isIdPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
-
     // TODO: Allow determining whether ID is present automatically
     // TODO: Allow nullable ID columns
 
@@ -641,10 +642,15 @@ public class MltConverter {
     var propertyValue = property.getValue();
     if (propertyValue instanceof Boolean) {
       return MltMetadata.ScalarType.BOOLEAN;
-    }
-    // TODO: also handle unsigned int to avoid zigZag coding
-    // TODO: quick and dirty fix for wrong data types -> make proper solution
-    else if (propertyValue instanceof Integer) {
+    } else if (propertyValue instanceof Unsigned(Byte b)) {
+      return MltMetadata.ScalarType.UINT_8;
+    } else if (propertyValue instanceof Unsigned(Integer i)) {
+      return MltMetadata.ScalarType.UINT_32;
+    } else if (propertyValue instanceof Unsigned(Long i)) {
+      return MltMetadata.ScalarType.UINT_64;
+    } else if (propertyValue instanceof Byte) {
+      return MltMetadata.ScalarType.INT_8;
+    } else if (propertyValue instanceof Integer) {
       return MltMetadata.ScalarType.INT_32;
     } else if (propertyValue instanceof Long) {
       return ((long) propertyValue > Integer.MAX_VALUE || (long) propertyValue < Integer.MIN_VALUE)

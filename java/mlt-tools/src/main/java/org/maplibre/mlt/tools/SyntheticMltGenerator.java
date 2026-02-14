@@ -1,9 +1,11 @@
 package org.maplibre.mlt.tools;
 
 import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.*;
+import static org.maplibre.mlt.data.Unsigned.*;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.file.Files;
 
 public class SyntheticMltGenerator {
@@ -103,10 +105,22 @@ public class SyntheticMltGenerator {
     // Scalar property types
     write("prop-bool", feat(p0, prop("flag", true)), cfg());
     write("prop-bool-false", feat(p0, prop("flag", false)), cfg());
+    // write("prop-uint8", feat(p0, prop("count", u8(200))), cfg());
+    // write("prop-uint8-min", feat(p0, prop("zero", u8(0))), cfg());
+    // write("prop-uint8-max", feat(p0, prop("max", u8(255))), cfg());
+    // ^--- needs support in the decoder ---^
     write("prop-int32", feat(p0, prop("count", 42)), cfg());
     write("prop-int32-neg", feat(p0, prop("count", -42)), cfg());
+    write("prop-uint32", feat(p0, prop("count", u32(42L))), cfg());
+    write("prop-uint32-zero", feat(p0, prop("bignum", u32(0L))), cfg());
+    write("prop-uint32-max", feat(p0, prop("bignum", u32(4_294_967_295L))), cfg());
     write("prop-int64", feat(p0, prop("bignum", 9_876_543_210L)), cfg());
     write("prop-int64-neg", feat(p0, prop("bignum", -9_876_543_210L)), cfg());
+    write("prop-uint64-zero", feat(p0, prop("bignum", u64(BigInteger.ZERO))), cfg());
+    write(
+        "prop-uint64-max",
+        feat(p0, prop("bignum", u64(new BigInteger("18446744073709551615")))),
+        cfg());
     write("prop-float", feat(p0, prop("temp", 3.14f)), cfg());
     write("prop-double", feat(p0, prop("precise", 3.141592653589793)), cfg());
 
@@ -123,16 +137,39 @@ public class SyntheticMltGenerator {
                 kv("precision", 0.123456789))),
         cfg());
 
-    var feat_ints =
+    // var feat_uint8s =
+    //    array(
+    //        feat(p1, prop("val", u8(100))),
+    //        feat(p2, prop("val", u8(100))),
+    //        feat(p3, prop("val", u8(100))),
+    //        feat(p4, prop("val", u8(100))));
+    // write(layer("props-uint8", feat_uint8s), cfg());
+    // write(layer("props-uint8-delta", feat_uint8s), cfg(DELTA));
+    // write(layer("props-uint8-rle", feat_uint8s), cfg(RLE));
+    // write(layer("props-uint8-delta-rle", feat_uint8s), cfg(DELTA_RLE));
+    // ^--- needs support in the decoder ---^
+
+    var feat_int =
         array(
             feat(p1, prop("int", 42)),
             feat(p2, prop("int", 42)),
             feat(p3, prop("int", 42)),
             feat(p4, prop("int", 42)));
-    write(layer("props-int", feat_ints), cfg());
-    write(layer("props-int-delta", feat_ints), cfg(DELTA));
-    write(layer("props-int-rle", feat_ints), cfg(RLE));
-    write(layer("props-int-delta-rle", feat_ints), cfg(DELTA_RLE));
+    write(layer("props-int", feat_int), cfg());
+    write(layer("props-int-delta", feat_int), cfg(DELTA));
+    write(layer("props-int-rle", feat_int), cfg(RLE));
+    write(layer("props-int-delta-rle", feat_int), cfg(DELTA_RLE));
+
+    var feat_uint32s =
+        array(
+            feat(p1, prop("val", u32(9_000))),
+            feat(p2, prop("val", u32(9_000))),
+            feat(p3, prop("val", u32(9_000))),
+            feat(p4, prop("val", u32(9_000))));
+    write(layer("props-uint32", feat_uint32s), cfg());
+    write(layer("props-uint32-delta", feat_uint32s), cfg(DELTA));
+    write(layer("props-uint32-rle", feat_uint32s), cfg(RLE));
+    write(layer("props-uint32-delta-rle", feat_uint32s), cfg(DELTA_RLE));
 
     var feat_str =
         array(

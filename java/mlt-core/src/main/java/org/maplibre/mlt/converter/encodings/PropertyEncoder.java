@@ -10,6 +10,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.Unsigned;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -172,25 +173,44 @@ public class PropertyEncoder {
     return null;
   }
 
+  private static Byte getBytePropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
+    final var rawValue = feature.properties().get(columnMetadata.name);
+    if (rawValue instanceof Byte b) {
+      return b;
+    } else if (rawValue instanceof Integer i) {
+      final var v = i.intValue();
+      if ((byte) v == v) {
+        return (byte) v;
+      }
+    } else if (rawValue instanceof Unsigned(Byte b)) {
+      return b;
+    }
+    return null;
+  }
+
   private static Integer getIntPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
     final var rawValue = feature.properties().get(columnMetadata.name);
-    if (rawValue instanceof Integer) {
-      return (Integer) rawValue;
-    } else if (rawValue instanceof Long) {
-      final var v = (long) rawValue;
+    if (rawValue instanceof Integer i) {
+      return i;
+    } else if (rawValue instanceof Long l) {
+      final var v = l.longValue();
       if ((int) v == v) {
         return (int) v;
       }
+    } else if (rawValue instanceof Unsigned(Integer i)) {
+      return i;
     }
     return null;
   }
 
   private static Long getLongPropertyValue(Feature feature, MltMetadata.Column columnMetadata) {
     final var rawValue = feature.properties().get(columnMetadata.name);
-    if (rawValue instanceof Long) {
-      return (Long) rawValue;
-    } else if (rawValue instanceof Integer) {
-      return (long) (int) rawValue;
+    if (rawValue instanceof Long l) {
+      return l;
+    } else if (rawValue instanceof Integer i) {
+      return (long) i.intValue();
+    } else if (rawValue instanceof Unsigned(Long l)) {
+      return l;
     }
     return null;
   }
@@ -237,6 +257,17 @@ public class PropertyEncoder {
       case BOOLEAN ->
           // no stream count
           encodeBooleanColumn(features, columnMetadata, streamObserver);
+      case INT_8, UINT_8 -> {
+        final var signed = (scalarType == MltMetadata.ScalarType.INT_8);
+        // Encode bytes as ints since varint/fastpfor handle small values efficiently
+        yield encodeInt8Column(
+            features,
+            columnMetadata,
+            physicalLevelTechnique,
+            signed,
+            integerEncodingOption,
+            streamObserver);
+      }
       case INT_32, UINT_32 -> {
         final var signed = (scalarType == MltMetadata.ScalarType.INT_32);
         // no stream count
@@ -424,6 +455,51 @@ public class PropertyEncoder {
             : new byte[0];
     final var encodedDataStream =
         FloatEncoder.encodeFloatStream(values, streamObserver, "prop_" + fieldName);
+    return Bytes.concat(encodedPresentStream, encodedDataStream);
+  }
+
+  private static byte[] encodeInt8Column(
+      List<Feature> features,
+      MltMetadata.Column metadata,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
+      @NotNull MLTStreamObserver streamObserver)
+      throws IOException {
+    final var fieldName = metadata.name;
+    final var values = new ArrayList<Integer>();
+    final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
+    for (var feature : features) {
+      final var propertyValue = getBytePropertyValue(feature, metadata);
+      final var present = (propertyValue != null);
+      if (present) {
+        // Convert byte to int for encoding (varint handles small values efficiently)
+        values.add(Byte.toUnsignedInt(propertyValue));
+      }
+      if (presentValues != null) {
+        presentValues.add(present);
+      }
+    }
+
+    var encodedPresentStream =
+        (presentValues != null)
+            ? BooleanEncoder.encodeBooleanStream(
+                presentValues,
+                PhysicalStreamType.PRESENT,
+                streamObserver,
+                "prop_" + fieldName + "_present")
+            : new byte[0];
+    var encodedDataStream =
+        IntegerEncoder.encodeIntStream(
+            CollectionUtils.unboxInts(values),
+            physicalLevelTechnique,
+            isSigned,
+            PhysicalStreamType.DATA,
+            null,
+            integerEncodingOption,
+            streamObserver,
+            "prop_" + fieldName);
+
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 

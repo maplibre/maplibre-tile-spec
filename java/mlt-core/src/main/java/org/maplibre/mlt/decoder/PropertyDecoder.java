@@ -80,6 +80,18 @@ public class PropertyDecoder {
                   scalarType.physicalType == MltMetadata.ScalarType.INT_32);
           return unpack(dataStream, presentStream, presentStreamSize);
         }
+      case UINT_64:
+      case INT_64:
+        {
+          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+          final var dataStream =
+              IntegerDecoder.decodeLongStream(
+                  data,
+                  offset,
+                  dataStreamMetadata,
+                  scalarType.physicalType == MltMetadata.ScalarType.INT_64);
+          return unpack(dataStream, presentStream, presentStreamSize);
+        }
       case FLOAT:
         {
           final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
@@ -93,18 +105,6 @@ public class PropertyDecoder {
             final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
             return unpack(dataStream, presentStream, presentStreamSize);
           }
-        }
-      case UINT_64:
-      case INT_64:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var dataStream =
-              IntegerDecoder.decodeLongStream(
-                  data,
-                  offset,
-                  dataStreamMetadata,
-                  scalarType.physicalType == MltMetadata.ScalarType.INT_64);
-          return unpack(dataStream, presentStream, presentStreamSize);
         }
       case STRING:
         {
