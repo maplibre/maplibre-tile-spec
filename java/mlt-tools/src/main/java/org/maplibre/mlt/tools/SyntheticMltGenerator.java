@@ -5,9 +5,6 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Arrays;
-import java.util.stream.Stream;
-import org.maplibre.mlt.data.Feature;
 
 public class SyntheticMltGenerator {
 
@@ -20,36 +17,17 @@ public class SyntheticMltGenerator {
     Files.createDirectories(SYNTHETICS_DIR);
 
     generatePoints();
-    generateIds();
     generateLines();
     generatePolygons();
     generateMultiPoints();
     generateMultiLineStrings();
     generateMixed();
+    generateIds();
     generateProperties();
   }
 
   private static void generatePoints() throws IOException {
     write("point", feat(p1), cfg());
-  }
-
-  private static void generateIds() throws IOException {
-    write("id", feat(p1, 100L), cfg().ids());
-    write("id0", feat(p1, 0L), cfg().ids());
-
-    var pts = new Feature[] {feat(p1, 100L), feat(p2, 101L), feat(p3, 103L)};
-    write(layer("ids", pts), cfg().ids());
-    write(layer("ids-delta", pts), cfg(DELTA).ids());
-
-    var pts2 =
-        new Feature[] {feat(p1, 100L), feat(p2, 101L), feat(p3), feat(p4, 105L), feat(p5, 106L)};
-    write(layer("ids-opt", pts2), cfg().ids());
-    write(layer("ids-opt-delta", pts2), cfg(DELTA).ids());
-
-    write("id64", feat(p1, 9_234_567_890L), cfg().ids());
-    var pts64 = new Feature[] {feat(p1, 1L), feat(p2, 9_234_567_890L), feat(p3, 9_234_567_891L)};
-    write(layer("ids64", pts64), cfg().ids());
-    write(layer("ids64-delta", pts64), cfg(DELTA).ids());
   }
 
   private static void generateLines() throws IOException {
@@ -87,8 +65,7 @@ public class SyntheticMltGenerator {
     write(layer("mixed-pt-poly", feat(p1), feat(poly(c1, c2, c5, c1))), cfg());
     write(layer("mixed-line-poly", feat(line(c1, c2)), feat(poly(c1, c2, c5, c1))), cfg());
 
-    write(
-        layer("mixed-pt-multiline", feat(p1), feat(multi(line(c1, c2), line(c3, c4, c5)))), cfg());
+    write(layer("mixed-pt-mline", feat(p1), feat(multi(line(c1, c2), line(c3, c4, c5)))), cfg());
 
     write(
         layer(
@@ -98,6 +75,46 @@ public class SyntheticMltGenerator {
             feat(poly(c1, c2, c5, c1)),
             feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)))),
         cfg());
+  }
+
+  private static void generateIds() throws IOException {
+    write("id0", idFeat(0L), cfg().ids());
+    write("id", idFeat(100L), cfg().ids());
+    write("id64", idFeat(9_234_567_890L), cfg().ids());
+
+    var ids32 = array(idFeat(100L), idFeat(101L), idFeat(102L), idFeat(103L));
+    write(layer("ids", ids32), cfg().ids());
+    write(layer("ids-delta", ids32), cfg(DELTA).ids());
+    write(layer("ids-delta-rle", ids32), cfg(DELTA_RLE).ids());
+
+    var ids64 =
+        array(
+            idFeat(1L),
+            idFeat(9_234_567_890L),
+            idFeat(9_234_567_891L),
+            idFeat(9_234_567_892L),
+            idFeat(9_234_567_893L),
+            idFeat(9_234_567_894L));
+    write(layer("ids64", ids64), cfg().ids());
+    write(layer("ids64-delta", ids64), cfg(DELTA).ids());
+    write(layer("ids64-delta-rle", ids64), cfg(DELTA_RLE).ids());
+
+    // RLE for IDs does not actually make sense, but it is in the spec for some reason
+    // Dups - 32bit
+    var idsRle = array(idFeat(42L), idFeat(42L), idFeat(42L), idFeat(42L));
+    write(layer("ids-dups", idsRle), cfg().ids());
+    write(layer("ids-dups-delta", idsRle), cfg(DELTA).ids());
+    write(layer("ids-dups-rle", idsRle), cfg(RLE).ids());
+
+    // Dups - 64bit
+    var ids64RLE = array(idFeat(9_234_567_890L), idFeat(9_234_567_890L), idFeat(9_234_567_890L));
+    write(layer("ids64-dups", ids64RLE), cfg().ids());
+    write(layer("ids64-dups-delta", ids64RLE), cfg(DELTA).ids());
+    write(layer("ids64-dups-rle", ids64RLE), cfg(RLE).ids());
+
+    var optIds = array(idFeat(100L), idFeat(101L), idFeat(null), idFeat(105L), idFeat(106L));
+    write(layer("ids-opt", optIds), cfg().ids());
+    write(layer("ids-opt-delta", optIds), cfg(DELTA).ids());
   }
 
   private static void generateProperties() throws IOException {
@@ -129,39 +146,25 @@ public class SyntheticMltGenerator {
                 0.123456789)),
         cfg());
 
-    var feat_delta_ints =
-        new Feature[] {
-          feat(p1, props("int", 99)),
-          feat(p2, props("int", 98)),
-          feat(p3, props("int", 97)),
-          feat(p4, props("int", 96))
-        };
-    write(layer("props-int", feat_delta_ints), cfg());
-    write(layer("props-int-delta", feat_delta_ints), cfg(DELTA));
-
-    var feat_rle_ints =
-        new Feature[] {
-          feat(p1, props("int", 42)),
-          feat(p2, props("int", 42)),
-          feat(p3, props("int", 42)),
-          feat(p4, props("int", 42))
-        };
-    write(layer("props-int-rle", feat_rle_ints), cfg(RLE));
-
-    var feat_delta_rle_ints =
-        Stream.concat(Arrays.stream(feat_delta_ints), Arrays.stream(feat_rle_ints))
-            .toArray(Feature[]::new);
-    write(layer("props-int-delta-rle", feat_delta_rle_ints), cfg(DELTA_RLE));
+    var feat_ints =
+        array(
+            feat(p1, props("int", 42)),
+            feat(p2, props("int", 42)),
+            feat(p3, props("int", 42)),
+            feat(p4, props("int", 42)));
+    write(layer("props-int", feat_ints), cfg());
+    write(layer("props-int-delta", feat_ints), cfg(DELTA));
+    write(layer("props-int-rle", feat_ints), cfg(RLE));
+    write(layer("props-int-delta-rle", feat_ints), cfg(DELTA_RLE));
 
     var feat_str =
-        new Feature[] {
-          feat(p1, props("str", "residential_zone_north_sector_1")),
-          feat(p2, props("str", "commercial_zone_south_sector_2")),
-          feat(p3, props("str", "industrial_zone_east_sector_3")),
-          feat(p4, props("str", "park_zone_west_sector_4")),
-          feat(p5, props("str", "water_zone_north_sector_5")),
-          feat(p6, props("str", "residential_zone_south_sector_6")),
-        };
+        array(
+            feat(p1, props("str", "residential_zone_north_sector_1")),
+            feat(p2, props("str", "commercial_zone_south_sector_2")),
+            feat(p3, props("str", "industrial_zone_east_sector_3")),
+            feat(p4, props("str", "park_zone_west_sector_4")),
+            feat(p5, props("str", "water_zone_north_sector_5")),
+            feat(p6, props("str", "residential_zone_south_sector_6")));
     write(layer("props-str", feat_str), cfg());
     write(layer("props-str-fsst", feat_str), cfg().fsst());
   }

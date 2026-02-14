@@ -106,6 +106,12 @@ class SyntheticMltUtil {
     return c;
   }
 
+  @SafeVarargs
+  @SuppressWarnings("varargs")
+  static <T> T[] array(T... elements) {
+    return elements;
+  }
+
   static LineString line(Coordinate... coords) {
     return gf.createLineString(coords);
   }
@@ -153,8 +159,13 @@ class SyntheticMltUtil {
     return new Feature(geom, props);
   }
 
-  static Feature feat(Geometry geom, long id) {
-    return new Feature(id, geom, Map.of());
+  /** for testing IDs - always use the same geometry */
+  static Feature idFeat(Long id) {
+    if (id == null) {
+      return new Feature(p6, Map.of());
+    } else {
+      return new Feature(id, p6, Map.of());
+    }
   }
 
   static Layer layer(String name, Feature... features) {

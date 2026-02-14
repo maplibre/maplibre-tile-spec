@@ -15,7 +15,7 @@
         }
       },
       "properties": {
-        "int": 99,
+        "int": 42,
         "layer": "layer1"
       },
       "type": "Feature"
@@ -35,7 +35,7 @@
         }
       },
       "properties": {
-        "int": 98,
+        "int": 42,
         "layer": "layer1"
       },
       "type": "Feature"
@@ -55,7 +55,7 @@
         }
       },
       "properties": {
-        "int": 97,
+        "int": 42,
         "layer": "layer1"
       },
       "type": "Feature"
@@ -75,7 +75,7 @@
         }
       },
       "properties": {
-        "int": 96,
+        "int": 42,
         "layer": "layer1"
       },
       "type": "Feature"
