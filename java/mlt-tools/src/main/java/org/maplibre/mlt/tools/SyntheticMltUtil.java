@@ -106,6 +106,12 @@ class SyntheticMltUtil {
     return c;
   }
 
+  @SafeVarargs
+  @SuppressWarnings("varargs")
+  static <T> T[] array(T... elements) {
+    return elements;
+  }
+
   static LineString line(Coordinate... coords) {
     return gf.createLineString(coords);
   }
