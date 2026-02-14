@@ -53,6 +53,21 @@ export type FastPforDecoderWorkspace = {
     exceptionSizes: Int32Array;
 };
 
+/**
+ * Workspace for decoding the FastPFOR *wire format* (big-endian int32 words).
+ *
+ * @remarks
+ * This workspace owns:
+ * - a scratch `encodedWords` buffer to materialize big-endian words
+ * - the reusable `FastPforDecoderWorkspace` used by `decodeFastPforInt32`
+ *
+ * The caller is responsible for creating and reusing this object.
+ */
+export type FastPforWireDecodeWorkspace = {
+    encodedWords: Int32Array;
+    decoderWorkspace: FastPforDecoderWorkspace;
+};
+
 const MAX_BIT_WIDTH = 32;
 const BIT_WIDTH_SLOTS = MAX_BIT_WIDTH + 1;
 
@@ -76,6 +91,29 @@ export function createDecoderWorkspace(): FastPforDecoderWorkspace {
         ),
         exceptionSizes: new Int32Array(BIT_WIDTH_SLOTS),
     };
+}
+
+export function createFastPforWireDecodeWorkspace(initialEncodedWordCapacity: number = 16): FastPforWireDecodeWorkspace {
+    if (initialEncodedWordCapacity < 0) {
+        throw new RangeError(`initialEncodedWordCapacity must be >= 0, got ${initialEncodedWordCapacity}`);
+    }
+
+    const capacity = Math.max(16, initialEncodedWordCapacity | 0);
+    return {
+        encodedWords: new Int32Array(capacity),
+        decoderWorkspace: createDecoderWorkspace(),
+    };
+}
+
+export function ensureFastPforWireEncodedWordsCapacity(
+    workspace: FastPforWireDecodeWorkspace,
+    requiredWordCount: number,
+): Int32Array {
+    if (requiredWordCount <= workspace.encodedWords.length) return workspace.encodedWords;
+
+    const next = new Int32Array(Math.max(16, requiredWordCount * 2));
+    workspace.encodedWords = next;
+    return next;
 }
 
 function materializeByteContainer(
