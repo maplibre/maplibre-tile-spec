@@ -4,7 +4,7 @@ import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -27,7 +27,7 @@ record EncodeConfig(
     boolean compareGeom,
     boolean willTime,
     boolean dumpStreams,
-    @Nullable ExecutorService threadPool,
+    @Nullable ThreadPoolExecutor threadPool,
     boolean continueOnError,
     int verboseLevel) {
 
@@ -75,7 +75,7 @@ record EncodeConfig(
     private boolean compareGeom = false;
     private boolean willTime = false;
     private boolean dumpStreams = false;
-    private @Nullable ExecutorService threadPool = null;
+    private @Nullable ThreadPoolExecutor threadPool = null;
     private boolean continueOnError = false;
     private int verboseLevel = 0;
 
@@ -159,7 +159,7 @@ record EncodeConfig(
       return this;
     }
 
-    public Builder threadPool(@Nullable ExecutorService v) {
+    public Builder threadPool(@Nullable ThreadPoolExecutor v) {
       this.threadPool = v;
       return this;
     }

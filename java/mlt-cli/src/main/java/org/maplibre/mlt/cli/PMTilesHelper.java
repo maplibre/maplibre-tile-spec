@@ -11,8 +11,9 @@ import com.onthegomap.planetiler.pmtiles.Pmtiles.Compression;
 import com.onthegomap.planetiler.pmtiles.Pmtiles.TileType;
 import com.onthegomap.planetiler.pmtiles.ReadablePmtiles;
 import com.onthegomap.planetiler.pmtiles.WriteablePmtiles;
-import com.onthegomap.planetiler.util.CloseableIterator;
+import io.tileverse.rangereader.RangeReader;
 import io.tileverse.rangereader.RangeReaderFactory;
+import io.tileverse.rangereader.cache.CachingRangeReader;
 import jakarta.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -21,12 +22,14 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
@@ -38,16 +41,32 @@ public class PMTilesHelper {
   static boolean encodePMTiles(URI inputURI, Path outputPath, EncodeConfig config)
       throws IOException {
 
+    final var readerCacheWeight = 250 * 1024 * 1024;
     try (final var rawReader = RangeReaderFactory.create(inputURI);
-        final var readChannel = rawReader.asByteChannel();
-        final var reader = new ReadablePmtiles(readChannel)) {
+        final var cachingReader =
+            CachingRangeReader.builder(rawReader).maximumWeight(readerCacheWeight).build()) {
+
+      // Although `RangeReader` is thread-safe, `ReadablePmtiles` is not because
+      // it uses a single `Channel` with separate `position` and `read` operations.
+      // So use a separate instance for each thread, but share the underlying reader and cache.
+      final var threadCount = config.threadPool().getMaximumPoolSize();
+      final var readers = new ConcurrentHashMap<Long, ReadablePmtiles>(1 + threadCount);
+      final Supplier<ReadablePmtiles> readerSupplier =
+          () ->
+              readers.computeIfAbsent(
+                  Thread.currentThread().threadId(),
+                  ignored -> tryCreateReadablePmtiles(cachingReader));
+      final var mainReader = readerSupplier.get();
+      if (mainReader == null) {
+        System.err.printf("ERROR: Failed to read PMTiles from '%s'%n", inputURI);
+        return false;
+      }
 
       if (config.verboseLevel() > 1) {
         System.err.printf("Opened '%s'%n", inputURI);
       }
 
-      final var header = reader.getHeader();
-
+      final var header = mainReader.getHeader();
       if (header.tileType() != TileType.MVT) {
         System.err.printf(
             "ERROR: Input PMTiles tile type is %d, expected %d (MVT)%n",
@@ -65,7 +84,7 @@ public class PMTilesHelper {
       final int actualMinZoom = Math.max(header.minZoom(), config.minZoom());
       final int actualMaxZoom = Math.min(header.maxZoom(), config.maxZoom());
 
-      final var oldMetadata = reader.metadata();
+      final var oldMetadata = mainReader.metadata();
       final var newMetadata =
           new TileArchiveMetadata(
               oldMetadata.name(),
@@ -81,8 +100,6 @@ public class PMTilesHelper {
               oldMetadata.json(),
               oldMetadata.others(),
               targetCompressType);
-
-      ;
 
       try (final var fileWriter = WriteablePmtiles.newWriteToFile(outputPath);
           final var tileWriter = fileWriter.newTileWriter()) {
@@ -110,13 +127,18 @@ public class PMTilesHelper {
                 config.continueOnError(),
                 config.verboseLevel());
 
-        final var processTile = getProcessTileFunction(reader, tileWriter, state);
+        final var processTile = getProcessTileFunction(readerSupplier, tileWriter, state);
 
         CliUtil.runTask(
             threadPool,
             () -> {
               processTiles(
-                  threadPool, processTile, reader, state, config.minZoom(), config.maxZoom());
+                  threadPool,
+                  processTile,
+                  readerSupplier,
+                  state,
+                  config.minZoom(),
+                  config.maxZoom());
             });
 
         if (threadPool != null) {
@@ -154,46 +176,38 @@ public class PMTilesHelper {
   }
 
   private static void processTiles(
-      @Nullable ExecutorService threadPool,
-      @NotNull Function<TileCoord, Boolean> processTile,
-      @NotNull ReadablePmtiles reader,
-      @NotNull ConversionState state,
-      int minZoom,
-      int maxZoom) {
-    final CloseableIterator<TileCoord> tileCoordIterator;
-    synchronized (reader) {
-      tileCoordIterator = reader.getAllTileCoords();
+      @Nullable final ExecutorService threadPool,
+      @NotNull final Function<TileCoord, Boolean> processTile,
+      @NotNull final Supplier<ReadablePmtiles> readerSupplier,
+      @NotNull final ConversionState state,
+      final int minZoom,
+      final int maxZoom) {
+    final var reader = readerSupplier.get();
+    if (reader == null) {
+      System.err.println("ERROR: Failed to read PMTiles");
+      state.success.set(false);
+      return;
     }
-
-    while (true) {
-      TileCoord tileCoord;
-      synchronized (reader) {
-        if (!tileCoordIterator.hasNext()) {
-          state.directoryComplete.set(true);
-          break;
-        }
-        tileCoord = tileCoordIterator.next();
-      }
-      if (tileCoord.z() < minZoom || tileCoord.z() > maxZoom) {
-        continue;
-      }
-      state.totalTileCount.incrementAndGet();
-      if (state.continueOnError || state.success.get()) {
-
-        // TODO: Limit the number of queued tasks.  Using LinkedBlockingQueue doesn't work.
-        try {
-          CliUtil.runTask(
-              threadPool,
-              () -> {
-                if (!processTile.apply(tileCoord)) {
-                  state.success.set(false);
+    reader.getAllTileCoords().stream()
+        .filter(tc -> minZoom <= tc.z() && tc.z() <= maxZoom)
+        .forEach(
+            tileCoord -> {
+              state.totalTileCount.incrementAndGet();
+              if (state.continueOnError || state.success.get()) {
+                try {
+                  CliUtil.runTask(
+                      threadPool,
+                      () -> {
+                        if (!processTile.apply(tileCoord)) {
+                          state.success.set(false);
+                        }
+                      });
+                } catch (RejectedExecutionException ignored) {
+                  // This indicates the thread pool has been shut down due to an error
                 }
-              });
-        } catch (RejectedExecutionException ignored) {
-          // This indicates the thread pool has been shut down due to an error
-        }
-      }
-    }
+              }
+            });
+    state.directoryComplete.set(true);
     if (threadPool != null) {
       threadPool.shutdown();
     }
@@ -202,7 +216,9 @@ public class PMTilesHelper {
   /// Produce a callable function for processing a single tile,capturing everything
   /// it needs, suitable for submitting to a thread pool
   private static Function<TileCoord, Boolean> getProcessTileFunction(
-      @NotNull ReadablePmtiles reader, @NotNull TileWriter writer, @NotNull ConversionState state) {
+      @NotNull final Supplier<ReadablePmtiles> readerSupplier,
+      @NotNull final TileWriter writer,
+      @NotNull final ConversionState state) {
     return (tileCoord) -> {
       final var tileLabel = String.format("%d:%d,%d", tileCoord.z(), tileCoord.x(), tileCoord.y());
       final var tileCount = state.tilesProcessed.incrementAndGet();
@@ -210,14 +226,28 @@ public class PMTilesHelper {
       if (state.verboseLevel == 0) {
         if (!state.directoryComplete.get()) {
           // Still fetching tile coordinates
-          System.err.printf("\rProcessing tile %d         \r", tileCount);
+          if (tileCount < 2 || (tileCount % 1000 == 0)) {
+            System.err.printf("\rProcessing tile %d         \r", tileCount);
+          }
         } else {
-          System.err.printf(
-              "\rProcessing tiles: %d / %d      \r", tileCount, state.totalTileCount.get());
+          final var totalTiles = state.totalTileCount.get();
+          final var progress = 100.0 * tileCount / totalTiles;
+          final var prevProgress = 100.0 * Math.max(0, tileCount - 1) / totalTiles;
+          if ((tileCount % 10000 == 0)
+              || (int) Math.round(progress * 10.0) != (int) Math.round(prevProgress * 10.0)) {
+            System.err.printf(
+                "\rProcessing tiles: %d / %d  (%.1f%%)       \r", tileCount, totalTiles, progress);
+          }
         }
       }
 
-      var tileData = reader.getTile(tileCoord);
+      final var reader = readerSupplier.get();
+      if (reader == null) {
+        System.err.println("ERROR: Failed to read PMTiles");
+        return false;
+      }
+
+      byte[] tileData = reader.getTile(tileCoord);
       if (tileData == null) {
         if (state.verboseLevel > 1) {
           System.err.printf("%s :  No tile data present%n", tileLabel);
@@ -272,6 +302,14 @@ public class PMTilesHelper {
         throw new IllegalArgumentException("Unsupported PMTiles compression type: " + compression);
       }
     };
+  }
+
+  private static ReadablePmtiles tryCreateReadablePmtiles(RangeReader reader) {
+    try {
+      return new ReadablePmtiles(reader.asByteChannel());
+    } catch (IOException e) {
+      return null;
+    }
   }
 
   private record ConversionState(

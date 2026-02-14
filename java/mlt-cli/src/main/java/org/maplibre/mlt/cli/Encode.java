@@ -14,7 +14,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.cli.CommandLine;
@@ -109,9 +111,9 @@ public class Encode {
             : 1;
     final var threadCount =
         (threadCountOption > 0) ? threadCountOption : Runtime.getRuntime().availableProcessors();
-    final var threadPool = (threadCount > 1) ? Executors.newFixedThreadPool(threadCount) : null;
+    final var threadPool = createThreadPool(threadCount);
     if (threadPool != null && verboseLevel > 0) {
-      System.err.println("Using " + threadCount + " threads");
+      System.err.println("Using " + threadPool.getMaximumPoolSize() + " threads");
     }
 
     if (verboseLevel > 0 && !columnMappings.isEmpty()) {
@@ -571,6 +573,20 @@ public class Encode {
       CliUtil.createDir(outputPath.toAbsolutePath().getParent());
     }
     return outputPath;
+  }
+
+  private static ThreadPoolExecutor createThreadPool(int threadCount) {
+    if (threadCount <= 1) {
+      return null;
+    }
+    // Create a thread pool with a limited task queue that will not reject tasks when it's full
+    return new ThreadPoolExecutor(
+        threadCount,
+        threadCount,
+        1000L,
+        TimeUnit.MILLISECONDS,
+        new LinkedBlockingQueue<>(),
+        new ThreadPoolExecutor.CallerRunsPolicy());
   }
 
   private static long totalCompressedInput = 0;
