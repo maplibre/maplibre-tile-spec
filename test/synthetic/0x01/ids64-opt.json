@@ -4,6 +4,25 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
+          40,
+          10
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "properties": {
+        "layer": "layer1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
           13,
           42
         ],
@@ -35,25 +54,6 @@
         }
       },
       "id": 101,
-      "properties": {
-        "layer": "layer1"
-      },
-      "type": "Feature"
-    },
-    {
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          40,
-          10
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
-      },
       "properties": {
         "layer": "layer1"
       },
