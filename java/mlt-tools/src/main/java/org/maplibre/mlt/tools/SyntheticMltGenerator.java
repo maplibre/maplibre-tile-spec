@@ -5,6 +5,8 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.stream.Stream;
 import org.maplibre.mlt.data.Feature;
 
 public class SyntheticMltGenerator {
@@ -122,15 +124,29 @@ public class SyntheticMltGenerator {
                 0.123456789)),
         cfg());
 
-    var feat_ints =
+    var feat_delta_ints =
         new Feature[] {
           feat(p1, props("int", 99)),
           feat(p2, props("int", 98)),
           feat(p3, props("int", 97)),
           feat(p4, props("int", 96))
         };
-    write(layer("point-props-int", feat_ints), cfg());
-    write(layer("point-props-int-delta", feat_ints), cfg(DELTA));
+    write(layer("point-props-int", feat_delta_ints), cfg());
+    write(layer("point-props-int-delta", feat_delta_ints), cfg(DELTA));
+
+    var feat_rle_ints =
+        new Feature[] {
+          feat(p1, props("int", 42)),
+          feat(p2, props("int", 42)),
+          feat(p3, props("int", 42)),
+          feat(p4, props("int", 42))
+        };
+    write(layer("point-props-int-rle", feat_rle_ints), cfg(RLE));
+
+    var feat_delta_rle_ints =
+        Stream.concat(Arrays.stream(feat_delta_ints), Arrays.stream(feat_rle_ints))
+            .toArray(Feature[]::new);
+    write(layer("point-props-int-delta-rle", feat_delta_rle_ints), cfg(DELTA_RLE));
 
     var feat_str =
         new Feature[] {
