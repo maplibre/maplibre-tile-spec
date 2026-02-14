@@ -49,14 +49,6 @@ public class FeatureTable implements Iterable<Feature> {
 
       @Override
       public Feature next() {
-        Long id = null;
-        if (idColumn != null) {
-          id =
-              isIntVector(idColumn)
-                  ? ((Integer) idColumn.getValue(index).get()).longValue()
-                  : (Long) idColumn.getValue(index).get();
-        }
-
         var geometry = geometryIterator.next();
 
         var properties = new HashMap<String, Object>();
@@ -69,8 +61,19 @@ public class FeatureTable implements Iterable<Feature> {
           }
         }
 
+        Feature feature;
+        if (idColumn != null) {
+          long id =
+              isIntVector(idColumn)
+                  ? ((Integer) idColumn.getValue(index).get()).longValue()
+                  : (Long) idColumn.getValue(index).get();
+          feature = new Feature(id, geometry, properties);
+        } else {
+          feature = new Feature(geometry, properties);
+        }
+
         index++;
-        return new Feature(id, geometry, properties);
+        return feature;
       }
     };
   }

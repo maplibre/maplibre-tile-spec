@@ -443,7 +443,7 @@ public class PropertyEncoder {
       // TODO: refactor -> handle long values for ids differently
       final var propertyValue =
           isID
-              ? (feature.id() != null ? Integer.valueOf(feature.id().intValue()) : null)
+              ? (feature.hasId() ? Integer.valueOf((int) feature.id()) : null)
               : getIntPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
@@ -488,7 +488,7 @@ public class PropertyEncoder {
     final var values = new ArrayList<Long>();
     final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
-      final var propertyValue = isID ? feature.id() : getLongPropertyValue(feature, metadata);
+      final var propertyValue = isID ? feature.idOrNull() : getLongPropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
         values.add(propertyValue);

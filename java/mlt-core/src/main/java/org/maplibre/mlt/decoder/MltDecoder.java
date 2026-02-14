@@ -163,8 +163,11 @@ public class MltDecoder {
           p.put(propertyColumn.getKey(), v);
         }
       }
-      final Long id = (ids != null) ? ids.get(j) : null;
-      var feature = new Feature(id, geometries[j], p);
+      final Long idValue = (ids != null) ? ids.get(j) : null;
+      var feature =
+          (idValue != null)
+              ? new Feature(idValue, geometries[j], p)
+              : new Feature(geometries[j], p);
       features.add(feature);
     }
 

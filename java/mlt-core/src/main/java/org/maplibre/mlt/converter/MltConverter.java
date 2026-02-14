@@ -69,7 +69,7 @@ public class MltConverter {
                 });
 
         if (isIdPresent
-            && feature.id() != null
+            && feature.hasId()
             && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
           hasLongId = true;
         }
@@ -100,7 +100,7 @@ public class MltConverter {
         final var newColumn =
             new MltMetadata.Column(
                 null, new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID));
-        newColumn.isNullable = layer.features().stream().anyMatch(feature -> feature.id() == null);
+        newColumn.isNullable = layer.features().stream().anyMatch(feature -> !feature.hasId());
         newColumn.columnScope = MltMetadata.ColumnScope.FEATURE;
         newColumn.scalarType.hasLongId = hasLongId;
         featureTableSchema.columns.add(newColumn);
@@ -570,7 +570,7 @@ public class MltConverter {
       sortedFeatures = sortFeaturesById(mvtFeatures);
     }
 
-    var ids = sortedFeatures.stream().map(Feature::id).collect(Collectors.toList());
+    var ids = sortedFeatures.stream().map(Feature::idOrNull).collect(Collectors.toList());
     var geometries = sortedFeatures.stream().map(Feature::geometry).collect(Collectors.toList());
 
     if (geometries.isEmpty()) {
@@ -607,7 +607,7 @@ public class MltConverter {
               .map(
                   id ->
                       mvtFeatures.stream()
-                          .filter(fe -> Objects.equals(fe.id(), id))
+                          .filter(fe -> Objects.equals(fe.idOrNull(), id))
                           .findFirst()
                           .orElseThrow())
               .collect(Collectors.toList());
@@ -631,7 +631,7 @@ public class MltConverter {
 
   private static List<Feature> sortFeaturesById(List<Feature> features) {
     return features.stream()
-        .sorted(Comparator.comparing(Feature::id, Comparator.nullsFirst(Comparator.naturalOrder())))
+        .sorted(Comparator.comparing(Feature::hasId).thenComparingLong(Feature::id))
         .collect(Collectors.toList());
   }
 

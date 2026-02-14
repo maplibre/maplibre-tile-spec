@@ -30,7 +30,7 @@ public class CliUtil {
 
   private static Map<String, Object> toJSON(Feature feature) {
     var map = new TreeMap<String, Object>();
-    if (feature.id() != null) {
+    if (feature.hasId()) {
       map.put("id", feature.id());
     }
     map.put("geometry", feature.geometry().toString());
@@ -64,7 +64,7 @@ public class CliUtil {
   private static Map<String, Object> featureToGeoJson(String layerName, Feature feature) {
     var f = new TreeMap<String, Object>();
     f.put("type", "Feature");
-    if (feature.id() != null) {
+    if (feature.hasId()) {
       f.put("id", feature.id());
     }
     var props = getSortedNonNullProperties(feature);

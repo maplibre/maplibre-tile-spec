@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -34,7 +33,7 @@ public class TestUtils {
         Feature mvtFeature =
             optimization == Optimization.SORTED
                 ? mvtFeatures.stream()
-                    .filter(f -> Objects.equals(f.id(), mltFeature.id()))
+                    .filter(f -> f.hasId() == mltFeature.hasId() && f.id() == mltFeature.id())
                     .findFirst()
                     .get()
                 : mvtFeatures.get(j);
@@ -110,7 +109,7 @@ public class TestUtils {
       for (org.maplibre.mlt.data.Feature mvtFeature : mvtFeatures) {
         var mltFeature =
             mltFeatures.stream()
-                .filter(f -> Objects.equals(f.id(), mvtFeature.id()))
+                .filter(f -> f.hasId() == mvtFeature.hasId() && f.id() == mvtFeature.id())
                 .findFirst()
                 .get();
         assertEquals(mvtFeature.id(), mltFeature.id());
