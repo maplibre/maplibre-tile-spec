@@ -90,7 +90,7 @@ function encodeVarintFloat64Value(val: number, buf: Uint8Array, offset: IntWrapp
 
     while (val >= 128) {
         // Write 7 bits of data | 0x80 (continuation bit)
-        buf[offset.get()] = (val % 128) | 0x80;
+        buf[offset.get()] = val % 128 | 0x80;
         offset.increment();
         // Shift right by 7 bits
         val = Math.floor(val / 128);

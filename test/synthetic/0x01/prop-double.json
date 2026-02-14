@@ -16,7 +16,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1"
+        "layer": "layer1",
+        "precise": 3.1415927
       },
       "type": "Feature"
     }

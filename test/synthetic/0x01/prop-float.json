@@ -16,7 +16,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1"
+        "layer": "layer1",
+        "temp": 3.14
       },
       "type": "Feature"
     }

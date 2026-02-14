@@ -16,6 +16,7 @@
       },
       "id": 0,
       "properties": {
+        "flag": false,
         "layer": "layer1"
       },
       "type": "Feature"

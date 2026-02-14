@@ -22,7 +22,7 @@
     },
     {
       "geometry": {
-        "type": "Polygon",
+        "type": "MultiLineString",
         "coordinates": [
           [
             [
@@ -32,14 +32,20 @@
             [
               50,
               0
+            ]
+          ],
+          [
+            [
+              50,
+              50
+            ],
+            [
+              0,
+              50
             ],
             [
               10,
               10
-            ],
-            [
-              0,
-              0
             ]
           ]
         ],

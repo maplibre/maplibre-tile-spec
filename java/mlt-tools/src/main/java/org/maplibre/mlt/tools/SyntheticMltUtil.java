@@ -27,6 +27,7 @@ class SyntheticMltUtil {
   // Using common coordinates everywhere to make sure generated MLT files are very similar,
   // ensuring we observe difference in encoding rather than geometry variations
   static final GeometryFactory gf = new GeometryFactory();
+  static final Coordinate c0 = new Coordinate(13, 42);
   static final Coordinate c1 = new Coordinate(0, 0);
   static final Coordinate c2 = new Coordinate(50, 0);
   static final Coordinate c3 = new Coordinate(50, 50);
@@ -36,6 +37,7 @@ class SyntheticMltUtil {
   static final Coordinate c7 = new Coordinate(40, 40);
   static final Coordinate c8 = new Coordinate(10, 40);
 
+  static final Point p0 = gf.createPoint(c0);
   static final Point p1 = gf.createPoint(c1);
   static final Point p2 = gf.createPoint(c2);
   static final Point p3 = gf.createPoint(c3);
@@ -106,6 +108,12 @@ class SyntheticMltUtil {
     return c;
   }
 
+  @SafeVarargs
+  @SuppressWarnings("varargs")
+  static <T> T[] array(T... elements) {
+    return elements;
+  }
+
   static LineString line(Coordinate... coords) {
     return gf.createLineString(coords);
   }
@@ -134,31 +142,41 @@ class SyntheticMltUtil {
     return gf.createMultiLineString(lines);
   }
 
-  static Map<String, Object> props(Object... keyValues) {
-    if (keyValues.length % 2 != 0) {
-      throw new IllegalArgumentException("Must provide key-value pairs");
-    }
+  record KeyVal(String key, Object value) {}
+
+  static KeyVal kv(String key, Object value) {
+    return new KeyVal(key, value);
+  }
+
+  static Map<String, Object> prop(String key, Object value) {
+    return Map.of(key, value);
+  }
+
+  static Map<String, Object> props(KeyVal... keyValues) {
     var map = new java.util.HashMap<String, Object>();
-    for (int i = 0; i < keyValues.length; i += 2) {
-      map.put((String) keyValues[i], keyValues[i + 1]);
+    for (var kv : keyValues) {
+      map.put(kv.key, kv.value);
     }
     return map;
   }
 
   static Feature feat(Geometry geom) {
-    return feat(geom, null, Map.of());
+    return new Feature(0, geom, Map.of());
   }
 
   static Feature feat(Geometry geom, Map<String, Object> props) {
-    return feat(geom, null, props);
+    return new Feature(0, geom, props);
   }
 
-  static Feature feat(Geometry geom, Long id) {
-    return feat(geom, id, Map.of());
+  /** for testing IDs - always use the same geometry */
+  static Feature idFeat(long id) {
+    return new Feature(id, p0, Map.of());
   }
 
-  static Feature feat(Geometry geom, Long id, Map<String, Object> props) {
-    return new Feature(id != null ? id : 0, geom, props);
+  /** for testing IDs - simulate missing ID */
+  static Feature idFeat() {
+    // FIXME: once we support nullable IDs, change this code
+    throw new IllegalStateException("Cannot create feature with null ID in current implementation");
   }
 
   static Layer layer(String name, Feature... features) {
