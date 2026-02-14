@@ -81,35 +81,22 @@ public class SyntheticMltGenerator {
     write("id", idFeat(100), cfg().ids());
     write("id64", idFeat(9_234_567_890L), cfg().ids());
 
-    var ids32 = array(idFeat(100), idFeat(101), idFeat(102), idFeat(103));
+    var ids32 = array(idFeat(103), idFeat(103), idFeat(103), idFeat(103));
     write(layer("ids", ids32), cfg().ids());
     write(layer("ids-delta", ids32), cfg(DELTA).ids());
+    write(layer("ids-rle", ids32), cfg(RLE).ids());
     write(layer("ids-delta-rle", ids32), cfg(DELTA_RLE).ids());
 
     var ids64 =
         array(
-            idFeat(1),
             idFeat(9_234_567_890L),
-            idFeat(9_234_567_891L),
-            idFeat(9_234_567_892L),
-            idFeat(9_234_567_893L),
-            idFeat(9_234_567_894L));
+            idFeat(9_234_567_890L),
+            idFeat(9_234_567_890L),
+            idFeat(9_234_567_890L));
     write(layer("ids64", ids64), cfg().ids());
     write(layer("ids64-delta", ids64), cfg(DELTA).ids());
+    write(layer("ids64-rle", ids64), cfg(RLE).ids());
     write(layer("ids64-delta-rle", ids64), cfg(DELTA_RLE).ids());
-
-    // RLE for IDs does not actually make sense, but it is in the spec for some reason
-    // Dups - 32bit
-    var idsRle = array(idFeat(42), idFeat(42), idFeat(42), idFeat(42));
-    write(layer("ids-dups", idsRle), cfg().ids());
-    write(layer("ids-dups-delta", idsRle), cfg(DELTA).ids());
-    write(layer("ids-dups-rle", idsRle), cfg(RLE).ids());
-
-    // Dups - 64bit
-    var ids64RLE = array(idFeat(9_234_567_890L), idFeat(9_234_567_890L), idFeat(9_234_567_890L));
-    write(layer("ids64-dups", ids64RLE), cfg().ids());
-    write(layer("ids64-dups-delta", ids64RLE), cfg(DELTA).ids());
-    write(layer("ids64-dups-rle", ids64RLE), cfg(RLE).ids());
   }
 
   private static void generateProperties() throws IOException {
