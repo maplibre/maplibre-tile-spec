@@ -6,7 +6,6 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -21,8 +20,14 @@ import org.maplibre.mlt.decoder.MltDecoder;
  * MLT in-memory representations. Can be used for simple profiling. For more proper benchmarks based
  * on JMH see `OmtDecoderBenchmark`
  */
-@Tag("benchmark")
 public class MltDecoderBenchmarkTest {
+
+  /**
+   * Number of measured iterations. Set via {@code -Dbenchmark.iterations=200} for full benchmarks.
+   * Defaults to 1 for a quick smoke test. When greater than 1, an equal number of warmup iterations
+   * are run before measurement.
+   */
+  private static final int BENCHMARK_ITERATIONS = Integer.getInteger("benchmark.iterations", 1);
 
   @Test
   public void decodeMlTileVectorized_Z2() throws IOException {
@@ -143,19 +148,24 @@ public class MltDecoderBenchmarkTest {
 
   private void benchmarkDecoding(String tileId) throws IOException {
     var mvtFilePath = Paths.get(TestSettings.OMT_MVT_PATH, tileId + ".mvt");
+    int warmup_iters = BENCHMARK_ITERATIONS / 2;
 
     var mvt = Files.readAllBytes(mvtFilePath);
     var mvtTimeElapsed = 0L;
-    for (int i = 0; i <= 200; i++) {
+    for (int i = 0; i < BENCHMARK_ITERATIONS; i++) {
       long start = System.currentTimeMillis();
       var mvTile = MvtUtils.decodeMvtFast(mvt);
       long finish = System.currentTimeMillis();
 
-      if (i > 100) {
+      if (i > warmup_iters) {
         mvtTimeElapsed += (finish - start);
       }
     }
-    System.out.println("MVT decoding time: " + (mvtTimeElapsed / 100.0));
+    if (BENCHMARK_ITERATIONS > 1) {
+      System.out.println("MVT decoding time: " + (mvtTimeElapsed / (double) warmup_iters));
+    } else {
+      System.out.println("MVT decoding passed (single iter)");
+    }
 
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
@@ -193,15 +203,19 @@ public class MltDecoderBenchmarkTest {
             mvTile, tileMetadata, new ConversionConfig(true, true, true, optimizations), null);
 
     var mltTimeElapsed = 0L;
-    for (int i = 0; i <= 200; i++) {
+    for (int i = 0; i < BENCHMARK_ITERATIONS; i++) {
       long start = System.currentTimeMillis();
       var decodedTile = MltDecoder.decodeMlTile(mlTile);
       long finish = System.currentTimeMillis();
 
-      if (i > 100) {
+      if (i > warmup_iters) {
         mltTimeElapsed += (finish - start);
       }
     }
-    System.out.println("MLT decoding time: " + (mltTimeElapsed / 100.0));
+    if (BENCHMARK_ITERATIONS > 1) {
+      System.out.println("MLT decoding time: " + (mltTimeElapsed / (double) warmup_iters));
+    } else {
+      System.out.println("MLT decoding passed (single iter)");
+    }
   }
 }
