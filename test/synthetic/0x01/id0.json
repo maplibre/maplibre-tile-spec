@@ -4,8 +4,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          40,
-          10
+          13,
+          42
         ],
         "crs": {
           "type": "name",
