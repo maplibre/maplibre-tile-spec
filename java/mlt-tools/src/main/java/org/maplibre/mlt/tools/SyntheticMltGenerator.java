@@ -35,19 +35,19 @@ public class SyntheticMltGenerator {
   }
 
   private static void generatePolygons() throws IOException {
-    var pol = feat(poly(c1, c2, c5, c1));
+    var pol = feat(poly(c1, c2, c3, c1));
     write("polygon", pol, cfg());
     write("polygon-fpf", pol, cfg().fastPFOR());
     write("polygon-tes", pol, cfg().tessellate());
     write("polygon-morton-tes", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
-    var polWithHole = feat(poly(ring(c1, c2, c3, c4, c1), ring(c5, c6, c7, c8, c5)));
+    var polWithHole = feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
     write("polygon-hole", polWithHole, cfg());
     write("polygon-hole-fpf", polWithHole, cfg().fastPFOR());
 
     // MultiPolygon
-    var multiPol = feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)));
+    var multiPol = feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)));
     write("polygon-multi", multiPol, cfg());
     write("polygon-multi-fpf", multiPol, cfg().fastPFOR());
   }
@@ -57,22 +57,22 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateMultiLineStrings() throws IOException {
-    write("multiline", feat(multi(line(c1, c2), line(c3, c4, c5))), cfg());
+    write("multiline", feat(multi(line(c1, c2), line(h1, h2, h3))), cfg());
   }
 
   private static void generateMixed() throws IOException {
     write(layer("mixed-pt-line", feat(p0), feat(line(c1, c2))), cfg());
-    write(layer("mixed-pt-poly", feat(p0), feat(poly(c1, c2, c5, c1))), cfg());
-    write(layer("mixed-line-poly", feat(line(c1, c2)), feat(poly(c1, c2, c5, c1))), cfg());
-    write(layer("mixed-pt-mline", feat(p0), feat(multi(line(c1, c2), line(c3, c4, c5)))), cfg());
+    write(layer("mixed-pt-poly", feat(p0), feat(poly(c1, c2, c3, c1))), cfg());
+    write(layer("mixed-line-poly", feat(line(c1, c2)), feat(poly(c1, c2, c3, c1))), cfg());
+    write(layer("mixed-pt-mline", feat(p0), feat(multi(line(c1, c2), line(h1, h2, h3)))), cfg());
 
     write(
         layer(
             "mixed-all",
             feat(p0),
             feat(line(c1, c2)),
-            feat(poly(c1, c2, c5, c1)),
-            feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)))),
+            feat(poly(c1, c2, c3, c1)),
+            feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
         cfg());
   }
 
@@ -128,7 +128,7 @@ public class SyntheticMltGenerator {
             feat(p1, prop("int", 42)),
             feat(p2, prop("int", 42)),
             feat(p3, prop("int", 42)),
-            feat(p4, prop("int", 42)));
+            feat(ph1, prop("int", 42)));
     write(layer("props-int", feat_ints), cfg());
     write(layer("props-int-delta", feat_ints), cfg(DELTA));
     write(layer("props-int-rle", feat_ints), cfg(RLE));
@@ -139,9 +139,9 @@ public class SyntheticMltGenerator {
             feat(p1, prop("str", "residential_zone_north_sector_1")),
             feat(p2, prop("str", "commercial_zone_south_sector_2")),
             feat(p3, prop("str", "industrial_zone_east_sector_3")),
-            feat(p4, prop("str", "park_zone_west_sector_4")),
-            feat(p5, prop("str", "water_zone_north_sector_5")),
-            feat(p6, prop("str", "residential_zone_south_sector_6")));
+            feat(ph1, prop("str", "park_zone_west_sector_4")),
+            feat(ph2, prop("str", "water_zone_north_sector_5")),
+            feat(ph3, prop("str", "residential_zone_south_sector_6")));
     write(layer("props-str", feat_str), cfg());
     write(layer("props-str-fsst", feat_str), cfg().fsst());
   }

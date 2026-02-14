@@ -28,22 +28,23 @@ class SyntheticMltUtil {
   // ensuring we observe difference in encoding rather than geometry variations
   static final GeometryFactory gf = new GeometryFactory();
   static final Coordinate c0 = new Coordinate(13, 42);
-  static final Coordinate c1 = new Coordinate(0, 0);
-  static final Coordinate c2 = new Coordinate(50, 0);
-  static final Coordinate c3 = new Coordinate(50, 50);
-  static final Coordinate c4 = new Coordinate(0, 50);
-  static final Coordinate c5 = new Coordinate(10, 10);
-  static final Coordinate c6 = new Coordinate(40, 10);
-  static final Coordinate c7 = new Coordinate(40, 40);
-  static final Coordinate c8 = new Coordinate(10, 40);
+  // triangle
+  static final Coordinate c1 = new Coordinate(4, 47);
+  static final Coordinate c2 = new Coordinate(12, 53);
+  static final Coordinate c3 = new Coordinate(18, 45);
+  // hole with counter-clockwise winding
+  static final Coordinate h1 = new Coordinate(13, 48);
+  static final Coordinate h2 = new Coordinate(12, 50);
+  static final Coordinate h3 = new Coordinate(10, 49);
 
   static final Point p0 = gf.createPoint(c0);
   static final Point p1 = gf.createPoint(c1);
   static final Point p2 = gf.createPoint(c2);
   static final Point p3 = gf.createPoint(c3);
-  static final Point p4 = gf.createPoint(c4);
-  static final Point p5 = gf.createPoint(c5);
-  static final Point p6 = gf.createPoint(c6);
+  // holes as points with same coordinates as the hole vertices
+  static final Point ph1 = gf.createPoint(h1);
+  static final Point ph2 = gf.createPoint(h2);
+  static final Point ph3 = gf.createPoint(h3);
 
   /** Builder subclass with no-argument shorthand methods for common flags. */
   static class Cfg extends ConversionConfig.Builder {
