@@ -243,7 +243,7 @@ class SyntheticMltUtil {
           columnMappings.put(Pattern.compile(".*"), allColumnMappings);
         }
       }
-      
+
       var metadata = MltConverter.createTilesetMetadata(tile, Map.of(), config.getIncludeIds());
       var mlt = MltConverter.convertMvt(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
