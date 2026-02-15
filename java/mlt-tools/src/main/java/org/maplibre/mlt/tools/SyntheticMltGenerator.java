@@ -112,22 +112,28 @@ public class SyntheticMltGenerator {
     // write("prop_i8_neg", feat(p0, prop("val", (byte) -42)), cfg());
     // write("prop_i8_min", feat(p0, prop("val", Byte.MIN_VALUE)), cfg());
     // write("prop_i8_max", feat(p0, prop("val", Byte.MAX_VALUE)), cfg());
+    // write("prop_u8", feat(p0, prop("tinynum", U8.of(100))), cfg());
+    // write("prop_u8_min", feat(p0, prop("tinynum", U8.of(0))), cfg());
+    // write("prop_u8_max", feat(p0, prop("tinynum", U8.of(255))), cfg());
     // write("prop_i16", feat(p0, prop("val", (short) 42)), cfg());
     // write("prop_i16_neg", feat(p0, prop("val", (short) -42)), cfg());
     // write("prop_i16_min", feat(p0, prop("val", Short.MIN_VALUE)), cfg());
     // write("prop_i16_max", feat(p0, prop("val", Short.MAX_VALUE)), cfg());
-    // write("prop_u8", feat(p0, prop("tinynum", U8.of(100))), cfg());
-    // write("prop_u8_min", feat(p0, prop("tinynum", U8.of(0))), cfg());
-    // write("prop_u8_max", feat(p0, prop("tinynum", U8.of(255))), cfg());
     write("prop_i32", feat(p0, prop("val", (int) 42)), cfg());
     write("prop_i32_neg", feat(p0, prop("val", (int) -42)), cfg());
     write("prop_i32_min", feat(p0, prop("val", Integer.MIN_VALUE)), cfg());
     write("prop_i32_max", feat(p0, prop("val", Integer.MAX_VALUE)), cfg());
+    write("prop_u32", feat(p0, prop("val", U32.of(42L))), cfg());
+    write("prop_u32_min", feat(p0, prop("val", U32.of(0L))), cfg());
+    write("prop_u32_max", feat(p0, prop("val", U32.of(0xFFFFFFFFL))), cfg());
     write("prop_i64", feat(p0, prop("val", (long) 9_876_543_210L)), cfg());
     write("prop_i64_neg", feat(p0, prop("val", (long) -9_876_543_210L)), cfg());
     write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
-    write("prop_u64", feat(p0, prop("bignum", U64.of(BigInteger.of(Long.MAX_VALUE).add(BigInteger.ONE))), cfg());
+    write(
+        "prop_u64",
+        feat(p0, prop("bignum", U64.of(BigInteger.valueOf(1234567890123456789L)))),
+        cfg());
     write("prop_u64_min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
     write(
         "prop_u64_max",
@@ -181,10 +187,10 @@ public class SyntheticMltGenerator {
 
     var feat_uint32s =
         array(
+            feat(p0, prop("val", U32.of(9_000))),
             feat(p1, prop("val", U32.of(9_000))),
             feat(p2, prop("val", U32.of(9_000))),
-            feat(p3, prop("val", U32.of(9_000))),
-            feat(p4, prop("val", U32.of(9_000))));
+            feat(p3, prop("val", U32.of(9_000))));
     write(layer("props_u32", feat_uint32s), cfg());
     write(layer("props_u32-delta", feat_uint32s), cfg(DELTA));
     write(layer("props_u32-rle", feat_uint32s), cfg(RLE));

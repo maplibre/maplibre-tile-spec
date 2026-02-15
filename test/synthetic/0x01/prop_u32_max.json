@@ -17,7 +17,7 @@
       "id": 0,
       "properties": {
         "layer": "layer1",
-        "mediumnum": 0
+        "val": 4294967295
       },
       "type": "Feature"
     }

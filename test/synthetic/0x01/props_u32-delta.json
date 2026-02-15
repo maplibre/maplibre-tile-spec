@@ -4,8 +4,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          0,
-          0
+          13,
+          42
         ],
         "crs": {
           "type": "name",
@@ -25,8 +25,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          50,
-          0
+          4,
+          47
         ],
         "crs": {
           "type": "name",
@@ -46,8 +46,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          50,
-          50
+          12,
+          53
         ],
         "crs": {
           "type": "name",
@@ -67,8 +67,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          0,
-          50
+          18,
+          45
         ],
         "crs": {
           "type": "name",
