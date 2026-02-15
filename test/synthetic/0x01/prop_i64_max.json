@@ -2,20 +2,10 @@
   "features": [
     {
       "geometry": {
-        "type": "MultiPoint",
+        "type": "Point",
         "coordinates": [
-          [
-            4,
-            47
-          ],
-          [
-            12,
-            53
-          ],
-          [
-            18,
-            45
-          ]
+          13,
+          42
         ],
         "crs": {
           "type": "name",
@@ -26,7 +16,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1"
+        "layer": "layer1",
+        "val": 9223372036854775807
       },
       "type": "Feature"
     }

@@ -1,0 +1,63 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                4,
+                47
+              ],
+              [
+                12,
+                53
+              ],
+              [
+                18,
+                45
+              ],
+              [
+                4,
+                47
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                13,
+                48
+              ],
+              [
+                10,
+                49
+              ],
+              [
+                12,
+                53
+              ],
+              [
+                13,
+                48
+              ]
+            ]
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "layer": "layer1"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
