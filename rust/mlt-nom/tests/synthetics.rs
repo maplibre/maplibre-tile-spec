@@ -18,8 +18,7 @@ fn test_one(mlt: &Path, json: &Path) {
         layer.decode_all().unwrap();
     }
 
-    let expected: FeatureCollection =
-        serde_json::from_str(&fs::read_to_string(json).unwrap()).unwrap();
+    let expected: FeatureCollection = json5::from_str(&fs::read_to_string(json).unwrap()).unwrap();
     let actual = FeatureCollection::from_layers(&data).unwrap();
     assert_eq!(actual, expected);
 }
