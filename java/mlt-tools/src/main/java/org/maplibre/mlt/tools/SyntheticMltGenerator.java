@@ -156,6 +156,10 @@ public class SyntheticMltGenerator {
     // FIXME: Fails in Java as it Produces the same output as prop_f64_max
     // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
     write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
+    write("prop_str_empty", feat(p0, prop("val", "")), cfg());
+    write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
+    write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
+    write("prop_str_unicode", feat(p0, prop("val", "München 📍 cafe\u0301")), cfg());
 
     // Multiple properties - single feature demonstrating multiple property types
     write(
