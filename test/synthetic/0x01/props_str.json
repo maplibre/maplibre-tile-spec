@@ -16,7 +16,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": "residential_zone_north_sector_1"
       },
       "type": "Feature"
@@ -37,7 +38,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": "commercial_zone_south_sector_2"
       },
       "type": "Feature"
@@ -58,7 +60,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": "industrial_zone_east_sector_3"
       },
       "type": "Feature"
@@ -79,7 +82,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": "park_zone_west_sector_4"
       },
       "type": "Feature"
@@ -100,7 +104,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": "water_zone_north_sector_5"
       },
       "type": "Feature"
@@ -121,7 +126,8 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": "residential_zone_south_sector_6"
       },
       "type": "Feature"

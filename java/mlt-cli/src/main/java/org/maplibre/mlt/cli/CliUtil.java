@@ -52,19 +52,18 @@ public class CliUtil {
         "features",
         mlTile.layers().stream()
             .flatMap(
-                layer ->
-                    layer.features().stream()
-                        .map(feature -> featureToGeoJson(layer.name(), feature)))
+                layer -> layer.features().stream().map(feature -> featureToGeoJson(layer, feature)))
             .toList());
     return gson.toJson(fc);
   }
 
-  private static Map<String, Object> featureToGeoJson(String layerName, Feature feature) {
+  private static Map<String, Object> featureToGeoJson(Layer layer, Feature feature) {
     var f = new TreeMap<String, Object>();
     f.put("type", "Feature");
     f.put("id", feature.id());
     var props = getSortedNonNullProperties(feature);
-    props.put("layer", layerName);
+    props.put("_layer", layer.name());
+    props.put("_extent", layer.tileExtent());
     f.put("properties", props);
     var geom = feature.geometry();
     f.put("geometry", geom == null ? null : geometryToGeoJson(geom));
