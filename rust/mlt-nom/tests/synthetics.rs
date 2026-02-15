@@ -5,8 +5,8 @@ use mlt_nom::geojson::FeatureCollection;
 use mlt_nom::parse_layers;
 use test_each_file::test_each_path;
 
-test_each_path! { 
-  for ["mlt", "json"] in "../test/synthetic/0x01" 
+test_each_path! {
+  for ["mlt", "json"] in "../test/synthetic/0x01"
   => pair_test
   ignore: {
     "props_shared_dict" => "needs structs implemented",
