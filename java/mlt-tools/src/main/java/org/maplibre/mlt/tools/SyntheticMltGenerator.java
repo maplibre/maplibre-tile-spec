@@ -126,8 +126,7 @@ public class SyntheticMltGenerator {
     write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
     write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
-    // FIXME: fails in Java
-    // write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
 
     // Mixed properties - single feature demonstrating multiple property types
     write(
