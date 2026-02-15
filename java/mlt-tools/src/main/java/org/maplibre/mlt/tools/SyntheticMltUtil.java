@@ -244,7 +244,8 @@ class SyntheticMltUtil {
         }
       }
 
-      var metadata = MltConverter.createTilesetMetadata(tile, Map.of(), config.getIncludeIds());
+      var metadata =
+          MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
       var mlt = MltConverter.convertMvt(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
