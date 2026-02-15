@@ -1,5 +1,6 @@
 set(TEST_SOURCES
     test_decode.cpp
+    test_encode.cpp
     test_fsst.cpp
     test_packed_bitset.cpp
     test_util.cpp
@@ -34,7 +35,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
-target_link_libraries(mlt-cpp-test mlt-cpp gtest_main)
+target_link_libraries(mlt-cpp-test mlt-cpp mlt-cpp-encoder gtest_main)
 
 include(GoogleTest)
 
