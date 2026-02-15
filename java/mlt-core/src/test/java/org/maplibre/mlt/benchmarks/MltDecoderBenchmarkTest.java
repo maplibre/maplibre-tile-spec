@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -20,6 +21,7 @@ import org.maplibre.mlt.decoder.MltDecoder;
  * MLT in-memory representations. Can be used for simple profiling. For more proper benchmarks based
  * on JMH see `OmtDecoderBenchmark`
  */
+@Tag("benchmark")
 public class MltDecoderBenchmarkTest {
 
   @Test

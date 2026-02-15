@@ -64,7 +64,7 @@ class SyntheticMltUtil {
     }
 
     public Cfg coercePropValues() {
-      this.coercePropertyValues(true);
+      this.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
     }
 
@@ -93,7 +93,7 @@ class SyntheticMltUtil {
     c.includeIds(false);
     c.useFastPFOR(false);
     c.useFSST(false);
-    c.coercePropertyValues(false);
+    c.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.FAIL);
     // c.optimizations(null); // Map<String, FeatureTableOptimizations>
     c.preTessellatePolygons(false);
     c.useMortonEncoding(false);

@@ -115,11 +115,6 @@ public class TestUtils {
         var mltProperties = mltFeature.properties();
         var mvtProperties = mvtFeature.properties();
         for (var mvtProperty : mvtProperties.entrySet()) {
-          /*if(mvtProperty.getKey().contains("name:ja:rm")){
-              System.out.println(mvtProperty.getKey() + " " + mvtProperty.getValue() + " " + mltProperties.get(mvtProperty.getKey()) + " " + j + " " + i);
-              continue;
-          }*/
-
           var mltProperty = mltProperties.get(mvtProperty.getKey());
           assertEquals(mvtProperty.getValue(), mltProperty);
         }

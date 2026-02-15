@@ -8,6 +8,9 @@ repositories {
     maven {
         url = 'https://maven.ecc.no/releases'
     }
+    maven {
+        url = 'https://nexus.terrestris.de/repository/public/'
+    }
 }
 
 dependencies {

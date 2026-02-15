@@ -29,7 +29,7 @@ public class MltConverter {
       MapboxVectorTile tile,
       Map<Pattern, List<ColumnMapping>> columnMappings,
       boolean isIdPresent) {
-    return createTilesetMetadata(tile, columnMappings, isIdPresent, false, false);
+    return createTilesetMetadata(tile, null, columnMappings, isIdPresent);
   }
 
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
@@ -38,6 +38,18 @@ public class MltConverter {
       boolean isIdPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
+    final var config =
+        ConversionConfig.builder()
+            .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
+            .build();
+    return createTilesetMetadata(tile, config, columnMappings, isIdPresent);
+  }
+
+  public static MltMetadata.TileSetMetadata createTilesetMetadata(
+      MapboxVectorTile tile,
+      @Nullable ConversionConfig config,
+      Map<Pattern, List<ColumnMapping>> columnMappings,
+      boolean isIdPresent) {
 
     // TODO: Allow determining whether ID is present automatically
     // TODO: Allow nullable ID columns
@@ -64,8 +76,9 @@ public class MltConverter {
                       columnMappings,
                       columnSchemas,
                       complexPropertyColumnSchemas,
-                      enableCoerceOnMismatch,
-                      enableElideOnMismatch);
+                      (config != null)
+                          ? config.getTypeMismatchPolicy()
+                          : ConversionConfig.TypeMismatchPolicy.FAIL);
                 });
 
         if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
@@ -122,8 +135,7 @@ public class MltConverter {
       Map<Pattern, List<ColumnMapping>> columnMappings,
       LinkedHashMap<String, MltMetadata.Column> columnSchemas,
       LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexColumnSchemas,
-      boolean enableCoerceOnMismatch,
-      boolean enableElideOnMismatch) {
+      ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
     final var mvtPropertyName = property.getKey();
 
     /* MVT can only contain scalar types */
@@ -155,11 +167,11 @@ public class MltConverter {
                 && scalarType == MltMetadata.ScalarType.FLOAT) {
               // no-op
               // keep DOUBLE
-            } else if (enableCoerceOnMismatch) {
+            } else if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.COERCE) {
               if (prevPhysicalType != MltMetadata.ScalarType.STRING) {
                 previousSchema.scalarType.physicalType = MltMetadata.ScalarType.STRING;
               }
-            } else if (!enableElideOnMismatch) {
+            } else if (typeMismatchPolicy != ConversionConfig.TypeMismatchPolicy.ELIDE) {
               throw new RuntimeException(
                   String.format(
                       "Layer '%s' Feature index %d Property '%s' has different type: %s / %s",
@@ -481,7 +493,7 @@ public class MltConverter {
                 sortedFeatures,
                 physicalLevelTechnique,
                 config.getUseFSST(),
-                config.getCoercePropertyValues(),
+                config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
                 config.getIntegerEncodingOption(),
                 streamRecorder);
       }
@@ -529,7 +541,7 @@ public class MltConverter {
         sortedFeatures,
         config.getUseFastPFOR(),
         config.getUseFSST(),
-        config.getCoercePropertyValues(),
+        config.getTypeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
         columnMappings,
         config.getIntegerEncodingOption(),
         streamRecorder);

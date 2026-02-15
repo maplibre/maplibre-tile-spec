@@ -200,7 +200,8 @@ public class MltDecoderTest2 {
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
     final Map<Pattern, List<ColumnMapping>> columnMappings = Map.of();
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
+    var tileMetadata =
+        MltConverter.createTilesetMetadata(mvTile, columnMappings, true, false, true);
 
     var allowIdRegeneration = false;
     var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, List.of());
