@@ -2,7 +2,27 @@
   "features": [
     {
       "geometry": {
-        "type": "MultiPoint",
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "layer": "layer1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "LineString",
         "coordinates": [
           [
             4,
@@ -11,10 +31,6 @@
           [
             12,
             53
-          ],
-          [
-            18,
-            45
           ]
         ],
         "crs": {

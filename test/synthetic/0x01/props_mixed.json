@@ -2,20 +2,10 @@
   "features": [
     {
       "geometry": {
-        "type": "MultiPoint",
+        "type": "Point",
         "coordinates": [
-          [
-            4,
-            47
-          ],
-          [
-            12,
-            53
-          ],
-          [
-            18,
-            45
-          ]
+          4,
+          47
         ],
         "crs": {
           "type": "name",
@@ -26,7 +16,12 @@
       },
       "id": 0,
       "properties": {
-        "layer": "layer1"
+        "active": true,
+        "count": 42,
+        "layer": "layer1",
+        "name": "Test Point",
+        "precision": 0.12345679,
+        "temp": 25.5
       },
       "type": "Feature"
     }

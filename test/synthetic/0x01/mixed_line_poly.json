@@ -2,7 +2,33 @@
   "features": [
     {
       "geometry": {
-        "type": "MultiLineString",
+        "type": "LineString",
+        "coordinates": [
+          [
+            4,
+            47
+          ],
+          [
+            12,
+            53
+          ]
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "layer": "layer1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Polygon",
         "coordinates": [
           [
             [
@@ -12,20 +38,14 @@
             [
               12,
               53
-            ]
-          ],
-          [
-            [
-              13,
-              48
             ],
             [
-              12,
-              50
+              18,
+              45
             ],
             [
-              10,
-              49
+              4,
+              47
             ]
           ]
         ],

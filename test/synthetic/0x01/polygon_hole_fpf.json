@@ -2,7 +2,7 @@
   "features": [
     {
       "geometry": {
-        "type": "MultiLineString",
+        "type": "Polygon",
         "coordinates": [
           [
             [
@@ -12,6 +12,14 @@
             [
               12,
               53
+            ],
+            [
+              18,
+              45
+            ],
+            [
+              4,
+              47
             ]
           ],
           [
@@ -26,6 +34,10 @@
             [
               10,
               49
+            ],
+            [
+              13,
+              48
             ]
           ]
         ],

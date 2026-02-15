@@ -38,21 +38,21 @@ public class SyntheticMltGenerator {
   }
 
   private static void generatePolygons() throws IOException {
-    var pol = feat(poly(c1, c2, c5, c1));
+    var pol = feat(poly(c1, c2, c3, c1));
     write("polygon", pol, cfg());
-    write("polygon-fpf", pol, cfg().fastPFOR());
-    write("polygon-tes", pol, cfg().tessellate());
-    write("polygon-morton-tes", pol, cfg().fastPFOR().tessellate());
+    write("polygon_fpf", pol, cfg().fastPFOR());
+    write("polygon_tes", pol, cfg().tessellate());
+    write("polygon_morton_tes", pol, cfg().fastPFOR().tessellate());
 
     // Polygon with hole
-    var polWithHole = feat(poly(ring(c1, c2, c3, c4, c1), ring(c5, c6, c7, c8, c5)));
-    write("polygon-hole", polWithHole, cfg());
-    write("polygon-hole-fpf", polWithHole, cfg().fastPFOR());
+    var polWithHole = feat(poly(ring(c1, c2, c3, c1), ring(h1, h2, h3, h1)));
+    write("polygon_hole", polWithHole, cfg());
+    write("polygon_hole_fpf", polWithHole, cfg().fastPFOR());
 
     // MultiPolygon
-    var multiPol = feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)));
-    write("polygon-multi", multiPol, cfg());
-    write("polygon-multi-fpf", multiPol, cfg().fastPFOR());
+    var multiPol = feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, c2, h1)));
+    write("polygon_multi", multiPol, cfg());
+    write("polygon_multi_fpf", multiPol, cfg().fastPFOR());
   }
 
   private static void generateMultiPoints() throws IOException {
@@ -60,22 +60,22 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateMultiLineStrings() throws IOException {
-    write("multiline", feat(multi(line(c1, c2), line(c3, c4, c5))), cfg());
+    write("multiline", feat(multi(line(c1, c2), line(h1, h2, h3))), cfg());
   }
 
   private static void generateMixed() throws IOException {
-    write(layer("mixed-pt-line", feat(p0), feat(line(c1, c2))), cfg());
-    write(layer("mixed-pt-poly", feat(p0), feat(poly(c1, c2, c5, c1))), cfg());
-    write(layer("mixed-line-poly", feat(line(c1, c2)), feat(poly(c1, c2, c5, c1))), cfg());
-    write(layer("mixed-pt-mline", feat(p0), feat(multi(line(c1, c2), line(c3, c4, c5)))), cfg());
+    write(layer("mixed_pt_line", feat(p0), feat(line(c1, c2))), cfg());
+    write(layer("mixed_pt_poly", feat(p0), feat(poly(c1, c2, c3, c1))), cfg());
+    write(layer("mixed_line_poly", feat(line(c1, c2)), feat(poly(c1, c2, c3, c1))), cfg());
+    write(layer("mixed_pt_mline", feat(p0), feat(multi(line(c1, c2), line(h1, h2, h3)))), cfg());
 
     write(
         layer(
-            "mixed-all",
+            "mixed_all",
             feat(p0),
             feat(line(c1, c2)),
-            feat(poly(c1, c2, c5, c1)),
-            feat(multi(poly(c1, c2, c6, c5, c1), poly(c8, c7, c3, c4, c8)))),
+            feat(poly(c1, c2, c3, c1)),
+            feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
         cfg());
   }
 
@@ -86,9 +86,9 @@ public class SyntheticMltGenerator {
 
     var ids32 = array(idFeat(103), idFeat(103), idFeat(103), idFeat(103));
     write(layer("ids", ids32), cfg().ids());
-    write(layer("ids-delta", ids32), cfg(DELTA).ids());
-    write(layer("ids-rle", ids32), cfg(RLE).ids());
-    write(layer("ids-delta-rle", ids32), cfg(DELTA_RLE).ids());
+    write(layer("ids_delta", ids32), cfg(DELTA).ids());
+    write(layer("ids_rle", ids32), cfg(RLE).ids());
+    write(layer("ids_delta_rle", ids32), cfg(DELTA_RLE).ids());
 
     var ids64 =
         array(
@@ -97,35 +97,55 @@ public class SyntheticMltGenerator {
             idFeat(9_234_567_890L),
             idFeat(9_234_567_890L));
     write(layer("ids64", ids64), cfg().ids());
-    write(layer("ids64-delta", ids64), cfg(DELTA).ids());
-    write(layer("ids64-rle", ids64), cfg(RLE).ids());
-    write(layer("ids64-delta-rle", ids64), cfg(DELTA_RLE).ids());
+    write(layer("ids64_delta", ids64), cfg(DELTA).ids());
+    write(layer("ids64_rle", ids64), cfg(RLE).ids());
+    write(layer("ids64_delta_rle", ids64), cfg(DELTA_RLE).ids());
   }
 
+  @SuppressWarnings("cast")
   private static void generateProperties() throws IOException {
     // Scalar property types
-    write("prop-bool", feat(p0, prop("flag", true)), cfg());
-    write("prop-bool-false", feat(p0, prop("flag", false)), cfg());
-    // write("prop-uint8-min", feat(p0, prop("tinynum", U8.of(0))), cfg());
-    // write("prop-uint8-max", feat(p0, prop("tinynum", U8.of(255))), cfg());
-    // ^--- needs support in the decoder ---^
-    write("prop-int32", feat(p0, prop("count", 42)), cfg());
-    write("prop-int32-neg", feat(p0, prop("count", -42)), cfg());
-    write("prop-uint32-min", feat(p0, prop("mediumnum", U32.of(0L))), cfg());
-    write("prop-uint32-max", feat(p0, prop("mediumnum", U32.of(4_294_967_295L))), cfg());
-    write("prop-int64", feat(p0, prop("bignum", 9_876_543_210L)), cfg());
-    write("prop-int64-neg", feat(p0, prop("bignum", -9_876_543_210L)), cfg());
-    write("prop-uint64-min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
+    write("prop_bool", feat(p0, prop("val", true)), cfg());
+    write("prop_bool_false", feat(p0, prop("val", false)), cfg());
+    // FIXME: needs support in the decoder + encoder
+    // write("prop_i8", feat(p0, prop("val", (byte) 42)), cfg());
+    // write("prop_i8_neg", feat(p0, prop("val", (byte) -42)), cfg());
+    // write("prop_i8_min", feat(p0, prop("val", Byte.MIN_VALUE)), cfg());
+    // write("prop_i8_max", feat(p0, prop("val", Byte.MAX_VALUE)), cfg());
+    // write("prop_i16", feat(p0, prop("val", (short) 42)), cfg());
+    // write("prop_i16_neg", feat(p0, prop("val", (short) -42)), cfg());
+    // write("prop_i16_min", feat(p0, prop("val", Short.MIN_VALUE)), cfg());
+    // write("prop_i16_max", feat(p0, prop("val", Short.MAX_VALUE)), cfg());
+    // write("prop_u8", feat(p0, prop("tinynum", U8.of(100))), cfg());
+    // write("prop_u8_min", feat(p0, prop("tinynum", U8.of(0))), cfg());
+    // write("prop_u8_max", feat(p0, prop("tinynum", U8.of(255))), cfg());
+    write("prop_i32", feat(p0, prop("val", (int) 42)), cfg());
+    write("prop_i32_neg", feat(p0, prop("val", (int) -42)), cfg());
+    write("prop_i32_min", feat(p0, prop("val", Integer.MIN_VALUE)), cfg());
+    write("prop_i32_max", feat(p0, prop("val", Integer.MAX_VALUE)), cfg());
+    write("prop_i64", feat(p0, prop("val", (long) 9_876_543_210L)), cfg());
+    write("prop_i64_neg", feat(p0, prop("val", (long) -9_876_543_210L)), cfg());
+    write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
+    write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
+    write("prop_u64", feat(p0, prop("bignum", U64.of(BigInteger.of(Long.MAX_VALUE).add(BigInteger.ONE))), cfg());
+    write("prop_u64_min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
     write(
-        "prop-uint64-max",
+        "prop_u64_max",
         feat(p0, prop("bignum", U64.of(new BigInteger("18446744073709551615")))),
         cfg());
-    write("prop-float", feat(p0, prop("temp", 3.14f)), cfg());
-    write("prop-double", feat(p0, prop("precise", 3.141592653589793)), cfg());
+    write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
+    // FIXME: Rust test fails
+    // write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
+    write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
+    // FIXME: Rust test fails
+    // write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    // FIXME: fails in Java
+    // write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
 
     // Mixed properties - single feature demonstrating multiple property types
     write(
-        "props-mixed",
+        "props_mixed",
         feat(
             p1,
             props(
@@ -136,28 +156,28 @@ public class SyntheticMltGenerator {
                 kv("precision", 0.123456789))),
         cfg());
 
+    // FIXME: needs support in the decoder + encoder
     // var feat_uint8s =
     //    array(
     //        feat(p1, prop("val", U8.of(100))),
     //        feat(p2, prop("val", U8.of(100))),
     //        feat(p3, prop("val", U8.of(100))),
     //        feat(p4, prop("val", U8.of(100))));
-    // write(layer("props-uint8", feat_uint8s), cfg());
-    // write(layer("props-uint8-delta", feat_uint8s), cfg(DELTA));
-    // write(layer("props-uint8-rle", feat_uint8s), cfg(RLE));
-    // write(layer("props-uint8-delta-rle", feat_uint8s), cfg(DELTA_RLE));
-    // ^--- needs support in the decoder ---^
+    // write(layer("props_u8", feat_uint8s), cfg());
+    // write(layer("props_u8_delta", feat_uint8s), cfg(DELTA));
+    // write(layer("props_u8_rle", feat_uint8s), cfg(RLE));
+    // write(layer("props_u8_delta-rle", feat_uint8s), cfg(DELTA_RLE));
 
     var feat_ints =
         array(
-            feat(p1, prop("int", 42)),
-            feat(p2, prop("int", 42)),
-            feat(p3, prop("int", 42)),
-            feat(p4, prop("int", 42)));
-    write(layer("props-int", feat_ints), cfg());
-    write(layer("props-int-delta", feat_ints), cfg(DELTA));
-    write(layer("props-int-rle", feat_ints), cfg(RLE));
-    write(layer("props-int-delta-rle", feat_ints), cfg(DELTA_RLE));
+            feat(p1, prop("val", 42)),
+            feat(p2, prop("val", 42)),
+            feat(p3, prop("val", 42)),
+            feat(ph1, prop("val", 42)));
+    write(layer("props_i32", feat_ints), cfg());
+    write(layer("props_i32_delta", feat_ints), cfg(DELTA));
+    write(layer("props_i32_rle", feat_ints), cfg(RLE));
+    write(layer("props_i32_delta_rle", feat_ints), cfg(DELTA_RLE));
 
     var feat_uint32s =
         array(
@@ -165,20 +185,20 @@ public class SyntheticMltGenerator {
             feat(p2, prop("val", U32.of(9_000))),
             feat(p3, prop("val", U32.of(9_000))),
             feat(p4, prop("val", U32.of(9_000))));
-    write(layer("props-uint32", feat_uint32s), cfg());
-    write(layer("props-uint32-delta", feat_uint32s), cfg(DELTA));
-    write(layer("props-uint32-rle", feat_uint32s), cfg(RLE));
-    write(layer("props-uint32-delta-rle", feat_uint32s), cfg(DELTA_RLE));
+    write(layer("props_u32", feat_uint32s), cfg());
+    write(layer("props_u32-delta", feat_uint32s), cfg(DELTA));
+    write(layer("props_u32-rle", feat_uint32s), cfg(RLE));
+    write(layer("props_u32-delta-rle", feat_uint32s), cfg(DELTA_RLE));
 
     var feat_str =
         array(
-            feat(p1, prop("str", "residential_zone_north_sector_1")),
-            feat(p2, prop("str", "commercial_zone_south_sector_2")),
-            feat(p3, prop("str", "industrial_zone_east_sector_3")),
-            feat(p4, prop("str", "park_zone_west_sector_4")),
-            feat(p5, prop("str", "water_zone_north_sector_5")),
-            feat(p6, prop("str", "residential_zone_south_sector_6")));
-    write(layer("props-str", feat_str), cfg());
-    write(layer("props-str-fsst", feat_str), cfg().fsst());
+            feat(p1, prop("val", "residential_zone_north_sector_1")),
+            feat(p2, prop("val", "commercial_zone_south_sector_2")),
+            feat(p3, prop("val", "industrial_zone_east_sector_3")),
+            feat(ph1, prop("val", "park_zone_west_sector_4")),
+            feat(ph2, prop("val", "water_zone_north_sector_5")),
+            feat(ph3, prop("val", "residential_zone_south_sector_6")));
+    write(layer("props_str", feat_str), cfg());
+    write(layer("props_str_fsst", feat_str), cfg().fsst());
   }
 }
