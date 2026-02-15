@@ -39,7 +39,10 @@ fn test_one(mlt: &Path, json: &Path) {
         "serialisation of rust decoded mlt does not match expected geojson"
     );
     // here we catch small issues like +-0.0, which serialize the same way
-    assert_eq!(actual_json, expected_json, "despite serialization being equal, the values are not exactly the same");
+    assert_eq!(
+        actual_json, expected_json,
+        "despite serialization being equal, the values are not exactly the same"
+    );
 }
 
 /// Replace extremely small float values (< 1e-40) with 0.0 to handle codec precision issues
