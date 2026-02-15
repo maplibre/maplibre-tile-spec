@@ -86,7 +86,8 @@ impl PropValue {
 
 /// Convert f32 to JSON using shortest decimal representation (matches Java's `Float.toString()`)
 fn f32_to_json(f: f32) -> serde_json::Value {
-    serde_json::from_str(&f.to_string()).unwrap()
+    let serialized = &serde_json::to_string(&f).expect("f32 serialization should not fail");
+    serde_json::from_str(serialized).expect("serialized f32 should parse as JSON")
 }
 
 impl_decodable!(Property<'a>, RawProperty<'a>, DecodedProperty);
