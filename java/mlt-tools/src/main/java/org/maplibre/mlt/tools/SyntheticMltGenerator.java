@@ -138,12 +138,10 @@ public class SyntheticMltGenerator {
     write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
-    // FIXME: Rust test fails
-    // write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
     write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
-    // FIXME: Rust test fails
-    // write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     // FIXME: fails in Java
     // write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
 
