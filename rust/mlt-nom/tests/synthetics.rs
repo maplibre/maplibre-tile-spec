@@ -43,7 +43,8 @@ fn normalize_tiny_floats(value: &Value) -> Value {
     match value {
         Value::Number(n) => {
             if let Some(f) = n.as_f64() {
-                if f.abs() < 1e-40 && f != 0.0 {
+                let eps = f64::from(f32::EPSILON);
+                if f.abs() < eps && f != 0.0 {
                     Value::from(0.0)
                 } else {
                     value.clone()
