@@ -54,7 +54,8 @@ impl FeatureCollection {
                         properties.insert(prop.name.clone(), val);
                     }
                 }
-                properties.insert("layer".into(), Value::String(l.name.to_string()));
+                properties.insert("_layer".into(), Value::String(l.name.to_string()));
+                properties.insert("_extent".into(), Value::Number(l.extent.into()));
                 features.push(Feature {
                     geometry,
                     id,

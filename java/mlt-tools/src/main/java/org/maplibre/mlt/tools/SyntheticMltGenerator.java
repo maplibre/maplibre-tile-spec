@@ -22,6 +22,7 @@ public class SyntheticMltGenerator {
     generateMultiPoints();
     generateMultiLineStrings();
     generateMixed();
+    generateExtent();
     generateIds();
     generateProperties();
   }
@@ -74,6 +75,21 @@ public class SyntheticMltGenerator {
             feat(poly(c1, c2, c3, c1)),
             feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
         cfg());
+  }
+
+  private static void generateExtent() throws IOException {
+    var e9 = 512;
+    write(layer("extent_" + e9, e9, feat(line(c(0, 0), c(e9 - 1, e9 - 1)))), cfg());
+    write(layer("extent_buf_" + e9, e9, feat(line(c(-42, -42), c(e9 + 42, e9 + 42)))), cfg());
+    var e12 = 4096;
+    write(layer("extent_" + e12, e12, feat(line(c(0, 0), c(e12 - 1, e12 - 1)))), cfg());
+    write(layer("extent_buf_" + e12, e12, feat(line(c(-42, -42), c(e12 + 42, e12 + 42)))), cfg());
+    var e17 = 131072;
+    write(layer("extent_" + e17, e17, feat(line(c(0, 0), c(e17 - 1, e17 - 1)))), cfg());
+    write(layer("extent_buf_" + e17, e17, feat(line(c(-42, -42), c(e17 + 42, e17 + 42)))), cfg());
+    var e30 = 1073741824;
+    write(layer("extent_" + e30, e30, feat(line(c(0, 0), c(e30 - 1, e30 - 1)))), cfg());
+    write(layer("extent_buf_" + e30, e30, feat(line(c(-42, -42), c(e30 + 42, e30 + 42)))), cfg());
   }
 
   private static void generateIds() throws IOException {

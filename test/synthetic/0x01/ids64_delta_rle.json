@@ -16,7 +16,8 @@
       },
       "id": 9234567890,
       "properties": {
-        "layer": "layer1"
+        "_extent": 4096,
+        "_layer": "layer1"
       },
       "type": "Feature"
     },
@@ -36,7 +37,8 @@
       },
       "id": 9234567890,
       "properties": {
-        "layer": "layer1"
+        "_extent": 4096,
+        "_layer": "layer1"
       },
       "type": "Feature"
     },
@@ -56,7 +58,8 @@
       },
       "id": 9234567890,
       "properties": {
-        "layer": "layer1"
+        "_extent": 4096,
+        "_layer": "layer1"
       },
       "type": "Feature"
     },
@@ -76,7 +79,8 @@
       },
       "id": 9234567890,
       "properties": {
-        "layer": "layer1"
+        "_extent": 4096,
+        "_layer": "layer1"
       },
       "type": "Feature"
     }
