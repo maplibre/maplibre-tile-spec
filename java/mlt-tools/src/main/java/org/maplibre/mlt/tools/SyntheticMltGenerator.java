@@ -106,18 +106,16 @@ public class SyntheticMltGenerator {
     // Scalar property types
     write("prop-bool", feat(p0, prop("flag", true)), cfg());
     write("prop-bool-false", feat(p0, prop("flag", false)), cfg());
-    // write("prop-uint8", feat(p0, prop("count", U8.of(200))), cfg());
     // write("prop-uint8-min", feat(p0, prop("zero", U8.of(0))), cfg());
     // write("prop-uint8-max", feat(p0, prop("max", U8.of(255))), cfg());
     // ^--- needs support in the decoder ---^
     write("prop-int32", feat(p0, prop("count", 42)), cfg());
     write("prop-int32-neg", feat(p0, prop("count", -42)), cfg());
-    write("prop-uint32", feat(p0, prop("count", U32.of(42L))), cfg());
-    write("prop-uint32-zero", feat(p0, prop("bignum", U32.of(0L))), cfg());
+    write("prop-uint32-min", feat(p0, prop("bignum", U32.of(0L))), cfg());
     write("prop-uint32-max", feat(p0, prop("bignum", U32.of(4_294_967_295L))), cfg());
     write("prop-int64", feat(p0, prop("bignum", 9_876_543_210L)), cfg());
     write("prop-int64-neg", feat(p0, prop("bignum", -9_876_543_210L)), cfg());
-    write("prop-uint64-zero", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
+    write("prop-uint64-min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
     write(
         "prop-uint64-max",
         feat(p0, prop("bignum", U64.of(new BigInteger("18446744073709551615")))),
