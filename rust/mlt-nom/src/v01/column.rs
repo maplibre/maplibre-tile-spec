@@ -10,6 +10,7 @@ use crate::{MltRefResult, utils};
 pub struct Column<'a> {
     pub typ: ColumnType,
     pub name: Option<&'a str>,
+    pub children: Vec<Column<'a>>,
 }
 
 impl Column<'_> {
@@ -23,7 +24,15 @@ impl Column<'_> {
         } else {
             None
         };
-        Ok((input, Column { typ, name }))
+
+        Ok((
+            input,
+            Column {
+                typ,
+                name,
+                children: Vec::new(),
+            },
+        ))
     }
 }
 
