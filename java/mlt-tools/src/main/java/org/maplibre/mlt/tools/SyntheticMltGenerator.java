@@ -131,7 +131,7 @@ public class SyntheticMltGenerator {
     write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
     write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
-    // FIXME: Produces the same output as prop_f64_max
+    // FIXME: Fails in Java as it Produces the same output as prop_f64_max
     // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
     write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
 
