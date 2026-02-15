@@ -16,9 +16,10 @@
       },
       "id": 0,
       "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
         "active": true,
         "count": 42,
-        "layer": "layer1",
         "name": "Test Point",
         "precision": 0.12345679,
         "temp": 25.5
