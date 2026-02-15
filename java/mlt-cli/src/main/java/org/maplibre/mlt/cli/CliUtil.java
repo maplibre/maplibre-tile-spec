@@ -16,7 +16,8 @@ public class CliUtil {
   private CliUtil() {}
 
   public static String printMLT(MapLibreTile mlTile) {
-    final var gson = new GsonBuilder().setPrettyPrinting().create();
+    final var gson =
+        new GsonBuilder().setPrettyPrinting().serializeSpecialFloatingPointValues().create();
     return gson.toJson(Map.of("layers", mlTile.layers().stream().map(CliUtil::toJSON).toList()));
   }
 
@@ -45,7 +46,8 @@ public class CliUtil {
   }
 
   public static String printMltGeoJson(MapLibreTile mlTile) {
-    final var gson = new GsonBuilder().setPrettyPrinting().create();
+    final var gson =
+        new GsonBuilder().setPrettyPrinting().serializeSpecialFloatingPointValues().create();
     var fc = new TreeMap<String, Object>();
     fc.put("type", "FeatureCollection");
     fc.put(
@@ -83,7 +85,10 @@ public class CliUtil {
   private static Map<String, Object> geometryToGeoJson(Geometry geometry) {
     var writer = new GeoJsonWriter();
     Map<String, Object> map =
-        new GsonBuilder().create().fromJson(writer.write(geometry), Map.class);
+        new GsonBuilder()
+            .serializeSpecialFloatingPointValues()
+            .create()
+            .fromJson(writer.write(geometry), Map.class);
     if (map.containsKey("coordinates")) {
       map.put("coordinates", intifyCoordinates(map.get("coordinates")));
     }
