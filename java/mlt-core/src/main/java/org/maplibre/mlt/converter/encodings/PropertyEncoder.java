@@ -496,8 +496,7 @@ public class PropertyEncoder {
       final var propertyValue = getBytePropertyValue(feature, metadata);
       final var present = (propertyValue != null);
       if (present) {
-        // Convert byte to int for encoding (varint handles small values efficiently)
-        values.add(Byte.toUnsignedInt(propertyValue));
+        values.add(isSigned ? propertyValue.intValue() : Byte.toUnsignedInt(propertyValue));
       }
       if (presentValues != null) {
         presentValues.add(present);
