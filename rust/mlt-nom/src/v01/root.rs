@@ -208,7 +208,7 @@ impl OwnedLayer01 {
             // self.id.write_to(writer)?;
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
-                format!("{}", MltError::NotImplemented("ID write")),
+                MltError::NotImplemented("ID write").to_string(),
             ));
         }
 
