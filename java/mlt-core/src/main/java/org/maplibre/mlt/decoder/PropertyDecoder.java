@@ -2,6 +2,7 @@ package org.maplibre.mlt.decoder;
 
 import jakarta.annotation.Nullable;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.*;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
@@ -72,24 +73,36 @@ public class PropertyDecoder {
       case INT_32:
         {
           final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+          final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_32);
           final var dataStream =
-              IntegerDecoder.decodeIntStream(
-                  data,
-                  offset,
-                  dataStreamMetadata,
-                  scalarType.physicalType == MltMetadata.ScalarType.INT_32);
-          return unpack(dataStream, presentStream, presentStreamSize);
+              IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, signed);
+
+          // otherwise, we have u32.MAX -> -1
+          final var values =
+              signed
+                  ? dataStream
+                  : dataStream.stream()
+                      .map(i -> i == null ? null : Integer.toUnsignedLong(i))
+                      .toList();
+
+          return unpack(values, presentStream, presentStreamSize);
         }
       case UINT_64:
       case INT_64:
         {
           final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+          final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_32);
           final var dataStream =
-              IntegerDecoder.decodeLongStream(
-                  data,
-                  offset,
-                  dataStreamMetadata,
-                  scalarType.physicalType == MltMetadata.ScalarType.INT_64);
+              IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
+
+          // otherwise, we have u32.MAX -> -1
+          final var values =
+              signed
+                  ? dataStream
+                  : dataStream.stream()
+                      .map(i -> i == null ? null : toUnsignedBigInteger(i))
+                      .toList();
+
           return unpack(dataStream, presentStream, presentStreamSize);
         }
       case FLOAT:
@@ -123,10 +136,16 @@ public class PropertyDecoder {
     }
   }
 
+  private static BigInteger toUnsignedBigInteger(Long value) {
+    if (value >= 0) {
+      return BigInteger.valueOf(value);
+    }
+    return BigInteger.valueOf(value).add(BigInteger.ONE.shiftLeft(64));
+  }
+
   public static Object decodePropertyColumn(
       byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
       throws IOException {
-
     if (column.scalarType != null) {
       return decodeScalarPropertyColumn(
           data, offset, column.scalarType, column.isNullable, numStreams);
