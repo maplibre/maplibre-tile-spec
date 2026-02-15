@@ -103,7 +103,7 @@ public class PropertyDecoder {
                       .map(i -> i == null ? null : toUnsignedBigInteger(i))
                       .toList();
 
-          return unpack(dataStream, presentStream, presentStreamSize);
+          return unpack(values, presentStream, presentStreamSize);
         }
       case FLOAT:
         {
