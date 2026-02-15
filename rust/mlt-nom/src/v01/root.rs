@@ -167,6 +167,7 @@ fn parse_columns_meta(
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
             Struct => {
+                // Yes, we need to parse children right here, otherwise this messes up the next column
                 let mut children = Vec::new();
                 let child_count;
                 (input, child_count) = utils::parse_varint::<usize>(input)?;
