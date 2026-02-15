@@ -5,6 +5,10 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.List;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
 
 public class SyntheticMltGenerator {
 
@@ -24,6 +28,7 @@ public class SyntheticMltGenerator {
     generateMixed();
     generateIds();
     generateProperties();
+    generateSharedDictionaries();
   }
 
   private static void generatePoints() throws IOException {
@@ -165,5 +170,20 @@ public class SyntheticMltGenerator {
             feat(ph3, prop("val", "residential_zone_south_sector_6")));
     write(layer("props_str", feat_str), cfg());
     write(layer("props_str_fsst", feat_str), cfg().fsst());
+  }
+
+  private static void generateSharedDictionaries() throws IOException {
+    // 30 because otherwise fsst is skipped
+    var val = "A".repeat(30);
+    var feat_names = array(feat(p1, props(kv("name:en", val), kv("name:de", val))));
+
+    var mapping = new ColumnMapping("name", ":", true);
+    var enableSharedDict = new FeatureTableOptimizations(false, false, List.of(mapping));
+    var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
+    optimizationsMap.put("layer1", enableSharedDict);
+
+    write(layer("props_no_shared_dict", feat_names), cfg());
+    write(layer("props_shared_dict", feat_names), cfg().sharedDictPrefix("name", ":"));
+    write(layer("props_shared_dict_fsst", feat_names), cfg().sharedDictPrefix("name", ":").fsst());
   }
 }
