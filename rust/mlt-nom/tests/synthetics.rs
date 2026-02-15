@@ -32,10 +32,14 @@ fn test_one(mlt: &Path, json: &Path) {
     let actual_json = normalize_tiny_floats(&serde_json::to_value(&actual).unwrap());
     let expected_json = normalize_tiny_floats(&serde_json::to_value(&expected).unwrap());
 
+    // here we catch the big issues in an user facing way with a nice diff
     pretty_assertions::assert_eq!(
         serde_json::to_string_pretty(&actual_json).unwrap(),
-        serde_json::to_string_pretty(&expected_json).unwrap()
+        serde_json::to_string_pretty(&expected_json).unwrap(),
+        "serialisation of rust decoded mlt does not match expected geojson"
     );
+    // here we catch small issues like +-0.0
+    assert_eq!(actual_json, expected_json, "despite serialization being equal, the values are not exactly the same");
 }
 
 /// Replace extremely small float values (< 1e-40) with 0.0 to handle codec precision issues
