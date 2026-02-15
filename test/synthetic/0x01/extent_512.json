@@ -2,10 +2,16 @@
   "features": [
     {
       "geometry": {
-        "type": "Point",
+        "type": "LineString",
         "coordinates": [
-          13,
-          42
+          [
+            0,
+            0
+          ],
+          [
+            511,
+            511
+          ]
         ],
         "crs": {
           "type": "name",
@@ -16,9 +22,8 @@
       },
       "id": 0,
       "properties": {
-        "_extent": 4096,
-        "_layer": "layer1",
-        "val": 9223372036854775807
+        "_extent": 512,
+        "_layer": "layer1"
       },
       "type": "Feature"
     }
