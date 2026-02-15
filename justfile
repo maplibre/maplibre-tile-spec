@@ -19,6 +19,7 @@ bench: bench-js bench-java
 
 [working-directory: 'java']
 bench-java:
+    ./gradlew test -Dbenchmark.iterations=200 -PincludeTags=benchmark
     ./gradlew jmh
 
 bench-js: install-js
