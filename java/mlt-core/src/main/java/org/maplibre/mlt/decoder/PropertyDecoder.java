@@ -95,7 +95,7 @@ public class PropertyDecoder {
           final var dataStream =
               IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
 
-          // otherwise, we have u32.MAX -> -1
+          // otherwise, we have u64.MAX -> -1
           final var values =
               signed
                   ? dataStream
