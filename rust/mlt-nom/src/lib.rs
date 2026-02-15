@@ -1,6 +1,7 @@
 #![expect(dead_code)]
 #![expect(unused_assignments)]
 #![expect(unused_variables)]
+#![doc = include_str!("../README.md")]
 
 mod decodable;
 mod errors;
