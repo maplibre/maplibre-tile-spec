@@ -267,7 +267,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
             //
             // return FlatGpuVector::new(vector_types, triangles, index_buffer, vertices);
             return Err(MltError::NotImplemented(
-                "index_buffer.is_some() && part_offsets.is_none() case is not implemented",
+                "index_buffer.is_some() && part_offsets.is_none() case",
             ));
         }
 
