@@ -10,9 +10,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.MLTStreamObserver;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.data.Feature;
-import org.maplibre.mlt.data.unsigned.U32;
-import org.maplibre.mlt.data.unsigned.U64;
-import org.maplibre.mlt.data.unsigned.U8;
+import org.maplibre.mlt.data.unsigned.Unsigned;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -184,18 +182,8 @@ public class PropertyEncoder {
       if ((byte) v == v) {
         return (byte) v;
       }
-    } else if (rawValue instanceof U8 u) {
-      return u.value();
-    } else if (rawValue instanceof U32 u) {
-      final var v = u.value();
-      if ((byte) v == v) {
-        return (byte) v;
-      }
-    } else if (rawValue instanceof U64 u) {
-      final var v = u.value();
-      if ((byte) v == v) {
-        return (byte) v;
-      }
+    } else if (rawValue instanceof Unsigned u) {
+      return u.byteValue();
     }
     return null;
   }
@@ -209,15 +197,8 @@ public class PropertyEncoder {
       if ((int) v == v) {
         return (int) v;
       }
-    } else if (rawValue instanceof U8 u) {
-      return (int) u.value();
-    } else if (rawValue instanceof U32 u) {
-      return u.value();
-    } else if (rawValue instanceof U64 u) {
-      final var v = u.value();
-      if ((int) v == v) {
-        return (int) v;
-      }
+    } else if (rawValue instanceof Unsigned u) {
+      return u.intValue();
     }
     return null;
   }
@@ -228,12 +209,8 @@ public class PropertyEncoder {
       return l;
     } else if (rawValue instanceof Integer i) {
       return (long) i.intValue();
-    } else if (rawValue instanceof U8 u) {
-      return (long) u.value();
-    } else if (rawValue instanceof U32 u) {
-      return (long) u.value();
-    } else if (rawValue instanceof U64 u) {
-      return u.value();
+    } else if (rawValue instanceof Unsigned u) {
+      return u.longValue();
     }
     return null;
   }
