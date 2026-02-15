@@ -212,7 +212,7 @@ impl OwnedLayer01 {
 
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            MltError::NotImplemented("Layer write fully").to_string(),
+            MltError::NotImplemented("full Layer write").to_string(),
         ))
     }
 }
