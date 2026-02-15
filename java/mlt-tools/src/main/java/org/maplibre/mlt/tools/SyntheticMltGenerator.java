@@ -107,7 +107,7 @@ public class SyntheticMltGenerator {
     // Scalar property types
     write("prop_bool", feat(p0, prop("val", true)), cfg());
     write("prop_bool_false", feat(p0, prop("val", false)), cfg());
-    // FIXME: needs support in the decoder + encoder
+    // FIXME: needs support in the Java decoder + encoder
     // write("prop_i8", feat(p0, prop("val", (byte) 42)), cfg());
     // write("prop_i8_neg", feat(p0, prop("val", (byte) -42)), cfg());
     // write("prop_i8_min", feat(p0, prop("val", Byte.MIN_VALUE)), cfg());
@@ -172,7 +172,7 @@ public class SyntheticMltGenerator {
     // write(layer("props_u8", feat_u8s), cfg());
     // write(layer("props_u8_delta", feat_u8s), cfg(DELTA));
     // write(layer("props_u8_rle", feat_u8s), cfg(RLE));
-    // write(layer("props_u8_delta-rle", feat_u8s), cfg(DELTA_RLE));
+    // write(layer("props_u8_delta_rle", feat_u8s), cfg(DELTA_RLE));
 
     var feat_ints =
         array(
@@ -192,9 +192,9 @@ public class SyntheticMltGenerator {
             feat(p2, prop("val", U32.of(9_000))),
             feat(p3, prop("val", U32.of(9_000))));
     write(layer("props_u32", feat_u32s), cfg());
-    write(layer("props_u32-delta", feat_u32s), cfg(DELTA));
-    write(layer("props_u32-rle", feat_u32s), cfg(RLE));
-    write(layer("props_u32-delta-rle", feat_u32s), cfg(DELTA_RLE));
+    write(layer("props_u32_delta", feat_u32s), cfg(DELTA));
+    write(layer("props_u32_rle", feat_u32s), cfg(RLE));
+    write(layer("props_u32_delta_rle", feat_u32s), cfg(DELTA_RLE));
 
     var feat_u64s =
         array(
@@ -203,9 +203,9 @@ public class SyntheticMltGenerator {
             feat(p2, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
             feat(p3, prop("val", U64.of(BigInteger.valueOf(9_000L)))));
     write(layer("props_u64", feat_u64s), cfg());
-    write(layer("props_u64-delta", feat_u64s), cfg(DELTA));
-    write(layer("props_u64-rle", feat_u64s), cfg(RLE));
-    write(layer("props_u64-delta-rle", feat_u64s), cfg(DELTA_RLE));
+    write(layer("props_u64_delta", feat_u64s), cfg(DELTA));
+    write(layer("props_u64_rle", feat_u64s), cfg(RLE));
+    write(layer("props_u64_delta_rle", feat_u64s), cfg(DELTA_RLE));
 
     var feat_str =
         array(
