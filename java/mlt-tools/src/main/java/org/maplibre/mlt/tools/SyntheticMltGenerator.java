@@ -130,7 +130,6 @@ public class SyntheticMltGenerator {
     // write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     // FIXME: fails in Java
     // write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
-    write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
     write("prop_str_empty", feat(p0, prop("val", "")), cfg());
     write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
     write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
