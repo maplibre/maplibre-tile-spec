@@ -87,7 +87,10 @@ class SyntheticMltUtil {
       return this;
     }
 
-    /** Enable shared dictionary encoding for properties with names starting with the given prefix string. */
+    /**
+     * Enable shared dictionary encoding for properties with names starting with the given prefix
+     * string.
+     */
     public Cfg sharedDictPrefix(String prefix, String delimiter) {
       var mapping = new ColumnMapping(prefix, delimiter, true);
       var layerOpt = new FeatureTableOptimizations(false, false, List.of(mapping));
