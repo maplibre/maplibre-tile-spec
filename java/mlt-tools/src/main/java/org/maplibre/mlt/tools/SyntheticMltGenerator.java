@@ -25,6 +25,7 @@ public class SyntheticMltGenerator {
     generateExtent();
     generateIds();
     generateProperties();
+    generateSharedDictionaries();
   }
 
   private static void generatePoints() throws IOException {
@@ -195,5 +196,15 @@ public class SyntheticMltGenerator {
             feat(ph3, prop("val", "residential_zone_south_sector_6")));
     write(layer("props_str", feat_str), cfg());
     write(layer("props_str_fsst", feat_str), cfg().fsst());
+  }
+
+  private static void generateSharedDictionaries() throws IOException {
+    // 30 because otherwise fsst is skipped
+    var val = "A".repeat(30);
+    var feat_names = array(feat(p1, props(kv("name:en", val), kv("name:de", val))));
+
+    write(layer("props_no_shared_dict", feat_names), cfg());
+    write(layer("props_shared_dict", feat_names), cfg().sharedDictPrefix("name", ":"));
+    write(layer("props_shared_dict_fsst", feat_names), cfg().sharedDictPrefix("name", ":").fsst());
   }
 }

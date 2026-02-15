@@ -161,11 +161,24 @@ fn parse_columns_meta(
     let mut geometries = 0;
     let mut ids = 0;
     for _ in 0..column_count {
-        let typ;
+        let mut typ;
         (input, typ) = Column::parse(input)?;
         match typ.typ {
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
+            Struct => {
+                // Yes, we need to parse children right here, otherwise this messes up the next column
+                let mut children = Vec::new();
+                let child_count;
+                (input, child_count) = utils::parse_varint::<usize>(input)?;
+
+                for _ in 0..child_count {
+                    let child;
+                    (input, child) = Column::parse(input)?;
+                    children.push(child);
+                }
+                typ.children = children;
+            }
             _ => {}
         }
         col_info.push(typ);

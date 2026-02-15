@@ -1,0 +1,28 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4,
+          47
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

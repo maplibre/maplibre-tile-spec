@@ -8,12 +8,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.locationtech.jts.geom.*;
 import org.maplibre.mlt.cli.CliUtil;
 import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -82,6 +86,20 @@ class SyntheticMltUtil {
 
     public Cfg filterInvert() {
       this.layerFilterInvert(true);
+      return this;
+    }
+
+    /**
+     * Enable shared dictionary encoding for properties with names starting with the given prefix
+     * string.
+     */
+    public Cfg sharedDictPrefix(String prefix, String delimiter) {
+      var mapping = new ColumnMapping(prefix, delimiter, true);
+      var layerOpt = new FeatureTableOptimizations(false, false, List.of(mapping));
+
+      var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
+      optimizationsMap.put("layer1", layerOpt);
+      this.optimizations(optimizationsMap);
       return this;
     }
   }
@@ -213,7 +231,21 @@ class SyntheticMltUtil {
 
       var config = cfg.build();
       var tile = new MapboxVectorTile(layers);
-      var metadata = MltConverter.createTilesetMetadata(tile, Map.of(), config.getIncludeIds());
+
+      // Extract column mappings from the config's optimizations
+      var columnMappings = new HashMap<Pattern, List<ColumnMapping>>();
+      if (config.getOptimizations() != null && !config.getOptimizations().isEmpty()) {
+        var allColumnMappings =
+            config.getOptimizations().values().stream()
+                .flatMap(opt -> opt.columnMappings().stream())
+                .toList();
+        if (!allColumnMappings.isEmpty()) {
+          columnMappings.put(Pattern.compile(".*"), allColumnMappings);
+        }
+      }
+
+      var metadata =
+          MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
       var mlt = MltConverter.convertMvt(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
