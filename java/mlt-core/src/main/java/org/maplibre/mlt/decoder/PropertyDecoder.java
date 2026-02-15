@@ -91,7 +91,7 @@ public class PropertyDecoder {
       case INT_64:
         {
           final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_32);
+          final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_64);
           final var dataStream =
               IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
 
