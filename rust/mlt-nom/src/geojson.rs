@@ -1,6 +1,6 @@
 //! `GeoJSON` -like data to represent decoded MLT data with i32 coordinates
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -48,7 +48,7 @@ impl FeatureCollection {
             for i in 0..geom.vector_types.len() {
                 let id = ids.and_then(|v| v.get(i).copied().flatten()).unwrap_or(0);
                 let geometry = geom.to_geojson(i)?;
-                let mut properties = HashMap::new();
+                let mut properties = BTreeMap::new();
                 for prop in &props {
                     if let Some(val) = prop.values.to_geojson(i) {
                         properties.insert(prop.name.clone(), val);
@@ -76,7 +76,7 @@ impl FeatureCollection {
 pub struct Feature {
     pub geometry: Geometry,
     pub id: u64,
-    pub properties: HashMap<String, Value>,
+    pub properties: BTreeMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,
 }
