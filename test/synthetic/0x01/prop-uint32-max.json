@@ -16,8 +16,8 @@
       },
       "id": 0,
       "properties": {
-        "bignum": 4294967295,
-        "layer": "layer1"
+        "layer": "layer1",
+        "mediumnum": 4294967295
       },
       "type": "Feature"
     }

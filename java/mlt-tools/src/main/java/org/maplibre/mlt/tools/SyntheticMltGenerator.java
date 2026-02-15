@@ -106,13 +106,13 @@ public class SyntheticMltGenerator {
     // Scalar property types
     write("prop-bool", feat(p0, prop("flag", true)), cfg());
     write("prop-bool-false", feat(p0, prop("flag", false)), cfg());
-    // write("prop-uint8-min", feat(p0, prop("zero", U8.of(0))), cfg());
-    // write("prop-uint8-max", feat(p0, prop("max", U8.of(255))), cfg());
+    // write("prop-uint8-min", feat(p0, prop("tinynum", U8.of(0))), cfg());
+    // write("prop-uint8-max", feat(p0, prop("tinynum", U8.of(255))), cfg());
     // ^--- needs support in the decoder ---^
     write("prop-int32", feat(p0, prop("count", 42)), cfg());
     write("prop-int32-neg", feat(p0, prop("count", -42)), cfg());
-    write("prop-uint32-min", feat(p0, prop("bignum", U32.of(0L))), cfg());
-    write("prop-uint32-max", feat(p0, prop("bignum", U32.of(4_294_967_295L))), cfg());
+    write("prop-uint32-min", feat(p0, prop("mediumnum", U32.of(0L))), cfg());
+    write("prop-uint32-max", feat(p0, prop("mediumnum", U32.of(4_294_967_295L))), cfg());
     write("prop-int64", feat(p0, prop("bignum", 9_876_543_210L)), cfg());
     write("prop-int64-neg", feat(p0, prop("bignum", -9_876_543_210L)), cfg());
     write("prop-uint64-min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
@@ -148,16 +148,16 @@ public class SyntheticMltGenerator {
     // write(layer("props-uint8-delta-rle", feat_uint8s), cfg(DELTA_RLE));
     // ^--- needs support in the decoder ---^
 
-    var feat_int =
+    var feat_ints =
         array(
             feat(p1, prop("int", 42)),
             feat(p2, prop("int", 42)),
             feat(p3, prop("int", 42)),
             feat(p4, prop("int", 42)));
-    write(layer("props-int", feat_int), cfg());
-    write(layer("props-int-delta", feat_int), cfg(DELTA));
-    write(layer("props-int-rle", feat_int), cfg(RLE));
-    write(layer("props-int-delta-rle", feat_int), cfg(DELTA_RLE));
+    write(layer("props-int", feat_ints), cfg());
+    write(layer("props-int-delta", feat_ints), cfg(DELTA));
+    write(layer("props-int-rle", feat_ints), cfg(RLE));
+    write(layer("props-int-delta-rle", feat_ints), cfg(DELTA_RLE));
 
     var feat_uint32s =
         array(
