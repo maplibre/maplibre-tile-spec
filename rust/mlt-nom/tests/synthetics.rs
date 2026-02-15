@@ -32,7 +32,7 @@ fn test_one(mlt: &Path, json: &Path) {
     let actual_json = normalize_tiny_floats(serde_json::to_value(&actual).unwrap());
     let expected_json = normalize_tiny_floats(serde_json::to_value(&expected).unwrap());
 
-    // here we catch the big issues in an user facing way with a nice diff
+    // here we catch the big issues in a user-facing way with a nice diff
     pretty_assertions::assert_eq!(
         serde_json::to_string_pretty(&actual_json).unwrap(),
         serde_json::to_string_pretty(&expected_json).unwrap(),
