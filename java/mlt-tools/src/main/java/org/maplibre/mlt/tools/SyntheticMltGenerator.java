@@ -138,20 +138,26 @@ public class SyntheticMltGenerator {
     write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
-    write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
     write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
+    write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    // FIXME: Produces the same output as prop_f32_min
+    // write("prop_f32_neg_zero", feat(p0, prop("val", (float) -0.0f)), cfg());
+    write("prop_f32_zero", feat(p0, prop("val", (float) 0.0f)), cfg());
     write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
     write("prop_f32_pos_inf", feat(p0, prop("val", Float.POSITIVE_INFINITY)), cfg());
     write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
     write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
     write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    write("prop_f64_neg_zero", feat(p0, prop("val", (double) -0.0)), cfg());
+    // FIXME: Produces the same output as prop_f64_min
+    // write("prop_f64_zero", feat(p0, prop("val", (double) 0.0)), cfg());
     write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
     // FIXME: Fails in Java as it Produces the same output as prop_f64_max
     // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
     write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
 
-    // Mixed properties - single feature demonstrating multiple property types
+    // Multiple properties - single feature demonstrating multiple property types
     write(
         "props_mixed",
         feat(
