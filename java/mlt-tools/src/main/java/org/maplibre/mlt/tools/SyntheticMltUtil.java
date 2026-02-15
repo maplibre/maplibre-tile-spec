@@ -209,7 +209,7 @@ class SyntheticMltUtil {
     try {
       System.out.println("Generating: " + fileName);
       var mltFile = SYNTHETICS_DIR.resolve(fileName + ".mlt");
-      Path jsonFile = SYNTHETICS_DIR.resolve(fileName + ".json5");
+      Path jsonFile = SYNTHETICS_DIR.resolve(fileName + ".json");
 
       var config = cfg.build();
       var tile = new MapboxVectorTile(layers);
