@@ -10,9 +10,7 @@ public class SyntheticMltGenerator {
 
   public static void main(String[] args) throws IOException {
     if (Files.exists(SYNTHETICS_DIR)) {
-      throw new IOException(
-          "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "
-              + SYNTHETICS_DIR.toAbsolutePath());
+      throw new IOException("Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: " + SYNTHETICS_DIR.toAbsolutePath());
     }
     Files.createDirectories(SYNTHETICS_DIR);
 
@@ -66,14 +64,7 @@ public class SyntheticMltGenerator {
     write(layer("mixed_line_poly", feat(line(c1, c2)), feat(poly(c1, c2, c3, c1))), cfg());
     write(layer("mixed_pt_mline", feat(p0), feat(multi(line(c1, c2), line(h1, h2, h3)))), cfg());
 
-    write(
-        layer(
-            "mixed_all",
-            feat(p0),
-            feat(line(c1, c2)),
-            feat(poly(c1, c2, c3, c1)),
-            feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
-        cfg());
+    write(layer("mixed_all", feat(p0), feat(line(c1, c2)), feat(poly(c1, c2, c3, c1)), feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))), cfg());
   }
 
   private static void generateIds() throws IOException {
@@ -87,12 +78,7 @@ public class SyntheticMltGenerator {
     write(layer("ids_rle", ids32), cfg(RLE).ids());
     write(layer("ids_delta_rle", ids32), cfg(DELTA_RLE).ids());
 
-    var ids64 =
-        array(
-            idFeat(9_234_567_890L),
-            idFeat(9_234_567_890L),
-            idFeat(9_234_567_890L),
-            idFeat(9_234_567_890L));
+    var ids64 = array(idFeat(9_234_567_890L), idFeat(9_234_567_890L), idFeat(9_234_567_890L), idFeat(9_234_567_890L));
     write(layer("ids64", ids64), cfg().ids());
     write(layer("ids64_delta", ids64), cfg(DELTA).ids());
     write(layer("ids64_rle", ids64), cfg(RLE).ids());
@@ -123,43 +109,39 @@ public class SyntheticMltGenerator {
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
     write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
     write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
+    write("prop_f32_pos_inf", feat(p0, prop("val", Float.POSITIVE_INFINITY)), cfg());
+    write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
+    write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
     write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    // FIXME: Produces the same output as prop_f64_max
+    // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
+    write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
 
     // Mixed properties - single feature demonstrating multiple property types
     write(
-        "props_mixed",
-        feat(
-            p1,
-            props(
-                kv("name", "Test Point"),
-                kv("count", 42),
-                kv("active", true),
-                kv("temp", 25.5f),
-                kv("precision", 0.123456789))),
-        cfg());
+      "props_mixed",
+      feat(p1, props(kv("name", "Test Point"), kv("count", 42), kv("active", true), kv("temp", 25.5f), kv("precision", 0.123456789))),
+      cfg()
+    );
 
-    var feat_ints =
-        array(
-            feat(p1, prop("val", 42)),
-            feat(p2, prop("val", 42)),
-            feat(p3, prop("val", 42)),
-            feat(ph1, prop("val", 42)));
+    var feat_ints = array(feat(p1, prop("val", 42)), feat(p2, prop("val", 42)), feat(p3, prop("val", 42)), feat(ph1, prop("val", 42)));
     write(layer("props_i32", feat_ints), cfg());
     write(layer("props_i32_delta", feat_ints), cfg(DELTA));
     write(layer("props_i32_rle", feat_ints), cfg(RLE));
     write(layer("props_i32_delta_rle", feat_ints), cfg(DELTA_RLE));
 
-    var feat_str =
-        array(
-            feat(p1, prop("val", "residential_zone_north_sector_1")),
-            feat(p2, prop("val", "commercial_zone_south_sector_2")),
-            feat(p3, prop("val", "industrial_zone_east_sector_3")),
-            feat(ph1, prop("val", "park_zone_west_sector_4")),
-            feat(ph2, prop("val", "water_zone_north_sector_5")),
-            feat(ph3, prop("val", "residential_zone_south_sector_6")));
+    var feat_str = array(
+      feat(p1, prop("val", "residential_zone_north_sector_1")),
+      feat(p2, prop("val", "commercial_zone_south_sector_2")),
+      feat(p3, prop("val", "industrial_zone_east_sector_3")),
+      feat(ph1, prop("val", "park_zone_west_sector_4")),
+      feat(ph2, prop("val", "water_zone_north_sector_5")),
+      feat(ph3, prop("val", "residential_zone_south_sector_6"))
+    );
     write(layer("props_str", feat_str), cfg());
     write(layer("props_str_fsst", feat_str), cfg().fsst());
   }
