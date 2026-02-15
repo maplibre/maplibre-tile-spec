@@ -1,0 +1,27 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ],
+        "crs": {
+          "type": "name",
+          "properties": {
+            "name": "EPSG:0"
+          }
+        }
+      },
+      "id": 0,
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": "München 📍 café"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

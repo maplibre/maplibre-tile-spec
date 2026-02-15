@@ -22,6 +22,7 @@ public class SyntheticMltGenerator {
     generateMultiPoints();
     generateMultiLineStrings();
     generateMixed();
+    generateExtent();
     generateIds();
     generateProperties();
   }
@@ -76,6 +77,21 @@ public class SyntheticMltGenerator {
         cfg());
   }
 
+  private static void generateExtent() throws IOException {
+    var e9 = 512;
+    write(layer("extent_" + e9, e9, feat(line(c(0, 0), c(e9 - 1, e9 - 1)))), cfg());
+    write(layer("extent_buf_" + e9, e9, feat(line(c(-42, -42), c(e9 + 42, e9 + 42)))), cfg());
+    var e12 = 4096;
+    write(layer("extent_" + e12, e12, feat(line(c(0, 0), c(e12 - 1, e12 - 1)))), cfg());
+    write(layer("extent_buf_" + e12, e12, feat(line(c(-42, -42), c(e12 + 42, e12 + 42)))), cfg());
+    var e17 = 131072;
+    write(layer("extent_" + e17, e17, feat(line(c(0, 0), c(e17 - 1, e17 - 1)))), cfg());
+    write(layer("extent_buf_" + e17, e17, feat(line(c(-42, -42), c(e17 + 42, e17 + 42)))), cfg());
+    var e30 = 1073741824;
+    write(layer("extent_" + e30, e30, feat(line(c(0, 0), c(e30 - 1, e30 - 1)))), cfg());
+    write(layer("extent_buf_" + e30, e30, feat(line(c(-42, -42), c(e30 + 42, e30 + 42)))), cfg());
+  }
+
   private static void generateIds() throws IOException {
     write("id0", idFeat(0), cfg().ids());
     write("id", idFeat(100), cfg().ids());
@@ -122,14 +138,16 @@ public class SyntheticMltGenerator {
     write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
-    // FIXME: Rust test fails
-    // write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
     write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
-    // FIXME: Rust test fails
-    // write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
     // FIXME: fails in Java
     // write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    write("prop_str_empty", feat(p0, prop("val", "")), cfg());
+    write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
+    write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
+    write("prop_str_unicode", feat(p0, prop("val", "München 📍 cafe\u0301")), cfg());
 
     // Mixed properties - single feature demonstrating multiple property types
     write(
