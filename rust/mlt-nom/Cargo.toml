@@ -30,6 +30,7 @@ zigzag = "0.1.0"
 insta = "1.43.2"
 json5 = "0.4"
 test_each_file = "0.3.5"
+pretty_assertions = "1.4"
 
 [lints.rust]
 unsafe_code = "forbid"
