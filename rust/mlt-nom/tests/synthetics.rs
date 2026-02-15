@@ -38,7 +38,7 @@ fn test_one(mlt: &Path, json: &Path) {
         serde_json::to_string_pretty(&expected_json).unwrap(),
         "serialisation of rust decoded mlt does not match expected geojson"
     );
-    // here we catch small issues like +-0.0
+    // here we catch small issues like +-0.0, which serialize the same way
     assert_eq!(actual_json, expected_json, "despite serialization being equal, the values are not exactly the same");
 }
 
