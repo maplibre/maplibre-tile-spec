@@ -167,13 +167,10 @@ fn parse_columns_meta(
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
             Struct => {
-                // For Struct columns, parse child column definitions
                 let mut children = Vec::new();
-                // Parse child count
                 let child_count;
                 (input, child_count) = utils::parse_varint::<usize>(input)?;
 
-                // Parse each child column definition (type + name)
                 for _ in 0..child_count {
                     let child;
                     (input, child) = Column::parse(input)?;
