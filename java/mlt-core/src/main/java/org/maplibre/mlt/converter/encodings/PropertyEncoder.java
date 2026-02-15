@@ -252,17 +252,6 @@ public class PropertyEncoder {
       case BOOLEAN ->
           // no stream count
           encodeBooleanColumn(features, columnMetadata, streamObserver);
-      case INT_8, UINT_8 -> {
-        final var signed = (scalarType == MltMetadata.ScalarType.INT_8);
-        // Encode bytes as ints since varint/fastpfor handle small values efficiently
-        yield encodeInt8Column(
-            features,
-            columnMetadata,
-            physicalLevelTechnique,
-            signed,
-            integerEncodingOption,
-            streamObserver);
-      }
       case INT_32, UINT_32 -> {
         final var signed = (scalarType == MltMetadata.ScalarType.INT_32);
         // no stream count
@@ -450,50 +439,6 @@ public class PropertyEncoder {
             : new byte[0];
     final var encodedDataStream =
         FloatEncoder.encodeFloatStream(values, streamObserver, "prop_" + fieldName);
-    return Bytes.concat(encodedPresentStream, encodedDataStream);
-  }
-
-  private static byte[] encodeInt8Column(
-      List<Feature> features,
-      MltMetadata.Column metadata,
-      PhysicalLevelTechnique physicalLevelTechnique,
-      boolean isSigned,
-      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
-      @NotNull MLTStreamObserver streamObserver)
-      throws IOException {
-    final var fieldName = metadata.name;
-    final var values = new ArrayList<Integer>();
-    final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
-    for (var feature : features) {
-      final var propertyValue = getBytePropertyValue(feature, metadata);
-      final var present = (propertyValue != null);
-      if (present) {
-        values.add(isSigned ? propertyValue.intValue() : Byte.toUnsignedInt(propertyValue));
-      }
-      if (presentValues != null) {
-        presentValues.add(present);
-      }
-    }
-
-    var encodedPresentStream =
-        (presentValues != null)
-            ? BooleanEncoder.encodeBooleanStream(
-                presentValues,
-                PhysicalStreamType.PRESENT,
-                streamObserver,
-                "prop_" + fieldName + "_present")
-            : new byte[0];
-    var encodedDataStream =
-        IntegerEncoder.encodeIntStream(
-            CollectionUtils.unboxInts(values),
-            physicalLevelTechnique,
-            isSigned,
-            PhysicalStreamType.DATA,
-            null,
-            integerEncodingOption,
-            streamObserver,
-            "prop_" + fieldName);
-
     return Bytes.concat(encodedPresentStream, encodedDataStream);
   }
 
