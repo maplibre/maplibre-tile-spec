@@ -29,8 +29,8 @@ fn test_one(mlt: &Path, json: &Path) {
     // We counter-fudge values very very small to compensate
     //
     //  There is no good way to handle this since JSON does not give us any information if we are reading an f64 or f32
-    let actual_json = normalize_tiny_floats(&serde_json::to_value(&actual).unwrap());
-    let expected_json = normalize_tiny_floats(&serde_json::to_value(&expected).unwrap());
+    let actual_json = normalize_tiny_floats(serde_json::to_value(&actual).unwrap());
+    let expected_json = normalize_tiny_floats(serde_json::to_value(&expected).unwrap());
 
     // here we catch the big issues in an user facing way with a nice diff
     pretty_assertions::assert_eq!(
@@ -45,28 +45,27 @@ fn test_one(mlt: &Path, json: &Path) {
     );
 }
 
-/// Replace extremely small float values (< 1e-40) with 0.0 to handle codec precision issues
-fn normalize_tiny_floats(value: &Value) -> Value {
+/// Replace extremely small float values (f.ex. `1e-40`) with `0.0` to handle codec precision issues
+fn normalize_tiny_floats(value: Value) -> Value {
     match value {
-        Value::Number(n) => {
-            if let Some(f) = n.as_f64() {
-                let eps = f64::from(f32::EPSILON);
-                if f.abs() < eps && f != 0.0 {
-                    Value::from(0.0)
-                } else {
-                    value.clone()
-                }
+        Value::Number(ref n) => {
+            let eps = f64::from(f32::EPSILON);
+            if let Some(f) = n.as_f64()
+                && f.is_finite()
+                && f.abs() < eps
+            {
+                Value::from(0.0)
             } else {
-                value.clone()
+                value
             }
         }
-        Value::Array(arr) => Value::Array(arr.iter().map(normalize_tiny_floats).collect()),
+        Value::Array(arr) => Value::Array(arr.into_iter().map(normalize_tiny_floats).collect()),
         Value::Object(obj) => Value::Object(
-            obj.iter()
-                .map(|(k, v)| (k.clone(), normalize_tiny_floats(v)))
+            obj.into_iter()
+                .map(|(k, v)| (k, normalize_tiny_floats(v)))
                 .collect(),
         ),
-        _ => value.clone(),
+        v => v,
     }
 }
 
