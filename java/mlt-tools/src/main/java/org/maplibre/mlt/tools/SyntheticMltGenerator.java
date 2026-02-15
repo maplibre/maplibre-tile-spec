@@ -177,11 +177,6 @@ public class SyntheticMltGenerator {
     var val = "A".repeat(30);
     var feat_names = array(feat(p1, props(kv("name:en", val), kv("name:de", val))));
 
-    var mapping = new ColumnMapping("name", ":", true);
-    var enableSharedDict = new FeatureTableOptimizations(false, false, List.of(mapping));
-    var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
-    optimizationsMap.put("layer1", enableSharedDict);
-
     write(layer("props_no_shared_dict", feat_names), cfg());
     write(layer("props_shared_dict", feat_names), cfg().sharedDictPrefix("name", ":"));
     write(layer("props_shared_dict_fsst", feat_names), cfg().sharedDictPrefix("name", ":").fsst());
