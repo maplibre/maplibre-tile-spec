@@ -168,7 +168,8 @@ TEST_P(SyntheticTest, Decode) {
     const auto jsonPath = dir / (testName + ".json");
 
     const auto expectedJson5Text = mlt::util::loadTextFile(jsonPath);
-    const mlt::util::GeoJsonFeatureCollection expected = nlohmann::json::parse(expectedJson5Text);
+    const auto expectedJson = nlohmann::json::parse(expectedJson5Text);
+    const auto expected = expectedJson.get<mlt::util::GeoJsonFeatureCollection>();
 
     const auto mltData = mlt::util::loadFile(mltPath);
     const auto tile = mlt::Decoder().decode({mltData.data(), mltData.size()});
@@ -185,10 +186,10 @@ TEST_P(SyntheticTest, Decode) {
                << "Error:    " << e.what() << "\n"
                << "\n"
                << "Expected:\n"
-               << expected.dump(2) << "\n"
+               << nlohmann::json(expected).dump(2) << "\n"
                << "\n"
                << "Actual:\n"
-               << actual.dump(2) << "\n"
+               << nlohmann::json(actual).dump(2) << "\n"
                << "Files:\n"
                << "  MLT:      " << mltPath << "\n"
                << "  Expected: " << jsonPath << "\n"

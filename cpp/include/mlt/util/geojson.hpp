@@ -148,6 +148,7 @@ struct GeoJsonFeatureCollection {
             }
         }
     }
+    GeoJsonFeatureCollection() = default;
     GeoJsonFeatureCollection(const GeoJsonFeatureCollection& other)
         : features(other.features) {}
     GeoJsonFeatureCollection(GeoJsonFeatureCollection&& other) noexcept
