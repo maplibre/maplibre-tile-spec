@@ -89,7 +89,12 @@ export default function decodeTile(
                 if (columnMetadata.nullable) {
                     const presentStreamMetadata = decodeStreamMetadata(tile, offset);
                     const streamDataStart = offset.get();
-                    const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
+                    const values = decodeBooleanRle(
+                        tile,
+                        presentStreamMetadata.numValues,
+                        presentStreamMetadata.byteLength,
+                        offset,
+                    );
                     offset.set(streamDataStart + presentStreamMetadata.byteLength);
                     nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
                 }

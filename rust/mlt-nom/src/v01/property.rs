@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug};
+
 use borrowme::borrowme;
 
 use crate::MltError;
@@ -46,7 +48,7 @@ pub struct DecodedProperty {
 }
 
 /// Decoded property value types
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub enum PropValue {
     Bool(Vec<Option<bool>>),
     I8(Vec<Option<i8>>),
@@ -60,6 +62,38 @@ pub enum PropValue {
     Str(Vec<Option<String>>),
     #[default]
     Struct,
+}
+
+/// Format `Option` values on a single line each, even in alternate/pretty mode.
+struct FmtOptVec<'a, T>(&'a [Option<T>]);
+
+impl<T: Debug> Debug for FmtOptVec<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut list = f.debug_list();
+        for item in self.0 {
+            // Always format each element in compact (non-alternate) mode
+            list.entry(&format_args!("{item:?}"));
+        }
+        list.finish()
+    }
+}
+
+impl Debug for PropValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bool(v) => f.debug_tuple("Bool").field(&FmtOptVec(v)).finish(),
+            Self::I8(v) => f.debug_tuple("I8").field(&FmtOptVec(v)).finish(),
+            Self::U8(v) => f.debug_tuple("U8").field(&FmtOptVec(v)).finish(),
+            Self::I32(v) => f.debug_tuple("I32").field(&FmtOptVec(v)).finish(),
+            Self::U32(v) => f.debug_tuple("U32").field(&FmtOptVec(v)).finish(),
+            Self::I64(v) => f.debug_tuple("I64").field(&FmtOptVec(v)).finish(),
+            Self::U64(v) => f.debug_tuple("U64").field(&FmtOptVec(v)).finish(),
+            Self::F32(v) => f.debug_tuple("F32").field(&FmtOptVec(v)).finish(),
+            Self::F64(v) => f.debug_tuple("F64").field(&FmtOptVec(v)).finish(),
+            Self::Str(v) => f.debug_tuple("Str").field(&FmtOptVec(v)).finish(),
+            Self::Struct => write!(f, "Struct"),
+        }
+    }
 }
 
 impl PropValue {
@@ -86,7 +120,8 @@ impl PropValue {
 
 /// Convert f32 to JSON using shortest decimal representation (matches Java's `Float.toString()`)
 fn f32_to_json(f: f32) -> serde_json::Value {
-    serde_json::from_str(&f.to_string()).unwrap()
+    let serialized = &serde_json::to_string(&f).expect("f32 serialization should not fail");
+    serde_json::from_str(serialized).expect("serialized f32 should parse as JSON")
 }
 
 impl_decodable!(Property<'a>, RawProperty<'a>, DecodedProperty);

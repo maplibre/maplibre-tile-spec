@@ -114,9 +114,7 @@ impl Layer01<'_> {
                     properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
                 }
                 ColumnType::Struct => {
-                    return Err(MltError::NotImplemented(
-                        "Struct column type not implemented yet",
-                    ));
+                    return Err(MltError::NotImplemented("Struct column type"));
                 }
             }
         }
@@ -163,11 +161,24 @@ fn parse_columns_meta(
     let mut geometries = 0;
     let mut ids = 0;
     for _ in 0..column_count {
-        let typ;
+        let mut typ;
         (input, typ) = Column::parse(input)?;
         match typ.typ {
             Geometry => geometries += 1,
             Id | OptId | LongId | OptLongId => ids += 1,
+            Struct => {
+                // Yes, we need to parse children right here, otherwise this messes up the next column
+                let mut children = Vec::new();
+                let child_count;
+                (input, child_count) = utils::parse_varint::<usize>(input)?;
+
+                for _ in 0..child_count {
+                    let child;
+                    (input, child) = Column::parse(input)?;
+                    children.push(child);
+                }
+                typ.children = children;
+            }
             _ => {}
         }
         col_info.push(typ);
@@ -195,16 +206,13 @@ impl OwnedLayer01 {
             // self.id.write_to(writer)?;
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
-                format!("{}", MltError::NotImplemented("ID write not implemented")),
+                MltError::NotImplemented("ID write").to_string(),
             ));
         }
 
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            format!(
-                "{}",
-                MltError::NotImplemented("Layer write not fully implemented")
-            ),
+            MltError::NotImplemented("full Layer write").to_string(),
         ))
     }
 }
