@@ -18,7 +18,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
 
@@ -42,7 +42,7 @@ jobs:
       run:
         working-directory: ts
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
 
@@ -75,7 +75,7 @@ jobs:
           } > LICENSE.txt
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           name: js-v${{ env.version }}
           tag_name: js-v${{ env.version }}
@@ -87,7 +87,7 @@ jobs:
           npm publish --access=public
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           tag_name: js-v${{ env.version }}
           name: js-v${{ env.version }}
