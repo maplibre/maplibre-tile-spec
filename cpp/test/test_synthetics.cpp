@@ -113,7 +113,8 @@ std::vector<std::pair<std::string, std::filesystem::path>> findSyntheticTests(co
     std::set<std::string> testNames;
 
     if (!std::filesystem::exists(dir)) {
-        return {};
+        throw std::runtime_error(
+            std::format("Synthetic test directory {} does not exist", absolute(dir).generic_string()));
     }
 
     // Find all .mlt files and extract test names
