@@ -130,10 +130,6 @@ INSTANTIATE_TEST_SUITE_P(Synthetic0x01,
                              return info.param.first;
                          });
 
-TEST(SyntheticTest, JsonNotEnabled) {
-    GTEST_SKIP() << "Synthetic tests require MLT_WITH_JSON to be enabled";
-}
-
 namespace io {
 /// Load binary file contents
 std::vector<char> loadFile(const fs::path& path) {
@@ -443,46 +439,38 @@ json geometryToGeoJson(const mlt::geometry::Geometry& geom) {
 }
 
 /// Convert property value to JSON, handling all Property variant types
-json propertyToJson(const mlt::Property& prop) {
-    return std::visit(
-        [](const auto& value) -> json {
-            using T = std::decay_t<decltype(value)>;
+template <class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
-            // Handle nullptr_t
-            if constexpr (std::is_same_v<T, std::nullptr_t>) {
-                return nullptr;
-            }
-            // Handle optional types
-            else if constexpr (std::is_same_v<T, std::optional<bool>> || std::is_same_v<T, std::optional<int32_t>> ||
-                               std::is_same_v<T, std::optional<int64_t>> ||
-                               std::is_same_v<T, std::optional<uint32_t>> ||
-                               std::is_same_v<T, std::optional<uint64_t>> || std::is_same_v<T, std::optional<float>> ||
-                               std::is_same_v<T, std::optional<double>>) {
-                if (value.has_value()) {
-                    // Convert large integers to double to match JSON number type
-                    if constexpr (std::is_same_v<T, std::optional<int64_t>> ||
-                                  std::is_same_v<T, std::optional<uint64_t>>) {
-                        return static_cast<double>(*value);
-                    } else {
-                        return *value;
-                    }
-                }
-                return nullptr;
-            }
-            // Handle int64_t and uint64_t - convert to double for JSON
-            else if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>) {
-                return static_cast<double>(value);
-            }
-            // Handle string_view - convert to string
-            else if constexpr (std::is_same_v<T, std::string_view>) {
-                return std::string(value);
-            }
-            // All other types (bool, int32_t, uint32_t, float, double)
-            else {
-                return value;
-            }
-        },
-        prop);
+json propertyToJson(const mlt::Property& prop) {
+    return std::visit(overloaded{[](std::nullptr_t) -> json { return nullptr; },
+                                 [](bool v) -> json { return v; },
+                                 [](int32_t v) -> json { return v; },
+                                 [](uint32_t v) -> json { return v; },
+                                 [](int64_t v) -> json { return v; },
+                                 [](uint64_t v) -> json { return v; },
+                                 [](float v) -> json {
+                                     if (std::isnan(v) || std::isinf(v)) return nullptr; // Or handle as strings
+                                     return v;
+                                 },
+                                 [](double v) -> json {
+                                     if (std::isnan(v) || std::isinf(v)) return nullptr;
+                                     return v;
+                                 },
+                                 [](std::string_view v) -> json { return std::string(v); },
+                                 [](const std::string& v) -> json { return v; },
+                                 [](auto&& opt) -> json {
+                                     if constexpr (requires { opt.has_value(); }) {
+                                         return opt.has_value() ? propertyToJson(*opt) : nullptr;
+                                     } else {
+                                         return nullptr;
+                                     }
+                                 }},
+                      prop);
 }
 
 /// Convert feature to GeoJSON
@@ -587,5 +575,9 @@ void testSyntheticPair(const std::string& testName, const fs::path& dir) {
                << "  Expected: " << jsonPath << "\n"
                << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
     }
+}
+#else  // MLT_WITH_JSON
+TEST(SyntheticTest, JsonNotEnabled) {
+    GTEST_SKIP() << "Synthetic tests require MLT_WITH_JSON to be enabled";
 }
 #endif // MLT_WITH_JSON
