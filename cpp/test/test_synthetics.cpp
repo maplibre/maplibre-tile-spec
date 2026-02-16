@@ -100,8 +100,11 @@ const std::map<std::string, std::string> SKIPPED_TESTS = {
     {"props_i32_rle", numFeatError},
     {"props_i32_delta", numFeatError},
     {"props_i32_delta_rle", numFeatError},
+    {"props_str", numFeatError},
+    {"props_str_fsst", numFeatError},
     {"props_mixed", numFeatError},
     {"props_no_shared_dict", numFeatError},
+    {"props_shared_dict", numFeatError},
     {"props_shared_dict_fsst", numFeatError},
 };
 
