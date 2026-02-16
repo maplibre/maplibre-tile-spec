@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <regex>
 #include <nlohmann/json.hpp>
 
 namespace mlt::util {
@@ -25,11 +26,11 @@ public:
             case metadata::tileset::GeometryType::POINT: {
                 const auto& point = static_cast<const geometry::Point&>(geom);
                 const auto coord = point.getCoordinate();
-                return {{"type", "Point"}, {"coordinates", json::array({coord.x, coord.y})}};
+                return {.type = "Point", .coordinates = json::array({coord.x, coord.y})};
             }
             case metadata::tileset::GeometryType::LINESTRING: {
                 const auto& line = static_cast<const geometry::LineString&>(geom);
-                return {{"type", "LineString"}, {"coordinates", coordinateRingToJson(line.getCoordinates())}};
+                return {.type = "LineString", .coordinates = coordinateRingToJson(line.getCoordinates())};
             }
             case metadata::tileset::GeometryType::POLYGON: {
                 const auto& poly = static_cast<const geometry::Polygon&>(geom);
@@ -37,7 +38,7 @@ public:
                 for (const auto& ring : poly.getRings()) {
                     rings.push_back(coordinateRingToJson(ring));
                 }
-                return {{"type", "Polygon"}, {"coordinates", rings}};
+                return {.type = "Polygon", .coordinates = rings};
             }
             case metadata::tileset::GeometryType::MULTIPOINT: {
                 const auto& multipoint = static_cast<const geometry::MultiPoint&>(geom);
@@ -45,7 +46,7 @@ public:
                 for (const auto& coord : multipoint.getCoordinates()) {
                     coords.push_back(json::array({coord.x, coord.y}));
                 }
-                return {{"type", "MultiPoint"}, {"coordinates", coords}};
+                return {.type = "MultiPoint", .coordinates = coords};
             }
             case metadata::tileset::GeometryType::MULTILINESTRING: {
                 const auto& multiline = static_cast<const geometry::MultiLineString&>(geom);
@@ -53,7 +54,7 @@ public:
                 for (const auto& line : multiline.getLineStrings()) {
                     lines.push_back(coordinateRingToJson(line));
                 }
-                return {{"type", "MultiLineString"}, {"coordinates", lines}};
+                return {.type = "MultiLineString", .coordinates = lines};
             }
             case metadata::tileset::GeometryType::MULTIPOLYGON: {
                 const auto& multipoly = static_cast<const geometry::MultiPolygon&>(geom);
@@ -65,7 +66,7 @@ public:
                     }
                     polygons.push_back(rings);
                 }
-                return {{"type", "MultiPolygon"}, {"coordinates", polygons}};
+                return {.type = "MultiPolygon", .coordinates = polygons};
             }
             default:
                 throw std::runtime_error("Unsupported geometry type");
@@ -148,7 +149,10 @@ struct GeoJsonFeatureCollection {
 
         for (const auto& layer : tile.getLayers()) {
             for (const auto& feature : layer.getFeatures()) {
-                features.push_back(GeoJsonFeature::from(layer, feature));
+                json featObj{};
+                const auto feat = GeoJsonFeature::from(layer, feature);
+                to_json(featObj, feat);
+                features.push_back(featObj);
             }
         }
 
@@ -159,7 +163,7 @@ struct GeoJsonFeatureCollection {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeoJsonFeatureCollection, type, features)
 
-struct GeoJson : public util::noncopyable {
+struct GeoJson {
 private:
     /// Check if two floating point values are approximately equal
     static bool floatsApproxEqual(const double actual, const double expected) {
@@ -306,52 +310,14 @@ private:
 
     /// Preprocess JSON text to handle NaN and Infinity values
     static std::string preprocessJson5ToJsonText(const std::string& text) {
-        std::string result = text;
+        // \b is a word boundary anchor.
+        // It matches the position between a word character and a non-word character.
+        // This prevents matching "Infinity" inside "MyInfinityVariable".
+        static const std::regex spec_values(R"(\b(Infinity|-Infinity|NaN)\b)");
 
-        // Replace JavaScript-style special values with valid JSON
-        // We need to preserve them as special markers that we can handle later
-
-        // Handle -Infinity first (before Infinity)
-        size_t pos = 0;
-        while ((pos = result.find("-Infinity", pos)) != std::string::npos) {
-            const bool isWord = (pos > 0 && std::isalnum(result[pos - 1])) ||
-                                (pos + 9 < result.length() && std::isalnum(result[pos + 9]));
-            if (!isWord) {
-                result.replace(pos, 9, "null");
-                pos += 4;
-            } else {
-                pos += 9;
-            }
-        }
-
-        // Handle Infinity
-        pos = 0;
-        while ((pos = result.find("Infinity", pos)) != std::string::npos) {
-            bool isWord = (pos > 0 && std::isalnum(result[pos - 1])) ||
-                          (pos + 8 < result.length() && std::isalnum(result[pos + 8]));
-            if (!isWord) {
-                result.replace(pos, 8, "null");
-                pos += 4;
-            } else {
-                pos += 8;
-            }
-        }
-
-        // Handle NaN
-        pos = 0;
-        while ((pos = result.find("NaN", pos)) != std::string::npos) {
-            // Check it's not part of a word (e.g., not "NaNcy")
-            const bool isWord = (pos > 0 && std::isalnum(result[pos - 1])) ||
-                                (pos + 3 < result.length() && std::isalnum(result[pos + 3]));
-            if (!isWord) {
-                result.replace(pos, 3, "null");
-                pos += 4;
-            } else {
-                pos += 3;
-            }
-        }
-
-        return result;
+        // We replace matches with "null" so that nlohmann::json can parse it.
+        // We then handle the null-to-float conversion in assertJsonApproxEqual.
+        return std::regex_replace(text, spec_values, "null");
     }
 
 public:
