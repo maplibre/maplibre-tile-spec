@@ -77,40 +77,34 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeoJsonGeometry, type, coordinates)
 
 struct GeoJsonFeature {
 private:
-    /// Convert property value to JSON, handling all Property variant types
-    template <class... Ts>
-    struct overloaded : Ts... {
-        using Ts::operator()...;
-    };
-    template <class... Ts>
-    overloaded(Ts...) -> overloaded<Ts...>;
+    struct PropertyToJsonVisitor {
+        json operator()(std::nullptr_t) const { return nullptr; }
+        json operator()(bool v) const { return v; }
+        json operator()(int32_t v) const { return v; }
+        json operator()(uint32_t v) const { return v; }
+        json operator()(int64_t v) const { return v; }
+        json operator()(uint64_t v) const { return v; }
+        json operator()(float v) const {
+            if (std::isnan(v) || std::isinf(v)) return nullptr;
+            return v;
+        }
+        json operator()(double v) const {
+            if (std::isnan(v) || std::isinf(v)) return nullptr;
+            return v;
+        }
+        json operator()(std::string_view v) const { return std::string(v); }
+        json operator()(const std::string& v) const { return v; }
 
-    static json propertyToJson(const Property& prop) {
-        return std::visit(overloaded{[](std::nullptr_t) -> json { return nullptr; },
-                                     [](bool v) -> json { return v; },
-                                     [](int32_t v) -> json { return v; },
-                                     [](uint32_t v) -> json { return v; },
-                                     [](int64_t v) -> json { return v; },
-                                     [](uint64_t v) -> json { return v; },
-                                     [](float v) -> json {
-                                         if (std::isnan(v) || std::isinf(v)) return nullptr; // Or handle as strings
-                                         return v;
-                                     },
-                                     [](double v) -> json {
-                                         if (std::isnan(v) || std::isinf(v)) return nullptr;
-                                         return v;
-                                     },
-                                     [](std::string_view v) -> json { return std::string(v); },
-                                     [](const std::string& v) -> json { return v; },
-                                     [](auto&& opt) -> json {
-                                         if constexpr (requires { opt.has_value(); }) {
-                                             return opt.has_value() ? propertyToJson(*opt) : nullptr;
-                                         } else {
-                                             return nullptr;
-                                         }
-                                     }},
-                          prop);
-    }
+        template <typename T>
+        json operator()(const T& opt) const {
+            if constexpr (requires { opt.has_value(); }) {
+                return opt.has_value() ? propertyToJson(*opt) : nullptr;
+            }
+            return nullptr;
+        }
+    };
+
+    static json propertyToJson(const Property& prop) { return std::visit(PropertyToJsonVisitor{}, prop); }
 
 public:
     std::string type = "Feature";
