@@ -8,12 +8,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.locationtech.jts.geom.*;
 import org.maplibre.mlt.cli.CliUtil;
 import org.maplibre.mlt.converter.ConversionConfig;
+import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -25,25 +29,28 @@ class SyntheticMltUtil {
   static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic/0x01");
 
   // Using common coordinates everywhere to make sure generated MLT files are very similar,
-  // ensuring we observe difference in encoding rather than geometry variations
-  static final GeometryFactory gf = new GeometryFactory();
-  static final Coordinate c0 = new Coordinate(13, 42);
-  static final Coordinate c1 = new Coordinate(0, 0);
-  static final Coordinate c2 = new Coordinate(50, 0);
-  static final Coordinate c3 = new Coordinate(50, 50);
-  static final Coordinate c4 = new Coordinate(0, 50);
-  static final Coordinate c5 = new Coordinate(10, 10);
-  static final Coordinate c6 = new Coordinate(40, 10);
-  static final Coordinate c7 = new Coordinate(40, 40);
-  static final Coordinate c8 = new Coordinate(10, 40);
+  // ensuring we observe difference in encoding rather than geometry variations.
+  // Use SRID 4326 for visualization - all coords are in positive longitude/latitude
+  // range, but in reality the coords are in SRID=0 tile space.
+  static final GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
+  static final Coordinate c0 = c(13, 42);
+  // triangle
+  static final Coordinate c1 = c(4, 47);
+  static final Coordinate c2 = c(12, 53);
+  static final Coordinate c3 = c(18, 45);
+  // hole with counter-clockwise winding
+  static final Coordinate h1 = c(13, 48);
+  static final Coordinate h2 = c(12, 50);
+  static final Coordinate h3 = c(10, 49);
 
   static final Point p0 = gf.createPoint(c0);
   static final Point p1 = gf.createPoint(c1);
   static final Point p2 = gf.createPoint(c2);
   static final Point p3 = gf.createPoint(c3);
-  static final Point p4 = gf.createPoint(c4);
-  static final Point p5 = gf.createPoint(c5);
-  static final Point p6 = gf.createPoint(c6);
+  // holes as points with same coordinates as the hole vertices
+  static final Point ph1 = gf.createPoint(h1);
+  static final Point ph2 = gf.createPoint(h2);
+  static final Point ph3 = gf.createPoint(h3);
 
   /** Builder subclass with no-argument shorthand methods for common flags. */
   static class Cfg extends ConversionConfig.Builder {
@@ -81,6 +88,20 @@ class SyntheticMltUtil {
       this.layerFilterInvert(true);
       return this;
     }
+
+    /**
+     * Enable shared dictionary encoding for properties with names starting with the given prefix
+     * string.
+     */
+    public Cfg sharedDictPrefix(String prefix, String delimiter) {
+      var mapping = new ColumnMapping(prefix, delimiter, true);
+      var layerOpt = new FeatureTableOptimizations(false, false, List.of(mapping));
+
+      var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
+      optimizationsMap.put("layer1", layerOpt);
+      this.optimizations(optimizationsMap);
+      return this;
+    }
   }
 
   static Cfg cfg() {
@@ -112,6 +133,10 @@ class SyntheticMltUtil {
   @SuppressWarnings("varargs")
   static <T> T[] array(T... elements) {
     return elements;
+  }
+
+  static Coordinate c(int x, int y) {
+    return new Coordinate(x, y);
   }
 
   static LineString line(Coordinate... coords) {
@@ -183,6 +208,10 @@ class SyntheticMltUtil {
     return new Layer(name, Arrays.asList(features), 4096);
   }
 
+  static Layer layer(String name, int extent, Feature... features) {
+    return new Layer(name, Arrays.asList(features), extent);
+  }
+
   static void write(String name, Feature feat, ConversionConfig.Builder cfg) throws IOException {
     write(layer(name, feat), cfg);
   }
@@ -197,19 +226,31 @@ class SyntheticMltUtil {
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
+      var mltFile = SYNTHETICS_DIR.resolve(fileName + ".mlt");
+      Path jsonFile = SYNTHETICS_DIR.resolve(fileName + ".json");
+
       var config = cfg.build();
       var tile = new MapboxVectorTile(layers);
-      var metadata = MltConverter.createTilesetMetadata(tile, Map.of(), config.getIncludeIds());
-      var mltData = MltConverter.convertMvt(tile, metadata, config, null);
-      Files.write(
-          SYNTHETICS_DIR.resolve(fileName + ".mlt"), mltData, StandardOpenOption.CREATE_NEW);
 
-      var decodedTile = MltDecoder.decodeMlTile(mltData);
-      String jsonOutput = CliUtil.printMltGeoJson(decodedTile);
-      Files.writeString(
-          SYNTHETICS_DIR.resolve(fileName + ".json"),
-          jsonOutput + "\n",
-          StandardOpenOption.CREATE_NEW);
+      // Extract column mappings from the config's optimizations
+      var columnMappings = new HashMap<Pattern, List<ColumnMapping>>();
+      if (config.getOptimizations() != null && !config.getOptimizations().isEmpty()) {
+        var allColumnMappings =
+            config.getOptimizations().values().stream()
+                .flatMap(opt -> opt.columnMappings().stream())
+                .toList();
+        if (!allColumnMappings.isEmpty()) {
+          columnMappings.put(Pattern.compile(".*"), allColumnMappings);
+        }
+      }
+
+      var metadata =
+          MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
+      var mlt = MltConverter.convertMvt(tile, metadata, config, null);
+      Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
+
+      String json = CliUtil.printMltGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
+      Files.writeString(jsonFile, json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);
     }
