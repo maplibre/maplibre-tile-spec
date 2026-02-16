@@ -1,7 +1,7 @@
 if(NOT MLT_WITH_FASTPFOR)
   message(STATUS "[MLT] No FastPFOR support")
   return()
-endif(MLT_WITH_FASTPFOR)
+endif()
 
 
 message(STATUS "[MLT] Including FastPFOR support")
