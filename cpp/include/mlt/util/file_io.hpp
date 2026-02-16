@@ -8,10 +8,13 @@ inline std::vector<char> loadFile(const std::filesystem::path& path) {
         throw std::runtime_error("Failed to open file: " + path.string());
     }
 
-    const auto size = file.tellg();
-    file.seekg(0);
+    std::streamsize size = file.tellg();
+    if (size < 0) {
+        throw std::runtime_error("Failed to determine file size: " + path.string());
+    }
+    file.seekg(0, std::ios::beg);
 
-    std::vector<char> buffer(size);
+    std::vector<char> buffer(static_cast<std::size_t>(size));
     if (!file.read(buffer.data(), size)) {
         throw std::runtime_error("Failed to read file: " + path.string());
     }
