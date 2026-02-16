@@ -20,7 +20,6 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_f64_min", "throws error 'byte length of Float64Array should be a multiple of 8'"],
     ["prop_f64_max", "throws error 'byte length of Float64Array should be a multiple of 8'"],
     ["prop_f64_nan", "throws error 'byte length of Float64Array should be a multiple of 8'"],
-    ["prop_f64_nan", "throws error 'byte length of Float64Array should be a multiple of 8'"],
     ["prop_f64_neg_inf", "throws error 'byte length of Float64Array should be a multiple of 8'"],
     ["prop_f64_neg_zero", "throws error 'byte length of Float64Array should be a multiple of 8'"],
     ["prop_str_empty", "empty strings not supported"],
