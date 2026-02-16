@@ -4,41 +4,9 @@
 
 namespace mlt::util {
 using json = nlohmann::json;
-struct GeoJson : public util::noncopyable {
+
+struct GeoJsonGeometry {
 private:
-    /// Check if two floating point values are approximately equal
-    static bool floatsApproxEqual(const double actual, const double expected) {
-        // Tolerance for floating point comparisons
-        constexpr double RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100.0;
-        constexpr double ABSOLUTE_FLOAT_TOLERANCE = std::numeric_limits<double>::epsilon();
-
-        // Handle special cases: NaN, infinity
-        if (std::isnan(expected)) {
-            return std::isnan(actual);
-        }
-        if (std::isinf(expected)) {
-            return std::isinf(actual) && std::signbit(actual) == std::signbit(expected);
-        }
-
-        // Check for values very close to zero
-        if (std::abs(expected) < ABSOLUTE_FLOAT_TOLERANCE) {
-            return std::abs(actual) <= ABSOLUTE_FLOAT_TOLERANCE;
-        }
-
-        // Relative error check
-        const double relativeError = std::abs(actual - expected) / std::abs(expected);
-        return relativeError <= RELATIVE_FLOAT_TOLERANCE;
-    }
-
-    static std::string joinWithDot(const std::vector<std::string>& parts) {
-        std::string result;
-        for (size_t i = 0; i < parts.size(); ++i) {
-            if (!parts[i].starts_with('[')) result += '.';
-            result += parts[i];
-        }
-        return result;
-    }
-
     static json coordinateRingToJson(const CoordVec& ring) {
         json result = json::array();
         for (const auto& coord : ring) {
@@ -47,20 +15,21 @@ private:
         return result;
     }
 
-    static json geometryToGeoJson(const geometry::Geometry& geom) {
-        json result;
+public:
+    std::string type;
+    // GeoJSON coordinates can be Point [x,y], Line [[x,y]...], or Polygon [[[x,y]...]]
+    nlohmann::json coordinates;
 
+    static GeoJsonGeometry from(const geometry::Geometry& geom) {
         switch (geom.type) {
             case metadata::tileset::GeometryType::POINT: {
                 const auto& point = static_cast<const geometry::Point&>(geom);
                 const auto coord = point.getCoordinate();
-                result = {{"type", "Point"}, {"coordinates", json::array({coord.x, coord.y})}};
-                break;
+                return {{"type", "Point"}, {"coordinates", json::array({coord.x, coord.y})}};
             }
             case metadata::tileset::GeometryType::LINESTRING: {
                 const auto& line = static_cast<const geometry::LineString&>(geom);
-                result = {{"type", "LineString"}, {"coordinates", coordinateRingToJson(line.getCoordinates())}};
-                break;
+                return {{"type", "LineString"}, {"coordinates", coordinateRingToJson(line.getCoordinates())}};
             }
             case metadata::tileset::GeometryType::POLYGON: {
                 const auto& poly = static_cast<const geometry::Polygon&>(geom);
@@ -68,8 +37,7 @@ private:
                 for (const auto& ring : poly.getRings()) {
                     rings.push_back(coordinateRingToJson(ring));
                 }
-                result = {{"type", "Polygon"}, {"coordinates", rings}};
-                break;
+                return {{"type", "Polygon"}, {"coordinates", rings}};
             }
             case metadata::tileset::GeometryType::MULTIPOINT: {
                 const auto& multipoint = static_cast<const geometry::MultiPoint&>(geom);
@@ -77,8 +45,7 @@ private:
                 for (const auto& coord : multipoint.getCoordinates()) {
                     coords.push_back(json::array({coord.x, coord.y}));
                 }
-                result = {{"type", "MultiPoint"}, {"coordinates", coords}};
-                break;
+                return {{"type", "MultiPoint"}, {"coordinates", coords}};
             }
             case metadata::tileset::GeometryType::MULTILINESTRING: {
                 const auto& multiline = static_cast<const geometry::MultiLineString&>(geom);
@@ -86,8 +53,7 @@ private:
                 for (const auto& line : multiline.getLineStrings()) {
                     lines.push_back(coordinateRingToJson(line));
                 }
-                result = {{"type", "MultiLineString"}, {"coordinates", lines}};
-                break;
+                return {{"type", "MultiLineString"}, {"coordinates", lines}};
             }
             case metadata::tileset::GeometryType::MULTIPOLYGON: {
                 const auto& multipoly = static_cast<const geometry::MultiPolygon&>(geom);
@@ -99,16 +65,17 @@ private:
                     }
                     polygons.push_back(rings);
                 }
-                result = {{"type", "MultiPolygon"}, {"coordinates", polygons}};
-                break;
+                return {{"type", "MultiPolygon"}, {"coordinates", polygons}};
             }
             default:
                 throw std::runtime_error("Unsupported geometry type");
         }
-
-        return result;
     }
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeoJsonGeometry, type, coordinates)
 
+struct GeoJsonFeature {
+private:
     /// Convert property value to JSON, handling all Property variant types
     template <class... Ts>
     struct overloaded : Ts... {
@@ -144,22 +111,87 @@ private:
                           prop);
     }
 
-    static json featureToGeoJson(const Layer& layer, const Feature& feature) {
+public:
+    std::string type = "Feature";
+    nlohmann::json id;
+    GeoJsonGeometry geometry;
+    nlohmann::json properties;
+
+    GeoJsonFeature(nlohmann::json id, GeoJsonGeometry geometry, nlohmann::json properties)
+        : id(std::move(id)),
+          geometry(std::move(geometry)),
+          properties(std::move(properties)) {}
+
+    static GeoJsonFeature from(const Layer& layer, const Feature& feature) {
         json properties = json::object();
         properties["_layer"] = layer.getName();
         properties["_extent"] = layer.getExtent();
-
-        // Add feature properties
         for (const auto& key : layer.getProperties() | std::views::keys) {
             if (const auto prop = feature.getProperty(key, layer)) {
                 properties[key] = propertyToJson(*prop);
             }
         }
 
-        return {{"type", "Feature"},
-                {"id", feature.getID()},
-                {"geometry", geometryToGeoJson(feature.getGeometry())},
-                {"properties", properties}};
+        const auto id = feature.getID();
+        const auto geom = GeoJsonGeometry::from(feature.getGeometry());
+        return GeoJsonFeature{id, std::move(geom), std::move(properties)};
+    }
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeoJsonFeature, type, id, geometry, properties)
+
+struct GeoJsonFeatureCollection {
+    std::string type = "FeatureCollection";
+    json::array_t features;
+
+    static GeoJsonFeatureCollection from(const mlt::MapLibreTile& tile) {
+        json::array_t features{};
+
+        for (const auto& layer : tile.getLayers()) {
+            for (const auto& feature : layer.getFeatures()) {
+                features.push_back(GeoJsonFeature::from(layer, feature));
+            }
+        }
+
+        return GeoJsonFeatureCollection{std::move(features)};
+    };
+    explicit GeoJsonFeatureCollection(const json::array_t&& features)
+        : features(std::move(features)) {};
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeoJsonFeatureCollection, type, features)
+
+struct GeoJson : public util::noncopyable {
+private:
+    /// Check if two floating point values are approximately equal
+    static bool floatsApproxEqual(const double actual, const double expected) {
+        // Tolerance for floating point comparisons
+        constexpr double RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100.0;
+        constexpr double ABSOLUTE_FLOAT_TOLERANCE = std::numeric_limits<double>::epsilon();
+
+        // Handle special cases: NaN, infinity
+        if (std::isnan(expected)) {
+            return std::isnan(actual);
+        }
+        if (std::isinf(expected)) {
+            return std::isinf(actual) && std::signbit(actual) == std::signbit(expected);
+        }
+
+        // Check for values very close to zero
+        if (std::abs(expected) < ABSOLUTE_FLOAT_TOLERANCE) {
+            return std::abs(actual) <= ABSOLUTE_FLOAT_TOLERANCE;
+        }
+
+        // Relative error check
+        const double relativeError = std::abs(actual - expected) / std::abs(expected);
+        return relativeError <= RELATIVE_FLOAT_TOLERANCE;
+    }
+
+    static std::string joinWithDot(const std::vector<std::string>& parts) {
+        std::string result;
+        for (size_t i = 0; i < parts.size(); ++i) {
+            if (!parts[i].starts_with('[')) result += '.';
+            result += parts[i];
+        }
+        return result;
     }
 
     /// Recursively compare JSON values with float tolerance
@@ -322,23 +354,11 @@ private:
         return result;
     }
 
-    static json tileToGeoJson(const mlt::MapLibreTile& tile) {
-        json features = json::array();
-
-        for (const auto& layer : tile.getLayers()) {
-            for (const auto& feature : layer.getFeatures()) {
-                features.push_back(featureToGeoJson(layer, feature));
-            }
-        }
-
-        return {{"type", "FeatureCollection"}, {"features", features}};
-    }
-
 public:
     explicit GeoJson(const std::string& text)
         : value(json::parse(preprocessJson5ToJsonText(text))) {}
     explicit GeoJson(const mlt::MapLibreTile& tile)
-        : value(tileToGeoJson(tile)) {}
+        : value(GeoJsonFeatureCollection::from(tile)) {}
 
     /// Asserts for equality except small floating point deviations
     void assertApproxEqual(const GeoJson& other) const {
