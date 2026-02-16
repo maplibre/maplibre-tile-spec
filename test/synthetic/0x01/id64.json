@@ -6,13 +6,7 @@
         "coordinates": [
           13,
           42
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 9234567890,
       "properties": {

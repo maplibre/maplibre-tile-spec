@@ -12,13 +12,7 @@
             4138,
             4138
           ]
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
