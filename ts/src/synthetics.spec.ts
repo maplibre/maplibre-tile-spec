@@ -1,6 +1,14 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, parse, resolve } from "node:path";
-import type { LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon } from "geojson";
+import type {
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+    Geometry as GeoJSONGeometry,
+} from "geojson";
 import JSON5 from "json5";
 import { describe, expect, it } from "vitest";
 import decodeTile from "./mltDecoder";
@@ -71,48 +79,23 @@ function safeNumber<T>(val: bigint | T): T | number {
     return typeof val === "bigint" ? Number(val) : val;
 }
 
-// Custom geometry types with CRS support
-const CRS = {
-    type: "name",
-    properties: {
-        name: "EPSG:0",
-    },
-} as const;
-
-type PointWithCRS = Point & { crs: typeof CRS };
-type LineStringWithCRS = LineString & { crs: typeof CRS };
-type PolygonWithCRS = Polygon & { crs: typeof CRS };
-type MultiPointWithCRS = MultiPoint & { crs: typeof CRS };
-type MultiLineStringWithCRS = MultiLineString & { crs: typeof CRS };
-type MultiPolygonWithCRS = MultiPolygon & { crs: typeof CRS };
-
-type GeometryWithCRS =
-    | PointWithCRS
-    | LineStringWithCRS
-    | PolygonWithCRS
-    | MultiPointWithCRS
-    | MultiLineStringWithCRS
-    | MultiPolygonWithCRS;
-
-function getGeometry(geometry: Geometry): GeometryWithCRS {
+function getGeometry(geometry: Geometry): GeoJSONGeometry {
     const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
 
-    const mapping: Record<number, () => GeometryWithCRS> = {
-        [GEOMETRY_TYPE.POINT]: () => ({ type: "Point", coordinates: coords[0][0] }) as PointWithCRS,
-        [GEOMETRY_TYPE.LINESTRING]: () => ({ type: "LineString", coordinates: coords[0] }) as LineStringWithCRS,
-        [GEOMETRY_TYPE.POLYGON]: () => ({ type: "Polygon", coordinates: coords }) as PolygonWithCRS,
-        [GEOMETRY_TYPE.MULTIPOINT]: () =>
-            ({ type: "MultiPoint", coordinates: coords.map((r) => r[0]) }) as MultiPointWithCRS,
-        [GEOMETRY_TYPE.MULTILINESTRING]: () =>
-            ({ type: "MultiLineString", coordinates: coords }) as MultiLineStringWithCRS,
+    const mapping: Record<number, () => GeoJSONGeometry> = {
+        [GEOMETRY_TYPE.POINT]: () => ({ type: "Point", coordinates: coords[0][0] }) as Point,
+        [GEOMETRY_TYPE.LINESTRING]: () => ({ type: "LineString", coordinates: coords[0] }) as LineString,
+        [GEOMETRY_TYPE.POLYGON]: () => ({ type: "Polygon", coordinates: coords }) as Polygon,
+        [GEOMETRY_TYPE.MULTIPOINT]: () => ({ type: "MultiPoint", coordinates: coords.map((r) => r[0]) }) as MultiPoint,
+        [GEOMETRY_TYPE.MULTILINESTRING]: () => ({ type: "MultiLineString", coordinates: coords }) as MultiLineString,
         [GEOMETRY_TYPE.MULTIPOLYGON]: () =>
-            ({ type: "MultiPolygon", coordinates: coords.map((r) => [r]) }) as MultiPolygonWithCRS,
+            ({ type: "MultiPolygon", coordinates: coords.map((r) => [r]) }) as MultiPolygon,
     };
 
     const result = mapping[geometry.type]?.();
     if (!result) throw new Error(`Unsupported geometry type: ${geometry.type}`);
 
-    return { ...result, crs: CRS };
+    return result;
 }
 
 type MatchableValue = string | number | boolean | null | MatchableValue[] | { [key: string]: MatchableValue };
