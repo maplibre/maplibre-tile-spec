@@ -13,7 +13,6 @@ import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 
-
 export function decodeString(
     name: string,
     data: Uint8Array,
@@ -249,7 +248,12 @@ export function decodeSharedDictionary(
         }
 
         const presentStreamMetadata = decodeStreamMetadata(data, offset);
-        const presentStream = decodeBooleanRle(data, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
+        const presentStream = decodeBooleanRle(
+            data,
+            presentStreamMetadata.numValues,
+            presentStreamMetadata.byteLength,
+            offset,
+        );
         const offsetStreamMetadata = decodeStreamMetadata(data, offset);
         const offsetCount = offsetStreamMetadata.decompressedCount;
         const isNullable = offsetCount !== numFeatures;

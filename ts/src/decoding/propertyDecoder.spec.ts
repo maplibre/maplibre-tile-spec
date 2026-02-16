@@ -551,10 +551,7 @@ describe("decodePropertyColumn - Edge Cases", () => {
     });
 
     it("should return null for complex type with numStreams === 0", () => {
-        const columnMetadata = createColumnMetadataForStruct("structColumn", [
-            { name: "field1" },
-            { name: "field2" },
-        ]);
+        const columnMetadata = createColumnMetadataForStruct("structColumn", [{ name: "field1" }, { name: "field2" }]);
         const offset = new IntWrapper(0);
         const data = new Uint8Array(0);
 

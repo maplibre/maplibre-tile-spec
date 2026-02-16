@@ -1,0 +1,25 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4,
+          47
+        ]
+      },
+      "id": 0,
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "active": true,
+        "count": 42,
+        "name": "Test Point",
+        "precision": 0.12345679,
+        "temp": 25.5
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

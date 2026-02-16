@@ -193,7 +193,6 @@ describe("embeddedTilesetMetadataDecoder", () => {
                 }).toThrow("Unsupported field type code 999. Supported: 10-29(scalars), 30(STRUCT)");
             });
         });
-
     });
 
     describe("decodeEmbeddedTileSetMetadata", () => {

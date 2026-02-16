@@ -5,24 +5,19 @@
         "type": "LineString",
         "coordinates": [
           [
-            0,
-            0
+            4,
+            47
           ],
           [
-            50,
-            0
+            12,
+            53
           ]
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
-        "layer": "line"
+        "_extent": 4096,
+        "_layer": "layer1"
       },
       "type": "Feature"
     }

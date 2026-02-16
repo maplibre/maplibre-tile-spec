@@ -308,7 +308,12 @@ describe("decodeLongStream", () => {
         it("should decode DELTA with RLE", () => {
             const numRleValues = 5;
             const runs = 3;
-            const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
+            const metadata = createRleMetadata(
+                LogicalLevelTechnique.DELTA,
+                LogicalLevelTechnique.RLE,
+                runs,
+                numRleValues,
+            );
             const expectedValues = new BigInt64Array([10n, 12n, 14n, 15n, 16n]);
             const data = encodeInt64SignedDeltaRle([
                 [1, 10n],
@@ -325,7 +330,12 @@ describe("decodeLongStream", () => {
         it("should decode DELTA with RLE with all non-null values", () => {
             const numRleValues = 5;
             const runs = 3;
-            const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
+            const metadata = createRleMetadata(
+                LogicalLevelTechnique.DELTA,
+                LogicalLevelTechnique.RLE,
+                runs,
+                numRleValues,
+            );
             const expectedValues = new BigInt64Array([10n, 12n, 14n, 15n, 16n]);
             const data = encodeInt64SignedDeltaRle([
                 [1, 10n],
@@ -343,7 +353,12 @@ describe("decodeLongStream", () => {
         it("should decode DELTA with RLE with null values", () => {
             const numRleValues = 3;
             const runs = 2;
-            const metadata = createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, numRleValues);
+            const metadata = createRleMetadata(
+                LogicalLevelTechnique.DELTA,
+                LogicalLevelTechnique.RLE,
+                runs,
+                numRleValues,
+            );
             const expectedValues = new BigInt64Array([10n, 0n, 12n, 0n, 14n]);
             const data = encodeInt64SignedDeltaRle([
                 [1, 10n],
@@ -400,7 +415,12 @@ describe("decodeLongStream", () => {
         it("should decode RLE", () => {
             const numRleValues = 5;
             const runs = 2;
-            const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
+            const metadata = createRleMetadata(
+                LogicalLevelTechnique.RLE,
+                LogicalLevelTechnique.NONE,
+                runs,
+                numRleValues,
+            );
             const expectedValues = new BigInt64Array([100n, 100n, 100n, -50n, -50n]);
             const data = encodeInt64SignedRle([
                 [3, 100n],
@@ -416,7 +436,12 @@ describe("decodeLongStream", () => {
         it("should decode RLE with all non-null values", () => {
             const numRleValues = 5;
             const runs = 2;
-            const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
+            const metadata = createRleMetadata(
+                LogicalLevelTechnique.RLE,
+                LogicalLevelTechnique.NONE,
+                runs,
+                numRleValues,
+            );
             const expectedValues = new BigInt64Array([100n, 100n, 100n, -50n, -50n]);
             const data = encodeInt64SignedRle([
                 [3, 100n],
@@ -433,7 +458,12 @@ describe("decodeLongStream", () => {
         it("should decode RLE with null values", () => {
             const numRleValues = 3;
             const runs = 2;
-            const metadata = createRleMetadata(LogicalLevelTechnique.RLE, LogicalLevelTechnique.NONE, runs, numRleValues);
+            const metadata = createRleMetadata(
+                LogicalLevelTechnique.RLE,
+                LogicalLevelTechnique.NONE,
+                runs,
+                numRleValues,
+            );
             const expectedValues = new BigInt64Array([100n, 0n, 100n, 0n, -50n]);
             const data = encodeInt64SignedRle([
                 [2, 100n],
