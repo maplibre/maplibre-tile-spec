@@ -6,13 +6,7 @@
         "coordinates": [
           4,
           47
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
@@ -28,13 +22,7 @@
         "coordinates": [
           12,
           53
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
@@ -50,13 +38,7 @@
         "coordinates": [
           18,
           45
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
@@ -72,13 +54,7 @@
         "coordinates": [
           13,
           48
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {

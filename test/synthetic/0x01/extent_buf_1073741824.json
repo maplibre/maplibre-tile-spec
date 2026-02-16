@@ -12,13 +12,7 @@
             1073741866,
             1073741866
           ]
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
