@@ -9,14 +9,15 @@ keywords.workspace = true
 categories.workspace = true
 rust-version.workspace = true
 
-[features]
-default = ["cli"]
-cli = ["dep:clap"]
-
 [[bin]]
 name = "mlt-nom"
 path = "src/main.rs"
 required-features = ["cli"]
+
+[features]
+default = ["cli"]
+cli = ["dep:clap"]
+
 [dependencies]
 #galileo-mvt = "0.2.1"
 #mlt = { path = "../mlt" }
