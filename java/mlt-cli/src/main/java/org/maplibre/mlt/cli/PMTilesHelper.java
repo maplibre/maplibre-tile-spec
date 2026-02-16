@@ -19,8 +19,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -30,11 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
 
 public class PMTilesHelper {
   /// Encode the MVT tiles in a PMTiles file
@@ -118,14 +113,7 @@ public class PMTilesHelper {
                 tilesProcessed,
                 totalTileCount,
                 new AtomicBoolean(false), // directoryComplete
-                success,
-                config.columnMappings(),
-                config.conversionConfig(),
-                config.tessellateSource(),
-                config.sortFeaturesPattern(),
-                config.regenIDsPattern(),
-                config.continueOnError(),
-                config.verboseLevel());
+                success);
 
         final var processTile = getProcessTileFunction(readerSupplier, tileWriter, state);
 
@@ -193,7 +181,7 @@ public class PMTilesHelper {
         .forEach(
             tileCoord -> {
               state.totalTileCount.incrementAndGet();
-              if (state.continueOnError || state.success.get()) {
+              if (state.encodeConfig().continueOnError() || state.success.get()) {
                 try {
                   CliUtil.runTask(
                       threadPool,
@@ -213,7 +201,7 @@ public class PMTilesHelper {
     }
   }
 
-  /// Produce a callable function for processing a single tile,capturing everything
+  /// Produce a callable function for processing a single tile, capturing everything
   /// it needs, suitable for submitting to a thread pool
   private static Function<TileCoord, Boolean> getProcessTileFunction(
       @NotNull final Supplier<ReadablePmtiles> readerSupplier,
@@ -223,7 +211,7 @@ public class PMTilesHelper {
       final var tileLabel = String.format("%d:%d,%d", tileCoord.z(), tileCoord.x(), tileCoord.y());
       final var tileCount = state.tilesProcessed.incrementAndGet();
 
-      if (state.verboseLevel == 0) {
+      if (state.encodeConfig().verboseLevel() == 0) {
         if (!state.directoryComplete.get()) {
           // Still fetching tile coordinates
           if (tileCount < 2 || (tileCount % 1000 == 0)) {
@@ -249,7 +237,7 @@ public class PMTilesHelper {
 
       byte[] tileData = reader.getTile(tileCoord);
       if (tileData == null) {
-        if (state.verboseLevel > 1) {
+        if (state.encodeConfig().verboseLevel() > 1) {
           System.err.printf("%s :  No tile data present%n", tileLabel);
         }
         return false;
@@ -260,20 +248,20 @@ public class PMTilesHelper {
         tileData = CliUtil.decompress(new ByteArrayInputStream(tileData));
       } catch (IOException ex) {
         System.err.printf("ERROR : Failed to decompress tile %s: %s%n", tileLabel, ex.getMessage());
-        if (state.verboseLevel > 1) {
+        if (state.encodeConfig().verboseLevel() > 1) {
           ex.printStackTrace(System.err);
         }
         return false;
       }
 
-      if (state.verboseLevel > 0) {
+      if (state.encodeConfig().verboseLevel() > 0) {
         final var extra =
             (rawSize != tileData.length) ? String.format(", %d compressed", rawSize) : "";
         System.err.printf("%s : Loaded (%d bytes%s)%n", tileLabel, tileData.length, extra);
       }
 
       final MutableBoolean didCompress = null; // force compression
-      var mltData =
+      final var mltData =
           Encode.convertTile(
               tileCoord.x(),
               tileCoord.y(),
@@ -283,11 +271,11 @@ public class PMTilesHelper {
               didCompress);
 
       if (mltData != null && mltData.length > 0) {
-        final var hash = TileArchiveWriter.generateContentHash(tileData);
+        final var hash = TileArchiveWriter.generateContentHash(mltData);
         synchronized (writer) {
-          writer.write(new TileEncodingResult(tileCoord, tileData, OptionalLong.of(hash)));
+          writer.write(new TileEncodingResult(tileCoord, mltData, OptionalLong.of(hash)));
         }
-      } else if (state.verboseLevel > 1) {
+      } else if (state.encodeConfig().verboseLevel() > 1) {
         System.err.printf("  Converted tile is empty, skipping%n");
       }
       return true;
@@ -317,12 +305,5 @@ public class PMTilesHelper {
       @NotNull AtomicLong tilesProcessed,
       @NotNull AtomicLong totalTileCount,
       @NotNull AtomicBoolean directoryComplete,
-      @NotNull AtomicBoolean success,
-      @NotNull Map<Pattern, List<ColumnMapping>> columnMappings,
-      @NotNull ConversionConfig conversionConfig,
-      @Nullable URI tessellateSource,
-      @Nullable Pattern sortFeaturesPattern,
-      @Nullable Pattern regenIDsPattern,
-      boolean continueOnError,
-      int verboseLevel) {}
+      @NotNull AtomicBoolean success) {}
 }
