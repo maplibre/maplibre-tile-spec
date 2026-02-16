@@ -3,11 +3,6 @@
 // Tests decode MLT files from test/synthetic/0x01/ and compare output against expected GeoJSON.
 // Tests are discovered automatically from filesystem - no hardcoded test names.
 // Known broken tests are listed in SKIPPED_TESTS map below.
-//
-// GeoJSON format matches Rust and TypeScript implementations:
-// - Layer name/extent added as _layer/_extent properties
-// - CRS section included (EPSG:0 for tile coordinates)
-// - Floating point comparison uses relative/absolute tolerance
 
 #include <gtest/gtest.h>
 
@@ -375,7 +370,7 @@ json ringToJson(const mlt::CoordVec& ring) {
     return result;
 }
 
-/// Convert geometry to GeoJSON with CRS
+/// Convert geometry to GeoJSON
 json geometryToGeoJson(const mlt::geometry::Geometry& geom) {
     json result;
 
