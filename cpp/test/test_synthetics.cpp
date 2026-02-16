@@ -29,7 +29,7 @@
 // Tests that are known to be unimplemented or broken
 const std::string numFeatError =
     "Decoder::Impl::makeFeatures incorrectly couples number of IDs to number of features. "
-    "0 ids -> 0 features, despite there being a geometry and maybe properties"
+    "0 ids -> 0 features, despite there being a geometry and maybe properties "
     "number of features is surfaced by layer.getFeatures and is the only way for this test to know what the tile "
     "contains. ";
 const std::map<std::string, std::string> SKIPPED_TESTS = {
