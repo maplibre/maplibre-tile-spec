@@ -84,6 +84,7 @@ public class CliUtil {
   @SuppressWarnings("unchecked")
   private static Map<String, Object> geometryToGeoJson(Geometry geometry) {
     var writer = new GeoJsonWriter();
+    writer.setEncodeCRS(false);
     Map<String, Object> map =
         new GsonBuilder()
             .serializeSpecialFloatingPointValues()

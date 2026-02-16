@@ -12,13 +12,7 @@
             12,
             53
           ]
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
@@ -49,13 +43,7 @@
               47
             ]
           ]
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
       "id": 0,
       "properties": {
