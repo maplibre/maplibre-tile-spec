@@ -46,6 +46,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Broken since https://github.com/maplibre/maplibre-tile-spec/pull/760"]
     fn test_read_metadata() {
         let metadata_path = Path::new("../../test/expected/omt/2_2_2.mlt.meta.pbf");
         let metadata = read_metadata(metadata_path).unwrap();

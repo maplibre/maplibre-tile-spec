@@ -16,7 +16,8 @@ public class CliUtil {
   private CliUtil() {}
 
   public static String printMLT(MapLibreTile mlTile) {
-    final var gson = new GsonBuilder().setPrettyPrinting().create();
+    final var gson =
+        new GsonBuilder().setPrettyPrinting().serializeSpecialFloatingPointValues().create();
     return gson.toJson(Map.of("layers", mlTile.layers().stream().map(CliUtil::toJSON).toList()));
   }
 
@@ -45,26 +46,26 @@ public class CliUtil {
   }
 
   public static String printMltGeoJson(MapLibreTile mlTile) {
-    final var gson = new GsonBuilder().setPrettyPrinting().create();
+    final var gson =
+        new GsonBuilder().setPrettyPrinting().serializeSpecialFloatingPointValues().create();
     var fc = new TreeMap<String, Object>();
     fc.put("type", "FeatureCollection");
     fc.put(
         "features",
         mlTile.layers().stream()
             .flatMap(
-                layer ->
-                    layer.features().stream()
-                        .map(feature -> featureToGeoJson(layer.name(), feature)))
+                layer -> layer.features().stream().map(feature -> featureToGeoJson(layer, feature)))
             .toList());
     return gson.toJson(fc);
   }
 
-  private static Map<String, Object> featureToGeoJson(String layerName, Feature feature) {
+  private static Map<String, Object> featureToGeoJson(Layer layer, Feature feature) {
     var f = new TreeMap<String, Object>();
     f.put("type", "Feature");
     f.put("id", feature.id());
     var props = getSortedNonNullProperties(feature);
-    props.put("layer", layerName);
+    props.put("_layer", layer.name());
+    props.put("_extent", layer.tileExtent());
     f.put("properties", props);
     var geom = feature.geometry();
     f.put("geometry", geom == null ? null : geometryToGeoJson(geom));
@@ -83,8 +84,12 @@ public class CliUtil {
   @SuppressWarnings("unchecked")
   private static Map<String, Object> geometryToGeoJson(Geometry geometry) {
     var writer = new GeoJsonWriter();
+    writer.setEncodeCRS(false);
     Map<String, Object> map =
-        new GsonBuilder().create().fromJson(writer.write(geometry), Map.class);
+        new GsonBuilder()
+            .serializeSpecialFloatingPointValues()
+            .create()
+            .fromJson(writer.write(geometry), Map.class);
     if (map.containsKey("coordinates")) {
       map.put("coordinates", intifyCoordinates(map.get("coordinates")));
     }
