@@ -2,6 +2,7 @@ set(TEST_SOURCES
     test_decode.cpp
     test_fsst.cpp
     test_packed_bitset.cpp
+    test_synthetics.cpp
     test_util.cpp
     test_varint.cpp
 )
