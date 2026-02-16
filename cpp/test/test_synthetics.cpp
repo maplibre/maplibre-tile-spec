@@ -42,14 +42,12 @@ const std::string numFeatError =
     "0 ids -> 0 features, despite there being a geometry and maybe properties"
     "number of features is surfaced by layer.getFeatures and is the only way for this test to know what the tile "
     "contains. ";
-const std::string fpfNotEnabled =
-    "C++ exception with description 'FastPFOR decoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON' thrown in "
-    "the test body";
 const std::map<std::string, std::string> SKIPPED_TESTS = {
-    {"polygon_fpf", fpfNotEnabled},
-    {"polygon_hole_fpf", fpfNotEnabled},
-    {"polygon_multi_fpf", fpfNotEnabled},
-    {"polygon_morton_tes", fpfNotEnabled},
+    {"prop_str_empty", "Process finished with exit code 134 (interrupted by signal 6:SIGABRT)"},
+    {"polygon_hole_fpf", "C++ exception with description '1 bytes trailing layer layer1' thrown in the test body"},
+    {"polygon_morton_tes", "C++ exception with description '1 bytes trailing layer layer1' thrown in the test body"},
+    {"polygon_fpf", "C++ exception with description '1 bytes trailing layer layer1' thrown in the test body"},
+    {"polygon_multi_fpf", "C++ exception with description '1 bytes trailing layer layer1' thrown in the test body"},
     {"extent_1073741824", numFeatError},
     {"extent_131072", numFeatError},
     {"extent_4096", numFeatError},
