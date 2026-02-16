@@ -127,7 +127,7 @@ std::vector<std::pair<std::string, fs::path>> findSyntheticTests(const fs::path&
 // Instantiate tests for all synthetic test files found
 INSTANTIATE_TEST_SUITE_P(Synthetic0x01,
                          SyntheticTest,
-                         ::testing::ValuesIn(findSyntheticTests("../../../test/synthetic/0x01")),
+                         ::testing::ValuesIn(findSyntheticTests("../test/synthetic/0x01")),
                          [](const testing::TestParamInfo<SyntheticTest::ParamType>& info) {
                              // Use test name as the test case name
                              return info.param.first;
