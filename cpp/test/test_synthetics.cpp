@@ -140,6 +140,18 @@ std::vector<std::pair<std::string, std::filesystem::path>> findSyntheticTests(co
     return tests;
 }
 
+/// Preprocess JSON text to handle NaN and Infinity values
+static std::string preprocessJson5ToJsonText(const std::string& text) {
+    // \b is a word boundary anchor.
+    // It matches the position between a word character and a non-word character.
+    // This prevents matching "Infinity" inside "MyInfinityVariable".
+    static const std::regex spec_values(R"(\b(Infinity|-Infinity|NaN)\b)");
+
+    // We replace matches with "null" so that nlohmann::json can parse it.
+    // We then handle the null-to-float conversion in assertJsonApproxEqual.
+    return std::regex_replace(text, spec_values, "null");
+}
+
 // Instantiate tests for all synthetic test files found
 INSTANTIATE_TEST_SUITE_P(Synthetic0x01,
                          SyntheticTest,
@@ -155,16 +167,16 @@ TEST_P(SyntheticTest, Decode) {
     const auto mltPath = dir / (testName + ".mlt");
     const auto jsonPath = dir / (testName + ".json");
 
+    const auto expectedJson5Text = mlt::util::loadTextFile(jsonPath);
+    const mlt::util::GeoJsonFeatureCollection expected = nlohmann::json::parse(expectedJson5Text);
+
     const auto mltData = mlt::util::loadFile(mltPath);
     const auto tile = mlt::Decoder().decode({mltData.data(), mltData.size()});
-
-    const auto actual = mlt::util::GeoJson(tile);
-
-    const auto expectedText = mlt::util::loadTextFile(jsonPath);
-    const auto expected = mlt::util::GeoJson(expectedText);
+    const auto actual = mlt::util::GeoJsonFeatureCollection(tile);
 
     try {
-        actual.assertApproxEqual(expected);
+        mlt::util::JsonComparator comparator;
+        comparator.assertApproxEqual(expected, actual);
     } catch (const std::runtime_error& e) {
         FAIL() << "\n"
                << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -173,10 +185,10 @@ TEST_P(SyntheticTest, Decode) {
                << "Error:    " << e.what() << "\n"
                << "\n"
                << "Expected:\n"
-               << expected.value.dump(2) << "\n"
+               << expected.dump(2) << "\n"
                << "\n"
                << "Actual:\n"
-               << actual.value.dump(2) << "\n"
+               << actual.dump(2) << "\n"
                << "Files:\n"
                << "  MLT:      " << mltPath << "\n"
                << "  Expected: " << jsonPath << "\n"
