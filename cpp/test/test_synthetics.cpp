@@ -241,7 +241,7 @@ bool floatsApproxEqual(const double actual, const double expected) {
 std::string join_with_dot(const std::vector<std::string>& parts) {
     std::string result;
     for (size_t i = 0; i < parts.size(); ++i) {
-        if (i > 0 && !parts[i].starts_with('[')) result += '.';
+        if (!parts[i].starts_with('[')) result += '.';
         result += parts[i];
     }
     return result;
