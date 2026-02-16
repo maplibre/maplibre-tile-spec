@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
+use hex::ToHex as _;
 use integer_encoding::VarInt;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
@@ -226,15 +227,35 @@ fn write_seq<T>(
     to_str: fn(&T) -> String,
 ) -> std::fmt::Result {
     if let Some(v) = value {
-        let items = v.iter().take(8).map(to_str).collect::<Vec<_>>().join(",");
-        write!(f, "[{items}")?;
-        if v.len() > 8 {
-            write!(f, ", ...; {}]", v.len())
+        if f.alternate() {
+            let items = v.iter().map(to_str).collect::<Vec<_>>().join(",");
+            write!(f, "[{items}; {}]", v.len())
         } else {
-            write!(f, "]")
+            let items = v.iter().take(8).map(to_str).collect::<Vec<_>>().join(",");
+            write!(f, "[{items}")?;
+            if v.len() > 8 {
+                write!(f, ", ...; {}]", v.len())
+            } else {
+                write!(f, "]")
+            }
         }
     } else {
         write!(f, "None")
+    }
+}
+
+pub(crate) fn fmt_byte_array(data: &[u8], f: &mut Formatter<'_>) -> std::fmt::Result {
+    if f.alternate() {
+        let vals = data.encode_hex_upper::<String>();
+        write!(f, "[0x{vals}; {}]", data.len())
+    } else {
+        let vals = (&data[..8.min(data.len())]).encode_hex_upper::<String>();
+        write!(
+            f,
+            "[0x{vals}{}; {}]",
+            if data.len() <= 8 { "" } else { "..." },
+            data.len()
+        )
     }
 }
 
