@@ -39,33 +39,31 @@ private:
         return result;
     }
 
-    /// Convert a coordinate to JSON array [x, y]
-    static json coordToJson(const mlt::Coordinate& coord) { return json::array({coord.x, coord.y}); }
-
-    static json coordinateRingToJson(const mlt::CoordVec& ring) {
+    static json coordinateRingToJson(const CoordVec& ring) {
         json result = json::array();
         for (const auto& coord : ring) {
-            result.push_back(coordToJson(coord));
+            result.push_back(json::array({coord.x, coord.y}));
         }
         return result;
     }
 
-    static json geometryToGeoJson(const mlt::geometry::Geometry& geom) {
+    static json geometryToGeoJson(const geometry::Geometry& geom) {
         json result;
 
         switch (geom.type) {
-            case mlt::metadata::tileset::GeometryType::POINT: {
-                const auto& point = static_cast<const mlt::geometry::Point&>(geom);
-                result = {{"type", "Point"}, {"coordinates", coordToJson(point.getCoordinate())}};
+            case metadata::tileset::GeometryType::POINT: {
+                const auto& point = static_cast<const geometry::Point&>(geom);
+                const auto coord = point.getCoordinate();
+                result = {{"type", "Point"}, {"coordinates", json::array({coord.x, coord.y})}};
                 break;
             }
-            case mlt::metadata::tileset::GeometryType::LINESTRING: {
-                const auto& line = static_cast<const mlt::geometry::LineString&>(geom);
+            case metadata::tileset::GeometryType::LINESTRING: {
+                const auto& line = static_cast<const geometry::LineString&>(geom);
                 result = {{"type", "LineString"}, {"coordinates", coordinateRingToJson(line.getCoordinates())}};
                 break;
             }
-            case mlt::metadata::tileset::GeometryType::POLYGON: {
-                const auto& poly = static_cast<const mlt::geometry::Polygon&>(geom);
+            case metadata::tileset::GeometryType::POLYGON: {
+                const auto& poly = static_cast<const geometry::Polygon&>(geom);
                 json rings = json::array();
                 for (const auto& ring : poly.getRings()) {
                     rings.push_back(coordinateRingToJson(ring));
@@ -73,17 +71,17 @@ private:
                 result = {{"type", "Polygon"}, {"coordinates", rings}};
                 break;
             }
-            case mlt::metadata::tileset::GeometryType::MULTIPOINT: {
-                const auto& multipoint = static_cast<const mlt::geometry::MultiPoint&>(geom);
+            case metadata::tileset::GeometryType::MULTIPOINT: {
+                const auto& multipoint = static_cast<const geometry::MultiPoint&>(geom);
                 json coords = json::array();
                 for (const auto& coord : multipoint.getCoordinates()) {
-                    coords.push_back(coordToJson(coord));
+                    coords.push_back(json::array({coord.x, coord.y}));
                 }
                 result = {{"type", "MultiPoint"}, {"coordinates", coords}};
                 break;
             }
-            case mlt::metadata::tileset::GeometryType::MULTILINESTRING: {
-                const auto& multiline = static_cast<const mlt::geometry::MultiLineString&>(geom);
+            case metadata::tileset::GeometryType::MULTILINESTRING: {
+                const auto& multiline = static_cast<const geometry::MultiLineString&>(geom);
                 json lines = json::array();
                 for (const auto& line : multiline.getLineStrings()) {
                     lines.push_back(coordinateRingToJson(line));
@@ -91,8 +89,8 @@ private:
                 result = {{"type", "MultiLineString"}, {"coordinates", lines}};
                 break;
             }
-            case mlt::metadata::tileset::GeometryType::MULTIPOLYGON: {
-                const auto& multipoly = static_cast<const mlt::geometry::MultiPolygon&>(geom);
+            case metadata::tileset::GeometryType::MULTIPOLYGON: {
+                const auto& multipoly = static_cast<const geometry::MultiPolygon&>(geom);
                 json polygons = json::array();
                 for (const auto& poly : multipoly.getPolygons()) {
                     json rings = json::array();
@@ -119,7 +117,7 @@ private:
     template <class... Ts>
     overloaded(Ts...) -> overloaded<Ts...>;
 
-    static json propertyToJson(const mlt::Property& prop) {
+    static json propertyToJson(const Property& prop) {
         return std::visit(overloaded{[](std::nullptr_t) -> json { return nullptr; },
                                      [](bool v) -> json { return v; },
                                      [](int32_t v) -> json { return v; },
@@ -146,7 +144,7 @@ private:
                           prop);
     }
 
-    static json featureToGeoJson(const mlt::Layer& layer, const mlt::Feature& feature) {
+    static json featureToGeoJson(const Layer& layer, const Feature& feature) {
         json properties = json::object();
         properties["_layer"] = layer.getName();
         properties["_extent"] = layer.getExtent();
@@ -337,10 +335,12 @@ private:
     }
 
 public:
-    explicit GeoJson(const std::string& text) { const auto processedText = preprocessJson5ToJsonText(text); }
-    explicit GeoJson(const mlt::MapLibreTile& tile) { tileToGeoJson(tile); }
+    explicit GeoJson(const std::string& text)
+        : value(json::parse(preprocessJson5ToJsonText(text))) {}
+    explicit GeoJson(const mlt::MapLibreTile& tile)
+        : value(tileToGeoJson(tile)) {}
 
-    /// asserts that the two geojson objects equal except small floating point deviations
+    /// Asserts for equality except small floating point deviations
     void assertApproxEqual(const GeoJson& other) const {
         std::vector<std::string> path;
         assertJsonApproxEqual(this->value, other.value, path);

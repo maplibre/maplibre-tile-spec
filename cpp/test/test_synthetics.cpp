@@ -148,7 +148,7 @@ INSTANTIATE_TEST_SUITE_P(Synthetic0x01,
                              return info.param.first;
                          });
 
-TEST_P(SyntheticTest, DecodeSynthetic) {
+TEST_P(SyntheticTest, Decode) {
     const auto& [testName, dir] = GetParam();
 
     const auto mltPath = dir / (testName + ".mlt");
