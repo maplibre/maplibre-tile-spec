@@ -36,6 +36,7 @@ enum OutputFormat {
     #[default]
     Text,
     /// `GeoJSON` output
+    #[clap(alias = "geojson")]
     GeoJson,
 }
 
