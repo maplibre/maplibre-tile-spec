@@ -24,12 +24,11 @@
 #include <set>
 #include <algorithm>
 #include <ranges>
+#include "mlt/util/file_io.hpp"
 
 #if MLT_WITH_JSON
 #include <format>
 #include <nlohmann/json.hpp>
-
-namespace fs = std::filesystem;
 
 // Tolerance for floating point comparisons
 constexpr double RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100.0;
@@ -108,7 +107,7 @@ const std::map<std::string, std::string> SKIPPED_TESTS = {
     {"props_shared_dict_fsst", numFeatError},
 };
 
-class SyntheticTest : public ::testing::TestWithParam<std::pair<std::string, fs::path>> {
+class SyntheticTest : public ::testing::TestWithParam<std::pair<std::string, std::filesystem::path>> {
 protected:
     void SetUp() override {
         const auto& [testName, _] = GetParam();
@@ -118,14 +117,14 @@ protected:
     }
 };
 
-void testSyntheticPair(const std::string& testName, const fs::path& dir);
+void testSyntheticPair(const std::string& testName, const std::filesystem::path& dir);
 
 TEST_P(SyntheticTest, DecodeSynthetic) {
     const auto& [testName, dir] = GetParam();
     testSyntheticPair(testName, dir);
 }
 
-std::vector<std::pair<std::string, fs::path>> findSyntheticTests(const fs::path& dir);
+std::vector<std::pair<std::string, std::filesystem::path>> findSyntheticTests(const std::filesystem::path& dir);
 
 // Instantiate tests for all synthetic test files found
 INSTANTIATE_TEST_SUITE_P(Synthetic0x01,
@@ -136,40 +135,7 @@ INSTANTIATE_TEST_SUITE_P(Synthetic0x01,
                              return info.param.first;
                          });
 
-namespace io {
-/// Load binary file contents
-std::vector<char> loadFile(const fs::path& path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + path.string());
-    }
-
-    const auto size = file.tellg();
-    file.seekg(0);
-
-    std::vector<char> buffer(size);
-    if (!file.read(buffer.data(), size)) {
-        throw std::runtime_error("Failed to read file: " + path.string());
-    }
-
-    return buffer;
-}
-
-/// Load text file contents
-std::string loadTextFile(const fs::path& path) {
-    std::ifstream file(path);
-    if (!file) {
-        throw std::runtime_error("Failed to open file: " + path.string());
-    }
-
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
-} // namespace io
-
 namespace json_encoding {
-
 using json = nlohmann::json;
 
 /// Preprocess JSON text to handle NaN and Infinity values
@@ -372,7 +338,6 @@ json ringToJson(const mlt::CoordVec& ring) {
     return result;
 }
 
-/// Convert geometry to GeoJSON
 json geometryToGeoJson(const mlt::geometry::Geometry& geom) {
     json result;
 
@@ -469,7 +434,6 @@ json propertyToJson(const mlt::Property& prop) {
                       prop);
 }
 
-/// Convert feature to GeoJSON
 json featureToGeoJson(const mlt::Layer& layer, const mlt::Feature& feature) {
     json properties = json::object();
     properties["_layer"] = layer.getName();
@@ -488,7 +452,6 @@ json featureToGeoJson(const mlt::Layer& layer, const mlt::Feature& feature) {
             {"properties", properties}};
 }
 
-/// Convert entire tile to FeatureCollection GeoJSON
 json tileToGeoJson(const mlt::MapLibreTile& tile) {
     json features = json::array();
 
@@ -502,29 +465,28 @@ json tileToGeoJson(const mlt::MapLibreTile& tile) {
 }
 } // namespace json_encoding
 
-/// Find all test pairs (mlt + json files) in the synthetic test directory
-std::vector<std::pair<std::string, fs::path>> findSyntheticTests(const fs::path& dir) {
+std::vector<std::pair<std::string, std::filesystem::path>> findSyntheticTests(const std::filesystem::path& dir) {
     std::set<std::string> testNames;
 
-    if (!fs::exists(dir)) {
+    if (!std::filesystem::exists(dir)) {
         return {};
     }
 
     // Find all .mlt files and extract test names
-    for (const auto& entry : fs::directory_iterator(dir)) {
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
         if (entry.is_regular_file() && entry.path().extension() == ".mlt") {
             testNames.insert(entry.path().stem().string());
         }
     }
 
     // Create pairs of test name and path
-    std::vector<std::pair<std::string, fs::path>> tests;
+    std::vector<std::pair<std::string, std::filesystem::path>> tests;
     for (const auto& name : testNames) {
         const auto mltPath = dir / (name + ".mlt");
         const auto jsonPath = dir / (name + ".json");
 
         // Both files must exist
-        if (fs::exists(mltPath) && fs::exists(jsonPath)) {
+        if (std::filesystem::exists(mltPath) && std::filesystem::exists(jsonPath)) {
             tests.emplace_back(name, dir);
         }
     }
@@ -534,26 +496,21 @@ std::vector<std::pair<std::string, fs::path>> findSyntheticTests(const fs::path&
 }
 
 /// Perform a single synthetic test
-void testSyntheticPair(const std::string& testName, const fs::path& dir) {
+void testSyntheticPair(const std::string& testName, const std::filesystem::path& dir) {
     const auto mltPath = dir / (testName + ".mlt");
     const auto jsonPath = dir / (testName + ".json");
 
-    // Load and decode MLT file
-    const auto mltData = io::loadFile(mltPath);
-    auto tile = mlt::Decoder().decode({mltData.data(), mltData.size()});
+    const auto mltData = mlt::util::loadFile(mltPath);
+    const auto tile = mlt::Decoder().decode({mltData.data(), mltData.size()});
 
-    // Convert to GeoJSON
     const auto actualJson = json_encoding::tileToGeoJson(tile);
 
-    // Load expected GeoJSON
-    const auto expectedText = io::loadTextFile(jsonPath);
+    const auto expectedText = mlt::util::loadTextFile(jsonPath);
     const auto processedText = json_encoding::preprocessJsonText(expectedText);
     const auto expectedJson = json_encoding::json::parse(processedText);
 
-    // Compare with tolerance for floats
-    std::vector<std::string> path;
-
     try {
+        std::vector<std::string> path;
         json_encoding::assertJsonApproxEqual(actualJson, expectedJson, path);
     } catch (const std::runtime_error& e) {
         FAIL() << "\n"
