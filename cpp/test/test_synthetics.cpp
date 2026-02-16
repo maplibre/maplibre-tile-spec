@@ -23,6 +23,7 @@
 #include <vector>
 
 #if MLT_WITH_JSON
+#include <format>
 #include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
@@ -238,6 +239,15 @@ bool floatsApproxEqual(const double actual, const double expected) {
     return relativeError <= RELATIVE_FLOAT_TOLERANCE;
 }
 
+std::string join_with_dot(const std::vector<std::string>& parts) {
+    std::string result;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (i > 0 && !parts[i].starts_with('[')) result += '.';
+        result += parts[i];
+    }
+    return result;
+}
+
 /// Recursively compare JSON values with float tolerance
 bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::string>& path, std::string& errorMsg) {
     // Handle numeric comparisons - treat all number types as equivalent
@@ -260,7 +270,7 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
 
         if (!floatsApproxEqual(actualVal, expectedVal)) {
             std::ostringstream ss;
-            ss << "Numeric mismatch at " << nlohmann::json(path).dump() << ": ";
+            ss << "Numeric mismatch at " << join_with_dot(path) << ": ";
             ss << "expected " << expectedVal << ", got " << actualVal;
             errorMsg = ss.str();
             return false;
@@ -287,7 +297,7 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
     // For non-numeric types, check type equality
     if (actual.type() != expected.type()) {
         std::ostringstream ss;
-        ss << "Type mismatch at " << nlohmann::json(path).dump() << ": ";
+        ss << "Type mismatch at " << join_with_dot(path) << ": ";
         ss << "expected " << expected.type_name() << ", got " << actual.type_name();
         errorMsg = ss.str();
         return false;
@@ -296,14 +306,14 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
     if (actual.is_array()) {
         if (actual.size() != expected.size()) {
             std::ostringstream ss;
-            ss << "Array size mismatch at " << nlohmann::json(path).dump() << ": ";
+            ss << "Array size mismatch at " << join_with_dot(path) << ": ";
             ss << "expected " << expected.size() << " elements, got " << actual.size();
             errorMsg = ss.str();
             return false;
         }
 
         for (size_t i = 0; i < actual.size(); ++i) {
-            path.push_back(std::to_string(i));
+            path.push_back(std::format("[{}]", i));
             if (!jsonApproxEqual(actual[i], expected[i], path, errorMsg)) {
                 return false;
             }
@@ -317,7 +327,7 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
         for (auto it = expected.begin(); it != expected.end(); ++it) {
             if (!actual.contains(it.key())) {
                 std::ostringstream ss;
-                ss << "Missing key at " << nlohmann::json(path).dump() << ": " << it.key();
+                ss << "Missing key at " << join_with_dot(path) << ": " << it.key();
                 errorMsg = ss.str();
                 return false;
             }
@@ -327,7 +337,7 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
         for (auto it = actual.begin(); it != actual.end(); ++it) {
             if (!expected.contains(it.key())) {
                 std::ostringstream ss;
-                ss << "Extra key at " << nlohmann::json(path).dump() << ": " << it.key();
+                ss << "Extra key at " << join_with_dot(path) << ": " << it.key();
                 errorMsg = ss.str();
                 return false;
             }
@@ -347,7 +357,7 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
     // For primitives, use direct comparison
     if (actual != expected) {
         std::ostringstream ss;
-        ss << "Value mismatch at " << nlohmann::json(path).dump() << ": ";
+        ss << "Value mismatch at " << join_with_dot(path) << ": ";
         ss << "expected " << expected << ", got " << actual;
         errorMsg = ss.str();
         return false;
