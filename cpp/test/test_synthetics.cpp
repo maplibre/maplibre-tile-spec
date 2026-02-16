@@ -21,6 +21,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <set>
+#include <algorithm>
+#include <ranges>
 
 #if MLT_WITH_JSON
 #include <format>
