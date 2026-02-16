@@ -168,7 +168,8 @@ TEST_P(SyntheticTest, Decode) {
     const auto jsonPath = dir / (testName + ".json");
 
     const auto expectedJson5Text = mlt::util::loadTextFile(jsonPath);
-    const auto expectedJson = nlohmann::json::parse(expectedJson5Text);
+    const auto expectedJsonText = preprocessJson5ToJsonText(expectedJson5Text);
+    const auto expectedJson = nlohmann::json::parse(expectedJsonText);
     const auto expected = expectedJson.get<mlt::util::GeoJsonFeatureCollection>();
 
     const auto mltData = mlt::util::loadFile(mltPath);
