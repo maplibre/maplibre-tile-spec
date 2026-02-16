@@ -1,8 +1,8 @@
+use std::fmt;
 use std::fmt::Debug;
 
 use borrowme::borrowme;
 use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
-use hex::ToHex as _;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingPhysicalStreamType;
@@ -18,12 +18,30 @@ pub struct Stream<'a> {
 }
 
 /// Metadata about a raw stream
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {
     pub physical_type: PhysicalStreamType,
     pub num_values: u32,
     pub logical_decoder: LogicalDecoder,
     pub physical_decoder: PhysicalDecoder,
+}
+
+impl Debug for StreamMeta {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // ensure we process all fields, and format them without the alt field
+        let Self {
+            physical_type,
+            num_values,
+            logical_decoder,
+            physical_decoder,
+        } = self;
+        f.debug_struct("StreamMeta")
+            .field("physical_type", &format_args!("{physical_type:?}"))
+            .field("num_values", &format_args!("{num_values:?}"))
+            .field("logical_decoder", &format_args!("{logical_decoder:?}"))
+            .field("physical_decoder", &format_args!("{physical_decoder:?}"))
+            .finish()
+    }
 }
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
@@ -74,7 +92,7 @@ pub enum LengthType {
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum LogicalDecoder {
     None,
     Delta,
@@ -83,6 +101,20 @@ pub enum LogicalDecoder {
     Rle(RleMeta),
     Morton(MortonMeta),
     PseudoDecimal,
+}
+
+impl Debug for LogicalDecoder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::None => write!(f, "None"),
+            Self::Delta => write!(f, "Delta"),
+            Self::ComponentwiseDelta => write!(f, "ComponentwiseDelta"),
+            Self::PseudoDecimal => write!(f, "PseudoDecimal"),
+            Self::DeltaRle(v) => write!(f, "DeltaRle({v:?})"),
+            Self::Rle(v) => write!(f, "Rle({v:?})"),
+            Self::Morton(v) => write!(f, "Morton({v:?})"),
+        }
+    }
 }
 
 /// Physical decoder used for a column, as stored in the tile
@@ -155,12 +187,12 @@ macro_rules! stream_data {
             }
             impl<'a> Debug for $ty<'a> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    fmt_byte_array(self.data, f)
+                    $crate::utils::fmt_byte_array(self.data, f)
                 }
             }
             impl<'a> Debug for $owned {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    fmt_byte_array(&self.data, f)
+                    $crate::utils::fmt_byte_array(&self.data, f)
                 }
             }
         )+
@@ -522,16 +554,6 @@ impl PhysicalStreamType {
             _ => return None,
         })
     }
-}
-
-fn fmt_byte_array(data: &[u8], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let vals = (&data[..8.min(data.len())]).encode_hex_upper::<String>();
-    write!(
-        f,
-        "[0x{vals}{}; {}]",
-        if data.len() <= 8 { "" } else { "..." },
-        data.len()
-    )
 }
 
 impl LogicalValue {
