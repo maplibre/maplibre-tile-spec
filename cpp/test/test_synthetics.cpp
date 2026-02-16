@@ -15,8 +15,8 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <limits>
+#include <stdexcept>
 #include <map>
 #include <sstream>
 #include <string>
@@ -171,6 +171,7 @@ std::string loadTextFile(const fs::path& path) {
 namespace json_encoding {
 
 using json = nlohmann::json;
+
 /// Preprocess JSON text to handle NaN and Infinity values
 std::string preprocessJsonText(const std::string& text) {
     std::string result = text;
@@ -241,7 +242,7 @@ bool floatsApproxEqual(const double actual, const double expected) {
     return relativeError <= RELATIVE_FLOAT_TOLERANCE;
 }
 
-std::string join_with_dot(const std::vector<std::string>& parts) {
+std::string joinWithDot(const std::vector<std::string>& parts) {
     std::string result;
     for (size_t i = 0; i < parts.size(); ++i) {
         if (!parts[i].starts_with('[')) result += '.';
@@ -251,7 +252,8 @@ std::string join_with_dot(const std::vector<std::string>& parts) {
 }
 
 /// Recursively compare JSON values with float tolerance
-bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::string>& path, std::string& errorMsg) {
+/// Throws std::runtime_error if comparison fails
+void assertJsonApproxEqual(const json& actual, const json& expected, std::vector<std::string>& path) {
     // Handle numeric comparisons - treat all number types as equivalent
     if (actual.is_number() && expected.is_number()) {
         const double actualVal = actual.get<double>();
@@ -259,25 +261,24 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
 
         // Handle NaN - both should be NaN
         if (std::isnan(actualVal) && std::isnan(expectedVal)) {
-            return true;
+            return;
         }
 
         // Handle Infinity
         if (std::isinf(actualVal) && std::isinf(expectedVal)) {
             // Check same sign
             if ((actualVal > 0) == (expectedVal > 0)) {
-                return true;
+                return;
             }
         }
 
         if (!floatsApproxEqual(actualVal, expectedVal)) {
             std::ostringstream ss;
-            ss << "Numeric mismatch at " << join_with_dot(path) << ": ";
+            ss << "Numeric mismatch at " << joinWithDot(path) << ": ";
             ss << "expected " << expectedVal << ", got " << actualVal;
-            errorMsg = ss.str();
-            return false;
+            throw std::runtime_error(ss.str());
         }
-        return true;
+        return;
     }
 
     // Handle null in expected (which represents NaN/Infinity from preprocessed JSON)
@@ -286,42 +287,38 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
         const double actualVal = actual.get<double>();
         // Accept NaN or Infinity as matching null from expected
         if (std::isnan(actualVal) || std::isinf(actualVal)) {
-            return true;
+            return;
         }
     }
 
     // Handle null values (which may represent NaN or Infinity in expected JSON)
     // Accept null in actual if expected is also null
     if (actual.is_null() && expected.is_null()) {
-        return true;
+        return;
     }
 
     // For non-numeric types, check type equality
     if (actual.type() != expected.type()) {
         std::ostringstream ss;
-        ss << "Type mismatch at " << join_with_dot(path) << ": ";
+        ss << "Type mismatch at " << joinWithDot(path) << ": ";
         ss << "expected " << expected.type_name() << ", got " << actual.type_name();
-        errorMsg = ss.str();
-        return false;
+        throw std::runtime_error(ss.str());
     }
 
     if (actual.is_array()) {
         if (actual.size() != expected.size()) {
             std::ostringstream ss;
-            ss << "Array size mismatch at " << join_with_dot(path) << ": ";
+            ss << "Array size mismatch at " << joinWithDot(path) << ": ";
             ss << "expected " << expected.size() << " elements, got " << actual.size();
-            errorMsg = ss.str();
-            return false;
+            throw std::runtime_error(ss.str());
         }
 
         for (size_t i = 0; i < actual.size(); ++i) {
             path.push_back(std::format("[{}]", i));
-            if (!jsonApproxEqual(actual[i], expected[i], path, errorMsg)) {
-                return false;
-            }
+            assertJsonApproxEqual(actual[i], expected[i], path);
             path.pop_back();
         }
-        return true;
+        return;
     }
 
     if (actual.is_object()) {
@@ -329,9 +326,8 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
         for (auto it = expected.begin(); it != expected.end(); ++it) {
             if (!actual.contains(it.key())) {
                 std::ostringstream ss;
-                ss << "Missing key at " << join_with_dot(path) << ": " << it.key();
-                errorMsg = ss.str();
-                return false;
+                ss << "Missing key at " << joinWithDot(path) << ": " << it.key();
+                throw std::runtime_error(ss.str());
             }
         }
 
@@ -339,33 +335,27 @@ bool jsonApproxEqual(const json& actual, const json& expected, std::vector<std::
         for (auto it = actual.begin(); it != actual.end(); ++it) {
             if (!expected.contains(it.key())) {
                 std::ostringstream ss;
-                ss << "Extra key at " << join_with_dot(path) << ": " << it.key();
-                errorMsg = ss.str();
-                return false;
+                ss << "Extra key at " << joinWithDot(path) << ": " << it.key();
+                throw std::runtime_error(ss.str());
             }
         }
 
         // Compare values
         for (auto it = expected.begin(); it != expected.end(); ++it) {
             path.push_back(it.key());
-            if (!jsonApproxEqual(actual[it.key()], it.value(), path, errorMsg)) {
-                return false;
-            }
+            assertJsonApproxEqual(actual[it.key()], it.value(), path);
             path.pop_back();
         }
-        return true;
+        return;
     }
 
     // For primitives, use direct comparison
     if (actual != expected) {
         std::ostringstream ss;
-        ss << "Value mismatch at " << join_with_dot(path) << ": ";
+        ss << "Value mismatch at " << joinWithDot(path) << ": ";
         ss << "expected " << expected << ", got " << actual;
-        errorMsg = ss.str();
-        return false;
+        throw std::runtime_error(ss.str());
     }
-
-    return true;
 }
 
 /// Convert a coordinate to JSON array [x, y]
@@ -562,14 +552,15 @@ void testSyntheticPair(const std::string& testName, const fs::path& dir) {
 
     // Compare with tolerance for floats
     std::vector<std::string> path;
-    std::string errorMsg;
 
-    if (!json_encoding::jsonApproxEqual(actualJson, expectedJson, path, errorMsg)) {
+    try {
+        json_encoding::assertJsonApproxEqual(actualJson, expectedJson, path);
+    } catch (const std::runtime_error& e) {
         FAIL() << "\n"
                << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                << "SYNTHETIC TEST FAILED: " << testName << "\n"
                << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-               << "Error:    " << errorMsg << "\n"
+               << "Error:    " << e.what() << "\n"
                << "\n"
                << "Expected:\n"
                << expectedJson.dump(2) << "\n"
