@@ -208,7 +208,7 @@ fn parse_columns_meta(
                 let child_column_count;
                 (input, child_column_count) = utils::parse_varint::<usize>(input)?;
 
-                // Each stream requires at least 1 byte (ColumnType without name)
+                // Each collumn requires at least 1 byte (ColumnType without name)
                 if input.len() < child_column_count {
                     return Err(MltError::BufferUnderflow {
                         needed: child_column_count,
