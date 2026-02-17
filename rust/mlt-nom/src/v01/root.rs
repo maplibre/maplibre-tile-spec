@@ -72,7 +72,7 @@ impl Layer01<'_> {
                     }
                     if stream_count == 0 {
                         return Err(MltError::MinLength {
-                            ctx: "geometry stream",
+                            ctx: "geometry type, but without streams",
                             min: 1,
                             got: 0,
                         });
