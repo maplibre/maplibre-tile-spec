@@ -138,7 +138,7 @@ impl Layer01<'_> {
                     }
                     (input, optional) = parse_optional(column.typ, input)?;
                     // if optional has a value, one stream has already been consumed
-                    let optional_stream_count = optional.is_some() as usize;
+                    let optional_stream_count = usize::from(optional.is_some());
                     let Some(stream_count) = stream_count.checked_sub(optional_stream_count) else {
                         return Err(MltError::ExpectedValues {
                             ctx: "stream count must be at least the optional stream count",
