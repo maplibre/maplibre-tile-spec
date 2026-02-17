@@ -35,7 +35,7 @@ pub struct LsArgs {
     #[arg(long)]
     no_recursive: bool,
 
-    /// Output format (table or json)
+    /// Output format (table or JSON)
     #[arg(short, long, default_value = "table", value_enum)]
     format: LsFormat,
 }

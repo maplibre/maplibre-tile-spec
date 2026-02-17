@@ -333,18 +333,17 @@ fn decode_string_streams(streams: Vec<Stream<'_>>) -> Result<Vec<String>, MltErr
         &offsets,
     ) {
         // FSST dictionary
-        let decompressed = decode_fsst(sym_data, sym_lens, dd);
-        Ok(decode_dict_strings(dl, &decompressed, offs))
+        decode_dict_strings(dl, &decode_fsst(sym_data, sym_lens, dd), offs)
     } else if let (Some(dl), Some(dd), Some(offs)) = (&dict_lengths, &dict_bytes, &offsets) {
         // Dictionary
-        Ok(decode_dict_strings(dl, dd, offs))
+        decode_dict_strings(dl, dd, offs)
     } else if let Some(lengths) = &var_binary_lengths {
         // Plain (VarBinary lengths + raw data)
         let data = data_bytes
             .as_deref()
             .or(dict_bytes.as_deref())
             .ok_or_else(|| MltError::DecodeError("Missing data stream for strings".into()))?;
-        Ok(decode_plain_strings(lengths, data))
+        decode_plain_strings(lengths, data)
     } else {
         Err(MltError::DecodeError(
             "Missing required string streams".into(),
@@ -359,31 +358,33 @@ fn raw_bytes(s: Stream<'_>) -> Vec<u8> {
     }
 }
 
-fn decode_plain_strings(lengths: &[u32], data: &[u8]) -> Vec<String> {
+/// Split `data` into string slices using `lengths` as byte lengths for each entry.
+fn split_strings_by_lengths<'a>(lengths: &[u32], data: &'a [u8]) -> Result<Vec<&'a str>, MltError> {
     let mut strings = Vec::with_capacity(lengths.len());
     let mut offset = 0;
     for &len in lengths {
         let len = len as usize;
-        strings.push(String::from_utf8_lossy(&data[offset..offset + len]).into_owned());
+        let s = str::from_utf8(&data[offset..offset + len])?;
+        strings.push(s);
         offset += len;
     }
-    strings
+    Ok(strings)
 }
 
-fn decode_dict_strings(dict_lengths: &[u32], dict_data: &[u8], offsets: &[u32]) -> Vec<String> {
-    // Build dictionary entries
-    let mut dict = Vec::with_capacity(dict_lengths.len());
-    let mut offset = 0;
-    for &len in dict_lengths {
-        let len = len as usize;
-        dict.push(String::from_utf8_lossy(&dict_data[offset..offset + len]).into_owned());
-        offset += len;
-    }
-    // Look up values
-    offsets
+fn decode_plain_strings(lengths: &[u32], data: &[u8]) -> Result<Vec<String>, MltError> {
+    split_strings_by_lengths(lengths, data).map(|s| s.into_iter().map(str::to_string).collect())
+}
+
+fn decode_dict_strings(
+    dict_lengths: &[u32],
+    dict_data: &[u8],
+    offsets: &[u32],
+) -> Result<Vec<String>, MltError> {
+    let dict = split_strings_by_lengths(dict_lengths, dict_data)?;
+    Ok(offsets
         .iter()
-        .map(|&idx| dict[idx as usize].clone())
-        .collect()
+        .map(|&idx| dict[idx as usize].to_string())
+        .collect())
 }
 
 fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec<u8> {
