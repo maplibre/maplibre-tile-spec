@@ -430,8 +430,13 @@ fn split_strings_by_lengths<'a>(lengths: &[u32], data: &'a [u8]) -> Result<Vec<&
     let mut offset = 0;
     for &len in lengths {
         let len = len as usize;
-        let s = str::from_utf8(&data[offset..offset + len])?;
-        strings.push(s);
+        let Some(v) = data.get(offset..offset + len) else {
+            return Err(MltError::BufferUnderflow {
+                needed: len,
+                remaining: data.len().saturating_sub(offset),
+            });
+        };
+        strings.push(str::from_utf8(v)?);
         offset += len;
     }
     Ok(strings)
