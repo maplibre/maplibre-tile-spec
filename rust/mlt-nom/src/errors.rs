@@ -53,8 +53,8 @@ pub enum MltError {
     #[error("error parsing physical decoder: code={0}")]
     ParsingPhysicalDecoder(u8),
 
-    #[error("error parsing varint")]
-    ParsingVarInt,
+    #[error("varint uses more bytes than necessary (non-canonical encoding)")]
+    NonCanonicalVarInt,
 
     #[error("unexpected end of input (unable to take {0} bytes)")]
     UnableToTake(usize),
