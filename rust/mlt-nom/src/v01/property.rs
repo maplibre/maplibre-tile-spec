@@ -3,7 +3,9 @@ use std::fmt::{self, Debug};
 use borrowme::borrowme;
 
 use crate::MltError;
+use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
+use crate::utils::f32_to_json;
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData};
 
 /// Property representation, either raw or decoded
@@ -14,6 +16,22 @@ pub enum Property<'a> {
     Decoded(DecodedProperty),
 }
 
+impl Analyze for Property<'_> {
+    fn decoded(&self, stat: StatType) -> usize {
+        match self {
+            Self::Raw(d) => d.decoded(stat),
+            Self::Decoded(d) => d.decoded(stat),
+        }
+    }
+
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        match self {
+            Self::Raw(d) => d.for_each_stream(cb),
+            Self::Decoded(d) => d.for_each_stream(cb),
+        }
+    }
+}
+
 /// Unparsed property data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -21,6 +39,13 @@ pub struct RawProperty<'a> {
     name: &'a str,
     optional: Option<Stream<'a>>,
     value: RawPropValue<'a>,
+}
+
+impl Analyze for RawProperty<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.optional.for_each_stream(cb);
+        self.value.for_each_stream(cb);
+    }
 }
 
 /// A sequence of encoded (raw) property values of various types
@@ -40,11 +65,40 @@ pub enum RawPropValue<'a> {
     Struct(Stream<'a>),
 }
 
+impl Analyze for RawPropValue<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        match self {
+            Self::Bool(s)
+            | Self::I8(s)
+            | Self::U8(s)
+            | Self::I32(s)
+            | Self::U32(s)
+            | Self::I64(s)
+            | Self::U64(s)
+            | Self::F32(s)
+            | Self::F64(s)
+            | Self::Struct(s) => s.for_each_stream(cb),
+            Self::Str(streams) => streams.for_each_stream(cb),
+        }
+    }
+}
+
 /// Decoded property values as a name and a vector of optional typed values
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DecodedProperty {
     pub name: String,
     pub values: PropValue,
+}
+
+impl Analyze for DecodedProperty {
+    fn decoded(&self, stat: StatType) -> usize {
+        let meta = if stat == StatType::MetadataOverheadBytes {
+            self.name.len()
+        } else {
+            0
+        };
+        meta + self.values.decoded(stat)
+    }
 }
 
 /// Decoded property value types
@@ -62,6 +116,24 @@ pub enum PropValue {
     Str(Vec<Option<String>>),
     #[default]
     Struct,
+}
+
+impl Analyze for PropValue {
+    fn decoded(&self, stat: StatType) -> usize {
+        match self {
+            Self::Bool(v) => v.decoded(stat),
+            Self::I8(v) => v.decoded(stat),
+            Self::U8(v) => v.decoded(stat),
+            Self::I32(v) => v.decoded(stat),
+            Self::U32(v) => v.decoded(stat),
+            Self::I64(v) => v.decoded(stat),
+            Self::U64(v) => v.decoded(stat),
+            Self::F32(v) => v.decoded(stat),
+            Self::F64(v) => v.decoded(stat),
+            Self::Str(v) => v.decoded(stat),
+            Self::Struct => 0,
+        }
+    }
 }
 
 /// Format `Option` values on a single line each, even in alternate/pretty mode.
@@ -102,6 +174,7 @@ impl PropValue {
     #[expect(clippy::cast_possible_truncation)] // f64 stored as f32 in wire format
     pub fn to_geojson(&self, i: usize) -> Option<serde_json::Value> {
         use serde_json::Value;
+
         match self {
             Self::Bool(v) => v[i].map(Value::Bool),
             Self::I8(v) => v[i].map(Value::from),
@@ -116,12 +189,6 @@ impl PropValue {
             Self::Struct => None,
         }
     }
-}
-
-/// Convert f32 to JSON using shortest decimal representation (matches Java's `Float.toString()`)
-fn f32_to_json(f: f32) -> serde_json::Value {
-    let serialized = &serde_json::to_string(&f).expect("f32 serialization should not fail");
-    serde_json::from_str(serialized).expect("serialized f32 should parse as JSON")
 }
 
 impl_decodable!(Property<'a>, RawProperty<'a>, DecodedProperty);

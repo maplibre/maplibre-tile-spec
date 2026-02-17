@@ -1,9 +1,21 @@
-use std::fs;
-use std::path::PathBuf;
+#![cfg(feature = "cli")]
 
-use clap::{Args, Parser, Subcommand, ValueEnum};
-use mlt_nom::geojson::FeatureCollection;
-use mlt_nom::parse_layers;
+use anyhow::Result;
+use clap::{Parser, Subcommand, ValueEnum};
+
+use crate::cli::dump::{AfterDump, DumpArgs, dump};
+use crate::cli::ls::{LsArgs, ls};
+mod cli;
+
+fn main() -> Result<()> {
+    match Cli::parse().command {
+        Commands::Dump(args) => dump(&args, AfterDump::KeepRaw)?,
+        Commands::Decode(args) => dump(&args, AfterDump::Decode)?,
+        Commands::Ls(args) => ls(&args)?,
+    }
+
+    Ok(())
+}
 
 #[derive(Parser)]
 #[command(name = "mlt", about = "MapLibre Tile format utilities")]
@@ -18,16 +30,8 @@ enum Commands {
     Dump(DumpArgs),
     /// Parse an MLT file, decode all layers, and dump the result
     Decode(DumpArgs),
-}
-
-#[derive(Args)]
-struct DumpArgs {
-    /// Path to the MLT file
-    file: PathBuf,
-
-    /// Output format
-    #[arg(short, long, default_value_t, value_enum)]
-    format: OutputFormat,
+    /// List .mlt files with statistics
+    Ls(LsArgs),
 }
 
 #[derive(Clone, Default, ValueEnum)]
@@ -38,40 +42,4 @@ enum OutputFormat {
     /// `GeoJSON` output
     #[clap(alias = "geojson")]
     GeoJson,
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let cli = Cli::parse();
-
-    match cli.command {
-        Commands::Dump(args) => dump(&args, false)?,
-        Commands::Decode(args) => dump(&args, true)?,
-    }
-
-    Ok(())
-}
-
-fn dump(args: &DumpArgs, decode: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let buffer = fs::read(&args.file)?;
-    let mut layers = parse_layers(&buffer)?;
-    if decode {
-        for layer in &mut layers {
-            layer.decode_all()?;
-        }
-    }
-
-    match args.format {
-        OutputFormat::Text => {
-            for (i, layer) in layers.iter().enumerate() {
-                println!("=== Layer {i} ===");
-                println!("{layer:#?}");
-            }
-        }
-        OutputFormat::GeoJson => {
-            let fc = FeatureCollection::from_layers(&layers)?;
-            println!("{}", serde_json::to_string_pretty(&fc)?);
-        }
-    }
-
-    Ok(())
 }

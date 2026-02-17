@@ -276,6 +276,12 @@ pub(crate) fn fmt_byte_array(data: &[u8], f: &mut Formatter<'_>) -> std::fmt::Re
     }
 }
 
+/// Convert f32 to JSON using shortest decimal representation (matches Java's `Float.toString()`)
+pub fn f32_to_json(f: f32) -> serde_json::Value {
+    let serialized = &serde_json::to_string(&f).expect("f32 serialization should not fail");
+    serde_json::from_str(serialized).expect("serialized f32 should parse as JSON")
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
