@@ -100,30 +100,20 @@ impl DecodedGeometry {
         let vo = self.vertex_offsets.as_deref();
         let num_verts = verts.len() / 2;
 
-        let geom_off = |s: &[u32], idx: usize| -> Result<usize, MltError> {
-            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
-                index,
-                field: "geometry_offsets",
-                idx,
-                len: s.len(),
-            })
+        let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
+            match s.get(idx) {
+                Some(&v) => Ok(v as usize),
+                None => Err(GeometryOutOfBounds {
+                    index,
+                    field,
+                    idx,
+                    len: s.len(),
+                }),
+            }
         };
-        let part_off = |s: &[u32], idx: usize| -> Result<usize, MltError> {
-            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
-                index,
-                field: "part_offsets",
-                idx,
-                len: s.len(),
-            })
-        };
-        let ring_off = |s: &[u32], idx: usize| -> Result<usize, MltError> {
-            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
-                index,
-                field: "ring_offsets",
-                idx,
-                len: s.len(),
-            })
-        };
+        let geom_off = |s: &[u32], idx: usize| off(s, idx, "geometry_offsets");
+        let part_off = |s: &[u32], idx: usize| off(s, idx, "part_offsets");
+        let ring_off = |s: &[u32], idx: usize| off(s, idx, "ring_offsets");
         let geom_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
             Ok(geom_off(s, i)?..geom_off(s, i + 1)?)
         };
