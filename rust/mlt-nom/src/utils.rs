@@ -363,7 +363,7 @@ mod tests {
     #[case::min_three_byte(&[0x80, 0x80, 0x01], Ok((vec![], 16384)))]
     #[case::non_canonical_two(&[0x82, 0x00], Err(MltError::NonCanonicalVarInt))]
     #[case::non_canonical_three_byte(&[0x80, 0x80, 0x00], Err(MltError::NonCanonicalVarInt))]
-    #[case::non_canonical_three_byte(&[0x01, 0x02, 0x03], Ok((vec![2, 3], 1)))]
+    #[case::single_byte_with_trailing(&[0x01, 0x02, 0x03], Ok((vec![2, 3], 1)))]
     #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow { needed: 4, remaining: 3 }))]
     fn test_varint_parsing(
         #[case] bytes: &[u8],
