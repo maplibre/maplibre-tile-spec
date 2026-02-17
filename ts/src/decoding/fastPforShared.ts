@@ -34,3 +34,15 @@ export function bswap32(value: number): number {
     const x = value >>> 0;
     return (((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >>> 8) & 0xff00) | ((x >>> 24) & 0xff)) >>> 0;
 }
+
+export function assertFastPforEncodedByteLength(
+    encodedByteLength: number,
+    inputByteOffset: number,
+    encodedBytesLength: number,
+): void {
+    if ((encodedByteLength & 3) !== 0) {
+        throw new Error(
+            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytesLength}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
+        );
+    }
+}

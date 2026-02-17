@@ -1,11 +1,13 @@
 import type IntWrapper from "./intWrapper";
 import type BitVector from "../vector/flat/bitVector";
 import {
+    createFastPforWireDecodeWorkspace,
     decodeFastPforInt32,
     ensureFastPforWireEncodedWordsCapacity,
     type FastPforWireDecodeWorkspace,
 } from "./fastPforDecoder";
 import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
+import { assertFastPforEncodedByteLength } from "./fastPforShared";
 export type { FastPforWireDecodeWorkspace } from "./fastPforDecoder";
 export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 
@@ -147,34 +149,14 @@ function decodeVarintRemainder(l, buf, offset) {
     throw new Error("Expected varint not more than 10 bytes");
 }
 
-function assertFastPforEncodedByteLength(
-    encodedByteLength: number,
-    inputByteOffset: number,
-    encodedBytesLength: number,
-): void {
-    if ((encodedByteLength & 3) !== 0) {
-        throw new Error(
-            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytesLength}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
-        );
-    }
-}
-
 export function decodeFastPfor(
     encodedBytes: Uint8Array,
     expectedValueCount: number,
     encodedByteLength: number,
     offset: IntWrapper,
 ): Int32Array {
-    const inputByteOffset = offset.get();
-    assertFastPforEncodedByteLength(encodedByteLength, inputByteOffset, encodedBytes.length);
-
-    const encodedWordCount = encodedByteLength >>> 2;
-    const encodedWordBuffer = new Int32Array(encodedWordCount);
-    decodeBigEndianInt32sInto(encodedBytes, inputByteOffset, encodedByteLength, encodedWordBuffer);
-
-    const decodedValues = decodeFastPforInt32(encodedWordBuffer, expectedValueCount);
-    offset.add(encodedByteLength);
-    return decodedValues;
+    const workspace = createFastPforWireDecodeWorkspace(encodedByteLength >>> 2);
+    return decodeFastPforWithWorkspace(encodedBytes, expectedValueCount, encodedByteLength, offset, workspace);
 }
 
 export function decodeFastPforWithWorkspace(
