@@ -17,7 +17,7 @@ impl LayerInput {
         if layer.as_layer01().is_none() {
             return; // FIXME: not interesting to debug, but has roundtrippability issues
         }
-        if remaining.len() != 0 {
+        if !remaining.is_empty() {
             return; // not interesting to debug
         }
         let consumed_input_bytes_size = total_len - remaining.len();
