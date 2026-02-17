@@ -20,25 +20,19 @@ pub enum Id<'a> {
 }
 
 impl OwnedId {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::None => Ok(()),
             Self::Raw(r) => r.write_columns_meta_to(writer),
-            Self::Decoded(_) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NeedsEncodingBeforeWriting,
-            )),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::None => Ok(()),
             Self::Raw(r) => r.write_to(writer),
-            Self::Decoded(_) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NeedsEncodingBeforeWriting,
-            )),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 }
@@ -69,7 +63,7 @@ pub struct RawId<'a> {
     value: RawIdValue<'a>,
 }
 impl OwnedRawId {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match (&self.optional, &self.value) {
             (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer),
             (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer),
@@ -78,24 +72,12 @@ impl OwnedRawId {
         }
     }
 
-    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
         match (&self.optional, &self.value) {
-            (None, OwnedRawIdValue::Id32(_)) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NotImplemented("ID write").to_string(),
-            )),
-            (None, OwnedRawIdValue::Id64(_)) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NotImplemented("LongID write").to_string(),
-            )),
-            (Some(_), OwnedRawIdValue::Id32(_)) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NotImplemented("OptID write").to_string(),
-            )),
-            (Some(_), OwnedRawIdValue::Id64(_)) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NotImplemented("OptLongID write").to_string(),
-            )),
+            (None, OwnedRawIdValue::Id32(_)) => Err(MltError::NotImplemented("ID write")),
+            (None, OwnedRawIdValue::Id64(_)) => Err(MltError::NotImplemented("LongID write")),
+            (Some(_), OwnedRawIdValue::Id32(_)) => Err(MltError::NotImplemented("OptID write")),
+            (Some(_), OwnedRawIdValue::Id64(_)) => Err(MltError::NotImplemented("OptLongID write")),
         }
     }
 }

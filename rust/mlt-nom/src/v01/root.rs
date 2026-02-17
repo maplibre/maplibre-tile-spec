@@ -269,12 +269,17 @@ impl OwnedLayer01 {
         let column_count = property_column_count + id_columns_count + geometry_column_count;
         writer.write_varint(column_count)?;
 
-        self.write_columns_meta_to(writer)?;
-        self.write_columns_to(writer)?;
+        let map_error_to_io = |e: MltError| match e {
+            MltError::Io(e) => e,
+            e => io::Error::new(io::ErrorKind::Other, e),
+        };
+        self.write_columns_meta_to(writer)
+            .map_err(map_error_to_io)?;
+        self.write_columns_to(writer).map_err(map_error_to_io)?;
         Ok(())
     }
 
-    fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.id.write_columns_meta_to(writer)?;
         self.geometry.write_columns_meta_to(writer)?;
         for prop in &self.properties {
@@ -282,7 +287,7 @@ impl OwnedLayer01 {
         }
         Ok(())
     }
-    fn write_columns_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.id.write_to(writer)?;
         self.geometry.write_to(writer)?;
         for prop in &self.properties {

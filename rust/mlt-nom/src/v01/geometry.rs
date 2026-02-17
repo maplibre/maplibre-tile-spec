@@ -37,23 +37,17 @@ impl Analyze for Geometry<'_> {
 }
 
 impl OwnedGeometry {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(r) => r.write_columns_meta_to(writer),
-            Self::Decoded(_) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NeedsEncodingBeforeWriting,
-            )),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(r) => r.write_to(writer),
-            Self::Decoded(_) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NeedsEncodingBeforeWriting,
-            )),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 }
@@ -75,16 +69,13 @@ impl Analyze for RawGeometry<'_> {
 
 impl OwnedRawGeometry {
     #[expect(clippy::unused_self)]
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)
     }
 
     #[expect(clippy::unused_self)]
-    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            MltError::NotImplemented("geometry write").to_string(),
-        ))
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
+        Err(MltError::NotImplemented("geometry write"))
     }
 }
 

@@ -37,23 +37,17 @@ impl Analyze for Property<'_> {
 }
 
 impl OwnedProperty {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(r) => r.write_columns_meta_to(writer),
-            Self::Decoded(_) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NeedsEncodingBeforeWriting,
-            )),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(r) => r.write_to(writer),
-            Self::Decoded(_) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NeedsEncodingBeforeWriting,
-            )),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 }
@@ -75,7 +69,7 @@ impl Analyze for RawProperty<'_> {
 }
 
 impl OwnedRawProperty {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         // type
         match (&self.value, &self.optional) {
             (OwnedRawPropValue::Bool(_), Some(_)) => ColumnType::OptBool.write_to(writer)?,
@@ -100,10 +94,7 @@ impl OwnedRawProperty {
             (OwnedRawPropValue::Str(_), None) => ColumnType::Str.write_to(writer)?,
             (OwnedRawPropValue::Struct(_), None) => ColumnType::Struct.write_to(writer)?,
             (OwnedRawPropValue::Struct(_), Some(_)) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Unsupported,
-                    "structs are not allowed to be optional".to_string(),
-                ));
+                return Err(MltError::TriedToEncodeOptionalStruct);
             }
         }
 
@@ -113,20 +104,14 @@ impl OwnedRawProperty {
         // struct children
         if let OwnedRawPropValue::Struct(_) = &self.value {
             // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
-            return Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NotImplemented("struct child meta writing").to_string(),
-            ));
+            return Err(MltError::NotImplemented("struct child meta writing"));
         }
         Ok(())
     }
 
     #[expect(clippy::unused_self)]
-    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            MltError::NotImplemented("property write").to_string(),
-        ))
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
+        Err(MltError::NotImplemented("property write"))
     }
 }
 
