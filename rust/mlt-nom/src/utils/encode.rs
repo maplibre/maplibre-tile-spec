@@ -1,4 +1,4 @@
-use integer_encoding::VarInt;
+use integer_encoding::VarInt as _;
 
 /// Helper function to encode a varint using integer-encoding
 pub fn encode_varint(data: &mut Vec<u8>, value: u64) {
