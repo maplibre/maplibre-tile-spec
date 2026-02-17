@@ -14,7 +14,6 @@ use crossterm::event::{
     MouseEventKind,
 };
 use crossterm::execute;
-use serde_json::Value as JsonValue;
 use mlt_nom::geojson::{Coordinate, Feature, FeatureCollection, Geometry};
 use mlt_nom::parse_layers;
 use ratatui::Frame;
@@ -22,7 +21,10 @@ use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::canvas::{Canvas, Context, Line as CanvasLine, Rectangle};
-use ratatui::widgets::{Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState, Wrap};
+use ratatui::widgets::{
+    Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState, Wrap,
+};
+use serde_json::Value as JsonValue;
 
 use crate::cli::ls::{FileSortColumn, LsRow, analyze_mlt_files, row_cells};
 
@@ -815,12 +817,7 @@ fn block_with_title(title: impl Into<Line<'static>>) -> Block<'static> {
 /// Hit zone width/height for divider grab (pixels each side of boundary).
 const DIVIDER_GRAB: u16 = 2;
 
-fn divider_hit(
-    col: u16,
-    row: u16,
-    left_panel: Rect,
-    tree_area: Rect,
-) -> Option<ResizeHandle> {
+fn divider_hit(col: u16, row: u16, left_panel: Rect, tree_area: Rect) -> Option<ResizeHandle> {
     let left_right_divider = left_panel.x + left_panel.width;
     if col >= left_right_divider.saturating_sub(DIVIDER_GRAB)
         && col < left_right_divider.saturating_add(DIVIDER_GRAB)
@@ -962,14 +959,16 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     let pct = (mouse.column.saturating_sub(area.x) as f32
                                         / area.width.max(1) as f32
                                         * 100.0)
-                                        .round() as u16;
+                                        .round()
+                                        as u16;
                                     app.left_pct = pct.clamp(10, 90);
                                 }
                                 ResizeHandle::FeaturesProperties => {
                                     let pct = (mouse.row.saturating_sub(left.y) as f32
                                         / left.height.max(1) as f32
                                         * 100.0)
-                                        .round() as u16;
+                                        .round()
+                                        as u16;
                                     app.features_pct = pct.clamp(10, 90);
                                 }
                             }
@@ -1053,7 +1052,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     && mouse.row >= area.y
                                     && mouse.row < area.y + area.height
                                 {
-                                    app.properties_scroll = app.properties_scroll.saturating_add(s as u16);
+                                    app.properties_scroll =
+                                        app.properties_scroll.saturating_add(s as u16);
                                     app.invalidate();
                                     continue;
                                 }
@@ -1102,15 +1102,10 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 }
                             }
                         } else if app.mode == ViewMode::LayerOverview {
-                            if let (Some(left), Some(tree)) =
-                                (left_panel_area, tree_area)
-                            {
-                                if let Some(handle) = divider_hit(
-                                    mouse.column,
-                                    mouse.row,
-                                    left,
-                                    tree,
-                                ) {
+                            if let (Some(left), Some(tree)) = (left_panel_area, tree_area) {
+                                if let Some(handle) =
+                                    divider_hit(mouse.column, mouse.row, left, tree)
+                                {
                                     app.resizing = Some(handle);
                                     app.invalidate();
                                     continue;
@@ -1294,7 +1289,13 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     } else {
                         "features".to_string()
                     };
-                    (format!("  Layer: {} ({n} {label}, extent {})", group.name, group.extent), None)
+                    (
+                        format!(
+                            "  Layer: {} ({n} {label}, extent {})",
+                            group.name, group.extent
+                        ),
+                        None,
+                    )
                 }
                 TreeItem::Feature { layer, feat } => {
                     let geom = &app.feature(*layer, *feat).geometry;
@@ -1365,45 +1366,44 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let item = app.tree_items.get(selected);
     let hovered = app.hovered_item.and_then(|i| app.tree_items.get(i));
     let (title, lines): (String, Vec<Line<'static>>) = match item {
-        None | Some(TreeItem::AllFeatures) | Some(TreeItem::Layer(_)) => {
-            match hovered {
-                Some(TreeItem::Feature { layer, feat }) | Some(TreeItem::SubFeature { layer, feat, .. }) => {
-                    let key = (*layer, *feat);
-                    if app.last_properties_key != Some(key) {
-                        app.properties_scroll = 0;
-                        app.last_properties_key = Some(key);
-                    }
-                    let feat_ref = app.feature(*layer, *feat);
-                    let mut prop_lines: Vec<Line<'static>> = feat_ref
-                        .properties
-                        .iter()
-                        .filter(|(k, _)| *k != "_layer" && *k != "_extent")
-                        .map(|(k, v)| {
-                            let val_str = format_property_value(v);
-                            Line::from(vec![
-                                Span::styled(format!("{k}: "), Style::default().fg(Color::Cyan)),
-                                Span::raw(val_str),
-                            ])
-                        })
-                        .collect();
-                    if prop_lines.is_empty() {
-                        prop_lines.push(Line::from(Span::raw("(no properties)")));
-                    }
-                    (
-                        format!("Properties (feat {feat}, hover)"),
-                        prop_lines,
-                    )
+        None | Some(TreeItem::AllFeatures) | Some(TreeItem::Layer(_)) => match hovered {
+            Some(TreeItem::Feature { layer, feat })
+            | Some(TreeItem::SubFeature { layer, feat, .. }) => {
+                let key = (*layer, *feat);
+                if app.last_properties_key != Some(key) {
+                    app.properties_scroll = 0;
+                    app.last_properties_key = Some(key);
                 }
-                _ => {
-                    app.last_properties_key = None;
-                    (
-                        "Properties".to_string(),
-                        vec![Line::from(Span::raw("Select a feature or hover over map to view properties"))],
-                    )
+                let feat_ref = app.feature(*layer, *feat);
+                let mut prop_lines: Vec<Line<'static>> = feat_ref
+                    .properties
+                    .iter()
+                    .filter(|(k, _)| *k != "_layer" && *k != "_extent")
+                    .map(|(k, v)| {
+                        let val_str = format_property_value(v);
+                        Line::from(vec![
+                            Span::styled(format!("{k}: "), Style::default().fg(Color::Cyan)),
+                            Span::raw(val_str),
+                        ])
+                    })
+                    .collect();
+                if prop_lines.is_empty() {
+                    prop_lines.push(Line::from(Span::raw("(no properties)")));
                 }
+                (format!("Properties (feat {feat}, hover)"), prop_lines)
             }
-        }
-        Some(TreeItem::Feature { layer, feat }) | Some(TreeItem::SubFeature { layer, feat, .. }) => {
+            _ => {
+                app.last_properties_key = None;
+                (
+                    "Properties".to_string(),
+                    vec![Line::from(Span::raw(
+                        "Select a feature or hover over map to view properties",
+                    ))],
+                )
+            }
+        },
+        Some(TreeItem::Feature { layer, feat })
+        | Some(TreeItem::SubFeature { layer, feat, .. }) => {
             let key = (*layer, *feat);
             if app.last_properties_key != Some(key) {
                 app.properties_scroll = 0;
@@ -1425,10 +1425,7 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             if prop_lines.is_empty() {
                 prop_lines.push(Line::from(Span::raw("(no properties)")));
             }
-            (
-                format!("Properties (feat {feat})"),
-                prop_lines,
-            )
+            (format!("Properties (feat {feat})"), prop_lines)
         }
     };
     let block = block_with_title(title);
