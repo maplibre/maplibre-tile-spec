@@ -440,9 +440,10 @@ impl<'a> Stream<'a> {
                 }
             },
             PhysicalDecoder::None => match self.data {
-                StreamData::Raw(data) => {
-                    all(utils::bytes_to_u32s(data.data, self.meta.num_values)?)
-                }
+                StreamData::Raw(data) => all(utils::decode_bytes_to_u32s(
+                    data.data,
+                    self.meta.num_values,
+                )?),
                 StreamData::VarInt(_) => {
                     return Err(MltError::InvalidStreamData {
                         expected: "Raw",
