@@ -162,6 +162,12 @@ pub enum MltError {
     #[error("missing infos[{0}]")]
     MissingInfo(usize),
 
+    // Encoding errors
+    #[error("need to encode before being able to write")]
+    NeedsEncodingBeforeWriting,
+    #[error("Structs are not allowed to be optional")]
+    TriedToEncodeOptionalStruct,
+
     // Other errors
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),

@@ -3,6 +3,7 @@ use std::ops::Range;
 
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
+use std::io::Write;
 
 use crate::MltError;
 use crate::MltError::{
@@ -13,6 +14,7 @@ use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
 use crate::utils::{OptSeq, SetOptionOnce as _};
+use crate::v01::column::ColumnType;
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
 
 /// Geometry column representation, either raw or decoded
@@ -39,6 +41,22 @@ impl Analyze for Geometry<'_> {
     }
 }
 
+impl OwnedGeometry {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        match self {
+            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
+        }
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        match self {
+            Self::Raw(r) => r.write_to(writer),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
+        }
+    }
+}
+
 /// Unparsed geometry data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -51,6 +69,19 @@ impl Analyze for RawGeometry<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.meta.for_each_stream(cb);
         self.items.for_each_stream(cb);
+    }
+}
+
+impl OwnedRawGeometry {
+    #[expect(clippy::unused_self)]
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        ColumnType::Geometry.write_to(writer)?;
+        Ok(())
+    }
+
+    #[expect(clippy::unused_self)]
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
+        Err(NotImplemented("geometry write"))
     }
 }
 

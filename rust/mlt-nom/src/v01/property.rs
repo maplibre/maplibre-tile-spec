@@ -1,12 +1,15 @@
-use std::fmt::{self, Debug};
-
 use borrowme::borrowme;
+use std::fmt::{self, Debug};
+use std::io::Write;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
+use crate::utils::BinarySerializer as _;
 use crate::utils::f32_to_json;
-use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData};
+use crate::v01::{
+    ColumnType, DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData,
+};
 
 /// Property representation, either raw or decoded
 #[borrowme]
@@ -32,6 +35,22 @@ impl Analyze for Property<'_> {
     }
 }
 
+impl OwnedProperty {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        match self {
+            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
+        }
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        match self {
+            Self::Raw(r) => r.write_to(writer),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
+        }
+    }
+}
+
 /// Unparsed property data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -45,6 +64,53 @@ impl Analyze for RawProperty<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.optional.for_each_stream(cb);
         self.value.for_each_stream(cb);
+    }
+}
+
+impl OwnedRawProperty {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        // type
+        match (&self.value, &self.optional) {
+            (OwnedRawPropValue::Bool(_), Some(_)) => ColumnType::OptBool.write_to(writer)?,
+            (OwnedRawPropValue::Bool(_), None) => ColumnType::Bool.write_to(writer)?,
+            (OwnedRawPropValue::I8(_), Some(_)) => ColumnType::OptI8.write_to(writer)?,
+            (OwnedRawPropValue::I8(_), None) => ColumnType::I8.write_to(writer)?,
+            (OwnedRawPropValue::U8(_), Some(_)) => ColumnType::OptU8.write_to(writer)?,
+            (OwnedRawPropValue::U8(_), None) => ColumnType::U8.write_to(writer)?,
+            (OwnedRawPropValue::I32(_), Some(_)) => ColumnType::OptI32.write_to(writer)?,
+            (OwnedRawPropValue::I32(_), None) => ColumnType::I32.write_to(writer)?,
+            (OwnedRawPropValue::U32(_), Some(_)) => ColumnType::OptU32.write_to(writer)?,
+            (OwnedRawPropValue::U32(_), None) => ColumnType::U32.write_to(writer)?,
+            (OwnedRawPropValue::I64(_), Some(_)) => ColumnType::OptI64.write_to(writer)?,
+            (OwnedRawPropValue::I64(_), None) => ColumnType::I64.write_to(writer)?,
+            (OwnedRawPropValue::U64(_), Some(_)) => ColumnType::OptU64.write_to(writer)?,
+            (OwnedRawPropValue::U64(_), None) => ColumnType::U64.write_to(writer)?,
+            (OwnedRawPropValue::F32(_), Some(_)) => ColumnType::OptF32.write_to(writer)?,
+            (OwnedRawPropValue::F32(_), None) => ColumnType::F32.write_to(writer)?,
+            (OwnedRawPropValue::F64(_), Some(_)) => ColumnType::OptF64.write_to(writer)?,
+            (OwnedRawPropValue::F64(_), None) => ColumnType::F64.write_to(writer)?,
+            (OwnedRawPropValue::Str(_), Some(_)) => ColumnType::OptStr.write_to(writer)?,
+            (OwnedRawPropValue::Str(_), None) => ColumnType::Str.write_to(writer)?,
+            (OwnedRawPropValue::Struct(_), None) => ColumnType::Struct.write_to(writer)?,
+            (OwnedRawPropValue::Struct(_), Some(_)) => {
+                return Err(MltError::TriedToEncodeOptionalStruct);
+            }
+        }
+
+        // name
+        writer.write_string(&self.name)?;
+
+        // struct children
+        if let OwnedRawPropValue::Struct(_) = &self.value {
+            // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
+            return Err(MltError::NotImplemented("struct child meta writing"));
+        }
+        Ok(())
+    }
+
+    #[expect(clippy::unused_self)]
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
+        Err(MltError::NotImplemented("property write"))
     }
 }
 

@@ -1,12 +1,12 @@
-use std::fmt::{Debug, Formatter};
-
 use borrowme::borrowme;
+use std::fmt::{Debug, Formatter};
+use std::io::Write;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
-use crate::utils::OptSeqOpt;
-use crate::v01::Stream;
+use crate::utils::{BinarySerializer as _, OptSeqOpt};
+use crate::v01::{ColumnType, Stream};
 
 /// ID column representation, either raw or decoded, or none if there are no IDs
 #[borrowme]
@@ -16,6 +16,24 @@ pub enum Id<'a> {
     None,
     Raw(RawId<'a>),
     Decoded(DecodedId),
+}
+
+impl OwnedId {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        match self {
+            Self::None => Ok(()),
+            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
+        }
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        match self {
+            Self::None => Ok(()),
+            Self::Raw(r) => r.write_to(writer),
+            Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
+        }
+    }
 }
 
 impl Analyze for Id<'_> {
@@ -42,6 +60,27 @@ impl Analyze for Id<'_> {
 pub struct RawId<'a> {
     optional: Option<Stream<'a>>,
     value: RawIdValue<'a>,
+}
+impl OwnedRawId {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        match (&self.optional, &self.value) {
+            (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
+            (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
+            (Some(_), OwnedRawIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
+            (Some(_), OwnedRawIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        if let Some(opt) = &self.optional {
+            writer.write_optional(opt)?;
+        }
+        match &self.value {
+            OwnedRawIdValue::Id32(s) | OwnedRawIdValue::Id64(s) => writer.write_stream(s)?,
+        }
+        Ok(())
+    }
 }
 
 impl Analyze for RawId<'_> {

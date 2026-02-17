@@ -4,6 +4,7 @@ use std::io::Write;
 
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
+use utils::BinarySerializer as _;
 
 use crate::unknown::Unknown;
 use crate::utils::take;
@@ -62,6 +63,7 @@ impl<'a> Layer<'a> {
 impl OwnedLayer {
     /// Write layer's binary representation to a Write stream
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        // (size, tag, data) => need to encode to a buffer to write the size
         let (tag, buffer) = match self {
             OwnedLayer::Tag01(layer) => {
                 let mut buffer = Vec::new();
@@ -77,8 +79,7 @@ impl OwnedLayer {
             .ok_or(io::Error::other(MltError::IntegerOverflow))?;
         let size = u64::try_from(size).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
         writer.write_varint(size)?;
-
-        writer.write_all(&[tag])?;
+        writer.write_u8(tag)?;
         writer.write_all(&buffer)
     }
 }

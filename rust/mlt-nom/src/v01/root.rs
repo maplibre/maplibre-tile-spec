@@ -255,24 +255,44 @@ impl OwnedLayer01 {
     /// Write Layer's binary representation to a Write stream without allocating a Vec
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         use integer_encoding::VarIntWriter as _;
+        use utils::BinarySerializer as _;
 
-        writer.write_varint(self.name.len() as u64)?;
-        writer.write_all(self.name.as_bytes())?;
+        writer.write_string(&self.name)?;
         writer.write_varint(u64::from(self.extent))?;
-        let has_id = !matches!(self.id, OwnedId::None);
-        let column_count = self.properties.len() + usize::from(has_id) + 1;
-        writer.write_varint(column_count as u64)?;
-        if has_id {
-            // self.id.write_to(writer)?;
-            return Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                MltError::NotImplemented("ID write").to_string(),
-            ));
-        }
 
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            MltError::NotImplemented("full Layer write").to_string(),
-        ))
+        // write size
+        let has_id = !matches!(self.id, OwnedId::None);
+        let id_columns_count = u64::from(has_id);
+        let geometry_column_count = 1;
+        let property_column_count = u64::try_from(self.properties.len())
+            .map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        let column_count = property_column_count + id_columns_count + geometry_column_count;
+        writer.write_varint(column_count)?;
+
+        let map_error_to_io = |e: MltError| match e {
+            MltError::Io(e) => e,
+            e => io::Error::other(e),
+        };
+        self.write_columns_meta_to(writer)
+            .map_err(map_error_to_io)?;
+        self.write_columns_to(writer).map_err(map_error_to_io)?;
+        Ok(())
+    }
+
+    fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        self.id.write_columns_meta_to(writer)?;
+        self.geometry.write_columns_meta_to(writer)?;
+        for prop in &self.properties {
+            prop.write_columns_meta_to(writer)?;
+        }
+        Ok(())
+    }
+    fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        self.id.write_to(writer)?;
+        self.geometry.write_to(writer)?;
+        for prop in &self.properties {
+            prop.write_to(writer)?;
+        }
+        Ok(())
     }
 }
