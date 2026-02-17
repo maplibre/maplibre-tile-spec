@@ -81,7 +81,7 @@ impl OwnedRawGeometry {
 
     #[expect(clippy::unused_self)]
     pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
-        Err(MltError::NotImplemented("geometry write"))
+        Err(NotImplemented("geometry write"))
     }
 }
 
@@ -145,7 +145,7 @@ impl DecodedGeometry {
         let geom_off = |s: &[u32], idx: usize| off(s, idx, "geometry_offsets");
         let part_off = |s: &[u32], idx: usize| off(s, idx, "part_offsets");
         let ring_off = |s: &[u32], idx: usize| off(s, idx, "ring_offsets");
-        let geom_off_pair = |s: &[u32], i: usize| -> Result<usize>, MltError> {
+        let geom_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
             Ok(geom_off(s, i)?..geom_off(s, i + 1)?)
         };
         let part_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
