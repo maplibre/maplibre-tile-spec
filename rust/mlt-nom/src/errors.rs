@@ -165,6 +165,29 @@ pub enum MltError {
     // Other errors
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
+
+    // Geometry decode errors (field = variable name, geom_type for context)
+    #[error("geometry[{index}]: {field}[{idx}] out of bounds (len={len})")]
+    GeometryOutOfBounds {
+        index: usize,
+        field: &'static str,
+        idx: usize,
+        len: usize,
+    },
+    #[error("geometry[{index}]: vertex {vertex} out of bounds (count={count})")]
+    GeometryVertexOutOfBounds {
+        index: usize,
+        vertex: usize,
+        count: usize,
+    },
+    #[error("geometry[{index}]: {geom_type} - {field}")]
+    GeometryField {
+        index: usize,
+        field: &'static str,
+        geom_type: GeometryType,
+    },
+    #[error("geometry[{index}]: index out of bounds")]
+    GeometryIndexOutOfBounds { index: usize },
 }
 
 impl From<Infallible> for MltError {

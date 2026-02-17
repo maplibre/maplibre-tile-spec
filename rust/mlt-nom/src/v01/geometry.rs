@@ -5,6 +5,10 @@ use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError;
+use crate::MltError::{
+    DecodeError, GeometryField, GeometryIndexOutOfBounds, GeometryOutOfBounds,
+    GeometryVertexOutOfBounds, NotImplemented,
+};
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
@@ -89,7 +93,6 @@ impl DecodedGeometry {
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
     pub fn to_geojson(&self, index: usize) -> Result<GeoGeom, MltError> {
-        let err = |msg: &str| MltError::DecodeError(format!("geometry[{index}]: {msg}"));
         let verts = self.vertices.as_deref().unwrap_or(&[]);
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
@@ -97,28 +100,28 @@ impl DecodedGeometry {
         let vo = self.vertex_offsets.as_deref();
         let num_verts = verts.len() / 2;
 
-        let geom_off = |s: &[u32], i: usize| -> Result<usize, MltError> {
-            s.get(i).map(|&v| v as usize).ok_or_else(|| {
-                err(&format!(
-                    "geometry_offsets[{i}] out of bounds (len={})",
-                    s.len()
-                ))
+        let geom_off = |s: &[u32], idx: usize| -> Result<usize, MltError> {
+            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
+                index,
+                field: "geometry_offsets",
+                idx,
+                len: s.len(),
             })
         };
-        let part_off = |s: &[u32], i: usize| -> Result<usize, MltError> {
-            s.get(i).map(|&v| v as usize).ok_or_else(|| {
-                err(&format!(
-                    "part_offsets[{i}] out of bounds (len={})",
-                    s.len()
-                ))
+        let part_off = |s: &[u32], idx: usize| -> Result<usize, MltError> {
+            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
+                index,
+                field: "part_offsets",
+                idx,
+                len: s.len(),
             })
         };
-        let ring_off = |s: &[u32], i: usize| -> Result<usize, MltError> {
-            s.get(i).map(|&v| v as usize).ok_or_else(|| {
-                err(&format!(
-                    "ring_offsets[{i}] out of bounds (len={})",
-                    s.len()
-                ))
+        let ring_off = |s: &[u32], idx: usize| -> Result<usize, MltError> {
+            s.get(idx).map(|&v| v as usize).ok_or(GeometryOutOfBounds {
+                index,
+                field: "ring_offsets",
+                idx,
+                len: s.len(),
             })
         };
         let geom_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
@@ -132,20 +135,20 @@ impl DecodedGeometry {
         };
 
         let v = |idx: usize| -> Result<[i32; 2], MltError> {
-            let actual = match vo {
-                Some(vo) => *vo.get(idx).ok_or_else(|| {
-                    err(&format!(
-                        "vertex_offsets[{idx}] out of bounds (len={})",
-                        vo.len()
-                    ))
+            let vertex = match vo {
+                Some(vo) => *vo.get(idx).ok_or(GeometryOutOfBounds {
+                    index,
+                    field: "vertex_offsets",
+                    idx,
+                    len: vo.len(),
                 })? as usize,
                 None => idx,
             };
-            let i = actual * 2;
-            let s = verts.get(i..i + 2).ok_or_else(|| {
-                err(&format!(
-                    "vertex {actual} out of bounds (count={num_verts})"
-                ))
+            let i = vertex * 2;
+            let s = verts.get(i..i + 2).ok_or(GeometryVertexOutOfBounds {
+                index,
+                vertex,
+                count: num_verts,
             })?;
             Ok([s[0], s[1]])
         };
@@ -165,7 +168,7 @@ impl DecodedGeometry {
         let geom_type = *self
             .vector_types
             .get(index)
-            .ok_or_else(|| err("index out of bounds"))?;
+            .ok_or(GeometryIndexOutOfBounds { index })?;
 
         match geom_type {
             GeometryType::Point => {
@@ -177,7 +180,11 @@ impl DecodedGeometry {
                     (None, Some(p), Some(r)) => v(ring_off(r, part_off(p, index)?)?)?,
                     (None, Some(p), None) => v(part_off(p, index)?)?,
                     (None, None, None) => v(index)?,
-                    _ => return Err(err("unexpected offset combination for Point")),
+                    _ => {
+                        return Err(DecodeError(format!(
+                            "geometry[{index}]: unexpected offset combination for Point"
+                        )));
+                    }
                 };
                 Ok(GeoGeom::point(pt))
             }
@@ -185,13 +192,27 @@ impl DecodedGeometry {
                 let r = match (parts, rings) {
                     (Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
                     (Some(p), None) => part_off_pair(p, index)?,
-                    _ => return Err(err("missing part_offsets for LineString")),
+                    _ => {
+                        return Err(GeometryField {
+                            index,
+                            field: "part_offsets",
+                            geom_type,
+                        });
+                    }
                 };
                 line(r).map(GeoGeom::line_string)
             }
             GeometryType::Polygon => {
-                let parts = parts.ok_or_else(|| err("missing part_offsets for Polygon"))?;
-                let rings = rings.ok_or_else(|| err("missing ring_offsets for Polygon"))?;
+                let parts = parts.ok_or(GeometryField {
+                    index,
+                    field: "part_offsets",
+                    geom_type,
+                })?;
+                let rings = rings.ok_or(GeometryField {
+                    index,
+                    field: "ring_offsets",
+                    geom_type,
+                })?;
                 let i = geoms
                     .map(|g| geom_off(g, index))
                     .transpose()?
@@ -199,26 +220,48 @@ impl DecodedGeometry {
                 rings_in(part_off_pair(parts, i)?, rings).map(GeoGeom::polygon)
             }
             GeometryType::MultiPoint => {
-                let geoms = geoms.ok_or_else(|| err("missing geometry_offsets for MultiPoint"))?;
+                let geoms = geoms.ok_or(GeometryField {
+                    index,
+                    field: "geometry_offsets",
+                    geom_type,
+                })?;
                 geom_off_pair(geoms, index)?
                     .map(&v)
                     .collect::<Result<_, _>>()
                     .map(GeoGeom::multi_point)
             }
             GeometryType::MultiLineString => {
-                let geoms =
-                    geoms.ok_or_else(|| err("missing geometry_offsets for MultiLineString"))?;
-                let parts = parts.ok_or_else(|| err("missing part_offsets for MultiLineString"))?;
+                let geoms = geoms.ok_or(GeometryField {
+                    index,
+                    field: "geometry_offsets",
+                    geom_type,
+                })?;
+                let parts = parts.ok_or(GeometryField {
+                    index,
+                    field: "part_offsets",
+                    geom_type,
+                })?;
                 geom_off_pair(geoms, index)?
                     .map(|p| line(part_off_pair(parts, p)?))
                     .collect::<Result<_, _>>()
                     .map(GeoGeom::multi_line_string)
             }
             GeometryType::MultiPolygon => {
-                let geoms =
-                    geoms.ok_or_else(|| err("missing geometry_offsets for MultiPolygon"))?;
-                let parts = parts.ok_or_else(|| err("missing part_offsets for MultiPolygon"))?;
-                let rings = rings.ok_or_else(|| err("missing ring_offsets for MultiPolygon"))?;
+                let geoms = geoms.ok_or(GeometryField {
+                    index,
+                    field: "geometry_offsets",
+                    geom_type,
+                })?;
+                let parts = parts.ok_or(GeometryField {
+                    index,
+                    field: "part_offsets",
+                    geom_type,
+                })?;
+                let rings = rings.ok_or(GeometryField {
+                    index,
+                    field: "ring_offsets",
+                    geom_type,
+                })?;
                 geom_off_pair(geoms, index)?
                     .map(|p| rings_in(part_off_pair(parts, p)?, rings))
                     .collect::<Result<_, _>>()
@@ -327,7 +370,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
-                    v => Err(MltError::DecodeError(format!(
+                    v => Err(DecodeError(format!(
                         "Geometry stream cannot have Data physical type {v:?}"
                     )))?,
                 },
@@ -335,7 +378,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
-                        v => Err(MltError::DecodeError(format!(
+                        v => Err(DecodeError(format!(
                             "Geometry stream cannot have Offset physical type {v:?}"
                         )))?,
                     };
@@ -347,7 +390,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         LengthType::Parts => &mut part_offsets,
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
-                        v => Err(MltError::DecodeError(format!(
+                        v => Err(DecodeError(format!(
                             "Geometry stream cannot have Length physical type {v:?}"
                         )))?,
                     };
@@ -362,7 +405,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
             // topology data are present in the tile
             //
             // return FlatGpuVector::new(vector_types, triangles, index_buffer, vertices);
-            return Err(MltError::NotImplemented(
+            return Err(NotImplemented(
                 "index_buffer.is_some() && part_offsets.is_none() case",
             ));
         }
