@@ -7,7 +7,7 @@ use zigzag::ZigZag;
 
 use crate::{MltError, MltRefResult};
 
-/// What to calculate with [`Analyze::statistics`].
+/// What to calculate with [`Analyze::decoded`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatType {
     /// Payload data size in bytes (excludes metadata overhead).
