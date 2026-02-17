@@ -92,8 +92,7 @@ When the fuzzer finds an issue, you can reproduce it using the test infrastructu
    ```rust
    let bytes = include_bytes!("../artifacts/layer/minimized-from-<hash>");
    ```
-
-3. Run the test:
+4. Run the test:
    ```bash
    cargo test
    ```
