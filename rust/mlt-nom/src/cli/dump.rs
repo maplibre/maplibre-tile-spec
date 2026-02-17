@@ -15,10 +15,16 @@ pub struct DumpArgs {
     format: OutputFormat,
 }
 
-pub fn dump(args: &DumpArgs, decode: bool) -> Result<()> {
+#[derive(PartialEq, Eq, Debug)]
+pub enum AfterDump {
+    KeepRaw,
+    Decode,
+}
+
+pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
     let buffer = fs::read(&args.file)?;
     let mut layers = parse_layers(&buffer)?;
-    if decode {
+    if decode == AfterDump::Decode {
         for layer in &mut layers {
             layer.decode_all()?;
         }

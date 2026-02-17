@@ -3,14 +3,14 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
-use crate::cli::dump::{DumpArgs, dump};
+use crate::cli::dump::{AfterDump, DumpArgs, dump};
 use crate::cli::ls::{LsArgs, ls};
 mod cli;
 
 fn main() -> Result<()> {
     match Cli::parse().command {
-        Commands::Dump(args) => dump(&args, false)?,
-        Commands::Decode(args) => dump(&args, true)?,
+        Commands::Dump(args) => dump(&args, AfterDump::KeepRaw)?,
+        Commands::Decode(args) => dump(&args, AfterDump::Decode)?,
         Commands::Ls(args) => ls(&args)?,
     }
 
