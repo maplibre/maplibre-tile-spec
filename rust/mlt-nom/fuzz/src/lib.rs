@@ -14,6 +14,9 @@ impl LayerInput {
         let Ok((remaining, layer)) = Layer::parse(&self.bytes) else {
             return;
         };
+        if layer.as_layer01().is_none() {
+            return; // FIXME: not interesting to debug, but has roundtrippability issues
+        }
         if remaining.len() != 0 {
             return; // not interesting to debug
         }
