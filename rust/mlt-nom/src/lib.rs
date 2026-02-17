@@ -13,6 +13,7 @@ pub mod v01;
 
 pub use decodable::*;
 pub use errors::{MltError, MltRefResult};
+pub use utils::{Analyze, StatType};
 
 pub use crate::layer::Layer;
 

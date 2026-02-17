@@ -4,7 +4,7 @@ use borrowme::borrowme;
 
 use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
-use crate::utils::OptSeqOpt;
+use crate::utils::{Analyze, OptSeqOpt, StatType};
 use crate::v01::Stream;
 
 /// ID column representation, either raw or decoded, or none if there are no IDs
@@ -17,12 +17,37 @@ pub enum Id<'a> {
     Decoded(DecodedId),
 }
 
+impl Analyze for Id<'_> {
+    fn decoded(&self, stat: StatType) -> usize {
+        match self {
+            Self::None => 0,
+            Self::Raw(d) => d.decoded(stat),
+            Self::Decoded(d) => d.decoded(stat),
+        }
+    }
+
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        match self {
+            Self::None => {}
+            Self::Raw(d) => d.for_each_stream(cb),
+            Self::Decoded(d) => d.for_each_stream(cb),
+        }
+    }
+}
+
 /// Unparsed ID data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct RawId<'a> {
     optional: Option<Stream<'a>>,
     value: RawIdValue<'a>,
+}
+
+impl Analyze for RawId<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.optional.for_each_stream(cb);
+        self.value.for_each_stream(cb);
+    }
 }
 
 /// A sequence of encoded (raw) ID values, either 32-bit or 64-bit unsigned integers
@@ -33,9 +58,23 @@ pub enum RawIdValue<'a> {
     Id64(Stream<'a>),
 }
 
+impl Analyze for RawIdValue<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        match self {
+            Self::Id32(v) | Self::Id64(v) => v.for_each_stream(cb),
+        }
+    }
+}
+
 /// Decoded ID values as a vector of optional 64-bit unsigned integers
 #[derive(Clone, Default, PartialEq)]
 pub struct DecodedId(pub Option<Vec<Option<u64>>>);
+
+impl Analyze for DecodedId {
+    fn decoded(&self, stat: StatType) -> usize {
+        self.0.decoded(stat)
+    }
+}
 
 impl_decodable!(Id<'a>, RawId<'a>, DecodedId);
 

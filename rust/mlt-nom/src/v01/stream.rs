@@ -6,7 +6,9 @@ use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingPhysicalStreamType;
-use crate::utils::{all, decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta, take};
+use crate::utils::{
+    Analyze, StatType, all, decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta, take,
+};
 use crate::{MltError, MltRefResult, utils};
 
 /// Representation of a raw stream
@@ -17,6 +19,12 @@ pub struct Stream<'a> {
     pub data: StreamData<'a>,
 }
 
+impl Analyze for Stream<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        cb(self);
+    }
+}
+
 /// Metadata about a raw stream
 #[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {
@@ -24,6 +32,16 @@ pub struct StreamMeta {
     pub num_values: u32,
     pub logical_decoder: LogicalDecoder,
     pub physical_decoder: PhysicalDecoder,
+}
+
+impl Analyze for StreamMeta {
+    fn decoded(&self, stat: StatType) -> usize {
+        if stat == StatType::Meta {
+            size_of::<Self>()
+        } else {
+            0
+        }
+    }
 }
 
 impl Debug for StreamMeta {
@@ -45,7 +63,7 @@ impl Debug for StreamMeta {
 }
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PhysicalStreamType {
     Present,
     Data(DictionaryType),
@@ -55,7 +73,7 @@ pub enum PhysicalStreamType {
 
 /// Dictionary type used for a column, as stored in the tile
 #[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum DictionaryType {
     None = 0,
@@ -68,7 +86,7 @@ pub enum DictionaryType {
 
 /// Offset type used for a column, as stored in the tile
 #[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OffsetType {
     Vertex = 0,
@@ -79,7 +97,7 @@ pub enum OffsetType {
 
 /// Length type used for a column, as stored in the tile
 #[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LengthType {
     VarBinary = 0,
@@ -119,7 +137,7 @@ impl Debug for LogicalDecoder {
 
 /// Physical decoder used for a column, as stored in the tile
 #[borrowme]
-#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum PhysicalDecoder {
     None = 0,
@@ -171,6 +189,14 @@ macro_rules! stream_data {
         pub enum StreamData<'a> {
             $($enm($ty<'a>),)+
         }
+
+    impl crate::Analyze for StreamData<'_> {
+        fn decoded(&self, stat: crate::StatType) -> usize {
+            match &self {
+                $(StreamData::$enm(d) => d.data.decoded(stat),)+
+            }
+        }
+    }
 
         $(
             #[borrowme]

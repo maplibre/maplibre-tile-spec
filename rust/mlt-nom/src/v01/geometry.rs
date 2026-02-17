@@ -6,7 +6,7 @@ use num_enum::TryFromPrimitive;
 use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
-use crate::utils::{OptSeq, SetOptionOnce as _};
+use crate::utils::{Analyze, OptSeq, SetOptionOnce as _, StatType};
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
 
 /// Geometry column representation, either raw or decoded
@@ -17,12 +17,35 @@ pub enum Geometry<'a> {
     Decoded(DecodedGeometry),
 }
 
+impl Analyze for Geometry<'_> {
+    fn decoded(&self, stat: StatType) -> usize {
+        match self {
+            Self::Raw(g) => g.decoded(stat),
+            Self::Decoded(g) => g.decoded(stat),
+        }
+    }
+
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        match self {
+            Self::Raw(g) => g.for_each_stream(cb),
+            Self::Decoded(g) => g.for_each_stream(cb),
+        }
+    }
+}
+
 /// Unparsed geometry data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct RawGeometry<'a> {
-    meta: Stream<'a>,
-    items: Vec<Stream<'a>>,
+    pub meta: Stream<'a>,
+    pub items: Vec<Stream<'a>>,
+}
+
+impl Analyze for RawGeometry<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.meta.for_each_stream(cb);
+        self.items.for_each_stream(cb);
+    }
 }
 
 /// Decoded geometry data
@@ -38,6 +61,25 @@ pub struct DecodedGeometry {
     pub index_buffer: Option<Vec<u32>>,
     pub triangles: Option<Vec<u32>>,
     pub vertices: Option<Vec<i32>>,
+}
+
+impl Analyze for DecodedGeometry {
+    fn decoded(&self, stat: StatType) -> usize {
+        match stat {
+            StatType::Data => {
+                self.vector_types.len()
+                    + self.geometry_offsets.decoded(stat)
+                    + self.part_offsets.decoded(stat)
+                    + self.ring_offsets.decoded(stat)
+                    + self.vertex_offsets.decoded(stat)
+                    + self.index_buffer.decoded(stat)
+                    + self.triangles.decoded(stat)
+                    + self.vertices.decoded(stat)
+            }
+            StatType::Meta => 0,
+            StatType::Features => self.vector_types.len(),
+        }
+    }
 }
 
 impl DecodedGeometry {
@@ -141,7 +183,9 @@ impl DecodedGeometry {
 }
 
 /// Types of geometries supported in MLT
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, TryFromPrimitive, strum::Display)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash, Ord, TryFromPrimitive, strum::Display,
+)]
 #[repr(u8)]
 pub enum GeometryType {
     Point,
