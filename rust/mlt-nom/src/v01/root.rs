@@ -46,7 +46,7 @@ impl Layer01<'_> {
         for column in col_info {
             let optional;
             let value;
-            let stream_count;
+            let mut stream_count;
             let name = column.name.unwrap_or("");
 
             match column.typ {
@@ -136,16 +136,12 @@ impl Layer01<'_> {
                             remaining: input.len(),
                         });
                     }
-                    (input, optional) = parse_optional(column.typ, input)?;
-                    // if optional has a value, one stream has already been consumed
-                    let optional_stream_count = usize::from(optional.is_some());
-                    let Some(stream_count) = stream_count.checked_sub(optional_stream_count) else {
-                        return Err(MltError::ExpectedValues {
-                            ctx: "stream count must be at least the optional stream count",
-                            expected: optional_stream_count,
-                            got: stream_count,
-                        });
-                    };
+                    if stream_count > 0 {
+                        (input, optional) = parse_optional(column.typ, input)?;
+                    } else {
+                        optional = None;
+                    }
+                    stream_count -= usize::from(optional.is_some());
                     let value_vec;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
                     properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
