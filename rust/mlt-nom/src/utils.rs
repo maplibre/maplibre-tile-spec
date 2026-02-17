@@ -376,6 +376,6 @@ mod tests {
             (Ok((v1, s1)), Ok((v2, s2))) => assert_eq!((v1, s1), (v2.as_slice(), s2)),
             (Err(actual), Err(expected)) => assert_eq!(actual.to_string(), expected.to_string()),
             (Ok(_), Err(_)) | (Err(_), Ok(_)) => panic!("Unexpected result"),
-        };
+        }
     }
 }
