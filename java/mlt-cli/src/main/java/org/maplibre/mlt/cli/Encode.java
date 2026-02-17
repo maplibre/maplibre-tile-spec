@@ -327,16 +327,22 @@ public class Encode {
         System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
+        final CompareHelper.CompareMode mode =
+            (config.compareGeom() && config.compareProp())
+                ? CompareHelper.CompareMode.All
+                : (config.compareGeom()
+                    ? CompareHelper.CompareMode.Geometry
+                    : CompareHelper.CompareMode.Properties);
+
         final var result =
             CompareHelper.compareTiles(
                 decodedTile,
                 decodedMvTile,
-                config.compareGeom(),
-                config.compareProp(),
+                mode,
                 targetConfig.getLayerFilterPattern(),
                 targetConfig.getLayerFilterInvert());
-        if (result.getLeft()) {
-          System.err.println("Tiles do not match: " + result.getRight());
+        if (result.isPresent()) {
+          System.err.println("Tiles do not match: " + result);
         } else if (config.verboseLevel() > 0) {
           System.err.println("Tiles match");
         }
