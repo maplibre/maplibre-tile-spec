@@ -4,7 +4,8 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 
-use crate::utils::{Analyze, SetOptionOnce as _, StatType};
+use crate::analyse::{Analyze, StatType};
+use crate::utils::SetOptionOnce as _;
 use crate::v01::column::ColumnType;
 use crate::v01::{Column, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream};
 use crate::{Decodable as _, MltError, MltRefResult, utils};

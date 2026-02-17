@@ -3,8 +3,9 @@ use std::fmt::{Debug, Formatter};
 use borrowme::borrowme;
 
 use crate::MltError;
+use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
-use crate::utils::{Analyze, OptSeqOpt, StatType};
+use crate::utils::OptSeqOpt;
 use crate::v01::Stream;
 
 /// ID column representation, either raw or decoded, or none if there are no IDs

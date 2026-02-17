@@ -4,9 +4,10 @@ use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError;
+use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
-use crate::utils::{Analyze, OptSeq, SetOptionOnce as _, StatType};
+use crate::utils::{OptSeq, SetOptionOnce as _};
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
 
 /// Geometry column representation, either raw or decoded
