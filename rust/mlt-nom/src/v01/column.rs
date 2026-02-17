@@ -87,9 +87,14 @@ impl ColumnType {
     /// Note: ID and Geometry columns use implicit naming and do not include a name field.
     #[must_use]
     pub fn has_name(self) -> bool {
-        #[expect(clippy::enum_glob_use, reason = "readability")]
-        use ColumnType::*;
-        !matches!(self, Id | OptId | LongId | OptLongId | Geometry)
+        !matches!(
+            self,
+            ColumnType::Id
+                | ColumnType::OptId
+                | ColumnType::LongId
+                | ColumnType::OptLongId
+                | ColumnType::Geometry
+        )
     }
 
     /// Check if the column type has a presence stream

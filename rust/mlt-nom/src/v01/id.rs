@@ -63,25 +63,21 @@ pub struct RawId<'a> {
 }
 impl OwnedRawId {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        #[expect(clippy::enum_glob_use)]
-        use OwnedRawIdValue::*;
         match (&self.optional, &self.value) {
-            (None, Id32(_)) => ColumnType::Id.write_to(writer)?,
-            (None, Id64(_)) => ColumnType::LongId.write_to(writer)?,
-            (Some(_), Id32(_)) => ColumnType::OptId.write_to(writer)?,
-            (Some(_), Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
+            (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
+            (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
+            (Some(_), OwnedRawIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
+            (Some(_), OwnedRawIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
         }
         Ok(())
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        #[expect(clippy::enum_glob_use)]
-        use OwnedRawIdValue::*;
         if let Some(opt) = &self.optional {
             writer.write_optional(opt)?;
         }
         match &self.value {
-            Id32(s) | Id64(s) => writer.write_stream(s)?,
+            OwnedRawIdValue::Id32(s) | OwnedRawIdValue::Id64(s) => writer.write_stream(s)?,
         }
         Ok(())
     }
