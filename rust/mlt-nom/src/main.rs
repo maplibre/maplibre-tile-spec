@@ -11,7 +11,6 @@ use anyhow::Result;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use mlt_nom::geojson::FeatureCollection;
 use mlt_nom::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
     PhysicalDecoder, PhysicalStreamType, Stream,
@@ -28,6 +27,9 @@ use tabled::settings::style::HorizontalLine;
 use tabled::settings::{Alignment, Style};
 use thousands::Separable as _;
 
+use crate::cli::dump::{DumpArgs, dump};
+mod cli;
+
 #[derive(Parser)]
 #[command(name = "mlt", about = "MapLibre Tile format utilities")]
 struct Cli {
@@ -43,16 +45,6 @@ enum Commands {
     Decode(DumpArgs),
     /// List .mlt files with statistics
     Ls(LsArgs),
-}
-
-#[derive(Args)]
-struct DumpArgs {
-    /// Path to the MLT file
-    file: PathBuf,
-
-    /// Output format
-    #[arg(short, long, default_value_t, value_enum)]
-    format: OutputFormat,
 }
 
 #[derive(Clone, Default, ValueEnum)]
@@ -96,31 +88,6 @@ fn main() -> Result<()> {
         Commands::Dump(args) => dump(&args, false)?,
         Commands::Decode(args) => dump(&args, true)?,
         Commands::Ls(args) => ls(&args)?,
-    }
-
-    Ok(())
-}
-
-fn dump(args: &DumpArgs, decode: bool) -> Result<()> {
-    let buffer = fs::read(&args.file)?;
-    let mut layers = parse_layers(&buffer)?;
-    if decode {
-        for layer in &mut layers {
-            layer.decode_all()?;
-        }
-    }
-
-    match args.format {
-        OutputFormat::Text => {
-            for (i, layer) in layers.iter().enumerate() {
-                println!("=== Layer {i} ===");
-                println!("{layer:#?}");
-            }
-        }
-        OutputFormat::GeoJson => {
-            let fc = FeatureCollection::from_layers(&layers)?;
-            println!("{}", serde_json::to_string_pretty(&fc)?);
-        }
     }
 
     Ok(())
