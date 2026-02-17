@@ -232,10 +232,7 @@ fn ls(args: &LsArgs) -> Result<()> {
     Ok(())
 }
 
-fn collect_mlt_files(
-    path: &Path,
-    recursive: bool,
-) -> Result<Vec<PathBuf>> {
+fn collect_mlt_files(path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     if path.is_file() {
@@ -249,11 +246,7 @@ fn collect_mlt_files(
     Ok(files)
 }
 
-fn collect_from_dir(
-    dir: &Path,
-    files: &mut Vec<PathBuf>,
-    recursive: bool,
-) -> Result<()> {
+fn collect_from_dir(dir: &Path, files: &mut Vec<PathBuf>, recursive: bool) -> Result<()> {
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_file() {
@@ -267,10 +260,7 @@ fn collect_from_dir(
     Ok(())
 }
 
-fn analyze_mlt_file(
-    path: &Path,
-    base_path: &Path,
-) -> Result<MltFileInfo> {
+fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
     let buffer = fs::read(path)?;
     let original_size = buffer.len();
     let mut layers = parse_layers(&buffer)?;
