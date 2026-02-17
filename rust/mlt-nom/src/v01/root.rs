@@ -4,6 +4,7 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 
+use crate::analyse::{Analyze, StatType};
 use crate::utils::SetOptionOnce as _;
 use crate::v01::column::ColumnType;
 use crate::v01::{Column, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream};
@@ -18,6 +19,24 @@ pub struct Layer01<'a> {
     pub id: Id<'a>,
     pub geometry: Geometry<'a>,
     pub properties: Vec<Property<'a>>,
+}
+
+impl Analyze for Layer01<'_> {
+    fn decoded(&self, stat: StatType) -> usize {
+        match stat {
+            StatType::MetadataOverheadBytes => self.name.len() + size_of::<u32>(),
+            StatType::PayloadDataSizeBytes => {
+                self.id.decoded(stat) + self.geometry.decoded(stat) + self.properties.decoded(stat)
+            }
+            StatType::FeatureCount => self.geometry.decoded(stat),
+        }
+    }
+
+    fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
+        self.id.for_each_stream(cb);
+        self.geometry.for_each_stream(cb);
+        self.properties.for_each_stream(cb);
+    }
 }
 
 impl Layer01<'_> {
