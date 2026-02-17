@@ -2,7 +2,6 @@ use std::io;
 use std::io::Write;
 
 use borrowme::borrowme;
-use integer_encoding::VarIntWriter as _;
 
 use crate::analyse::{Analyze, StatType};
 use crate::utils::SetOptionOnce as _;
@@ -255,6 +254,8 @@ fn parse_columns_meta(
 impl OwnedLayer01 {
     /// Write Layer's binary representation to a Write stream without allocating a Vec
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        use integer_encoding::VarIntWriter as _;
+
         writer.write_varint(self.name.len() as u64)?;
         writer.write_all(self.name.as_bytes())?;
         writer.write_varint(u64::from(self.extent))?;
