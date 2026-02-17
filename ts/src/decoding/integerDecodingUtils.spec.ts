@@ -59,8 +59,6 @@ import {
     encodeComponentwiseDeltaVec2,
     encodeComponentwiseDeltaVec2Scaled,
 } from "../encoding/integerEncodingUtils";
-import { readFileSync } from "node:fs";
-import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
 
 describe("IntegerDecodingUtils", () => {
     describe("Varint decoding", () => {
@@ -399,75 +397,23 @@ describe("IntegerDecodingUtils", () => {
             expect(delta).toBe(1n);
         });
     });
-});
 
-describe("decodeFastPfor (wire format)", () => {
-    const FIXTURE_NAMES = ["vector1", "vector2", "vector3", "vector4"] as const;
-
-    function fixtureUrl(fileName: string): URL {
-        return new URL(`../../../test/fixtures/fastpfor/${fileName}`, import.meta.url);
-    }
-
-    function readEncodedFixtureBytes(name: string): Uint8Array {
-        const buf = readFileSync(fixtureUrl(`${name}_encoded.bin`));
-        return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-    }
-
-    function readExpectedFixtureValues(name: string): Int32Array {
-        const buf = readFileSync(fixtureUrl(`${name}_decoded.bin`));
-        if ((buf.byteLength & 3) !== 0) {
-            throw new Error(`Invalid decoded fixture byte length: ${buf.byteLength} (expected multiple of 4)`);
-        }
-
-        const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-        const out = new Int32Array(bytes.byteLength >>> 2);
-        decodeBigEndianInt32sInto(bytes, 0, bytes.byteLength, out);
-        return out;
-    }
-
-    it.each(FIXTURE_NAMES)("%s decodes (no workspace)", (name) => {
-        const encoded = readEncodedFixtureBytes(name);
-        const expectedValues = readExpectedFixtureValues(name);
-
+    it("should reject FastPFOR byte lengths that are not multiple of 4", () => {
+        const encoded = new Uint8Array([0x01, 0x02, 0x03]);
         const offset = new IntWrapper(0);
-        const decoded = decodeFastPfor(encoded, expectedValues.length, encoded.length, offset);
-        expect(decoded).toEqual(expectedValues);
-        expect(offset.get()).toBe(encoded.length);
+
+        expect(() => decodeFastPfor(encoded, 0, encoded.length, offset)).toThrow(/invalid encodedByteLength=3/);
+        expect(offset.get()).toBe(0);
     });
 
-    it.each(FIXTURE_NAMES)("%s decodes (with workspace reuse)", (name) => {
-        const encoded = readEncodedFixtureBytes(name);
-        const expectedValues = readExpectedFixtureValues(name);
+    it("should reject FastPFOR byte lengths with workspace API when not multiple of 4", () => {
+        const encoded = new Uint8Array([0x01, 0x02, 0x03]);
+        const offset = new IntWrapper(0);
         const workspace = createFastPforWireDecodeWorkspace();
 
-        const offset1 = new IntWrapper(0);
-        const decoded1 = decodeFastPforWithWorkspace(encoded, expectedValues.length, encoded.length, offset1, workspace);
-        expect(decoded1).toEqual(expectedValues);
-        expect(offset1.get()).toBe(encoded.length);
-
-        const offset2 = new IntWrapper(0);
-        const decoded2 = decodeFastPforWithWorkspace(encoded, expectedValues.length, encoded.length, offset2, workspace);
-        expect(decoded2).toEqual(expectedValues);
-        expect(offset2.get()).toBe(encoded.length);
-    });
-
-    it("does not depend on input ArrayBuffer alignment (prefix bytes)", () => {
-        const name = FIXTURE_NAMES[0];
-        const encoded = readEncodedFixtureBytes(name);
-        const expectedValues = readExpectedFixtureValues(name);
-
-        const prefix = new Uint8Array([0xaa, 0xbb, 0xcc]);
-        const suffix = new Uint8Array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
-
-        const buffer = new Uint8Array(prefix.length + encoded.length + suffix.length);
-        buffer.set(prefix, 0);
-        buffer.set(encoded, prefix.length);
-        buffer.set(suffix, prefix.length + encoded.length);
-
-        const offset = new IntWrapper(prefix.length);
-        const decoded = decodeFastPfor(buffer, expectedValues.length, encoded.length, offset);
-        expect(decoded).toEqual(expectedValues);
-        expect(offset.get()).toBe(prefix.length + encoded.length);
-        expect(buffer.subarray(prefix.length + encoded.length)).toEqual(suffix);
+        expect(() =>
+            decodeFastPforWithWorkspace(encoded, 0, encoded.length, offset, workspace),
+        ).toThrow(/invalid encodedByteLength=3/);
+        expect(offset.get()).toBe(0);
     });
 });

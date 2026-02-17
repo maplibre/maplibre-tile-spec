@@ -147,6 +147,18 @@ function decodeVarintRemainder(l, buf, offset) {
     throw new Error("Expected varint not more than 10 bytes");
 }
 
+function assertFastPforEncodedByteLength(
+    encodedByteLength: number,
+    inputByteOffset: number,
+    encodedBytesLength: number,
+): void {
+    if ((encodedByteLength & 3) !== 0) {
+        throw new Error(
+            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytesLength}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
+        );
+    }
+}
+
 export function decodeFastPfor(
     encodedBytes: Uint8Array,
     expectedValueCount: number,
@@ -154,11 +166,7 @@ export function decodeFastPfor(
     offset: IntWrapper,
 ): Int32Array {
     const inputByteOffset = offset.get();
-    if ((encodedByteLength & 3) !== 0) {
-        throw new Error(
-            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytes.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
-        );
-    }
+    assertFastPforEncodedByteLength(encodedByteLength, inputByteOffset, encodedBytes.length);
 
     const encodedWordCount = encodedByteLength >>> 2;
     const encodedWordBuffer = new Int32Array(encodedWordCount);
@@ -177,11 +185,7 @@ export function decodeFastPforWithWorkspace(
     workspace: FastPforWireDecodeWorkspace,
 ): Int32Array {
     const inputByteOffset = offset.get();
-    if ((encodedByteLength & 3) !== 0) {
-        throw new Error(
-            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytes.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
-        );
-    }
+    assertFastPforEncodedByteLength(encodedByteLength, inputByteOffset, encodedBytes.length);
 
     const encodedWordCount = encodedByteLength >>> 2;
     const encodedWordBuffer = ensureFastPforWireEncodedWordsCapacity(workspace, encodedWordCount);
