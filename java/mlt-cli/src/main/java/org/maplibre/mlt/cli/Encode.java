@@ -24,6 +24,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
+import org.maplibre.mlt.compare.CompareHelper;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MLTStreamObserver;
@@ -326,9 +327,17 @@ public class Encode {
         System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
-        CliUtil.compare(
-            decodedTile, decodedMvTile, config.compareGeom(), config.compareProp(), targetConfig);
-        if (config.verboseLevel() > 0) {
+        final var result =
+            CompareHelper.compareTiles(
+                decodedTile,
+                decodedMvTile,
+                config.compareGeom(),
+                config.compareProp(),
+                targetConfig.getLayerFilterPattern(),
+                targetConfig.getLayerFilterInvert());
+        if (result.getLeft()) {
+          System.err.println("Tiles do not match: " + result.getRight());
+        } else if (config.verboseLevel() > 0) {
           System.err.println("Tiles match");
         }
       }
