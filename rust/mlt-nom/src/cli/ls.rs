@@ -40,7 +40,7 @@ pub struct LsArgs {
     format: LsFormat,
 }
 
-#[derive(Clone, Default, ValueEnum)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ValueEnum)]
 pub enum LsFormat {
     /// Table output with aligned columns
     #[default]

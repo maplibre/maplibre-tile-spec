@@ -15,7 +15,7 @@ pub struct DumpArgs {
     format: OutputFormat,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum AfterDump {
     KeepRaw,
     Decode,
