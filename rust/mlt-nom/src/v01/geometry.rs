@@ -6,8 +6,8 @@ use num_enum::TryFromPrimitive;
 
 use crate::MltError;
 use crate::MltError::{
-    DecodeError, GeometryField, GeometryIndexOutOfBounds, GeometryOutOfBounds,
-    GeometryVertexOutOfBounds, NotImplemented,
+    DecodeError, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
@@ -181,9 +181,7 @@ impl DecodedGeometry {
                     (None, Some(p), None) => v(part_off(p, index)?)?,
                     (None, None, None) => v(index)?,
                     _ => {
-                        return Err(DecodeError(format!(
-                            "geometry[{index}]: unexpected offset combination for Point"
-                        )));
+                        return Err(UnexpectedOffsetCombination { index, geom_type });
                     }
                 };
                 Ok(GeoGeom::point(pt))
@@ -192,27 +190,13 @@ impl DecodedGeometry {
                 let r = match (parts, rings) {
                     (Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
                     (Some(p), None) => part_off_pair(p, index)?,
-                    _ => {
-                        return Err(GeometryField {
-                            index,
-                            field: "part_offsets",
-                            geom_type,
-                        });
-                    }
+                    _ => return Err(NoPartOffsets { index, geom_type }),
                 };
                 line(r).map(GeoGeom::line_string)
             }
             GeometryType::Polygon => {
-                let parts = parts.ok_or(GeometryField {
-                    index,
-                    field: "part_offsets",
-                    geom_type,
-                })?;
-                let rings = rings.ok_or(GeometryField {
-                    index,
-                    field: "ring_offsets",
-                    geom_type,
-                })?;
+                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
+                let rings = rings.ok_or(NoRingOffsets { index, geom_type })?;
                 let i = geoms
                     .map(|g| geom_off(g, index))
                     .transpose()?
@@ -220,48 +204,24 @@ impl DecodedGeometry {
                 rings_in(part_off_pair(parts, i)?, rings).map(GeoGeom::polygon)
             }
             GeometryType::MultiPoint => {
-                let geoms = geoms.ok_or(GeometryField {
-                    index,
-                    field: "geometry_offsets",
-                    geom_type,
-                })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
                 geom_off_pair(geoms, index)?
                     .map(&v)
                     .collect::<Result<_, _>>()
                     .map(GeoGeom::multi_point)
             }
             GeometryType::MultiLineString => {
-                let geoms = geoms.ok_or(GeometryField {
-                    index,
-                    field: "geometry_offsets",
-                    geom_type,
-                })?;
-                let parts = parts.ok_or(GeometryField {
-                    index,
-                    field: "part_offsets",
-                    geom_type,
-                })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
+                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
                 geom_off_pair(geoms, index)?
                     .map(|p| line(part_off_pair(parts, p)?))
                     .collect::<Result<_, _>>()
                     .map(GeoGeom::multi_line_string)
             }
             GeometryType::MultiPolygon => {
-                let geoms = geoms.ok_or(GeometryField {
-                    index,
-                    field: "geometry_offsets",
-                    geom_type,
-                })?;
-                let parts = parts.ok_or(GeometryField {
-                    index,
-                    field: "part_offsets",
-                    geom_type,
-                })?;
-                let rings = rings.ok_or(GeometryField {
-                    index,
-                    field: "ring_offsets",
-                    geom_type,
-                })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
+                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
+                let rings = rings.ok_or(NoRingOffsets { index, geom_type })?;
                 geom_off_pair(geoms, index)?
                     .map(|p| rings_in(part_off_pair(parts, p)?, rings))
                     .collect::<Result<_, _>>()

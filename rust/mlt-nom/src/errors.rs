@@ -180,10 +180,24 @@ pub enum MltError {
         vertex: usize,
         count: usize,
     },
-    #[error("geometry[{index}]: {geom_type} - {field}")]
-    GeometryField {
+    #[error("geometry[{index}]: {geom_type} requires geometry_offsets")]
+    NoGeometryOffsets {
         index: usize,
-        field: &'static str,
+        geom_type: GeometryType,
+    },
+    #[error("geometry[{index}]: {geom_type} requires part_offsets")]
+    NoPartOffsets {
+        index: usize,
+        geom_type: GeometryType,
+    },
+    #[error("geometry[{index}]: {geom_type} requires ring_offsets")]
+    NoRingOffsets {
+        index: usize,
+        geom_type: GeometryType,
+    },
+    #[error("geometry[{index}]: unexpected offset combination for {geom_type}")]
+    UnexpectedOffsetCombination {
+        index: usize,
         geom_type: GeometryType,
     },
     #[error("geometry[{index}]: index out of bounds")]
