@@ -70,6 +70,13 @@ impl Layer01<'_> {
                             remaining: input.len(),
                         });
                     }
+                    if stream_count == 0 {
+                        return Err(MltError::MinLength {
+                            ctx: "geometry stream",
+                            min: 1,
+                            got: 0,
+                        });
+                    }
 
                     (input, value) = Stream::parse(input)?;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
