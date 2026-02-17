@@ -210,9 +210,9 @@ fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
     for layer in &mut layers {
         layer.decode_all()?;
         if let Some(layer01) = layer.as_layer01() {
-            data_size += layer01.decoded(StatType::Data);
-            meta_size += layer01.decoded(StatType::Meta);
-            feature_count += layer01.decoded(StatType::Features);
+            data_size += layer01.decoded(StatType::PayloadDataSizeBytes);
+            meta_size += layer01.decoded(StatType::MetadataOverheadBytes);
+            feature_count += layer01.decoded(StatType::FeatureCount);
 
             if let Geometry::Decoded(ref geom) = layer01.geometry {
                 for &geom_type in &geom.vector_types {

@@ -35,7 +35,7 @@ pub struct StreamMeta {
 
 impl Analyze for StreamMeta {
     fn decoded(&self, stat: StatType) -> usize {
-        if stat == StatType::Meta {
+        if stat == StatType::MetadataOverheadBytes {
             size_of::<Self>()
         } else {
             0

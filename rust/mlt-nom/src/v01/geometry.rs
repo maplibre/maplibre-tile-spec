@@ -67,7 +67,7 @@ pub struct DecodedGeometry {
 impl Analyze for DecodedGeometry {
     fn decoded(&self, stat: StatType) -> usize {
         match stat {
-            StatType::Data => {
+            StatType::PayloadDataSizeBytes => {
                 self.vector_types.len()
                     + self.geometry_offsets.decoded(stat)
                     + self.part_offsets.decoded(stat)
@@ -77,8 +77,8 @@ impl Analyze for DecodedGeometry {
                     + self.triangles.decoded(stat)
                     + self.vertices.decoded(stat)
             }
-            StatType::Meta => 0,
-            StatType::Features => self.vector_types.len(),
+            StatType::MetadataOverheadBytes => 0,
+            StatType::FeatureCount => self.vector_types.len(),
         }
     }
 }

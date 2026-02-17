@@ -2,11 +2,11 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatType {
     /// Payload data size in bytes (excludes metadata overhead).
-    Data,
+    PayloadDataSizeBytes,
     /// Metadata overhead in bytes (stream headers, names, extent, geometry types).
-    Meta,
+    MetadataOverheadBytes,
     /// Number of features (geometry entries).
-    Features,
+    FeatureCount,
 }
 
 /// Trait for estimating various size/count metrics.
