@@ -74,10 +74,12 @@ impl Analyze for RawGeometry<'_> {
 }
 
 impl OwnedRawGeometry {
+    #[expect(clippy::unused_self)]
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         ColumnType::Geometry.write_to(writer)
     }
 
+    #[expect(clippy::unused_self)]
     pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,

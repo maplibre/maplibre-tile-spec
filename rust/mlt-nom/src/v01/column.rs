@@ -4,7 +4,7 @@ use std::io;
 use std::io::Write;
 
 use crate::MltError::ParsingColumnType;
-use crate::utils::BinarySerializer;
+use crate::utils::BinarySerializer as _;
 use crate::{MltRefResult, utils};
 
 /// Column definition
@@ -78,8 +78,8 @@ impl ColumnType {
         let value = Self::try_from(value).or(Err(ParsingColumnType(value)))?;
         Ok((input, value))
     }
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_u8(*self as u8)?;
+    pub fn write_to<W: Write>(self, writer: &mut W) -> io::Result<()> {
+        writer.write_u8(self as u8)?;
         Ok(())
     }
 

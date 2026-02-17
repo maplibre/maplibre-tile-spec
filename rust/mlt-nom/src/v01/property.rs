@@ -6,7 +6,7 @@ use std::io::Write;
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
-use crate::utils::BinarySerializer;
+use crate::utils::BinarySerializer as _;
 use crate::utils::f32_to_json;
 use crate::v01::{
     ColumnType, DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData,
@@ -105,7 +105,7 @@ impl OwnedRawProperty {
                     "structs are not allowed to be optional".to_string(),
                 ));
             }
-        };
+        }
 
         // name
         writer.write_string(&self.name)?;
@@ -121,6 +121,7 @@ impl OwnedRawProperty {
         Ok(())
     }
 
+    #[expect(clippy::unused_self)]
     pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
