@@ -81,58 +81,49 @@ pub struct Feature {
     pub ty: String,
 }
 
+/// `[lat, lon]` or `[east, north]`
+pub type Coordinate = [i32; 2];
+
 /// `GeoJSON` [`Geometry`] with i32 coordinates
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "coordinates")]
 pub enum Geometry {
-    Point {
-        coordinates: [i32; 2],
-    },
-    LineString {
-        coordinates: Vec<[i32; 2]>,
-    },
-    Polygon {
-        coordinates: Vec<Vec<[i32; 2]>>,
-    },
-    MultiPoint {
-        coordinates: Vec<[i32; 2]>,
-    },
-    MultiLineString {
-        coordinates: Vec<Vec<[i32; 2]>>,
-    },
-    MultiPolygon {
-        coordinates: Vec<Vec<Vec<[i32; 2]>>>,
-    },
+    Point(Coordinate),
+    LineString(Vec<Coordinate>),
+    Polygon(Vec<Vec<Coordinate>>),
+    MultiPoint(Vec<Coordinate>),
+    MultiLineString(Vec<Vec<Coordinate>>),
+    MultiPolygon(Vec<Vec<Vec<Coordinate>>>),
 }
 
 impl Geometry {
     #[must_use]
-    pub fn point(coordinates: [i32; 2]) -> Self {
-        Self::Point { coordinates }
+    pub fn point(coordinates: Coordinate) -> Self {
+        Self::Point(coordinates)
     }
 
     #[must_use]
-    pub fn line_string(coordinates: Vec<[i32; 2]>) -> Self {
-        Self::LineString { coordinates }
+    pub fn line_string(coordinates: Vec<Coordinate>) -> Self {
+        Self::LineString(coordinates)
     }
 
     #[must_use]
-    pub fn polygon(coordinates: Vec<Vec<[i32; 2]>>) -> Self {
-        Self::Polygon { coordinates }
+    pub fn polygon(coordinates: Vec<Vec<Coordinate>>) -> Self {
+        Self::Polygon(coordinates)
     }
 
     #[must_use]
-    pub fn multi_point(coordinates: Vec<[i32; 2]>) -> Self {
-        Self::MultiPoint { coordinates }
+    pub fn multi_point(coordinates: Vec<Coordinate>) -> Self {
+        Self::MultiPoint(coordinates)
     }
 
     #[must_use]
-    pub fn multi_line_string(coordinates: Vec<Vec<[i32; 2]>>) -> Self {
-        Self::MultiLineString { coordinates }
+    pub fn multi_line_string(coordinates: Vec<Vec<Coordinate>>) -> Self {
+        Self::MultiLineString(coordinates)
     }
 
     #[must_use]
-    pub fn multi_polygon(coordinates: Vec<Vec<Vec<[i32; 2]>>>) -> Self {
-        Self::MultiPolygon { coordinates }
+    pub fn multi_polygon(coordinates: Vec<Vec<Vec<Coordinate>>>) -> Self {
+        Self::MultiPolygon(coordinates)
     }
 }
