@@ -14,7 +14,7 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
             // Validate canonical encoding:
             // Check that the value couldn't fit in fewer bytes
             //
-            // A varint is canonical if the most significant 7 bits of the last byte are non-zero
+            // A varint is canonical if its last byte is non-zero (for multi-byte encodings).
             // Value 0 must be encoded as a single 0x00 byte.
             // For multi-byte varints, the last byte (without continuation bit) must be non-zero.
             //
