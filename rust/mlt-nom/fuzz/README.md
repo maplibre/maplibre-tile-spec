@@ -8,6 +8,20 @@ Fuzzing is a software testing technique that provides random or semi-random data
 This fuzzer tests the round-trip property of the MapLibre Tile parser:
 Any data that can be successfully parsed should be serializable back to bytes that match the original input.
 
+## Project Structure
+
+```
+fuzz/
+├── src/
+│   └── lib.rs              # mlt_fuzz library with LayerInput and fuzz_roundtrip logic
+├── fuzz_targets/
+│   └── layer.rs            # Fuzz target that feeds random data to LayerInput
+├── tests/
+│   └── reproduce.rs        # Template for reproducing fuzzer-found issues
+├── corpus/layer/           # Seed inputs for fuzzing
+└── artifacts/              # Crash-inducing inputs discovered by fuzzer
+```
+
 ## What is Being Tested
 
 The fuzzer validates the following property:
@@ -41,7 +55,9 @@ From the `fuzz` directory:
 cargo +nightly fuzz run layer
 ```
 
-Popular options to this are a run count via `-- -runs=1000000` or a timeout via `-- -timeout=10`.
+Popular options:
+- Run count: `-- -runs=1000000`
+- Timeout per input: `-- -timeout=10`
 
 ## Fuzz Targets
 
@@ -49,11 +65,7 @@ Popular options to this are a run count via `-- -runs=1000000` or a timeout via 
 
 **Location:** `fuzz_targets/layer.rs`
 
-Tests the `Layer` parser and serializer. The fuzzer:
-1. Generates arbitrary byte sequences
-2. Attempts to parse them as a `Layer`
-3. If parsing succeeds and consumes all input, serializes the layer back to bytes
-4. Verifies the output matches the original input exactly
+Tests the `Layer` parser and serializer by generating arbitrary `LayerInput` values and calling `fuzz_roundtrip()` on them.
 
 If a mismatch is found, the fuzzer panics with a detailed error message showing both the input and output in hexadecimal format.
 
@@ -70,7 +82,28 @@ The corpus is currently empty but will be populated as fuzzing discovers interes
 
 When the fuzzer discovers a crash or failure, it saves the triggering input to the `artifacts` directory. Each artifact file contains the exact byte sequence that caused the issue.
 
-To reproduce an issue:
+## Reproducing Failures
+
+When the fuzzer finds an issue, you can reproduce it using the test infrastructure:
+
+1. The failing input is saved to `artifacts/layer/crash-<hash>`
+2. Minimize the input using `cargo fuzz tmin layer artifacts/layer/crash-<hash>`
+3. Edit `tests/reproduce.rs` and update the filename:
+   ```rust
+   let bytes = include_bytes!("../artifacts/layer/minimized-from-<hash>");
+   ```
+
+3. Run the test:
+   ```bash
+   cargo test
+   ```
+
+This approach allows you to:
+- Debug the issue with full Rust tooling (not just nightly)
+- Set breakpoints and use a debugger
+- Iterate on fixes quickly
+
+Alternatively, you can run the fuzzer directly with the artifact:
 
 ```bash
 cargo +nightly fuzz run layer artifacts/layer/crash-<hash>
@@ -86,20 +119,6 @@ cargo +nightly fuzz coverage layer
 
 This creates coverage data in the `coverage` directory, showing which code paths have been exercised during fuzzing.
 
-## Debugging Failures
-
-When the fuzzer finds an issue:
-
-1. The failing input is saved to `artifacts/layer/`
-1. Minimize the input using
-   ```bash
-   cargo fuzz tmin layer artifacts/layer/crash-<hash>
-   ```
-1. Run with the specific input to reproduce:
-   ```bash
-   cargo +nightly fuzz run layer artifacts/layer/<filename>
-   ```
-
 ## Adding New Fuzz Targets
 
 To add a new fuzz target:
@@ -108,11 +127,11 @@ To add a new fuzz target:
    ```bash
    cargo fuzz add <target_name>
    ```
-
-1. Implement the fuzz target using `fuzz_target!` macro
-1. Add the target to `Cargo.toml` if not automatically added
+2. Implement the fuzz target using `fuzz_target!` macro
+3. Add corresponding test infrastructure in `src/lib.rs` and `tests/`
 
 ## Further Reading
 
 - [cargo-fuzz documentation](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 - [libFuzzer documentation](https://llvm.org/docs/LibFuzzer.html)
+- [mlt-nom library documentation](../README.md)

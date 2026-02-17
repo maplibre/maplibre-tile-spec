@@ -4,7 +4,7 @@ use mlt_nom::Layer;
 
 #[derive(arbitrary::Arbitrary)]
 pub struct LayerInput {
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 impl LayerInput {
     pub fn fuzz_roundtrip(self) {
