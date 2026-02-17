@@ -9,7 +9,7 @@ This approach allows us to easily extend the format in the future by adding new 
 Note the ordering -- `tag` is after the `size` because it is possible to treat it as a single byte for now until the parser supports more than 127 types, and can efficiently skip unknown ones without doing a more expensive varint parsing.
 
 ## Layer 0x01 - MVT compatibility
-Structure of the data if the `tag` above is 0x01. We should focus this tag on MVT compatibility, offering exactly what we had in MVT, but allowing for a clearly defined set of encodings and other optimizations like tesselation.  No new data formats (per vertix data, nested data, 3d geometries, etc).  No extendable encodings - once finalized, 0x01 will only allow what has been specified. This will ensure that if a decoder declares "0x01" support, it will parse every specification-compliant 0x01 layer. For any new features and encodings we will simply use a new tag ID, likely reusing most of the existing encoding/decoding code.
+Structure of the data if the `tag` above is 0x01. We should focus this tag on MVT compatibility, offering exactly what we had in MVT, but allowing for a clearly defined set of encodings and other optimizations like tesselation.  No new data formats (per vertix data, nested data, 3d geometries, etc.).  No extendable encodings - once finalized, 0x01 will only allow what has been specified. This will ensure that if a decoder declares "0x01" support, it will parse every specification-compliant 0x01 layer. For any new features and encodings we will simply use a new tag ID, likely reusing most of the existing encoding/decoding code.
 
 - `name: string` - Name of the layer
 - `columnCount: varint` - Number of columns in the layer

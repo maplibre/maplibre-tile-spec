@@ -1,8 +1,10 @@
+use std::fmt::Debug;
+
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
 
-use crate::{MltError, MltRefResult, utils::take};
-use std::fmt::Debug;
+use crate::utils::take;
+use crate::{MltError, MltRefResult};
 
 /// Decode ([`ZigZag`] + delta) for Vec2s
 // TODO: The encoded process is (delta + ZigZag) for each component

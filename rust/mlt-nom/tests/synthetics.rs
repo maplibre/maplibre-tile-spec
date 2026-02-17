@@ -33,9 +33,9 @@ fn test_one(mlt: &Path, json: &Path) {
     //
     // Rust (serde_json::Number) stores floats internally as f64.
     // This means that f32 will get parsed as f64 widening its precision
-    // We counter-fudge values very very small to compensate
+    // We counter-fudge values very small to compensate
     //
-    //  There is no good way to handle this since JSON does not give us any information if we are reading an f64 or f32
+    //  There is no good way to handle this since JSON does not give us any information if we are reading f64 or f32
     let actual_json = normalize_tiny_floats(serde_json::to_value(&actual).unwrap());
     let expected_json = normalize_tiny_floats(serde_json::to_value(&expected).unwrap());
 
@@ -52,7 +52,7 @@ fn test_one(mlt: &Path, json: &Path) {
     );
 }
 
-/// Replace extremely small float values (f.ex. `1e-40`) with `0.0` to handle codec precision issues
+/// Replace tiny float values (f.ex. `1e-40`) with `0.0` to handle codec precision issues
 fn normalize_tiny_floats(value: Value) -> Value {
     match value {
         Value::Number(ref n) => {

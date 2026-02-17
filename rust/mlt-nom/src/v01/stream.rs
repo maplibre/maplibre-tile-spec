@@ -899,6 +899,20 @@ mod tests {
         expected_i32: Option<Vec<i32>>,
     }
 
+    impl LogicalDecodeTestCase {
+        fn to_logical_val(&self) -> LogicalValue {
+            let meta = StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values: u32::try_from(self.input_data.len())
+                    .expect("input_data length fits in u32"),
+                logical_decoder: self.logical_decoder,
+                physical_decoder: PhysicalDecoder::VarInt,
+            };
+            let data = LogicalData::VecU32(self.input_data.clone());
+            LogicalValue::new(meta, data)
+        }
+    }
+
     fn generate_logical_decode_test_cases() -> Vec<LogicalDecodeTestCase> {
         vec![
             // decode_i32 tests
@@ -983,16 +997,7 @@ mod tests {
 
         for test_case in test_cases {
             if let Some(expected) = &test_case.expected_u32 {
-                let meta = StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: u32::try_from(test_case.input_data.len())
-                        .expect("input_data length fits in u32"),
-                    logical_decoder: test_case.logical_decoder,
-                    physical_decoder: PhysicalDecoder::VarInt,
-                };
-                let data = LogicalData::VecU32(test_case.input_data.clone());
-                let logical_value = LogicalValue::new(meta, data);
-                let result = logical_value.decode_u32();
+                let result = test_case.to_logical_val().decode_u32();
                 assert!(
                     result.is_ok(),
                     "Case '{}' should decode successfully",
@@ -1014,16 +1019,7 @@ mod tests {
 
         for test_case in test_cases {
             if let Some(expected) = &test_case.expected_i32 {
-                let meta = StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: u32::try_from(test_case.input_data.len())
-                        .expect("input_data length fits in u32"),
-                    logical_decoder: test_case.logical_decoder,
-                    physical_decoder: PhysicalDecoder::VarInt,
-                };
-                let data = LogicalData::VecU32(test_case.input_data.clone());
-                let logical_value = LogicalValue::new(meta, data);
-                let result = logical_value.decode_i32();
+                let result = test_case.to_logical_val().decode_i32();
                 assert!(
                     result.is_ok(),
                     "Case '{}' should decode successfully",

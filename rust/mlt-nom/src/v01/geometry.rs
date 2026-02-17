@@ -93,13 +93,55 @@ impl DecodedGeometry {
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
+        let vo = self.vertex_offsets.as_deref();
+        let num_verts = verts.len() / 2;
 
-        let v = |idx: usize| [verts[idx * 2], verts[idx * 2 + 1]];
-        let line = |start: usize, end: usize| (start..end).map(&v).collect();
-        let closed_ring = |start: usize, end: usize| {
-            let mut coords: Vec<[i32; 2]> = (start..end).map(&v).collect();
-            coords.push(v(start));
-            coords
+        // Bounds-checked index into `u32` offset slice, returning `usize`.
+        let at = |slice: &[u32], i: usize, name: &str| -> Result<usize, MltError> {
+            slice
+                .get(i)
+                .map(|&v| v as usize)
+                .ok_or_else(|| err(&format!("{name}[{i}] out of bounds (len={})", slice.len())))
+        };
+
+        // Returns `(slice[i] as usize, slice[i+1] as usize)` with bounds checking.
+        let pair = |slice: &[u32], i: usize, name: &str| -> Result<(usize, usize), MltError> {
+            Ok((at(slice, i, name)?, at(slice, i + 1, name)?))
+        };
+
+        let v = |idx: usize| -> Result<[i32; 2], MltError> {
+            let actual = match vo {
+                Some(vo) => *vo.get(idx).ok_or_else(|| {
+                    err(&format!(
+                        "vertex_offsets[{idx}] out of bounds (len={})",
+                        vo.len()
+                    ))
+                })? as usize,
+                None => idx,
+            };
+            let i = actual * 2;
+            let s = verts.get(i..i + 2).ok_or_else(|| {
+                err(&format!(
+                    "vertex {actual} out of bounds (count={num_verts})"
+                ))
+            })?;
+            Ok([s[0], s[1]])
+        };
+        let line = |start: usize, end: usize| -> Result<Vec<[i32; 2]>, MltError> {
+            (start..end).map(&v).collect()
+        };
+        let closed_ring = |start: usize, end: usize| -> Result<Vec<[i32; 2]>, MltError> {
+            let mut coords: Vec<[i32; 2]> = (start..end).map(&v).collect::<Result<_, _>>()?;
+            coords.push(v(start)?);
+            Ok(coords)
+        };
+        let rings_in = |rs, re, rings: &[u32]| {
+            (rs..re)
+                .map(|r| {
+                    let (s, e) = pair(rings, r, "ring_off")?;
+                    closed_ring(s, e)
+                })
+                .collect::<Result<_, _>>()
         };
 
         let geom_type = *self
@@ -110,74 +152,74 @@ impl DecodedGeometry {
         match geom_type {
             GeometryType::Point => {
                 let pt = match (geoms, parts, rings) {
-                    (Some(g), Some(p), Some(r)) => v(r[p[g[index] as usize] as usize] as usize),
-                    (Some(g), Some(p), None) => v(p[g[index] as usize] as usize),
-                    (None, Some(p), Some(r)) => v(r[p[index] as usize] as usize),
-                    (None, Some(p), None) => v(p[index] as usize),
-                    (None, None, None) => v(index),
+                    (Some(g), Some(p), Some(r)) => v(at(
+                        r,
+                        at(p, at(g, index, "geom_off")?, "part_off")?,
+                        "ring_off",
+                    )?)?,
+                    (Some(g), Some(p), None) => v(at(p, at(g, index, "geom_off")?, "part_off")?)?,
+                    (None, Some(p), Some(r)) => v(at(r, at(p, index, "part_off")?, "ring_off")?)?,
+                    (None, Some(p), None) => v(at(p, index, "part_off")?)?,
+                    (None, None, None) => v(index)?,
                     _ => return Err(err("unexpected offset combination for Point")),
                 };
                 Ok(GeoGeom::point(pt))
             }
             GeometryType::LineString => {
-                let coords = match (parts, rings) {
+                let (s, e) = match (parts, rings) {
                     (Some(p), Some(r)) => {
-                        let i = p[index] as usize;
-                        line(r[i] as usize, r[i + 1] as usize)
+                        let i = at(p, index, "part_off")?;
+                        pair(r, i, "ring_off")?
                     }
-                    (Some(p), None) => line(p[index] as usize, p[index + 1] as usize),
+                    (Some(p), None) => pair(p, index, "part_off")?,
                     _ => return Err(err("missing part_offsets for LineString")),
                 };
-                Ok(GeoGeom::line_string(coords))
+                line(s, e).map(GeoGeom::line_string)
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or_else(|| err("missing part_offsets for Polygon"))?;
                 let rings = rings.ok_or_else(|| err("missing ring_offsets for Polygon"))?;
-                let (ring_start, ring_end) = if let Some(g) = geoms {
-                    let i = g[index] as usize;
-                    (parts[i] as usize, parts[i + 1] as usize)
-                } else {
-                    (parts[index] as usize, parts[index + 1] as usize)
-                };
-                Ok(GeoGeom::polygon(
-                    (ring_start..ring_end)
-                        .map(|r| closed_ring(rings[r] as usize, rings[r + 1] as usize))
-                        .collect(),
-                ))
+                let i = geoms
+                    .map(|g| at(g, index, "geom_off"))
+                    .transpose()?
+                    .unwrap_or(index);
+                let (rs, re) = pair(parts, i, "part_off")?;
+                rings_in(rs, re, rings).map(GeoGeom::polygon)
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or_else(|| err("missing geometry_offsets for MultiPoint"))?;
-                Ok(GeoGeom::multi_point(
-                    (geoms[index] as usize..geoms[index + 1] as usize)
-                        .map(&v)
-                        .collect(),
-                ))
+                let (s, e) = pair(geoms, index, "geom_off")?;
+                (s..e)
+                    .map(&v)
+                    .collect::<Result<_, _>>()
+                    .map(GeoGeom::multi_point)
             }
             GeometryType::MultiLineString => {
                 let geoms =
                     geoms.ok_or_else(|| err("missing geometry_offsets for MultiLineString"))?;
                 let parts = parts.ok_or_else(|| err("missing part_offsets for MultiLineString"))?;
-                Ok(GeoGeom::multi_line_string(
-                    (geoms[index] as usize..geoms[index + 1] as usize)
-                        .map(|p| line(parts[p] as usize, parts[p + 1] as usize))
-                        .collect(),
-                ))
+                let (s, e) = pair(geoms, index, "geom_off")?;
+                (s..e)
+                    .map(|p| {
+                        let (ls, le) = pair(parts, p, "part_off")?;
+                        line(ls, le)
+                    })
+                    .collect::<Result<_, _>>()
+                    .map(GeoGeom::multi_line_string)
             }
             GeometryType::MultiPolygon => {
                 let geoms =
                     geoms.ok_or_else(|| err("missing geometry_offsets for MultiPolygon"))?;
                 let parts = parts.ok_or_else(|| err("missing part_offsets for MultiPolygon"))?;
                 let rings = rings.ok_or_else(|| err("missing ring_offsets for MultiPolygon"))?;
-                Ok(GeoGeom::multi_polygon(
-                    (geoms[index] as usize..geoms[index + 1] as usize)
-                        .map(|p| {
-                            let (rs, re) = (parts[p] as usize, parts[p + 1] as usize);
-                            (rs..re)
-                                .map(|r| closed_ring(rings[r] as usize, rings[r + 1] as usize))
-                                .collect()
-                        })
-                        .collect(),
-                ))
+                let (s, e) = pair(geoms, index, "geom_off")?;
+                (s..e)
+                    .map(|p| {
+                        let (rs, re) = pair(parts, p, "part_off")?;
+                        rings_in(rs, re, rings)
+                    })
+                    .collect::<Result<_, _>>()
+                    .map(GeoGeom::multi_polygon)
             }
         }
     }
