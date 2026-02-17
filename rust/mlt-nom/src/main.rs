@@ -1,6 +1,5 @@
 #![cfg(feature = "cli")]
 
-use anyhow::Result;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Write as _;
@@ -8,6 +7,7 @@ use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
+use anyhow::Result;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;

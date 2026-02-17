@@ -1,11 +1,10 @@
-use crate::utils::f32_to_json;
 use std::fmt::{self, Debug};
 
 use borrowme::borrowme;
 
 use crate::MltError;
 use crate::decodable::{FromRaw, impl_decodable};
-use crate::utils::{Analyze, StatType};
+use crate::utils::{Analyze, StatType, f32_to_json};
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData};
 
 /// Property representation, either raw or decoded
