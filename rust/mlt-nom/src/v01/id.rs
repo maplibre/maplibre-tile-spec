@@ -5,7 +5,7 @@ use std::io::Write;
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
-use crate::utils::OptSeqOpt;
+use crate::utils::{BinarySerializer as _, OptSeqOpt};
 use crate::v01::{ColumnType, Stream};
 
 /// ID column representation, either raw or decoded, or none if there are no IDs
@@ -63,22 +63,27 @@ pub struct RawId<'a> {
 }
 impl OwnedRawId {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        #[expect(clippy::enum_glob_use)]
+        use OwnedRawIdValue::*;
         match (&self.optional, &self.value) {
-            (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
-            (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
-            (Some(_), OwnedRawIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
-            (Some(_), OwnedRawIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
+            (None, Id32(_)) => ColumnType::Id.write_to(writer)?,
+            (None, Id64(_)) => ColumnType::LongId.write_to(writer)?,
+            (Some(_), Id32(_)) => ColumnType::OptId.write_to(writer)?,
+            (Some(_), Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
         }
         Ok(())
     }
 
-    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
-        match (&self.optional, &self.value) {
-            (None, OwnedRawIdValue::Id32(_)) => Err(MltError::NotImplemented("ID write")),
-            (None, OwnedRawIdValue::Id64(_)) => Err(MltError::NotImplemented("LongID write")),
-            (Some(_), OwnedRawIdValue::Id32(_)) => Err(MltError::NotImplemented("OptID write")),
-            (Some(_), OwnedRawIdValue::Id64(_)) => Err(MltError::NotImplemented("OptLongID write")),
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        #[expect(clippy::enum_glob_use)]
+        use OwnedRawIdValue::*;
+        if let Some(opt) = &self.optional {
+            writer.write_optional(opt)?;
         }
+        match &self.value {
+            Id32(s) | Id64(s) => writer.write_stream(s)?,
+        }
+        Ok(())
     }
 }
 
