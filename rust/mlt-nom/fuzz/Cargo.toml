@@ -24,3 +24,7 @@ path = "fuzz_targets/layer.rs"
 test = false
 doc = false
 bench = false
+
+[lib]
+name = "mlt_fuzz"
+path = "src/lib.rs"
