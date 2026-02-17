@@ -27,6 +27,15 @@ impl Layer01<'_> {
         let (input, extent) = utils::parse_varint::<u32>(input)?;
         let (input, column_count) = utils::parse_varint::<usize>(input)?;
 
+        // Each column requires at least 1 byte (column type)
+        // Safety check to not OOM due to with_capacity
+        if input.len() < column_count {
+            return Err(MltError::BufferUnderflow {
+                needed: column_count,
+                remaining: input.len(),
+            });
+        }
+
         // !!!!!!!
         // WARNING: make sure to never use `let (input, ...)` after this point: input var is reused
         let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count)?;
