@@ -1,12 +1,13 @@
-use std::fmt::{Debug, Formatter};
-
 use borrowme::borrowme;
+use std::fmt::{Debug, Formatter};
+use std::io;
+use std::io::Write;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::OptSeqOpt;
-use crate::v01::Stream;
+use crate::v01::{ColumnType, Stream};
 
 /// ID column representation, either raw or decoded, or none if there are no IDs
 #[borrowme]
@@ -16,6 +17,30 @@ pub enum Id<'a> {
     None,
     Raw(RawId<'a>),
     Decoded(DecodedId),
+}
+
+impl OwnedId {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Self::None => Ok(()),
+            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Decoded(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NeedsEncodingBeforeWriting,
+            )),
+        }
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Self::None => Ok(()),
+            Self::Raw(r) => r.write_to(writer),
+            Self::Decoded(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NeedsEncodingBeforeWriting,
+            )),
+        }
+    }
 }
 
 impl Analyze for Id<'_> {
@@ -42,6 +67,37 @@ impl Analyze for Id<'_> {
 pub struct RawId<'a> {
     optional: Option<Stream<'a>>,
     value: RawIdValue<'a>,
+}
+impl OwnedRawId {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match (&self.optional, &self.value) {
+            (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer),
+            (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer),
+            (Some(_), OwnedRawIdValue::Id32(_)) => ColumnType::OptId.write_to(writer),
+            (Some(_), OwnedRawIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer),
+        }
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
+        match (&self.optional, &self.value) {
+            (None, OwnedRawIdValue::Id32(_)) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NotImplemented("ID write").to_string(),
+            )),
+            (None, OwnedRawIdValue::Id64(_)) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NotImplemented("LongID write").to_string(),
+            )),
+            (Some(_), OwnedRawIdValue::Id32(_)) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NotImplemented("OptID write").to_string(),
+            )),
+            (Some(_), OwnedRawIdValue::Id64(_)) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NotImplemented("OptLongID write").to_string(),
+            )),
+        }
+    }
 }
 
 impl Analyze for RawId<'_> {

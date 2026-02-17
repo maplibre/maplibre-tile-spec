@@ -1,7 +1,7 @@
 mod encode;
 //pub(crate) use encode::*;
-// mod serialize;
-// pub use serialize::*;
+mod serialize;
+pub use serialize::*;
 mod parse;
 pub(crate) use parse::*;
 mod decode;

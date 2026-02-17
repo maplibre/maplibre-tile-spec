@@ -1,12 +1,16 @@
-use std::fmt::{self, Debug};
-
 use borrowme::borrowme;
+use std::fmt::{self, Debug};
+use std::io;
+use std::io::Write;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
+use crate::utils::BinarySerializer;
 use crate::utils::f32_to_json;
-use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData};
+use crate::v01::{
+    ColumnType, DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData,
+};
 
 /// Property representation, either raw or decoded
 #[borrowme]
@@ -32,6 +36,28 @@ impl Analyze for Property<'_> {
     }
 }
 
+impl OwnedProperty {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Decoded(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NeedsEncodingBeforeWriting,
+            )),
+        }
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Self::Raw(r) => r.write_to(writer),
+            Self::Decoded(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NeedsEncodingBeforeWriting,
+            )),
+        }
+    }
+}
+
 /// Unparsed property data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -45,6 +71,61 @@ impl Analyze for RawProperty<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.optional.for_each_stream(cb);
         self.value.for_each_stream(cb);
+    }
+}
+
+impl OwnedRawProperty {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        // type
+        match (&self.value, &self.optional) {
+            (OwnedRawPropValue::Bool(_), Some(_)) => ColumnType::Bool.write_to(writer)?,
+            (OwnedRawPropValue::Bool(_), None) => ColumnType::OptBool.write_to(writer)?,
+            (OwnedRawPropValue::I8(_), Some(_)) => ColumnType::I8.write_to(writer)?,
+            (OwnedRawPropValue::I8(_), None) => ColumnType::OptI8.write_to(writer)?,
+            (OwnedRawPropValue::U8(_), Some(_)) => ColumnType::U8.write_to(writer)?,
+            (OwnedRawPropValue::U8(_), None) => ColumnType::OptU8.write_to(writer)?,
+            (OwnedRawPropValue::I32(_), Some(_)) => ColumnType::I32.write_to(writer)?,
+            (OwnedRawPropValue::I32(_), None) => ColumnType::OptI32.write_to(writer)?,
+            (OwnedRawPropValue::U32(_), Some(_)) => ColumnType::U32.write_to(writer)?,
+            (OwnedRawPropValue::U32(_), None) => ColumnType::OptU32.write_to(writer)?,
+            (OwnedRawPropValue::I64(_), Some(_)) => ColumnType::I64.write_to(writer)?,
+            (OwnedRawPropValue::I64(_), None) => ColumnType::OptI64.write_to(writer)?,
+            (OwnedRawPropValue::U64(_), Some(_)) => ColumnType::U64.write_to(writer)?,
+            (OwnedRawPropValue::U64(_), None) => ColumnType::OptU64.write_to(writer)?,
+            (OwnedRawPropValue::F32(_), Some(_)) => ColumnType::F32.write_to(writer)?,
+            (OwnedRawPropValue::F32(_), None) => ColumnType::OptF32.write_to(writer)?,
+            (OwnedRawPropValue::F64(_), Some(_)) => ColumnType::F64.write_to(writer)?,
+            (OwnedRawPropValue::F64(_), None) => ColumnType::OptF64.write_to(writer)?,
+            (OwnedRawPropValue::Str(_), Some(_)) => ColumnType::Str.write_to(writer)?,
+            (OwnedRawPropValue::Str(_), None) => ColumnType::OptStr.write_to(writer)?,
+            (OwnedRawPropValue::Struct(_), Some(_)) => ColumnType::Struct.write_to(writer)?,
+            (OwnedRawPropValue::Struct(_), None) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "strings are not allowed to be optional".to_string(),
+                ));
+            }
+        };
+
+        // name
+        writer.write_string(&self.name)?;
+
+        // struct children
+        if let OwnedRawPropValue::Struct(_) = &self.value {
+            // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NotImplemented("struct child meta writing").to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            MltError::NotImplemented("property write").to_string(),
+        ))
     }
 }
 

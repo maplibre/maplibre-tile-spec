@@ -1,7 +1,10 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
+use std::io;
+use std::io::Write;
 
 use crate::MltError::ParsingColumnType;
+use crate::utils::BinarySerializer;
 use crate::{MltRefResult, utils};
 
 /// Column definition
@@ -75,12 +78,16 @@ impl ColumnType {
         let value = Self::try_from(value).or(Err(ParsingColumnType(value)))?;
         Ok((input, value))
     }
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_u8(*self as u8)?;
+        Ok(())
+    }
 
     /// Returns true if the column definition includes a name field in the serialized format.
     /// Note: ID and Geometry columns use implicit naming and do not include a name field.
     #[must_use]
     pub fn has_name(self) -> bool {
-        #[allow(clippy::enum_glob_use)]
+        #[expect(clippy::enum_glob_use, reason = "readability")]
         use ColumnType::*;
         !matches!(self, Id | OptId | LongId | OptLongId | Geometry)
     }

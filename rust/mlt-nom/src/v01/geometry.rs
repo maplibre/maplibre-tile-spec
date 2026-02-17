@@ -1,13 +1,15 @@
-use std::fmt::Debug;
-
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
+use std::fmt::Debug;
+use std::io;
+use std::io::Write;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
 use crate::utils::{OptSeq, SetOptionOnce as _};
+use crate::v01::column::ColumnType;
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
 
 /// Geometry column representation, either raw or decoded
@@ -34,6 +36,28 @@ impl Analyze for Geometry<'_> {
     }
 }
 
+impl OwnedGeometry {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Decoded(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NeedsEncodingBeforeWriting,
+            )),
+        }
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Self::Raw(r) => r.write_to(writer),
+            Self::Decoded(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                MltError::NeedsEncodingBeforeWriting,
+            )),
+        }
+    }
+}
+
 /// Unparsed geometry data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -46,6 +70,19 @@ impl Analyze for RawGeometry<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.meta.for_each_stream(cb);
         self.items.for_each_stream(cb);
+    }
+}
+
+impl OwnedRawGeometry {
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        ColumnType::Geometry.write_to(writer)
+    }
+
+    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            MltError::NotImplemented("geometry write").to_string(),
+        ))
     }
 }
 
