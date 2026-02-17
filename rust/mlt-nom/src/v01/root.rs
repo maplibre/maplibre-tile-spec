@@ -27,6 +27,14 @@ impl Layer01<'_> {
         let (input, extent) = utils::parse_varint::<u32>(input)?;
         let (input, column_count) = utils::parse_varint::<usize>(input)?;
 
+        // Each column requires at least 1 byte (column type)
+        if input.len() < column_count {
+            return Err(MltError::BufferUnderflow {
+                needed: column_count,
+                remaining: input.len(),
+            });
+        }
+
         // !!!!!!!
         // WARNING: make sure to never use `let (input, ...)` after this point: input var is reused
         let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count)?;
@@ -38,7 +46,7 @@ impl Layer01<'_> {
         for column in col_info {
             let optional;
             let value;
-            let stream_count;
+            let mut stream_count;
             let name = column.name.unwrap_or("");
 
             match column.typ {
@@ -55,6 +63,21 @@ impl Layer01<'_> {
                 ColumnType::Geometry => {
                     let value_vec;
                     (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    // Each stream requires at least 1 byte (physical stream type)
+                    if input.len() < stream_count {
+                        return Err(MltError::BufferUnderflow {
+                            needed: stream_count,
+                            remaining: input.len(),
+                        });
+                    }
+                    if stream_count == 0 {
+                        return Err(MltError::MinLength {
+                            ctx: "geometry type, but without streams",
+                            min: 1,
+                            got: 0,
+                        });
+                    }
+
                     (input, value) = Stream::parse(input)?;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
                     geometry.set_once(Geometry::raw(value, value_vec))?;
@@ -106,9 +129,19 @@ impl Layer01<'_> {
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     (input, stream_count) = utils::parse_varint::<usize>(input)?;
-                    (input, optional) = parse_optional(column.typ, input)?;
-                    // if optional has a value, one stream has already been consumed
-                    let stream_count = stream_count - usize::from(optional.is_some());
+                    // Each stream requires at least 1 byte (physical stream type)
+                    if input.len() < stream_count {
+                        return Err(MltError::BufferUnderflow {
+                            needed: stream_count,
+                            remaining: input.len(),
+                        });
+                    }
+                    if stream_count > 0 {
+                        (input, optional) = parse_optional(column.typ, input)?;
+                    } else {
+                        optional = None;
+                    }
+                    stream_count -= usize::from(optional.is_some());
                     let value_vec;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
                     properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
@@ -168,11 +201,18 @@ fn parse_columns_meta(
             Id | OptId | LongId | OptLongId => ids += 1,
             Struct => {
                 // Yes, we need to parse children right here, otherwise this messes up the next column
-                let mut children = Vec::new();
-                let child_count;
-                (input, child_count) = utils::parse_varint::<usize>(input)?;
+                let child_column_count;
+                (input, child_column_count) = utils::parse_varint::<usize>(input)?;
 
-                for _ in 0..child_count {
+                // Each collumn requires at least 1 byte (ColumnType without name)
+                if input.len() < child_column_count {
+                    return Err(MltError::BufferUnderflow {
+                        needed: child_column_count,
+                        remaining: input.len(),
+                    });
+                }
+                let mut children = Vec::with_capacity(child_column_count);
+                for _ in 0..child_column_count {
                     let child;
                     (input, child) = Column::parse(input)?;
                     children.push(child);

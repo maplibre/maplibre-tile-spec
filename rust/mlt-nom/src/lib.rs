@@ -14,7 +14,7 @@ pub mod v01;
 pub use decodable::*;
 pub use errors::{MltError, MltRefResult};
 
-use crate::layer::Layer;
+pub use crate::layer::Layer;
 
 /// Parse a sequence of binary layers
 pub fn parse_layers(mut input: &[u8]) -> Result<Vec<Layer<'_>>, MltError> {
