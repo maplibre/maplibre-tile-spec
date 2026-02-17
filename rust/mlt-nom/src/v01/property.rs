@@ -98,11 +98,11 @@ impl OwnedRawProperty {
             (OwnedRawPropValue::F64(_), None) => ColumnType::OptF64.write_to(writer)?,
             (OwnedRawPropValue::Str(_), Some(_)) => ColumnType::Str.write_to(writer)?,
             (OwnedRawPropValue::Str(_), None) => ColumnType::OptStr.write_to(writer)?,
-            (OwnedRawPropValue::Struct(_), Some(_)) => ColumnType::Struct.write_to(writer)?,
-            (OwnedRawPropValue::Struct(_), None) => {
+            (OwnedRawPropValue::Struct(_), None) => ColumnType::Struct.write_to(writer)?,
+            (OwnedRawPropValue::Struct(_), Some(_)) => {
                 return Err(io::Error::new(
                     io::ErrorKind::Unsupported,
-                    "strings are not allowed to be optional".to_string(),
+                    "structs are not allowed to be optional".to_string(),
                 ));
             }
         };
