@@ -1,6 +1,5 @@
 use borrowme::borrowme;
 use std::fmt::{Debug, Formatter};
-use std::io;
 use std::io::Write;
 
 use crate::MltError;
@@ -65,11 +64,12 @@ pub struct RawId<'a> {
 impl OwnedRawId {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match (&self.optional, &self.value) {
-            (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer),
-            (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer),
-            (Some(_), OwnedRawIdValue::Id32(_)) => ColumnType::OptId.write_to(writer),
-            (Some(_), OwnedRawIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer),
+            (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
+            (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
+            (Some(_), OwnedRawIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
+            (Some(_), OwnedRawIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
         }
+        Ok(())
     }
 
     pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {

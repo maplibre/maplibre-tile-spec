@@ -1,6 +1,5 @@
 use borrowme::borrowme;
 use std::fmt::{self, Debug};
-use std::io;
 use std::io::Write;
 
 use crate::MltError;

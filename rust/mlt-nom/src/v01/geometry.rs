@@ -1,7 +1,6 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 use std::fmt::Debug;
-use std::io;
 use std::io::Write;
 
 use crate::MltError;
@@ -70,7 +69,8 @@ impl Analyze for RawGeometry<'_> {
 impl OwnedRawGeometry {
     #[expect(clippy::unused_self)]
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        ColumnType::Geometry.write_to(writer)
+        ColumnType::Geometry.write_to(writer)?;
+        Ok(())
     }
 
     #[expect(clippy::unused_self)]

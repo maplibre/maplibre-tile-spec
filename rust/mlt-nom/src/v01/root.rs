@@ -271,7 +271,7 @@ impl OwnedLayer01 {
 
         let map_error_to_io = |e: MltError| match e {
             MltError::Io(e) => e,
-            e => io::Error::new(io::ErrorKind::Other, e),
+            e => io::Error::other(e),
         };
         self.write_columns_meta_to(writer)
             .map_err(map_error_to_io)?;
