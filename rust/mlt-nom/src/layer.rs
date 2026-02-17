@@ -71,10 +71,11 @@ impl OwnedLayer {
             OwnedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
-        let size = buffer.len().checked_add(1);
-        let size = size.ok_or(io::Error::other(MltError::IntegerOverflow))?;
-        let size = u64::try_from(size);
-        let size = size.map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        let size = buffer
+            .len()
+            .checked_add(1)
+            .ok_or(io::Error::other(MltError::IntegerOverflow))?;
+        let size = u64::try_from(size).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
         writer.write_varint(size)?;
 
         writer.write_all(&[tag])?;
