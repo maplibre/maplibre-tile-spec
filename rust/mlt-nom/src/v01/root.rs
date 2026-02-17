@@ -141,9 +141,9 @@ impl Layer01<'_> {
                     let optional_stream_count = optional.is_some() as usize;
                     let Some(stream_count) = stream_count.checked_sub(optional_stream_count) else {
                         return Err(MltError::ExpectedValues {
-                            ctx: "stream count does not include optional stream count",
-                            expected: stream_count,
-                            got: optional_stream_count,
+                            ctx: "stream count must be at least the optional stream count",
+                            expected: optional_stream_count,
+                            got: stream_count,
                         });
                     };
                     let value_vec;
