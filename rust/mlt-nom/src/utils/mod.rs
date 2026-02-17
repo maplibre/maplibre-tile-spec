@@ -6,8 +6,8 @@ mod parse;
 pub(crate) use parse::*;
 mod decode;
 pub(crate) use decode::*;
-mod formater;
-pub(crate) use formater::{OptSeq, OptSeqOpt, fmt_byte_array};
+mod formatter;
+pub(crate) use formatter::{OptSeq, OptSeqOpt, fmt_byte_array};
 
 use crate::MltError;
 
