@@ -138,7 +138,15 @@ impl Layer01<'_> {
                     }
                     (input, optional) = parse_optional(column.typ, input)?;
                     // if optional has a value, one stream has already been consumed
-                    let stream_count = stream_count - usize::from(optional.is_some());
+                    let optional_stream_count = optional.is_some() as usize;
+                    if stream_count == 0 && optional_stream_count != 0 {
+                        return Err(MltError::ExpectedValues {
+                            ctx: "stream count does not include optional stream count",
+                            expected: stream_count,
+                            got: optional_stream_count,
+                        });
+                    }
+                    let stream_count = stream_count - optional_stream_count;
                     let value_vec;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
                     properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
