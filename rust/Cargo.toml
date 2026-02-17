@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-nom", "wasm-test"]
+members = ["mlt-legacy", "mlt-nom", "wasm-test"]
 exclude = ["mlt-nom/fuzz"]
-default-members = ["mlt", "mlt-nom"]
+default-members = ["mlt-nom"]
 
 [workspace.package]
 repository = "https://github.com/nyurik/maplibre-tile-spec"
