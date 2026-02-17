@@ -1,9 +1,12 @@
-use std::{fs, path::PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
-use crate::OutputFormat;
 use anyhow::Result;
 use clap::Args;
-use mlt_nom::{geojson::FeatureCollection, parse_layers};
+use mlt_nom::geojson::FeatureCollection;
+use mlt_nom::parse_layers;
+
+use crate::OutputFormat;
 
 #[derive(Args)]
 pub struct DumpArgs {

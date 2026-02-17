@@ -68,7 +68,7 @@ impl Analyze for DecodedGeometry {
     fn decoded(&self, stat: StatType) -> usize {
         match stat {
             StatType::PayloadDataSizeBytes => {
-                self.vector_types.len()
+                self.vector_types.decoded(stat)
                     + self.geometry_offsets.decoded(stat)
                     + self.part_offsets.decoded(stat)
                     + self.ring_offsets.decoded(stat)
@@ -195,6 +195,12 @@ pub enum GeometryType {
     MultiPoint,
     MultiLineString,
     MultiPolygon,
+}
+
+impl Analyze for GeometryType {
+    fn decoded(&self, _stat: StatType) -> usize {
+        size_of::<Self>()
+    }
 }
 
 // /// Vertex buffer type used for geometry columns
