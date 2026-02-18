@@ -5,6 +5,7 @@ use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
+use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError;
@@ -24,10 +25,6 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
-use borrowme::borrowme;
-use integer_encoding::VarIntWriter as _;
-use num_enum::TryFromPrimitive;
-use std::io::Write;
 
 /// Geometry column representation, either raw or decoded
 #[borrowme]

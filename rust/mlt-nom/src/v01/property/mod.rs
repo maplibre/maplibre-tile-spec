@@ -4,8 +4,10 @@ use std::fmt::{self, Debug};
 use std::io::Write;
 
 use borrowme::borrowme;
+use integer_encoding::VarIntWriter as _;
 
 use crate::MltError;
+use crate::MltError::IntegerOverflow;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
