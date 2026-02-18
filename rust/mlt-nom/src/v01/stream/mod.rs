@@ -696,10 +696,10 @@ mod tests {
         // Write to buffer
         let mut buffer = Vec::new();
         if is_bool {
-            buffer.write_boolean_stream(&stream).unwrap()
+            buffer.write_boolean_stream(&stream).unwrap();
         } else {
-            buffer.write_stream(&stream).unwrap()
-        };
+            buffer.write_stream(&stream).unwrap();
+        }
 
         // Parse back
         let (remaining, parsed) = if is_bool {
