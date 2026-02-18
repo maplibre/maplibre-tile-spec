@@ -2,15 +2,26 @@ use std::convert::Infallible;
 
 use num_enum::TryFromPrimitiveError;
 
-use crate::v01::{GeometryType, LogicalTechnique};
+use crate::v01::{GeometryType, LogicalDecoder, LogicalTechnique, PhysicalStreamType};
 
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum MltError {
-    #[error("{0}")]
-    DecodeError(String),
+    #[error("unexpected stream type {0:?}")]
+    UnexpectedStreamType(PhysicalStreamType),
+    #[error("unsupported logical decoder {0:?} for {1}")]
+    UnsupportedLogicalDecoder(LogicalDecoder, &'static str),
+    #[error("dictionary index {0} out of bounds (len={1})")]
+    DictIndexOutOfBounds(u32, usize),
+    #[error("cannot decode {0} as {1}")]
+    DataWidthMismatch(&'static str, &'static str),
+    #[error("{0} is not decoded")]
+    NotDecoded(&'static str),
+    #[error("missing string stream: {0}")]
+    MissingStringStream(&'static str),
+
     #[error("Integer overflow")]
     IntegerOverflow,
     #[error("multiple ID columns found (only one allowed)")]

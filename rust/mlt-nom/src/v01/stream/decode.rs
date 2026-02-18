@@ -19,10 +19,11 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
 
     // Convert big-endian bytes to u32 values
     if !data.len().is_multiple_of(4) {
-        return Err(MltError::DecodeError(format!(
-            "FastPFOR data length {} is not a multiple of 4",
-            data.len()
-        )));
+        return Err(MltError::InvalidByteMultiple {
+            ctx: "FastPFOR data",
+            multiple_of: 4,
+            got: data.len(),
+        });
     }
     // The Java MLT encoder writes compressed int[] → byte[] in big-endian order.
     // We must convert BE bytes → u32 to reconstruct the original integer values
@@ -36,9 +37,10 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
         .collect();
 
     if input.is_empty() {
-        return Err(MltError::DecodeError(
-            "FastPFOR data is empty but num_values > 0".to_string(),
-        ));
+        return Err(MltError::FastPforDecode {
+            expected: num_values,
+            got: 0,
+        });
     }
 
     // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
@@ -51,13 +53,13 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
     let codec = FastPFor256Codec::new();
     let decoded = codec
         .decode32(&input, &mut result)
-        .map_err(|e| MltError::DecodeError(format!("FastPFOR decode error: {e}")))?;
+        .map_err(|e| MltError::FastPforFfi(e.to_string()))?;
 
     if decoded.len() < num_values {
-        return Err(MltError::DecodeError(format!(
-            "FastPFOR decoded {} values, expected {num_values}",
-            decoded.len()
-        )));
+        return Err(MltError::FastPforDecode {
+            expected: num_values,
+            got: decoded.len(),
+        });
     }
 
     result.truncate(num_values);
