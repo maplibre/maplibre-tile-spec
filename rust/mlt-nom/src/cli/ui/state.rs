@@ -121,6 +121,8 @@ pub struct App {
     pub(crate) filter_scroll: u16,
     pub(crate) filtered_file_indices: Vec<usize>,
     pub(crate) file_table_inner_height: usize,
+    pub(crate) show_help: bool,
+    pub(crate) help_scroll: u16,
 }
 
 impl Default for App {
@@ -164,6 +166,8 @@ impl Default for App {
             filter_scroll: 0,
             filtered_file_indices: Vec::new(),
             file_table_inner_height: 10,
+            show_help: false,
+            help_scroll: 0,
         }
     }
 }

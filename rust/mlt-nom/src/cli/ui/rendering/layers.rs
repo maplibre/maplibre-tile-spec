@@ -89,7 +89,7 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 .and_then(|p| p.file_name())
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown");
-            format!("{name} - Enter/+/-:expand, Esc:back, q:quit. Drag dividers to resize")
+            format!("{name} - Enter/+/-:expand, Esc:back, h:help, q:quit")
         }
         ViewMode::FileBrowser => "Features".to_string(),
     };
