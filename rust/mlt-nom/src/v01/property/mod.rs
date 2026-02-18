@@ -35,7 +35,6 @@ pub struct RawStructChild<'a> {
 }
 
 impl OwnedRawStructChild {
-    #[expect(clippy::unused_self)]
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.typ.write_to(writer)?;
         writer.write_string(&self.name)?;
