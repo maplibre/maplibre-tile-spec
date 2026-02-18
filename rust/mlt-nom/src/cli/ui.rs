@@ -22,6 +22,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::canvas::{Canvas, Context, Line as CanvasLine, Rectangle};
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState, Wrap};
+use rstar::{AABB, PointDistance, RTree, RTreeObject};
 use serde_json::Value as JsonValue;
 
 use crate::cli::ls::{FileSortColumn, LsRow, analyze_mlt_files, row_cells};
@@ -147,6 +148,8 @@ struct App {
     tree_scroll: u16,
     /// (layer, feat) of last feature we showed properties for; used to reset scroll on selection change.
     last_properties_key: Option<(usize, usize)>,
+    /// R-tree index of geometry bounding boxes for efficient spatial search.
+    geometry_index: Option<RTree<GeometryIndexEntry>>,
 }
 
 impl Default for App {
@@ -182,6 +185,7 @@ impl Default for App {
             properties_scroll: 0,
             last_properties_key: None,
             tree_scroll: 0,
+            geometry_index: None,
         }
     }
 }
@@ -303,6 +307,43 @@ impl App {
                 }
             }
         }
+        self.build_geometry_index();
+    }
+
+    fn build_geometry_index(&mut self) {
+        let mut entries: Vec<GeometryIndexEntry> = Vec::new();
+        for (idx, item) in self.tree_items.iter().enumerate() {
+            match item {
+                TreeItem::Feature { layer, feat } => {
+                    let gi = self.layer_groups[*layer].feature_indices[*feat];
+                    let geom = &self.fc.features[gi].geometry;
+                    let vertices = geometry_vertices(geom, None);
+                    if !vertices.is_empty() {
+                        entries.push(GeometryIndexEntry {
+                            tree_idx: idx,
+                            vertices,
+                        });
+                    }
+                }
+                TreeItem::SubFeature { layer, feat, part } => {
+                    let gi = self.layer_groups[*layer].feature_indices[*feat];
+                    let geom = &self.fc.features[gi].geometry;
+                    let vertices = geometry_vertices(geom, Some(*part));
+                    if !vertices.is_empty() {
+                        entries.push(GeometryIndexEntry {
+                            tree_idx: idx,
+                            vertices,
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+        self.geometry_index = if entries.is_empty() {
+            None
+        } else {
+            Some(RTree::bulk_load(entries))
+        };
     }
 
     fn scroll_step(&mut self) -> usize {
@@ -627,36 +668,34 @@ impl App {
     fn find_hovered_feature(&mut self, canvas_x: f64, canvas_y: f64, bounds: (f64, f64, f64, f64)) {
         let selected = self.get_selected_item().clone();
         let threshold = (bounds.2 - bounds.0).max(bounds.3 - bounds.1) * 0.02;
-        let early_exit = threshold * threshold * 0.01;
-        let mut best: Option<(usize, f64)> = None;
+        let threshold_sq = threshold * threshold;
+        let early_exit = threshold_sq * 0.01;
+        let query_point = [canvas_x, canvas_y];
 
-        for (idx, item) in self.tree_items.iter().enumerate() {
-            let dist = match item {
-                TreeItem::Feature { layer, feat } => {
-                    if self.expanded_features.contains(&(*layer, *feat)) {
-                        continue;
-                    }
-                    let visible = match &selected {
-                        TreeItem::AllFeatures => true,
-                        TreeItem::Layer(l) => *layer == *l,
-                        TreeItem::Feature {
-                            layer: sl,
-                            feat: sf,
-                        } => *layer == *sl && *feat == *sf,
-                        TreeItem::SubFeature { .. } => false,
-                    };
-                    if !visible {
-                        continue;
-                    }
-                    nearest_dist(
-                        &self.feature(*layer, *feat).geometry,
-                        canvas_x,
-                        canvas_y,
-                        threshold,
-                    )
+        let best = if let Some(ref tree) = self.geometry_index {
+            // Use rstar for efficient nearest-neighbor search
+            let mut best: Option<(usize, f64)> = None;
+            for entry in tree.nearest_neighbor_iter(&query_point) {
+                let d = entry.distance_2(&query_point);
+                if d > threshold_sq {
+                    break; // Entries are in distance order, no need to check further
                 }
-                TreeItem::SubFeature { layer, feat, part } => {
-                    let visible = match &selected {
+                let idx = entry.tree_idx;
+                let item = &self.tree_items[idx];
+                let visible = match item {
+                    TreeItem::Feature { layer, feat } => {
+                        !self.expanded_features.contains(&(*layer, *feat))
+                            && match &selected {
+                                TreeItem::AllFeatures => true,
+                                TreeItem::Layer(l) => *l == *layer,
+                                TreeItem::Feature {
+                                    layer: sl,
+                                    feat: sf,
+                                } => *sl == *layer && *sf == *feat,
+                                TreeItem::SubFeature { .. } => false,
+                            }
+                    }
+                    TreeItem::SubFeature { layer, feat, .. } => match &selected {
                         TreeItem::Feature {
                             layer: sl,
                             feat: sf,
@@ -665,31 +704,85 @@ impl App {
                             layer: sl,
                             feat: sf,
                             ..
-                        } => *layer == *sl && *feat == *sf,
+                        } => *sl == *layer && *sf == *feat,
                         _ => false,
-                    };
-                    if !visible {
-                        continue;
-                    }
-                    nearest_dist_sub(
-                        &self.feature(*layer, *feat).geometry,
-                        *part,
-                        canvas_x,
-                        canvas_y,
-                        threshold,
-                    )
-                }
-                _ => continue,
-            };
-            if let Some(d) = dist {
-                if best.is_none_or(|(_, bd)| d < bd) {
+                    },
+                    _ => false,
+                };
+                if visible && best.is_none_or(|(_, bd)| d < bd) {
                     best = Some((idx, d));
                     if d < early_exit {
                         break;
                     }
                 }
             }
-        }
+            best
+        } else {
+            // Fallback: linear scan when no index (e.g. empty tile)
+            let mut best: Option<(usize, f64)> = None;
+            for (idx, item) in self.tree_items.iter().enumerate() {
+                let dist = match item {
+                    TreeItem::Feature { layer, feat } => {
+                        if self.expanded_features.contains(&(*layer, *feat)) {
+                            continue;
+                        }
+                        let visible = match &selected {
+                            TreeItem::AllFeatures => true,
+                            TreeItem::Layer(l) => *layer == *l,
+                            TreeItem::Feature {
+                                layer: sl,
+                                feat: sf,
+                            } => *layer == *sl && *feat == *sf,
+                            TreeItem::SubFeature { .. } => false,
+                        };
+                        if !visible {
+                            continue;
+                        }
+                        nearest_dist(
+                            &self.feature(*layer, *feat).geometry,
+                            canvas_x,
+                            canvas_y,
+                            threshold,
+                        )
+                    }
+                    TreeItem::SubFeature { layer, feat, part } => {
+                        let visible = match &selected {
+                            TreeItem::Feature {
+                                layer: sl,
+                                feat: sf,
+                            }
+                            | TreeItem::SubFeature {
+                                layer: sl,
+                                feat: sf,
+                                ..
+                            } => *layer == *sl && *feat == *sf,
+                            _ => false,
+                        };
+                        if !visible {
+                            continue;
+                        }
+                        nearest_dist_sub(
+                            &self.feature(*layer, *feat).geometry,
+                            *part,
+                            canvas_x,
+                            canvas_y,
+                            threshold,
+                        )
+                    }
+                    _ => continue,
+                };
+                if let Some(d) = dist {
+                    if best.is_none_or(|(_, bd)| d < bd) {
+                        best = Some((idx, d));
+                        if d < early_exit {
+                            break;
+                        }
+                    }
+                }
+            }
+            best
+        };
+
         self.hovered_item = best.map(|(idx, _)| idx);
     }
 }
@@ -1435,7 +1528,10 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     app.last_properties_key = Some(key);
                 }
                 let feat_ref = app.feature(*layer, *feat);
-                (format!("Properties (feat {feat}, hover)"), feature_property_lines(feat_ref))
+                (
+                    format!("Properties (feat {feat}, hover)"),
+                    feature_property_lines(feat_ref),
+                )
             } else {
                 app.last_properties_key = None;
                 (
@@ -1453,7 +1549,10 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 app.last_properties_key = Some(key);
             }
             let feat_ref = app.feature(*layer, *feat);
-            (format!("Properties (feat {feat})"), feature_property_lines(feat_ref))
+            (
+                format!("Properties (feat {feat})"),
+                feature_property_lines(feat_ref),
+            )
         }
     };
     let block = block_with_title(title);
@@ -1714,6 +1813,109 @@ fn ring_color(ring: &[Coordinate]) -> Color {
     if area < 0.0 { Color::Blue } else { Color::Red }
 }
 
+/// Index entry for rstar spatial search. Stores tree_idx and vertices for distance computation.
+struct GeometryIndexEntry {
+    tree_idx: usize,
+    vertices: Vec<[f64; 2]>,
+}
+
+impl RTreeObject for GeometryIndexEntry {
+    type Envelope = AABB<[f64; 2]>;
+
+    fn envelope(&self) -> Self::Envelope {
+        if self.vertices.is_empty() {
+            return AABB::from_point([0.0, 0.0]);
+        }
+        let (min_x, min_y) = self
+            .vertices
+            .iter()
+            .fold((f64::INFINITY, f64::INFINITY), |(mx, my), v| {
+                (mx.min(v[0]), my.min(v[1]))
+            });
+        let (max_x, max_y) = self
+            .vertices
+            .iter()
+            .fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |(mx, my), v| {
+                (mx.max(v[0]), my.max(v[1]))
+            });
+        AABB::from_corners([min_x, min_y], [max_x, max_y])
+    }
+}
+
+impl PointDistance for GeometryIndexEntry {
+    fn distance_2(&self, point: &[f64; 2]) -> f64 {
+        self.vertices
+            .iter()
+            .map(|v| {
+                let dx = v[0] - point[0];
+                let dy = v[1] - point[1];
+                dx * dx + dy * dy
+            })
+            .fold(f64::INFINITY, f64::min)
+    }
+}
+
+/// Extract vertices from a geometry (full or sub-part) as f64 coordinates.
+fn geometry_vertices(geom: &Geometry, part: Option<usize>) -> Vec<[f64; 2]> {
+    let mut out = Vec::new();
+    match (geom, part) {
+        (Geometry::Point(c), None) => {
+            out.push([f64::from(c[0]), f64::from(c[1])]);
+        }
+        (Geometry::LineString(v) | Geometry::MultiPoint(v), None) => {
+            for c in v {
+                out.push([f64::from(c[0]), f64::from(c[1])]);
+            }
+        }
+        (Geometry::Polygon(rings), None) => {
+            for ring in rings {
+                for c in ring {
+                    out.push([f64::from(c[0]), f64::from(c[1])]);
+                }
+            }
+        }
+        (Geometry::MultiLineString(lines), None) => {
+            for line in lines {
+                for c in line {
+                    out.push([f64::from(c[0]), f64::from(c[1])]);
+                }
+            }
+        }
+        (Geometry::MultiPolygon(polys), None) => {
+            for p in polys {
+                for r in p {
+                    for c in r {
+                        out.push([f64::from(c[0]), f64::from(c[1])]);
+                    }
+                }
+            }
+        }
+        (Geometry::MultiPoint(v), Some(p)) => {
+            if let Some(c) = v.get(p) {
+                out.push([f64::from(c[0]), f64::from(c[1])]);
+            }
+        }
+        (Geometry::MultiLineString(v), Some(p)) => {
+            if let Some(line) = v.get(p) {
+                for c in line {
+                    out.push([f64::from(c[0]), f64::from(c[1])]);
+                }
+            }
+        }
+        (Geometry::MultiPolygon(v), Some(p)) => {
+            if let Some(poly) = v.get(p) {
+                for r in poly {
+                    for c in r {
+                        out.push([f64::from(c[0]), f64::from(c[1])]);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    out
+}
+
 /// Iterate all coordinates in a geometry.
 fn for_each_coord(geom: &Geometry, f: &mut impl FnMut(f64, f64)) {
     match geom {
@@ -1791,13 +1993,17 @@ fn update_nearest_sq(cx: f64, cy: f64, threshold: f64, x: f64, y: f64, best: &mu
 /// Find the minimum squared distance from a geometry's coordinates to a point.
 fn nearest_dist(geom: &Geometry, cx: f64, cy: f64, threshold: f64) -> Option<f64> {
     let mut best: Option<f64> = None;
-    for_each_coord(geom, &mut |x, y| update_nearest_sq(cx, cy, threshold, x, y, &mut best));
+    for_each_coord(geom, &mut |x, y| {
+        update_nearest_sq(cx, cy, threshold, x, y, &mut best)
+    });
     best
 }
 
 /// Find the minimum squared distance from a sub-part's coordinates to a point.
 fn nearest_dist_sub(geom: &Geometry, part: usize, cx: f64, cy: f64, threshold: f64) -> Option<f64> {
     let mut best: Option<f64> = None;
-    for_each_sub_part_coord(geom, part, &mut |x, y| update_nearest_sq(cx, cy, threshold, x, y, &mut best));
+    for_each_sub_part_coord(geom, part, &mut |x, y| {
+        update_nearest_sq(cx, cy, threshold, x, y, &mut best)
+    });
     best
 }
