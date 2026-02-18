@@ -29,16 +29,17 @@ pub struct RawStructProp<'a> {
 #[derive(Debug, PartialEq)]
 pub struct RawStructChild<'a> {
     pub name: &'a str,
+    pub typ: ColumnType,
     pub optional: Option<Stream<'a>>,
     pub data: Stream<'a>,
 }
 
 impl OwnedRawStructChild {
     #[expect(clippy::unused_self)]
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
-        Err(MltError::NotImplemented(
-            "write collumn type and name for struct children",
-        ))
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        self.typ.write_to(writer)?;
+        writer.write_string(&self.name)?;
+        Ok(())
     }
 }
 

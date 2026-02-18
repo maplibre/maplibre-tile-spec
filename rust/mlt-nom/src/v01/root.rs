@@ -221,6 +221,7 @@ impl Layer01<'_> {
                         (input, child_data) = Stream::parse(input)?;
                         children.push(RawStructChild {
                             name: child.name.unwrap_or(""),
+                            typ: child.typ,
                             optional: child_optional,
                             data: child_data,
                         });
