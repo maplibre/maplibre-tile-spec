@@ -8,7 +8,7 @@ use crate::v01::{
     ColumnType, DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData,
 };
 use borrowme::borrowme;
-use integer_encoding::VarIntWriter;
+use integer_encoding::VarIntWriter as _;
 use std::fmt::{self, Debug};
 use std::io::Write;
 
@@ -109,7 +109,6 @@ impl OwnedRawProperty {
         Ok(())
     }
 
-    #[expect(clippy::unused_self)]
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         use OwnedRawPropValue as Val;
         if let Some(opt) = &self.optional {

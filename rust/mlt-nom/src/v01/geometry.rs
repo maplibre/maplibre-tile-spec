@@ -10,11 +10,11 @@ use crate::MltError::{
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
-use crate::utils::{BinarySerializer, OptSeq, SetOptionOnce as _};
+use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
 use borrowme::borrowme;
-use integer_encoding::VarIntWriter;
+use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 use std::io::Write;
 
@@ -45,7 +45,7 @@ impl Analyze for Geometry<'_> {
 impl OwnedGeometry {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Raw(_) => OwnedRawGeometry::write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -74,8 +74,7 @@ impl Analyze for RawGeometry<'_> {
 }
 
 impl OwnedRawGeometry {
-    #[expect(clippy::unused_self)]
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
     }
