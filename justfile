@@ -256,6 +256,7 @@ cpp-cmake-build: cpp-cmake-init
 [working-directory: 'cpp/build']
 cpp-test: cpp-cmake-build
     ctest
+    node cpp/tool/test-synthetic.mjs
 
 [working-directory: 'cpp/build']
 cpp-coverage: check-gcovr-is-installed cpp-test
