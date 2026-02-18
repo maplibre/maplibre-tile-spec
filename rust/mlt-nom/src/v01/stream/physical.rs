@@ -1,8 +1,9 @@
+use borrowme::borrowme;
+use num_enum::TryFromPrimitive;
+
 use crate::MltError;
 use crate::MltError::ParsingPhysicalStreamType;
 use crate::v01::{DictionaryType, LengthType, OffsetType};
-use borrowme::borrowme;
-use num_enum::TryFromPrimitive;
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

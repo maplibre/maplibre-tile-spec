@@ -1,7 +1,8 @@
-use borrowme::borrowme;
-use num_enum::TryFromPrimitive;
 use std::io;
 use std::io::Write;
+
+use borrowme::borrowme;
+use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingColumnType;
 use crate::utils::BinarySerializer as _;

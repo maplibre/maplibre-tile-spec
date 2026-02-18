@@ -1,14 +1,14 @@
 mod decode;
 
-use borrowme::borrowme;
 use std::fmt::{self, Debug};
 use std::io::Write;
+
+use borrowme::borrowme;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
-use crate::utils::f32_to_json;
-use crate::utils::{BinarySerializer as _, apply_present};
+use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
 use crate::v01::property::decode::decode_string_streams;
 use crate::v01::{ColumnType, Stream};
 
