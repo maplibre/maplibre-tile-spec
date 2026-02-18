@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -73,12 +74,12 @@ class TileCoordDialog(QDialog):
         form.addRow("Zoom (z):", self.z_spin)
 
         self.x_spin = QSpinBox()
-        self.x_spin.setRange(0, 2**30)
+        self.x_spin.setRange(0, 2**30 - 1)
         self.x_spin.setValue(initial[1] if initial else 0)
         form.addRow("Column (x):", self.x_spin)
 
         self.y_spin = QSpinBox()
-        self.y_spin.setRange(0, 2**30)
+        self.y_spin.setRange(0, 2**30 - 1)
         self.y_spin.setValue(initial[2] if initial else 0)
         form.addRow("Row (y):", self.y_spin)
 
@@ -153,7 +154,7 @@ class MultipleTileCoordDialog(QDialog):
 
         for row, (path, coords) in enumerate(self._files):
             name_item = QTableWidgetItem(Path(path).name)
-            name_item.setFlags(name_item.flags() & ~0x2)  # not editable
+            name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(row, 0, name_item)
 
             z_val, x_val, y_val = coords if coords else (0, 0, 0)
@@ -164,12 +165,12 @@ class MultipleTileCoordDialog(QDialog):
             self.table.setCellWidget(row, 1, z_spin)
 
             x_spin = QSpinBox()
-            x_spin.setRange(0, 2**30)
+            x_spin.setRange(0, 2**30 - 1)
             x_spin.setValue(x_val)
             self.table.setCellWidget(row, 2, x_spin)
 
             y_spin = QSpinBox()
-            y_spin.setRange(0, 2**30)
+            y_spin.setRange(0, 2**30 - 1)
             y_spin.setValue(y_val)
             self.table.setCellWidget(row, 3, y_spin)
 

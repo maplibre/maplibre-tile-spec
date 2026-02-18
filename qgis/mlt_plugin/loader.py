@@ -141,7 +141,7 @@ def _create_and_populate_layer(
     fields = _discover_fields(features)
     geom_str = _qgs_geom_type_string(wkb_type)
 
-    uri = f"{geom_str}?crs={crs}&index=yes"
+    uri = f"{geom_str}?crs={crs}&index=yes" if crs else f"{geom_str}?index=yes"
     vl = QgsVectorLayer(uri, layer_name, "memory")
     pr = vl.dataProvider()
 
@@ -182,7 +182,8 @@ def load_mlt_file(
             name = f"{stem} \u2014 {mlt_layer.name}"
             if len(groups) > 1:
                 name += f" ({geom_type_str})"
-            vl = _create_and_populate_layer(name, geom_type_str, features)
+            crs = "EPSG:3857" if zxy is not None else ""
+            vl = _create_and_populate_layer(name, geom_type_str, features, crs=crs)
             if vl:
                 result.append(vl)
 
@@ -233,7 +234,8 @@ def load_mlt_files_merged(
         if len(sibling_types) > 1:
             display_name += f" ({geom_type_str})"
 
-        vl = _create_and_populate_layer(display_name, geom_type_str, features)
+        crs = "EPSG:3857" if file_coords else ""
+        vl = _create_and_populate_layer(display_name, geom_type_str, features, crs=crs)
         if vl:
             result.append(vl)
 
