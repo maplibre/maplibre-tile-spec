@@ -182,6 +182,8 @@ struct App {
     filter_scroll: u16,
     /// Indices into `mlt_files` that pass current filters (empty filters = all).
     filtered_file_indices: Vec<usize>,
+    /// Last known file table inner height (rows visible).
+    file_table_inner_height: usize,
 }
 
 impl Default for App {
@@ -224,6 +226,7 @@ impl Default for App {
             algo_filters: HashSet::new(),
             filter_scroll: 0,
             filtered_file_indices: Vec::new(),
+            file_table_inner_height: 10,
         }
     }
 }
@@ -459,6 +462,13 @@ impl App {
 
     fn move_to_end(&mut self) {
         self.move_down_by(usize::MAX);
+    }
+
+    fn page_size(&self) -> usize {
+        match self.mode {
+            ViewMode::FileBrowser => self.file_table_inner_height,
+            ViewMode::LayerOverview => self.tree_inner_height,
+        }
     }
 
     fn handle_enter(&mut self) -> anyhow::Result<()> {
@@ -928,6 +938,9 @@ fn click_row_in_area(col: u16, row: u16, area: Rect, scroll_offset: usize) -> Op
         .then(|| (row - top) as usize + scroll_offset)
 }
 
+const HIGHLIGHT_SYMBOL_WIDTH: u16 = 3; // ">> "
+const COLUMN_SPACING: u16 = 1;
+
 fn file_header_click_column(
     area: Rect,
     widths: &[Constraint; 5],
@@ -941,21 +954,31 @@ fn file_header_click_column(
         vertical: 1,
         horizontal: 1,
     });
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(*widths)
-        .split(inner);
-    for (i, chunk) in chunks.iter().enumerate() {
-        if mouse_col >= chunk.x && mouse_col < chunk.x + chunk.width {
-            return Some(match i {
-                0 => FileSortColumn::File,
-                1 => FileSortColumn::Size,
-                2 => FileSortColumn::EncPct,
-                3 => FileSortColumn::Layers,
-                4 => FileSortColumn::Features,
-                _ => return None,
-            });
+    let resolved: Vec<u16> = widths
+        .iter()
+        .map(|c| match c {
+            Constraint::Length(l) | Constraint::Min(l) => *l,
+            _ => 0,
+        })
+        .collect();
+    let mut x = inner.x + HIGHLIGHT_SYMBOL_WIDTH;
+    let cols = [
+        FileSortColumn::File,
+        FileSortColumn::Size,
+        FileSortColumn::EncPct,
+        FileSortColumn::Layers,
+        FileSortColumn::Features,
+    ];
+    for (i, &w) in resolved.iter().enumerate() {
+        let col_end = if i == resolved.len() - 1 {
+            inner.x + inner.width
+        } else {
+            x + w
+        };
+        if mouse_col >= x && mouse_col < col_end {
+            return Some(cols[i]);
         }
+        x = col_end + COLUMN_SPACING;
     }
     None
 }
@@ -1096,8 +1119,14 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         KeyCode::Up | KeyCode::Char('k') => app.move_up_by(1),
                         KeyCode::Down | KeyCode::Char('j') => app.move_down_by(1),
                         KeyCode::Left => app.handle_left_arrow(),
-                        KeyCode::PageUp => app.move_up_by(10),
-                        KeyCode::PageDown => app.move_down_by(10),
+                        KeyCode::PageUp => {
+                            let page = app.page_size().saturating_sub(1).max(1);
+                            app.move_up_by(page);
+                        }
+                        KeyCode::PageDown => {
+                            let page = app.page_size().saturating_sub(1).max(1);
+                            app.move_down_by(page);
+                        }
                         KeyCode::Home => app.move_to_start(),
                         KeyCode::End => app.move_to_end(),
                         KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -1338,6 +1367,21 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
+                            if let Some(info_area) = file_info_area {
+                                if point_in_rect(mouse.column, mouse.row, info_area)
+                                    && app.filtered_file_indices.is_empty()
+                                    && !app.mlt_files.is_empty()
+                                {
+                                    let row_in_panel =
+                                        (mouse.row.saturating_sub(info_area.y + 1)) as usize;
+                                    if row_in_panel == 2 {
+                                        app.geom_filters.clear();
+                                        app.algo_filters.clear();
+                                        app.rebuild_filtered_files();
+                                    }
+                                    continue;
+                                }
+                            }
                             if let Some(area) = app.file_table_area {
                                 let data_loaded = app.analysis_rx.is_none()
                                     && !app
@@ -1483,6 +1527,7 @@ fn file_cmp(
 
 fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     app.file_table_area = Some(area);
+    app.file_table_inner_height = area.height.saturating_sub(3) as usize;
 
     let data_loaded = app.analysis_rx.is_none()
         && !app
@@ -1651,6 +1696,20 @@ fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let algo_types = collect_all_algorithms(&app.mlt_files);
     let has_any = !app.geom_filters.is_empty() || !app.algo_filters.is_empty();
 
+    let sel_info = app
+        .selected_file_real_index()
+        .and_then(|i| app.mlt_files.get(i))
+        .and_then(|(_, r)| match r {
+            LsRow::Info(i) => Some(i),
+            _ => None,
+        });
+    let sel_geoms: HashSet<&str> = sel_info
+        .map(|i| i.geometries().split(',').map(str::trim).collect())
+        .unwrap_or_default();
+    let sel_algos: HashSet<&str> = sel_info
+        .map(|i| i.algorithms().split(',').map(str::trim).collect())
+        .unwrap_or_default();
+
     let mut lines: Vec<Line<'static>> = Vec::new();
 
     let reset_style = if has_any {
@@ -1674,7 +1733,15 @@ fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             } else {
                 "[ ] "
             };
-            lines.push(Line::from(format!("  {checked}{}", geom_abbrev_to_full(g))));
+            let style = if sel_geoms.contains(g.as_str()) {
+                Style::default().fg(Color::White)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+            lines.push(Line::from(Span::styled(
+                format!("  {checked}{}", geom_abbrev_to_full(g)),
+                style,
+            )));
         }
     }
     if !algo_types.is_empty() {
@@ -1689,7 +1756,15 @@ fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             } else {
                 "[ ] "
             };
-            lines.push(Line::from(format!("  {checked}{a}")));
+            let style = if sel_algos.contains(a.as_str()) {
+                Style::default().fg(Color::White)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+            lines.push(Line::from(Span::styled(
+                format!("  {checked}{a}"),
+                style,
+            )));
         }
     }
     if lines.is_empty() {
@@ -1775,9 +1850,16 @@ fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
             ]),
         ]
     } else if app.filtered_file_indices.is_empty() && !app.mlt_files.is_empty() {
-        vec![Line::from(
-            "No files match the current filters. Uncheck some filters or click [Reset filters] above.",
-        )]
+        vec![
+            Line::from("No files match the current filters."),
+            Line::from(""),
+            Line::from(Span::styled(
+                "[Reset filters]",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )),
+        ]
     } else {
         vec![Line::from("Select a file to view details")]
     };
