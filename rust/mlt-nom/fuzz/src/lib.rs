@@ -37,7 +37,8 @@ impl LayerInput {
             let consumed_input_hex = consumed_input.encode_hex::<String>();
             let buffer_hex = buffer.encode_hex::<String>();
             panic!(
-                "Buffer [{buffer_hex}; {buffer_bytes_size}] does not match consumed input [{consumed_input_hex}; {consumed_input_bytes_size}]"
+                "Buffer [{buffer_hex}; {buffer_bytes_size}] does not match consumed input [{consumed_input_hex}; {consumed_input_bytes_size}].\nDecoded: {owned_layer:#?}",
+                
             );
         }
     }
