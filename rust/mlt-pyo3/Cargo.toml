@@ -11,12 +11,19 @@ rust-version.workspace = true
 
 [lib]
 name = "mlt_pyo3"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
 mlt-nom = { path = "../mlt-nom", default-features = false }
-pyo3 = { version = "0.24", features = ["extension-module"] }
+pyo3 = { version = "0.24" }
 serde_json = "1"
+
+[dev-dependencies]
+pyo3 = { version = "0.24", features = ["auto-initialize"] }
 
 [lints.rust]
 unsafe_code = "allow"

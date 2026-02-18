@@ -376,3 +376,211 @@ fn mlt_pyo3(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<MltFeature>()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn init_python() {
+        pyo3::prepare_freethreaded_python();
+    }
+
+    #[test]
+    fn tile_transform_rejects_zoom_above_30() {
+        init_python();
+        let result = TileTransform::from_zxy(31, 0, 0, 4096, false);
+        assert!(result.is_err(), "z=31 should be rejected");
+
+        let result = TileTransform::from_zxy(30, 0, 0, 4096, false);
+        assert!(result.is_ok(), "z=30 should be accepted");
+
+        let result = TileTransform::from_zxy(0, 0, 0, 4096, false);
+        assert!(result.is_ok(), "z=0 should be accepted");
+    }
+
+    #[test]
+    fn tile_transform_zoom_zero_covers_world() {
+        init_python();
+        let xf = TileTransform::from_zxy(0, 0, 0, 4096, false).unwrap();
+
+        let circumference = 2.0 * PI * 6_378_137.0;
+        let half = circumference / 2.0;
+
+        assert!(
+            (xf.x_origin + half).abs() < 1.0,
+            "x_origin at z=0 should be -half_circumference"
+        );
+        assert!(
+            (xf.y_origin - half).abs() < 1.0,
+            "y_origin at z=0 should be +half_circumference"
+        );
+
+        let tile_scale = circumference / 4096.0;
+        assert!(
+            (xf.x_scale - tile_scale).abs() < 1e-6,
+            "x_scale should equal circumference / extent"
+        );
+        assert!(
+            (xf.y_scale + tile_scale).abs() < 1e-6,
+            "y_scale should be negative (flipped)"
+        );
+    }
+
+    #[test]
+    fn tile_transform_apply_maps_origin_and_extent() {
+        init_python();
+        let xf = TileTransform::from_zxy(0, 0, 0, 4096, false).unwrap();
+
+        let origin = xf.apply([0, 0]);
+        assert!(
+            (origin[0] - xf.x_origin).abs() < 1e-6,
+            "apply([0,0]).x should equal x_origin"
+        );
+        assert!(
+            (origin[1] - xf.y_origin).abs() < 1e-6,
+            "apply([0,0]).y should equal y_origin"
+        );
+
+        let far_corner = xf.apply([4096, 4096]);
+        let circumference = 2.0 * PI * 6_378_137.0;
+        let half = circumference / 2.0;
+        assert!(
+            (far_corner[0] - half).abs() < 1.0,
+            "apply([4096,4096]).x should reach +half"
+        );
+        assert!(
+            (far_corner[1] + half).abs() < 1.0,
+            "apply([4096,4096]).y should reach -half"
+        );
+    }
+
+    #[test]
+    fn tile_transform_tms_vs_xyz() {
+        init_python();
+        let xyz = TileTransform::from_zxy(1, 0, 0, 4096, false).unwrap();
+        let tms = TileTransform::from_zxy(1, 0, 1, 4096, true).unwrap();
+
+        assert!(
+            (xyz.x_origin - tms.x_origin).abs() < 1e-6,
+            "same tile via TMS and XYZ should produce same x_origin"
+        );
+        assert!(
+            (xyz.y_origin - tms.y_origin).abs() < 1e-6,
+            "same tile via TMS and XYZ should produce same y_origin"
+        );
+    }
+
+    #[test]
+    fn fixture_parse_and_feature_collection() {
+        let fixture_path = "../../test/synthetic/0x01/point.mlt";
+        let data = fs::read(fixture_path)
+            .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
+
+        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        for layer in &mut layers {
+            layer.decode_all().expect("decode_all should succeed");
+        }
+
+        assert!(!layers.is_empty(), "should parse at least one layer");
+        let l = layers[0]
+            .as_layer01()
+            .expect("first layer should be v0.1");
+        assert!(!l.name.is_empty(), "layer name should be non-empty");
+
+        let fc =
+            FeatureCollection::from_layers(&layers).expect("FeatureCollection should succeed");
+        assert!(
+            !fc.features.is_empty(),
+            "feature collection should have features"
+        );
+    }
+
+    #[test]
+    fn fixture_geom_to_wkb_produces_valid_output() {
+        let fixture_path = "../../test/synthetic/0x01/polygon.mlt";
+        let data = fs::read(fixture_path)
+            .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
+
+        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        for layer in &mut layers {
+            layer.decode_all().expect("decode_all should succeed");
+        }
+
+        let l = layers[0]
+            .as_layer01()
+            .expect("first layer should be v0.1");
+        let geom = match &l.geometry {
+            mlt_nom::v01::Geometry::Decoded(g) => g,
+            _ => panic!("geometry not decoded"),
+        };
+
+        let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
+        assert!(wkb.len() >= 5, "WKB must be at least 5 bytes (byte order + type)");
+        assert_eq!(wkb[0], 0x01, "WKB byte order should be little-endian");
+        let wkb_type = u32::from_le_bytes([wkb[1], wkb[2], wkb[3], wkb[4]]);
+        assert_eq!(wkb_type, 3, "polygon fixture should produce WKB type 3 (Polygon)");
+    }
+
+    #[test]
+    fn fixture_geom_to_wkb_with_transform() {
+        init_python();
+
+        let fixture_path = "../../test/synthetic/0x01/point.mlt";
+        let data = fs::read(fixture_path)
+            .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
+
+        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        for layer in &mut layers {
+            layer.decode_all().expect("decode_all should succeed");
+        }
+
+        let l = layers[0]
+            .as_layer01()
+            .expect("first layer should be v0.1");
+        let geom = match &l.geometry {
+            mlt_nom::v01::Geometry::Decoded(g) => g,
+            _ => panic!("geometry not decoded"),
+        };
+
+        let xf = TileTransform::from_zxy(0, 0, 0, l.extent, false).unwrap();
+
+        let wkb_raw = geom_to_wkb(geom, 0, None).expect("raw wkb should succeed");
+        let wkb_xf = geom_to_wkb(geom, 0, Some(xf)).expect("transformed wkb should succeed");
+
+        assert_eq!(
+            wkb_raw.len(),
+            wkb_xf.len(),
+            "raw and transformed WKB should have the same length"
+        );
+        assert_ne!(
+            wkb_raw, wkb_xf,
+            "transformed WKB should differ from raw (unless coordinates are trivially 0)"
+        );
+    }
+
+    #[test]
+    fn fixture_line_produces_wkb_linestring() {
+        let fixture_path = "../../test/synthetic/0x01/line.mlt";
+        let data = fs::read(fixture_path)
+            .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
+
+        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        for layer in &mut layers {
+            layer.decode_all().expect("decode_all should succeed");
+        }
+
+        let l = layers[0]
+            .as_layer01()
+            .expect("first layer should be v0.1");
+        let geom = match &l.geometry {
+            mlt_nom::v01::Geometry::Decoded(g) => g,
+            _ => panic!("geometry not decoded"),
+        };
+
+        let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
+        assert!(wkb.len() >= 5);
+        let wkb_type = u32::from_le_bytes([wkb[1], wkb[2], wkb[3], wkb[4]]);
+        assert_eq!(wkb_type, 2, "line fixture should produce WKB type 2 (LineString)");
+    }
+}
