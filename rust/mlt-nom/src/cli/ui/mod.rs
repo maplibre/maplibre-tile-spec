@@ -693,20 +693,6 @@ fn collect_file_values(files: &[(PathBuf, LsRow)], field: fn(&MltFileInfo) -> &s
     v
 }
 
-fn file_matches_filters(
-    info: &MltFileInfo,
-    geom_filters: &HashSet<String>,
-    algo_filters: &HashSet<String>,
-) -> bool {
-    let file_geoms: HashSet<&str> = info.geometries().split(',').map(str::trim).collect();
-    let file_algos: HashSet<&str> = info.algorithms().split(',').map(str::trim).collect();
-    let geom_ok =
-        geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g.as_str()));
-    let algo_ok =
-        algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str()));
-    geom_ok && algo_ok
-}
-
 // --- Drawing primitives ---
 
 fn coord_f64(c: Coordinate) -> [f64; 2] {

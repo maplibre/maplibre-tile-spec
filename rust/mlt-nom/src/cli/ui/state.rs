@@ -1,7 +1,7 @@
-use crate::cli::ls::{FileSortColumn, LsRow};
+use crate::cli::ls::{FileSortColumn, LsRow, MltFileInfo};
 use crate::cli::ui::{
-    GeometryIndexEntry, auto_expand, file_matches_filters, geometry_vertices,
-    group_by_layer, is_entry_visible, load_fc, multi_part_count,
+    GeometryIndexEntry, auto_expand, geometry_vertices, group_by_layer,
+    is_entry_visible, load_fc, multi_part_count,
 };
 use mlt_nom::geojson::{Feature, FeatureCollection, Geometry};
 use ratatui::layout::{Constraint, Rect};
@@ -788,3 +788,16 @@ fn file_cmp(
     if asc { ord } else { ord.reverse() }
 }
 
+fn file_matches_filters(
+    info: &MltFileInfo,
+    geom_filters: &HashSet<String>,
+    algo_filters: &HashSet<String>,
+) -> bool {
+    let file_geoms: HashSet<&str> = info.geometries().split(',').map(str::trim).collect();
+    let file_algos: HashSet<&str> = info.algorithms().split(',').map(str::trim).collect();
+    let geom_ok =
+        geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g.as_str()));
+    let algo_ok =
+        algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str()));
+    geom_ok && algo_ok
+}
