@@ -18,6 +18,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+        args: ['--maxkb=553']
       - id: check-executables-have-shebangs
       - id: check-json
         exclude: '.+/tsconfig.json'

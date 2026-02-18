@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -36,9 +37,11 @@ public class BenchmarkUtils {
 
     var columnMapping = new ColumnMapping("name", ":", true);
     var columnMappings = List.of(columnMapping);
+    var columnMappingMap = Map.of(Pattern.compile(".*"), columnMappings);
     final var isIdPresent = true;
     var metadata =
-        MltConverter.createTilesetMetadata(encodedMvtTile.getRight(), columnMappings, isIdPresent);
+        MltConverter.createTilesetMetadata(
+            encodedMvtTile.getRight(), columnMappingMap, isIdPresent);
 
     var allowIdRegeneration = true;
     var allowSorting = true;

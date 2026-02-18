@@ -22,7 +22,7 @@ inline Coordinate coord(std::int32_t x, std::int32_t y) {
 std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& vertexBuffer,
                                             std::uint32_t startIndex,
                                             const std::uint32_t numVertices,
-                                            [[maybe_unused]] bool closeLineString) {
+                                            bool closeLineString) {
     std::vector<Coordinate> coords;
     coords.reserve(numVertices + 1);
     CHECK_BUFFER(startIndex + numVertices - 1, vertexBuffer);
@@ -31,11 +31,9 @@ std::vector<Coordinate> getLineStringCoords(const std::vector<std::int32_t>& ver
         coords.push_back(coord(x, vertexBuffer[startIndex++]));
     }
 
-    // This breaks embedded tessellation because it changes the indexes.
-    // Disabling it doesn't seem to break anything, is it needed?
-    // if (closeLineString && !coords.empty() && coords.front() != coords.back()) {
-    //     coords.push_back(coords.front());
-    // }
+    if (closeLineString && !coords.empty() && coords.front() != coords.back()) {
+        coords.push_back(coords.front());
+    }
     return coords;
 }
 
@@ -173,13 +171,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
 
                     if (vertexOffsets.empty()) {
                         CHECK_BUFFER(vertexBufferOffset + (2 * numPoints) - 1, vertexBuffer);
-                        for (std::uint32_t i = 0; i < numPoints; ++i) {
+                        for (std::uint32_t j = 0; j < numPoints; ++j) {
                             const auto x = vertexBuffer[vertexBufferOffset++];
                             vertices.push_back(coord(x, vertexBuffer[vertexBufferOffset++]));
                         }
                     } else {
                         CHECK_BUFFER(vertexOffsetsOffset + numPoints - 1, vertexOffsets);
-                        for (std::uint32_t i = 0; i < numPoints; ++i) {
+                        for (std::uint32_t j = 0; j < numPoints; ++j) {
                             const auto offset = vertexOffsets[vertexOffsetsOffset++] * 2;
                             vertices.push_back(coord(vertexBuffer[offset], vertexBuffer[offset + 1]));
                         }
@@ -259,7 +257,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     assert(triangleCounts.empty() || numVertices == rings.back().size() ||
                            numVertices == rings.back().size() - 1);
 
-                    for (std::uint32_t i = 1; i < numRings; ++i) {
+                    for (std::uint32_t j = 1; j < numRings; ++j) {
                         CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
                         const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
                                                      ringOffsets[ringOffsetsCounter - 1];
@@ -293,14 +291,14 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     assert(triangleCounts.empty() || numVertices == rings.back().size() ||
                            numVertices == rings.back().size() - 1);
 
-                    auto totalVertices = numVertices;
-                    for (std::uint32_t i = 1; i < numRings; ++i) {
+                    auto dictTotalVertices = numVertices;
+                    for (std::uint32_t j = 1; j < numRings; ++j) {
                         CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
                         const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
                                                      ringOffsets[ringOffsetsCounter - 1];
                         ringOffsetsCounter++;
 
-                        totalVertices += numRingVertices;
+                        dictTotalVertices += numRingVertices;
 
                         const auto offset = vertexOffsetsOffset;
                         vertexOffsetsOffset += numRingVertices;
@@ -319,7 +317,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     }
 
                     auto newGeometry = factory.createPolygon(std::move(rings));
-                    applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, totalVertices, false);
+                    applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, dictTotalVertices, false);
                     geometries.push_back(std::move(newGeometry));
                 }
 
@@ -363,7 +361,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     }
                     geometries.push_back(factory.createMultiLineString(std::move(lineStrings)));
                 } else {
-                    for (std::uint32_t i = 0; i < numLineStrings; ++i) {
+                    for (std::uint32_t j = 0; j < numLineStrings; ++j) {
                         std::uint32_t numVertices = 0;
                         if (containsPolygon) {
                             CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
@@ -410,8 +408,8 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                 polygons.reserve(numPolygons);
 
                 if (vertexOffsets.empty()) {
-                    [[maybe_unused]] std::uint32_t totalVertices = 0;
-                    for (std::uint32_t i = 0; i < numPolygons; ++i) {
+                    [[maybe_unused]] std::uint32_t plainTotalVertices = 0;
+                    for (std::uint32_t j = 0; j < numPolygons; ++j) {
                         CHECK_BUFFER(partOffsetCounter, partOffsets);
                         const auto numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                         partOffsetCounter++;
@@ -420,7 +418,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                         const auto numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                         ringOffsetsCounter++;
 
-                        totalVertices += numVertices;
+                        plainTotalVertices += numVertices;
 
                         std::vector<CoordVec> rings;
                         rings.reserve(numRings);
@@ -429,13 +427,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                             vertexBuffer, vertexBufferOffset, numVertices, /*closeLineString=*/true));
                         vertexBufferOffset += numVertices * 2;
 
-                        for (std::uint32_t j = 1; j < numRings; ++j) {
+                        for (std::uint32_t k = 1; k < numRings; ++k) {
                             CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
                             const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
                                                          ringOffsets[ringOffsetsCounter - 1];
                             ringOffsetsCounter++;
 
-                            totalVertices += numRingVertices;
+                            plainTotalVertices += numRingVertices;
 
                             rings.push_back(getLineStringCoords(
                                 vertexBuffer, vertexBufferOffset, numRingVertices, /*closeLineString=*/true));
@@ -446,11 +444,11 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     }
 
                     auto newGeometry = factory.createMultiPolygon(std::move(polygons));
-                    applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, totalVertices, true);
+                    applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, plainTotalVertices, true);
                     geometries.push_back(std::move(newGeometry));
                 } else {
-                    [[maybe_unused]] std::uint32_t totalVertices = 0; // TODO: debug only
-                    for (std::uint32_t i = 0; i < numPolygons; ++i) {
+                    [[maybe_unused]] std::uint32_t dictTotalVertices = 0;
+                    for (std::uint32_t j = 0; j < numPolygons; ++j) {
                         CHECK_BUFFER(partOffsetCounter, partOffsets);
                         const auto numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                         partOffsetCounter++;
@@ -459,7 +457,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                         const auto numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                         ringOffsetsCounter++;
 
-                        totalVertices += numVertices;
+                        dictTotalVertices += numVertices;
 
                         std::vector<CoordVec> rings;
                         rings.reserve(numRings);
@@ -478,13 +476,13 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                                                                                /*closeLineString=*/true));
                         vertexOffsetsOffset += numVertices;
 
-                        for (std::uint32_t j = 1; j < numRings; ++j) {
+                        for (std::uint32_t k = 1; k < numRings; ++k) {
                             CHECK_BUFFER(ringOffsetsCounter, ringOffsets);
                             const auto numRingVertices = ringOffsets[ringOffsetsCounter] -
                                                          ringOffsets[ringOffsetsCounter - 1];
                             ringOffsetsCounter++;
 
-                            totalVertices += numRingVertices;
+                            dictTotalVertices += numRingVertices;
 
                             rings.push_back((vertexBufferType == VertexBufferType::VEC_2)
                                                 ? getDictionaryEncodedLineStringCoords(vertexBuffer,
@@ -505,7 +503,7 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
                     }
 
                     auto newGeometry = factory.createMultiPolygon(std::move(polygons));
-                    applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, totalVertices, true);
+                    applyTriangles(*newGeometry, triangleOffset, indexBufferOffset, dictTotalVertices, true);
                     geometries.push_back(std::move(newGeometry));
                 }
                 break;

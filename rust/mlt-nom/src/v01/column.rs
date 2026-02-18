@@ -1,7 +1,11 @@
+use std::io;
+use std::io::Write;
+
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingColumnType;
+use crate::utils::BinarySerializer as _;
 use crate::{MltRefResult, utils};
 
 /// Column definition
@@ -10,6 +14,7 @@ use crate::{MltRefResult, utils};
 pub struct Column<'a> {
     pub typ: ColumnType,
     pub name: Option<&'a str>,
+    pub children: Vec<Column<'a>>,
 }
 
 impl Column<'_> {
@@ -23,7 +28,15 @@ impl Column<'_> {
         } else {
             None
         };
-        Ok((input, Column { typ, name }))
+
+        Ok((
+            input,
+            Column {
+                typ,
+                name,
+                children: Vec::new(),
+            },
+        ))
     }
 }
 
@@ -66,14 +79,23 @@ impl ColumnType {
         let value = Self::try_from(value).or(Err(ParsingColumnType(value)))?;
         Ok((input, value))
     }
+    pub fn write_to<W: Write>(self, writer: &mut W) -> io::Result<()> {
+        writer.write_u8(self as u8)?;
+        Ok(())
+    }
 
     /// Returns true if the column definition includes a name field in the serialized format.
     /// Note: ID and Geometry columns use implicit naming and do not include a name field.
     #[must_use]
     pub fn has_name(self) -> bool {
-        #[allow(clippy::enum_glob_use)]
-        use ColumnType::*;
-        !matches!(self, Id | OptId | LongId | OptLongId | Geometry)
+        !matches!(
+            self,
+            ColumnType::Id
+                | ColumnType::OptId
+                | ColumnType::LongId
+                | ColumnType::OptLongId
+                | ColumnType::Geometry
+        )
     }
 
     /// Check if the column type has a presence stream

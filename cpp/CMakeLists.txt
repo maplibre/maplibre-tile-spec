@@ -10,7 +10,21 @@ if (NOT MLT_OSX_DEPLOYMENT_TARGET)
 endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET ${MLT_OSX_DEPLOYMENT_TARGET})
 
+# generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 20)
+
+if(PROJECT_IS_TOP_LEVEL AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_CXX_FLAGS_COVERAGE "-g -O0 --coverage")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        string(APPEND CMAKE_CXX_FLAGS_COVERAGE " -fprofile-abs-path")
+    endif()
+    set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_MODULE_LINKER_FLAGS_COVERAGE "--coverage")
+endif()
+
 add_library(mlt-cpp STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
@@ -135,27 +149,7 @@ target_sources(mlt-cpp PRIVATE
 # SIMD Everywhere (needed on ARM)
 target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
-if(MLT_WITH_FASTPFOR)
-    message(STATUS "[MLT] Including FastPFOR support")
-
-    # FastPFor
-    set(WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE) # The fastpfor gtest targets conflict with ours
-
-    # SUPPORT_NEON results in trying to link simde (`-lsimde`) but it's a header-only library
-    set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
-
-    add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-        target_compile_options(FastPFOR PRIVATE -Wshorten-64-to-32 -Wno-error=shorten-64-to-32)
-    endif()
-
-    target_link_libraries(mlt-cpp FastPFOR)
-    target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
-    target_compile_definitions(mlt-cpp PUBLIC MLT_ENABLE_FASTPFOR=1)
-    list(APPEND MLT_EXPORT_TARGETS FastPFOR)
-else()
-    message(STATUS "[MLT] No FastPFOR support")
-endif(MLT_WITH_FASTPFOR)
+include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 
 # json
 if(MLT_WITH_JSON)
@@ -171,6 +165,7 @@ else()
 endif(MLT_WITH_JSON)
 
 if(MLT_WITH_TESTS)
+    include(CTest)
     add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
 endif(MLT_WITH_TESTS)
 

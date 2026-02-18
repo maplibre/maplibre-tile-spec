@@ -4,6 +4,7 @@ use std::io::Write;
 
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
+use utils::BinarySerializer as _;
 
 use crate::unknown::Unknown;
 use crate::utils::take;
@@ -21,9 +22,18 @@ pub enum Layer<'a> {
     Unknown(Unknown<'a>),
 }
 
-impl Layer<'_> {
+impl<'a> Layer<'a> {
+    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
+    #[must_use]
+    pub fn as_layer01(&self) -> Option<&Layer01<'a>> {
+        match self {
+            Layer::Tag01(l) => Some(l),
+            Layer::Unknown(_) => None,
+        }
+    }
+
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
-    pub fn parse(input: &[u8]) -> MltRefResult<'_, Layer<'_>> {
+    pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
         let (input, size) = utils::parse_varint::<usize>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
@@ -53,6 +63,7 @@ impl Layer<'_> {
 impl OwnedLayer {
     /// Write layer's binary representation to a Write stream
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        // (size, tag, data) => need to encode to a buffer to write the size
         let (tag, buffer) = match self {
             OwnedLayer::Tag01(layer) => {
                 let mut buffer = Vec::new();
@@ -62,13 +73,13 @@ impl OwnedLayer {
             OwnedLayer::Unknown(unknown) => (unknown.tag, Cow::Borrowed(&unknown.value)),
         };
 
-        let size = buffer.len().checked_add(1);
-        let size = size.ok_or(io::Error::other(MltError::IntegerOverflow))?;
-        let size = u64::try_from(size);
-        let size = size.map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        let size = buffer
+            .len()
+            .checked_add(1)
+            .ok_or(io::Error::other(MltError::IntegerOverflow))?;
+        let size = u64::try_from(size).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
         writer.write_varint(size)?;
-
-        writer.write_all(&[tag])?;
+        writer.write_u8(tag)?;
         writer.write_all(&buffer)
     }
 }

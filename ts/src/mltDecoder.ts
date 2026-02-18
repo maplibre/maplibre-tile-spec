@@ -89,7 +89,12 @@ export default function decodeTile(
                 if (columnMetadata.nullable) {
                     const presentStreamMetadata = decodeStreamMetadata(tile, offset);
                     const streamDataStart = offset.get();
-                    const values = decodeBooleanRle(tile, presentStreamMetadata.numValues, presentStreamMetadata.byteLength, offset);
+                    const values = decodeBooleanRle(
+                        tile,
+                        presentStreamMetadata.numValues,
+                        presentStreamMetadata.byteLength,
+                        offset,
+                    );
                     offset.set(streamDataStart + presentStreamMetadata.byteLength);
                     nullabilityBuffer = new BitVector(values, presentStreamMetadata.numValues);
                 }
@@ -127,7 +132,7 @@ export default function decodeTile(
                 const hasStreamCnt = hasStreamCount(columnMetadata);
                 const numStreams = hasStreamCnt ? decodeVarintInt32(tile, offset, 1)[0] : 1;
 
-                if (numStreams === 0 && columnMetadata.type === "scalarType") {
+                if (numStreams === 0) {
                     continue;
                 }
 

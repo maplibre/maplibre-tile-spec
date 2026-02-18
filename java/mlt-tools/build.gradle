@@ -1,0 +1,49 @@
+plugins {
+    id 'java-library'
+    id('com.diffplug.spotless') version '8.1.0'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = 'https://maven.ecc.no/releases'
+    }
+}
+
+dependencies {
+    implementation project(':mlt-core')
+    implementation project(':mlt-cli')
+    implementation 'org.locationtech.jts:jts-core:1.20.0'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+spotless {
+    java {
+        importOrder()
+        target 'src/*/java/**/*.java'
+        googleJavaFormat()
+        removeUnusedImports()
+    }
+}
+
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile).tap {
+        configureEach {
+            options.compilerArgs << "-Xlint:unchecked"
+            options.compilerArgs << "-Xlint:deprecation"
+            options.compilerArgs << "-Xlint:all"
+        }
+    }
+}
+
+tasks.register('generateSyntheticMlt', JavaExec) {
+    description = 'Generates synthetic MLT test fixtures'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.maplibre.mlt.tools.SyntheticMltGenerator'
+    workingDir = project.projectDir.parentFile
+}

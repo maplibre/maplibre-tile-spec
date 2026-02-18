@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.openjdk.jmh.annotations.*;
 import org.springmeyer.VectorTileLayer;
 
