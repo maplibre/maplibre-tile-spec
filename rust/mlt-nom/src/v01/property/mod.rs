@@ -10,9 +10,7 @@ use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::f32_to_json;
 use crate::utils::{BinarySerializer as _, apply_present};
 use crate::v01::property::decode::decode_string_streams;
-use crate::v01::{
-    ColumnType, DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData,
-};
+use crate::v01::{ColumnType, Stream};
 
 /// Property representation, either raw or decoded
 #[borrowme]

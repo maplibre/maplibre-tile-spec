@@ -6,11 +6,10 @@ use std::fmt;
 use std::fmt::Debug;
 
 use borrowme::borrowme;
-use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
 use num_enum::TryFromPrimitive;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::{all, decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta, take};
+use crate::utils::{all, take};
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{LogicalData, LogicalValue};
 pub use crate::v01::stream::logical::{LogicalDecoder, LogicalTechnique};
