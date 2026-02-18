@@ -209,8 +209,10 @@ impl Layer01<'_> {
                         (input, stream_count) = utils::parse_varint::<usize>(input)?;
                         let child_optional;
                         (input, child_optional) = parse_optional(child.typ, input)?;
-                        let data_count = stream_count - usize::from(child_optional.is_some());
-                        if data_count != 1 {
+                        let optional_stream_count = usize::from(child_optional.is_some());
+                        if let Some(data_count) = stream_count.checked_sub(optional_stream_count)
+                            && data_count != 1
+                        {
                             return Err(MltError::ExpectedValues {
                                 ctx: "struct child data streams",
                                 expected: 1,
