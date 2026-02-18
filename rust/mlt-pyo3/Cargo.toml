@@ -2,6 +2,7 @@
 name = "mlt-pyo3"
 description = "Python bindings for MapLibre Tile (MLT) format via PyO3"
 version = "0.1.0"
+readme = false
 repository.workspace = true
 edition.workspace = true
 license.workspace = true
