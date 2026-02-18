@@ -39,14 +39,15 @@ impl PhysicalStreamType {
             PhysicalStreamType::Offset(_) => 2,
             PhysicalStreamType::Length(_) => 3,
         };
-        let high4 = proto_high4 >> 4;
+        let high4 = proto_high4 << 4;
         let low4 = match self {
             PhysicalStreamType::Present => 0,
             PhysicalStreamType::Data(i) => i as u8,
             PhysicalStreamType::Offset(i) => i as u8,
             PhysicalStreamType::Length(i) => i as u8,
         };
-        high4 | (low4 & 0x0F)
+        debug_assert!(low4 <= 0x0F, "secondary types should not exceed 4 bit");
+        high4 | low4
     }
 }
 
