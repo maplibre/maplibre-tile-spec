@@ -26,7 +26,13 @@ impl TileTransform {
     /// `tms`: if true, y uses TMS convention (y=0 at south, used by OpenMapTiles
     /// and MBTiles). If false, y uses XYZ / slippy-map convention (y=0 at north,
     /// used by OSM tile servers).
-    fn from_zxy(z: u32, x: u32, y: u32, extent: u32, tms: bool) -> Self {
+    fn from_zxy(z: u32, x: u32, y: u32, extent: u32, tms: bool) -> Result<Self, PyErr> {
+        if z > 30 {
+            return Err(PyValueError::new_err(format!(
+                "zoom level {z} exceeds maximum of 30"
+            )));
+        }
+
         let n = f64::from(1_u32 << z);
         let circumference = 2.0 * PI * 6_378_137.0;
         let tile_size = circumference / n;
@@ -46,12 +52,12 @@ impl TileTransform {
 
         let scale = tile_size / f64::from(extent);
 
-        TileTransform {
+        Ok(TileTransform {
             x_origin,
             y_origin,
             x_scale: scale,
             y_scale: -scale, // tile pixel-y grows downward, EPSG:3857 y grows upward
-        }
+        })
     }
 
     fn apply(self, coord: [i32; 2]) -> [f64; 2] {
@@ -304,7 +310,9 @@ fn decode_mlt(
             .ok_or_else(|| PyValueError::new_err("unsupported layer tag (expected 0x01)"))?;
 
         let xf = match (z, x, y) {
-            (Some(z), Some(x), Some(y)) => Some(TileTransform::from_zxy(z, x, y, l.extent, tms)),
+            (Some(z), Some(x), Some(y)) => {
+                Some(TileTransform::from_zxy(z, x, y, l.extent, tms)?)
+            }
             _ => None,
         };
 
