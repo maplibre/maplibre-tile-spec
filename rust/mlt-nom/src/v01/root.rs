@@ -21,15 +21,15 @@ pub struct Layer01<'a> {
 }
 
 impl Analyze for Layer01<'_> {
-    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
             StatType::MetadataOverheadBytes => self.name.len() + size_of::<u32>(),
             StatType::PayloadDataSizeBytes => {
-                self.id.decoded_statistics_for(stat)
-                    + self.geometry.decoded_statistics_for(stat)
-                    + self.properties.decoded_statistics_for(stat)
+                self.id.collect_statistic(stat)
+                    + self.geometry.collect_statistic(stat)
+                    + self.properties.collect_statistic(stat)
             }
-            StatType::FeatureCount => self.geometry.decoded_statistics_for(stat),
+            StatType::FeatureCount => self.geometry.collect_statistic(stat),
         }
     }
 

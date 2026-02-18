@@ -38,11 +38,11 @@ impl OwnedId {
 }
 
 impl Analyze for Id<'_> {
-    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
             Self::None => 0,
-            Self::Raw(d) => d.decoded_statistics_for(stat),
-            Self::Decoded(d) => d.decoded_statistics_for(stat),
+            Self::Raw(d) => d.collect_statistic(stat),
+            Self::Decoded(d) => d.collect_statistic(stat),
         }
     }
 
@@ -112,8 +112,8 @@ impl Analyze for RawIdValue<'_> {
 pub struct DecodedId(pub Option<Vec<Option<u64>>>);
 
 impl Analyze for DecodedId {
-    fn decoded_statistics_for(&self, stat: StatType) -> usize {
-        self.0.decoded_statistics_for(stat)
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        self.0.collect_statistic(stat)
     }
 }
 

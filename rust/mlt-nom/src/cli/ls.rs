@@ -9,11 +9,12 @@ use anyhow::Result;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
+use mlt_nom::StatType::{FeatureCount, MetadataOverheadBytes, PayloadDataSizeBytes};
 use mlt_nom::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
     PhysicalDecoder, PhysicalStreamType, Stream,
 };
-use mlt_nom::{Analyze as _, StatType, parse_layers};
+use mlt_nom::{Analyze as _, parse_layers};
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use size_format::SizeFormatterSI;
@@ -319,9 +320,9 @@ pub fn analyze_mlt_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Resul
     for layer in &mut layers {
         layer.decode_all()?;
         if let Some(layer01) = layer.as_layer01() {
-            data_size += layer01.decoded_statistics_for(StatType::PayloadDataSizeBytes);
-            meta_size += layer01.decoded_statistics_for(StatType::MetadataOverheadBytes);
-            feature_count += layer01.decoded_statistics_for(StatType::FeatureCount);
+            data_size += layer01.collect_statistic(PayloadDataSizeBytes);
+            meta_size += layer01.collect_statistic(MetadataOverheadBytes);
+            feature_count += layer01.collect_statistic(FeatureCount);
 
             if let Geometry::Decoded(ref geom) = layer01.geometry {
                 for &geom_type in &geom.vector_types {

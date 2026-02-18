@@ -33,10 +33,10 @@ pub enum Geometry<'a> {
 }
 
 impl Analyze for Geometry<'_> {
-    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::Raw(g) => g.decoded_statistics_for(stat),
-            Self::Decoded(g) => g.decoded_statistics_for(stat),
+            Self::Raw(g) => g.collect_statistic(stat),
+            Self::Decoded(g) => g.collect_statistic(stat),
         }
     }
 
@@ -108,17 +108,17 @@ pub struct DecodedGeometry {
 }
 
 impl Analyze for DecodedGeometry {
-    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
             StatType::PayloadDataSizeBytes => {
-                self.vector_types.decoded_statistics_for(stat)
-                    + self.geometry_offsets.decoded_statistics_for(stat)
-                    + self.part_offsets.decoded_statistics_for(stat)
-                    + self.ring_offsets.decoded_statistics_for(stat)
-                    + self.vertex_offsets.decoded_statistics_for(stat)
-                    + self.index_buffer.decoded_statistics_for(stat)
-                    + self.triangles.decoded_statistics_for(stat)
-                    + self.vertices.decoded_statistics_for(stat)
+                self.vector_types.collect_statistic(stat)
+                    + self.geometry_offsets.collect_statistic(stat)
+                    + self.part_offsets.collect_statistic(stat)
+                    + self.ring_offsets.collect_statistic(stat)
+                    + self.vertex_offsets.collect_statistic(stat)
+                    + self.index_buffer.collect_statistic(stat)
+                    + self.triangles.collect_statistic(stat)
+                    + self.vertices.collect_statistic(stat)
             }
             StatType::MetadataOverheadBytes => 0,
             StatType::FeatureCount => self.vector_types.len(),
@@ -274,7 +274,7 @@ pub enum GeometryType {
 }
 
 impl Analyze for GeometryType {
-    fn decoded_statistics_for(&self, _stat: StatType) -> usize {
+    fn collect_statistic(&self, _stat: StatType) -> usize {
         size_of::<Self>()
     }
 }

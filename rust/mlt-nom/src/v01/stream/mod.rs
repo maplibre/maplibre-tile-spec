@@ -41,7 +41,7 @@ pub struct StreamMeta {
 }
 
 impl Analyze for StreamMeta {
-    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         if stat == StatType::MetadataOverheadBytes {
             size_of::<Self>()
         } else {
@@ -130,9 +130,9 @@ macro_rules! stream_data {
         }
 
     impl crate::Analyze for StreamData<'_> {
-        fn decoded_statistics_for(&self, stat: crate::StatType) -> usize {
+        fn collect_statistic(&self, stat: crate::StatType) -> usize {
             match &self {
-                $(StreamData::$enm(d) => d.data.decoded_statistics_for(stat),)+
+                $(StreamData::$enm(d) => d.data.collect_statistic(stat),)+
             }
         }
     }
