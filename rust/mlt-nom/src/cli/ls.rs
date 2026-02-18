@@ -9,7 +9,7 @@ use anyhow::Result;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use mlt_nom::StatType::{FeatureCount, DecodedMetaSize, DecodedDataSize};
+use mlt_nom::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_nom::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
     PhysicalDecoder, PhysicalStreamType, Stream,
