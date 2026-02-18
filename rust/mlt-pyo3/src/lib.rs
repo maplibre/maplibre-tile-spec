@@ -310,9 +310,7 @@ fn decode_mlt(
             .ok_or_else(|| PyValueError::new_err("unsupported layer tag (expected 0x01)"))?;
 
         let xf = match (z, x, y) {
-            (Some(z), Some(x), Some(y)) => {
-                Some(TileTransform::from_zxy(z, x, y, l.extent, tms)?)
-            }
+            (Some(z), Some(x), Some(y)) => Some(TileTransform::from_zxy(z, x, y, l.extent, tms)?),
             _ => None,
         };
 
