@@ -96,7 +96,9 @@ impl Layer01<'_> {
                         });
                     }
 
+                    // metadata
                     (input, value) = Stream::parse(input)?;
+                    // geometry items
                     (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
                     geometry.set_once(Geometry::raw(value, value_vec))?;
                 }
