@@ -510,6 +510,7 @@ impl<'a> Stream<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     /// Test case for stream decoding tests
     #[derive(Debug)]
@@ -599,149 +600,124 @@ mod tests {
         }
     }
 
-    /// Test case for logical decoding tests
-    #[derive(Debug)]
-    struct LogicalDecodeTestCase {
-        name: &'static str,
-        logical_decoder: LogicalDecoder,
-        input_data: Vec<u32>,
-        expected_u32: Option<Vec<u32>>,
-        expected_i32: Option<Vec<i32>>,
+    fn make_logical_val(logical_decoder: LogicalDecoder, input_data: Vec<u32>) -> LogicalValue {
+        let meta = StreamMeta {
+            physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            num_values: u32::try_from(input_data.len()).expect("input_data length fits in u32"),
+            logical_decoder,
+            physical_decoder: PhysicalDecoder::VarInt,
+        };
+        let data = LogicalData::VecU32(input_data);
+        LogicalValue::new(meta, data)
     }
 
-    impl LogicalDecodeTestCase {
-        fn to_logical_val(&self) -> LogicalValue {
-            let meta = StreamMeta {
-                physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                num_values: u32::try_from(self.input_data.len())
-                    .expect("input_data length fits in u32"),
-                logical_decoder: self.logical_decoder,
-                physical_decoder: PhysicalDecoder::VarInt,
-            };
-            let data = LogicalData::VecU32(self.input_data.clone());
-            LogicalValue::new(meta, data)
-        }
+    #[rstest]
+    // ZigZag pairs: [(0,0),(2,4),(2,4)] -> [(0,0),(1,2),(1,2)]
+    // Delta: [(0,0),(1,2),(1,2)] -> [(0,0),(1,2),(2,4)]
+    #[case::componentwise_delta(LogicalDecoder::ComponentwiseDelta, vec![0, 0, 2, 4, 2, 4], vec![0, 0, 1, 2, 2, 4])]
+    // ZigZag: [0,1,2,1,2] -> [0,-1,1,-1,1]
+    // Delta: [0,-1,1,-1,1] -> [0,-1,0,-1,0]
+    #[case::delta(LogicalDecoder::Delta, vec![0, 1, 2, 1, 2], vec![0, -1, 0, -1, 0])]
+    // RLE: [3,2] [0,2] -> [0,0,0,2,2]
+    // ZigZag: [0,0,0,2,2] -> [0,0,0,1,1]
+    // Delta: [0,0,0,1,1] -> [0,0,0,1,2]
+    #[case::delta_rle(LogicalDecoder::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3, 2, 0, 2], vec![0, 0, 0, 1, 2])]
+    #[case::delta(LogicalDecoder::Delta, vec![], vec![])]
+    fn test_decode_i32(
+        #[case] logical_decoder: LogicalDecoder,
+        #[case] input_data: Vec<u32>,
+        #[case] expected: Vec<i32>,
+    ) {
+        let result = make_logical_val(logical_decoder, input_data).decode_i32();
+        assert!(result.is_ok(), "should decode successfully");
+        assert_eq!(result.unwrap(), expected, "should match expected output");
     }
 
-    fn generate_logical_decode_test_cases() -> Vec<LogicalDecodeTestCase> {
-        vec![
-            // decode_i32 tests
-            LogicalDecodeTestCase {
-                name: "i32_componentwise_delta",
-                logical_decoder: LogicalDecoder::ComponentwiseDelta,
-                // ZigZag pairs: [(0,0),(2,4),(2,4)] -> [(0,0),(1,2),(1,2)]
-                // Delta: [(0,0),(1,2),(1,2)] -> [(0,0),(1,2),(2,4)]
-                input_data: vec![0, 0, 2, 4, 2, 4],
-                expected_u32: None,
-                expected_i32: Some(Vec::<i32>::from([0, 0, 1, 2, 2, 4])),
-            },
-            LogicalDecodeTestCase {
-                name: "i32_delta",
-                logical_decoder: LogicalDecoder::Delta,
-                // ZigZag: [0,1,2,1,2] -> [0,-1,1,-1,1]
-                // Delta: [0,-1,1,-1,1] -> [0,-1,0,-1,0]
-                input_data: vec![0, 1, 2, 1, 2],
-                expected_u32: None,
-                expected_i32: Some(Vec::<i32>::from([0, -1, 0, -1, 0])),
-            },
-            LogicalDecodeTestCase {
-                name: "i32_delta_rle",
-                logical_decoder: LogicalDecoder::DeltaRle(RleMeta {
-                    runs: 2,
-                    num_rle_values: 5,
-                }),
-                // RLE: [3,2] [0,2] -> [0,0,0,2,2]
-                // ZigZag: [0,0,0,2,2] -> [0,0,0,1,1]
-                // Delta: [0,0,0,1,1] -> [0,0,0,1,2]
-                input_data: vec![3, 2, 0, 2],
-                expected_u32: None,
-                expected_i32: Some(Vec::<i32>::from([0, 0, 0, 1, 2])),
-            },
-            LogicalDecodeTestCase {
-                name: "i32_empty",
-                logical_decoder: LogicalDecoder::Delta,
-                input_data: vec![],
-                expected_u32: None,
-                expected_i32: Some(Vec::<i32>::new()),
-            },
-            // decode_u32 tests
-            LogicalDecodeTestCase {
-                name: "u32_none",
-                logical_decoder: LogicalDecoder::None,
-                input_data: vec![10, 20, 30, 40],
-                expected_u32: Some(Vec::<u32>::from([10, 20, 30, 40])),
-                expected_i32: None,
-            },
-            LogicalDecodeTestCase {
-                name: "u32_rle",
-                logical_decoder: LogicalDecoder::Rle(RleMeta {
-                    runs: 3,
-                    num_rle_values: 6,
-                }),
-                input_data: vec![3, 2, 1, 10, 20, 30],
-                expected_u32: Some(Vec::<u32>::from([10, 10, 10, 20, 20, 30])),
-                expected_i32: None,
-            },
-            LogicalDecodeTestCase {
-                name: "u32_delta",
-                logical_decoder: LogicalDecoder::Delta,
-                // ZigZag: [0,2,2,2,2] -> [0,1,1,1,1]
-                // Delta: [0,1,1,1,1] -> [0,1,2,3,4]
-                input_data: vec![0, 2, 2, 2, 2],
-                expected_u32: Some(Vec::<u32>::from([0, 1, 2, 3, 4])),
-                expected_i32: None,
-            },
-            LogicalDecodeTestCase {
-                name: "u32_empty",
-                logical_decoder: LogicalDecoder::None,
-                input_data: vec![],
-                expected_u32: Some(Vec::<u32>::new()),
-                expected_i32: None,
-            },
-        ]
+    #[rstest]
+    #[case::empty(LogicalDecoder::None, vec![], vec![])]
+    #[case::raw(LogicalDecoder::None, vec![10, 20, 30, 40], vec![10, 20, 30, 40])]
+    #[case::rle(LogicalDecoder::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3, 2, 1, 10, 20, 30], vec![10, 10, 10, 20, 20, 30])]
+    // ZigZag: [0,2,2,2,2] -> [0,1,1,1,1]
+    // Delta: [0,1,1,1,1] -> [0,1,2,3,4]
+    #[case::delta(LogicalDecoder::Delta, vec![0, 2, 2, 2, 2], vec![0, 1, 2, 3, 4])]
+    fn test_decode_u32(
+        #[case] logical_decoder: LogicalDecoder,
+        #[case] input_data: Vec<u32>,
+        #[case] expected: Vec<u32>,
+    ) {
+        let result = make_logical_val(logical_decoder, input_data).decode_u32();
+        assert!(result.is_ok(), "should decode successfully");
+        assert_eq!(result.unwrap(), expected, "should match expected output");
     }
 
-    #[test]
-    fn test_decode_u32() {
-        let test_cases = generate_logical_decode_test_cases();
+    /// Test roundtrip: write -> parse -> equality for stream serialization
+    #[rstest]
+    #[case::raw(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalDecoder::None, PhysicalDecoder::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
+    #[case::raw(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalDecoder::ComponentwiseDelta, PhysicalDecoder::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
+    #[case::raw(PhysicalStreamType::Offset(OffsetType::Vertex), 3, LogicalDecoder::None, PhysicalDecoder::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
+    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 4, LogicalDecoder::None, PhysicalDecoder::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false)]
+    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 5, LogicalDecoder::Delta, PhysicalDecoder::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false)]
+    #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 3, LogicalDecoder::PseudoDecimal, PhysicalDecoder::VarInt, vec![0x01, 0x02, 0x03], false)]
+    #[case::varint(PhysicalStreamType::Length(LengthType::VarBinary), 3, LogicalDecoder::Delta, PhysicalDecoder::VarInt, vec![0x00, 0x02, 0x02], false)]
+    #[case::rle(PhysicalStreamType::Data(DictionaryType::None), 6, LogicalDecoder::Rle(RleMeta { runs: 3, num_rle_values: 3 }), PhysicalDecoder::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
+    #[case::rle(PhysicalStreamType::Data(DictionaryType::None), 5, LogicalDecoder::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalDecoder::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
+    #[case::morton(PhysicalStreamType::Data(DictionaryType::Morton), 4, LogicalDecoder::Morton(MortonMeta { num_bits: 32, coordinate_shift: 0 }), PhysicalDecoder::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
+    #[case::boolean(PhysicalStreamType::Present, 16, LogicalDecoder::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalDecoder::VarInt, vec![0xFF, 0x00], true)]
+    fn test_stream_roundtrip(
+        #[case] physical_type: PhysicalStreamType,
+        #[case] num_values: u32,
+        #[case] logical_decoder: LogicalDecoder,
+        #[case] physical_decoder: PhysicalDecoder,
+        #[case] data_bytes: Vec<u8>,
+        #[case] is_bool: bool,
+    ) {
+        use crate::utils::BinarySerializer as _;
 
-        for test_case in test_cases {
-            if let Some(expected) = &test_case.expected_u32 {
-                let result = test_case.to_logical_val().decode_u32();
-                assert!(
-                    result.is_ok(),
-                    "Case '{}' should decode successfully",
-                    test_case.name
-                );
-                assert_eq!(
-                    &result.unwrap(),
-                    expected,
-                    "Case '{}' should match expected output",
-                    test_case.name
-                );
+        let stream_data = match physical_decoder {
+            PhysicalDecoder::None | PhysicalDecoder::FastPFOR => {
+                OwnedStreamData::Raw(OwnedDataRaw { data: data_bytes })
             }
-        }
-    }
-
-    #[test]
-    fn test_decode_i32() {
-        let test_cases = generate_logical_decode_test_cases();
-
-        for test_case in test_cases {
-            if let Some(expected) = &test_case.expected_i32 {
-                let result = test_case.to_logical_val().decode_i32();
-                assert!(
-                    result.is_ok(),
-                    "Case '{}' should decode successfully",
-                    test_case.name
-                );
-                assert_eq!(
-                    &result.unwrap(),
-                    expected,
-                    "Case '{}' should match expected output",
-                    test_case.name
-                );
+            PhysicalDecoder::VarInt => {
+                OwnedStreamData::VarInt(OwnedDataVarInt { data: data_bytes })
             }
+            PhysicalDecoder::Alp => panic!("ALP not supported"),
+        };
+        let stream = OwnedStream {
+            meta: StreamMeta {
+                physical_type,
+                num_values,
+                logical_decoder,
+                physical_decoder,
+            },
+            data: stream_data,
+        };
+
+        // Write to buffer
+        let mut buffer = Vec::new();
+        if is_bool {
+            buffer.write_boolean_stream(&stream).unwrap()
+        } else {
+            buffer.write_stream(&stream).unwrap()
+        };
+
+        // Parse back
+        let (remaining, parsed) = if is_bool {
+            Stream::parse_bool(&buffer).unwrap()
+        } else {
+            Stream::parse(&buffer).unwrap()
+        };
+
+        assert!(remaining.is_empty(), "{} bytes remain", remaining.len());
+        assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
+
+        match (&stream.data, &parsed.data) {
+            (OwnedStreamData::Raw(exp), StreamData::Raw(act)) => {
+                assert_eq!(exp.data.as_slice(), act.data, "raw data mismatch");
+            }
+            (OwnedStreamData::VarInt(exp), StreamData::VarInt(act)) => {
+                assert_eq!(exp.data.as_slice(), act.data, "varint data mismatch");
+            }
+            _ => panic!("data type mismatch"),
         }
     }
 }
