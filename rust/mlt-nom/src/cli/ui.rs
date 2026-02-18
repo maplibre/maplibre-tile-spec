@@ -754,9 +754,11 @@ impl App {
             self.expanded_layers[layer] = true;
             self.build_tree_items();
         }
-        if let Some(idx) = self.tree_items.iter().position(|it| {
-            matches!(it, TreeItem::Layer(li) if *li == layer)
-        }) {
+        if let Some(idx) = self
+            .tree_items
+            .iter()
+            .position(|it| matches!(it, TreeItem::Layer(li) if *li == layer))
+        {
             self.selected_index = idx;
             self.scroll_selected_into_view(inner_height);
         }
@@ -1609,6 +1611,7 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         ViewMode::FileBrowser => "Features".to_string(),
     };
     let inner_height = area.height.saturating_sub(2) as usize;
+    app.scroll_selected_into_view(inner_height);
     let max_scroll = u16::try_from(app.tree_items.len().saturating_sub(inner_height)).unwrap_or(0);
     app.tree_scroll = app.tree_scroll.min(max_scroll);
     let para = Paragraph::new(lines)
