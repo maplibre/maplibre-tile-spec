@@ -1777,34 +1777,27 @@ fn for_each_sub_part_coord(geom: &Geometry, part: usize, f: &mut impl FnMut(f64,
     }
 }
 
+fn update_nearest_sq(cx: f64, cy: f64, threshold: f64, x: f64, y: f64, best: &mut Option<f64>) {
+    let dx = (x - cx).abs();
+    let dy = (y - cy).abs();
+    if dx < threshold && dy < threshold {
+        let d = dx * dx + dy * dy;
+        if best.is_none_or(|b| d < b) {
+            *best = Some(d);
+        }
+    }
+}
+
 /// Find the minimum squared distance from a geometry's coordinates to a point.
 fn nearest_dist(geom: &Geometry, cx: f64, cy: f64, threshold: f64) -> Option<f64> {
     let mut best: Option<f64> = None;
-    for_each_coord(geom, &mut |x, y| {
-        let dx = (x - cx).abs();
-        let dy = (y - cy).abs();
-        if dx < threshold && dy < threshold {
-            let d = dx * dx + dy * dy;
-            if best.is_none_or(|b| d < b) {
-                best = Some(d);
-            }
-        }
-    });
+    for_each_coord(geom, &mut |x, y| update_nearest_sq(cx, cy, threshold, x, y, &mut best));
     best
 }
 
 /// Find the minimum squared distance from a sub-part's coordinates to a point.
 fn nearest_dist_sub(geom: &Geometry, part: usize, cx: f64, cy: f64, threshold: f64) -> Option<f64> {
     let mut best: Option<f64> = None;
-    for_each_sub_part_coord(geom, part, &mut |x, y| {
-        let dx = (x - cx).abs();
-        let dy = (y - cy).abs();
-        if dx < threshold && dy < threshold {
-            let d = dx * dx + dy * dy;
-            if best.is_none_or(|b| d < b) {
-                best = Some(d);
-            }
-        }
-    });
+    for_each_sub_part_coord(geom, part, &mut |x, y| update_nearest_sq(cx, cy, threshold, x, y, &mut best));
     best
 }
