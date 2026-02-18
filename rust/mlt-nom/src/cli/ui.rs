@@ -1400,6 +1400,25 @@ fn format_property_value(v: &JsonValue) -> String {
     }
 }
 
+fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
+    let mut lines: Vec<Line<'static>> = feat
+        .properties
+        .iter()
+        .filter(|(k, _)| *k != "_layer" && *k != "_extent")
+        .map(|(k, v)| {
+            let val_str = format_property_value(v);
+            Line::from(vec![
+                Span::styled(format!("{k}: "), Style::default().fg(Color::Cyan)),
+                Span::raw(val_str),
+            ])
+        })
+        .collect();
+    if lines.is_empty() {
+        lines.push(Line::from(Span::raw("(no properties)")));
+    }
+    lines
+}
+
 fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let selected = app.selected_index;
     let item = app.tree_items.get(selected);
@@ -1416,22 +1435,7 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     app.last_properties_key = Some(key);
                 }
                 let feat_ref = app.feature(*layer, *feat);
-                let mut prop_lines: Vec<Line<'static>> = feat_ref
-                    .properties
-                    .iter()
-                    .filter(|(k, _)| *k != "_layer" && *k != "_extent")
-                    .map(|(k, v)| {
-                        let val_str = format_property_value(v);
-                        Line::from(vec![
-                            Span::styled(format!("{k}: "), Style::default().fg(Color::Cyan)),
-                            Span::raw(val_str),
-                        ])
-                    })
-                    .collect();
-                if prop_lines.is_empty() {
-                    prop_lines.push(Line::from(Span::raw("(no properties)")));
-                }
-                (format!("Properties (feat {feat}, hover)"), prop_lines)
+                (format!("Properties (feat {feat}, hover)"), feature_property_lines(feat_ref))
             } else {
                 app.last_properties_key = None;
                 (
@@ -1449,22 +1453,7 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 app.last_properties_key = Some(key);
             }
             let feat_ref = app.feature(*layer, *feat);
-            let mut prop_lines: Vec<Line<'static>> = feat_ref
-                .properties
-                .iter()
-                .filter(|(k, _)| *k != "_layer" && *k != "_extent")
-                .map(|(k, v)| {
-                    let val_str = format_property_value(v);
-                    Line::from(vec![
-                        Span::styled(format!("{k}: "), Style::default().fg(Color::Cyan)),
-                        Span::raw(val_str),
-                    ])
-                })
-                .collect();
-            if prop_lines.is_empty() {
-                prop_lines.push(Line::from(Span::raw("(no properties)")));
-            }
-            (format!("Properties (feat {feat})"), prop_lines)
+            (format!("Properties (feat {feat})"), feature_property_lines(feat_ref))
         }
     };
     let block = block_with_title(title);
