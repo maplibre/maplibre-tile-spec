@@ -6,7 +6,10 @@ use borrowme::borrowme;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::SetOptionOnce as _;
 use crate::v01::column::ColumnType;
-use crate::v01::{Column, Geometry, Id, OwnedId, Property, RawIdValue, RawPropValue, Stream};
+use crate::v01::{
+    Column, DictionaryType, Geometry, Id, OwnedId, PhysicalStreamType, Property, RawIdValue,
+    RawPropValue, RawStructChild, RawStructProp, Stream,
+};
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
 /// Representation of a feature table layer encoded as MLT tag `0x01`
@@ -169,7 +172,68 @@ impl Layer01<'_> {
                     properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
                 }
                 ColumnType::Struct => {
-                    return Err(MltError::NotImplemented("Struct column type"));
+                    (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    if stream_count < 2 {
+                        return Err(MltError::MinLength {
+                            ctx: "struct shared dictionary",
+                            min: 2,
+                            got: stream_count,
+                        });
+                    }
+
+                    // Parse shared dictionary streams
+                    let mut dict_streams = Vec::new();
+                    let mut remaining_streams = stream_count;
+                    loop {
+                        if remaining_streams == 0 {
+                            return Err(MltError::MissingStringStream("shared dictionary data"));
+                        }
+                        remaining_streams -= 1;
+                        let s;
+                        (input, s) = Stream::parse(input)?;
+                        let done = matches!(
+                            s.meta.physical_type,
+                            PhysicalStreamType::Data(
+                                DictionaryType::Single | DictionaryType::Shared
+                            )
+                        );
+                        dict_streams.push(s);
+                        if done {
+                            break;
+                        }
+                    }
+
+                    // Parse each child field (present stream + dictionary index stream)
+                    let mut children = Vec::with_capacity(column.children.len());
+                    for child in &column.children {
+                        (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                        let child_optional;
+                        (input, child_optional) = parse_optional(child.typ, input)?;
+                        let data_count = stream_count - usize::from(child_optional.is_some());
+                        if data_count != 1 {
+                            return Err(MltError::ExpectedValues {
+                                ctx: "struct child data streams",
+                                expected: 1,
+                                got: data_count,
+                            });
+                        }
+                        let child_data;
+                        (input, child_data) = Stream::parse(input)?;
+                        children.push(RawStructChild {
+                            name: child.name.unwrap_or(""),
+                            optional: child_optional,
+                            data: child_data,
+                        });
+                    }
+
+                    properties.push(Property::raw(
+                        name,
+                        None,
+                        RawPropValue::Struct(RawStructProp {
+                            dict_streams,
+                            children,
+                        }),
+                    ));
                 }
             }
         }
@@ -189,8 +253,9 @@ impl Layer01<'_> {
     pub fn decode_all(&mut self) -> Result<(), MltError> {
         self.id.materialize()?;
         self.geometry.materialize()?;
-        for prop in &mut self.properties {
-            prop.materialize()?;
+        let old_props = std::mem::take(&mut self.properties);
+        for prop in old_props {
+            self.properties.extend(prop.decode_expand()?);
         }
         Ok(())
     }

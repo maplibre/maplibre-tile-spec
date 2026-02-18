@@ -6,14 +6,7 @@ use mlt_nom::parse_layers;
 use serde_json::Value;
 use test_each_file::test_each_path;
 
-test_each_path! {
-  for ["mlt", "json"] in "../test/synthetic/0x01"
-  => pair_test
-  ignore: {
-    "props_shared_dict" => "needs structs implemented",
-    "props_shared_dict_fsst" => "needs structs implemented",
-  }
-}
+test_each_path! { for ["mlt", "json"] in "../test/synthetic/0x01" => pair_test }
 
 fn pair_test([mlt, json]: [&Path; 2]) {
     test_one(mlt, json);

@@ -11,8 +11,27 @@ use crate::MltError::IntegerOverflow;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
-use crate::v01::property::decode::decode_string_streams;
+use crate::v01::property::decode::{
+    decode_shared_dictionary, decode_string_streams, resolve_offsets,
+};
 use crate::v01::{ColumnType, Stream};
+
+/// Raw data for a Struct column with shared dictionary encoding
+#[borrowme]
+#[derive(Debug, PartialEq)]
+pub struct RawStructProp<'a> {
+    pub dict_streams: Vec<Stream<'a>>,
+    pub children: Vec<RawStructChild<'a>>,
+}
+
+/// A single child field within a Struct column
+#[borrowme]
+#[derive(Debug, PartialEq)]
+pub struct RawStructChild<'a> {
+    pub name: &'a str,
+    pub optional: Option<Stream<'a>>,
+    pub data: Stream<'a>,
+}
 
 /// Property representation, either raw or decoded
 #[borrowme]
@@ -61,6 +80,20 @@ pub struct RawProperty<'a> {
     name: &'a str,
     optional: Option<Stream<'a>>,
     value: RawPropValue<'a>,
+}
+
+impl<'a> RawProperty<'a> {
+    pub(crate) fn new(
+        name: &'a str,
+        optional: Option<Stream<'a>>,
+        value: RawPropValue<'a>,
+    ) -> Self {
+        Self {
+            name,
+            optional,
+            value,
+        }
+    }
 }
 
 impl Analyze for RawProperty<'_> {
@@ -138,7 +171,7 @@ impl OwnedRawProperty {
                     writer.write_stream(s)?;
                 }
             }
-            Val::Struct(_) => return Err(MltError::NotImplemented("string stream writing")),
+            Val::Struct(_) => return Err(MltError::NotImplemented("struct stream writing")),
         }
         Ok(())
     }
@@ -158,7 +191,7 @@ pub enum RawPropValue<'a> {
     F32(Stream<'a>),
     F64(Stream<'a>),
     Str(Vec<Stream<'a>>),
-    Struct(Stream<'a>),
+    Struct(RawStructProp<'a>),
 }
 
 impl Analyze for RawPropValue<'_> {
@@ -172,9 +205,15 @@ impl Analyze for RawPropValue<'_> {
             | Self::I64(s)
             | Self::U64(s)
             | Self::F32(s)
-            | Self::F64(s)
-            | Self::Struct(s) => s.for_each_stream(cb),
+            | Self::F64(s) => s.for_each_stream(cb),
             Self::Str(streams) => streams.for_each_stream(cb),
+            Self::Struct(sp) => {
+                sp.dict_streams.for_each_stream(cb);
+                for child in &sp.children {
+                    child.optional.for_each_stream(cb);
+                    child.data.for_each_stream(cb);
+                }
+            }
         }
     }
 }
@@ -312,6 +351,17 @@ impl<'a> Property<'a> {
             Self::Decoded(v) => v,
         })
     }
+
+    /// Decode this property. Struct properties expand into multiple decoded properties.
+    pub fn decode_expand(self) -> Result<Vec<Property<'a>>, MltError> {
+        match self {
+            Self::Raw(raw) => match raw.value {
+                RawPropValue::Struct(v) => decode_struct_children(raw.name, v),
+                _ => Ok(vec![Self::Decoded(DecodedProperty::from_raw(raw)?)]),
+            },
+            Self::Decoded(d) => Ok(vec![Self::Decoded(d)]),
+        }
+    }
 }
 
 impl<'a> FromRaw<'a> for DecodedProperty {
@@ -363,4 +413,25 @@ impl<'a> FromRaw<'a> for DecodedProperty {
             values,
         })
     }
+}
+
+/// Decode a struct with shared dictionary into one decoded property per child.
+fn decode_struct_children<'a>(
+    parent_name: &str,
+    struct_data: RawStructProp<'_>,
+) -> Result<Vec<Property<'a>>, MltError> {
+    let dict = decode_shared_dictionary(struct_data.dict_streams)?;
+    struct_data
+        .children
+        .into_iter()
+        .map(|child| {
+            let present = child.optional.map(Stream::decode_bools);
+            let offsets = child.data.decode_bits_u32()?.decode_u32()?;
+            let strings = resolve_offsets(&dict, &offsets)?;
+            Ok(Property::Decoded(DecodedProperty {
+                name: format!("{parent_name}{}", child.name),
+                values: PropValue::Str(apply_present(present.as_ref(), strings)),
+            }))
+        })
+        .collect()
 }
