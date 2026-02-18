@@ -59,6 +59,7 @@ pub struct HoveredInfo {
     pub(crate) feat: usize,
     pub(crate) part: Option<usize>,
 }
+
 impl HoveredInfo {
     pub fn new(tree_idx: usize, layer: usize, feat: usize, part: Option<usize>) -> Self {
         Self {
@@ -75,6 +76,7 @@ pub struct LayerGroup {
     pub(crate) extent: f64,
     pub(crate) feature_indices: Vec<usize>,
 }
+
 impl LayerGroup {
     pub fn new(name: String, extent: f64, feature_indices: Vec<usize>) -> Self {
         Self {
@@ -213,11 +215,17 @@ impl App {
                 .any(|(_, r)| matches!(r, LsRow::Loading { .. }))
     }
 
+    pub(crate) fn open_help(&mut self) {
+        self.show_help = true;
+        self.help_scroll = 0;
+        self.invalidate();
+    }
+
     pub(crate) fn handle_file_header_click(&mut self, col: FileSortColumn) {
         if !self.data_loaded() {
             return;
         }
-        let prev_path = self
+        let prev = self
             .selected_file_real_index()
             .and_then(|i| self.mlt_files.get(i))
             .map(|(p, _)| p.clone());
@@ -225,7 +233,7 @@ impl App {
         self.file_sort = Some((col, asc));
         self.mlt_files.sort_by(|a, b| file_cmp(a, b, col, asc));
         self.rebuild_filtered_files();
-        if let Some(path) = prev_path {
+        if let Some(path) = prev {
             if let Some(pos) = self
                 .filtered_file_indices
                 .iter()
@@ -259,11 +267,11 @@ impl App {
         &self.fc.features[self.global_idx(layer, feat)]
     }
 
-    pub(crate) fn get_extent(&self) -> f64 {
+    pub(crate) fn extent(&self) -> f64 {
         self.layer_groups.first().map_or(4096.0, |g| g.extent)
     }
 
-    pub(crate) fn get_selected_item(&self) -> &TreeItem {
+    pub(crate) fn selected_item(&self) -> &TreeItem {
         &self.tree_items[self.selected_index]
     }
 
@@ -333,33 +341,23 @@ impl App {
     }
 
     pub(crate) fn move_up_by(&mut self, n: usize) {
-        match self.mode {
-            ViewMode::FileBrowser => {
-                let prev = self.selected_file_index;
-                let max = self.filtered_file_indices.len().saturating_sub(1);
-                self.selected_file_index = self.selected_file_index.saturating_sub(n).min(max);
-                self.file_list_state.select(Some(self.selected_file_index));
-                if self.selected_file_index != prev {
-                    self.invalidate_bounds();
-                }
-            }
-            ViewMode::LayerOverview => {
-                let prev = self.selected_index;
-                self.selected_index = self.selected_index.saturating_sub(n);
-                if self.selected_index != prev {
-                    self.scroll_selected_into_view(self.tree_inner_height);
-                    self.invalidate_bounds();
-                }
-            }
-        }
+        self.move_by(n, false);
     }
 
     pub(crate) fn move_down_by(&mut self, n: usize) {
+        self.move_by(n, true);
+    }
+
+    fn move_by(&mut self, n: usize, down: bool) {
         match self.mode {
             ViewMode::FileBrowser => {
                 let prev = self.selected_file_index;
                 let max = self.filtered_file_indices.len().saturating_sub(1);
-                self.selected_file_index = self.selected_file_index.saturating_add(n).min(max);
+                self.selected_file_index = if down {
+                    self.selected_file_index.saturating_add(n).min(max)
+                } else {
+                    self.selected_file_index.saturating_sub(n).min(max)
+                };
                 self.file_list_state.select(Some(self.selected_file_index));
                 if self.selected_file_index != prev {
                     self.invalidate_bounds();
@@ -368,7 +366,11 @@ impl App {
             ViewMode::LayerOverview => {
                 let prev = self.selected_index;
                 let max = self.tree_items.len().saturating_sub(1);
-                self.selected_index = self.selected_index.saturating_add(n).min(max);
+                self.selected_index = if down {
+                    self.selected_index.saturating_add(n).min(max)
+                } else {
+                    self.selected_index.saturating_sub(n)
+                };
                 if self.selected_index != prev {
                     self.scroll_selected_into_view(self.tree_inner_height);
                     self.invalidate_bounds();
@@ -488,8 +490,8 @@ impl App {
         if self.mode != ViewMode::LayerOverview {
             return;
         }
-        let new_state = !self.expanded_layers.iter().all(|&e| e);
-        self.expanded_layers.fill(new_state);
+        let new = !self.expanded_layers.iter().all(|&e| e);
+        self.expanded_layers.fill(new);
         self.rebuild_and_clamp();
     }
 
@@ -568,7 +570,7 @@ impl App {
     }
 
     pub(crate) fn rebuild_filtered_files(&mut self) {
-        let prev_real = self.selected_file_real_index();
+        let prev = self.selected_file_real_index();
         let has_filters = !self.geom_filters.is_empty() || !self.algo_filters.is_empty();
         self.filtered_file_indices = (0..self.mlt_files.len())
             .filter(|&i| {
@@ -581,7 +583,7 @@ impl App {
                     }
             })
             .collect();
-        let pos = prev_real
+        let pos = prev
             .and_then(|ri| self.filtered_file_indices.iter().position(|&i| i == ri))
             .unwrap_or(0);
         self.selected_file_index = pos;
@@ -598,19 +600,19 @@ impl App {
     }
 
     pub fn calculate_bounds(&self) -> (f64, f64, f64, f64) {
-        let selected = self.get_selected_item();
-        let extent = self.get_extent();
-        let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
-        let (mut max_x, mut max_y) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+        let sel = self.selected_item();
+        let ext = self.extent();
+        let (mut x0, mut y0) = (f64::INFINITY, f64::INFINITY);
+        let (mut x1, mut y1) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
 
         let mut update = |v: &[f64; 2]| {
-            min_x = min_x.min(v[0]);
-            min_y = min_y.min(v[1]);
-            max_x = max_x.max(v[0]);
-            max_y = max_y.max(v[1]);
+            x0 = x0.min(v[0]);
+            y0 = y0.min(v[1]);
+            x1 = x1.max(v[0]);
+            y1 = y1.max(v[1]);
         };
 
-        let geoms: Vec<&Geometry> = match selected {
+        let geoms: Vec<&Geometry> = match sel {
             TreeItem::All => self.fc.features.iter().map(|f| &f.geometry).collect(),
             TreeItem::Layer(l) => self.layer_groups[*l]
                 .feature_indices
@@ -627,17 +629,17 @@ impl App {
             }
         }
 
-        min_x = min_x.min(0.0);
-        min_y = min_y.min(0.0);
-        max_x = max_x.max(extent);
-        max_y = max_y.max(extent);
-        let px = (max_x - min_x) * 0.1;
-        let py = (max_y - min_y) * 0.1;
-        (min_x - px, min_y - py, max_x + px, max_y + py)
+        x0 = x0.min(0.0);
+        y0 = y0.min(0.0);
+        x1 = x1.max(ext);
+        y1 = y1.max(ext);
+        let px = (x1 - x0) * 0.1;
+        let py = (y1 - y0) * 0.1;
+        (x0 - px, y0 - py, x1 + px, y1 + py)
     }
 
     pub(crate) fn find_hovered_feature(&mut self, cx: f64, cy: f64, bounds: (f64, f64, f64, f64)) {
-        let selected = self.get_selected_item().clone();
+        let sel = self.selected_item().clone();
         let threshold = (bounds.2 - bounds.0).max(bounds.3 - bounds.1) * 0.02;
         let thresh_sq = threshold * threshold;
         let early_exit = thresh_sq * 0.01;
@@ -645,16 +647,16 @@ impl App {
 
         let best = if let Some(ref tree) = self.geometry_index {
             let mut best: Option<(f64, usize, usize, Option<usize>)> = None;
-            for entry in tree.nearest_neighbor_iter(&pt) {
-                let d = entry.distance_2(&pt);
+            for e in tree.nearest_neighbor_iter(&pt) {
+                let d = e.distance_2(&pt);
                 if d > thresh_sq {
                     break;
                 }
-                if !is_entry_visible(entry.layer, entry.feat, &selected) {
+                if !is_entry_visible(e.layer, e.feat, &sel) {
                     continue;
                 }
                 if best.is_none_or(|(bd, ..)| d < bd) {
-                    best = Some((d, entry.layer, entry.feat, entry.part));
+                    best = Some((d, e.layer, e.feat, e.part));
                     if d < early_exit {
                         break;
                     }
@@ -665,9 +667,9 @@ impl App {
             None
         };
 
-        self.hovered = best.and_then(|(_, layer, feat, part)| {
-            self.find_tree_idx_for_feature(layer, feat, part)
-                .map(|tree_idx| HoveredInfo::new(tree_idx, layer, feat, part))
+        self.hovered = best.and_then(|(_, l, f, p)| {
+            self.find_tree_idx_for_feature(l, f, p)
+                .map(|idx| HoveredInfo::new(idx, l, f, p))
         });
     }
 
@@ -684,19 +686,16 @@ impl App {
                         return Some(idx);
                     }
                 }
-                TreeItem::Feature {
-                    layer: li,
-                    feat: fi,
-                } if *li == layer && *fi == feat => {
+                TreeItem::Feature { layer: l, feat: f } if *l == layer && *f == feat => {
                     if part.is_none() || !self.expanded_features.contains(&(layer, feat)) {
                         return Some(idx);
                     }
                 }
                 TreeItem::SubFeature {
-                    layer: li,
-                    feat: fi,
+                    layer: l,
+                    feat: f,
                     part: p,
-                } if *li == layer && *fi == feat && part == Some(*p) => {
+                } if *l == layer && *f == feat && part == Some(*p) => {
                     return Some(idx);
                 }
                 _ => {}
@@ -712,34 +711,29 @@ impl App {
         }
     }
 
-    fn select_layer_expand_and_scroll(&mut self, layer: usize, tree_height: u16) {
-        let inner = tree_height.saturating_sub(2) as usize;
-        self.ensure_layer_expanded(layer);
-        if let Some(idx) = self
-            .tree_items
-            .iter()
-            .position(|it| matches!(it, TreeItem::Layer(li) if *li == layer))
-        {
-            self.selected_index = idx;
-            self.scroll_selected_into_view(inner);
-        }
-        self.invalidate_bounds();
-    }
-
-    fn select_feature_expand_and_scroll(
+    fn select_and_scroll(
         &mut self,
         layer: usize,
-        feat: usize,
+        feat: Option<usize>,
         part: Option<usize>,
         tree_height: u16,
     ) {
         let inner = tree_height.saturating_sub(2) as usize;
         self.ensure_layer_expanded(layer);
-        if multi_part_count(&self.feature(layer, feat).geometry) > 0 {
-            self.expanded_features.insert((layer, feat));
-            self.build_tree_items();
-        }
-        if let Some(idx) = self.find_tree_idx_for_feature(layer, feat, part) {
+        if let Some(f) = feat {
+            if multi_part_count(&self.feature(layer, f).geometry) > 0 {
+                self.expanded_features.insert((layer, f));
+                self.build_tree_items();
+            }
+            if let Some(idx) = self.find_tree_idx_for_feature(layer, f, part) {
+                self.selected_index = idx;
+                self.scroll_selected_into_view(inner);
+            }
+        } else if let Some(idx) = self
+            .tree_items
+            .iter()
+            .position(|it| matches!(it, TreeItem::Layer(l) if *l == layer))
+        {
             self.selected_index = idx;
             self.scroll_selected_into_view(inner);
         }
@@ -763,15 +757,16 @@ impl App {
         part: Option<usize>,
         tree_height: u16,
     ) {
-        match self.get_selected_item().clone() {
-            TreeItem::All => self.select_layer_expand_and_scroll(layer, tree_height),
+        match self.selected_item().clone() {
+            TreeItem::All => self.select_and_scroll(layer, None, None, tree_height),
             TreeItem::Layer(_) => {
-                self.select_feature_expand_and_scroll(layer, feat, None, tree_height);
+                self.select_and_scroll(layer, Some(feat), None, tree_height);
             }
-            _ => self.select_feature_expand_and_scroll(layer, feat, part, tree_height),
+            _ => self.select_and_scroll(layer, Some(feat), part, tree_height),
         }
     }
 }
+
 fn file_cmp(
     a: &(PathBuf, LsRow),
     b: &(PathBuf, LsRow),
@@ -801,11 +796,8 @@ fn file_matches_filters(
 ) -> bool {
     let file_geoms: HashSet<&str> = info.geometries().split(',').map(str::trim).collect();
     let file_algos: HashSet<&str> = info.algorithms().split(',').map(str::trim).collect();
-    let geom_ok =
-        geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g.as_str()));
-    let algo_ok =
-        algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str()));
-    geom_ok && algo_ok
+    (geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g.as_str())))
+        && (algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str())))
 }
 
 fn geometry_vertices(geom: &Geometry, part: Option<usize>) -> Vec<[f64; 2]> {
@@ -831,7 +823,7 @@ fn geometry_vertices(geom: &Geometry, part: Option<usize>) -> Vec<[f64; 2]> {
             v.get(p).map(|&c| vec![coord_f64(c)]).unwrap_or_default()
         }
         (Geometry::MultiLineString(v), Some(p)) => v.get(p).map_or_else(Vec::new, |l| coords(l)),
-        (Geometry::MultiPolygon(v), Some(p)) => v.get(p).map_or_else(Vec::new, |poly| rings(poly)),
+        (Geometry::MultiPolygon(v), Some(p)) => v.get(p).map_or_else(Vec::new, |r| rings(r)),
         _ => Vec::new(),
     }
 }

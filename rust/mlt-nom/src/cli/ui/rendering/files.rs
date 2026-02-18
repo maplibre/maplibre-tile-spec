@@ -1,27 +1,30 @@
 use std::collections::HashSet;
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Rect};
-use ratatui::prelude::{Color, Line, Modifier, Span, Style};
+use ratatui::layout::{Alignment, Constraint, Rect};
+use ratatui::prelude::{Line, Span, Style};
 use ratatui::widgets::{Cell, Paragraph, Row, Table, Wrap};
+use size_format::SizeFormatterSI;
 
 use crate::cli::ls::{LsRow, MltFileInfo, row_cells};
-use crate::cli::ui::{App, block_with_title, collect_file_values, geom_abbrev_to_full};
+use crate::cli::ui::state::App;
+use crate::cli::ui::{
+    CLR_DIMMED, CLR_HINT, CLR_HOVERED, STYLE_BOLD, STYLE_LABEL, STYLE_SELECTED, block_with_title,
+    collect_file_values, geom_abbrev_to_full,
+};
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     app.file_table_area = Some(area);
     app.file_table_inner_height = area.height.saturating_sub(3) as usize;
 
-    let bold = Style::default().add_modifier(Modifier::BOLD);
-    let right = ratatui::layout::Alignment::Right;
     let header = Row::new(vec![
         Cell::from("File"),
-        Cell::from(Line::from("Size").alignment(right)),
-        Cell::from(Line::from("Enc %").alignment(right)),
-        Cell::from(Line::from("Layers").alignment(right)),
-        Cell::from(Line::from("Features").alignment(right)),
+        Cell::from(Line::from("Size").alignment(Alignment::Right)),
+        Cell::from(Line::from("Enc %").alignment(Alignment::Right)),
+        Cell::from(Line::from("Layers").alignment(Alignment::Right)),
+        Cell::from(Line::from("Features").alignment(Alignment::Right)),
     ])
-    .style(bold);
+    .style(STYLE_BOLD);
 
     let rows: Vec<Row> = app
         .filtered_file_indices
@@ -29,7 +32,7 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .map(|&i| Row::new(row_cells(&app.mlt_files[i].1).map(Cell::from)))
         .collect();
 
-    let file_col_width = app
+    let file_w = app
         .mlt_files
         .iter()
         .map(|(_, r)| row_cells(r)[0].len())
@@ -38,7 +41,7 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .max(4);
 
     let widths = [
-        Constraint::Length(u16::try_from(file_col_width).unwrap_or_default().min(200)),
+        Constraint::Length(u16::try_from(file_w).unwrap_or_default().min(200)),
         Constraint::Length(8),
         Constraint::Length(7),
         Constraint::Length(6),
@@ -58,16 +61,13 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     } else {
         total.to_string()
     };
-    let title = format!("MLT Files ({count} found) - ↑/↓ navigate, Enter open, q quit{sort_hint}");
+    let title =
+        format!("MLT Files ({count} found) - ↑/↓ navigate, Enter open, h help, q quit{sort_hint}");
     let table = Table::new(rows, widths)
         .header(header)
         .column_spacing(1)
         .block(block_with_title(title))
-        .row_highlight_style(
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        )
+        .row_highlight_style(STYLE_SELECTED)
         .highlight_symbol(">> ");
     f.render_stateful_widget(table, area, &mut app.file_list_state);
 }
@@ -93,29 +93,19 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 
     let mut lines: Vec<Line<'static>> = Vec::new();
     let reset_style = if has_any {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
+        STYLE_SELECTED
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(CLR_DIMMED)
     };
     lines.push(Line::from(Span::styled("[Reset filters]", reset_style)));
     lines.push(Line::from(""));
 
-    let check = |active: bool| if active { "[x] " } else { "[ ] " };
-    let item_style = |present: bool| {
-        if present {
-            Style::default().fg(Color::White)
-        } else {
-            Style::default().fg(Color::DarkGray)
-        }
-    };
+    let check = |on: bool| if on { "[x] " } else { "[ ] " };
+    let present_style =
+        |yes: bool| -> Style { Style::default().fg(if yes { CLR_HOVERED } else { CLR_DIMMED }) };
 
     if !geoms.is_empty() {
-        lines.push(Line::from(Span::styled(
-            "Geometry Types:",
-            Style::default().add_modifier(Modifier::BOLD),
-        )));
+        lines.push(Line::from(Span::styled("Geometry Types:", STYLE_BOLD)));
         for g in &geoms {
             lines.push(Line::from(Span::styled(
                 format!(
@@ -123,20 +113,17 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     check(app.geom_filters.contains(g)),
                     geom_abbrev_to_full(g)
                 ),
-                item_style(sel_geoms.contains(g.as_str())),
+                present_style(sel_geoms.contains(g.as_str())),
             )));
         }
     }
     if !algos.is_empty() {
         lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            "Algorithms:",
-            Style::default().add_modifier(Modifier::BOLD),
-        )));
+        lines.push(Line::from(Span::styled("Algorithms:", STYLE_BOLD)));
         for a in &algos {
             lines.push(Line::from(Span::styled(
                 format!("  {}{a}", check(app.algo_filters.contains(a))),
-                item_style(sel_algos.contains(a.as_str())),
+                present_style(sel_algos.contains(a.as_str())),
             )));
         }
     }
@@ -144,9 +131,9 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         lines.push(Line::from("(loading…)"));
     }
 
-    let inner_height = area.height.saturating_sub(2);
-    let max_scroll = u16::try_from(lines.len().saturating_sub(inner_height as usize)).unwrap_or(0);
-    app.filter_scroll = app.filter_scroll.min(max_scroll);
+    let inner = area.height.saturating_sub(2);
+    let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
+    app.filter_scroll = app.filter_scroll.min(max);
 
     let para = Paragraph::new(lines)
         .block(block_with_title("Filter (click to toggle)"))
@@ -164,32 +151,32 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
         });
 
     let lines: Vec<Line<'static>> = if let Some(info) = info {
-        let fmt_size = |n: usize| format!("{:.1}B", size_format::SizeFormatterSI::new(n as u64));
-        let label = Style::default().fg(Color::Cyan);
-        let hint = Style::default().fg(Color::DarkGray);
+        let sz = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
         let row = |name: &str, val: String, desc: &str| -> Line<'static> {
-            let mut spans = vec![Span::styled(format!("{name}: "), label), Span::raw(val)];
+            let mut spans = vec![
+                Span::styled(format!("{name}: "), STYLE_LABEL),
+                Span::raw(val),
+            ];
             if !desc.is_empty() {
-                spans.push(Span::styled(format!("  {desc}"), hint));
+                spans.push(Span::styled(
+                    format!("  {desc}"),
+                    Style::default().fg(CLR_HINT),
+                ));
             }
             Line::from(spans)
         };
         vec![
             row("File", info.path().to_string(), ""),
-            row("Size", fmt_size(info.size()), "raw MLT file size"),
+            row("Size", sz(info.size()), "raw MLT file size"),
             row(
                 "Encoding",
                 format!("{:.1}%", info.encoding_pct()),
                 "MLT / (data + metadata)",
             ),
-            row("Data", fmt_size(info.data_size()), "decoded payload size"),
+            row("Data", sz(info.data_size()), "decoded payload size"),
             row(
                 "Metadata",
-                format!(
-                    "{} ({:.1}% of data)",
-                    fmt_size(info.meta_size()),
-                    info.meta_pct()
-                ),
+                format!("{} ({:.1}% of data)", sz(info.meta_size()), info.meta_pct()),
                 "encoding overhead",
             ),
             row("Layers", info.layers().to_string(), "tile layer count"),
@@ -218,12 +205,7 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
         vec![
             Line::from("No files match the current filters."),
             Line::from(""),
-            Line::from(Span::styled(
-                "[Reset filters]",
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            )),
+            Line::from(Span::styled("[Reset filters]", STYLE_SELECTED)),
         ]
     } else {
         vec![Line::from("Select a file to view details")]
