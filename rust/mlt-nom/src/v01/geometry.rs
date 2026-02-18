@@ -1,9 +1,9 @@
 use std::fmt::Debug;
+use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
-use std::io::Write;
 
 use crate::MltError;
 use crate::MltError::{

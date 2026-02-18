@@ -1,7 +1,9 @@
+use std::io;
+
+use integer_encoding::VarIntWriter;
+
 use crate::MltError;
 use crate::v01::OwnedStream;
-use integer_encoding::VarIntWriter;
-use std::io;
 
 pub trait BinarySerializer: io::Write + VarIntWriter {
     fn write_u8(&mut self, value: u8) -> io::Result<()> {

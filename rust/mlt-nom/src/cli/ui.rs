@@ -21,9 +21,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::canvas::{Canvas, Context, Line as CanvasLine, Rectangle};
-use ratatui::widgets::{
-    Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState, Wrap,
-};
+use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState, Wrap};
 use serde_json::Value as JsonValue;
 
 use crate::cli::ls::{FileSortColumn, LsRow, analyze_mlt_files, row_cells};
@@ -128,7 +126,6 @@ struct App {
     // Tree
     tree_items: Vec<TreeItem>,
     selected_index: usize,
-    list_state: ListState,
     hovered_item: Option<usize>,
     // Expansion
     expanded_layers: Vec<bool>,
@@ -146,6 +143,8 @@ struct App {
     resizing: Option<ResizeHandle>,
     /// Scroll offset for properties panel.
     properties_scroll: u16,
+    /// Scroll offset for tree/feature list (viewport only, selection unchanged).
+    tree_scroll: u16,
     /// (layer, feat) of last feature we showed properties for; used to reset scroll on selection change.
     last_properties_key: Option<(usize, usize)>,
 }
@@ -169,7 +168,6 @@ impl Default for App {
             layer_groups: Vec::new(),
             tree_items: Vec::new(),
             selected_index: 0,
-            list_state: ListState::default(),
             hovered_item: None,
             expanded_layers: Vec::new(),
             expanded_features: HashSet::new(),
@@ -183,6 +181,7 @@ impl Default for App {
             resizing: None,
             properties_scroll: 0,
             last_properties_key: None,
+            tree_scroll: 0,
         }
     }
 }
@@ -203,14 +202,11 @@ impl App {
     }
 
     fn new_single_file(fc: FeatureCollection, file_path: Option<PathBuf>) -> Self {
-        let mut list_state = ListState::default();
-        list_state.select(Some(0));
         let layer_groups = group_by_layer(&fc);
         let expanded_layers = auto_expand(&layer_groups);
         let mut app = Self {
             mode: ViewMode::LayerOverview,
             current_file: file_path,
-            list_state,
             expanded_layers,
             layer_groups,
             fc,
@@ -257,7 +253,6 @@ impl App {
         self.expanded_features.clear();
         self.build_tree_items();
         self.selected_index = 0;
-        self.list_state.select(Some(0));
         self.invalidate_bounds();
         Ok(())
     }
@@ -339,7 +334,6 @@ impl App {
             ViewMode::LayerOverview => {
                 let prev = self.selected_index;
                 self.selected_index = self.selected_index.saturating_sub(n);
-                self.list_state.select(Some(self.selected_index));
                 if self.selected_index != prev {
                     self.invalidate_bounds();
                 }
@@ -366,7 +360,6 @@ impl App {
                 let prev = self.selected_index;
                 let max = self.tree_items.len().saturating_sub(1);
                 self.selected_index = self.selected_index.saturating_add(n).min(max);
-                self.list_state.select(Some(self.selected_index));
                 if self.selected_index != prev {
                     self.invalidate_bounds();
                 }
@@ -387,7 +380,6 @@ impl App {
             ViewMode::LayerOverview => {
                 let prev = self.selected_index;
                 self.selected_index = 0;
-                self.list_state.select(Some(0));
                 if self.selected_index != prev {
                     self.invalidate_bounds();
                 }
@@ -410,7 +402,6 @@ impl App {
                 let prev = self.selected_index;
                 let max = self.tree_items.len().saturating_sub(1);
                 self.selected_index = max;
-                self.list_state.select(Some(max));
                 if self.selected_index != prev {
                     self.invalidate_bounds();
                 }
@@ -557,7 +548,6 @@ impl App {
         if let Some(idx) = target {
             if idx != self.selected_index {
                 self.selected_index = idx;
-                self.list_state.select(Some(idx));
                 self.invalidate_bounds();
             }
         }
@@ -568,7 +558,6 @@ impl App {
         self.selected_index = self
             .selected_index
             .min(self.tree_items.len().saturating_sub(1));
-        self.list_state.select(Some(self.selected_index));
         self.invalidate_bounds();
     }
 
@@ -577,7 +566,6 @@ impl App {
         if let Some(idx) = self.tree_items.iter().position(pred) {
             self.selected_index = idx;
         }
-        self.list_state.select(Some(self.selected_index));
         self.invalidate_bounds();
     }
 
@@ -990,7 +978,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.list_state.offset(),
+                                    app.tree_scroll as usize,
                                 ) {
                                     if row < app.tree_items.len()
                                         && matches!(
@@ -1040,6 +1028,26 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
+                            if let Some(area) = tree_area {
+                                if mouse.column >= area.x
+                                    && mouse.column < area.x + area.width
+                                    && mouse.row >= area.y
+                                    && mouse.row < area.y + area.height
+                                {
+                                    app.tree_scroll = app.tree_scroll.saturating_sub(s as u16);
+                                    app.invalidate();
+                                    continue;
+                                }
+                            }
+                            if let Some(area) = map_area {
+                                if mouse.column >= area.x
+                                    && mouse.column < area.x + area.width
+                                    && mouse.row >= area.y
+                                    && mouse.row < area.y + area.height
+                                {
+                                    continue;
+                                }
+                            }
                         }
                         app.move_up_by(s);
                     }
@@ -1055,6 +1063,30 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     app.properties_scroll =
                                         app.properties_scroll.saturating_add(s as u16);
                                     app.invalidate();
+                                    continue;
+                                }
+                            }
+                            if let Some(area) = tree_area {
+                                if mouse.column >= area.x
+                                    && mouse.column < area.x + area.width
+                                    && mouse.row >= area.y
+                                    && mouse.row < area.y + area.height
+                                {
+                                    let inner = area.height.saturating_sub(2) as usize;
+                                    let max_off =
+                                        app.tree_items.len().saturating_sub(inner).max(0) as u16;
+                                    app.tree_scroll =
+                                        app.tree_scroll.saturating_add(s as u16).min(max_off);
+                                    app.invalidate();
+                                    continue;
+                                }
+                            }
+                            if let Some(area) = map_area {
+                                if mouse.column >= area.x
+                                    && mouse.column < area.x + area.width
+                                    && mouse.row >= area.y
+                                    && mouse.row < area.y + area.height
+                                {
                                     continue;
                                 }
                             }
@@ -1116,7 +1148,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.list_state.offset(),
+                                    app.tree_scroll as usize,
                                 ) {
                                     if row < app.tree_items.len() {
                                         let dbl = last_tree_click.is_some_and(|(t, r)| {
@@ -1124,7 +1156,6 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                         });
                                         last_tree_click = Some((Instant::now(), row));
                                         app.selected_index = row;
-                                        app.list_state.select(Some(row));
                                         app.invalidate_bounds();
                                         if dbl {
                                             app.handle_enter()?;
@@ -1140,7 +1171,6 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                         && mouse.row < area.y + area.height
                                     {
                                         app.selected_index = hovered;
-                                        app.list_state.select(Some(hovered));
                                         app.invalidate_bounds();
                                     }
                                 }
@@ -1194,19 +1224,18 @@ fn render_file_browser(f: &mut Frame<'_>, app: &mut App) {
             .iter()
             .any(|(_, r)| matches!(r, LsRow::Loading { .. }));
 
-    let files = &app.mlt_files;
-
-    let header_cells = vec![
+    let header = Row::new(vec![
         Cell::from("File"),
         Cell::from("Size"),
         Cell::from("Enc %"),
         Cell::from("Layers"),
         Cell::from("Features"),
         Cell::from("Geometry"),
-    ];
-    let header = Row::new(header_cells).style(Style::default().add_modifier(Modifier::BOLD));
+    ])
+    .style(Style::default().add_modifier(Modifier::BOLD));
 
-    let rows: Vec<Row> = files
+    let rows: Vec<Row> = app
+        .mlt_files
         .iter()
         .map(|(_, row)| {
             let cells = row_cells(row);
@@ -1228,10 +1257,9 @@ fn render_file_browser(f: &mut Frame<'_>, app: &mut App) {
         .max()
         .unwrap_or(4)
         .max(4);
-    let file_col_width = (file_col_width as u16).min(200);
 
     let widths = [
-        Constraint::Length(file_col_width),
+        Constraint::Length((file_col_width as u16).min(200)),
         Constraint::Length(8),
         Constraint::Length(7),
         Constraint::Length(6),
@@ -1264,7 +1292,7 @@ fn render_file_browser(f: &mut Frame<'_>, app: &mut App) {
 }
 
 fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
-    let items: Vec<ListItem> = app
+    let lines: Vec<Line<'static>> = app
         .tree_items
         .iter()
         .enumerate()
@@ -1299,24 +1327,27 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 }
                 TreeItem::Feature { layer, feat } => {
                     let geom = &app.feature(*layer, *feat).geometry;
-                    let color = Some(geometry_color(geom));
                     let suffix = feature_suffix(geom);
                     (
                         format!("    Feat {feat}: {}{suffix}", geometry_type_name(geom)),
-                        color,
+                        Some(geometry_color(geom)),
                     )
                 }
                 TreeItem::SubFeature { layer, feat, part } => {
                     let geom = &app.feature(*layer, *feat).geometry;
-                    let color = Some(geometry_color(geom));
                     let suffix = sub_feature_suffix(geom, *part);
                     (
                         format!("      Part {part}: {}{suffix}", sub_type_name(geom)),
-                        color,
+                        Some(geometry_color(geom)),
                     )
                 }
             };
 
+            let prefix = if idx == app.selected_index {
+                ">> "
+            } else {
+                "   "
+            };
             let style = if idx == app.selected_index {
                 Style::default()
                     .fg(Color::Yellow)
@@ -1330,7 +1361,7 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             } else {
                 Style::default()
             };
-            ListItem::new(Line::from(Span::styled(text, style)))
+            Line::from(vec![Span::raw(prefix), Span::styled(text, style)])
         })
         .collect();
 
@@ -1346,8 +1377,13 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         }
         ViewMode::FileBrowser => "Features".to_string(),
     };
-    let list = List::new(items).block(block_with_title(title));
-    f.render_stateful_widget(list, area, &mut app.list_state);
+    let inner_height = area.height.saturating_sub(2) as usize;
+    let max_scroll = app.tree_items.len().saturating_sub(inner_height) as u16;
+    app.tree_scroll = app.tree_scroll.min(max_scroll);
+    let para = Paragraph::new(lines)
+        .block(block_with_title(title))
+        .scroll((app.tree_scroll, 0));
+    f.render_widget(para, area);
 }
 
 fn format_property_value(v: &JsonValue) -> String {
