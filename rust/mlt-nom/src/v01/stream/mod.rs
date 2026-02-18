@@ -199,8 +199,7 @@ impl<'a> Stream<'a> {
     fn parse_internal(input: &'a [u8], is_bool: bool) -> MltRefResult<'a, Self> {
         use crate::v01::{LogicalTechnique as LT, PhysicalDecoder as PT};
 
-        let (input, val) = utils::parse_u8(input)?;
-        let physical_type = PhysicalStreamType::parse(val)?;
+        let (input, physical_type) = PhysicalStreamType::parse(input)?;
 
         let (input, val) = utils::parse_u8(input)?;
         let logical1 = LT::parse(val >> 5)?;

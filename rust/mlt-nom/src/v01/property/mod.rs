@@ -114,7 +114,7 @@ impl OwnedRawProperty {
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         use OwnedRawPropValue as Val;
         if let Some(opt) = &self.optional {
-            writer.write_optional(opt)?;
+            writer.write_boolean_stream(opt)?;
         }
 
         match &self.value {
