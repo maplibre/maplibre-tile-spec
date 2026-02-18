@@ -81,7 +81,7 @@ enum ResizeHandle {
 /// Represents a selectable item in the tree view.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TreeItem {
-    AllFeatures,
+    All,
     /// Index into `App::layer_groups`.
     Layer(usize),
     /// `layer` = layer group index, `feat` = local feature index within that group.
@@ -95,6 +95,24 @@ enum TreeItem {
         feat: usize,
         part: usize,
     },
+}
+
+impl TreeItem {
+    fn layer_feat_part(&self) -> Option<(usize, usize, Option<usize>)> {
+        match self {
+            Self::Feature { layer, feat } => Some((*layer, *feat, None)),
+            Self::SubFeature { layer, feat, part } => Some((*layer, *feat, Some(*part))),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct HoveredInfo {
+    tree_idx: usize,
+    layer: usize,
+    feat: usize,
+    part: Option<usize>,
 }
 
 /// A group of features belonging to the same MLT layer.
@@ -127,7 +145,7 @@ struct App {
     // Tree
     tree_items: Vec<TreeItem>,
     selected_index: usize,
-    hovered_item: Option<usize>,
+    hovered: Option<HoveredInfo>,
     // Expansion
     expanded_layers: Vec<bool>,
     expanded_features: HashSet<(usize, usize)>,
@@ -146,12 +164,12 @@ struct App {
     properties_scroll: u16,
     /// Scroll offset for tree/feature list (viewport only, selection unchanged).
     tree_scroll: u16,
+    /// Last known tree panel inner height; used for `scroll_selected_into_view` on keyboard nav.
+    tree_inner_height: usize,
     /// (layer, feat) of last feature we showed properties for; used to reset scroll on selection change.
     last_properties_key: Option<(usize, usize)>,
     /// R-tree index of geometry bounding boxes for efficient spatial search.
     geometry_index: Option<RTree<GeometryIndexEntry>>,
-    /// (layer, feat, part) of hovered geometry from map; used when clicking to expand/select.
-    hovered_feature_key: Option<(usize, usize, Option<usize>)>,
 }
 
 impl Default for App {
@@ -173,7 +191,7 @@ impl Default for App {
             layer_groups: Vec::new(),
             tree_items: Vec::new(),
             selected_index: 0,
-            hovered_item: None,
+            hovered: None,
             expanded_layers: Vec::new(),
             expanded_features: HashSet::new(),
             last_scroll_time: Instant::now(),
@@ -187,8 +205,8 @@ impl Default for App {
             properties_scroll: 0,
             last_properties_key: None,
             tree_scroll: 0,
+            tree_inner_height: 0,
             geometry_index: None,
-            hovered_feature_key: None,
         }
     }
 }
@@ -286,7 +304,7 @@ impl App {
 
     fn build_tree_items(&mut self) {
         self.tree_items.clear();
-        self.tree_items.push(TreeItem::AllFeatures);
+        self.tree_items.push(TreeItem::All);
 
         for (li, group) in self.layer_groups.iter().enumerate() {
             self.tree_items.push(TreeItem::Layer(li));
@@ -366,10 +384,6 @@ impl App {
         self.scroll_speed
     }
 
-    fn move_up(&mut self) {
-        self.move_up_by(1);
-    }
-
     fn move_up_by(&mut self, n: usize) {
         match self.mode {
             ViewMode::FileBrowser => {
@@ -384,14 +398,11 @@ impl App {
                 let prev = self.selected_index;
                 self.selected_index = self.selected_index.saturating_sub(n);
                 if self.selected_index != prev {
+                    self.scroll_selected_into_view(self.tree_inner_height);
                     self.invalidate_bounds();
                 }
             }
         }
-    }
-
-    fn move_down(&mut self) {
-        self.move_down_by(1);
     }
 
     fn move_down_by(&mut self, n: usize) {
@@ -410,6 +421,7 @@ impl App {
                 let max = self.tree_items.len().saturating_sub(1);
                 self.selected_index = self.selected_index.saturating_add(n).min(max);
                 if self.selected_index != prev {
+                    self.scroll_selected_into_view(self.tree_inner_height);
                     self.invalidate_bounds();
                 }
             }
@@ -417,45 +429,11 @@ impl App {
     }
 
     fn move_to_start(&mut self) {
-        match self.mode {
-            ViewMode::FileBrowser => {
-                let prev = self.selected_file_index;
-                self.selected_file_index = 0;
-                self.file_list_state.select(Some(0));
-                if self.selected_file_index != prev {
-                    self.invalidate_bounds();
-                }
-            }
-            ViewMode::LayerOverview => {
-                let prev = self.selected_index;
-                self.selected_index = 0;
-                if self.selected_index != prev {
-                    self.invalidate_bounds();
-                }
-            }
-        }
+        self.move_up_by(usize::MAX);
     }
 
     fn move_to_end(&mut self) {
-        match self.mode {
-            ViewMode::FileBrowser => {
-                let prev = self.selected_file_index;
-                let max = self.mlt_files.len().saturating_sub(1);
-                self.selected_file_index = max;
-                self.file_list_state.select(Some(max));
-                if self.selected_file_index != prev {
-                    self.invalidate_bounds();
-                }
-            }
-            ViewMode::LayerOverview => {
-                let prev = self.selected_index;
-                let max = self.tree_items.len().saturating_sub(1);
-                self.selected_index = max;
-                if self.selected_index != prev {
-                    self.invalidate_bounds();
-                }
-            }
-        }
+        self.move_down_by(usize::MAX);
     }
 
     fn handle_enter(&mut self) -> anyhow::Result<()> {
@@ -589,7 +567,7 @@ impl App {
                 self.tree_items.iter().position(|t| matches!(t, TreeItem::Layer(l) if *l == layer))
             }
             TreeItem::Layer(_) => Some(0),
-            TreeItem::AllFeatures => {
+            TreeItem::All => {
                 if !self.mlt_files.is_empty() { self.mode = ViewMode::FileBrowser; }
                 return;
             }
@@ -641,26 +619,27 @@ impl App {
         let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
         let (mut max_x, mut max_y) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
 
-        let mut update = |x: f64, y: f64| {
-            min_x = min_x.min(x);
-            min_y = min_y.min(y);
-            max_x = max_x.max(x);
-            max_y = max_y.max(y);
+        let mut update = |v: &[f64; 2]| {
+            min_x = min_x.min(v[0]);
+            min_y = min_y.min(v[1]);
+            max_x = max_x.max(v[0]);
+            max_y = max_y.max(v[1]);
         };
 
-        match selected {
-            TreeItem::AllFeatures => {
-                for feat in &self.fc.features {
-                    for_each_coord(&feat.geometry, &mut update);
-                }
-            }
-            TreeItem::Layer(l) => {
-                for &gi in &self.layer_groups[*l].feature_indices {
-                    for_each_coord(&self.fc.features[gi].geometry, &mut update);
-                }
-            }
+        let geoms: Vec<&Geometry> = match selected {
+            TreeItem::All => self.fc.features.iter().map(|f| &f.geometry).collect(),
+            TreeItem::Layer(l) => self.layer_groups[*l]
+                .feature_indices
+                .iter()
+                .map(|&gi| &self.fc.features[gi].geometry)
+                .collect(),
             TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. } => {
-                for_each_coord(&self.feature(*layer, *feat).geometry, &mut update);
+                vec![&self.feature(*layer, *feat).geometry]
+            }
+        };
+        for geom in geoms {
+            for v in geometry_vertices(geom, None) {
+                update(&v);
             }
         }
 
@@ -702,13 +681,15 @@ impl App {
             None
         };
 
-        if let Some((_, layer, feat, part)) = best {
-            self.hovered_item = self.find_tree_idx_for_feature(layer, feat, part);
-            self.hovered_feature_key = Some((layer, feat, part));
-        } else {
-            self.hovered_item = None;
-            self.hovered_feature_key = None;
-        }
+        self.hovered = best.and_then(|(_, layer, feat, part)| {
+            self.find_tree_idx_for_feature(layer, feat, part)
+                .map(|tree_idx| HoveredInfo {
+                    tree_idx,
+                    layer,
+                    feat,
+                    part,
+                })
+        });
     }
 
     /// Map (layer, feat, part) to `tree_idx` for hover highlighting. Returns None if layer is collapsed.
@@ -747,13 +728,17 @@ impl App {
         None
     }
 
-    /// Ensure layer is expanded, select the layer row, and scroll it into view.
-    fn select_layer_expand_and_scroll(&mut self, layer: usize, tree_height: u16) {
-        let inner_height = tree_height.saturating_sub(2) as usize;
+    fn ensure_layer_expanded(&mut self, layer: usize) {
         if layer < self.expanded_layers.len() && !self.expanded_layers[layer] {
             self.expanded_layers[layer] = true;
             self.build_tree_items();
         }
+    }
+
+    /// Ensure layer is expanded, select the layer row, and scroll it into view.
+    fn select_layer_expand_and_scroll(&mut self, layer: usize, tree_height: u16) {
+        let inner_height = tree_height.saturating_sub(2) as usize;
+        self.ensure_layer_expanded(layer);
         if let Some(idx) = self
             .tree_items
             .iter()
@@ -775,10 +760,7 @@ impl App {
         tree_height: u16,
     ) {
         let inner_height = tree_height.saturating_sub(2) as usize;
-        if layer < self.expanded_layers.len() && !self.expanded_layers[layer] {
-            self.expanded_layers[layer] = true;
-            self.build_tree_items();
-        }
+        self.ensure_layer_expanded(layer);
         let geom = &self.feature(layer, feat).geometry;
         if multi_part_count(geom) > 0 {
             self.expanded_features.insert((layer, feat));
@@ -800,6 +782,23 @@ impl App {
         } else if inner_height > 0 && idx >= scroll_max {
             self.tree_scroll =
                 u16::try_from(idx.saturating_sub(inner_height.saturating_sub(1))).unwrap_or(0);
+        }
+    }
+
+    /// Handle clicking on a feature (from either tree or map), dispatching based on current selection.
+    fn handle_feature_click(
+        &mut self,
+        layer: usize,
+        feat: usize,
+        part: Option<usize>,
+        tree_height: u16,
+    ) {
+        match self.get_selected_item().clone() {
+            TreeItem::All => self.select_layer_expand_and_scroll(layer, tree_height),
+            TreeItem::Layer(_) => {
+                self.select_feature_expand_and_scroll(layer, feat, None, tree_height);
+            }
+            _ => self.select_feature_expand_and_scroll(layer, feat, part, tree_height),
         }
     }
 }
@@ -1016,8 +1015,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         KeyCode::Char('+' | '=') | KeyCode::Right => app.handle_plus(),
                         KeyCode::Char('-') => app.handle_minus(),
                         KeyCode::Char('*') => app.handle_star(),
-                        KeyCode::Up | KeyCode::Char('k') => app.move_up(),
-                        KeyCode::Down | KeyCode::Char('j') => app.move_down(),
+                        KeyCode::Up | KeyCode::Char('k') => app.move_up_by(1),
+                        KeyCode::Down | KeyCode::Char('j') => app.move_down_by(1),
                         KeyCode::Left => app.handle_left_arrow(),
                         KeyCode::PageUp => app.move_up_by(10),
                         KeyCode::PageDown => app.move_down_by(10),
@@ -1074,9 +1073,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.invalidate();
                             continue;
                         }
-                        let prev = app.hovered_item;
-                        app.hovered_item = None;
-                        app.hovered_feature_key = None;
+                        let prev = app.hovered.clone();
+                        app.hovered = None;
 
                         let hover_disabled = matches!(
                             app.tree_items.get(app.selected_index),
@@ -1092,17 +1090,19 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     area,
                                     app.tree_scroll as usize,
                                 ) {
-                                    if row < app.tree_items.len()
-                                        && matches!(
-                                            app.tree_items[row],
-                                            TreeItem::Feature { .. } | TreeItem::SubFeature { .. }
-                                        )
+                                    if let Some((layer, feat, part)) =
+                                        app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
                                     {
-                                        app.hovered_item = Some(row);
+                                        app.hovered = Some(HoveredInfo {
+                                            tree_idx: row,
+                                            layer,
+                                            feat,
+                                            part,
+                                        });
                                     }
                                 }
                             }
-                            if app.hovered_item.is_none() {
+                            if app.hovered.is_none() {
                                 if let Some(area) = map_area {
                                     if mouse.column >= area.x
                                         && mouse.column < area.x + area.width
@@ -1121,7 +1121,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 }
                             }
                         }
-                        if app.hovered_item != prev {
+                        if app.hovered != prev {
                             app.invalidate();
                         }
                     }
@@ -1271,48 +1271,17 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                             r == row && t.elapsed().as_millis() < 400
                                         });
                                         last_tree_click = Some((Instant::now(), row));
-                                        let selected = app.get_selected_item().clone();
-                                        if let Some(item) = app.tree_items.get(row) {
-                                            let (layer, feat, part) = match item {
-                                                TreeItem::Feature { layer, feat } => {
-                                                    (*layer, *feat, None)
-                                                }
-                                                TreeItem::SubFeature {
-                                                    layer, feat, part, ..
-                                                } => (*layer, *feat, Some(*part)),
-                                                _ => (usize::MAX, usize::MAX, None),
-                                            };
-                                            if layer < app.layer_groups.len() {
-                                                match &selected {
-                                                    TreeItem::AllFeatures => {
-                                                        app.select_layer_expand_and_scroll(
-                                                            layer,
-                                                            area.height,
-                                                        );
-                                                    }
-                                                    TreeItem::Layer(_) => {
-                                                        app.select_feature_expand_and_scroll(
-                                                            layer,
-                                                            feat,
-                                                            None,
-                                                            area.height,
-                                                        );
-                                                    }
-                                                    _ => {
-                                                        app.select_feature_expand_and_scroll(
-                                                            layer,
-                                                            feat,
-                                                            part,
-                                                            area.height,
-                                                        );
-                                                    }
-                                                }
-                                            } else {
-                                                app.selected_index = row;
-                                                app.scroll_selected_into_view(
-                                                    area.height.saturating_sub(2) as usize,
-                                                );
-                                            }
+                                        if let Some((layer, feat, part)) = app
+                                            .tree_items
+                                            .get(row)
+                                            .and_then(TreeItem::layer_feat_part)
+                                        {
+                                            app.handle_feature_click(
+                                                layer,
+                                                feat,
+                                                part,
+                                                area.height,
+                                            );
                                         } else {
                                             app.selected_index = row;
                                             app.scroll_selected_into_view(
@@ -1326,7 +1295,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     }
                                 }
                             }
-                            if let Some(hovered) = app.hovered_item {
+                            if let Some(ref info) = app.hovered {
                                 if let Some(tree) = tree_area {
                                     if let Some(map) = map_area {
                                         if mouse.column >= map.x
@@ -1334,77 +1303,14 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                             && mouse.row >= map.y
                                             && mouse.row < map.y + map.height
                                         {
-                                            let selected = app.get_selected_item().clone();
-                                            if let Some((layer, feat, part)) =
-                                                app.hovered_feature_key
-                                            {
-                                                match &selected {
-                                                    TreeItem::AllFeatures => {
-                                                        app.select_layer_expand_and_scroll(
-                                                            layer,
-                                                            tree.height,
-                                                        );
-                                                    }
-                                                    TreeItem::Layer(_) => {
-                                                        app.select_feature_expand_and_scroll(
-                                                            layer,
-                                                            feat,
-                                                            None,
-                                                            tree.height,
-                                                        );
-                                                    }
-                                                    TreeItem::Feature { .. }
-                                                    | TreeItem::SubFeature { .. } => {
-                                                        app.select_feature_expand_and_scroll(
-                                                            layer,
-                                                            feat,
-                                                            part,
-                                                            tree.height,
-                                                        );
-                                                    }
-                                                }
-                                            } else if let Some(item) = app.tree_items.get(hovered) {
-                                                let (layer, feat, part) = match item {
-                                                    TreeItem::Feature { layer, feat } => {
-                                                        (*layer, *feat, None)
-                                                    }
-                                                    TreeItem::SubFeature {
-                                                        layer,
-                                                        feat,
-                                                        part,
-                                                        ..
-                                                    } => (*layer, *feat, Some(*part)),
-                                                    _ => (usize::MAX, usize::MAX, None),
-                                                };
-                                                if layer < app.layer_groups.len() {
-                                                    match &selected {
-                                                        TreeItem::AllFeatures => {
-                                                            app.select_layer_expand_and_scroll(
-                                                                layer,
-                                                                tree.height,
-                                                            );
-                                                        }
-                                                        _ => {
-                                                            app.select_feature_expand_and_scroll(
-                                                                layer,
-                                                                feat,
-                                                                part,
-                                                                tree.height,
-                                                            );
-                                                        }
-                                                    }
-                                                } else {
-                                                    app.selected_index = hovered;
-                                                    app.scroll_selected_into_view(
-                                                        tree.height.saturating_sub(2) as usize,
-                                                    );
-                                                }
-                                            } else {
-                                                app.selected_index = hovered;
-                                                app.scroll_selected_into_view(
-                                                    tree.height.saturating_sub(2) as usize,
-                                                );
-                                            }
+                                            let (layer, feat, part) =
+                                                (info.layer, info.feat, info.part);
+                                            app.handle_feature_click(
+                                                layer,
+                                                feat,
+                                                part,
+                                                tree.height,
+                                            );
                                             app.invalidate_bounds();
                                         }
                                     }
@@ -1531,7 +1437,7 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .enumerate()
         .map(|(idx, item)| {
             let (text, base_color) = match item {
-                TreeItem::AllFeatures => ("All Features".to_string(), None),
+                TreeItem::All => ("All".to_string(), None),
                 TreeItem::Layer(li) => {
                     let group = &app.layer_groups[*li];
                     let n = group.feature_indices.len();
@@ -1585,7 +1491,7 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD)
-            } else if Some(idx) == app.hovered_item {
+            } else if app.hovered.as_ref().is_some_and(|h| h.tree_idx == idx) {
                 Style::default()
                     .fg(Color::LightGreen)
                     .add_modifier(Modifier::UNDERLINED)
@@ -1611,7 +1517,7 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         ViewMode::FileBrowser => "Features".to_string(),
     };
     let inner_height = area.height.saturating_sub(2) as usize;
-    app.scroll_selected_into_view(inner_height);
+    app.tree_inner_height = inner_height;
     let max_scroll = u16::try_from(app.tree_items.len().saturating_sub(inner_height)).unwrap_or(0);
     app.tree_scroll = app.tree_scroll.min(max_scroll);
     let para = Paragraph::new(lines)
@@ -1653,9 +1559,12 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
 fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let selected = app.selected_index;
     let item = app.tree_items.get(selected);
-    let hovered = app.hovered_item.and_then(|i| app.tree_items.get(i));
+    let hovered = app
+        .hovered
+        .as_ref()
+        .and_then(|h| app.tree_items.get(h.tree_idx));
     let (title, lines): (String, Vec<Line<'static>>) = match item {
-        None | Some(TreeItem::AllFeatures | TreeItem::Layer(_)) => {
+        None | Some(TreeItem::All | TreeItem::Layer(_)) => {
             if let Some(
                 TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. },
             ) = hovered
@@ -1722,7 +1631,10 @@ fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                 color: Color::DarkGray,
             });
 
-            let hovered = app.hovered_item.and_then(|i| app.tree_items.get(i));
+            let hovered = app
+                .hovered
+                .as_ref()
+                .and_then(|h| app.tree_items.get(h.tree_idx));
 
             // Collect global feature indices to draw
             let draw_feat = |ctx: &mut Context<'_>, gi: usize| {
@@ -1752,7 +1664,7 @@ fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
             };
 
             match selected {
-                TreeItem::AllFeatures => {
+                TreeItem::All => {
                     for gi in 0..app.fc.features.len() {
                         draw_feat(ctx, gi);
                     }
@@ -1924,7 +1836,7 @@ fn sub_feature_suffix(geom: &Geometry, part: usize) -> String {
 /// Returns true if a geometry entry (layer, feat) matches the current selection for hover.
 fn is_entry_visible(layer: usize, feat: usize, selected: &TreeItem) -> bool {
     match selected {
-        TreeItem::AllFeatures => true,
+        TreeItem::All => true,
         TreeItem::Layer(l) => *l == layer,
         TreeItem::Feature {
             layer: sl,
@@ -1983,18 +1895,22 @@ impl RTreeObject for GeometryIndexEntry {
         if self.vertices.is_empty() {
             return AABB::from_point([0.0, 0.0]);
         }
-        let (min_x, min_y) = self
-            .vertices
-            .iter()
-            .fold((f64::INFINITY, f64::INFINITY), |(mx, my), v| {
-                (mx.min(v[0]), my.min(v[1]))
-            });
-        let (max_x, max_y) = self
-            .vertices
-            .iter()
-            .fold((f64::NEG_INFINITY, f64::NEG_INFINITY), |(mx, my), v| {
-                (mx.max(v[0]), my.max(v[1]))
-            });
+        let (min_x, min_y, max_x, max_y) = self.vertices.iter().fold(
+            (
+                f64::INFINITY,
+                f64::INFINITY,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+            ),
+            |(min_x, min_y, max_x, max_y), v| {
+                (
+                    min_x.min(v[0]),
+                    min_y.min(v[1]),
+                    max_x.max(v[0]),
+                    max_y.max(v[1]),
+                )
+            },
+        );
         AABB::from_corners([min_x, min_y], [max_x, max_y])
     }
 }
@@ -2071,39 +1987,4 @@ fn geometry_vertices(geom: &Geometry, part: Option<usize>) -> Vec<[f64; 2]> {
         _ => {}
     }
     out
-}
-
-/// Iterate all coordinates in a geometry.
-fn for_each_coord(geom: &Geometry, f: &mut impl FnMut(f64, f64)) {
-    match geom {
-        Geometry::Point(c) => f(f64::from(c[0]), f64::from(c[1])),
-        Geometry::LineString(v) | Geometry::MultiPoint(v) => {
-            for c in v {
-                f(f64::from(c[0]), f64::from(c[1]));
-            }
-        }
-        Geometry::Polygon(rings) => {
-            for ring in rings {
-                for c in ring {
-                    f(f64::from(c[0]), f64::from(c[1]));
-                }
-            }
-        }
-        Geometry::MultiLineString(lines) => {
-            for line in lines {
-                for c in line {
-                    f(f64::from(c[0]), f64::from(c[1]));
-                }
-            }
-        }
-        Geometry::MultiPolygon(polys) => {
-            for p in polys {
-                for r in p {
-                    for c in r {
-                        f(f64::from(c[0]), f64::from(c[1]));
-                    }
-                }
-            }
-        }
-    }
 }
