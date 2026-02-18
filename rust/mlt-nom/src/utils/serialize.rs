@@ -25,6 +25,11 @@ pub trait BinarySerializer: io::Write + VarIntWriter {
             MltError::NotImplemented("write_optional").to_string(),
         ))
     }
+    fn write_boolean_stream(&mut self, bool_stream: &OwnedStream) -> io::Result<()> {
+        Err(io::Error::other(
+            MltError::NotImplemented("write_boolean_stream").to_string(),
+        ))
+    }
 }
 
 impl<T> BinarySerializer for T where T: io::Write + VarIntWriter {}
