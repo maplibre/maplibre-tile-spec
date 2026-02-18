@@ -17,31 +17,10 @@ describe("decodeFastPfor (wire format fixtures)", () => {
     }
 
     function loadFixtureNames(): string[] {
-        const encoded = new Set<string>();
-        const decoded = new Set<string>();
-
-        for (const entry of readdirSync(FIXTURES_DIR_URL, { withFileTypes: true })) {
-            if (!entry.isFile()) continue;
-            if (entry.name.endsWith("_encoded.bin")) {
-                encoded.add(entry.name.slice(0, -"_encoded.bin".length));
-            } else if (entry.name.endsWith("_decoded.bin")) {
-                decoded.add(entry.name.slice(0, -"_decoded.bin".length));
-            }
-        }
-
-        const missingDecoded = Array.from(encoded).filter((name) => !decoded.has(name));
-        const missingEncoded = Array.from(decoded).filter((name) => !encoded.has(name));
-        if (missingDecoded.length > 0 || missingEncoded.length > 0) {
-            throw new Error(
-                `Invalid fixture set: missing decoded=[${missingDecoded.join(", ")}], missing encoded=[${missingEncoded.join(", ")}]`,
-            );
-        }
-
-        const names = Array.from(encoded).sort();
-        if (names.length === 0) {
-            throw new Error(`No FastPFOR fixtures found in ${FIXTURES_DIR_URL}`);
-        }
-        return names;
+        return readdirSync(FIXTURES_DIR_URL, { withFileTypes: true })
+            .filter((entry) => entry.isFile() && entry.name.endsWith("_encoded.bin"))
+            .map((entry) => entry.name.slice(0, -"_encoded.bin".length))
+            .sort();
     }
 
     function readEncodedFixtureBytes(name: string): Uint8Array {
@@ -58,6 +37,9 @@ describe("decodeFastPfor (wire format fixtures)", () => {
     }
 
     const fixtureNames = loadFixtureNames();
+    it("has FastPFOR fixtures", () => {
+        expect(fixtureNames.length).toBeGreaterThan(0);
+    });
     for (const name of fixtureNames) {
         describe(name, () => {
             it("decodes (no workspace)", () => {

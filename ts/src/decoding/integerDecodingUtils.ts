@@ -7,7 +7,6 @@ import {
     type FastPforWireDecodeWorkspace,
 } from "./fastPforDecoder";
 import { decodeBigEndianInt32sInto } from "./bigEndianDecode";
-import { assertFastPforEncodedByteLength } from "./fastPforShared";
 export type { FastPforWireDecodeWorkspace } from "./fastPforDecoder";
 export { createFastPforWireDecodeWorkspace } from "./fastPforDecoder";
 
@@ -167,7 +166,11 @@ export function decodeFastPforWithWorkspace(
     workspace: FastPforWireDecodeWorkspace,
 ): Int32Array {
     const inputByteOffset = offset.get();
-    assertFastPforEncodedByteLength(encodedByteLength, inputByteOffset, encodedBytes.length);
+    if ((encodedByteLength & 3) !== 0) {
+        throw new Error(
+            `FastPFOR: invalid encodedByteLength=${encodedByteLength} at offset=${inputByteOffset} (encodedBytes.length=${encodedBytes.length}; expected a multiple of 4 bytes for an int32 big-endian word stream)`,
+        );
+    }
 
     const encodedWordCount = encodedByteLength >>> 2;
     const encodedWordBuffer = ensureFastPforWireEncodedWordsCapacity(workspace, encodedWordCount);
