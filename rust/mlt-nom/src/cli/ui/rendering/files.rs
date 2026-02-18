@@ -1,10 +1,12 @@
-use crate::cli::ls::{LsRow, MltFileInfo, row_cells};
-use crate::cli::ui::{App, block_with_title, collect_file_values, geom_abbrev_to_full};
+use std::collections::HashSet;
+
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::{Color, Line, Modifier, Span, Style};
 use ratatui::widgets::{Cell, Paragraph, Row, Table, Wrap};
-use std::collections::HashSet;
+
+use crate::cli::ls::{LsRow, MltFileInfo, row_cells};
+use crate::cli::ui::{App, block_with_title, collect_file_values, geom_abbrev_to_full};
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     app.file_table_area = Some(area);

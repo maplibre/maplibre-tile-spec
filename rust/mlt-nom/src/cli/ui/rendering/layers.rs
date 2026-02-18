@@ -1,12 +1,13 @@
-use crate::cli::ui::{
-    App, TreeItem, ViewMode, block_with_title, feature_suffix, geometry_color, geometry_type_name,
-    is_ring_ccw, sub_feature_suffix, sub_type_name,
-};
 use mlt_nom::geojson::{Feature, Geometry};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Line, Modifier, Span, Style};
 use ratatui::widgets::{Paragraph, Wrap};
+
+use crate::cli::ui::{
+    App, TreeItem, ViewMode, block_with_title, feature_suffix, geometry_color, geometry_type_name,
+    is_ring_ccw, sub_feature_suffix, sub_type_name,
+};
 
 pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let lines: Vec<Line<'static>> = app

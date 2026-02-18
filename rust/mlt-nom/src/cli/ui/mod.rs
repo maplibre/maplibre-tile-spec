@@ -20,9 +20,8 @@ use crossterm::execute;
 use mlt_nom::geojson::{Coordinate, FeatureCollection, Geometry};
 use mlt_nom::parse_layers;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
-use ratatui::style::{Color, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::canvas::{Context, Line as CanvasLine};
+use ratatui::style::Color;
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
@@ -693,96 +692,6 @@ fn collect_file_values(files: &[(PathBuf, LsRow)], field: fn(&MltFileInfo) -> &s
     v
 }
 
-// --- Drawing primitives ---
-
-fn coord_f64(c: Coordinate) -> [f64; 2] {
-    [f64::from(c[0]), f64::from(c[1])]
-}
-
-fn draw_feature(
-    ctx: &mut Context<'_>,
-    geom: &Geometry,
-    base_color: Color,
-    is_hovered: bool,
-    selected_part: Option<usize>,
-    hovered_part: Option<usize>,
-) {
-    let color = if is_hovered { Color::White } else { base_color };
-    match geom {
-        Geometry::Point(c) => draw_point(ctx, *c, color),
-        Geometry::LineString(coords) => draw_line(ctx, coords, color),
-        Geometry::Polygon(rings) => draw_polygon(ctx, rings, is_hovered, color),
-        Geometry::MultiPoint(coords) => {
-            for (i, c) in coords.iter().enumerate() {
-                draw_point(ctx, *c, part_color(selected_part, hovered_part, i, color));
-            }
-        }
-        Geometry::MultiLineString(lines) => {
-            for (i, coords) in lines.iter().enumerate() {
-                draw_line(
-                    ctx,
-                    coords,
-                    part_color(selected_part, hovered_part, i, color),
-                );
-            }
-        }
-        Geometry::MultiPolygon(polys) => {
-            for (i, rings) in polys.iter().enumerate() {
-                let pc = part_color(selected_part, hovered_part, i, color);
-                draw_polygon(ctx, rings, matches!(pc, Color::White | Color::Yellow), pc);
-            }
-        }
-    }
-}
-
-fn draw_point(ctx: &mut Context<'_>, c: Coordinate, color: Color) {
-    let [x, y] = coord_f64(c);
-    ctx.print(x, y, Span::styled("×", Style::default().fg(color)));
-}
-
-fn draw_line(ctx: &mut Context<'_>, coords: &[Coordinate], color: Color) {
-    for w in coords.windows(2) {
-        let [x1, y1] = coord_f64(w[0]);
-        let [x2, y2] = coord_f64(w[1]);
-        ctx.draw(&CanvasLine::new(x1, y1, x2, y2, color));
-    }
-}
-
-fn draw_ring(ctx: &mut Context<'_>, ring: &[Coordinate], color: Color) {
-    draw_line(ctx, ring, color);
-    if let (Some(&last), Some(&first)) = (ring.last(), ring.first()) {
-        let [lx, ly] = coord_f64(last);
-        let [fx, fy] = coord_f64(first);
-        ctx.draw(&CanvasLine::new(lx, ly, fx, fy, color));
-    }
-}
-
-fn draw_polygon(
-    ctx: &mut Context<'_>,
-    rings: &[Vec<Coordinate>],
-    highlighted: bool,
-    fallback: Color,
-) {
-    for ring in rings {
-        let color = if !highlighted {
-            ring_color(ring)
-        } else if is_ring_ccw(ring) {
-            fallback
-        } else {
-            Color::Rgb(255, 150, 120)
-        };
-        draw_ring(ctx, ring, color);
-    }
-}
-
-fn ring_color(ring: &[Coordinate]) -> Color {
-    if is_ring_ccw(ring) {
-        Color::Blue
-    } else {
-        Color::Red
-    }
-}
-
 // --- Geometry helpers ---
 
 fn geometry_type_name(geom: &Geometry) -> &'static str {
@@ -967,30 +876,6 @@ impl PointDistance for GeometryIndexEntry {
     }
 }
 
-fn geometry_vertices(geom: &Geometry, part: Option<usize>) -> Vec<[f64; 2]> {
-    let coords = |cs: &[Coordinate]| cs.iter().copied().map(coord_f64).collect();
-    let rings = |rs: &[Vec<Coordinate>]| {
-        rs.iter()
-            .flat_map(|r| r.iter().copied().map(coord_f64))
-            .collect()
-    };
-    match (geom, part) {
-        (Geometry::Point(c), None) => vec![coord_f64(*c)],
-        (Geometry::LineString(v) | Geometry::MultiPoint(v), None) => coords(v),
-        (Geometry::Polygon(r), None) => rings(r),
-        (Geometry::MultiLineString(ls), None) => ls
-            .iter()
-            .flat_map(|l| l.iter().copied().map(coord_f64))
-            .collect(),
-        (Geometry::MultiPolygon(ps), None) => ps
-            .iter()
-            .flat_map(|p| p.iter().flat_map(|r| r.iter().copied().map(coord_f64)))
-            .collect(),
-        (Geometry::MultiPoint(v), Some(p)) => {
-            v.get(p).map(|&c| vec![coord_f64(c)]).unwrap_or_default()
-        }
-        (Geometry::MultiLineString(v), Some(p)) => v.get(p).map_or_else(Vec::new, |l| coords(l)),
-        (Geometry::MultiPolygon(v), Some(p)) => v.get(p).map_or_else(Vec::new, |poly| rings(poly)),
-        _ => Vec::new(),
-    }
+pub fn coord_f64(c: Coordinate) -> [f64; 2] {
+    [f64::from(c[0]), f64::from(c[1])]
 }

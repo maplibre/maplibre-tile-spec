@@ -1,16 +1,18 @@
-use crate::cli::ls::{FileSortColumn, LsRow, MltFileInfo};
-use crate::cli::ui::{
-    GeometryIndexEntry, auto_expand, geometry_vertices, group_by_layer,
-    is_entry_visible, load_fc, multi_part_count,
-};
-use mlt_nom::geojson::{Feature, FeatureCollection, Geometry};
-use ratatui::layout::{Constraint, Rect};
-use ratatui::widgets::TableState;
-use rstar::{PointDistance as _, RTree};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Instant;
+
+use mlt_nom::geojson::{Coordinate, Feature, FeatureCollection, Geometry};
+use ratatui::layout::{Constraint, Rect};
+use ratatui::widgets::TableState;
+use rstar::{PointDistance as _, RTree};
+
+use crate::cli::ls::{FileSortColumn, LsRow, MltFileInfo};
+use crate::cli::ui::{
+    GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
+    multi_part_count,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ViewMode {
@@ -800,4 +802,32 @@ fn file_matches_filters(
     let algo_ok =
         algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str()));
     geom_ok && algo_ok
+}
+
+fn geometry_vertices(geom: &Geometry, part: Option<usize>) -> Vec<[f64; 2]> {
+    let coords = |cs: &[Coordinate]| cs.iter().copied().map(coord_f64).collect();
+    let rings = |rs: &[Vec<Coordinate>]| {
+        rs.iter()
+            .flat_map(|r| r.iter().copied().map(coord_f64))
+            .collect()
+    };
+    match (geom, part) {
+        (Geometry::Point(c), None) => vec![coord_f64(*c)],
+        (Geometry::LineString(v) | Geometry::MultiPoint(v), None) => coords(v),
+        (Geometry::Polygon(r), None) => rings(r),
+        (Geometry::MultiLineString(ls), None) => ls
+            .iter()
+            .flat_map(|l| l.iter().copied().map(coord_f64))
+            .collect(),
+        (Geometry::MultiPolygon(ps), None) => ps
+            .iter()
+            .flat_map(|p| p.iter().flat_map(|r| r.iter().copied().map(coord_f64)))
+            .collect(),
+        (Geometry::MultiPoint(v), Some(p)) => {
+            v.get(p).map(|&c| vec![coord_f64(c)]).unwrap_or_default()
+        }
+        (Geometry::MultiLineString(v), Some(p)) => v.get(p).map_or_else(Vec::new, |l| coords(l)),
+        (Geometry::MultiPolygon(v), Some(p)) => v.get(p).map_or_else(Vec::new, |poly| rings(poly)),
+        _ => Vec::new(),
+    }
 }
