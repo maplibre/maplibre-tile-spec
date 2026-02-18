@@ -1,6 +1,6 @@
 use crate::cli::ls::{FileSortColumn, LsRow};
 use crate::cli::ui::{
-    GeometryIndexEntry, auto_expand, file_cmp, file_matches_filters, geometry_vertices,
+    GeometryIndexEntry, auto_expand, file_matches_filters, geometry_vertices,
     group_by_layer, is_entry_visible, load_fc, multi_part_count,
 };
 use mlt_nom::geojson::{Feature, FeatureCollection, Geometry};
@@ -766,3 +766,25 @@ impl App {
         }
     }
 }
+fn file_cmp(
+    a: &(PathBuf, LsRow),
+    b: &(PathBuf, LsRow),
+    col: FileSortColumn,
+    asc: bool,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let ord = match (&a.1, &b.1) {
+        (LsRow::Info(ai), LsRow::Info(bi)) => match col {
+            FileSortColumn::File => ai.path().cmp(bi.path()),
+            FileSortColumn::Size => ai.size().cmp(&bi.size()),
+            FileSortColumn::EncPct => ai.encoding_pct().total_cmp(&bi.encoding_pct()),
+            FileSortColumn::Layers => ai.layers().cmp(&bi.layers()),
+            FileSortColumn::Features => ai.features().cmp(&bi.features()),
+        },
+        (LsRow::Info(_), _) => Ordering::Less,
+        (_, LsRow::Info(_)) => Ordering::Greater,
+        _ => a.0.cmp(&b.0),
+    };
+    if asc { ord } else { ord.reverse() }
+}
+

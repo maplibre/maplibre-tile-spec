@@ -635,31 +635,6 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     }
     Ok(())
 }
-
-// --- Sorting ---
-
-fn file_cmp(
-    a: &(PathBuf, LsRow),
-    b: &(PathBuf, LsRow),
-    col: FileSortColumn,
-    asc: bool,
-) -> std::cmp::Ordering {
-    use std::cmp::Ordering;
-    let ord = match (&a.1, &b.1) {
-        (LsRow::Info(ai), LsRow::Info(bi)) => match col {
-            FileSortColumn::File => ai.path().cmp(bi.path()),
-            FileSortColumn::Size => ai.size().cmp(&bi.size()),
-            FileSortColumn::EncPct => ai.encoding_pct().total_cmp(&bi.encoding_pct()),
-            FileSortColumn::Layers => ai.layers().cmp(&bi.layers()),
-            FileSortColumn::Features => ai.features().cmp(&bi.features()),
-        },
-        (LsRow::Info(_), _) => Ordering::Less,
-        (_, LsRow::Info(_)) => Ordering::Greater,
-        _ => a.0.cmp(&b.0),
-    };
-    if asc { ord } else { ord.reverse() }
-}
-
 // --- Filtering ---
 
 fn handle_filter_click(app: &mut App, row: usize) {
