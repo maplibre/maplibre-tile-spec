@@ -1,21 +1,22 @@
 use std::fmt::Debug;
 use std::ops::Range;
 
-use borrowme::borrowme;
-use num_enum::TryFromPrimitive;
-use std::io::Write;
-
 use crate::MltError;
 use crate::MltError::{
     DecodeError, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
+    IntegerOverflow, NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
+    UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
-use crate::utils::{OptSeq, SetOptionOnce as _};
+use crate::utils::{BinarySerializer, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
 use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
+use borrowme::borrowme;
+use integer_encoding::VarIntWriter;
+use num_enum::TryFromPrimitive;
+use std::io::Write;
 
 /// Geometry column representation, either raw or decoded
 #[borrowme]
@@ -79,9 +80,15 @@ impl OwnedRawGeometry {
         Ok(())
     }
 
-    #[expect(clippy::unused_self)]
-    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
-        Err(NotImplemented("geometry write"))
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        let items_len = u64::try_from(self.items.len()).map_err(|_| IntegerOverflow)?;
+        let items_len = items_len.checked_add(1).ok_or(IntegerOverflow)?;
+        writer.write_varint(items_len)?;
+        writer.write_stream(&self.meta)?;
+        for item in &self.items {
+            writer.write_stream(item)?;
+        }
+        Ok(())
     }
 }
 
