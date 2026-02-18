@@ -493,7 +493,7 @@ impl<'a> Stream<'a> {
 
     // pub fn decode2<'a>(&'_ self) -> MltResult<'_, Vec<u32>> {
     //     match self.physical_type {
-    //         PhysicalStreamType::Present => {
+    //         PhysicalStreamType::Present(_) => {
     //             todo!()
     //         }
     //         PhysicalStreamType::Data(_v) => parse_varint_vec::<u32, u32>(&[], self.num_values),

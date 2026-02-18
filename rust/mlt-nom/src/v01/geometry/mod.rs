@@ -358,7 +358,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
 
         for stream in items {
             match stream.meta.physical_type {
-                PhysicalStreamType::Present => {}
+                PhysicalStreamType::Present(_) => {}
                 PhysicalStreamType::Data(v) => match v {
                     DictionaryType::Vertex => {
                         let v = stream.decode_bits_u32()?.decode_i32()?;

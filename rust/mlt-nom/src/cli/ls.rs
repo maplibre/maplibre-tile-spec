@@ -410,7 +410,13 @@ fn format_algorithms(algorithms: HashSet<StreamStat>) -> String {
         .into_iter()
         .map(|(phys_type, phys_dec, log_dec)| {
             let phys_type = match phys_type {
-                PhysicalStreamType::Present => "Present",
+                PhysicalStreamType::Present(i) => {
+                    if i == 0 {
+                        "Present"
+                    } else {
+                        "Present with ignored bits"
+                    }
+                }
                 PhysicalStreamType::Data(v) => match v {
                     DictionaryType::None => "RawData",
                     DictionaryType::Vertex => "Vertex",

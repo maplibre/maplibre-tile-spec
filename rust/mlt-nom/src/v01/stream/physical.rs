@@ -8,7 +8,8 @@ use crate::{MltError, MltRefResult, utils};
 /// How should the stream be interpreted at the physical level (first pass of decoding)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PhysicalStreamType {
-    Present,
+    // u8 stores lower bits for round-trippability
+    Present(u8),
     Data(DictionaryType),
     Offset(OffsetType),
     Length(LengthType),
@@ -24,7 +25,7 @@ impl PhysicalStreamType {
         let high4 = value >> 4;
         let low4 = value & 0x0F;
         Some(match high4 {
-            0 => PhysicalStreamType::Present,
+            0 => PhysicalStreamType::Present(low4),
             1 => PhysicalStreamType::Data(DictionaryType::try_from(low4).ok()?),
             2 => PhysicalStreamType::Offset(OffsetType::try_from(low4).ok()?),
             3 => PhysicalStreamType::Length(LengthType::try_from(low4).ok()?),
@@ -34,14 +35,14 @@ impl PhysicalStreamType {
     #[must_use]
     pub fn as_u8(self) -> u8 {
         let proto_high4 = match self {
-            PhysicalStreamType::Present => 0,
+            PhysicalStreamType::Present(_) => 0,
             PhysicalStreamType::Data(_) => 1,
             PhysicalStreamType::Offset(_) => 2,
             PhysicalStreamType::Length(_) => 3,
         };
         let high4 = proto_high4 << 4;
         let low4 = match self {
-            PhysicalStreamType::Present => 0,
+            PhysicalStreamType::Present(i) => i,
             PhysicalStreamType::Data(i) => i as u8,
             PhysicalStreamType::Offset(i) => i as u8,
             PhysicalStreamType::Length(i) => i as u8,
