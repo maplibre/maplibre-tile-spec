@@ -131,9 +131,9 @@ impl StreamMeta {
             PhysicalDecoder::VarInt => 0x2,
             PhysicalDecoder::Alp => 0x3,
         };
+        writer.write_u8(logical_decoder_u8 | physical_decoder_u8)?;
         writer.write_varint(self.num_values)?;
         writer.write_varint(byte_length)?;
-        writer.write_u8(logical_decoder_u8 | physical_decoder_u8)?;
 
         // some decoders have settings inside them
         match self.logical_decoder {
