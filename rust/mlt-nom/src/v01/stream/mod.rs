@@ -1,15 +1,17 @@
 mod decode;
-mod logical;
+pub(crate) mod logical;
 mod physical;
 
-use std::fmt;
 use std::fmt::Debug;
+use std::io::Write;
+use std::{fmt, io};
 
 use borrowme::borrowme;
+use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::{all, take};
+use crate::utils::{BinarySerializer as _, all, take};
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalDecoder, LogicalTechnique, LogicalValue,
@@ -38,6 +40,120 @@ pub struct StreamMeta {
     pub num_values: u32,
     pub logical_decoder: LogicalDecoder,
     pub physical_decoder: PhysicalDecoder,
+}
+impl StreamMeta {
+    /// Parse stream from the input
+    ///
+    /// If `is_bool` is true, compute RLE parameters for boolean streams
+    /// automatically instead of reading them from the input.
+    ///
+    /// Returns the stream metadata and the size of the stream in bytes
+    fn parse(input: &[u8], is_bool: bool) -> MltRefResult<'_, (Self, u32)> {
+        use crate::v01::LogicalTechnique as LT;
+
+        let (input, physical_type) = PhysicalStreamType::parse(input)?;
+        let (input, val) = utils::parse_u8(input)?;
+        let logical1 = LT::parse(val >> 5)?;
+        let logical2 = LT::parse((val >> 2) & 0x7)?;
+        let physical_decoder = PhysicalDecoder::parse(val & 0x3)?;
+
+        let (input, num_values) = utils::parse_varint::<u32>(input)?;
+        let (input, byte_length) = utils::parse_varint::<u32>(input)?;
+
+        let mut input = input;
+        let logical_decoder = match (logical1, logical2) {
+            (LT::None, LT::None) => LogicalDecoder::None,
+            (LT::Delta, LT::None) => LogicalDecoder::Delta,
+            (LT::ComponentwiseDelta, LT::None) => LogicalDecoder::ComponentwiseDelta,
+            (LT::Delta, LT::Rle) | (LT::Rle, LT::None) => {
+                let runs;
+                let num_rle_values;
+                if is_bool {
+                    runs = num_values.div_ceil(8);
+                    num_rle_values = byte_length;
+                } else {
+                    (input, runs) = utils::parse_varint::<u32>(input)?;
+                    (input, num_rle_values) = utils::parse_varint::<u32>(input)?;
+                }
+                let rle = RleMeta {
+                    runs,
+                    num_rle_values,
+                };
+                if logical1 == LT::Rle {
+                    LogicalDecoder::Rle(rle)
+                } else {
+                    LogicalDecoder::DeltaRle(rle)
+                }
+            }
+            (LT::Morton, LT::None) => {
+                let num_bits;
+                let coordinate_shift;
+                (input, num_bits) = utils::parse_varint::<u32>(input)?;
+                (input, coordinate_shift) = utils::parse_varint::<u32>(input)?;
+                LogicalDecoder::Morton(MortonMeta {
+                    num_bits,
+                    coordinate_shift,
+                })
+            }
+            (LT::PseudoDecimal, LT::None) => LogicalDecoder::PseudoDecimal,
+            _ => Err(MltError::UnsupportedLogicalTechnique(logical1, logical2))?,
+        };
+
+        let meta = StreamMeta {
+            physical_type,
+            num_values,
+            logical_decoder,
+            physical_decoder,
+        };
+        Ok((input, (meta, byte_length)))
+    }
+
+    pub fn write_to<W: Write>(
+        &self,
+        writer: &mut W,
+        is_bool: bool,
+        byte_length: u32,
+    ) -> io::Result<()> {
+        use crate::v01::LogicalTechnique as LT;
+        writer.write_u8(self.physical_type.as_u8())?;
+        let logical_decoder_u8: u8 = match self.logical_decoder {
+            LogicalDecoder::None => (LT::None as u8) << 5,
+            LogicalDecoder::Delta => (LT::Delta as u8) << 5,
+            LogicalDecoder::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
+            LogicalDecoder::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
+            LogicalDecoder::Rle(_) => (LT::Rle as u8) << 5,
+            LogicalDecoder::Morton(_) => (LT::Morton as u8) << 5,
+            LogicalDecoder::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
+        };
+        let physical_decoder_u8: u8 = match self.physical_decoder {
+            PhysicalDecoder::None => 0x0,
+            PhysicalDecoder::FastPFOR => 0x1,
+            PhysicalDecoder::VarInt => 0x2,
+            PhysicalDecoder::Alp => 0x3,
+        };
+        writer.write_varint(self.num_values)?;
+        writer.write_varint(byte_length)?;
+        writer.write_u8(logical_decoder_u8 | physical_decoder_u8)?;
+
+        // some decoders have settings inside them
+        match self.logical_decoder {
+            LogicalDecoder::DeltaRle(r) | LogicalDecoder::Rle(r) => {
+                if !is_bool {
+                    writer.write_varint(r.runs)?;
+                    writer.write_varint(r.num_rle_values)?;
+                }
+            }
+            LogicalDecoder::Morton(m) => {
+                writer.write_varint(m.num_bits)?;
+                writer.write_varint(m.coordinate_shift)?;
+            }
+            LogicalDecoder::None
+            | LogicalDecoder::Delta
+            | LogicalDecoder::ComponentwiseDelta
+            | LogicalDecoder::PseudoDecimal => {}
+        }
+        Ok(())
+    }
 }
 
 impl Analyze for StreamMeta {
@@ -169,6 +285,15 @@ stream_data![
     Raw: DataRaw / OwnedDataRaw,
 ];
 
+impl OwnedStreamData {
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            OwnedStreamData::VarInt(d) => writer.write_all(&d.data),
+            OwnedStreamData::Raw(d) => writer.write_all(&d.data),
+        }
+    }
+}
+
 impl<'a> Stream<'a> {
     #[must_use]
     pub fn new(meta: StreamMeta, data: StreamData<'a>) -> Self {
@@ -197,72 +322,15 @@ impl<'a> Stream<'a> {
     /// If `is_bool` is true, compute RLE parameters for boolean streams
     /// automatically instead of reading them from the input.
     fn parse_internal(input: &'a [u8], is_bool: bool) -> MltRefResult<'a, Self> {
-        use crate::v01::{LogicalTechnique as LT, PhysicalDecoder as PT};
-
-        let (input, physical_type) = PhysicalStreamType::parse(input)?;
-
-        let (input, val) = utils::parse_u8(input)?;
-        let logical1 = LT::parse(val >> 5)?;
-        let logical2 = LT::parse((val >> 2) & 0x7)?;
-        let physical = PT::parse(val & 0x3)?;
-
-        let (input, num_values) = utils::parse_varint::<u32>(input)?;
-        let (input, byte_length) = utils::parse_varint::<u32>(input)?;
-
-        let mut input = input;
-        let val1;
-        let val2;
-        let logical_decoder = match (logical1, logical2) {
-            (LT::None, LT::None) => LogicalDecoder::None,
-            (LT::Delta, LT::None) => LogicalDecoder::Delta,
-            (LT::ComponentwiseDelta, LT::None) => LogicalDecoder::ComponentwiseDelta,
-            (LT::Delta, LT::Rle) | (LT::Rle, LT::None) => {
-                if is_bool {
-                    val1 = num_values.div_ceil(8);
-                    val2 = byte_length;
-                } else {
-                    (input, val1) = utils::parse_varint::<u32>(input)?;
-                    (input, val2) = utils::parse_varint::<u32>(input)?;
-                }
-                let rle = RleMeta {
-                    runs: val1,
-                    num_rle_values: val2,
-                };
-                if logical1 == LT::Rle {
-                    LogicalDecoder::Rle(rle)
-                } else {
-                    LogicalDecoder::DeltaRle(rle)
-                }
-            }
-            (LT::Morton, LT::None) => {
-                (input, val1) = utils::parse_varint::<u32>(input)?;
-                (input, val2) = utils::parse_varint::<u32>(input)?;
-                LogicalDecoder::Morton(MortonMeta {
-                    num_bits: val1,
-                    coordinate_shift: val2,
-                })
-            }
-            (LT::PseudoDecimal, LT::None) => LogicalDecoder::PseudoDecimal,
-            _ => Err(MltError::UnsupportedLogicalTechnique(logical1, logical2))?,
-        };
+        use PhysicalDecoder as PD;
+        let (input, (meta, byte_length)) = StreamMeta::parse(input, is_bool)?;
 
         let (input, data) = take(input, usize::try_from(byte_length)?)?;
 
-        let meta = StreamMeta {
-            physical_type,
-            logical_decoder,
-            physical_decoder: physical,
-            num_values,
-        };
-
-        let stream_data = match physical {
-            PT::None | PT::FastPFOR => DataRaw::new(data),
-            PT::VarInt => DataVarInt::new(data),
-            PT::Alp => {
-                return Err(MltError::DecodeError(format!(
-                    "Unsupported logical/physical technique combination: {physical:?}"
-                )));
-            }
+        let stream_data = match meta.physical_decoder {
+            PD::None | PD::FastPFOR => DataRaw::new(data),
+            PD::VarInt => DataVarInt::new(data),
+            PD::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
         };
 
         Ok((input, Stream::new(meta, stream_data)))

@@ -1,9 +1,9 @@
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
-use crate::MltError;
 use crate::MltError::ParsingPhysicalStreamType;
 use crate::v01::{DictionaryType, LengthType, OffsetType};
+use crate::{MltError, MltRefResult, utils};
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -14,8 +14,10 @@ pub enum PhysicalStreamType {
     Length(LengthType),
 }
 impl PhysicalStreamType {
-    pub fn parse(value: u8) -> Result<Self, MltError> {
-        Self::from_u8(value).ok_or(ParsingPhysicalStreamType(value))
+    pub fn parse(input: &'_ [u8]) -> MltRefResult<'_, Self> {
+        let (input, value) = utils::parse_u8(input)?;
+        let pt = Self::from_u8(value).ok_or(ParsingPhysicalStreamType(value))?;
+        Ok((input, pt))
     }
 
     fn from_u8(value: u8) -> Option<Self> {
@@ -28,6 +30,23 @@ impl PhysicalStreamType {
             3 => PhysicalStreamType::Length(LengthType::try_from(low4).ok()?),
             _ => return None,
         })
+    }
+    #[must_use]
+    pub fn as_u8(self) -> u8 {
+        let proto_high4 = match self {
+            PhysicalStreamType::Present => 0,
+            PhysicalStreamType::Data(_) => 1,
+            PhysicalStreamType::Offset(_) => 2,
+            PhysicalStreamType::Length(_) => 3,
+        };
+        let high4 = proto_high4 >> 4;
+        let low4 = match self {
+            PhysicalStreamType::Present => 0,
+            PhysicalStreamType::Data(i) => i as u8,
+            PhysicalStreamType::Offset(i) => i as u8,
+            PhysicalStreamType::Length(i) => i as u8,
+        };
+        high4 | (low4 & 0x0F)
     }
 }
 
