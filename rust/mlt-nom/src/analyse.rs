@@ -1,17 +1,17 @@
-/// What to calculate with [`Analyze::decoded`].
+/// What to calculate with [`Analyze::collect_statistic`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatType {
-    /// Payload data size in bytes (excludes metadata overhead).
-    PayloadDataSizeBytes,
+    /// Geometry/ Feature/ Id data size in bytes (excludes metadata overhead).
+    DecodedDataSize,
     /// Metadata overhead in bytes (stream headers, names, extent, geometry types).
-    MetadataOverheadBytes,
+    DecodedMetaSize,
     /// Number of features (geometry entries).
     FeatureCount,
 }
 
 /// Trait for estimating various size/count metrics.
 pub trait Analyze {
-    fn decoded(&self, _stat: StatType) -> usize {
+    fn collect_statistic(&self, _stat: StatType) -> usize {
         0
     }
 
@@ -23,7 +23,7 @@ pub trait Analyze {
 macro_rules! impl_statistics_fixed {
     ($($ty:ty),+) => {
         $(impl Analyze for $ty {
-            fn decoded(&self, _stat: StatType) -> usize {
+            fn collect_statistic(&self, _stat: StatType) -> usize {
                 size_of::<$ty>()
             }
         })+
@@ -33,14 +33,14 @@ macro_rules! impl_statistics_fixed {
 impl_statistics_fixed!(bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64);
 
 impl Analyze for String {
-    fn decoded(&self, _stat: StatType) -> usize {
+    fn collect_statistic(&self, _stat: StatType) -> usize {
         self.len()
     }
 }
 
 impl<T: Analyze> Analyze for Option<T> {
-    fn decoded(&self, stat: StatType) -> usize {
-        self.as_ref().map_or(0, |v| v.decoded(stat))
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        self.as_ref().map_or(0, |v| v.collect_statistic(stat))
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
@@ -51,8 +51,8 @@ impl<T: Analyze> Analyze for Option<T> {
 }
 
 impl<T: Analyze> Analyze for [T] {
-    fn decoded(&self, stat: StatType) -> usize {
-        self.iter().map(|v| v.decoded(stat)).sum()
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        self.iter().map(|v| v.collect_statistic(stat)).sum()
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
@@ -63,8 +63,8 @@ impl<T: Analyze> Analyze for [T] {
 }
 
 impl<T: Analyze> Analyze for Vec<T> {
-    fn decoded(&self, stat: StatType) -> usize {
-        self.as_slice().decoded(stat)
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        self.as_slice().collect_statistic(stat)
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {

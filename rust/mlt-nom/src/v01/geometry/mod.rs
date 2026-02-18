@@ -35,10 +35,10 @@ pub enum Geometry<'a> {
 }
 
 impl Analyze for Geometry<'_> {
-    fn decoded(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::Raw(g) => g.decoded(stat),
-            Self::Decoded(g) => g.decoded(stat),
+            Self::Raw(g) => g.collect_statistic(stat),
+            Self::Decoded(g) => g.collect_statistic(stat),
         }
     }
 
@@ -115,19 +115,19 @@ pub struct DecodedGeometry {
 }
 
 impl Analyze for DecodedGeometry {
-    fn decoded(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
-            StatType::PayloadDataSizeBytes => {
-                self.vector_types.decoded(stat)
-                    + self.geometry_offsets.decoded(stat)
-                    + self.part_offsets.decoded(stat)
-                    + self.ring_offsets.decoded(stat)
-                    + self.vertex_offsets.decoded(stat)
-                    + self.index_buffer.decoded(stat)
-                    + self.triangles.decoded(stat)
-                    + self.vertices.decoded(stat)
+            StatType::DecodedDataSize => {
+                self.vector_types.collect_statistic(stat)
+                    + self.geometry_offsets.collect_statistic(stat)
+                    + self.part_offsets.collect_statistic(stat)
+                    + self.ring_offsets.collect_statistic(stat)
+                    + self.vertex_offsets.collect_statistic(stat)
+                    + self.index_buffer.collect_statistic(stat)
+                    + self.triangles.collect_statistic(stat)
+                    + self.vertices.collect_statistic(stat)
             }
-            StatType::MetadataOverheadBytes => 0,
+            StatType::DecodedMetaSize => 0,
             StatType::FeatureCount => self.vector_types.len(),
         }
     }
@@ -281,7 +281,7 @@ pub enum GeometryType {
 }
 
 impl Analyze for GeometryType {
-    fn decoded(&self, _stat: StatType) -> usize {
+    fn collect_statistic(&self, _stat: StatType) -> usize {
         size_of::<Self>()
     }
 }

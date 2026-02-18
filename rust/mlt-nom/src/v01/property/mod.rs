@@ -23,10 +23,10 @@ pub enum Property<'a> {
 }
 
 impl Analyze for Property<'_> {
-    fn decoded(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::Raw(d) => d.decoded(stat),
-            Self::Decoded(d) => d.decoded(stat),
+            Self::Raw(d) => d.collect_statistic(stat),
+            Self::Decoded(d) => d.collect_statistic(stat),
         }
     }
 
@@ -187,13 +187,13 @@ pub struct DecodedProperty {
 }
 
 impl Analyze for DecodedProperty {
-    fn decoded(&self, stat: StatType) -> usize {
-        let meta = if stat == StatType::MetadataOverheadBytes {
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        let meta = if stat == StatType::DecodedMetaSize {
             self.name.len()
         } else {
             0
         };
-        meta + self.values.decoded(stat)
+        meta + self.values.collect_statistic(stat)
     }
 }
 
@@ -215,18 +215,18 @@ pub enum PropValue {
 }
 
 impl Analyze for PropValue {
-    fn decoded(&self, stat: StatType) -> usize {
+    fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::Bool(v) => v.decoded(stat),
-            Self::I8(v) => v.decoded(stat),
-            Self::U8(v) => v.decoded(stat),
-            Self::I32(v) => v.decoded(stat),
-            Self::U32(v) => v.decoded(stat),
-            Self::I64(v) => v.decoded(stat),
-            Self::U64(v) => v.decoded(stat),
-            Self::F32(v) => v.decoded(stat),
-            Self::F64(v) => v.decoded(stat),
-            Self::Str(v) => v.decoded(stat),
+            Self::Bool(v) => v.collect_statistic(stat),
+            Self::I8(v) => v.collect_statistic(stat),
+            Self::U8(v) => v.collect_statistic(stat),
+            Self::I32(v) => v.collect_statistic(stat),
+            Self::U32(v) => v.collect_statistic(stat),
+            Self::I64(v) => v.collect_statistic(stat),
+            Self::U64(v) => v.collect_statistic(stat),
+            Self::F32(v) => v.collect_statistic(stat),
+            Self::F64(v) => v.collect_statistic(stat),
+            Self::Str(v) => v.collect_statistic(stat),
             Self::Struct => 0,
         }
     }
