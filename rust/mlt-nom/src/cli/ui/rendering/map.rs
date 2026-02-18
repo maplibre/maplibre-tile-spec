@@ -1,37 +1,40 @@
 use mlt_nom::geojson::{Coordinate, Geometry};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Span, Style};
+use ratatui::prelude::{Span, Style};
+use ratatui::style::Color;
 use ratatui::widgets::canvas::{Canvas, Context, Line as CanvasLine, Rectangle};
 
+use crate::cli::ui::state::{App, TreeItem};
 use crate::cli::ui::{
-    App, TreeItem, block_with_title, coord_f64, geometry_color, is_ring_ccw, part_color,
+    CLR_EXTENT, CLR_HOVERED, CLR_INNER_RING, CLR_INNER_RING_SEL, CLR_POLYGON, CLR_SELECTED,
+    block_with_title, coord_f64, geometry_color, is_ring_ccw, part_color,
 };
 
 pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
-    let selected = app.get_selected_item();
-    let extent = app.get_extent();
-    let (x_min, y_min, x_max, y_max) = app.calculate_bounds();
+    let sel = app.selected_item();
+    let ext = app.extent();
+    let (x0, y0, x1, y1) = app.calculate_bounds();
 
     let canvas = Canvas::default()
         .block(block_with_title("Map View"))
-        .x_bounds([x_min, x_max])
-        .y_bounds([y_min, y_max])
+        .x_bounds([x0, x1])
+        .y_bounds([y0, y1])
         .paint(|ctx| {
             ctx.draw(&Rectangle {
                 x: 0.0,
                 y: 0.0,
-                width: extent,
-                height: extent,
-                color: Color::DarkGray,
+                width: ext,
+                height: ext,
+                color: CLR_EXTENT,
             });
 
-            let hovered = app.hovered.as_ref();
+            let hov = app.hovered.as_ref();
             let draw_feat = |ctx: &mut Context<'_>, gi: usize| {
                 let geom = &app.fc.features[gi].geometry;
                 let base = geometry_color(geom);
-                let is_hovered = hovered.is_some_and(|h| app.global_idx(h.layer, h.feat) == gi);
-                let sel_part = match selected {
+                let is_hov = hov.is_some_and(|h| app.global_idx(h.layer, h.feat) == gi);
+                let sel_part = match sel {
                     TreeItem::SubFeature { layer, feat, part }
                         if app.global_idx(*layer, *feat) == gi =>
                     {
@@ -39,12 +42,12 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                     }
                     _ => None,
                 };
-                let hov_part = hovered
-                    .and_then(|h| (app.global_idx(h.layer, h.feat) == gi).then_some(h.part)?);
-                draw_feature(ctx, geom, base, is_hovered, sel_part, hov_part);
+                let hov_part =
+                    hov.and_then(|h| (app.global_idx(h.layer, h.feat) == gi).then_some(h.part)?);
+                draw_feature(ctx, geom, base, is_hov, sel_part, hov_part);
             };
 
-            match selected {
+            match sel {
                 TreeItem::All => {
                     for gi in 0..app.fc.features.len() {
                         draw_feat(ctx, gi);
@@ -67,34 +70,30 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
 fn draw_feature(
     ctx: &mut Context<'_>,
     geom: &Geometry,
-    base_color: Color,
-    is_hovered: bool,
-    selected_part: Option<usize>,
-    hovered_part: Option<usize>,
+    base: Color,
+    is_hov: bool,
+    sel_part: Option<usize>,
+    hov_part: Option<usize>,
 ) {
-    let color = if is_hovered { Color::White } else { base_color };
+    let color = if is_hov { CLR_HOVERED } else { base };
     match geom {
         Geometry::Point(c) => draw_point(ctx, *c, color),
-        Geometry::LineString(coords) => draw_line(ctx, coords, color),
-        Geometry::Polygon(rings) => draw_polygon(ctx, rings, is_hovered, color),
-        Geometry::MultiPoint(coords) => {
-            for (i, c) in coords.iter().enumerate() {
-                draw_point(ctx, *c, part_color(selected_part, hovered_part, i, color));
+        Geometry::LineString(v) => draw_line(ctx, v, color),
+        Geometry::Polygon(rings) => draw_polygon(ctx, rings, is_hov, color),
+        Geometry::MultiPoint(pts) => {
+            for (i, c) in pts.iter().enumerate() {
+                draw_point(ctx, *c, part_color(sel_part, hov_part, i, color));
             }
         }
         Geometry::MultiLineString(lines) => {
-            for (i, coords) in lines.iter().enumerate() {
-                draw_line(
-                    ctx,
-                    coords,
-                    part_color(selected_part, hovered_part, i, color),
-                );
+            for (i, v) in lines.iter().enumerate() {
+                draw_line(ctx, v, part_color(sel_part, hov_part, i, color));
             }
         }
         Geometry::MultiPolygon(polys) => {
             for (i, rings) in polys.iter().enumerate() {
-                let pc = part_color(selected_part, hovered_part, i, color);
-                draw_polygon(ctx, rings, matches!(pc, Color::White | Color::Yellow), pc);
+                let pc = part_color(sel_part, hov_part, i, color);
+                draw_polygon(ctx, rings, matches!(pc, CLR_HOVERED | CLR_SELECTED), pc);
             }
         }
     }
@@ -130,20 +129,16 @@ fn draw_polygon(
 ) {
     for ring in rings {
         let color = if !highlighted {
-            ring_color(ring)
+            if is_ring_ccw(ring) {
+                CLR_POLYGON
+            } else {
+                CLR_INNER_RING
+            }
         } else if is_ring_ccw(ring) {
             fallback
         } else {
-            Color::Rgb(255, 150, 120)
+            CLR_INNER_RING_SEL
         };
         draw_ring(ctx, ring, color);
-    }
-}
-
-fn ring_color(ring: &[Coordinate]) -> Color {
-    if is_ring_ccw(ring) {
-        Color::Blue
-    } else {
-        Color::Red
     }
 }

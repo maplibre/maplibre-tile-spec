@@ -18,7 +18,7 @@ pub trait Decodable<'a>: Sized {
         if self.is_raw() {
             // Temporarily replace self with a default value to take ownership of the raw data
             let Some(raw) = self.take_raw() else {
-                return Err(MltError::DecodeError("Expected raw data".to_string()))?;
+                return Err(MltError::NotDecoded("expected raw data"))?;
             };
             let res = Self::DecodedType::from_raw(raw)?;
             *self = Self::new_decoded(res);

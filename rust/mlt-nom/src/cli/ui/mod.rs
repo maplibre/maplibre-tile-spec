@@ -20,8 +20,8 @@ use crossterm::execute;
 use mlt_nom::geojson::{Coordinate, FeatureCollection, Geometry};
 use mlt_nom::parse_layers;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
-use ratatui::style::Color;
-use ratatui::text::Line;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
@@ -33,6 +33,27 @@ use crate::cli::ui::rendering::help::render_help_overlay;
 use crate::cli::ui::rendering::layers::{render_properties_panel, render_tree_panel};
 use crate::cli::ui::rendering::map::render_map_panel;
 use crate::cli::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
+
+pub const CLR_POINT: Color = Color::Magenta;
+pub const CLR_MULTI_POINT: Color = Color::LightMagenta;
+pub const CLR_LINE: Color = Color::Cyan;
+pub const CLR_MULTI_LINE: Color = Color::LightCyan;
+pub const CLR_POLYGON: Color = Color::Blue;
+pub const CLR_MULTI_POLYGON: Color = Color::LightBlue;
+pub const CLR_INNER_RING: Color = Color::Red;
+pub const CLR_BAD_WINDING: Color = Color::LightRed;
+pub const CLR_EXTENT: Color = Color::DarkGray;
+pub const CLR_SELECTED: Color = Color::Yellow;
+pub const CLR_HOVERED: Color = Color::White;
+pub const CLR_HOVERED_TREE: Color = Color::LightGreen;
+pub const CLR_DIMMED: Color = Color::DarkGray;
+pub const CLR_INNER_RING_SEL: Color = Color::Rgb(255, 150, 120);
+pub const CLR_LABEL: Color = Color::Cyan;
+pub const CLR_HINT: Color = Color::DarkGray;
+
+pub const STYLE_SELECTED: Style = Style::new().fg(CLR_SELECTED).add_modifier(Modifier::BOLD);
+pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);
+pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 
 #[derive(Args)]
 pub struct UiArgs {
@@ -77,8 +98,8 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 // --- Data loading ---
 
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
-    let buffer = fs::read(path)?;
-    let mut layers = parse_layers(&buffer)?;
+    let buf = fs::read(path)?;
+    let mut layers = parse_layers(&buf)?;
     for layer in &mut layers {
         layer.decode_all()?;
     }
@@ -87,19 +108,19 @@ fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
 
 fn group_by_layer(fc: &FeatureCollection) -> Vec<LayerGroup> {
     let mut groups: Vec<LayerGroup> = Vec::new();
-    for (i, feat) in fc.features.iter().enumerate() {
-        let name = feat
+    for (i, f) in fc.features.iter().enumerate() {
+        let name = f
             .properties
             .get("_layer")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        let extent = feat
+        let extent = f
             .properties
             .get("_extent")
             .and_then(serde_json::Value::as_f64)
             .unwrap_or(4096.0);
-        if let Some(group) = groups.iter_mut().find(|g| g.name == name) {
-            group.feature_indices.push(i);
+        if let Some(g) = groups.iter_mut().find(|g| g.name == name) {
+            g.feature_indices.push(i);
         } else {
             groups.push(LayerGroup::new(name.to_string(), extent, vec![i]));
         }
@@ -119,11 +140,11 @@ fn find_mlt_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     fn visit(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
-                let path = entry?.path();
-                if path.is_dir() {
-                    visit(&path, out)?;
-                } else if path.extension().and_then(|s| s.to_str()) == Some("mlt") {
-                    out.push(path);
+                let p = entry?.path();
+                if p.is_dir() {
+                    visit(&p, out)?;
+                } else if p.extension().and_then(|s| s.to_str()) == Some("mlt") {
+                    out.push(p);
                 }
             }
         }
@@ -137,15 +158,15 @@ fn find_mlt_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
 
 // --- Hit testing ---
 
-fn point_in_rect(col: u16, row: u16, area: Rect) -> bool {
-    col >= area.x && col < area.x + area.width && row >= area.y && row < area.y + area.height
+fn point_in_rect(col: u16, row: u16, r: Rect) -> bool {
+    col >= r.x && col < r.x + r.width && row >= r.y && row < r.y + r.height
 }
 
-fn click_row_in_area(col: u16, row: u16, area: Rect, scroll_offset: usize) -> Option<usize> {
+fn click_row_in_area(col: u16, row: u16, area: Rect, scroll: usize) -> Option<usize> {
     let top = area.y + 1;
     let bot = area.y + area.height.saturating_sub(1);
     (col >= area.x && col < area.x + area.width && row >= top && row < bot)
-        .then(|| (row - top) as usize + scroll_offset)
+        .then(|| (row - top) as usize + scroll)
 }
 
 const HIGHLIGHT_SYMBOL_WIDTH: u16 = 3;
@@ -154,10 +175,10 @@ const COLUMN_SPACING: u16 = 1;
 fn file_header_click_column(
     area: Rect,
     widths: &[Constraint; 5],
-    mouse_col: u16,
-    mouse_row: u16,
+    col: u16,
+    row: u16,
 ) -> Option<FileSortColumn> {
-    if mouse_row != area.y + 1 {
+    if row != area.y + 1 {
         return None;
     }
     let inner = area.inner(Margin {
@@ -185,7 +206,7 @@ fn file_header_click_column(
         } else {
             x + w
         };
-        if mouse_col >= x && mouse_col < end {
+        if col >= x && col < end {
             return Some(cols[i]);
         }
         x = end + COLUMN_SPACING;
@@ -197,20 +218,28 @@ fn block_with_title(title: impl Into<Line<'static>>) -> Block<'static> {
     Block::default().borders(Borders::ALL).title(title)
 }
 
+/// Helper to build `Span::styled(format!("{name}: "), STYLE_LABEL)` + raw value.
+fn stat_line(name: &str, val: &dyn std::fmt::Display) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(format!("{name}: "), STYLE_LABEL),
+        Span::raw(val.to_string()),
+    ])
+}
+
 const DIVIDER_GRAB: u16 = 2;
 
 fn divider_hit(col: u16, row: u16, left: Rect, tree: Rect) -> Option<ResizeHandle> {
-    let div_x = left.x + left.width;
-    if col >= div_x.saturating_sub(DIVIDER_GRAB)
-        && col < div_x.saturating_add(DIVIDER_GRAB)
+    let dx = left.x + left.width;
+    if col >= dx.saturating_sub(DIVIDER_GRAB)
+        && col < dx.saturating_add(DIVIDER_GRAB)
         && row >= left.y
         && row < left.y + left.height
     {
         return Some(ResizeHandle::LeftRight);
     }
-    let div_y = tree.y + tree.height;
-    if row >= div_y.saturating_sub(DIVIDER_GRAB)
-        && row < div_y.saturating_add(DIVIDER_GRAB)
+    let dy = tree.y + tree.height;
+    if row >= dy.saturating_sub(DIVIDER_GRAB)
+        && row < dy.saturating_add(DIVIDER_GRAB)
         && col >= left.x
         && col < left.x + left.width
     {
@@ -243,11 +272,11 @@ fn pct_at(pos: u16, origin: u16, span: u16) -> u16 {
 fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyhow::Result<()> {
     let mut map_area: Option<Rect> = None;
     let mut tree_area: Option<Rect> = None;
-    let mut properties_area: Option<Rect> = None;
-    let mut left_panel_area: Option<Rect> = None;
-    let mut file_filter_area: Option<Rect> = None;
-    let mut file_info_area: Option<Rect> = None;
-    let mut file_left_area: Option<Rect> = None;
+    let mut props_area: Option<Rect> = None;
+    let mut left_area: Option<Rect> = None;
+    let mut filter_area: Option<Rect> = None;
+    let mut info_area: Option<Rect> = None;
+    let mut file_left: Option<Rect> = None;
     let mut last_tree_click: Option<(Instant, usize)> = None;
     let mut last_file_click: Option<(Instant, usize)> = None;
 
@@ -255,8 +284,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             if rows.len() == app.mlt_files.len() {
                 for (i, row) in rows.into_iter().enumerate() {
-                    if let Some(entry) = app.mlt_files.get_mut(i) {
-                        entry.1 = row;
+                    if let Some(e) = app.mlt_files.get_mut(i) {
+                        e.1 = row;
                     }
                 }
             }
@@ -269,7 +298,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             terminal.draw(|f| {
                 match app.mode {
                     ViewMode::FileBrowser => {
-                        let chunks = Layout::default()
+                        let cols = Layout::default()
                             .direction(Direction::Horizontal)
                             .constraints([
                                 Constraint::Percentage(app.file_left_pct),
@@ -279,16 +308,16 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         let right = Layout::default()
                             .direction(Direction::Vertical)
                             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                            .split(chunks[1]);
-                        render_file_browser(f, chunks[0], app);
+                            .split(cols[1]);
+                        render_file_browser(f, cols[0], app);
                         render_file_filter_panel(f, right[0], app);
                         render_file_info_panel(f, right[1], app);
-                        file_left_area = Some(chunks[0]);
-                        file_filter_area = Some(right[0]);
-                        file_info_area = Some(right[1]);
+                        file_left = Some(cols[0]);
+                        filter_area = Some(right[0]);
+                        info_area = Some(right[1]);
                     }
                     ViewMode::LayerOverview => {
-                        let chunks = Layout::default()
+                        let cols = Layout::default()
                             .direction(Direction::Horizontal)
                             .constraints([
                                 Constraint::Percentage(app.left_pct),
@@ -301,14 +330,14 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 Constraint::Percentage(app.features_pct),
                                 Constraint::Percentage(100u16.saturating_sub(app.features_pct)),
                             ])
-                            .split(chunks[0]);
+                            .split(cols[0]);
                         render_tree_panel(f, left[0], app);
                         render_properties_panel(f, left[1], app);
-                        render_map_panel(f, chunks[1], app);
+                        render_map_panel(f, cols[1], app);
                         tree_area = Some(left[0]);
-                        properties_area = Some(left[1]);
-                        left_panel_area = Some(chunks[0]);
-                        map_area = Some(chunks[1]);
+                        props_area = Some(left[1]);
+                        left_area = Some(cols[0]);
+                        map_area = Some(cols[1]);
                     }
                 }
                 if app.show_help {
@@ -349,15 +378,9 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     match key.code {
                         KeyCode::Char('q') => break,
                         KeyCode::Esc if app.handle_escape() => break,
-                        KeyCode::Char('?') | KeyCode::F(1) => {
-                            app.show_help = true;
-                            app.help_scroll = 0;
-                            app.invalidate();
-                        }
+                        KeyCode::Char('?') | KeyCode::F(1) => app.open_help(),
                         KeyCode::Char('h') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                            app.show_help = true;
-                            app.help_scroll = 0;
-                            app.invalidate();
+                            app.open_help();
                         }
                         KeyCode::Enter => app.handle_enter()?,
                         KeyCode::Char('+' | '=') | KeyCode::Right => app.handle_plus(),
@@ -367,12 +390,10 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         KeyCode::Down | KeyCode::Char('j') => app.move_down_by(1),
                         KeyCode::Left => app.handle_left_arrow(),
                         KeyCode::PageUp => {
-                            let pg = app.page_size().saturating_sub(1).max(1);
-                            app.move_up_by(pg);
+                            app.move_up_by(app.page_size().saturating_sub(1).max(1));
                         }
                         KeyCode::PageDown => {
-                            let pg = app.page_size().saturating_sub(1).max(1);
-                            app.move_down_by(pg);
+                            app.move_down_by(app.page_size().saturating_sub(1).max(1));
                         }
                         KeyCode::Home => app.move_to_start(),
                         KeyCode::End => app.move_to_end(),
@@ -395,16 +416,17 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         _ => {}
                     }
                 }
-                Event::Mouse(mouse) if app.show_help => {
-                    if let MouseEventKind::ScrollUp | MouseEventKind::ScrollDown = mouse.kind {
-                        if matches!(mouse.kind, MouseEventKind::ScrollUp) {
-                            app.help_scroll = app.help_scroll.saturating_sub(1);
-                        } else {
-                            app.help_scroll = app.help_scroll.saturating_add(1);
-                        }
+                Event::Mouse(mouse) if app.show_help => match mouse.kind {
+                    MouseEventKind::ScrollUp => {
+                        app.help_scroll = app.help_scroll.saturating_sub(1);
                         app.invalidate();
                     }
-                }
+                    MouseEventKind::ScrollDown => {
+                        app.help_scroll = app.help_scroll.saturating_add(1);
+                        app.invalidate();
+                    }
+                    _ => {}
+                },
                 Event::Mouse(mouse) => match mouse.kind {
                     MouseEventKind::Up(_) => {
                         if app.resizing.take().is_some() {
@@ -414,13 +436,13 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     MouseEventKind::Moved | MouseEventKind::Drag(_) => {
                         if let Some(handle) = app.resizing {
                             let area = terminal.get_frame().area();
-                            let left = left_panel_area.unwrap_or_default();
+                            let la = left_area.unwrap_or_default();
                             match handle {
                                 ResizeHandle::LeftRight => {
                                     app.left_pct = pct_at(mouse.column, area.x, area.width);
                                 }
                                 ResizeHandle::FeaturesProperties => {
-                                    app.features_pct = pct_at(mouse.row, left.y, left.height);
+                                    app.features_pct = pct_at(mouse.row, la.y, la.height);
                                 }
                                 ResizeHandle::FileBrowserLeftRight => {
                                     app.file_left_pct = pct_at(mouse.column, area.x, area.width);
@@ -433,12 +455,12 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         app.hovered = None;
 
                         if app.mode == ViewMode::LayerOverview {
-                            let tree_hover_enabled = !matches!(
+                            let hover_ok = !matches!(
                                 app.tree_items.get(app.selected_index),
                                 Some(TreeItem::Feature { layer, feat })
                                     if !app.expanded_features.contains(&(*layer, *feat))
                             );
-                            if tree_hover_enabled {
+                            if hover_ok {
                                 if let Some(area) = tree_area {
                                     if let Some(row) = click_row_in_area(
                                         mouse.column,
@@ -446,13 +468,12 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                         area,
                                         app.tree_scroll as usize,
                                     ) {
-                                        if let Some((layer, feat, part)) = app
+                                        if let Some((l, f, p)) = app
                                             .tree_items
                                             .get(row)
                                             .and_then(TreeItem::layer_feat_part)
                                         {
-                                            app.hovered =
-                                                Some(HoveredInfo::new(row, layer, feat, part));
+                                            app.hovered = Some(HoveredInfo::new(row, l, f, p));
                                         }
                                     }
                                 }
@@ -481,34 +502,22 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         let s = app.scroll_step();
                         let step = u16::try_from(s)?;
                         if app.mode == ViewMode::FileBrowser {
-                            if file_filter_area
+                            if filter_area
                                 .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
                             {
-                                if up {
-                                    app.filter_scroll = app.filter_scroll.saturating_sub(step);
-                                } else {
-                                    app.filter_scroll = app.filter_scroll.saturating_add(step);
-                                }
+                                app.filter_scroll = scroll_by(app.filter_scroll, step, up);
                                 app.invalidate();
                                 continue;
                             }
-                            if file_info_area
-                                .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            if info_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
                             {
                                 continue;
                             }
                         }
                         if app.mode == ViewMode::LayerOverview {
-                            if properties_area
-                                .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            if props_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
                             {
-                                if up {
-                                    app.properties_scroll =
-                                        app.properties_scroll.saturating_sub(step);
-                                } else {
-                                    app.properties_scroll =
-                                        app.properties_scroll.saturating_add(step);
-                                }
+                                app.properties_scroll = scroll_by(app.properties_scroll, step, up);
                                 app.invalidate();
                                 continue;
                             }
@@ -540,19 +549,19 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     }
                     MouseEventKind::Down(_) => {
                         if app.mode == ViewMode::FileBrowser {
-                            if let Some(left) = file_left_area {
-                                let div_x = left.x + left.width;
-                                if mouse.column >= div_x.saturating_sub(DIVIDER_GRAB)
-                                    && mouse.column < div_x.saturating_add(DIVIDER_GRAB)
-                                    && mouse.row >= left.y
-                                    && mouse.row < left.y + left.height
+                            if let Some(fl) = file_left {
+                                let dx = fl.x + fl.width;
+                                if mouse.column >= dx.saturating_sub(DIVIDER_GRAB)
+                                    && mouse.column < dx.saturating_add(DIVIDER_GRAB)
+                                    && mouse.row >= fl.y
+                                    && mouse.row < fl.y + fl.height
                                 {
                                     app.resizing = Some(ResizeHandle::FileBrowserLeftRight);
                                     app.invalidate();
                                     continue;
                                 }
                             }
-                            if let Some(fa) = file_filter_area {
+                            if let Some(fa) = filter_area {
                                 if point_in_rect(mouse.column, mouse.row, fa) {
                                     let row = (mouse.row.saturating_sub(fa.y + 1)) as usize
                                         + app.filter_scroll as usize;
@@ -560,7 +569,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
-                            if let Some(ia) = file_info_area {
+                            if let Some(ia) = info_area {
                                 if point_in_rect(mouse.column, mouse.row, ia)
                                     && app.filtered_file_indices.is_empty()
                                     && !app.mlt_files.is_empty()
@@ -577,13 +586,13 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             if let Some(area) = app.file_table_area {
                                 if app.data_loaded() {
                                     if let Some(widths) = app.file_table_widths {
-                                        if let Some(col) = file_header_click_column(
+                                        if let Some(c) = file_header_click_column(
                                             area,
                                             &widths,
                                             mouse.column,
                                             mouse.row,
                                         ) {
-                                            app.handle_file_header_click(col);
+                                            app.handle_file_header_click(c);
                                             continue;
                                         }
                                     }
@@ -610,11 +619,9 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 }
                             }
                         } else if app.mode == ViewMode::LayerOverview {
-                            if let (Some(left), Some(tree)) = (left_panel_area, tree_area) {
-                                if let Some(handle) =
-                                    divider_hit(mouse.column, mouse.row, left, tree)
-                                {
-                                    app.resizing = Some(handle);
+                            if let (Some(la), Some(ta)) = (left_area, tree_area) {
+                                if let Some(h) = divider_hit(mouse.column, mouse.row, la, ta) {
+                                    app.resizing = Some(h);
                                     app.invalidate();
                                     continue;
                                 }
@@ -631,17 +638,12 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                             prev == row && t.elapsed().as_millis() < 400
                                         });
                                         last_tree_click = Some((Instant::now(), row));
-                                        if let Some((layer, feat, part)) = app
+                                        if let Some((l, f, p)) = app
                                             .tree_items
                                             .get(row)
                                             .and_then(TreeItem::layer_feat_part)
                                         {
-                                            app.handle_feature_click(
-                                                layer,
-                                                feat,
-                                                part,
-                                                area.height,
-                                            );
+                                            app.handle_feature_click(l, f, p, area.height);
                                         } else {
                                             app.selected_index = row;
                                             app.scroll_selected_into_view(
@@ -655,16 +657,13 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     }
                                 }
                             }
-                            if let Some(ref info) = app.hovered {
-                                if let Some(tree) = tree_area {
+                            if let Some(ref h) = app.hovered {
+                                if let Some(ta) = tree_area {
                                     if map_area
                                         .is_some_and(|m| point_in_rect(mouse.column, mouse.row, m))
                                     {
                                         app.handle_feature_click(
-                                            info.layer,
-                                            info.feat,
-                                            info.part,
-                                            tree.height,
+                                            h.layer, h.feat, h.part, ta.height,
                                         );
                                         app.invalidate_bounds();
                                     }
@@ -681,6 +680,16 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     }
     Ok(())
 }
+
+/// Apply scroll delta: subtract if up, add if down.
+fn scroll_by(val: u16, step: u16, up: bool) -> u16 {
+    if up {
+        val.saturating_sub(step)
+    } else {
+        val.saturating_add(step)
+    }
+}
+
 // --- Filtering ---
 
 fn handle_filter_click(app: &mut App, row: usize) {
@@ -763,15 +772,15 @@ fn sub_type_name(geom: &Geometry) -> &'static str {
 
 fn geometry_color(geom: &Geometry) -> Color {
     match geom {
-        Geometry::Point(_) => Color::Magenta,
-        Geometry::MultiPoint(_) => Color::LightMagenta,
-        Geometry::LineString(_) => Color::Cyan,
-        Geometry::MultiLineString(_) => Color::LightCyan,
+        Geometry::Point(_) => CLR_POINT,
+        Geometry::MultiPoint(_) => CLR_MULTI_POINT,
+        Geometry::LineString(_) => CLR_LINE,
+        Geometry::MultiLineString(_) => CLR_MULTI_LINE,
         Geometry::Polygon(_) | Geometry::MultiPolygon(_) if has_nonstandard_winding(geom) => {
-            Color::LightRed
+            CLR_BAD_WINDING
         }
-        Geometry::Polygon(_) => Color::Blue,
-        Geometry::MultiPolygon(_) => Color::LightBlue,
+        Geometry::Polygon(_) => CLR_POLYGON,
+        Geometry::MultiPolygon(_) => CLR_MULTI_POLYGON,
     }
 }
 
@@ -820,29 +829,24 @@ fn sub_feature_suffix(geom: &Geometry, part: usize) -> String {
     }
 }
 
-fn is_entry_visible(layer: usize, feat: usize, selected: &TreeItem) -> bool {
-    match selected {
+fn is_entry_visible(layer: usize, feat: usize, sel: &TreeItem) -> bool {
+    match sel {
         TreeItem::All => true,
         TreeItem::Layer(l) => *l == layer,
-        TreeItem::Feature {
-            layer: sl,
-            feat: sf,
-        }
+        TreeItem::Feature { layer: l, feat: f }
         | TreeItem::SubFeature {
-            layer: sl,
-            feat: sf,
-            ..
-        } => *sl == layer && *sf == feat,
+            layer: l, feat: f, ..
+        } => *l == layer && *f == feat,
     }
 }
 
-fn part_color(selected: Option<usize>, hovered: Option<usize>, idx: usize, base: Color) -> Color {
-    if selected == Some(idx) {
-        Color::Yellow
-    } else if hovered == Some(idx) {
-        Color::White
-    } else if selected.is_some() || hovered.is_some() {
-        Color::DarkGray
+fn part_color(sel: Option<usize>, hov: Option<usize>, idx: usize, base: Color) -> Color {
+    if sel == Some(idx) {
+        CLR_SELECTED
+    } else if hov == Some(idx) {
+        CLR_HOVERED
+    } else if sel.is_some() || hov.is_some() {
+        CLR_DIMMED
     } else {
         base
     }

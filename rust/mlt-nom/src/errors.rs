@@ -1,16 +1,28 @@
 use std::convert::Infallible;
 
+use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
-use crate::v01::{GeometryType, LogicalTechnique};
+use crate::v01::{GeometryType, LogicalDecoder, LogicalTechnique, PhysicalStreamType};
 
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum MltError {
-    #[error("{0}")]
-    DecodeError(String),
+    #[error("unexpected stream type {0:?}")]
+    UnexpectedStreamType(PhysicalStreamType),
+    #[error("unsupported logical decoder {0:?} for {1}")]
+    UnsupportedLogicalDecoder(LogicalDecoder, &'static str),
+    #[error("dictionary index {0} out of bounds (len={1})")]
+    DictIndexOutOfBounds(u32, usize),
+    #[error("cannot decode {0} as {1}")]
+    DataWidthMismatch(&'static str, &'static str),
+    #[error("{0} is not decoded")]
+    NotDecoded(&'static str),
+    #[error("missing string stream: {0}")]
+    MissingStringStream(&'static str),
+
     #[error("Integer overflow")]
     IntegerOverflow,
     #[error("multiple ID columns found (only one allowed)")]
@@ -79,7 +91,7 @@ pub enum MltError {
     #[error("FastPFor decode failed: expected={expected} got={got}")]
     FastPforDecode { expected: usize, got: usize },
     #[error("FastPFor FFI error: {0}")]
-    FastPforFfi(String),
+    FastPforFfi(#[from] Exception),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
 

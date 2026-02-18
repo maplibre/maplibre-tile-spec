@@ -10,9 +10,8 @@ use num_enum::TryFromPrimitive;
 
 use crate::MltError;
 use crate::MltError::{
-    DecodeError, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
-    IntegerOverflow, NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
-    UnexpectedOffsetCombination,
+    GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
@@ -365,17 +364,13 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         let v = stream.decode_bits_u32()?.decode_i32()?;
                         vertices.set_once(v)?;
                     }
-                    v => Err(DecodeError(format!(
-                        "Geometry stream cannot have Data physical type {v:?}"
-                    )))?,
+                    _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
                 },
                 PhysicalStreamType::Offset(v) => {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
-                        v => Err(DecodeError(format!(
-                            "Geometry stream cannot have Offset physical type {v:?}"
-                        )))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
                     };
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
@@ -385,9 +380,7 @@ impl<'a> FromRaw<'a> for DecodedGeometry {
                         LengthType::Parts => &mut part_offsets,
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
-                        v => Err(DecodeError(format!(
-                            "Geometry stream cannot have Length physical type {v:?}"
-                        )))?,
+                        _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
                     };
                     // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamDecoder<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;

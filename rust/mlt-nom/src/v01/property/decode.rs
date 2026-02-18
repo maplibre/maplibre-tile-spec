@@ -34,11 +34,7 @@ pub fn decode_string_streams(streams: Vec<Stream<'_>>) -> Result<Vec<String>, Ml
             PhysicalStreamType::Offset(OffsetType::String) => {
                 offsets = Some(s.decode_bits_u32()?.decode_u32()?);
             }
-            other => {
-                return Err(MltError::DecodeError(format!(
-                    "Unexpected stream type in string property: {other:?}"
-                )));
-            }
+            _ => Err(MltError::UnexpectedStreamType(s.meta.physical_type))?,
         }
     }
 
@@ -59,12 +55,10 @@ pub fn decode_string_streams(streams: Vec<Stream<'_>>) -> Result<Vec<String>, Ml
         let data = data_bytes
             .as_deref()
             .or(dict_bytes.as_deref())
-            .ok_or_else(|| MltError::DecodeError("Missing data stream for strings".into()))?;
+            .ok_or(MltError::MissingStringStream("string data"))?;
         decode_plain_strings(lengths, data)
     } else {
-        Err(MltError::DecodeError(
-            "Missing required string streams".into(),
-        ))
+        Err(MltError::MissingStringStream("any usable combination"))
     }
 }
 fn raw_bytes(s: Stream<'_>) -> Vec<u8> {
