@@ -11,7 +11,7 @@ pub enum StatType {
 
 /// Trait for estimating various size/count metrics.
 pub trait Analyze {
-    fn decoded(&self, _stat: StatType) -> usize {
+    fn decoded_statistics_for(&self, _stat: StatType) -> usize {
         0
     }
 
@@ -23,7 +23,7 @@ pub trait Analyze {
 macro_rules! impl_statistics_fixed {
     ($($ty:ty),+) => {
         $(impl Analyze for $ty {
-            fn decoded(&self, _stat: StatType) -> usize {
+            fn decoded_statistics_for(&self, _stat: StatType) -> usize {
                 size_of::<$ty>()
             }
         })+
@@ -33,14 +33,14 @@ macro_rules! impl_statistics_fixed {
 impl_statistics_fixed!(bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64);
 
 impl Analyze for String {
-    fn decoded(&self, _stat: StatType) -> usize {
+    fn decoded_statistics_for(&self, _stat: StatType) -> usize {
         self.len()
     }
 }
 
 impl<T: Analyze> Analyze for Option<T> {
-    fn decoded(&self, stat: StatType) -> usize {
-        self.as_ref().map_or(0, |v| v.decoded(stat))
+    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+        self.as_ref().map_or(0, |v| v.decoded_statistics_for(stat))
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
@@ -51,8 +51,8 @@ impl<T: Analyze> Analyze for Option<T> {
 }
 
 impl<T: Analyze> Analyze for [T] {
-    fn decoded(&self, stat: StatType) -> usize {
-        self.iter().map(|v| v.decoded(stat)).sum()
+    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+        self.iter().map(|v| v.decoded_statistics_for(stat)).sum()
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {
@@ -63,8 +63,8 @@ impl<T: Analyze> Analyze for [T] {
 }
 
 impl<T: Analyze> Analyze for Vec<T> {
-    fn decoded(&self, stat: StatType) -> usize {
-        self.as_slice().decoded(stat)
+    fn decoded_statistics_for(&self, stat: StatType) -> usize {
+        self.as_slice().decoded_statistics_for(stat)
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&crate::v01::Stream<'_>)) {

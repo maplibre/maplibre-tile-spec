@@ -21,10 +21,10 @@ pub enum Property<'a> {
 }
 
 impl Analyze for Property<'_> {
-    fn decoded(&self, stat: StatType) -> usize {
+    fn decoded_statistics_for(&self, stat: StatType) -> usize {
         match self {
-            Self::Raw(d) => d.decoded(stat),
-            Self::Decoded(d) => d.decoded(stat),
+            Self::Raw(d) => d.decoded_statistics_for(stat),
+            Self::Decoded(d) => d.decoded_statistics_for(stat),
         }
     }
 
@@ -158,13 +158,13 @@ pub struct DecodedProperty {
 }
 
 impl Analyze for DecodedProperty {
-    fn decoded(&self, stat: StatType) -> usize {
+    fn decoded_statistics_for(&self, stat: StatType) -> usize {
         let meta = if stat == StatType::MetadataOverheadBytes {
             self.name.len()
         } else {
             0
         };
-        meta + self.values.decoded(stat)
+        meta + self.values.decoded_statistics_for(stat)
     }
 }
 
@@ -186,18 +186,18 @@ pub enum PropValue {
 }
 
 impl Analyze for PropValue {
-    fn decoded(&self, stat: StatType) -> usize {
+    fn decoded_statistics_for(&self, stat: StatType) -> usize {
         match self {
-            Self::Bool(v) => v.decoded(stat),
-            Self::I8(v) => v.decoded(stat),
-            Self::U8(v) => v.decoded(stat),
-            Self::I32(v) => v.decoded(stat),
-            Self::U32(v) => v.decoded(stat),
-            Self::I64(v) => v.decoded(stat),
-            Self::U64(v) => v.decoded(stat),
-            Self::F32(v) => v.decoded(stat),
-            Self::F64(v) => v.decoded(stat),
-            Self::Str(v) => v.decoded(stat),
+            Self::Bool(v) => v.decoded_statistics_for(stat),
+            Self::I8(v) => v.decoded_statistics_for(stat),
+            Self::U8(v) => v.decoded_statistics_for(stat),
+            Self::I32(v) => v.decoded_statistics_for(stat),
+            Self::U32(v) => v.decoded_statistics_for(stat),
+            Self::I64(v) => v.decoded_statistics_for(stat),
+            Self::U64(v) => v.decoded_statistics_for(stat),
+            Self::F32(v) => v.decoded_statistics_for(stat),
+            Self::F64(v) => v.decoded_statistics_for(stat),
+            Self::Str(v) => v.decoded_statistics_for(stat),
             Self::Struct => 0,
         }
     }

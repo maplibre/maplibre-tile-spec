@@ -319,9 +319,9 @@ pub fn analyze_mlt_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Resul
     for layer in &mut layers {
         layer.decode_all()?;
         if let Some(layer01) = layer.as_layer01() {
-            data_size += layer01.decoded(StatType::PayloadDataSizeBytes);
-            meta_size += layer01.decoded(StatType::MetadataOverheadBytes);
-            feature_count += layer01.decoded(StatType::FeatureCount);
+            data_size += layer01.decoded_statistics_for(StatType::PayloadDataSizeBytes);
+            meta_size += layer01.decoded_statistics_for(StatType::MetadataOverheadBytes);
+            feature_count += layer01.decoded_statistics_for(StatType::FeatureCount);
 
             if let Geometry::Decoded(ref geom) = layer01.geometry {
                 for &geom_type in &geom.vector_types {
