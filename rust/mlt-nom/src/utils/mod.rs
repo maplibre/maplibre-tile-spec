@@ -30,3 +30,18 @@ impl<T> SetOptionOnce<T> for Option<T> {
         }
     }
 }
+
+/// Apply an optional present bitmap to a vector of values.
+/// If present is None (non-optional column), all values are wrapped in Some.
+/// If present is Some, values are interleaved with None according to the bitmap.
+pub fn apply_present<T>(present: Option<&Vec<bool>>, values: Vec<T>) -> Vec<Option<T>> {
+    let Some(present) = present else {
+        return values.into_iter().map(Some).collect();
+    };
+    let mut result = Vec::with_capacity(present.len());
+    let mut val_iter = values.into_iter();
+    for &p in present {
+        result.push(if p { val_iter.next() } else { None });
+    }
+    result
+}
