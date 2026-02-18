@@ -40,7 +40,8 @@ impl StringStreams {
                 PST::Offset(OffsetType::String) => {
                     result.offsets = Some(s.decode_bits_u32()?.decode_u32()?);
                 }
-            _ => Err(MltError::UnexpectedStreamType(s.meta.physical_type))?,
+                _ => Err(MltError::UnexpectedStreamType(s.meta.physical_type))?,
+            }
         }
         Ok(result)
     }
@@ -112,13 +113,14 @@ fn split_to_strings(lengths: &[u32], data: &[u8]) -> Result<Vec<String>, MltErro
                 remaining: data.len().saturating_sub(offset),
             });
         };
-        strings.push(std::str::from_utf8(v)?.to_string());
+        strings.push(str::from_utf8(v)?.to_owned());
         offset += len;
     }
     Ok(strings)
 }
 
 fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec<u8> {
+    // Build symbol offset table
     let mut symbol_offsets = vec![0u32; symbol_lengths.len()];
     for i in 1..symbol_lengths.len() {
         symbol_offsets[i] = symbol_offsets[i - 1] + symbol_lengths[i - 1];
