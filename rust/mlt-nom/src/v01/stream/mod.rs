@@ -509,8 +509,9 @@ impl<'a> Stream<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     /// Test case for stream decoding tests
     #[derive(Debug)]
