@@ -1,12 +1,13 @@
 use mlt_nom::geojson::{Feature, Geometry};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::prelude::{Color, Line, Modifier, Span, Style};
+use ratatui::prelude::{Line, Modifier, Span, Style};
 use ratatui::widgets::{Paragraph, Wrap};
 
+use crate::cli::ui::state::{App, TreeItem, ViewMode};
 use crate::cli::ui::{
-    App, TreeItem, ViewMode, block_with_title, feature_suffix, geometry_color, geometry_type_name,
-    is_ring_ccw, sub_feature_suffix, sub_type_name,
+    CLR_HOVERED_TREE, STYLE_LABEL, STYLE_SELECTED, block_with_title, feature_suffix,
+    geometry_color, geometry_type_name, is_ring_ccw, stat_line, sub_feature_suffix, sub_type_name,
 };
 
 pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
@@ -15,47 +16,49 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .iter()
         .enumerate()
         .map(|(idx, item)| {
-            let (text, base_color) = match item {
-                TreeItem::All => ("All".to_string(), None),
+            let (text, base) = match item {
+                TreeItem::All => ("All".into(), None),
                 TreeItem::Layer(li) => {
-                    let group = &app.layer_groups[*li];
-                    let n = group.feature_indices.len();
-                    let first_type = group
+                    let g = &app.layer_groups[*li];
+                    let n = g.feature_indices.len();
+                    let first = g
                         .feature_indices
                         .first()
                         .map(|&gi| geometry_type_name(&app.fc.features[gi].geometry));
-                    let all_same = first_type.is_some_and(|ft| {
-                        group
-                            .feature_indices
+                    let all_same = first.is_some_and(|ft| {
+                        g.feature_indices
                             .iter()
                             .all(|&gi| geometry_type_name(&app.fc.features[gi].geometry) == ft)
                     });
                     let label = if all_same && n > 0 {
-                        format!("{}s", first_type.unwrap())
+                        format!("{}s", first.unwrap())
                     } else {
-                        "features".to_string()
+                        "features".into()
                     };
                     (
-                        format!(
-                            "  Layer: {} ({n} {label}, extent {})",
-                            group.name, group.extent
-                        ),
+                        format!("  Layer: {} ({n} {label}, extent {})", g.name, g.extent),
                         None,
                     )
                 }
                 TreeItem::Feature { layer, feat } => {
                     let geom = &app.feature(*layer, *feat).geometry;
-                    let suffix = feature_suffix(geom);
                     (
-                        format!("    Feat {feat}: {}{suffix}", geometry_type_name(geom)),
+                        format!(
+                            "    Feat {feat}: {}{}",
+                            geometry_type_name(geom),
+                            feature_suffix(geom)
+                        ),
                         Some(geometry_color(geom)),
                     )
                 }
                 TreeItem::SubFeature { layer, feat, part } => {
                     let geom = &app.feature(*layer, *feat).geometry;
-                    let suffix = sub_feature_suffix(geom, *part);
                     (
-                        format!("      Part {part}: {}{suffix}", sub_type_name(geom)),
+                        format!(
+                            "      Part {part}: {}{}",
+                            sub_type_name(geom),
+                            sub_feature_suffix(geom, *part)
+                        ),
                         Some(geometry_color(geom)),
                     )
                 }
@@ -67,15 +70,13 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 "   "
             };
             let style = if idx == app.selected_index {
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD)
+                STYLE_SELECTED
             } else if app.hovered.as_ref().is_some_and(|h| h.tree_idx == idx) {
                 Style::default()
-                    .fg(Color::LightGreen)
+                    .fg(CLR_HOVERED_TREE)
                     .add_modifier(Modifier::UNDERLINED)
             } else {
-                base_color.map_or(Style::default(), |c| Style::default().fg(c))
+                base.map_or(Style::default(), |c| Style::default().fg(c))
             };
             Line::from(vec![Span::raw(prefix), Span::styled(text, style)])
         })
@@ -91,23 +92,16 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 .unwrap_or("unknown");
             format!("{name} - Enter/+/-:expand, Esc:back, h:help, q:quit")
         }
-        ViewMode::FileBrowser => "Features".to_string(),
+        ViewMode::FileBrowser => "Features".into(),
     };
-    let inner_height = area.height.saturating_sub(2) as usize;
-    app.tree_inner_height = inner_height;
-    let max_scroll = u16::try_from(app.tree_items.len().saturating_sub(inner_height)).unwrap_or(0);
-    app.tree_scroll = app.tree_scroll.min(max_scroll);
+    let inner = area.height.saturating_sub(2) as usize;
+    app.tree_inner_height = inner;
+    let max = u16::try_from(app.tree_items.len().saturating_sub(inner)).unwrap_or(0);
+    app.tree_scroll = app.tree_scroll.min(max);
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
         .scroll((app.tree_scroll, 0));
     f.render_widget(para, area);
-}
-
-fn format_property_value(v: &serde_json::Value) -> String {
-    match v {
-        serde_json::Value::String(s) => s.clone(),
-        _ => v.to_string(),
-    }
 }
 
 fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
@@ -116,9 +110,13 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
         .iter()
         .filter(|(k, _)| *k != "_layer" && *k != "_extent")
         .map(|(k, v)| {
+            let val = match v {
+                serde_json::Value::String(s) => s.clone(),
+                _ => v.to_string(),
+            };
             Line::from(vec![
-                Span::styled(format!("{k}: "), Style::default().fg(Color::Cyan)),
-                Span::raw(format_property_value(v)),
+                Span::styled(format!("{k}: "), STYLE_LABEL),
+                Span::raw(val),
             ])
         })
         .collect();
@@ -141,10 +139,10 @@ pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 
 fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let item = app.tree_items.get(app.selected_index);
-    let hovered = app.hovered.as_ref();
+    let hov = app.hovered.as_ref();
     let (title, lines): (String, Vec<Line<'static>>) = match item {
         None | Some(TreeItem::All | TreeItem::Layer(_)) => {
-            if let Some(h) = hovered {
+            if let Some(h) = hov {
                 let key = (h.layer, h.feat);
                 if app.last_properties_key != Some(key) {
                     app.properties_scroll = 0;
@@ -157,7 +155,7 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             } else {
                 app.last_properties_key = None;
                 (
-                    "Properties".to_string(),
+                    "Properties".into(),
                     vec![Line::from(
                         "Select a feature or hover over map to view properties",
                     )],
@@ -176,9 +174,9 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             )
         }
     };
-    let inner_height = area.height.saturating_sub(2);
-    let max_scroll = u16::try_from(lines.len().saturating_sub(inner_height as usize)).unwrap_or(0);
-    app.properties_scroll = app.properties_scroll.min(max_scroll);
+    let inner = area.height.saturating_sub(2);
+    let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
+    app.properties_scroll = app.properties_scroll.min(max);
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
         .wrap(Wrap { trim: true })
@@ -187,87 +185,56 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 }
 
 fn geometry_stats_lines(geom: &Geometry) -> Vec<Line<'static>> {
-    let cyan = Style::default().fg(Color::Cyan);
-    let stat = |name: &str, val: &dyn std::fmt::Display| -> Line<'static> {
-        Line::from(vec![
-            Span::styled(format!("{name}: "), cyan),
-            Span::raw(val.to_string()),
-        ])
-    };
-
-    let mut lines = vec![stat("Type", &geometry_type_name(geom))];
+    let mut lines = vec![stat_line("Type", &geometry_type_name(geom))];
     match geom {
         Geometry::Point(c) => {
-            lines.push(stat("Coords", &format!("[{}, {}]", c[0], c[1])));
+            lines.push(stat_line("Coords", &format!("[{}, {}]", c[0], c[1])));
         }
         Geometry::MultiPoint(pts) => {
-            lines.push(stat("Points", &pts.len()));
+            lines.push(stat_line("Points", &pts.len()));
         }
         Geometry::LineString(c) => {
-            lines.push(stat("Vertices", &c.len()));
+            lines.push(stat_line("Vertices", &c.len()));
         }
         Geometry::MultiLineString(v) => {
-            lines.push(stat("Parts", &v.len()));
+            lines.push(stat_line("Parts", &v.len()));
             let total: usize = v.iter().map(Vec::len).sum();
-            lines.push(stat("Vertices", &total));
+            lines.push(stat_line("Vertices", &total));
         }
-        Geometry::Polygon(rings) => {
-            let total: usize = rings.iter().map(Vec::len).sum();
-            lines.push(stat("Vertices", &total));
-            lines.push(stat("Rings", &rings.len()));
-            for (i, ring) in rings.iter().enumerate() {
-                let w = if is_ring_ccw(ring) { "CCW" } else { "CW" };
-                lines.push(Line::from(format!("  Ring {i}: {}v, {w}", ring.len())));
-            }
-        }
+        Geometry::Polygon(rings) => push_ring_stats(&mut lines, rings),
         Geometry::MultiPolygon(polys) => {
-            lines.push(stat("Parts", &polys.len()));
+            lines.push(stat_line("Parts", &polys.len()));
             let total: usize = polys.iter().flat_map(|p| p.iter()).map(Vec::len).sum();
-            lines.push(stat("Total vertices", &total));
+            lines.push(stat_line("Total vertices", &total));
             let total_rings: usize = polys.iter().map(Vec::len).sum();
-            lines.push(stat("Total rings", &total_rings));
+            lines.push(stat_line("Total rings", &total_rings));
         }
     }
-
     lines
 }
 
 fn subpart_stats_lines(geom: &Geometry, part: usize) -> Vec<Line<'static>> {
-    let cyan = Style::default().fg(Color::Cyan);
-    let stat = |name: &str, val: &dyn std::fmt::Display| -> Line<'static> {
-        Line::from(vec![
-            Span::styled(format!("{name}: "), cyan),
-            Span::raw(val.to_string()),
-        ])
-    };
-
-    let mut lines = vec![stat(
+    let mut lines = vec![stat_line(
         "Part",
         &format!("#{part} of {}", geometry_type_name(geom)),
     )];
     match geom {
         Geometry::MultiPoint(pts) => {
             if let Some(&[x, y]) = pts.get(part) {
-                lines.push(stat("Type", &"Point"));
-                lines.push(stat("Coords", &format!("[{x}, {y}]")));
+                lines.push(stat_line("Type", &"Point"));
+                lines.push(stat_line("Coords", &format!("[{x}, {y}]")));
             }
         }
         Geometry::MultiLineString(v) => {
             if let Some(line) = v.get(part) {
-                lines.push(stat("Type", &"LineString"));
-                lines.push(stat("Vertices", &line.len()));
+                lines.push(stat_line("Type", &"LineString"));
+                lines.push(stat_line("Vertices", &line.len()));
             }
         }
         Geometry::MultiPolygon(polys) => {
             if let Some(rings) = polys.get(part) {
-                lines.push(stat("Type", &"Polygon"));
-                let total: usize = rings.iter().map(Vec::len).sum();
-                lines.push(stat("Vertices", &total));
-                lines.push(stat("Rings", &rings.len()));
-                for (i, ring) in rings.iter().enumerate() {
-                    let w = if is_ring_ccw(ring) { "CCW" } else { "CW" };
-                    lines.push(Line::from(format!("  Ring {i}: {}v, {w}", ring.len())));
-                }
+                lines.push(stat_line("Type", &"Polygon"));
+                push_ring_stats(&mut lines, rings);
             }
         }
         _ => {}
@@ -275,20 +242,29 @@ fn subpart_stats_lines(geom: &Geometry, part: usize) -> Vec<Line<'static>> {
     lines
 }
 
+fn push_ring_stats(lines: &mut Vec<Line<'static>>, rings: &[Vec<mlt_nom::geojson::Coordinate>]) {
+    let total: usize = rings.iter().map(Vec::len).sum();
+    lines.push(stat_line("Vertices", &total));
+    lines.push(stat_line("Rings", &rings.len()));
+    for (i, ring) in rings.iter().enumerate() {
+        let w = if is_ring_ccw(ring) { "CCW" } else { "CW" };
+        lines.push(Line::from(format!("  Ring {i}: {}v, {w}", ring.len())));
+    }
+}
+
 fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
     let item = app.tree_items.get(app.selected_index);
-    let hovered = app.hovered.as_ref();
+    let hov = app.hovered.as_ref();
 
     let lines = match item {
         Some(TreeItem::SubFeature { layer, feat, part }) => {
-            let geom = &app.feature(*layer, *feat).geometry;
-            subpart_stats_lines(geom, *part)
+            subpart_stats_lines(&app.feature(*layer, *feat).geometry, *part)
         }
         Some(TreeItem::Feature { layer, feat }) => {
             geometry_stats_lines(&app.feature(*layer, *feat).geometry)
         }
         _ => {
-            if let Some(h) = hovered {
+            if let Some(h) = hov {
                 let geom = &app.feature(h.layer, h.feat).geometry;
                 match h.part {
                     Some(p) => subpart_stats_lines(geom, p),
