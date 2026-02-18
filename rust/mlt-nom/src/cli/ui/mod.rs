@@ -29,6 +29,7 @@ use crate::cli::ls::{FileSortColumn, LsRow, MltFileInfo, analyze_mlt_files};
 use crate::cli::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
 };
+use crate::cli::ui::rendering::help::render_help_overlay;
 use crate::cli::ui::rendering::layers::{render_properties_panel, render_tree_panel};
 use crate::cli::ui::rendering::map::render_map_panel;
 use crate::cli::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
@@ -265,48 +266,53 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
 
         if app.needs_redraw {
             app.needs_redraw = false;
-            terminal.draw(|f| match app.mode {
-                ViewMode::FileBrowser => {
-                    let chunks = Layout::default()
-                        .direction(Direction::Horizontal)
-                        .constraints([
-                            Constraint::Percentage(app.file_left_pct),
-                            Constraint::Percentage(100u16.saturating_sub(app.file_left_pct)),
-                        ])
-                        .split(f.area());
-                    let right = Layout::default()
-                        .direction(Direction::Vertical)
-                        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                        .split(chunks[1]);
-                    render_file_browser(f, chunks[0], app);
-                    render_file_filter_panel(f, right[0], app);
-                    render_file_info_panel(f, right[1], app);
-                    file_left_area = Some(chunks[0]);
-                    file_filter_area = Some(right[0]);
-                    file_info_area = Some(right[1]);
+            terminal.draw(|f| {
+                match app.mode {
+                    ViewMode::FileBrowser => {
+                        let chunks = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.file_left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.file_left_pct)),
+                            ])
+                            .split(f.area());
+                        let right = Layout::default()
+                            .direction(Direction::Vertical)
+                            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                            .split(chunks[1]);
+                        render_file_browser(f, chunks[0], app);
+                        render_file_filter_panel(f, right[0], app);
+                        render_file_info_panel(f, right[1], app);
+                        file_left_area = Some(chunks[0]);
+                        file_filter_area = Some(right[0]);
+                        file_info_area = Some(right[1]);
+                    }
+                    ViewMode::LayerOverview => {
+                        let chunks = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.left_pct)),
+                            ])
+                            .split(f.area());
+                        let left = Layout::default()
+                            .direction(Direction::Vertical)
+                            .constraints([
+                                Constraint::Percentage(app.features_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.features_pct)),
+                            ])
+                            .split(chunks[0]);
+                        render_tree_panel(f, left[0], app);
+                        render_properties_panel(f, left[1], app);
+                        render_map_panel(f, chunks[1], app);
+                        tree_area = Some(left[0]);
+                        properties_area = Some(left[1]);
+                        left_panel_area = Some(chunks[0]);
+                        map_area = Some(chunks[1]);
+                    }
                 }
-                ViewMode::LayerOverview => {
-                    let chunks = Layout::default()
-                        .direction(Direction::Horizontal)
-                        .constraints([
-                            Constraint::Percentage(app.left_pct),
-                            Constraint::Percentage(100u16.saturating_sub(app.left_pct)),
-                        ])
-                        .split(f.area());
-                    let left = Layout::default()
-                        .direction(Direction::Vertical)
-                        .constraints([
-                            Constraint::Percentage(app.features_pct),
-                            Constraint::Percentage(100u16.saturating_sub(app.features_pct)),
-                        ])
-                        .split(chunks[0]);
-                    render_tree_panel(f, left[0], app);
-                    render_properties_panel(f, left[1], app);
-                    render_map_panel(f, chunks[1], app);
-                    tree_area = Some(left[0]);
-                    properties_area = Some(left[1]);
-                    left_panel_area = Some(chunks[0]);
-                    map_area = Some(chunks[1]);
+                if app.show_help {
+                    render_help_overlay(f, app);
                 }
             })?;
         }
@@ -319,9 +325,40 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     {
                         break;
                     }
+                    if app.show_help {
+                        match key.code {
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                app.help_scroll = app.help_scroll.saturating_sub(1);
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                app.help_scroll = app.help_scroll.saturating_add(1);
+                            }
+                            KeyCode::PageUp => {
+                                app.help_scroll = app.help_scroll.saturating_sub(10);
+                            }
+                            KeyCode::PageDown => {
+                                app.help_scroll = app.help_scroll.saturating_add(10);
+                            }
+                            KeyCode::Home => app.help_scroll = 0,
+                            KeyCode::End => app.help_scroll = u16::MAX,
+                            _ => app.show_help = false,
+                        }
+                        app.invalidate();
+                        continue;
+                    }
                     match key.code {
                         KeyCode::Char('q') => break,
                         KeyCode::Esc if app.handle_escape() => break,
+                        KeyCode::Char('?') | KeyCode::F(1) => {
+                            app.show_help = true;
+                            app.help_scroll = 0;
+                            app.invalidate();
+                        }
+                        KeyCode::Char('h') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            app.show_help = true;
+                            app.help_scroll = 0;
+                            app.invalidate();
+                        }
                         KeyCode::Enter => app.handle_enter()?,
                         KeyCode::Char('+' | '=') | KeyCode::Right => app.handle_plus(),
                         KeyCode::Char('-') => app.handle_minus(),
@@ -356,6 +393,16 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.invalidate();
                         }
                         _ => {}
+                    }
+                }
+                Event::Mouse(mouse) if app.show_help => {
+                    if let MouseEventKind::ScrollUp | MouseEventKind::ScrollDown = mouse.kind {
+                        if matches!(mouse.kind, MouseEventKind::ScrollUp) {
+                            app.help_scroll = app.help_scroll.saturating_sub(1);
+                        } else {
+                            app.help_scroll = app.help_scroll.saturating_add(1);
+                        }
+                        app.invalidate();
                     }
                 }
                 Event::Mouse(mouse) => match mouse.kind {

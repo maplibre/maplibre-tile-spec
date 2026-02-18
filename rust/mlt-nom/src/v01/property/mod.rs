@@ -4,8 +4,10 @@ use std::fmt::{self, Debug};
 use std::io::Write;
 
 use borrowme::borrowme;
+use integer_encoding::VarIntWriter as _;
 
 use crate::MltError;
+use crate::MltError::IntegerOverflow;
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
@@ -109,9 +111,36 @@ impl OwnedRawProperty {
         Ok(())
     }
 
-    #[expect(clippy::unused_self)]
-    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
-        Err(MltError::NotImplemented("property write"))
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        use OwnedRawPropValue as Val;
+        if let Some(opt) = &self.optional {
+            writer.write_optional(opt)?;
+        }
+
+        match &self.value {
+            Val::Bool(b) => writer.write_boolean_stream(b)?,
+            Val::I8(s)
+            | Val::U8(s)
+            | Val::I32(s)
+            | Val::U32(s)
+            | Val::I64(s)
+            | Val::U64(s)
+            | Val::F32(s)
+            | Val::F64(s) => writer.write_stream(s)?,
+            Val::Str(streams) => {
+                let stream_count = u64::try_from(streams.len()).map_err(|_| IntegerOverflow)?;
+                let opt_stream_count = u64::from(self.optional.is_some());
+                let Some(stream_count) = stream_count.checked_add(opt_stream_count) else {
+                    return Err(IntegerOverflow);
+                };
+                writer.write_varint(stream_count)?;
+                for s in streams {
+                    writer.write_stream(s)?;
+                }
+            }
+            Val::Struct(_) => return Err(MltError::NotImplemented("string stream writing")),
+        }
+        Ok(())
     }
 }
 

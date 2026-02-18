@@ -5,17 +5,19 @@ use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
+use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError;
 use crate::MltError::{
     DecodeError, GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
+    IntegerOverflow, NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
+    UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decodable::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
-use crate::utils::{OptSeq, SetOptionOnce as _};
+use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
 use crate::v01::geometry::decode::{
     decode_geometry_types, decode_level1_length_stream,
@@ -51,7 +53,7 @@ impl Analyze for Geometry<'_> {
 impl OwnedGeometry {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Raw(_) => OwnedRawGeometry::write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -80,15 +82,20 @@ impl Analyze for RawGeometry<'_> {
 }
 
 impl OwnedRawGeometry {
-    #[expect(clippy::unused_self)]
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
     }
 
-    #[expect(clippy::unused_self)]
-    pub(crate) fn write_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
-        Err(NotImplemented("geometry write"))
+    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        let items_len = u64::try_from(self.items.len()).map_err(|_| IntegerOverflow)?;
+        let items_len = items_len.checked_add(1).ok_or(IntegerOverflow)?;
+        writer.write_varint(items_len)?;
+        writer.write_stream(&self.meta)?;
+        for item in &self.items {
+            writer.write_stream(item)?;
+        }
+        Ok(())
     }
 }
 
