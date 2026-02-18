@@ -11,8 +11,9 @@ use num_enum::TryFromPrimitive;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{all, take};
 use crate::v01::stream::decode::decode_fastpfor_composite;
-pub use crate::v01::stream::logical::{LogicalData, LogicalValue};
-pub use crate::v01::stream::logical::{LogicalDecoder, LogicalTechnique};
+pub use crate::v01::stream::logical::{
+    LogicalData, LogicalDecoder, LogicalTechnique, LogicalValue,
+};
 pub use crate::v01::stream::physical::{PhysicalDecoder, PhysicalStreamType};
 use crate::{MltError, MltRefResult, utils};
 

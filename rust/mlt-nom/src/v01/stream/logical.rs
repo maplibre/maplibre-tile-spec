@@ -1,10 +1,12 @@
+use std::fmt;
+use std::fmt::Debug;
+
+use borrowme::borrowme;
+use num_enum::TryFromPrimitive;
+
 use crate::utils::{decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta};
 use crate::v01::{MortonMeta, RleMeta, StreamMeta};
 use crate::{MltError, utils};
-use borrowme::borrowme;
-use num_enum::TryFromPrimitive;
-use std::fmt;
-use std::fmt::Debug;
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[borrowme]

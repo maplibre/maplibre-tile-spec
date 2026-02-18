@@ -1,5 +1,6 @@
-use crate::MltError;
 use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
+
+use crate::MltError;
 
 /// Decode FastPFOR-compressed data using the composite codec protocol.
 ///
