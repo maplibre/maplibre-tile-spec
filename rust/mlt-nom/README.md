@@ -56,7 +56,7 @@ cargo run -- ui path/to/directory
 
 Features:
 - **Tree View Panel (left)**: Browse layers and features in a hierarchical tree
-  - "All Layers" - shows all features from all layers
+- "All Layers" - shows all features from all layers
   - Individual layers - shows all features in that layer
   - Individual features - shows only the selected feature
   - Hovered features are highlighted with underlined green text

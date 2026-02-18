@@ -866,6 +866,10 @@ fn find_mlt_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+fn point_in_rect(col: u16, row: u16, area: Rect) -> bool {
+    col >= area.x && col < area.x + area.width && row >= area.y && row < area.y + area.height
+}
+
 fn click_row_in_area(col: u16, row: u16, area: Rect, scroll_offset: usize) -> Option<usize> {
     let top = area.y + 1;
     let bot = area.y + area.height.saturating_sub(1);
@@ -1104,11 +1108,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                             if app.hovered.is_none() {
                                 if let Some(area) = map_area {
-                                    if mouse.column >= area.x
-                                        && mouse.column < area.x + area.width
-                                        && mouse.row >= area.y
-                                        && mouse.row < area.y + area.height
-                                    {
+                                    if point_in_rect(mouse.column, mouse.row, area) {
                                         let b = app.get_bounds();
                                         let rx = f64::from(mouse.column - area.x)
                                             / f64::from(area.width);
@@ -1152,14 +1152,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
-                            if let Some(area) = map_area {
-                                if mouse.column >= area.x
-                                    && mouse.column < area.x + area.width
-                                    && mouse.row >= area.y
-                                    && mouse.row < area.y + area.height
-                                {
-                                    continue;
-                                }
+                            if map_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a)) {
+                                continue;
                             }
                         }
                         app.move_up_by(s);
@@ -1197,14 +1191,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
-                            if let Some(area) = map_area {
-                                if mouse.column >= area.x
-                                    && mouse.column < area.x + area.width
-                                    && mouse.row >= area.y
-                                    && mouse.row < area.y + area.height
-                                {
-                                    continue;
-                                }
+                            if map_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a)) {
+                                continue;
                             }
                         }
                         app.move_down_by(s);
