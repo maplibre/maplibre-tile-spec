@@ -28,13 +28,13 @@ dependencies {
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
     implementation 'org.jetbrains:annotations:26.0.2-1'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.3'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.3'
     testImplementation 'org.openjdk.jmh:jmh-core:1.37'
     testImplementation 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
     testImplementation 'org.xerial:sqlite-jdbc:3.51.2.0'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.0.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.0.3'
 }
 
 test {
