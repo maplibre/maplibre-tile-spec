@@ -71,8 +71,18 @@ fn percent_of(part: usize, whole: usize) -> f64 {
     }
 }
 
-#[derive(serde::Serialize, Debug)]
-struct MltFileInfo {
+/// Column index for file table sorting in the UI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileSortColumn {
+    File,
+    Size,
+    EncPct,
+    Layers,
+    Features,
+}
+
+#[derive(serde::Serialize, Debug, Clone)]
+pub struct MltFileInfo {
     path: String,
     size: usize,
     encoding_pct: f64,
@@ -88,14 +98,57 @@ struct MltFileInfo {
     geometries: String,
 }
 
-#[derive(serde::Serialize)]
-#[serde(untagged)]
-enum LsRow {
-    Info(MltFileInfo),
-    Error { path: String, error: String },
+impl MltFileInfo {
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+    pub fn size(&self) -> usize {
+        self.size
+    }
+    pub fn encoding_pct(&self) -> f64 {
+        self.encoding_pct
+    }
+    pub fn data_size(&self) -> usize {
+        self.data_size
+    }
+    pub fn meta_size(&self) -> usize {
+        self.meta_size
+    }
+    pub fn meta_pct(&self) -> f64 {
+        self.meta_pct
+    }
+    pub fn layers(&self) -> usize {
+        self.layers
+    }
+    pub fn features(&self) -> usize {
+        self.features
+    }
+    pub fn streams(&self) -> usize {
+        self.streams
+    }
+    pub fn geometries(&self) -> &str {
+        &self.geometries
+    }
+    pub fn algorithms(&self) -> &str {
+        &self.algorithms
+    }
 }
 
-fn relative_path(path: &Path, base_path: &Path) -> String {
+#[derive(serde::Serialize, Clone)]
+#[serde(untagged)]
+pub enum LsRow {
+    Info(MltFileInfo),
+    Error {
+        path: String,
+        error: String,
+    },
+    /// Placeholder while analysis is in progress
+    Loading {
+        path: String,
+    },
+}
+
+pub fn relative_path(path: &Path, base_path: &Path) -> String {
     if base_path.is_file() {
         path.file_name()
             .and_then(|n| n.to_str())
@@ -139,7 +192,7 @@ pub fn ls(args: &LsArgs) -> Result<()> {
     let all_files = all_files.iter();
 
     let rows: Vec<_> = all_files
-        .map(|path| match analyze_mlt_file(path, base_path) {
+        .map(|path| match analyze_mlt_file(path, base_path, false) {
             Ok(info) => LsRow::Info(info),
             Err(e) => LsRow::Error {
                 path: relative_path(path, base_path),
@@ -155,6 +208,63 @@ pub fn ls(args: &LsArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Analyze MLT files and return rows (for reuse by UI).
+/// Uses parallel iteration when rayon is enabled.
+/// When `skip_gzip` is true, gzip size estimation is skipped for speed.
+pub fn analyze_mlt_files(paths: &[PathBuf], base_path: &Path, skip_gzip: bool) -> Vec<LsRow> {
+    #[cfg(feature = "rayon")]
+    let paths_iter = paths.par_iter();
+    #[cfg(not(feature = "rayon"))]
+    let paths_iter = paths.iter();
+
+    paths_iter
+        .map(|path| match analyze_mlt_file(path, base_path, skip_gzip) {
+            Ok(info) => LsRow::Info(info),
+            Err(e) => LsRow::Error {
+                path: relative_path(path, base_path),
+                error: e.to_string(),
+            },
+        })
+        .collect()
+}
+
+/// Return cells for UI table display: [File, Size, Enc%, Layers, Features].
+pub fn row_cells(row: &LsRow) -> [String; 5] {
+    let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
+    let fmt_pct = |v: f64| {
+        if v.abs() >= 10.0 {
+            format!("{v:.0}%")
+        } else if v.abs() >= 1.0 {
+            format!("{v:.1}%")
+        } else {
+            format!("{v:.2}%")
+        }
+    };
+    match row {
+        LsRow::Info(info) => [
+            info.path().to_string(),
+            format!("{:>8}", fmt_size(info.size())),
+            format!("{:>6}", fmt_pct(info.encoding_pct())),
+            format!("{:>6}", info.layers()),
+            format!("{:>10}", info.features().separate_with_commas()),
+        ],
+        LsRow::Error { path, error } => [
+            path.clone(),
+            format!("ERROR: {error}"),
+            String::new(),
+            String::new(),
+            String::new(),
+        ],
+        LsRow::Loading { path } => [
+            path.clone(),
+            "…".to_string(),
+            "…".to_string(),
+            "…".to_string(),
+            "…".to_string(),
+        ],
+    }
 }
 
 fn collect_mlt_files(path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
@@ -185,7 +295,7 @@ fn collect_from_dir(dir: &Path, files: &mut Vec<PathBuf>, recursive: bool) -> Re
     Ok(())
 }
 
-fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
+pub fn analyze_mlt_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Result<MltFileInfo> {
     let buffer = fs::read(path)?;
     let original_size = buffer.len();
     let mut layers = parse_layers(&buffer)?;
@@ -201,7 +311,6 @@ fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
         }
     }
 
-    // Now decode to get feature counts and geometry types
     let mut geometries = HashSet::new();
     let mut feature_count = 0;
     let mut data_size = 0;
@@ -222,13 +331,15 @@ fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
         }
     }
 
-    // Calculate gzip size
-    let gzipped_size = estimate_gzip_size(&buffer)?;
+    let (gzipped_size, gzip_pct) = if skip_gzip {
+        (0, 0.0)
+    } else {
+        let gz = estimate_gzip_size(&buffer)?;
+        (gz, percent(gz, original_size))
+    };
 
-    // Format compression and geometry lists with abbreviations
     let geometries_str = format_geometries(geometries);
     let algorithms_str = format_algorithms(algorithms);
-
     let rel_path = relative_path(path, base_path);
 
     Ok(MltFileInfo {
@@ -239,7 +350,7 @@ fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
         meta_size,
         meta_pct: percent_of(meta_size, data_size),
         gzipped_size,
-        gzip_pct: percent(gzipped_size, original_size),
+        gzip_pct,
         layers: layers.len(),
         features: feature_count,
         streams: stream_count,
@@ -384,7 +495,7 @@ fn print_table(rows: &[LsRow], extended: bool) {
         .iter()
         .filter_map(|r| match r {
             LsRow::Info(info) => Some(info),
-            LsRow::Error { .. } => None,
+            LsRow::Error { .. } | LsRow::Loading { .. } => None,
         })
         .collect();
     let has_total = infos.len() > 1;
@@ -415,21 +526,21 @@ fn print_table(rows: &[LsRow], extended: bool) {
         match row {
             LsRow::Info(info) => {
                 let mut data_row = vec![
-                    info.path.clone(),
-                    fmt_size(info.size),
-                    fmt_pct(info.encoding_pct),
+                    info.path().to_string(),
+                    fmt_size(info.size()),
+                    fmt_pct(info.encoding_pct()),
                     fmt_size(info.data_size),
                     fmt_size(info.meta_size),
                     fmt_pct(info.meta_pct),
                     fmt_size(info.gzipped_size),
                     fmt_pct(info.gzip_pct),
-                    info.layers.separate_with_commas(),
-                    info.features.separate_with_commas(),
+                    info.layers().separate_with_commas(),
+                    info.features().separate_with_commas(),
                     info.streams.separate_with_commas(),
-                    info.geometries.clone(),
+                    info.geometries().to_string(),
                 ];
                 if extended {
-                    data_row.push(info.algorithms.clone());
+                    data_row.push(info.algorithms().to_string());
                 }
                 builder.push_record(data_row);
             }
@@ -438,6 +549,11 @@ fn print_table(rows: &[LsRow], extended: bool) {
                 data_row.resize(num_cols, String::new());
                 builder.push_record(data_row);
                 error_table_rows.push(i + 1);
+            }
+            LsRow::Loading { path } => {
+                let mut data_row = vec![path.clone(), "Loading…".to_string()];
+                data_row.resize(num_cols, String::new());
+                builder.push_record(data_row);
             }
         }
     }

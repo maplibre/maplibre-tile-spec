@@ -1,6 +1,7 @@
-use borrowme::borrowme;
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
+
+use borrowme::borrowme;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
