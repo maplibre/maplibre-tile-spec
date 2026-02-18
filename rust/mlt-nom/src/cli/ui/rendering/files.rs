@@ -1,9 +1,9 @@
-use crate::cli::ls::{row_cells, LsRow, MltFileInfo};
-use crate::cli::ui::{block_with_title, collect_file_values, geom_abbrev_to_full, App};
+use crate::cli::ls::{LsRow, MltFileInfo, row_cells};
+use crate::cli::ui::{App, block_with_title, collect_file_values, geom_abbrev_to_full};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::{Color, Line, Modifier, Span, Style};
 use ratatui::widgets::{Cell, Paragraph, Row, Table, Wrap};
-use ratatui::Frame;
 use std::collections::HashSet;
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {

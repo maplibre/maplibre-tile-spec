@@ -27,7 +27,9 @@ use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState, 
 use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use crate::cli::ls::{FileSortColumn, LsRow, MltFileInfo, analyze_mlt_files, row_cells};
-use crate::cli::ui::rendering::files::{render_file_browser, render_file_filter_panel, render_file_info_panel};
+use crate::cli::ui::rendering::files::{
+    render_file_browser, render_file_filter_panel, render_file_info_panel,
+};
 use crate::cli::ui::rendering::layers::{render_properties_panel, render_tree_panel};
 use crate::cli::ui::rendering::map::render_map_panel;
 
