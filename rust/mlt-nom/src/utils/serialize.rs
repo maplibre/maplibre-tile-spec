@@ -1,11 +1,12 @@
 use std::io;
+use std::io::Write;
 
 use integer_encoding::VarIntWriter;
 
 use crate::MltError;
-use crate::v01::OwnedStream;
+use crate::v01::{OwnedStream, OwnedStreamData};
 
-pub trait BinarySerializer: io::Write + VarIntWriter {
+pub trait BinarySerializer: Write + VarIntWriter {
     fn write_u8(&mut self, value: u8) -> io::Result<()> {
         self.write_all(&[value])
     }
@@ -15,23 +16,37 @@ pub trait BinarySerializer: io::Write + VarIntWriter {
         self.write_varint(size)?;
         self.write_all(value.as_bytes())
     }
-    /// Reverses [`parse_optional`](mlt_nom::v01::root::parse_optional)
-    fn write_optional(&mut self, opt: &OwnedStream) -> io::Result<()> {
-        Err(io::Error::other(
-            MltError::NotImplemented("write_optional").to_string(),
-        ))
-    }
+
     /// Reverses [`Stream::parse`](mlt_nom::v01::stream::Stream::parse)
-    fn write_stream(&mut self, stream: &OwnedStream) -> io::Result<()> {
-        Err(io::Error::other(
-            MltError::NotImplemented("write_optional").to_string(),
-        ))
+    fn write_stream(&mut self, stream: &OwnedStream) -> io::Result<()>
+    where
+        Self: Sized,
+    {
+        let byte_length = match &stream.data {
+            OwnedStreamData::VarInt(d) => d.data.len(),
+            OwnedStreamData::Raw(r) => r.data.len(),
+        };
+        let byte_length =
+            u32::try_from(byte_length).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        stream.meta.write_to(self, false, byte_length)?;
+        stream.data.write_to(self)?;
+        Ok(())
     }
-    fn write_boolean_stream(&mut self, bool_stream: &OwnedStream) -> io::Result<()> {
-        Err(io::Error::other(
-            MltError::NotImplemented("write_boolean_stream").to_string(),
-        ))
+    /// Reverses [`Stream::parse_bool`](mlt_nom::v01::stream::Stream::parse_bool)
+    fn write_boolean_stream(&mut self, stream: &OwnedStream) -> io::Result<()>
+    where
+        Self: Sized,
+    {
+        let byte_length = match &stream.data {
+            OwnedStreamData::VarInt(d) => d.data.len(),
+            OwnedStreamData::Raw(r) => r.data.len(),
+        };
+        let byte_length =
+            u32::try_from(byte_length).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        stream.meta.write_to(self, true, byte_length)?;
+        stream.data.write_to(self)?;
+        Ok(())
     }
 }
 
-impl<T> BinarySerializer for T where T: io::Write + VarIntWriter {}
+impl<T> BinarySerializer for T where T: Write + VarIntWriter {}

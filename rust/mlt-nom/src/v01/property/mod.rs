@@ -113,12 +113,14 @@ impl OwnedRawProperty {
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         use OwnedRawPropValue as Val;
-        if let Some(opt) = &self.optional {
-            writer.write_optional(opt)?;
-        }
 
         match &self.value {
-            Val::Bool(b) => writer.write_boolean_stream(b)?,
+            Val::Bool(b) => {
+                if let Some(opt) = &self.optional {
+                    writer.write_boolean_stream(opt)?;
+                }
+                writer.write_boolean_stream(b)?;
+            }
             Val::I8(s)
             | Val::U8(s)
             | Val::I32(s)
@@ -126,7 +128,12 @@ impl OwnedRawProperty {
             | Val::I64(s)
             | Val::U64(s)
             | Val::F32(s)
-            | Val::F64(s) => writer.write_stream(s)?,
+            | Val::F64(s) => {
+                if let Some(opt) = &self.optional {
+                    writer.write_boolean_stream(opt)?;
+                }
+                writer.write_stream(s)?;
+            }
             Val::Str(streams) => {
                 let stream_count = u64::try_from(streams.len()).map_err(|_| IntegerOverflow)?;
                 let opt_stream_count = u64::from(self.optional.is_some());
@@ -134,6 +141,9 @@ impl OwnedRawProperty {
                     return Err(IntegerOverflow);
                 };
                 writer.write_varint(stream_count)?;
+                if let Some(opt) = &self.optional {
+                    writer.write_boolean_stream(opt)?;
+                }
                 for s in streams {
                     writer.write_stream(s)?;
                 }
