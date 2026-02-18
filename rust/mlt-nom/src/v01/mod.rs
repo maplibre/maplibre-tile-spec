@@ -3,7 +3,7 @@ mod geometry;
 mod id;
 mod property;
 mod root;
-mod stream;
+pub(crate) mod stream;
 
 pub use column::*;
 pub use geometry::*;

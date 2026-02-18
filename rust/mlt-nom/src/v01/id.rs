@@ -75,7 +75,7 @@ impl OwnedRawId {
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         if let Some(opt) = &self.optional {
-            writer.write_optional(opt)?;
+            writer.write_boolean_stream(opt)?;
         }
         match &self.value {
             OwnedRawIdValue::Id32(s) | OwnedRawIdValue::Id64(s) => writer.write_stream(s)?,

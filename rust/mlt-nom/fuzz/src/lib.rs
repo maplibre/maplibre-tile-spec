@@ -36,8 +36,17 @@ impl LayerInput {
         if consumed_input != buffer.as_slice() {
             let consumed_input_hex = consumed_input.encode_hex::<String>();
             let buffer_hex = buffer.encode_hex::<String>();
+            let out = Layer::parse(&buffer);
+            let msg = format!(
+                "Buffer [{buffer_hex}; {buffer_bytes_size}] does not match consumed input [{consumed_input_hex}; {consumed_input_bytes_size}].",
+            );
+            // sometimes we can be more helpful and print the diff in terms of debug output
+            if let Ok((_, out)) = out {
+                let written_owned = out.to_owned();
+                pretty_assertions::assert_eq!(format!("{written_owned:#?}"), format!("{owned_layer:#?}"), "{msg}");
+            }
             panic!(
-                "Buffer [{buffer_hex}; {buffer_bytes_size}] does not match consumed input [{consumed_input_hex}; {consumed_input_bytes_size}]"
+                "{msg}\nDecoded debugging output (written to disk prints to the same output, but has a different byte sequence written to disk!):\n{owned_layer:#?}"
             );
         }
     }
