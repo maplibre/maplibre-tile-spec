@@ -2299,6 +2299,10 @@ fn draw_ring(ctx: &mut Context<'_>, ring: &[Coordinate], color: Color) {
     }
 }
 
+fn ring_color(ring: &[Coordinate]) -> Color {
+    if is_ring_ccw(ring) { Color::Blue } else { Color::Red }
+}
+
 fn draw_polygon(
     ctx: &mut Context<'_>,
     rings: &[Vec<Coordinate>],
@@ -2344,8 +2348,8 @@ fn geometry_color(geom: &Geometry) -> Color {
         Geometry::Polygon(_) | Geometry::MultiPolygon(_) if has_nonstandard_winding(geom) => {
             Color::LightRed
         }
-        Geometry::Polygon(_) => Color::Green,
-        Geometry::MultiPolygon(_) => Color::LightGreen,
+        Geometry::Polygon(_) => Color::Blue,
+        Geometry::MultiPolygon(_) => Color::LightBlue,
     }
 }
 
@@ -2458,10 +2462,6 @@ fn has_nonstandard_winding(geom: &Geometry) -> bool {
     }
 }
 
-/// Display color for a polygon ring based on winding. CCW → Blue; CW → Red.
-fn ring_color(ring: &[Coordinate]) -> Color {
-    if is_ring_ccw(ring) { Color::Blue } else { Color::Red }
-}
 
 /// Index entry for rstar spatial search. Stores layer/feat/part and vertices for distance computation.
 struct GeometryIndexEntry {
