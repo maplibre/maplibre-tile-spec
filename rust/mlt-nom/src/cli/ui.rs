@@ -219,6 +219,7 @@ impl App {
             fc,
             ..Self::default()
         };
+        app.build_geometry_index();
         app.build_tree_items();
         app
     }
@@ -746,7 +747,24 @@ impl App {
         None
     }
 
-    /// Ensure layer is expanded, select the feature, rebuild tree, and scroll it into view.
+    /// Ensure layer is expanded, select the layer row, and scroll it into view.
+    fn select_layer_expand_and_scroll(&mut self, layer: usize, tree_height: u16) {
+        let inner_height = tree_height.saturating_sub(2) as usize;
+        if layer < self.expanded_layers.len() && !self.expanded_layers[layer] {
+            self.expanded_layers[layer] = true;
+            self.build_tree_items();
+        }
+        if let Some(idx) = self.tree_items.iter().position(|it| {
+            matches!(it, TreeItem::Layer(li) if *li == layer)
+        }) {
+            self.selected_index = idx;
+            self.scroll_selected_into_view(inner_height);
+        }
+        self.invalidate_bounds();
+    }
+
+    /// Ensure layer is expanded, select the feature (or sub-item), rebuild tree, and scroll it into view.
+    /// When the feature has sub-parts, auto-expands it so individual sub-items can be highlighted/selected.
     fn select_feature_expand_and_scroll(
         &mut self,
         layer: usize,
@@ -757,6 +775,11 @@ impl App {
         let inner_height = tree_height.saturating_sub(2) as usize;
         if layer < self.expanded_layers.len() && !self.expanded_layers[layer] {
             self.expanded_layers[layer] = true;
+            self.build_tree_items();
+        }
+        let geom = &self.feature(layer, feat).geometry;
+        if multi_part_count(geom) > 0 {
+            self.expanded_features.insert((layer, feat));
             self.build_tree_items();
         }
         if let Some(idx) = self.find_tree_idx_for_feature(layer, feat, part) {
@@ -1246,8 +1269,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                             r == row && t.elapsed().as_millis() < 400
                                         });
                                         last_tree_click = Some((Instant::now(), row));
-                                        app.selected_index = row;
-                                        // Ensure layer is expanded and scroll into view
+                                        let selected = app.get_selected_item().clone();
                                         if let Some(item) = app.tree_items.get(row) {
                                             let (layer, feat, part) = match item {
                                                 TreeItem::Feature { layer, feat } => {
@@ -1259,17 +1281,41 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                                 _ => (usize::MAX, usize::MAX, None),
                                             };
                                             if layer < app.layer_groups.len() {
-                                                app.select_feature_expand_and_scroll(
-                                                    layer,
-                                                    feat,
-                                                    part,
-                                                    area.height,
-                                                );
+                                                match &selected {
+                                                    TreeItem::AllFeatures => {
+                                                        app.select_layer_expand_and_scroll(
+                                                            layer,
+                                                            area.height,
+                                                        );
+                                                    }
+                                                    TreeItem::Layer(_) => {
+                                                        app.select_feature_expand_and_scroll(
+                                                            layer,
+                                                            feat,
+                                                            None,
+                                                            area.height,
+                                                        );
+                                                    }
+                                                    _ => {
+                                                        app.select_feature_expand_and_scroll(
+                                                            layer,
+                                                            feat,
+                                                            part,
+                                                            area.height,
+                                                        );
+                                                    }
+                                                }
                                             } else {
+                                                app.selected_index = row;
                                                 app.scroll_selected_into_view(
                                                     area.height.saturating_sub(2) as usize,
                                                 );
                                             }
+                                        } else {
+                                            app.selected_index = row;
+                                            app.scroll_selected_into_view(
+                                                area.height.saturating_sub(2) as usize,
+                                            );
                                         }
                                         app.invalidate_bounds();
                                         if dbl {
@@ -1286,15 +1332,35 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                             && mouse.row >= map.y
                                             && mouse.row < map.y + map.height
                                         {
+                                            let selected = app.get_selected_item().clone();
                                             if let Some((layer, feat, part)) =
                                                 app.hovered_feature_key
                                             {
-                                                app.select_feature_expand_and_scroll(
-                                                    layer,
-                                                    feat,
-                                                    part,
-                                                    tree.height,
-                                                );
+                                                match &selected {
+                                                    TreeItem::AllFeatures => {
+                                                        app.select_layer_expand_and_scroll(
+                                                            layer,
+                                                            tree.height,
+                                                        );
+                                                    }
+                                                    TreeItem::Layer(_) => {
+                                                        app.select_feature_expand_and_scroll(
+                                                            layer,
+                                                            feat,
+                                                            None,
+                                                            tree.height,
+                                                        );
+                                                    }
+                                                    TreeItem::Feature { .. }
+                                                    | TreeItem::SubFeature { .. } => {
+                                                        app.select_feature_expand_and_scroll(
+                                                            layer,
+                                                            feat,
+                                                            part,
+                                                            tree.height,
+                                                        );
+                                                    }
+                                                }
                                             } else if let Some(item) = app.tree_items.get(hovered) {
                                                 let (layer, feat, part) = match item {
                                                     TreeItem::Feature { layer, feat } => {
@@ -1309,12 +1375,22 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                                     _ => (usize::MAX, usize::MAX, None),
                                                 };
                                                 if layer < app.layer_groups.len() {
-                                                    app.select_feature_expand_and_scroll(
-                                                        layer,
-                                                        feat,
-                                                        part,
-                                                        tree.height,
-                                                    );
+                                                    match &selected {
+                                                        TreeItem::AllFeatures => {
+                                                            app.select_layer_expand_and_scroll(
+                                                                layer,
+                                                                tree.height,
+                                                            );
+                                                        }
+                                                        _ => {
+                                                            app.select_feature_expand_and_scroll(
+                                                                layer,
+                                                                feat,
+                                                                part,
+                                                                tree.height,
+                                                            );
+                                                        }
+                                                    }
                                                 } else {
                                                     app.selected_index = hovered;
                                                     app.scroll_selected_into_view(
