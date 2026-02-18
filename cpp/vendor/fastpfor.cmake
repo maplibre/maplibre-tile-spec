@@ -23,5 +23,5 @@ endif()
 
 target_link_libraries(mlt-cpp FastPFOR)
 target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
-target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_FASTPFOR=1)
+target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_FASTPFOR=0)
 list(APPEND MLT_EXPORT_TARGETS FastPFOR)
