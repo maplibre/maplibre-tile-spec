@@ -159,7 +159,7 @@ pub struct DecodedProperty {
 
 impl Analyze for DecodedProperty {
     fn collect_statistic(&self, stat: StatType) -> usize {
-        let meta = if stat == StatType::MetadataOverheadBytes {
+        let meta = if stat == StatType::DecodedMetaSize {
             self.name.len()
         } else {
             0

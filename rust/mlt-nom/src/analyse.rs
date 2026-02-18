@@ -1,10 +1,10 @@
 /// What to calculate with [`Analyze::collect_statistic`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatType {
-    /// Payload data size in bytes (excludes metadata overhead).
-    PayloadDataSizeBytes,
+    /// Geometry/ Feature/ Id data size in bytes (excludes metadata overhead).
+    DecodedDataSize,
     /// Metadata overhead in bytes (stream headers, names, extent, geometry types).
-    MetadataOverheadBytes,
+    DecodedMetaSize,
     /// Number of features (geometry entries).
     FeatureCount,
 }

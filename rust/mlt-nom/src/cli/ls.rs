@@ -9,7 +9,7 @@ use anyhow::Result;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use mlt_nom::StatType::{FeatureCount, MetadataOverheadBytes, PayloadDataSizeBytes};
+use mlt_nom::StatType::{FeatureCount, DecodedMetaSize, DecodedDataSize};
 use mlt_nom::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
     PhysicalDecoder, PhysicalStreamType, Stream,
@@ -320,8 +320,8 @@ pub fn analyze_mlt_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Resul
     for layer in &mut layers {
         layer.decode_all()?;
         if let Some(layer01) = layer.as_layer01() {
-            data_size += layer01.collect_statistic(PayloadDataSizeBytes);
-            meta_size += layer01.collect_statistic(MetadataOverheadBytes);
+            data_size += layer01.collect_statistic(DecodedDataSize);
+            meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
 
             if let Geometry::Decoded(ref geom) = layer01.geometry {
