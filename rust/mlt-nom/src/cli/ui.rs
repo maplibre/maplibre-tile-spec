@@ -255,6 +255,7 @@ impl App {
         self.mode = ViewMode::LayerOverview;
         self.expanded_layers = auto_expand(&self.layer_groups);
         self.expanded_features.clear();
+        self.build_geometry_index();
         self.build_tree_items();
         self.selected_index = 0;
         self.invalidate_bounds();
@@ -307,36 +308,37 @@ impl App {
                 }
             }
         }
-        self.build_geometry_index();
     }
 
+    /// Build rtree index of all geometries on tile load. Indexes every feature (full geometry and sub-parts for Multi*).
     fn build_geometry_index(&mut self) {
         let mut entries: Vec<GeometryIndexEntry> = Vec::new();
-        for (idx, item) in self.tree_items.iter().enumerate() {
-            match item {
-                TreeItem::Feature { layer, feat } => {
-                    let gi = self.layer_groups[*layer].feature_indices[*feat];
-                    let geom = &self.fc.features[gi].geometry;
-                    let vertices = geometry_vertices(geom, None);
+        for (li, group) in self.layer_groups.iter().enumerate() {
+            for (fi, &gi) in group.feature_indices.iter().enumerate() {
+                let geom = &self.fc.features[gi].geometry;
+                let n_parts = multi_part_count(geom);
+                // Full geometry (for collapsed/whole-feature view)
+                let vertices_full = geometry_vertices(geom, None);
+                if !vertices_full.is_empty() {
+                    entries.push(GeometryIndexEntry {
+                        layer: li,
+                        feat: fi,
+                        part: None,
+                        vertices: vertices_full,
+                    });
+                }
+                // Per-part (for expanded sub-feature view)
+                for part in 0..n_parts {
+                    let vertices = geometry_vertices(geom, Some(part));
                     if !vertices.is_empty() {
                         entries.push(GeometryIndexEntry {
-                            tree_idx: idx,
+                            layer: li,
+                            feat: fi,
+                            part: Some(part),
                             vertices,
                         });
                     }
                 }
-                TreeItem::SubFeature { layer, feat, part } => {
-                    let gi = self.layer_groups[*layer].feature_indices[*feat];
-                    let geom = &self.fc.features[gi].geometry;
-                    let vertices = geometry_vertices(geom, Some(*part));
-                    if !vertices.is_empty() {
-                        entries.push(GeometryIndexEntry {
-                            tree_idx: idx,
-                            vertices,
-                        });
-                    }
-                }
-                _ => {}
             }
         }
         self.geometry_index = if entries.is_empty() {
@@ -673,105 +675,24 @@ impl App {
         let query_point = [canvas_x, canvas_y];
 
         let best = if let Some(ref tree) = self.geometry_index {
-            // Use rstar for efficient nearest-neighbor search
+            // Use rstar for efficient nearest-neighbor search; filter by layer/feature visibility
             let mut best: Option<(usize, f64)> = None;
             for entry in tree.nearest_neighbor_iter(&query_point) {
                 let d = entry.distance_2(&query_point);
                 if d > threshold_sq {
                     break; // Entries are in distance order, no need to check further
                 }
-                let idx = entry.tree_idx;
-                let item = &self.tree_items[idx];
-                let visible = match item {
-                    TreeItem::Feature { layer, feat } => {
-                        !self.expanded_features.contains(&(*layer, *feat))
-                            && match &selected {
-                                TreeItem::AllFeatures => true,
-                                TreeItem::Layer(l) => *l == *layer,
-                                TreeItem::Feature {
-                                    layer: sl,
-                                    feat: sf,
-                                } => *sl == *layer && *sf == *feat,
-                                TreeItem::SubFeature { .. } => false,
-                            }
-                    }
-                    TreeItem::SubFeature { layer, feat, .. } => match &selected {
-                        TreeItem::Feature {
-                            layer: sl,
-                            feat: sf,
-                        }
-                        | TreeItem::SubFeature {
-                            layer: sl,
-                            feat: sf,
-                            ..
-                        } => *sl == *layer && *sf == *feat,
-                        _ => false,
-                    },
-                    _ => false,
-                };
-                if visible && best.is_none_or(|(_, bd)| d < bd) {
-                    best = Some((idx, d));
-                    if d < early_exit {
-                        break;
-                    }
+                if !is_feature_visible(
+                    entry.layer,
+                    entry.feat,
+                    entry.part,
+                    &selected,
+                    &self.expanded_features,
+                ) {
+                    continue;
                 }
-            }
-            best
-        } else {
-            // Fallback: linear scan when no index (e.g. empty tile)
-            let mut best: Option<(usize, f64)> = None;
-            for (idx, item) in self.tree_items.iter().enumerate() {
-                let dist = match item {
-                    TreeItem::Feature { layer, feat } => {
-                        if self.expanded_features.contains(&(*layer, *feat)) {
-                            continue;
-                        }
-                        let visible = match &selected {
-                            TreeItem::AllFeatures => true,
-                            TreeItem::Layer(l) => *layer == *l,
-                            TreeItem::Feature {
-                                layer: sl,
-                                feat: sf,
-                            } => *layer == *sl && *feat == *sf,
-                            TreeItem::SubFeature { .. } => false,
-                        };
-                        if !visible {
-                            continue;
-                        }
-                        nearest_dist(
-                            &self.feature(*layer, *feat).geometry,
-                            canvas_x,
-                            canvas_y,
-                            threshold,
-                        )
-                    }
-                    TreeItem::SubFeature { layer, feat, part } => {
-                        let visible = match &selected {
-                            TreeItem::Feature {
-                                layer: sl,
-                                feat: sf,
-                            }
-                            | TreeItem::SubFeature {
-                                layer: sl,
-                                feat: sf,
-                                ..
-                            } => *layer == *sl && *feat == *sf,
-                            _ => false,
-                        };
-                        if !visible {
-                            continue;
-                        }
-                        nearest_dist_sub(
-                            &self.feature(*layer, *feat).geometry,
-                            *part,
-                            canvas_x,
-                            canvas_y,
-                            threshold,
-                        )
-                    }
-                    _ => continue,
-                };
-                if let Some(d) = dist {
+                if let Some(idx) = self.find_tree_idx_for_feature(entry.layer, entry.feat, entry.part)
+                {
                     if best.is_none_or(|(_, bd)| d < bd) {
                         best = Some((idx, d));
                         if d < early_exit {
@@ -781,9 +702,50 @@ impl App {
                 }
             }
             best
+        } else {
+            if !self.tree_items.is_empty() {
+                panic!("Geometry index is missing but tree_items is not empty");
+            }
+            None
         };
 
         self.hovered_item = best.map(|(idx, _)| idx);
+    }
+
+    /// Map (layer, feat, part) to tree_idx for hover highlighting. Returns None if layer is collapsed.
+    fn find_tree_idx_for_feature(
+        &self,
+        layer: usize,
+        feat: usize,
+        part: Option<usize>,
+    ) -> Option<usize> {
+        for (idx, item) in self.tree_items.iter().enumerate() {
+            match item {
+                TreeItem::Layer(li) if *li == layer => {
+                    // Layer row: use when feature is from collapsed layer (no Feature items below)
+                    if !self.expanded_layers.get(layer).copied().unwrap_or(false) {
+                        return Some(idx);
+                    }
+                }
+                TreeItem::Feature {
+                    layer: li,
+                    feat: fi,
+                } if *li == layer && *fi == feat => {
+                    if part.is_none() || !self.expanded_features.contains(&(layer, feat)) {
+                        return Some(idx);
+                    }
+                }
+                TreeItem::SubFeature {
+                    layer: li,
+                    feat: fi,
+                    part: p,
+                } if *li == layer && *fi == feat && part == Some(*p) => {
+                    return Some(idx);
+                }
+                _ => {}
+            }
+        }
+        None
     }
 }
 
@@ -1783,6 +1745,41 @@ fn sub_feature_suffix(geom: &Geometry, part: usize) -> String {
     }
 }
 
+/// Returns true if a geometry (layer, feat, part) is visible for hover given the current selection.
+/// Layer enabled: AllFeatures = all layers, Layer(l) = only layer l, Feature/SubFeature = that feature's layer.
+/// Feature shown: AllFeatures/Layer = all features in layer, Feature/SubFeature = only that feature.
+fn is_feature_visible(
+    layer: usize,
+    feat: usize,
+    part: Option<usize>,
+    selected: &TreeItem,
+    expanded_features: &HashSet<(usize, usize)>,
+) -> bool {
+    match selected {
+        TreeItem::AllFeatures => true,
+        TreeItem::Layer(l) => *l == layer,
+        TreeItem::Feature {
+            layer: sl,
+            feat: sf,
+        }
+        | TreeItem::SubFeature {
+            layer: sl,
+            feat: sf,
+            ..
+        } => {
+            if *sl != layer || *sf != feat {
+                return false;
+            }
+            // When viewing a specific feature: show whole feature if not expanded, else only sub-parts
+            if expanded_features.contains(&(*sl, *sf)) {
+                part.is_some() // Only sub-parts visible when expanded
+            } else {
+                part.is_none() // Whole feature visible when not expanded
+            }
+        }
+    }
+}
+
 /// Determine sub-part highlight color.
 /// Selected → Yellow, hovered → White, sibling of selected/hovered → `DarkGray`.
 fn part_color(selected: Option<usize>, hovered: Option<usize>, idx: usize, base: Color) -> Color {
@@ -1813,9 +1810,11 @@ fn ring_color(ring: &[Coordinate]) -> Color {
     if area < 0.0 { Color::Blue } else { Color::Red }
 }
 
-/// Index entry for rstar spatial search. Stores tree_idx and vertices for distance computation.
+/// Index entry for rstar spatial search. Stores layer/feat/part and vertices for distance computation.
 struct GeometryIndexEntry {
-    tree_idx: usize,
+    layer: usize,
+    feat: usize,
+    part: Option<usize>,
     vertices: Vec<[f64; 2]>,
 }
 
@@ -1951,59 +1950,3 @@ fn for_each_coord(geom: &Geometry, f: &mut impl FnMut(f64, f64)) {
     }
 }
 
-/// Iterate coordinates of a specific sub-part of a multi-geometry.
-fn for_each_sub_part_coord(geom: &Geometry, part: usize, f: &mut impl FnMut(f64, f64)) {
-    match geom {
-        Geometry::MultiPoint(v) => {
-            if let Some(c) = v.get(part) {
-                f(f64::from(c[0]), f64::from(c[1]));
-            }
-        }
-        Geometry::MultiLineString(v) => {
-            if let Some(line) = v.get(part) {
-                for c in line {
-                    f(f64::from(c[0]), f64::from(c[1]));
-                }
-            }
-        }
-        Geometry::MultiPolygon(v) => {
-            if let Some(poly) = v.get(part) {
-                for r in poly {
-                    for c in r {
-                        f(f64::from(c[0]), f64::from(c[1]));
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-fn update_nearest_sq(cx: f64, cy: f64, threshold: f64, x: f64, y: f64, best: &mut Option<f64>) {
-    let dx = (x - cx).abs();
-    let dy = (y - cy).abs();
-    if dx < threshold && dy < threshold {
-        let d = dx * dx + dy * dy;
-        if best.is_none_or(|b| d < b) {
-            *best = Some(d);
-        }
-    }
-}
-
-/// Find the minimum squared distance from a geometry's coordinates to a point.
-fn nearest_dist(geom: &Geometry, cx: f64, cy: f64, threshold: f64) -> Option<f64> {
-    let mut best: Option<f64> = None;
-    for_each_coord(geom, &mut |x, y| {
-        update_nearest_sq(cx, cy, threshold, x, y, &mut best)
-    });
-    best
-}
-
-/// Find the minimum squared distance from a sub-part's coordinates to a point.
-fn nearest_dist_sub(geom: &Geometry, part: usize, cx: f64, cy: f64, threshold: f64) -> Option<f64> {
-    let mut best: Option<f64> = None;
-    for_each_sub_part_coord(geom, part, &mut |x, y| {
-        update_nearest_sq(cx, cy, threshold, x, y, &mut best)
-    });
-    best
-}
