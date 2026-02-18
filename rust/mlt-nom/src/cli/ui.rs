@@ -313,33 +313,35 @@ impl App {
         }
     }
 
-    /// Build rtree index of all geometries on tile load. Indexes every feature (full geometry and sub-parts for Multi*).
+    /// Build rtree index once on tile load. For Multi* geometries, each sub-part gets its own entry.
+    /// For non-Multi geometries, the whole geometry is one entry (with `part: None`).
     fn build_geometry_index(&mut self) {
         let mut entries: Vec<GeometryIndexEntry> = Vec::new();
         for (li, group) in self.layer_groups.iter().enumerate() {
             for (fi, &gi) in group.feature_indices.iter().enumerate() {
                 let geom = &self.fc.features[gi].geometry;
                 let n_parts = multi_part_count(geom);
-                // Full geometry (for collapsed/whole-feature view)
-                let vertices_full = geometry_vertices(geom, None);
-                if !vertices_full.is_empty() {
-                    entries.push(GeometryIndexEntry {
-                        layer: li,
-                        feat: fi,
-                        part: None,
-                        vertices: vertices_full,
-                    });
-                }
-                // Per-part (for expanded sub-feature view)
-                for part in 0..n_parts {
-                    let vertices = geometry_vertices(geom, Some(part));
+                if n_parts == 0 {
+                    let vertices = geometry_vertices(geom, None);
                     if !vertices.is_empty() {
                         entries.push(GeometryIndexEntry {
                             layer: li,
                             feat: fi,
-                            part: Some(part),
+                            part: None,
                             vertices,
                         });
+                    }
+                } else {
+                    for part in 0..n_parts {
+                        let vertices = geometry_vertices(geom, Some(part));
+                        if !vertices.is_empty() {
+                            entries.push(GeometryIndexEntry {
+                                layer: li,
+                                feat: fi,
+                                part: Some(part),
+                                vertices,
+                            });
+                        }
                     }
                 }
             }
@@ -678,42 +680,29 @@ impl App {
         let query_point = [canvas_x, canvas_y];
 
         let best = if let Some(ref tree) = self.geometry_index {
-            // Use rstar for efficient nearest-neighbor search; filter by layer/feature visibility
-            let mut best: Option<(usize, f64, usize, usize, Option<usize>)> = None;
+            let mut best: Option<(f64, usize, usize, Option<usize>)> = None;
             for entry in tree.nearest_neighbor_iter(&query_point) {
                 let d = entry.distance_2(&query_point);
                 if d > threshold_sq {
-                    break; // Entries are in distance order, no need to check further
+                    break;
                 }
-                if !is_feature_visible(
-                    entry.layer,
-                    entry.feat,
-                    entry.part,
-                    &selected,
-                    &self.expanded_features,
-                ) {
+                if !is_entry_visible(entry.layer, entry.feat, &selected) {
                     continue;
                 }
-                if let Some(idx) = self.find_tree_idx_for_feature(entry.layer, entry.feat, entry.part)
-                {
-                    if best.is_none_or(|(_, bd, ..)| d < bd) {
-                        best = Some((idx, d, entry.layer, entry.feat, entry.part));
-                        if d < early_exit {
-                            break;
-                        }
+                if best.is_none_or(|(bd, ..)| d < bd) {
+                    best = Some((d, entry.layer, entry.feat, entry.part));
+                    if d < early_exit {
+                        break;
                     }
                 }
             }
             best
         } else {
-            if !self.tree_items.is_empty() {
-                panic!("Geometry index is missing but tree_items is not empty");
-            }
             None
         };
 
-        if let Some((idx, _, layer, feat, part)) = best {
-            self.hovered_item = Some(idx);
+        if let Some((_, layer, feat, part)) = best {
+            self.hovered_item = self.find_tree_idx_for_feature(layer, feat, part);
             self.hovered_feature_key = Some((layer, feat, part));
         } else {
             self.hovered_item = None;
@@ -721,7 +710,7 @@ impl App {
         }
     }
 
-    /// Map (layer, feat, part) to tree_idx for hover highlighting. Returns None if layer is collapsed.
+    /// Map (layer, feat, part) to `tree_idx` for hover highlighting. Returns None if layer is collapsed.
     fn find_tree_idx_for_feature(
         &self,
         layer: usize,
@@ -777,7 +766,7 @@ impl App {
         self.invalidate_bounds();
     }
 
-    /// Adjust tree_scroll so selected_index is visible in the viewport.
+    /// Adjust `tree_scroll` so `selected_index` is visible in the viewport.
     fn scroll_selected_into_view(&mut self, inner_height: usize) {
         let idx = self.selected_index;
         let scroll_max = self.tree_scroll as usize + inner_height;
@@ -1301,23 +1290,30 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                                 app.hovered_feature_key
                                             {
                                                 app.select_feature_expand_and_scroll(
-                                                    layer, feat, part, tree.height,
+                                                    layer,
+                                                    feat,
+                                                    part,
+                                                    tree.height,
                                                 );
-                                            } else if let Some(item) =
-                                                app.tree_items.get(hovered)
-                                            {
+                                            } else if let Some(item) = app.tree_items.get(hovered) {
                                                 let (layer, feat, part) = match item {
                                                     TreeItem::Feature { layer, feat } => {
                                                         (*layer, *feat, None)
                                                     }
                                                     TreeItem::SubFeature {
-                                                        layer, feat, part, ..
+                                                        layer,
+                                                        feat,
+                                                        part,
+                                                        ..
                                                     } => (*layer, *feat, Some(*part)),
                                                     _ => (usize::MAX, usize::MAX, None),
                                                 };
                                                 if layer < app.layer_groups.len() {
                                                     app.select_feature_expand_and_scroll(
-                                                        layer, feat, part, tree.height,
+                                                        layer,
+                                                        feat,
+                                                        part,
+                                                        tree.height,
                                                     );
                                                 } else {
                                                     app.selected_index = hovered;
@@ -1846,16 +1842,8 @@ fn sub_feature_suffix(geom: &Geometry, part: usize) -> String {
     }
 }
 
-/// Returns true if a geometry (layer, feat, part) is visible for hover given the current selection.
-/// Layer enabled: AllFeatures = all layers, Layer(l) = only layer l, Feature/SubFeature = that feature's layer.
-/// Feature shown: AllFeatures/Layer = all features in layer, Feature/SubFeature = only that feature.
-fn is_feature_visible(
-    layer: usize,
-    feat: usize,
-    part: Option<usize>,
-    selected: &TreeItem,
-    expanded_features: &HashSet<(usize, usize)>,
-) -> bool {
+/// Returns true if a geometry entry (layer, feat) matches the current selection for hover.
+fn is_entry_visible(layer: usize, feat: usize, selected: &TreeItem) -> bool {
     match selected {
         TreeItem::AllFeatures => true,
         TreeItem::Layer(l) => *l == layer,
@@ -1867,17 +1855,7 @@ fn is_feature_visible(
             layer: sl,
             feat: sf,
             ..
-        } => {
-            if *sl != layer || *sf != feat {
-                return false;
-            }
-            // When viewing a specific feature: show whole feature if not expanded, else only sub-parts
-            if expanded_features.contains(&(*sl, *sf)) {
-                part.is_some() // Only sub-parts visible when expanded
-            } else {
-                part.is_none() // Whole feature visible when not expanded
-            }
-        }
+        } => *sl == layer && *sf == feat,
     }
 }
 
@@ -2050,4 +2028,3 @@ fn for_each_coord(geom: &Geometry, f: &mut impl FnMut(f64, f64)) {
         }
     }
 }
-
