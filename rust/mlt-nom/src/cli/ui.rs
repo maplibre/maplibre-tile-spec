@@ -882,7 +882,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         .split(chunks[0]);
                     render_tree_panel(f, left_chunks[0], app);
                     render_properties_panel(f, left_chunks[1], app);
-                    render_map_panel(f, chunks[1], &app);
+                    render_map_panel(f, chunks[1], app);
                     tree_area = Some(left_chunks[0]);
                     properties_area = Some(left_chunks[1]);
                     left_panel_area = Some(chunks[0]);
@@ -941,19 +941,20 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     MouseEventKind::Moved | MouseEventKind::Drag(_) => {
                         if let Some(handle) = app.resizing {
                             let area = terminal.get_frame().area();
-                            let left = left_panel_area.unwrap_or(Rect::default());
+                            let left = left_panel_area.unwrap_or_default();
+                            #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                             match handle {
                                 ResizeHandle::LeftRight => {
-                                    let pct = (mouse.column.saturating_sub(area.x) as f32
-                                        / area.width.max(1) as f32
+                                    let pct = (f32::from(mouse.column.saturating_sub(area.x))
+                                        / f32::from(area.width.max(1))
                                         * 100.0)
                                         .round()
                                         as u16;
                                     app.left_pct = pct.clamp(10, 90);
                                 }
                                 ResizeHandle::FeaturesProperties => {
-                                    let pct = (mouse.row.saturating_sub(left.y) as f32
-                                        / left.height.max(1) as f32
+                                    let pct = (f32::from(mouse.row.saturating_sub(left.y))
+                                        / f32::from(left.height.max(1))
                                         * 100.0)
                                         .round()
                                         as u16;
@@ -1023,7 +1024,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     && mouse.row < area.y + area.height
                                 {
                                     app.properties_scroll =
-                                        app.properties_scroll.saturating_sub(s as u16);
+                                        app.properties_scroll.saturating_sub(u16::try_from(s)?);
                                     app.invalidate();
                                     continue;
                                 }
@@ -1034,7 +1035,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     && mouse.row >= area.y
                                     && mouse.row < area.y + area.height
                                 {
-                                    app.tree_scroll = app.tree_scroll.saturating_sub(s as u16);
+                                    app.tree_scroll =
+                                        app.tree_scroll.saturating_sub(u16::try_from(s)?);
                                     app.invalidate();
                                     continue;
                                 }
@@ -1061,7 +1063,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     && mouse.row < area.y + area.height
                                 {
                                     app.properties_scroll =
-                                        app.properties_scroll.saturating_add(s as u16);
+                                        app.properties_scroll.saturating_add(u16::try_from(s)?);
                                     app.invalidate();
                                     continue;
                                 }
@@ -1073,10 +1075,13 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     && mouse.row < area.y + area.height
                                 {
                                     let inner = area.height.saturating_sub(2) as usize;
-                                    let max_off =
-                                        app.tree_items.len().saturating_sub(inner).max(0) as u16;
-                                    app.tree_scroll =
-                                        app.tree_scroll.saturating_add(s as u16).min(max_off);
+                                    let max_off = u16::try_from(
+                                        app.tree_items.len().saturating_sub(inner).max(0),
+                                    )?;
+                                    app.tree_scroll = app
+                                        .tree_scroll
+                                        .saturating_add(u16::try_from(s)?)
+                                        .min(max_off);
                                     app.invalidate();
                                     continue;
                                 }
@@ -1202,10 +1207,8 @@ fn file_cmp(
             (LsRow::Info(i), FileSortColumn::Layers) => (String::new(), i.layers(), 0.0),
             (LsRow::Info(i), FileSortColumn::Features) => (String::new(), i.features(), 0.0),
             (LsRow::Info(i), FileSortColumn::Geometry) => (i.geometries().to_string(), 0, 0.0),
-            (LsRow::Error { path, .. }, FileSortColumn::File) => (path.clone(), 0, 0.0),
-            (LsRow::Loading { path }, FileSortColumn::File) => (path.clone(), 0, 0.0),
-            (LsRow::Error { path, .. }, _) => (path.clone(), 0, 0.0),
-            (LsRow::Loading { path }, _) => (path.clone(), 0, 0.0),
+            (LsRow::Error { path, .. } | LsRow::Loading { path }, FileSortColumn::File)
+            | (LsRow::Error { path, .. } | LsRow::Loading { path }, _) => (path.clone(), 0, 0.0),
         }
     };
     let (sa, na, fa) = key(&a.1);
@@ -1259,7 +1262,7 @@ fn render_file_browser(f: &mut Frame<'_>, app: &mut App) {
         .max(4);
 
     let widths = [
-        Constraint::Length((file_col_width as u16).min(200)),
+        Constraint::Length(u16::try_from(file_col_width).unwrap_or_default().min(200)),
         Constraint::Length(8),
         Constraint::Length(7),
         Constraint::Length(6),
@@ -1378,7 +1381,7 @@ fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         ViewMode::FileBrowser => "Features".to_string(),
     };
     let inner_height = area.height.saturating_sub(2) as usize;
-    let max_scroll = app.tree_items.len().saturating_sub(inner_height) as u16;
+    let max_scroll = u16::try_from(app.tree_items.len().saturating_sub(inner_height)).unwrap_or(0);
     app.tree_scroll = app.tree_scroll.min(max_scroll);
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
@@ -1402,9 +1405,11 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let item = app.tree_items.get(selected);
     let hovered = app.hovered_item.and_then(|i| app.tree_items.get(i));
     let (title, lines): (String, Vec<Line<'static>>) = match item {
-        None | Some(TreeItem::AllFeatures) | Some(TreeItem::Layer(_)) => match hovered {
-            Some(TreeItem::Feature { layer, feat })
-            | Some(TreeItem::SubFeature { layer, feat, .. }) => {
+        None | Some(TreeItem::AllFeatures | TreeItem::Layer(_)) => {
+            if let Some(
+                TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. },
+            ) = hovered
+            {
                 let key = (*layer, *feat);
                 if app.last_properties_key != Some(key) {
                     app.properties_scroll = 0;
@@ -1427,8 +1432,7 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     prop_lines.push(Line::from(Span::raw("(no properties)")));
                 }
                 (format!("Properties (feat {feat}, hover)"), prop_lines)
-            }
-            _ => {
+            } else {
                 app.last_properties_key = None;
                 (
                     "Properties".to_string(),
@@ -1437,9 +1441,8 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     ))],
                 )
             }
-        },
-        Some(TreeItem::Feature { layer, feat })
-        | Some(TreeItem::SubFeature { layer, feat, .. }) => {
+        }
+        Some(TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. }) => {
             let key = (*layer, *feat);
             if app.last_properties_key != Some(key) {
                 app.properties_scroll = 0;
@@ -1466,7 +1469,7 @@ fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     };
     let block = block_with_title(title);
     let inner_height = area.height.saturating_sub(2);
-    let max_scroll = lines.len().saturating_sub(inner_height as usize) as u16;
+    let max_scroll = u16::try_from(lines.len().saturating_sub(inner_height as usize)).unwrap_or(0);
     app.properties_scroll = app.properties_scroll.min(max_scroll);
     let para = Paragraph::new(lines)
         .block(block)
