@@ -27,7 +27,7 @@ Given the raw input bytes, the parser quickly runs over the input slice and only
 
 ## CLI Tool
 
-The `mlt-nom` binary provides several commands for working with MLT files:
+The `mlt` binary provides several commands for working with MLT files:
 
 ### Commands
 

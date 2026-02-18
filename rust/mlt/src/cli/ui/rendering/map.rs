@@ -1,4 +1,4 @@
-use mlt_nom::geojson::{Coordinate, Geometry};
+use mlt::geojson::{Coordinate, Geometry};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Span, Style};

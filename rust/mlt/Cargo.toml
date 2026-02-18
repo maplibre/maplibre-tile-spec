@@ -10,7 +10,7 @@ categories.workspace = true
 rust-version.workspace = true
 
 [[bin]]
-name = "mlt-nom"
+name = "nom"
 path = "src/main.rs"
 required-features = ["cli"]
 

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Instant;
 
-use mlt_nom::geojson::{Coordinate, Feature, FeatureCollection, Geometry};
+use mlt::geojson::{Coordinate, Feature, FeatureCollection, Geometry};
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::TableState;
 use rstar::{PointDistance as _, RTree};

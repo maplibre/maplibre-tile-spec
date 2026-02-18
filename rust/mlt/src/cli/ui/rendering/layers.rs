@@ -1,4 +1,4 @@
-use mlt_nom::geojson::{Feature, Geometry};
+use mlt::geojson::{Feature, Geometry};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Span, Style};
@@ -242,7 +242,7 @@ fn subpart_stats_lines(geom: &Geometry, part: usize) -> Vec<Line<'static>> {
     lines
 }
 
-fn push_ring_stats(lines: &mut Vec<Line<'static>>, rings: &[Vec<mlt_nom::geojson::Coordinate>]) {
+fn push_ring_stats(lines: &mut Vec<Line<'static>>, rings: &[Vec<mlt::geojson::Coordinate>]) {
     let total: usize = rings.iter().map(Vec::len).sum();
     lines.push(stat_line("Vertices", &total));
     lines.push(stat_line("Rings", &rings.len()));

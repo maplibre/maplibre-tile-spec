@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 use insta::{assert_debug_snapshot, with_settings};
-use mlt_nom::parse_layers;
+use mlt::parse_layers;
 use test_each_file::test_each_path;
 
 //

@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::Path;
 
-use mlt_nom::geojson::FeatureCollection;
-use mlt_nom::parse_layers;
+use mlt::geojson::FeatureCollection;
+use mlt::parse_layers;
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mlt"] in "../test/expected/tag0x01" as geojson => geojson_test }

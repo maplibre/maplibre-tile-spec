@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Args;
-use mlt_nom::geojson::FeatureCollection;
-use mlt_nom::parse_layers;
+use mlt::geojson::FeatureCollection;
+use mlt::parse_layers;
 
 use crate::OutputFormat;
 

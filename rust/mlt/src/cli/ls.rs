@@ -9,12 +9,12 @@ use anyhow::Result;
 use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use mlt_nom::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
-use mlt_nom::v01::{
+use mlt::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
+use mlt::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
     PhysicalDecoder, PhysicalStreamType, Stream,
 };
-use mlt_nom::{Analyze as _, parse_layers};
+use mlt::{Analyze as _, parse_layers};
 #[cfg(feature = "rayon")]
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use size_format::SizeFormatterSI;

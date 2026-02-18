@@ -23,11 +23,11 @@ bless *args:  (cargo-install 'cargo-insta')
 
 # Build the project
 build:
-    cargo build -p mlt-nom --all-features --all-targets
+    cargo build -p mlt --all-features --all-targets
 
 # Quick compile without building a binary
 check:
-    cargo check -p mlt-nom --all-features --all-targets
+    cargo check -p mlt --all-features --all-targets
 
 # Generate code coverage report to upload to codecov.io
 ci-coverage: env-info gen-snippets && \
@@ -48,19 +48,19 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    cargo clippy -p mlt-nom --all-features --all-targets {{args}}
+    cargo clippy -p mlt --all-features --all-targets {{args}}
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov')
-    cargo llvm-cov -p mlt-nom --all-features --all-targets --include-build-script {{args}}
+    cargo llvm-cov -p mlt --all-features --all-targets --include-build-script {{args}}
 
 # Generate code coverage report for the synthetics test only
 coverage-synthetics *args='--open':  (cargo-install 'cargo-llvm-cov')
-    cargo llvm-cov -p mlt-nom --test synthetics {{args}}
+    cargo llvm-cov -p mlt --test synthetics {{args}}
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} -p mlt-nom --all-features
+    DOCS_RS=1 cargo doc --no-deps {{args}} -p mlt --all-features
 
 # Print environment info
 env-info:
@@ -88,7 +88,7 @@ fmt:
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args:  (cargo-install 'cargo-sort')
-    cargo sort -p mlt-nom --grouped {{args}}
+    cargo sort -p mlt --grouped {{args}}
 
 # Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
 [working-directory: '../../java']
@@ -121,8 +121,8 @@ semver *args:  (cargo-install 'cargo-semver-checks')
 
 # Run all tests
 test:
-    cargo test -p mlt-nom --all-features --all-targets
-    cargo test --doc -p mlt-nom --all-features
+    cargo test -p mlt --all-features --all-targets
+    cargo test --doc -p mlt --all-features
 
 # Test documentation generation
 test-doc:  (docs '')
@@ -137,7 +137,7 @@ test-publish:
 
 # Find unused dependencies. Install it with `cargo install cargo-udeps`
 udeps:  (cargo-install 'cargo-udeps')
-    cargo +nightly udeps -p mlt-nom --all-features --all-targets
+    cargo +nightly udeps -p mlt --all-features --all-targets
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:

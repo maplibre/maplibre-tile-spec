@@ -17,8 +17,8 @@ use crossterm::event::{
     MouseEventKind,
 };
 use crossterm::execute;
-use mlt_nom::geojson::{Coordinate, FeatureCollection, Geometry};
-use mlt_nom::parse_layers;
+use mlt::geojson::{Coordinate, FeatureCollection, Geometry};
+use mlt::parse_layers;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};

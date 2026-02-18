@@ -1,6 +1,6 @@
 use borrowme::ToOwned as _;
 use hex::ToHex as _;
-use mlt_nom::Layer;
+use mlt::Layer;
 
 #[derive(arbitrary::Arbitrary)]
 pub struct LayerInput {
