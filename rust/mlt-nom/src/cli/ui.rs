@@ -641,7 +641,9 @@ impl App {
     }
 
     fn selected_file_real_index(&self) -> Option<usize> {
-        self.filtered_file_indices.get(self.selected_file_index).copied()
+        self.filtered_file_indices
+            .get(self.selected_file_index)
+            .copied()
     }
 
     fn rebuild_filtered_files(&mut self) {
@@ -1061,10 +1063,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         .split(f.area());
                     let right_chunks = Layout::default()
                         .direction(Direction::Vertical)
-                        .constraints([
-                            Constraint::Percentage(50),
-                            Constraint::Percentage(50),
-                        ])
+                        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
                         .split(chunks[1]);
                     render_file_browser(f, chunks[0], app);
                     render_file_filter_panel(f, right_chunks[0], app);
@@ -1345,10 +1344,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         if app.mode == ViewMode::FileBrowser {
                             if let Some(left) = file_left_area {
                                 let divider_x = left.x + left.width;
-                                if mouse.column
-                                    >= divider_x.saturating_sub(DIVIDER_GRAB)
-                                    && mouse.column
-                                        < divider_x.saturating_add(DIVIDER_GRAB)
+                                if mouse.column >= divider_x.saturating_sub(DIVIDER_GRAB)
+                                    && mouse.column < divider_x.saturating_add(DIVIDER_GRAB)
                                     && mouse.row >= left.y
                                     && mouse.row < left.y + left.height
                                 {
@@ -1359,8 +1356,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                             if let Some(filter_area) = file_filter_area {
                                 if point_in_rect(mouse.column, mouse.row, filter_area) {
-                                    let row_in_panel = (mouse.row
-                                        .saturating_sub(filter_area.y + 1))
+                                    let row_in_panel = (mouse.row.saturating_sub(filter_area.y + 1))
                                         as usize
                                         + app.filter_scroll as usize;
                                     handle_filter_click(app, row_in_panel);
@@ -1589,9 +1585,8 @@ fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     } else {
         total.to_string()
     };
-    let title = format!(
-        "MLT Files ({count_str} found) - ↑/↓ navigate, Enter open, q quit{sort_hint}"
-    );
+    let title =
+        format!("MLT Files ({count_str} found) - ↑/↓ navigate, Enter open, q quit{sort_hint}");
     let table = Table::new(rows, widths)
         .header(header)
         .column_spacing(1)
@@ -1684,10 +1679,10 @@ fn file_matches_filters(
 ) -> bool {
     let file_geoms: HashSet<&str> = info.geometries().split(',').map(str::trim).collect();
     let file_algos: HashSet<&str> = info.algorithms().split(',').map(str::trim).collect();
-    let geom_ok = geom_filters.is_empty()
-        || geom_filters.iter().all(|g| file_geoms.contains(g.as_str()));
-    let algo_ok = algo_filters.is_empty()
-        || algo_filters.iter().all(|a| file_algos.contains(a.as_str()));
+    let geom_ok =
+        geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g.as_str()));
+    let algo_ok =
+        algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str()));
     geom_ok && algo_ok
 }
 
@@ -1761,10 +1756,7 @@ fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             } else {
                 Style::default().fg(Color::DarkGray)
             };
-            lines.push(Line::from(Span::styled(
-                format!("  {checked}{a}"),
-                style,
-            )));
+            lines.push(Line::from(Span::styled(format!("  {checked}{a}"), style)));
         }
     }
     if lines.is_empty() {
@@ -2118,20 +2110,13 @@ fn geometry_stats_lines(geom: &Geometry) -> Vec<Line<'static>> {
                 Span::styled("Parts: ", cyan),
                 Span::raw(polys.len().to_string()),
             ]));
-            let total: usize = polys
-                .iter()
-                .flat_map(|p| p.iter())
-                .map(Vec::len)
-                .sum();
+            let total: usize = polys.iter().flat_map(|p| p.iter()).map(Vec::len).sum();
             lines.push(Line::from(vec![
                 Span::styled("Vertices: ", cyan),
                 Span::raw(total.to_string()),
             ]));
             for (pi, poly) in polys.iter().enumerate() {
-                lines.push(Line::from(format!(
-                    "  Poly {pi}: {} rings",
-                    poly.len()
-                )));
+                lines.push(Line::from(format!("  Poly {pi}: {} rings", poly.len())));
                 for (ri, ring) in poly.iter().enumerate() {
                     let winding = if is_ring_ccw(ring) { "CCW" } else { "CW" };
                     lines.push(Line::from(format!(
@@ -2193,8 +2178,7 @@ fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
             let draw_feat = |ctx: &mut Context<'_>, gi: usize| {
                 let geom = &app.fc.features[gi].geometry;
                 let base = geometry_color(geom);
-                let is_hovered =
-                    hovered.is_some_and(|h| app.global_idx(h.layer, h.feat) == gi);
+                let is_hovered = hovered.is_some_and(|h| app.global_idx(h.layer, h.feat) == gi);
                 let sel_part = match selected {
                     TreeItem::SubFeature { layer, feat, part }
                         if app.global_idx(*layer, *feat) == gi =>
@@ -2300,7 +2284,11 @@ fn draw_ring(ctx: &mut Context<'_>, ring: &[Coordinate], color: Color) {
 }
 
 fn ring_color(ring: &[Coordinate]) -> Color {
-    if is_ring_ccw(ring) { Color::Blue } else { Color::Red }
+    if is_ring_ccw(ring) {
+        Color::Blue
+    } else {
+        Color::Red
+    }
 }
 
 fn draw_polygon(
@@ -2461,7 +2449,6 @@ fn has_nonstandard_winding(geom: &Geometry) -> bool {
         _ => false,
     }
 }
-
 
 /// Index entry for rstar spatial search. Stores layer/feat/part and vertices for distance computation.
 struct GeometryIndexEntry {

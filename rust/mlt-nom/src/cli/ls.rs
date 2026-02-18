@@ -295,11 +295,7 @@ fn collect_from_dir(dir: &Path, files: &mut Vec<PathBuf>, recursive: bool) -> Re
     Ok(())
 }
 
-pub fn analyze_mlt_file(
-    path: &Path,
-    base_path: &Path,
-    skip_gzip: bool,
-) -> Result<MltFileInfo> {
+pub fn analyze_mlt_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Result<MltFileInfo> {
     let buffer = fs::read(path)?;
     let original_size = buffer.len();
     let mut layers = parse_layers(&buffer)?;
