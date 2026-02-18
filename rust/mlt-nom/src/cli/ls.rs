@@ -71,15 +71,14 @@ fn percent_of(part: usize, whole: usize) -> f64 {
     }
 }
 
-/// Column index for file table sorting (0=File, 1=Size, 2=Enc%, 3=Layers, 4=Features, 5=Geometry).
+/// Column index for file table sorting in the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileSortColumn {
-    File = 0,
-    Size = 1,
-    EncPct = 2,
-    Layers = 3,
-    Features = 4,
-    Geometry = 5,
+    File,
+    Size,
+    EncPct,
+    Layers,
+    Features,
 }
 
 #[derive(serde::Serialize, Debug, Clone)]
@@ -109,11 +108,23 @@ impl MltFileInfo {
     pub fn encoding_pct(&self) -> f64 {
         self.encoding_pct
     }
+    pub fn data_size(&self) -> usize {
+        self.data_size
+    }
+    pub fn meta_size(&self) -> usize {
+        self.meta_size
+    }
+    pub fn meta_pct(&self) -> f64 {
+        self.meta_pct
+    }
     pub fn layers(&self) -> usize {
         self.layers
     }
     pub fn features(&self) -> usize {
         self.features
+    }
+    pub fn streams(&self) -> usize {
+        self.streams
     }
     pub fn geometries(&self) -> &str {
         &self.geometries
@@ -181,7 +192,7 @@ pub fn ls(args: &LsArgs) -> Result<()> {
     let all_files = all_files.iter();
 
     let rows: Vec<_> = all_files
-        .map(|path| match analyze_mlt_file(path, base_path) {
+        .map(|path| match analyze_mlt_file(path, base_path, false) {
             Ok(info) => LsRow::Info(info),
             Err(e) => LsRow::Error {
                 path: relative_path(path, base_path),
@@ -201,14 +212,15 @@ pub fn ls(args: &LsArgs) -> Result<()> {
 
 /// Analyze MLT files and return rows (for reuse by UI).
 /// Uses parallel iteration when rayon is enabled.
-pub fn analyze_mlt_files(paths: &[PathBuf], base_path: &Path) -> Vec<LsRow> {
+/// When `skip_gzip` is true, gzip size estimation is skipped for speed.
+pub fn analyze_mlt_files(paths: &[PathBuf], base_path: &Path, skip_gzip: bool) -> Vec<LsRow> {
     #[cfg(feature = "rayon")]
     let paths_iter = paths.par_iter();
     #[cfg(not(feature = "rayon"))]
     let paths_iter = paths.iter();
 
     paths_iter
-        .map(|path| match analyze_mlt_file(path, base_path) {
+        .map(|path| match analyze_mlt_file(path, base_path, skip_gzip) {
             Ok(info) => LsRow::Info(info),
             Err(e) => LsRow::Error {
                 path: relative_path(path, base_path),
@@ -218,9 +230,8 @@ pub fn analyze_mlt_files(paths: &[PathBuf], base_path: &Path) -> Vec<LsRow> {
         .collect()
 }
 
-/// Return cells for table display: [File, Size, Enc%, Layers, Features, Geometry].
-/// File name is first column per user preference.
-pub fn row_cells(row: &LsRow) -> [String; 6] {
+/// Return cells for UI table display: [File, Size, Enc%, Layers, Features].
+pub fn row_cells(row: &LsRow) -> [String; 5] {
     let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
     let fmt_pct = |v: f64| {
         if v.abs() >= 10.0 {
@@ -238,7 +249,6 @@ pub fn row_cells(row: &LsRow) -> [String; 6] {
             format!("{:>6}", fmt_pct(info.encoding_pct())),
             format!("{:>6}", info.layers()),
             format!("{:>10}", info.features().separate_with_commas()),
-            info.geometries().to_string(),
         ],
         LsRow::Error { path, error } => [
             path.clone(),
@@ -246,11 +256,9 @@ pub fn row_cells(row: &LsRow) -> [String; 6] {
             String::new(),
             String::new(),
             String::new(),
-            String::new(),
         ],
         LsRow::Loading { path } => [
             path.clone(),
-            "…".to_string(),
             "…".to_string(),
             "…".to_string(),
             "…".to_string(),
@@ -287,7 +295,11 @@ fn collect_from_dir(dir: &Path, files: &mut Vec<PathBuf>, recursive: bool) -> Re
     Ok(())
 }
 
-pub fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
+pub fn analyze_mlt_file(
+    path: &Path,
+    base_path: &Path,
+    skip_gzip: bool,
+) -> Result<MltFileInfo> {
     let buffer = fs::read(path)?;
     let original_size = buffer.len();
     let mut layers = parse_layers(&buffer)?;
@@ -303,7 +315,6 @@ pub fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
         }
     }
 
-    // Now decode to get feature counts and geometry types
     let mut geometries = HashSet::new();
     let mut feature_count = 0;
     let mut data_size = 0;
@@ -324,13 +335,15 @@ pub fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
         }
     }
 
-    // Calculate gzip size
-    let gzipped_size = estimate_gzip_size(&buffer)?;
+    let (gzipped_size, gzip_pct) = if skip_gzip {
+        (0, 0.0)
+    } else {
+        let gz = estimate_gzip_size(&buffer)?;
+        (gz, percent(gz, original_size))
+    };
 
-    // Format compression and geometry lists with abbreviations
     let geometries_str = format_geometries(geometries);
     let algorithms_str = format_algorithms(algorithms);
-
     let rel_path = relative_path(path, base_path);
 
     Ok(MltFileInfo {
@@ -341,7 +354,7 @@ pub fn analyze_mlt_file(path: &Path, base_path: &Path) -> Result<MltFileInfo> {
         meta_size,
         meta_pct: percent_of(meta_size, data_size),
         gzipped_size,
-        gzip_pct: percent(gzipped_size, original_size),
+        gzip_pct,
         layers: layers.len(),
         features: feature_count,
         streams: stream_count,
