@@ -2,7 +2,7 @@
 
 namespace mlt::util {
 /// Load binary file contents
-inline std::vector<char> loadFile(const std::filesystem::path& path) {
+std::vector<char> loadFile(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file: " + path.string());
@@ -23,7 +23,7 @@ inline std::vector<char> loadFile(const std::filesystem::path& path) {
 }
 
 /// Load text file contents
-inline std::string loadTextFile(const std::filesystem::path& path) {
+std::string loadTextFile(const std::filesystem::path& path) {
     std::ifstream file(path);
     if (!file) {
         throw std::runtime_error("Failed to open file: " + path.string());
