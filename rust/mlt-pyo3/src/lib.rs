@@ -483,13 +483,10 @@ mod tests {
         }
 
         assert!(!layers.is_empty(), "should parse at least one layer");
-        let l = layers[0]
-            .as_layer01()
-            .expect("first layer should be v0.1");
+        let l = layers[0].as_layer01().expect("first layer should be v0.1");
         assert!(!l.name.is_empty(), "layer name should be non-empty");
 
-        let fc =
-            FeatureCollection::from_layers(&layers).expect("FeatureCollection should succeed");
+        let fc = FeatureCollection::from_layers(&layers).expect("FeatureCollection should succeed");
         assert!(
             !fc.features.is_empty(),
             "feature collection should have features"
@@ -507,19 +504,23 @@ mod tests {
             layer.decode_all().expect("decode_all should succeed");
         }
 
-        let l = layers[0]
-            .as_layer01()
-            .expect("first layer should be v0.1");
+        let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
             mlt_nom::v01::Geometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
         };
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
-        assert!(wkb.len() >= 5, "WKB must be at least 5 bytes (byte order + type)");
+        assert!(
+            wkb.len() >= 5,
+            "WKB must be at least 5 bytes (byte order + type)"
+        );
         assert_eq!(wkb[0], 0x01, "WKB byte order should be little-endian");
         let wkb_type = u32::from_le_bytes([wkb[1], wkb[2], wkb[3], wkb[4]]);
-        assert_eq!(wkb_type, 3, "polygon fixture should produce WKB type 3 (Polygon)");
+        assert_eq!(
+            wkb_type, 3,
+            "polygon fixture should produce WKB type 3 (Polygon)"
+        );
     }
 
     #[test]
@@ -535,9 +536,7 @@ mod tests {
             layer.decode_all().expect("decode_all should succeed");
         }
 
-        let l = layers[0]
-            .as_layer01()
-            .expect("first layer should be v0.1");
+        let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
             mlt_nom::v01::Geometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
@@ -570,9 +569,7 @@ mod tests {
             layer.decode_all().expect("decode_all should succeed");
         }
 
-        let l = layers[0]
-            .as_layer01()
-            .expect("first layer should be v0.1");
+        let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
             mlt_nom::v01::Geometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
@@ -581,6 +578,9 @@ mod tests {
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
         assert!(wkb.len() >= 5);
         let wkb_type = u32::from_le_bytes([wkb[1], wkb[2], wkb[3], wkb[4]]);
-        assert_eq!(wkb_type, 2, "line fixture should produce WKB type 2 (LineString)");
+        assert_eq!(
+            wkb_type, 2,
+            "line fixture should produce WKB type 2 (LineString)"
+        );
     }
 }
