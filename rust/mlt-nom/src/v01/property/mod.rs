@@ -33,6 +33,15 @@ pub struct RawStructChild<'a> {
     pub data: Stream<'a>,
 }
 
+impl OwnedRawStructChild {
+    #[expect(clippy::unused_self)]
+    pub(crate) fn write_columns_meta_to<W: Write>(&self, _writer: &mut W) -> Result<(), MltError> {
+        Err(MltError::NotImplemented(
+            "write collumn type and name for struct children",
+        ))
+    }
+}
+
 /// Property representation, either raw or decoded
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -137,9 +146,14 @@ impl OwnedRawProperty {
         writer.write_string(&self.name)?;
 
         // struct children
-        if let OwnedRawPropValue::Struct(_) = &self.value {
+        if let OwnedRawPropValue::Struct(s) = &self.value {
             // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
-            return Err(MltError::NotImplemented("struct child meta writing"));
+            let child_column_count =
+                u64::try_from(s.children.len()).map_err(|_| IntegerOverflow)?;
+            writer.write_varint(child_column_count)?;
+            for child in &s.children {
+                child.write_columns_meta_to(writer)?;
+            }
         }
         Ok(())
     }
@@ -181,7 +195,24 @@ impl OwnedRawProperty {
                     writer.write_stream(s)?;
                 }
             }
-            Val::Struct(_) => return Err(MltError::NotImplemented("struct stream writing")),
+            Val::Struct(s) => {
+                let child_len = u64::try_from(s.children.len()).map_err(|_| IntegerOverflow)?;
+                let dict_cnt = u64::try_from(s.dict_streams.len()).map_err(|_| IntegerOverflow)?;
+                let stream_count = child_len.checked_add(dict_cnt).ok_or(IntegerOverflow)?;
+                writer.write_varint(stream_count)?;
+                for dict in &s.dict_streams {
+                    writer.write_stream(dict)?;
+                }
+                for child in &s.children {
+                    if let Some(opt) = &child.optional {
+                        writer.write_varint(2)?; // stream_count => data and option
+                        writer.write_boolean_stream(opt)?;
+                    } else {
+                        writer.write_varint(1)?; // stream_count => only data stream
+                    }
+                    writer.write_stream(&child.data)?;
+                }
+            }
         }
         Ok(())
     }
@@ -438,10 +469,9 @@ fn decode_struct_children<'a>(
             let present = child.optional.map(Stream::decode_bools);
             let offsets = child.data.decode_bits_u32()?.decode_u32()?;
             let strings = resolve_offsets(&dict, &offsets)?;
-            Ok(Property::Decoded(DecodedProperty {
-                name: format!("{parent_name}{}", child.name),
-                values: PropValue::Str(apply_present(present.as_ref(), strings)),
-            }))
+            let name = format!("{parent_name}{}", child.name);
+            let values = PropValue::Str(apply_present(present.as_ref(), strings));
+            Ok(Property::Decoded(DecodedProperty { name, values }))
         })
         .collect()
 }
