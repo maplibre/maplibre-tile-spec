@@ -1080,29 +1080,32 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         let prev = app.hovered.clone();
                         app.hovered = None;
 
-                        let hover_disabled = matches!(
-                            app.tree_items.get(app.selected_index),
-                            Some(TreeItem::Feature { layer, feat })
-                                if !app.expanded_features.contains(&(*layer, *feat))
-                        );
-
-                        if app.mode == ViewMode::LayerOverview && !hover_disabled {
-                            if let Some(area) = tree_area {
-                                if let Some(row) = click_row_in_area(
-                                    mouse.column,
-                                    mouse.row,
-                                    area,
-                                    app.tree_scroll as usize,
-                                ) {
-                                    if let Some((layer, feat, part)) =
-                                        app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
-                                    {
-                                        app.hovered = Some(HoveredInfo {
-                                            tree_idx: row,
-                                            layer,
-                                            feat,
-                                            part,
-                                        });
+                        if app.mode == ViewMode::LayerOverview {
+                            let tree_hover_enabled = !matches!(
+                                app.tree_items.get(app.selected_index),
+                                Some(TreeItem::Feature { layer, feat })
+                                    if !app.expanded_features.contains(&(*layer, *feat))
+                            );
+                            if tree_hover_enabled {
+                                if let Some(area) = tree_area {
+                                    if let Some(row) = click_row_in_area(
+                                        mouse.column,
+                                        mouse.row,
+                                        area,
+                                        app.tree_scroll as usize,
+                                    ) {
+                                        if let Some((layer, feat, part)) = app
+                                            .tree_items
+                                            .get(row)
+                                            .and_then(TreeItem::layer_feat_part)
+                                        {
+                                            app.hovered = Some(HoveredInfo {
+                                                tree_idx: row,
+                                                layer,
+                                                feat,
+                                                part,
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -1547,24 +1550,18 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
 fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let selected = app.selected_index;
     let item = app.tree_items.get(selected);
-    let hovered = app
-        .hovered
-        .as_ref()
-        .and_then(|h| app.tree_items.get(h.tree_idx));
+    let hovered = app.hovered.as_ref();
     let (title, lines): (String, Vec<Line<'static>>) = match item {
         None | Some(TreeItem::All | TreeItem::Layer(_)) => {
-            if let Some(
-                TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. },
-            ) = hovered
-            {
-                let key = (*layer, *feat);
+            if let Some(h) = hovered {
+                let key = (h.layer, h.feat);
                 if app.last_properties_key != Some(key) {
                     app.properties_scroll = 0;
                     app.last_properties_key = Some(key);
                 }
-                let feat_ref = app.feature(*layer, *feat);
+                let feat_ref = app.feature(h.layer, h.feat);
                 (
-                    format!("Properties (feat {feat}, hover)"),
+                    format!("Properties (feat {}, hover)", h.feat),
                     feature_property_lines(feat_ref),
                 )
             } else {
@@ -1619,19 +1616,13 @@ fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                 color: Color::DarkGray,
             });
 
-            let hovered = app
-                .hovered
-                .as_ref()
-                .and_then(|h| app.tree_items.get(h.tree_idx));
+            let hovered = app.hovered.as_ref();
 
-            // Collect global feature indices to draw
             let draw_feat = |ctx: &mut Context<'_>, gi: usize| {
                 let geom = &app.fc.features[gi].geometry;
                 let base = geometry_color(geom);
-                let is_hovered = hovered.is_some_and(|h| match h {
-                    TreeItem::Feature { layer, feat } => app.global_idx(*layer, *feat) == gi,
-                    _ => false,
-                });
+                let is_hovered =
+                    hovered.is_some_and(|h| app.global_idx(h.layer, h.feat) == gi);
                 let sel_part = match selected {
                     TreeItem::SubFeature { layer, feat, part }
                         if app.global_idx(*layer, *feat) == gi =>
@@ -1640,13 +1631,12 @@ fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                     }
                     _ => None,
                 };
-                let hov_part = hovered.and_then(|h| match h {
-                    TreeItem::SubFeature { layer, feat, part }
-                        if app.global_idx(*layer, *feat) == gi =>
-                    {
-                        Some(*part)
+                let hov_part = hovered.and_then(|h| {
+                    if app.global_idx(h.layer, h.feat) == gi {
+                        h.part
+                    } else {
+                        None
                     }
-                    _ => None,
                 });
                 draw_feature(ctx, geom, base, is_hovered, sel_part, hov_part);
             };
