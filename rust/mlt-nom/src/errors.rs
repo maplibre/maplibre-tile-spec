@@ -1,5 +1,6 @@
 use std::convert::Infallible;
 
+use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
 use crate::v01::{GeometryType, LogicalDecoder, LogicalTechnique, PhysicalStreamType};
@@ -90,7 +91,7 @@ pub enum MltError {
     #[error("FastPFor decode failed: expected={expected} got={got}")]
     FastPforDecode { expected: usize, got: usize },
     #[error("FastPFor FFI error: {0}")]
-    FastPforFfi(String),
+    FastPforFfi(#[from] Exception),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
 

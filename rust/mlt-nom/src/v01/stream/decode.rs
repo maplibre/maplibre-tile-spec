@@ -50,10 +50,7 @@ pub fn decode_fastpfor_composite(data: &[u8], num_values: usize) -> Result<Vec<u
     let buf_size = num_values + 1024;
     let mut result = vec![0u32; buf_size];
 
-    let codec = FastPFor256Codec::new();
-    let decoded = codec
-        .decode32(&input, &mut result)
-        .map_err(|e| MltError::FastPforFfi(e.to_string()))?;
+    let decoded = FastPFor256Codec::new().decode32(&input, &mut result)?;
 
     if decoded.len() < num_values {
         return Err(MltError::FastPforDecode {
