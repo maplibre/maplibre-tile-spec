@@ -142,12 +142,6 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-rust
-      - name: Get mlt version for release tag
-        id: get_version
-        run: |
-          VERSION=$(just get-crate-field version mlt)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=rust-mlt-v$VERSION" >> $GITHUB_OUTPUT
       - name: Add target
         run: rustup target add ${{ matrix.target }}
       - name: Build release binary
@@ -161,9 +155,9 @@ jobs:
       - name: Package Windows binary
         if: runner.os == 'Windows'
         run: |
-          cp target/${{ matrix.target }}/release/mlt.exe mlt.exe
+          Copy-Item target/${{ matrix.target }}/release/mlt.exe mlt.exe
           7z a ../${{ matrix.artifact_name }} mlt.exe
-          rm mlt.exe
+          Remove-Item mlt.exe
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -218,13 +212,22 @@ jobs:
       - uses: actions/checkout@v6
       - uses: taiki-e/install-action@v2
         with: { tool: 'just' }
-      - name: Get mlt version for release tag
-        id: get_version
-        working-directory: ./rust
+      - name: Get mlt version for release tag (Unix)
+        if: runner.os != 'Windows'
+        id: get_version_unix
+        shell: bash
         run: |
           VERSION=$(just get-crate-field version mlt)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=mlt-v$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=rust-mlt-v$VERSION" >> $GITHUB_OUTPUT
+      - name: Get mlt version for release tag (Windows)
+        if: runner.os == 'Windows'
+        id: get_version_windows
+        shell: pwsh
+        run: |
+          $VERSION = just get-crate-field version mlt
+          echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+          echo "tag=rust-mlt-v$VERSION" >> $env:GITHUB_OUTPUT
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -232,7 +235,7 @@ jobs:
       - name: Add binaries to GitHub release
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
-          tag_name: ${{ steps.get_version.outputs.tag }}
+          tag_name: ${{ steps.get_version_windows.outputs.tag || steps.get_version_unix.outputs.tag }}
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
