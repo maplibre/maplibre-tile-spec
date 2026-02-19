@@ -17,3 +17,5 @@ install-path = "CARGO_HOME"
 install-updater = true
 # Skip checking whether the specified configuration files are up to date
 allow-dirty = ["ci", "msi"]
+# build and upload an artifacts to the PR (expensive)
+pr-run-mode = "upload"
