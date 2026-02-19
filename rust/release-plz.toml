@@ -14,8 +14,8 @@ name = "mlt"
 publish = true
 
 [[package]]
-name = "fuzz"
-release = false
+name = "mlt-core"
+publish = true
 
 [[package]]
 name = "mlt-legacy"
