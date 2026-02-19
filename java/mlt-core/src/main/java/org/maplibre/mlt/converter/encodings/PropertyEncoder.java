@@ -440,7 +440,8 @@ public class PropertyEncoder {
     final var values = new ArrayList<Integer>();
     final var presentValues = metadata.isNullable ? new ArrayList<Boolean>(features.size()) : null;
     for (var feature : features) {
-      // TODO: refactor -> handle long values for ids differently
+      // Force ID values to integer for this column.
+      // If long were required, `encodeInt64Column` would have been called instead.
       final var propertyValue =
           isID
               ? (feature.hasId() ? Integer.valueOf(Math.toIntExact(feature.id())) : null)
@@ -452,6 +453,10 @@ public class PropertyEncoder {
       if (presentValues != null) {
         presentValues.add(present);
       }
+      // If the column is not nullable, all values must be present.
+      // Failure of this assertion indicates a problem with metadata creation,
+      // or use of the metadata to encode data other than what it describes.
+      assert (present || metadata.isNullable);
     }
 
     var encodedPresentStream =
