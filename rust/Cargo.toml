@@ -1,10 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-nom", "wasm-test"]
-default-members = ["mlt", "mlt-nom"]
+members = ["mlt", "mlt-core"]
+exclude = ["mlt-fuzz", "mlt-legacy"]
+default-members = ["mlt", "mlt-core"]
 
 [workspace.package]
 repository = "https://github.com/nyurik/maplibre-tile-spec"
+homepage = "https://maplibre.org"
+authors = ["Maplibre Contributors"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 keywords = ["maplibre", "tile", "mlt", "mvt"]
@@ -25,9 +28,9 @@ cast_possible_truncation = "allow"  # 24
 cast_possible_wrap = "allow"  # 20
 too_many_lines = "allow"  # 4
 missing_panics_doc = "allow"  # 4
-missing_errors_doc = "allow"  # 4
 must_use_candidate = "allow"
 
-# TODO: Implements test-ignores. Remove once https://github.com/binary-banter/test-each-file/pull/21 is merged
-[patch.crates-io]
-test_each_file = { git = "https://github.com/CommanderStorm/test-each-file.git", rev = "b02720f7cd42bb4229904a56ccbc76fb8ad868af" }
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
