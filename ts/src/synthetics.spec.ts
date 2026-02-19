@@ -35,19 +35,19 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
     ["prop_i64_max", "wraps to -1 despite it should have been positive"],
 ]);
 
-describe("MLT Decoder - Synthetic tests", async () => {
-    const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
-    const files = await readdir(syntheticDir);
-    const testNames = files
-        .filter((f) => f.endsWith(".mlt"))
-        .map((f) => parse(f).name)
-        .sort();
-    // Separate tests into two groups
-    const activeList = testNames.filter((name) => !UNIMPLEMENTED_SYNTHETICS.has(name));
-    const skippedTests = testNames
-        .filter((name) => UNIMPLEMENTED_SYNTHETICS.has(name))
-        .map((name) => [name, UNIMPLEMENTED_SYNTHETICS.get(name)] as const);
+const syntheticDir = resolve(__dirname, "../../test/synthetic/0x01");
+const files = await readdir(syntheticDir);
+const testNames = files
+    .filter((f) => f.endsWith(".mlt"))
+    .map((f) => parse(f).name)
+    .sort();
+// Separate tests into two groups
+const activeList = testNames.filter((name) => !UNIMPLEMENTED_SYNTHETICS.has(name));
+const skippedTests = testNames
+    .filter((name) => UNIMPLEMENTED_SYNTHETICS.has(name))
+    .map((name) => [name, UNIMPLEMENTED_SYNTHETICS.get(name)] as const);
 
+describe("MLT Decoder - Synthetic tests", () => {
     it.each(activeList)("should decode %s", async (testName) => {
         const [mltBuffer, jsonRaw] = await Promise.all([
             readFile(join(syntheticDir, `${testName}.mlt`)),
