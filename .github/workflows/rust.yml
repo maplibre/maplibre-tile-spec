@@ -17,7 +17,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt-nom }
+      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -25,13 +25,14 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-rust
       - run: just -v ci-test
 
   test-msrv:
     name: Test MSRV
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt-nom }
+      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -39,6 +40,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Read MSRV
         id: msrv
         run: echo "value=$(just get-msrv)" >> $GITHUB_OUTPUT
@@ -46,20 +48,21 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-      - run: cd ../.. && just -v assert-git-is-clean
+      - run: cd .. && just -v assert-git-is-clean
 
   coverage:
     name: Code Coverage
     if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt-nom }
+      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall,cargo-llvm-cov' }
       - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Generate code coverage
         run: just -v ci-coverage
       - name: Upload coverage to Codecov
@@ -67,7 +70,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/llvm-cov/codecov.info
-      - run: cd ../.. && just -v assert-git-is-clean
+      - run: cd .. && just -v assert-git-is-clean
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
@@ -80,3 +83,36 @@ jobs:
         run: echo "${{ toJSON(needs) }}"
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
+
+  # Release unpublished packages or create a PR with changes
+  release-plz:
+    needs: [ ci-passed-rust ]
+    if: |
+      always()
+      && needs.done.result == 'success'
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && github.repository_owner == 'maplibre'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - run: rustup update stable && rustup default stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Publish to crates.io if crate's version is newer
+        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        id: release
+        with: { command: release, manifest_path: ./rust/Cargo.toml }
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+      - if: ${{ steps.release.outputs.releases_created == 'false' }}
+        name: If version is the same, create a PR proposing new version and changelog for the next release
+        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}

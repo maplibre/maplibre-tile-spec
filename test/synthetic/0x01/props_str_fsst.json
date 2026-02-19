@@ -1,0 +1,95 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4,
+          47
+        ]
+      },
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": "residential_zone_north_sector_1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          53
+        ]
+      },
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": "commercial_zone_south_sector_2"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18,
+          45
+        ]
+      },
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": "industrial_zone_east_sector_3"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          48
+        ]
+      },
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": "park_zone_west_sector_4"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12,
+          50
+        ]
+      },
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": "water_zone_north_sector_5"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10,
+          49
+        ]
+      },
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1",
+        "val": "residential_zone_south_sector_6"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
