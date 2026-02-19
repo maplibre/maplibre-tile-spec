@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
@@ -127,34 +128,7 @@ public class MBTilesHelper extends ConversionHelper {
           // so we have to set the format metadata the hard way.
           final var connectionString = "jdbc:sqlite:" + dbFile.getAbsolutePath();
           try (var connection = DriverManager.getConnection(connectionString)) {
-            if (config.verboseLevel() > 0) {
-              System.err.printf("Setting tile MIME type to '%s'%n", MetadataMIMEType);
-            }
-            var sql = "UPDATE metadata SET value = ? WHERE name = ?";
-            try (var statement = connection.prepareStatement(sql)) {
-              statement.setString(1, MetadataMIMEType);
-              statement.setString(2, "format");
-              statement.execute();
-            }
-
-            // Put the global metadata in a custom metadata key.
-            // Could also be in a custom key within the standard `json` entry...
-            if (config.verboseLevel() > 1) {
-              System.err.println("Adding tileset metadata JSON");
-            }
-            sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)";
-            try (var statement = connection.prepareStatement(sql)) {
-              statement.setString(1, "mln-json");
-              statement.setString(2, metadataJSON);
-              statement.execute();
-            }
-
-            if (config.verboseLevel() > 1) {
-              System.err.println("Optimizing database");
-            }
-            try (var statement = connection.prepareStatement("VACUUM")) {
-              statement.execute();
-            }
+            updateMetadata(config, connection, metadataJSON);
           }
         } finally {
           // mbtiles4j doesn't support `AutoCloseable`
@@ -180,6 +154,39 @@ public class MBTilesHelper extends ConversionHelper {
       }
     }
     return success.get();
+  }
+
+  private static void updateMetadata(
+      @NonNull EncodeConfig config, @NonNull Connection connection, @NonNull String metadataJSON)
+      throws SQLException {
+    if (config.verboseLevel() > 0) {
+      System.err.printf("Setting tile MIME type to '%s'%n", MetadataMIMEType);
+    }
+    var sql = "UPDATE metadata SET value = ? WHERE name = ?";
+    try (var statement = connection.prepareStatement(sql)) {
+      statement.setString(1, MetadataMIMEType);
+      statement.setString(2, "format");
+      statement.execute();
+    }
+
+    // Put the global metadata in a custom metadata key.
+    // Could also be in a custom key within the standard `json` entry...
+    if (config.verboseLevel() > 1) {
+      System.err.println("Adding tileset metadata JSON");
+    }
+    sql = "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)";
+    try (var statement = connection.prepareStatement(sql)) {
+      statement.setString(1, "mln-json");
+      statement.setString(2, metadataJSON);
+      statement.execute();
+    }
+
+    if (config.verboseLevel() > 1) {
+      System.err.println("Optimizing database");
+    }
+    try (var statement = connection.prepareStatement("VACUUM")) {
+      statement.execute();
+    }
   }
 
   private static boolean convertTile(
