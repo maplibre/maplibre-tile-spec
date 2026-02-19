@@ -16,7 +16,7 @@ hex = "0.4.3"
 arbitrary = { version = "1.4.2", features = ["derive"] }
 pretty_assertions = "1.4"
 
-[dependencies.mlt-nom]
+[dependencies.mlt]
 path = ".."
 
 [[bin]]

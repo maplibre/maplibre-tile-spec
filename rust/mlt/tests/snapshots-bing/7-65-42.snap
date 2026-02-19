@@ -1,5 +1,5 @@
 ---
-source: mlt-nom/tests/snapshots.rs
+source: mlt/tests/snapshots.rs
 ---
 [
     Tag01(

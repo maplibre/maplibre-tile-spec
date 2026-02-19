@@ -1,6 +1,6 @@
-# Fuzzing for mlt-nom
+# Fuzzing for mlt
 
-This directory contains fuzzing infrastructure for the `mlt-nom` parser using [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) and [libFuzzer](https://llvm.org/docs/LibFuzzer.html).
+This directory contains fuzzing infrastructure for the `mlt` parser using [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) and [libFuzzer](https://llvm.org/docs/LibFuzzer.html).
 
 ## Overview
 
@@ -133,4 +133,4 @@ To add a new fuzz target:
 
 - [cargo-fuzz documentation](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 - [libFuzzer documentation](https://llvm.org/docs/LibFuzzer.html)
-- [mlt-nom library documentation](../README.md)
+- [mlt library documentation](../README.md)
