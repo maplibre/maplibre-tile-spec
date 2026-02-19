@@ -111,12 +111,12 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_name: mlt-linux-x86_64.tar.gz
-          # Requires mln > fastpfor to support apple.
+          # Requires mlt > fastpfor to support apple.
           # Currently seems flaky
           #- os: ubuntu-22.04-arm
           #  target: aarch64-unknown-linux-gnu
           #  artifact_name: mlt-linux-aarch64.tar.gz
-          # Requires mln > fastpfor to support apple arm.
+          # Requires mlt > fastpfor to support apple arm.
           #- os: macos-latest
           #  target: aarch64-apple-darwin
           #  artifact_name: mlt-macos-aarch64.tar.gz
