@@ -252,7 +252,7 @@ public class PMTilesHelper extends ConversionHelper {
         System.err.printf("%s : Loaded (%d bytes%s)%n", tileLabel, tileData.length, extra);
       }
 
-      final MutableBoolean didCompress = null; // force compression
+      final MutableBoolean didCompress = null;
       final var mltData =
           Encode.convertTile(
               tileCoord.x(),
@@ -260,6 +260,8 @@ public class PMTilesHelper extends ConversionHelper {
               tileCoord.z(),
               tileData,
               state.encodeConfig(),
+              Optional.empty(), // compress even if it increases the size
+              Optional.empty(),
               didCompress);
 
       if (mltData != null && mltData.length > 0) {

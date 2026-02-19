@@ -13,6 +13,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -416,8 +417,15 @@ public class Encode {
    * @param regenIDsPattern A pattern for regenerating IDs, or null if not applicable.
    * @param compressionType The type of compression to apply to the output, or null for no
    *     compression.
-   * @param didCompress A mutable boolean to indicate whether compression was applied, or null to
-   *     force compression even if it results in a larger size.
+   * @param compressionRatioThreshold An optional threshold for the compression ratio to determine
+   *     whether compression is worth the need to decompress it. The compressed version will only be
+   *     used if its size is less than the original size multiplied by this ratio. If not present, a
+   *     compressed result will be used even if it's larger than the original.
+   * @param compressionFixedThreshold An optional fixed byte threshold to determine whether
+   *     compression is worth the need to decompress it. The compressed version will only be used if
+   *     its size is at least this many bytes smaller than the original size. If not present, a
+   *     compressed result will be used even if it's larger than the original.
+   * @param didCompress A mutable boolean to indicate whether compression was applied
    * @param enableElideOnMismatch A flag indicating whether to elide mismatched properties.
    * @param verboseLevel The verbosity level for logging and debugging output.
    * @return The converted tile data as a byte array, or null if the conversion failed.
@@ -429,6 +437,8 @@ public class Encode {
       int z,
       @NotNull byte[] srcTileData,
       @NotNull EncodeConfig config,
+      @NotNull Optional<Double> compressionRatioThreshold,
+      @NotNull Optional<Long> compressionFixedThreshold,
       @Nullable MutableBoolean didCompress) {
     try {
       // Decode the source tile data into an intermediate representation.
@@ -460,11 +470,10 @@ public class Encode {
           }
 
           // Evaluate whether the compressed version is worth using.
-          final double ratioThreshold = 0.98;
-          final int fixedThreshold = 20;
-          if (didCompress == null
-              || (outputStream.size() < tileData.length - fixedThreshold
-                  && outputStream.size() < tileData.length * ratioThreshold)) {
+          if ((compressionFixedThreshold.isEmpty()
+                  || outputStream.size() < tileData.length - compressionFixedThreshold.get())
+              && (compressionRatioThreshold.isEmpty()
+                  || outputStream.size() < tileData.length * compressionRatioThreshold.get())) {
             if (config.verboseLevel() > 1) {
               System.err.printf(
                   "  Compressed %d:%d,%d from %d to %d bytes (%.1f%%)%n",

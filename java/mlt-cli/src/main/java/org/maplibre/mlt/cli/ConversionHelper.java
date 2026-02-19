@@ -93,4 +93,7 @@ public class ConversionHelper {
       ex.printStackTrace(System.err);
     }
   }
+
+  static final double DEFAULT_COMPRESSION_RATIO_THRESHOLD = 0.98;
+  static final long DEFAULT_COMPRESSION_FIXED_THRESHOLD = 20L;
 }

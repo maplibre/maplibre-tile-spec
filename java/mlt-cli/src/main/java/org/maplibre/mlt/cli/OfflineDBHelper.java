@@ -16,6 +16,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
@@ -183,8 +184,17 @@ public class OfflineDBHelper extends ConversionHelper {
       return false;
     }
 
-    var didCompress = new MutableBoolean(false);
-    var tileData = Encode.convertTile(x, y, z, srcTileData, config, didCompress);
+    final var didCompress = new MutableBoolean(false);
+    final var tileData =
+        Encode.convertTile(
+            x,
+            y,
+            z,
+            srcTileData,
+            config,
+            Optional.of(DEFAULT_COMPRESSION_RATIO_THRESHOLD),
+            Optional.of(DEFAULT_COMPRESSION_FIXED_THRESHOLD),
+            didCompress);
 
     if (tileData != null) {
       try {

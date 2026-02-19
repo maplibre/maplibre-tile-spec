@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.imintel.mbtiles4j.MBTilesReadException;
@@ -191,7 +192,16 @@ public class MBTilesHelper extends ConversionHelper {
       final var z = tile.getZoom();
       final var srcTileData = decompress(new ByteArrayInputStream(data));
       final var didCompress = new MutableBoolean(false);
-      final var tileData = Encode.convertTile(x, y, z, srcTileData, config, didCompress);
+      final var tileData =
+          Encode.convertTile(
+              x,
+              y,
+              z,
+              srcTileData,
+              config,
+              Optional.of(DEFAULT_COMPRESSION_RATIO_THRESHOLD),
+              Optional.of(DEFAULT_COMPRESSION_FIXED_THRESHOLD),
+              didCompress);
 
       if (tileData != null) {
         synchronized (writerCapture) {
