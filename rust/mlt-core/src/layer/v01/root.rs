@@ -21,6 +21,8 @@ pub struct Layer01<'a> {
     pub id: Id<'a>,
     pub geometry: Geometry<'a>,
     pub properties: Vec<Property<'a>>,
+    #[cfg(fuzzing)]
+    pub layer_order: Vec<LayerOrdering>,
 }
 
 impl Analyze for Layer01<'_> {
@@ -61,6 +63,8 @@ impl Layer01<'_> {
         // !!!!!!!
         // WARNING: make sure to never use `let (input, ...)` after this point: input var is reused
         let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count)?;
+        #[cfg(fuzzing)]
+        let layer_order = col_info.iter().map(LayerOrdering::from).collect();
 
         let mut properties = Vec::with_capacity(prop_count);
         let mut id_stream: Option<Id> = None;
@@ -247,6 +251,8 @@ impl Layer01<'_> {
                 id: id_stream.unwrap_or_default(),
                 geometry: geometry.ok_or(MltError::MissingGeometry)?,
                 properties,
+                #[cfg(fuzzing)]
+                layer_order,
             })
         } else {
             Err(MltError::TrailingLayerData(input.len()))
@@ -351,6 +357,7 @@ impl OwnedLayer01 {
         Ok(())
     }
 
+    #[cfg(not(fuzzing))]
     fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.id.write_columns_meta_to(writer)?;
         self.geometry.write_columns_meta_to(writer)?;
@@ -359,6 +366,24 @@ impl OwnedLayer01 {
         }
         Ok(())
     }
+    #[cfg(fuzzing)]
+    fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        let mut props = &self.properties.iter();
+        for ord in &self.layer_order {
+            match ord {
+                LayerOrdering::Id => self.id.write_columns_meta_to(writer)?,
+                LayerOrdering::Geometry => self.geometry.write_columns_meta_to(writer)?,
+                LayerOrdering::Property => {
+                    let prop = props.next().expect(
+                        "the number of layer order elements must match the number of properties",
+                    );
+                    prop.write_columns_meta_to(writer)?;
+                }
+            }
+        }
+        Ok(())
+    }
+    #[cfg(not(fuzzing))]
     fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.id.write_to(writer)?;
         self.geometry.write_to(writer)?;
@@ -366,5 +391,45 @@ impl OwnedLayer01 {
             prop.write_to(writer)?;
         }
         Ok(())
+    }
+    #[cfg(fuzzing)]
+    fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+        let mut props = &self.properties.iter();
+        for ord in &self.layer_order {
+            match ord {
+                LayerOrdering::Id => self.id.write_to(writer)?,
+                LayerOrdering::Geometry => self.geometry.write_to(writer)?,
+                LayerOrdering::Property => {
+                    let prop = props.next().expect(
+                        "the number of layer order elements must match the number of properties",
+                    );
+                    prop.write_to(writer)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(fuzzing)]
+/// To make sure we serialize out in the same order as the original file, we need to store the order in which we parsed the columns
+enum LayerOrdering {
+    Id,
+    Geometry,
+    Property,
+}
+
+#[cfg(fuzzing)]
+impl From<ColumnType> for LayerOrdering {
+    fn from(typ: ColumnType) -> Self {
+        use ColumnType::*;
+        match typ {
+            OptId | Id | LongId | OptLongId => Self::Id,
+            Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
+            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr | Struct => {
+                Self::Property
+            }
+            Geometry => Self::Geometry,
+        }
     }
 }
