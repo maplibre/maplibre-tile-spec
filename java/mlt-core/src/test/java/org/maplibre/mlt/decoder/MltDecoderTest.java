@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -19,6 +18,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -102,10 +102,12 @@ public class MltDecoderTest {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
+    final var columnMapping = new ColumnMapping("name", ":", true);
+    final var columnMappings =
+        new ColumnMappingConfig(Pattern.compile(".*"), List.of(columnMapping));
     final var isIdPresent = true;
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, isIdPresent);
+    final var tileMetadata =
+        MltConverter.createTilesetMetadata(mvTile, columnMappings, isIdPresent);
 
     var allowSorting = optimization == TestUtils.Optimization.SORTED;
     var featureTableOptimization =

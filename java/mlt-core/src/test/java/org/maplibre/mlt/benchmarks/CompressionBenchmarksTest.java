@@ -9,7 +9,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
@@ -23,6 +22,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
 
@@ -114,10 +114,12 @@ public class CompressionBenchmarksTest {
     var mvtFilePath = Paths.get(tilePath);
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
+    final var columnMapping = new ColumnMapping("name", ":", true);
+    final var columnMappings =
+        new ColumnMappingConfig(Pattern.compile(".*"), List.of(columnMapping));
     final var isIdPresent = true;
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, isIdPresent);
+    final var tileMetadata =
+        MltConverter.createTilesetMetadata(mvTile, columnMappings, isIdPresent);
 
     var optimization = new FeatureTableOptimizations(allowSorting, false, List.of(columnMapping));
     var optimizations =

@@ -91,11 +91,11 @@ byte[] mvtData = Files.readAllBytes(Path.of("tile.mvt"));
 var mvtTile = MvtUtils.decodeMvt(mvtData);
 
 // Configure column mappings for nested properties (e.g., name:en, name:de)
-var columnMappings = List.of(new ColumnMapping("name", ":", true));
+var columnMappingConfig = List.of(new ColumnMapping("name", ":", true));
 
-var tilesetMetadata = MltConverter.createTilesetMetadata(mvtTile, columnMappings, true);
+var tilesetMetadata = MltConverter.createTilesetMetadata(mvtTile, columnMappingConfig, true);
 
-var optimization = new FeatureTableOptimizations(false, false, columnMappings);
+var optimization = new FeatureTableOptimizations(false, false, columnMappingConfig);
 var optimizations = Map.of("layer_name", optimization);
 var config = new ConversionConfig(true, true, optimizations);
 
@@ -139,7 +139,7 @@ For better compression, you can enable advanced encoding schemes and sorting:
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import java.util.Map;
 
-var optimization = new FeatureTableOptimizations(true, true, columnMappings);
+var optimization = new FeatureTableOptimizations(true, true, columnMappingConfig);
 var optimizations = Map.of(
   "water", optimization,
   "roads", optimization,

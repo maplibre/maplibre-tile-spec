@@ -13,6 +13,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
 
@@ -171,9 +172,10 @@ public class MltDecoderBenchmarkTest {
 
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
+    final var columnMapping = new ColumnMapping("name", ":", true);
+    final var columnMappings =
+        new ColumnMappingConfig(Pattern.compile(".*"), List.of(columnMapping));
+    final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = true;
     var allowSorting = false;

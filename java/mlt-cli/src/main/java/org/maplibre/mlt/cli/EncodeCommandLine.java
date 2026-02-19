@@ -5,10 +5,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -24,6 +22,7 @@ import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 
 class EncodeCommandLine {
   static final String INPUT_TILE_ARG = "mvt";
@@ -557,8 +556,8 @@ Add an explicit column mapping on the specified layers:
   private static final Pattern colMapPatternPattern = Pattern.compile("^/(.*)/$");
   private static final Pattern colMapMatchAll = Pattern.compile(".*");
 
-  public static Map<Pattern, List<ColumnMapping>> getColumnMappings(CommandLine cmd) {
-    final HashMap<Pattern, List<ColumnMapping>> result = new HashMap<>();
+  public static ColumnMappingConfig getColumnMappings(CommandLine cmd) {
+    final var result = new ColumnMappingConfig();
     if (cmd.hasOption(EncodeCommandLine.COLUMN_MAPPING_AUTO_OPTION)) {
       throw new NotImplementedException("Auto column mappings are not implemented yet");
     }

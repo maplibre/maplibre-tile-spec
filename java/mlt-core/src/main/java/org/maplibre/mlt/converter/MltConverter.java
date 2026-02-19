@@ -7,7 +7,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -19,6 +18,7 @@ import org.maplibre.mlt.converter.encodings.GeometryEncoder;
 import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
@@ -26,15 +26,13 @@ import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltConverter {
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      MapboxVectorTile tile,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
-      boolean isIdPresent) {
-    return createTilesetMetadata(tile, null, columnMappings, isIdPresent);
+      MapboxVectorTile tile, ColumnMappingConfig columnMappingConfig, boolean isIdPresent) {
+    return createTilesetMetadata(tile, null, columnMappingConfig, isIdPresent);
   }
 
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
+      ColumnMappingConfig columnMappingConfig,
       boolean isIdPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
@@ -42,13 +40,13 @@ public class MltConverter {
         ConversionConfig.builder()
             .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
             .build();
-    return createTilesetMetadata(tile, config, columnMappings, isIdPresent);
+    return createTilesetMetadata(tile, config, columnMappingConfig, isIdPresent);
   }
 
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       @Nullable ConversionConfig config,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
+      ColumnMappingConfig columnMappingConfig,
       boolean isIdPresent) {
 
     // TODO: Allow determining whether ID is present automatically
@@ -73,7 +71,7 @@ public class MltConverter {
                       property,
                       layer.name(),
                       currentFeatureIndex,
-                      columnMappings,
+                      columnMappingConfig,
                       columnSchemas,
                       complexPropertyColumnSchemas,
                       (config != null)
@@ -132,7 +130,7 @@ public class MltConverter {
       Map.Entry<String, Object> property,
       String layerName,
       int featureIndex,
-      Map<Pattern, List<ColumnMapping>> columnMappings,
+      ColumnMappingConfig columnMappingConfig,
       LinkedHashMap<String, MltMetadata.Column> columnSchemas,
       LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexColumnSchemas,
       ConversionConfig.TypeMismatchPolicy typeMismatchPolicy) {
@@ -187,7 +185,8 @@ public class MltConverter {
       }
     }
 
-    final var columnMapping = ColumnMapping.findMapping(columnMappings, layerName, mvtPropertyName);
+    final var columnMapping =
+        ColumnMapping.findMapping(columnMappingConfig, layerName, mvtPropertyName);
     if (columnMapping != null) {
       // A mapping exists for this property.
       // Create the parent type and add a child type entry.

@@ -13,7 +13,6 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +32,6 @@ import org.maplibre.mlt.converter.MLTStreamObserverFile;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.converter.encodings.fsst.FsstJni;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
@@ -118,8 +116,7 @@ public class Encode {
     }
 
     if (verboseLevel > 0 && !columnMappings.isEmpty()) {
-      System.err.println("Using Column Mappings:");
-      printColumnMappings(columnMappings, System.err);
+      System.err.printf("Using Column Mappings:%n%s", columnMappings);
     }
 
     final var conversionConfig =
@@ -268,7 +265,7 @@ public class Encode {
     final var isIdPresent = true;
     final var metadata =
         MltConverter.createTilesetMetadata(
-            decodedMvTile, config.conversionConfig(), config.columnMappings(), isIdPresent);
+            decodedMvTile, config.conversionConfig(), config.columnMappingConfig(), isIdPresent);
 
     if (config.verboseLevel() > 2) {
       printColumnMappings(metadata, System.err);
@@ -398,7 +395,7 @@ public class Encode {
                                 && config.sortFeaturesPattern().matcher(table.name).matches(),
                             config.regenIDsPattern() != null
                                 && config.regenIDsPattern().matcher(table.name).matches(),
-                            config.columnMappings().entrySet().stream()
+                            config.columnMappingConfig().entrySet().stream()
                                 .filter(entry -> entry.getKey().matcher(table.name).matches())
                                 .flatMap(entry -> entry.getValue().stream())
                                 .toList())));
@@ -441,7 +438,8 @@ public class Encode {
 
       final var isIdPresent = true;
       final var metadata =
-          MltConverter.createTilesetMetadata(decodedMvTile, config.columnMappings(), isIdPresent);
+          MltConverter.createTilesetMetadata(
+              decodedMvTile, config.columnMappingConfig(), isIdPresent);
 
       // Print column mappings if verbosity level is high.
       if (config.verboseLevel() > 2) {
@@ -504,17 +502,6 @@ public class Encode {
       }
     }
     return null;
-  }
-
-  private static void printColumnMappings(
-      @NotNull Map<Pattern, List<ColumnMapping>> columnMappings, PrintStream out) {
-    columnMappings.forEach(
-        (key, value) ->
-            out.println(
-                "  "
-                    + key
-                    + " -> "
-                    + value.stream().map(Object::toString).collect(Collectors.joining(", "))));
   }
 
   private static void printColumnMappings(

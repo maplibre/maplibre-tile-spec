@@ -27,6 +27,7 @@ import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.data.Feature;
@@ -51,8 +52,8 @@ public class MltGenerator {
   private static final String MLT_OUTPUT_DIR = "..\\test\\data\\optimized\\omt\\mlt\\plain";
 
   private static final TestUtils.Optimization DEFAULT_OPTIMIZATION = TestUtils.Optimization.NONE;
-  protected static final Map<Pattern, List<ColumnMapping>> COLUMN_MAPPINGS =
-      Map.of(Pattern.compile(".*"), List.of(new ColumnMapping("name", "_", true)));
+  protected static final ColumnMappingConfig COLUMN_MAPPINGS =
+      new ColumnMappingConfig(Pattern.compile(".*"), List.of(new ColumnMapping("name", "_", true)));
   private static final boolean DEFAULT_USE_FAST_PFOR = false;
   private static final boolean DEFAULT_USE_FSST = false;
   private static final boolean DEFAULT_USE_POLYGON_TESSELLATION = false;
@@ -107,7 +108,7 @@ public class MltGenerator {
             .map(
                 f -> {
                   try {
-                    return MvtUtils.decodeMvt(Files.readAllBytes(f), COLUMN_MAPPINGS);
+                    return MvtUtils.decodeMvt(Files.readAllBytes(f));
                   } catch (IOException e) {
                     throw new RuntimeException(e);
                   }
@@ -118,7 +119,7 @@ public class MltGenerator {
 
     for (var tileName : mvtFileNames) {
       var mvt = Files.readAllBytes(Path.of(MVT_SPECIFIC_TILES_SOURCE_DIR, tileName.toString()));
-      var mvTile = MvtUtils.decodeMvt(mvt, COLUMN_MAPPINGS);
+      var mvTile = MvtUtils.decodeMvt(mvt);
       try {
         final var isIdPresent = false;
         final var tileMetadata =
@@ -323,7 +324,7 @@ class MbtilesRepository implements Iterable<MapboxVectorTile>, Closeable {
       in.read(mvt);
 
       var uncompressedMvt = EncodingUtils.unzip(mvt);
-      return MvtUtils.decodeMvt(uncompressedMvt, MltGenerator.COLUMN_MAPPINGS);
+      return MvtUtils.decodeMvt(uncompressedMvt);
     } catch (SQLException | IOException e) {
       throw new RuntimeException(e);
     }
@@ -367,7 +368,7 @@ class MbtilesRepository implements Iterable<MapboxVectorTile>, Closeable {
         var y = rs.getInt("tile_row");
 
         var uncompressedMvt = EncodingUtils.unzip(mvt);
-        var decodedMvt = MvtUtils.decodeMvt(uncompressedMvt, MltGenerator.COLUMN_MAPPINGS);
+        var decodedMvt = MvtUtils.decodeMvt(uncompressedMvt);
         var tileId = Triple.of(zoom, x, y);
         mvTiles.add(Triple.of(uncompressedMvt, decodedMvt, tileId));
       }

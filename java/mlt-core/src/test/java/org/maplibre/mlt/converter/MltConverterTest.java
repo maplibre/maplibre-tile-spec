@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -17,7 +18,8 @@ class MltConverterTest {
   @Test
   void coerceValuesToString() {
     var metadata =
-        MltConverter.createTilesetMetadata(createTileWithMixedTypes(), Map.of(), true, true, false);
+        MltConverter.createTilesetMetadata(
+            createTileWithMixedTypes(), new ColumnMappingConfig(), true, true, false);
     var column =
         metadata.featureTables.stream()
             .flatMap(it -> it.columns.stream())
@@ -30,7 +32,8 @@ class MltConverterTest {
   @Test
   void elideValues() {
     var metadata =
-        MltConverter.createTilesetMetadata(createTileWithMixedTypes(), Map.of(), true, false, true);
+        MltConverter.createTilesetMetadata(
+            createTileWithMixedTypes(), new ColumnMappingConfig(), true, false, true);
     var column =
         metadata.featureTables.stream()
             .flatMap(it -> it.columns.stream())
@@ -45,7 +48,8 @@ class MltConverterTest {
     assertThrows(
         RuntimeException.class,
         () -> {
-          MltConverter.createTilesetMetadata(createTileWithMixedTypes(), Map.of(), true);
+          MltConverter.createTilesetMetadata(
+              createTileWithMixedTypes(), new ColumnMappingConfig(), true);
         });
   }
 

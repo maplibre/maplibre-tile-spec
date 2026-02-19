@@ -2,15 +2,13 @@ package org.maplibre.mlt.cli;
 
 import jakarta.annotation.Nullable;
 import java.net.URI;
-import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 
 record EncodeConfig(
-    @NotNull Map<Pattern, List<ColumnMapping>> columnMappings,
+    @NotNull ColumnMappingConfig columnMappingConfig,
     @Nullable ConversionConfig conversionConfig,
     @Nullable URI tessellateSource,
     @Nullable Pattern sortFeaturesPattern,
@@ -32,7 +30,7 @@ record EncodeConfig(
 
   public Builder asBuilder() {
     return new Builder()
-        .columnMappings(this.columnMappings)
+        .columnMappings(this.columnMappingConfig)
         .conversionConfig(this.conversionConfig)
         .tessellateSource(this.tessellateSource)
         .sortFeaturesPattern(this.sortFeaturesPattern)
@@ -58,7 +56,7 @@ record EncodeConfig(
   }
 
   public static final class Builder {
-    private @NotNull Map<Pattern, List<ColumnMapping>> columnMappings = Map.of();
+    private @NotNull ColumnMappingConfig columnMappingConfig = new ColumnMappingConfig();
     private @Nullable ConversionConfig conversionConfig = null;
     private @Nullable URI tessellateSource = null;
     private @Nullable Pattern sortFeaturesPattern = null;
@@ -78,8 +76,8 @@ record EncodeConfig(
     private boolean continueOnError = false;
     private int verboseLevel = 0;
 
-    public Builder columnMappings(@NotNull Map<Pattern, List<ColumnMapping>> v) {
-      this.columnMappings = v;
+    public Builder columnMappings(@NotNull ColumnMappingConfig v) {
+      this.columnMappingConfig = v;
       return this;
     }
 
@@ -175,7 +173,7 @@ record EncodeConfig(
 
     public EncodeConfig build() {
       return new EncodeConfig(
-          columnMappings,
+          columnMappingConfig,
           conversionConfig,
           tessellateSource,
           sortFeaturesPattern,

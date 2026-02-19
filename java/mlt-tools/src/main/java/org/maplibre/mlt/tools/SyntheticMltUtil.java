@@ -18,6 +18,7 @@ import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -233,7 +234,7 @@ class SyntheticMltUtil {
       var tile = new MapboxVectorTile(layers);
 
       // Extract column mappings from the config's optimizations
-      var columnMappings = new HashMap<Pattern, List<ColumnMapping>>();
+      final var columnMappings = new ColumnMappingConfig();
       if (config.getOptimizations() != null && !config.getOptimizations().isEmpty()) {
         var allColumnMappings =
             config.getOptimizations().values().stream()
