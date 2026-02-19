@@ -18,4 +18,4 @@ runs:
       run: brew install protobuf
     - name: Install protobuf compiler (Windows)
       if: runner.os == 'Windows'
-      run: choco install protobuf -y
+      run: choco install protoc -y
