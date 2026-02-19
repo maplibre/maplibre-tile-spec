@@ -1,4 +1,3 @@
-
 #!/usr/bin/env just --justfile
 
 main_crate := 'mlt-core'
