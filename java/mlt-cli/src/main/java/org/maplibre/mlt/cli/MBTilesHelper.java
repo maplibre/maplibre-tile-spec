@@ -15,7 +15,9 @@ import org.imintel.mbtiles4j.MBTilesReadException;
 import org.imintel.mbtiles4j.MBTilesReader;
 import org.imintel.mbtiles4j.MBTilesWriteException;
 import org.imintel.mbtiles4j.MBTilesWriter;
+import org.imintel.mbtiles4j.Tile;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
@@ -88,26 +90,8 @@ public class MBTilesHelper extends ConversionHelper {
                   .taskRunner()
                   .run(
                       () -> {
-                        try {
-                          final var srcTileData = decompress(new ByteArrayInputStream(data));
-                          final var didCompress = new MutableBoolean(false);
-                          final var tileData =
-                              Encode.convertTile(x, y, z, srcTileData, config, didCompress);
-
-                          if (tileData != null) {
-                            synchronized (writerCapture) {
-                              writerCapture.addTile(tileData, z, x, y);
-                            }
-                          }
-
-                        } catch (IOException | MBTilesWriteException e) {
+                        if (!convertTile(config, data, writerCapture, tile)) {
                           success.set(false);
-                          System.err.printf(
-                              "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
-                              tile.getZoom(), tile.getColumn(), tile.getRow(), e.getMessage());
-                          if (config.verboseLevel() > 1) {
-                            e.printStackTrace(System.err);
-                          }
                         }
                       });
             } catch (IllegalArgumentException ex) {
@@ -196,5 +180,35 @@ public class MBTilesHelper extends ConversionHelper {
       }
     }
     return success.get();
+  }
+
+  private static boolean convertTile(
+      @NonNull EncodeConfig config,
+      byte[] data,
+      @NonNull MBTilesWriter writerCapture,
+      @NonNull Tile tile) {
+    try {
+      final var x = tile.getColumn();
+      final var y = tile.getRow();
+      final var z = tile.getZoom();
+      final var srcTileData = decompress(new ByteArrayInputStream(data));
+      final var didCompress = new MutableBoolean(false);
+      final var tileData = Encode.convertTile(x, y, z, srcTileData, config, didCompress);
+
+      if (tileData != null) {
+        synchronized (writerCapture) {
+          writerCapture.addTile(tileData, z, x, y);
+        }
+      }
+      return true;
+    } catch (IOException | MBTilesWriteException e) {
+      System.err.printf(
+          "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
+          tile.getZoom(), tile.getColumn(), tile.getRow(), e.getMessage());
+      if (config.verboseLevel() > 1) {
+        e.printStackTrace(System.err);
+      }
+    }
+    return false;
   }
 }

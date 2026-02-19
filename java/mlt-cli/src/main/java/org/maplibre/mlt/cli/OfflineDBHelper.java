@@ -13,10 +13,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 public class OfflineDBHelper extends ConversionHelper {
   /// Encode the MVT tiles in an offline database file
@@ -70,45 +72,8 @@ public class OfflineDBHelper extends ConversionHelper {
               .taskRunner()
               .run(
                   () -> {
-                    if (config.verboseLevel() > 0) {
-                      System.err.printf("Converting %d:%d,%d%n", z, x, y);
-                    }
-
-                    byte[] srcTileData;
-                    try {
-                      srcTileData = decompress(new ByteArrayInputStream(data));
-                    } catch (IOException | IllegalStateException ex) {
+                    if (!convertTile(config, z, x, y, data, uniqueID, updateStatement)) {
                       success.set(false);
-                      System.err.printf(
-                          "ERROR: Failed to decompress tile '%d': %s%n", uniqueID, ex.getMessage());
-                      if (config.verboseLevel() > 1) {
-                        ex.printStackTrace(System.err);
-                      }
-                      return;
-                    }
-
-                    var didCompress = new MutableBoolean(false);
-                    var tileData = Encode.convertTile(x, y, z, srcTileData, config, didCompress);
-
-                    if (tileData != null) {
-                      try {
-                        // Parallel writes are possible, but only by creating a separate connection
-                        // for
-                        // each thread
-                        synchronized (updateStatement) {
-                          updateStatement.setBytes(1, tileData);
-                          updateStatement.setBoolean(2, didCompress.booleanValue());
-                          updateStatement.setLong(3, uniqueID);
-                          updateStatement.execute();
-                        }
-                      } catch (SQLException ex) {
-                        success.set(false);
-                        System.err.printf(
-                            "ERROR: Failed to convert tile '%d': %s%n", uniqueID, ex.getMessage());
-                        if (config.verboseLevel() > 1) {
-                          ex.printStackTrace(System.err);
-                        }
-                      }
                     }
                   });
         }
@@ -198,5 +163,53 @@ public class OfflineDBHelper extends ConversionHelper {
       return false;
     }
     return success.get();
+  }
+
+  private static boolean convertTile(
+      @NonNull EncodeConfig config,
+      int z,
+      int x,
+      int y,
+      byte[] data,
+      long uniqueID,
+      @NotNull PreparedStatement updateStatement) {
+    if (config.verboseLevel() > 0) {
+      System.err.printf("Converting %d:%d,%d%n", z, x, y);
+    }
+
+    byte[] srcTileData;
+    try {
+      srcTileData = decompress(new ByteArrayInputStream(data));
+    } catch (IOException | IllegalStateException ex) {
+      System.err.printf("ERROR: Failed to decompress tile '%d': %s%n", uniqueID, ex.getMessage());
+      if (config.verboseLevel() > 1) {
+        ex.printStackTrace(System.err);
+      }
+      return false;
+    }
+
+    var didCompress = new MutableBoolean(false);
+    var tileData = Encode.convertTile(x, y, z, srcTileData, config, didCompress);
+
+    if (tileData != null) {
+      try {
+        // Parallel writes are possible, but only by creating a separate connection
+        // for
+        // each thread
+        synchronized (updateStatement) {
+          updateStatement.setBytes(1, tileData);
+          updateStatement.setBoolean(2, didCompress.booleanValue());
+          updateStatement.setLong(3, uniqueID);
+          updateStatement.execute();
+        }
+        return true;
+      } catch (SQLException ex) {
+        System.err.printf("ERROR: Failed to convert tile '%d': %s%n", uniqueID, ex.getMessage());
+        if (config.verboseLevel() > 1) {
+          ex.printStackTrace(System.err);
+        }
+      }
+    }
+    return false;
   }
 }
