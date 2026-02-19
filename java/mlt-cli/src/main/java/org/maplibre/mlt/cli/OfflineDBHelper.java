@@ -149,12 +149,7 @@ public class OfflineDBHelper extends ConversionHelper {
         }
       }
 
-      if (config.verboseLevel() > 1) {
-        System.err.println("Optimizing database");
-      }
-      try (var statement = dstConnection.prepareStatement("VACUUM")) {
-        statement.execute();
-      }
+      vacuumDatabase(dstConnection, config.verboseLevel());
     } catch (SQLException | IOException ex) {
       System.err.println("ERROR: Offline Database conversion failed: " + ex.getMessage());
       if (config.verboseLevel() > 1) {

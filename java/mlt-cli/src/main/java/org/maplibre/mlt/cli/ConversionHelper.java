@@ -5,6 +5,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Objects;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -15,6 +17,7 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
 
 public class ConversionHelper {
   public static byte[] decompress(InputStream srcStream) throws IOException {
@@ -68,5 +71,22 @@ public class ConversionHelper {
       return new DeflateCompressorOutputStream(src);
     }
     return src;
+  }
+
+  static boolean vacuumDatabase(@NonNull Connection connection, int verboseLevel)
+      throws SQLException {
+    if (verboseLevel > 1) {
+      System.err.println("Optimizing database");
+    }
+    try (var statement = connection.prepareStatement("VACUUM")) {
+      statement.execute();
+      return true;
+    } catch (SQLException ex) {
+      System.err.println("ERROR: Failed to optimize database: " + ex.getMessage());
+      if (verboseLevel > 1) {
+        ex.printStackTrace(System.err);
+      }
+    }
+    return false;
   }
 }

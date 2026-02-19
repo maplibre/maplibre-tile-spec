@@ -181,12 +181,7 @@ public class MBTilesHelper extends ConversionHelper {
       statement.execute();
     }
 
-    if (config.verboseLevel() > 1) {
-      System.err.println("Optimizing database");
-    }
-    try (var statement = connection.prepareStatement("VACUUM")) {
-      statement.execute();
-    }
+    vacuumDatabase(connection, config.verboseLevel());
   }
 
   private static boolean convertTile(
