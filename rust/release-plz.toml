@@ -1,0 +1,26 @@
+[workspace]
+allow_dirty = false
+changelog_update = true
+dependencies_update = true
+git_release_enable = true
+pr_branch_prefix = "release-plz-"
+pr_labels = ["release"]
+publish_allow_dirty = false
+semver_check = true
+publish_timeout = "10m" # set a timeout for `cargo publish`
+
+[[package]]
+name = "mlt"
+publish = true
+
+[[package]]
+name = "mlt-core"
+publish = true
+
+[[package]]
+name = "mlt-legacy"
+release = false
+
+[changelog]
+# always include commits with breaking changes in the changelog
+protect_breaking_commits = true

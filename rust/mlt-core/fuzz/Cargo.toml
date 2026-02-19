@@ -1,0 +1,31 @@
+[package]
+name = "mlt-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+borrowme = "0.0.15"
+hex = "0.4.3"
+arbitrary = { version = "1.4.2", features = ["derive"] }
+pretty_assertions = "1.4"
+
+[dependencies.mlt]
+path = ".."
+
+[[bin]]
+name = "layer"
+path = "fuzz_targets/layer.rs"
+test = false
+doc = false
+bench = false
+
+[lib]
+name = "mlt_fuzz"
+path = "src/lib.rs"

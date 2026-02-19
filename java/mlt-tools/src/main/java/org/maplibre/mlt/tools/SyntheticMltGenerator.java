@@ -25,8 +25,10 @@ public class SyntheticMltGenerator {
     generateMultiPoints();
     generateMultiLineStrings();
     generateMixed();
+    generateExtent();
     generateIds();
     generateProperties();
+    generateSharedDictionaries();
   }
 
   private static void generatePoints() throws IOException {
@@ -77,6 +79,21 @@ public class SyntheticMltGenerator {
             feat(poly(c1, c2, c3, c1)),
             feat(multi(poly(c1, c2, c3, c1), poly(h1, h3, h2, h1)))),
         cfg());
+  }
+
+  private static void generateExtent() throws IOException {
+    var e9 = 512;
+    write(layer("extent_" + e9, e9, feat(line(c(0, 0), c(e9 - 1, e9 - 1)))), cfg());
+    write(layer("extent_buf_" + e9, e9, feat(line(c(-42, -42), c(e9 + 42, e9 + 42)))), cfg());
+    var e12 = 4096;
+    write(layer("extent_" + e12, e12, feat(line(c(0, 0), c(e12 - 1, e12 - 1)))), cfg());
+    write(layer("extent_buf_" + e12, e12, feat(line(c(-42, -42), c(e12 + 42, e12 + 42)))), cfg());
+    var e17 = 131072;
+    write(layer("extent_" + e17, e17, feat(line(c(0, 0), c(e17 - 1, e17 - 1)))), cfg());
+    write(layer("extent_buf_" + e17, e17, feat(line(c(-42, -42), c(e17 + 42, e17 + 42)))), cfg());
+    var e30 = 1073741824;
+    write(layer("extent_" + e30, e30, feat(line(c(0, 0), c(e30 - 1, e30 - 1)))), cfg());
+    write(layer("extent_buf_" + e30, e30, feat(line(c(-42, -42), c(e30 + 42, e30 + 42)))), cfg());
   }
 
   private static void generateIds() throws IOException {
@@ -140,16 +157,30 @@ public class SyntheticMltGenerator {
         feat(p0, prop("bignum", U64.of(new BigInteger("18446744073709551615")))),
         cfg());
     write("prop_f32", feat(p0, prop("val", (float) 3.14f)), cfg());
-    // FIXME: Rust test fails
-    // write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    write("prop_f32_neg_inf", feat(p0, prop("val", Float.NEGATIVE_INFINITY)), cfg());
+    write("prop_f32_min", feat(p0, prop("val", Float.MIN_VALUE)), cfg());
+    // FIXME: Produces the same output as prop_f32_min
+    // write("prop_f32_neg_zero", feat(p0, prop("val", (float) -0.0f)), cfg());
+    write("prop_f32_zero", feat(p0, prop("val", (float) 0.0f)), cfg());
     write("prop_f32_max", feat(p0, prop("val", Float.MAX_VALUE)), cfg());
+    write("prop_f32_pos_inf", feat(p0, prop("val", Float.POSITIVE_INFINITY)), cfg());
+    write("prop_f32_nan", feat(p0, prop("val", Float.NaN)), cfg());
     write("prop_f64", feat(p0, prop("val", (double) 3.141592653589793)), cfg());
-    // FIXME: Rust test fails
-    // write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
-    // FIXME: fails in Java
-    // write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    write("prop_f64_neg_inf", feat(p0, prop("val", Double.NEGATIVE_INFINITY)), cfg());
+    write("prop_f64_min", feat(p0, prop("val", Double.MIN_VALUE)), cfg());
+    write("prop_f64_neg_zero", feat(p0, prop("val", (double) -0.0)), cfg());
+    // FIXME: Produces the same output as prop_f64_min
+    // write("prop_f64_zero", feat(p0, prop("val", (double) 0.0)), cfg());
+    write("prop_f64_max", feat(p0, prop("val", Double.MAX_VALUE)), cfg());
+    // FIXME: Fails in Java as it Produces the same output as prop_f64_max
+    // write("prop_f64_pos_inf", feat(p0, prop("val", Double.POSITIVE_INFINITY)), cfg());
+    write("prop_f64_nan", feat(p0, prop("val", Double.NaN)), cfg());
+    write("prop_str_empty", feat(p0, prop("val", "")), cfg());
+    write("prop_str_ascii", feat(p0, prop("val", "42")), cfg());
+    write("prop_str_escape", feat(p0, prop("val", "Line1\n\t\"quoted\"\\path")), cfg());
+    write("prop_str_unicode", feat(p0, prop("val", "München 📍 cafe\u0301")), cfg());
 
-    // Mixed properties - single feature demonstrating multiple property types
+    // Multiple properties - single feature demonstrating multiple property types
     write(
         "props_mixed",
         feat(
@@ -217,5 +248,15 @@ public class SyntheticMltGenerator {
             feat(ph3, prop("val", "residential_zone_south_sector_6")));
     write(layer("props_str", feat_str), cfg());
     write(layer("props_str_fsst", feat_str), cfg().fsst());
+  }
+
+  private static void generateSharedDictionaries() throws IOException {
+    // 30 because otherwise fsst is skipped
+    var val = "A".repeat(30);
+    var feat_names = array(feat(p1, props(kv("name:en", val), kv("name:de", val))));
+
+    write(layer("props_no_shared_dict", feat_names), cfg());
+    write(layer("props_shared_dict", feat_names), cfg().sharedDictPrefix("name", ":"));
+    write(layer("props_shared_dict_fsst", feat_names), cfg().sharedDictPrefix("name", ":").fsst());
   }
 }
