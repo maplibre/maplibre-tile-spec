@@ -57,7 +57,7 @@ env-info-java:
     ./gradlew --version
 
 # Run all formatting in every language
-fmt: fmt-java fmt-js fmt-rust
+fmt: fmt-rust fmt-java fmt-js
 
 # Run formatting for Java
 [working-directory: 'java']
@@ -72,7 +72,7 @@ fmt-js:
 # Run formatting for Rust
 [working-directory: 'rust']
 fmt-rust:
-    cargo fmt --all
+    {{just}} fmt
 
 [working-directory: 'ts']
 install-js:
@@ -94,8 +94,7 @@ lint-js: install-js
 # Run linting for Rust
 [working-directory: 'rust']
 lint-rust:
-    cargo clippy
-    cargo fmt --all -- --check
+    {{just}} clippy
 
 # Run all tests in every language, including integration tests
 test: test-java test-java-cli test-js test-rust test-int
@@ -135,7 +134,7 @@ test-js: install-js
 # Run tests for Rust
 [working-directory: 'rust']
 test-rust:
-    cargo test
+    {{just}} test
 
 # Delete integration test output files
 _clean-int-test:

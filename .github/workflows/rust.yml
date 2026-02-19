@@ -46,7 +46,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-      - run: cd ../.. && just -v assert-git-is-clean
+      - run: cd .. && just -v assert-git-is-clean
 
   coverage:
     name: Code Coverage
@@ -67,7 +67,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/llvm-cov/codecov.info
-      - run: cd ../.. && just -v assert-git-is-clean
+      - run: cd .. && just -v assert-git-is-clean
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
