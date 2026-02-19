@@ -25,3 +25,4 @@ cmake = '*'
 protobuf-compiler = '*'
 "g++-musl" = { targets = ["x86_64-unknown-linux-musl"] }
 musl-tools = { targets = ["x86_64-unknown-linux-musl"] }
+clang++ = '*'
