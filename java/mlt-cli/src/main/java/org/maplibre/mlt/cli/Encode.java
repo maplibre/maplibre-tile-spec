@@ -305,7 +305,7 @@ public class Encode {
       }
     }
     if (config.willPrintMVT()) {
-      System.out.write(CliUtil.printMVT(decodedMvTile).getBytes(StandardCharsets.UTF_8));
+      System.out.write(JsonHelper.toJson(decodedMvTile).getBytes(StandardCharsets.UTF_8));
     }
     var needsDecoding = config.willDecode() || willCompare || config.willPrintMLT();
     if (needsDecoding) {
@@ -321,7 +321,7 @@ public class Encode {
         timer.stop("decoding");
       }
       if (config.willPrintMLT()) {
-        System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
+        System.out.write(JsonHelper.toJson(decodedTile).getBytes(StandardCharsets.UTF_8));
       }
       if (willCompare) {
         final CompareHelper.CompareMode mode =

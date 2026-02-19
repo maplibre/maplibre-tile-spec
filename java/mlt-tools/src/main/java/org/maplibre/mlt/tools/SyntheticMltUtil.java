@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.locationtech.jts.geom.*;
-import org.maplibre.mlt.cli.CliUtil;
+import org.maplibre.mlt.cli.JsonHelper;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
@@ -250,7 +250,7 @@ class SyntheticMltUtil {
       var mlt = MltConverter.convertMvt(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
-      String json = CliUtil.printMltGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
+      final String json = JsonHelper.toGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
       Files.writeString(jsonFile, json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);
