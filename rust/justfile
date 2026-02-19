@@ -27,7 +27,7 @@ build:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
+    cargo hack check --all-targets --each-feature --workspace
 
 # Generate code coverage report to upload to codecov.io
 ci-coverage: env-info gen-snippets && \
