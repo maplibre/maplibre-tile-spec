@@ -11,6 +11,12 @@ keywords.workspace = true
 categories.workspace = true
 rust-version.workspace = true
 
+[package.metadata.wix]
+upgrade-guid = "15088F74-0192-47FE-BCE4-0400A2E0C723"
+path-guid = "672E7559-7876-4229-AB6A-87F953ABA8AA"
+license = false
+eula = false
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4.5.58", features = ["derive"] }

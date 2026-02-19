@@ -29,3 +29,8 @@ cast_possible_wrap = "allow"  # 20
 too_many_lines = "allow"  # 4
 missing_panics_doc = "allow"  # 4
 must_use_candidate = "allow"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
