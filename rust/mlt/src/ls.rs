@@ -27,9 +27,13 @@ use thousands::Separable as _;
 
 #[derive(Args)]
 pub struct LsArgs {
-    /// Paths to .mlt files or directories
+    /// Paths to tile files (.mlt, .mvt, .pbf) or directories
     #[arg(required = true)]
     paths: Vec<PathBuf>,
+
+    /// Filter by file extension (e.g. mlt, mvt, pbf). Can be specified multiple times.
+    #[arg(short, long)]
+    extension: Vec<String>,
 
     /// Disable recursive directory traversal
     #[arg(long)]
@@ -178,14 +182,13 @@ pub fn ls(args: &LsArgs) -> Result<()> {
     let recursive = !args.no_recursive;
     let mut all_files = Vec::new();
 
-    // Collect files from all provided paths
     for path in &args.paths {
-        let files = collect_mlt_files(path, recursive)?;
+        let files = collect_tile_files(path, recursive, &args.extension)?;
         all_files.extend(files);
     }
 
     if all_files.is_empty() {
-        eprintln!("No .mlt files found");
+        eprintln!("No tile files found");
         return Ok(());
     }
 
@@ -199,7 +202,7 @@ pub fn ls(args: &LsArgs) -> Result<()> {
 
     let rows: Vec<_> = all_files
         .par_iter()
-        .map(|path| match analyze_mlt_file(path, base_path, false) {
+        .map(|path| match analyze_tile_file(path, base_path, false) {
             Ok(info) => LsRow::Info(info),
             Err(e) => LsRow::Error {
                 path: relative_path(path, base_path),
@@ -217,14 +220,14 @@ pub fn ls(args: &LsArgs) -> Result<()> {
     Ok(())
 }
 
-/// Analyze MLT files and return rows (for reuse by UI).
+/// Analyze tile files (MLT and MVT) and return rows (for reuse by UI).
 /// Uses parallel iteration when rayon is enabled.
 /// When `skip_gzip` is true, gzip size estimation is skipped for speed.
 #[must_use]
-pub fn analyze_mlt_files(paths: &[PathBuf], base_path: &Path, skip_gzip: bool) -> Vec<LsRow> {
+pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, skip_gzip: bool) -> Vec<LsRow> {
     paths
         .par_iter()
-        .map(|path| match analyze_mlt_file(path, base_path, skip_gzip) {
+        .map(|path| match analyze_tile_file(path, base_path, skip_gzip) {
             Ok(info) => LsRow::Info(info),
             Err(e) => LsRow::Error {
                 path: relative_path(path, base_path),
@@ -272,37 +275,85 @@ pub fn row_cells(row: &LsRow) -> [String; 5] {
     }
 }
 
-fn collect_mlt_files(path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
+pub(crate) fn is_tile_extension(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(OsStr::to_str),
+        Some("mlt" | "mvt" | "pbf")
+    )
+}
+
+pub(crate) fn is_mvt_extension(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(OsStr::to_str),
+        Some("mvt" | "pbf")
+    )
+}
+
+fn matches_extension_filter(path: &Path, extensions: &[String]) -> bool {
+    let ext = path
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(str::to_lowercase);
+    match ext {
+        Some(ext) => extensions
+            .iter()
+            .any(|e| e.trim_start_matches('.').to_lowercase() == ext),
+        None => false,
+    }
+}
+
+fn collect_tile_files(path: &Path, recursive: bool, extensions: &[String]) -> Result<Vec<PathBuf>> {
+    let matches_ext = |p: &Path| {
+        if extensions.is_empty() {
+            is_tile_extension(p)
+        } else {
+            matches_extension_filter(p, extensions)
+        }
+    };
+
     let mut files = Vec::new();
 
     if path.is_file() {
-        if path.extension().and_then(OsStr::to_str) == Some("mlt") {
+        if matches_ext(path) {
             files.push(path.to_path_buf());
         }
     } else if path.is_dir() {
-        collect_from_dir(path, &mut files, recursive)?;
+        collect_from_dir(path, &mut files, recursive, &matches_ext)?;
     }
 
     Ok(files)
 }
 
-fn collect_from_dir(dir: &Path, files: &mut Vec<PathBuf>, recursive: bool) -> Result<()> {
+fn collect_from_dir<F>(
+    dir: &Path,
+    files: &mut Vec<PathBuf>,
+    recursive: bool,
+    matches_ext: &F,
+) -> Result<()>
+where
+    F: Fn(&Path) -> bool,
+{
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
         if path.is_file() {
-            if path.extension().and_then(|s| s.to_str()) == Some("mlt") {
+            if matches_ext(&path) {
                 files.push(path);
             }
         } else if recursive && path.is_dir() {
-            collect_from_dir(&path, files, recursive)?;
+            collect_from_dir(&path, files, recursive, matches_ext)?;
         }
     }
     Ok(())
 }
 
-pub fn analyze_mlt_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Result<MltFileInfo> {
+pub fn analyze_tile_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Result<MltFileInfo> {
     let buffer = fs::read(path)?;
     let original_size = buffer.len();
+
+    if is_mvt_extension(path) {
+        return analyze_mvt_buffer(&buffer, original_size, path, base_path, skip_gzip);
+    }
+
     let mut layers = parse_layers(&buffer)?;
 
     let mut stream_count = 0;
@@ -361,6 +412,72 @@ pub fn analyze_mlt_file(path: &Path, base_path: &Path, skip_gzip: bool) -> Resul
         streams: stream_count,
         algorithms: algorithms_str,
         geometries: geometries_str,
+    })
+}
+
+fn analyze_mvt_buffer(
+    buffer: &[u8],
+    original_size: usize,
+    path: &Path,
+    base_path: &Path,
+    skip_gzip: bool,
+) -> Result<MltFileInfo> {
+    use mlt_core::geojson::Geometry as GjGeom;
+
+    let fc = mlt_core::mvt::mvt_to_feature_collection(buffer.to_vec())?;
+
+    let mut layer_names = HashSet::new();
+    let mut geom_types = HashSet::new();
+    for feat in &fc.features {
+        if let Some(name) = feat.properties.get("_layer").and_then(|v| v.as_str()) {
+            layer_names.insert(name.to_string());
+        }
+        match &feat.geometry {
+            GjGeom::Point(_) => {
+                geom_types.insert("Pt");
+            }
+            GjGeom::MultiPoint(_) => {
+                geom_types.insert("MPt");
+            }
+            GjGeom::LineString(_) => {
+                geom_types.insert("Line");
+            }
+            GjGeom::MultiLineString(_) => {
+                geom_types.insert("MLine");
+            }
+            GjGeom::Polygon(_) => {
+                geom_types.insert("Poly");
+            }
+            GjGeom::MultiPolygon(_) => {
+                geom_types.insert("MPoly");
+            }
+        }
+    }
+
+    let (gzipped_size, gzip_pct) = if skip_gzip {
+        (0, 0.0)
+    } else {
+        let gz = estimate_gzip_size(buffer)?;
+        (gz, percent(gz, original_size))
+    };
+
+    let mut sorted_geoms: Vec<_> = geom_types.into_iter().collect();
+    sorted_geoms.sort_unstable();
+
+    Ok(MltFileInfo {
+        path: relative_path(path, base_path),
+        size: original_size,
+        encoding_pct: 0.0,
+        data_size: 0,
+        meta_size: 0,
+        meta_pct: 0.0,
+        gzipped_size,
+        gzip_pct,
+        layers: layer_names.len(),
+        features: fc.features.len(),
+        streams: 0,
+        algorithms: "protobuf".to_string(),
+        geometries: sorted_geoms.join(","),
     })
 }
 

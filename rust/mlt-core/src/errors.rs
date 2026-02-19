@@ -180,6 +180,9 @@ pub enum MltError {
     #[error("Structs are not allowed to be optional")]
     TriedToEncodeOptionalStruct,
 
+    #[error("MVT parse error: {0}")]
+    MvtParse(String),
+
     // Other errors
     #[error("not implemented: {0}")]
     NotImplemented(&'static str),
@@ -220,6 +223,9 @@ pub enum MltError {
     },
     #[error("geometry[{index}]: index out of bounds")]
     GeometryIndexOutOfBounds { index: usize },
+
+    #[error("Serde JSON error: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
 }
 
 impl From<Infallible> for MltError {

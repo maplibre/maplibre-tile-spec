@@ -1,8 +1,8 @@
 use ratatui::Frame;
-use ratatui::layout::Rect;
+use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 
 use crate::ui::state::{App, ViewMode};
 use crate::ui::{
@@ -10,6 +10,50 @@ use crate::ui::{
     CLR_LINE, CLR_MULTI_LINE, CLR_MULTI_POINT, CLR_MULTI_POLYGON, CLR_POINT, CLR_POLYGON,
     CLR_SELECTED, STYLE_LABEL, STYLE_SELECTED, block_with_title,
 };
+
+const CLR_ERROR: Color = Color::Red;
+
+pub fn render_error_popup(f: &mut Frame<'_>, app: &App) {
+    let Some((ref filename, ref msg)) = app.error_popup else {
+        return;
+    };
+    let area = f.area();
+    let lines: Vec<Line<'_>> = msg
+        .trim()
+        .lines()
+        .map(|s| Line::from(s.to_string()))
+        .collect();
+    let line_count = lines.len();
+    let height = u16::try_from(line_count)
+        .unwrap_or(u16::MAX)
+        .saturating_add(5)
+        .min(28)
+        .min(area.height.saturating_sub(4));
+    let width = 80.min(area.width.saturating_sub(8));
+    let popup = Rect::new(
+        area.x + (area.width.saturating_sub(width)) / 2,
+        area.y + (area.height.saturating_sub(height)) / 2,
+        width,
+        height,
+    );
+    f.render_widget(ratatui::widgets::Clear, popup);
+    let error_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(CLR_ERROR))
+        .title_style(
+            Style::default()
+                .fg(CLR_ERROR)
+                .add_modifier(ratatui::style::Modifier::BOLD),
+        )
+        .title_top(format!(" Unable to open {filename} "))
+        .title_bottom(Line::from("any key to close").right_aligned())
+        .padding(Padding::uniform(1));
+    let para = Paragraph::new(lines)
+        .block(error_block)
+        .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true });
+    f.render_widget(para, popup);
+}
 
 pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
     let area = f.area();
