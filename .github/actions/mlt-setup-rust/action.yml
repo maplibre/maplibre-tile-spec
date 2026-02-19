@@ -7,6 +7,15 @@ runs:
   using: "composite"
   steps:
 
-    - name: Install protobuf compiler for MVT support
+    - name: Install protobuf compiler (Ubuntu)
+      if: runner.os == 'Linux'
       shell: bash
       run: sudo apt-get install -y protobuf-compiler
+    - name: Install protobuf compiler (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: brew install protobuf
+    - name: Install protobuf compiler (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: choco install protobuf -y
