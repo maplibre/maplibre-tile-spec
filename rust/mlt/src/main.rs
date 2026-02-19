@@ -1,12 +1,13 @@
-#![cfg(feature = "cli")]
+pub mod dump;
+pub mod ls;
+pub mod ui;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 
-use crate::cli::dump::{AfterDump, DumpArgs, dump};
-use crate::cli::ls::{LsArgs, ls};
-use crate::cli::ui::{UiArgs, ui};
-mod cli;
+use crate::dump::{AfterDump, DumpArgs, dump};
+use crate::ls::{LsArgs, ls};
+use crate::ui::{UiArgs, ui};
 
 fn main() -> Result<()> {
     match Cli::parse().command {
