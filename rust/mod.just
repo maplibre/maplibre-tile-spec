@@ -9,13 +9,14 @@ export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''}
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
-_default: (_root '--list' 'rust')
+_default: (just '--list' 'rust')
 
-_root *args:
+[private]
+just *args:
     {{just}} {{args}}
 
 # Run integration tests and save its output as the new expected output
-bless *args: (_root 'cargo-install' 'cargo-insta')
+bless *args: (just 'cargo-install' 'cargo-insta')
     cargo insta test --accept --unreferenced=delete --all-features {{args}}
 
 # Build the project
@@ -23,7 +24,7 @@ build:
     cargo build --all-targets --all-features
 
 # Quick compile without building a binary
-check: (_root 'cargo-install' 'cargo-hack')
+check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature --workspace
 
 # Generate code coverage report to upload to codecov.io
@@ -36,10 +37,10 @@ ci-coverage: env-info _run-gen-snippets && \
 ci-check: env-info check
 
 # Run linting as expected by CI
-ci-lint: env-info test-fmt clippy (_root 'assert-git-is-clean')
+ci-lint: env-info test-fmt clippy (just 'assert-git-is-clean')
 
 # Run all tests as expected by CI
-ci-test: env-info _run-gen-snippets test test-doc (_root 'assert-git-is-clean')
+ci-test: env-info _run-gen-snippets test test-doc (just 'assert-git-is-clean')
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: env-info ci-check _run-gen-snippets test
@@ -54,7 +55,7 @@ clippy *args:
     cargo clippy --all-targets --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
-coverage *args='--no-clean --open': (_root 'cargo-install' 'cargo-llvm-cov')
+coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
     cargo llvm-cov --all-targets --all-features --include-build-script {{args}}
 
 # Build and open code documentation
@@ -86,13 +87,13 @@ fmt:
     fi
 
 # Reformat all Cargo.toml files (intslls `cargo sort`)
-fmt-toml *args: (_root 'cargo-install' 'cargo-sort')
+fmt-toml *args: (just 'cargo-install' 'cargo-sort')
     cargo sort --workspace --grouped {{args}}
 
-_run-gen-snippets: (_root 'java::gen-snippets')
+_run-gen-snippets: (just 'java::gen-snippets')
 
 # Get any package's field from the metadata
-get-crate-field field package=main_crate: (_root 'assert-cmd' 'jq')
+get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
     cargo metadata --format-version 1 | jq -e -r '.packages | map(select(.name == "{{package}}")) | first | .{{field}} | select(. != null)'
 
 # Get the minimum supported Rust version (MSRV) for the crate
@@ -102,15 +103,15 @@ get-msrv package=main_crate: (get-crate-field 'rust_version' package)
 lint: clippy test-fmt
 
 # Find the minimum supported Rust version and update Cargo.toml
-msrv: (_root 'cargo-install' 'cargo-msrv')
+msrv: (just 'cargo-install' 'cargo-msrv')
     cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} rust::ci-test-msrv
 
 # Run cargo-release
-release *args='': (_root 'cargo-install' 'release-plz')
+release *args='': (just 'cargo-install' 'release-plz')
     release-plz {{args}}
 
 # Check semver compatibility with prior published version
-semver *args: (_root 'cargo-install' 'cargo-semver-checks')
+semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
 # Run all tests
@@ -130,7 +131,7 @@ test-publish:
     cargo +nightly -Z package-workspace publish --dry-run
 
 # Find unused dependencies
-udeps: (_root 'cargo-install' 'cargo-udeps')
+udeps: (just 'cargo-install' 'cargo-udeps')
     cargo +nightly udeps --all-targets --all-features
 
 # Update all dependencies, including breaking changes

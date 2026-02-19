@@ -1,9 +1,10 @@
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 just := quote(just_executable())
 
-_default: (_root '--list' 'java')
+_default: (just '--list' 'java')
 
-_root *args:
+[private]
+just *args:
     {{just}} {{args}}
 
 # Quick compile check
@@ -11,11 +12,11 @@ check:
     ./gradlew check
 
 # Run all CI steps: lint, test, cli tests, coverage, synthetic MLT check
-ci-test: env-info lint test test-cli test-publish ci-check-synthetic-mlts (_root 'assert-git-is-clean')
+ci-test: env-info lint test test-cli test-publish ci-check-synthetic-mlts (just 'assert-git-is-clean')
 
 # Verify synthetic MLT files are up to date
 [no-cd]
-ci-check-synthetic-mlts: (_root 'assert-git-is-clean') (_root 'java::generate-synthetic-mlts') (_root 'assert-git-is-clean')
+ci-check-synthetic-mlts: (just 'assert-git-is-clean') (just 'java::generate-synthetic-mlts') (just 'assert-git-is-clean')
     @echo "Synthetic MLT check complete."
 
 # Print environment info
@@ -28,12 +29,12 @@ fmt:
     ./gradlew spotlessApply
 
 # Build Java encoder and generate .mlt files for all fixtures
-generate-expected-mlt: (_root 'cargo-install' 'fd' 'fd-find')
+generate-expected-mlt: (just 'cargo-install' 'fd' 'fd-find')
     ./gradlew cli
     fd . ../test/fixtures --no-ignore --extension pbf --extension mvt -x {{just}} java::_generate-one-expected-mlt
 
 # Build Java encoder and run it to generate snippets for all .pbf files
-gen-snippets: (_root 'cargo-install' 'fd' 'fd-find')
+gen-snippets: (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
     ./gradlew cli
@@ -42,7 +43,7 @@ gen-snippets: (_root 'cargo-install' 'fd' 'fd-find')
         --rawstreams --tessellate --outlines ALL || echo "### Some snippets failed to generate ###"
 
 # Build Java encoder and run it to generate test files
-gen-tests: (_root 'cargo-install' 'fd' 'fd-find')
+gen-tests: (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
     ./gradlew cli

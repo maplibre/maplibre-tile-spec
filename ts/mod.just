@@ -1,8 +1,9 @@
 just := quote(just_executable())
 
-_default: (_root '--list' 'ts')
+_default: (just '--list' 'ts')
 
-_root *args:
+[private]
+just *args:
     {{just}} {{args}}
 
 # Build the package
@@ -14,7 +15,7 @@ check: install
     npm run build
 
 # Run all CI steps: lint, test, build
-ci-test: lint test build (_root 'assert-git-is-clean')
+ci-test: lint test build (just 'assert-git-is-clean')
 
 # Delete build artifacts
 clean:

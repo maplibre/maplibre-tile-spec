@@ -1,8 +1,9 @@
 just := quote(just_executable())
 
-_default: (_root '--list' 'cpp')
+_default: (just '--list' 'cpp')
 
-_root *args:
+[private]
+just *args:
     {{just}} {{args}}
 
 # Initialize CMake build
@@ -17,7 +18,7 @@ cmake-build: cmake-init
 check: cmake-build
 
 # Run all CI steps: test, coverage, bazel build
-ci-test: coverage bazel-build (_root 'assert-git-is-clean')
+ci-test: coverage bazel-build (just 'assert-git-is-clean')
 
 # Delete build artifacts
 clean:
