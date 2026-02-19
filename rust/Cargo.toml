@@ -6,6 +6,8 @@ default-members = ["mlt", "mlt-core"]
 
 [workspace.package]
 repository = "https://github.com/nyurik/maplibre-tile-spec"
+homepage = "https://maplibre.org"
+authors = ["Maplibre Contributors"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 keywords = ["maplibre", "tile", "mlt", "mvt"]
