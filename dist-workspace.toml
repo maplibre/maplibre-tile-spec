@@ -19,3 +19,15 @@ install-updater = true
 allow-dirty = ["ci", "msi"]
 # build and upload an artifacts to the PR (expensive)
 pr-run-mode = "upload"
+
+[dist.dependencies.homebrew]
+cmake = '*'
+protobuf = '*'
+
+[dist.dependencies.apt]
+cmake = '*'
+protobuf-compiler = '*'
+
+[dist.dependencies.chocolatey]
+cmake = '*'
+protobuf = '*'
