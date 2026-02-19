@@ -4,10 +4,10 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
 
-use mlt_nom::geojson::FeatureCollection;
-use mlt_nom::v01::{DecodedGeometry, DecodedProperty, PropValue};
+use mlt::geojson::FeatureCollection;
+use mlt::v01::{DecodedGeometry, DecodedProperty, PropValue};
 
-fn mlt_err(e: mlt_nom::MltError) -> PyErr {
+fn mlt_err(e: mlt::MltError) -> PyErr {
     PyValueError::new_err(format!("MLT decode error: {e}"))
 }
 
@@ -118,8 +118,8 @@ fn geom_to_wkb(
     geom: &DecodedGeometry,
     index: usize,
     xf: Option<TileTransform>,
-) -> Result<Vec<u8>, mlt_nom::MltError> {
-    use mlt_nom::geojson::Geometry;
+) -> Result<Vec<u8>, mlt::MltError> {
+    use mlt::geojson::Geometry;
 
     let gj = geom.to_geojson(index)?;
     let mut buf = Vec::with_capacity(128);
@@ -296,7 +296,7 @@ fn decode_mlt(
     y: Option<u32>,
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
-    let mut layers = mlt_nom::parse_layers(data).map_err(mlt_err)?;
+    let mut layers = mlt::parse_layers(data).map_err(mlt_err)?;
 
     for layer in &mut layers {
         layer.decode_all().map_err(mlt_err)?;
@@ -315,13 +315,13 @@ fn decode_mlt(
         };
 
         let geom = match &l.geometry {
-            mlt_nom::v01::Geometry::Decoded(g) => g,
+            mlt::v01::Geometry::Decoded(g) => g,
             _ => return Err(PyValueError::new_err("geometry not decoded")),
         };
 
         let ids = match &l.id {
-            mlt_nom::v01::Id::Decoded(d) => d.0.as_deref(),
-            mlt_nom::v01::Id::None => None,
+            mlt::v01::Id::Decoded(d) => d.0.as_deref(),
+            mlt::v01::Id::None => None,
             _ => return Err(PyValueError::new_err("id not decoded")),
         };
 
@@ -329,7 +329,7 @@ fn decode_mlt(
             .properties
             .iter()
             .map(|p| match p {
-                mlt_nom::v01::Property::Decoded(d) => Ok(d),
+                mlt::v01::Property::Decoded(d) => Ok(d),
                 _ => Err(PyValueError::new_err("property not decoded")),
             })
             .collect::<PyResult<_>>()?;
@@ -349,7 +349,7 @@ fn decode_mlt(
 /// Decode an MLT binary blob and return GeoJSON as a string.
 #[pyfunction]
 fn decode_mlt_to_geojson(data: &[u8]) -> PyResult<String> {
-    let mut layers = mlt_nom::parse_layers(data).map_err(mlt_err)?;
+    let mut layers = mlt::parse_layers(data).map_err(mlt_err)?;
     for layer in &mut layers {
         layer.decode_all().map_err(mlt_err)?;
     }
@@ -360,7 +360,7 @@ fn decode_mlt_to_geojson(data: &[u8]) -> PyResult<String> {
 /// Return a list of layer names without fully decoding.
 #[pyfunction]
 fn list_layers(data: &[u8]) -> PyResult<Vec<String>> {
-    let layers = mlt_nom::parse_layers(data).map_err(mlt_err)?;
+    let layers = mlt::parse_layers(data).map_err(mlt_err)?;
     Ok(layers
         .iter()
         .filter_map(|l| l.as_layer01().map(|l| l.name.to_string()))
@@ -477,7 +477,7 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
@@ -499,14 +499,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
-            mlt_nom::v01::Geometry::Decoded(g) => g,
+            mlt::v01::Geometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
         };
 
@@ -531,14 +531,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
-            mlt_nom::v01::Geometry::Decoded(g) => g,
+            mlt::v01::Geometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
         };
 
@@ -564,14 +564,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt_nom::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
-            mlt_nom::v01::Geometry::Decoded(g) => g,
+            mlt::v01::Geometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
         };
 
