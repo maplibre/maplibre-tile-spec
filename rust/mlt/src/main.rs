@@ -29,13 +29,13 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Parse an MLT file and dump raw layer data without decoding
+    /// Parse a tile file (.mlt, .mvt, .pbf) and dump raw layer data without decoding
     Dump(DumpArgs),
-    /// Parse an MLT file, decode all layers, and dump the result
+    /// Parse a tile file (.mlt, .mvt, .pbf), decode all layers, and dump the result
     Decode(DumpArgs),
-    /// List .mlt files with statistics
+    /// List tile files with statistics
     Ls(LsArgs),
-    /// Visualize an MLT file in an interactive TUI
+    /// Visualize a tile file (.mlt, .mvt, .pbf) in an interactive TUI
     Ui(UiArgs),
 }
 
