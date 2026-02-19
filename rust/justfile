@@ -91,7 +91,7 @@ fmt-toml *args:  (cargo-install 'cargo-sort')
     cargo sort -p mlt --grouped {{args}}
 
 # Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
-[working-directory: '../../java']
+[working-directory: '../java']
 gen-snippets:  (cargo-install 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
