@@ -27,6 +27,7 @@ dependencies {
     implementation 'org.slf4j:slf4j-simple:2.0.17'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
     implementation 'org.jetbrains:annotations:26.0.2-1'
+    implementation 'nl.bartlouwers:fsst4j:0.0.4'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
@@ -63,7 +64,7 @@ jacocoTestReport {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(22)
     }
 }
 
@@ -76,18 +77,23 @@ spotless {
     }
 }
 
-tasks.register('compileWrapper', Exec) {
-    workingDir = project.projectDir
-    doFirst {
-        if (System.properties['os.name'].toLowerCase().contains('windows')) {
-            executable "../resources/compile-windows.bat"
-        } else {
-            executable "./compile-wrapper.sh"
+tasks.register('compileWrapper') {
+    description = 'Builds the native FSST wrapper'
+    group = 'build'
+    outputs.files layout.projectDirectory.dir('../resources/build/FsstWrapper.so')
+
+    doLast {
+        def baseDir = file(layout.projectDirectory.dir('..'))
+        exec {
+            workingDir baseDir
+            if (System.properties['os.name'].toLowerCase().contains('windows')) {
+                commandLine "resources\\compile-windows.bat"
+            } else {
+                commandLine './resources/compile'
+            }
         }
     }
 }
-
-// compileJava.dependsOn compileWrapper // Disabled due to CMake compatibility issues
 
 gradle.projectsEvaluated {
     tasks.withType(JavaCompile).tap {
@@ -101,6 +107,7 @@ gradle.projectsEvaluated {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    //dependsOn(tasks.named('compileWrapper'))
 }
 
 tasks.register('validateSemver') {

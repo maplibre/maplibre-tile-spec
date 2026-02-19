@@ -22,6 +22,7 @@ jobs:
       id-token: write  # for OIDC Codecov
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
