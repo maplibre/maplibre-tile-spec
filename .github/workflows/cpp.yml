@@ -34,6 +34,11 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: 'cpp/.nvmrc'
+
       - name: install gcovr (macOS)
         if: runner.os == 'macOS'
         run: brew install gcovr

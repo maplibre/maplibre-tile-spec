@@ -93,13 +93,15 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
 
 std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<Feature::id_t>& ids,
                                                  std::vector<std::unique_ptr<Geometry>>&& geometries) {
-    const auto featureCount = ids.size();
-    if (geometries.size() < featureCount) {
-        throw std::runtime_error("Invalid geometry count");
+    const auto featureCount = geometries.size();
+    if (!ids.empty() && ids.size() != featureCount) {
+        throw std::runtime_error("ID count (" + std::to_string(ids.size()) + ") does not match geometry count (" +
+                                 std::to_string(featureCount) + ")");
     }
 
     return util::generateVector<Feature>(featureCount, [&](const auto i) {
-        return Feature{ids[i], std::move(geometries[i]), static_cast<std::uint32_t>(i)};
+        const auto id = ids.empty() ? Feature::id_t{0} : ids[i];
+        return Feature{id, std::move(geometries[i]), static_cast<std::uint32_t>(i)};
     });
 }
 
