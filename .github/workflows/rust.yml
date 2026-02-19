@@ -102,18 +102,6 @@ jobs:
           files: target/llvm-cov/codecov.info
       - run: cd .. && just -v assert-git-is-clean
 
-  # This job checks if any of the previous jobs failed or were canceled.
-  # This approach also allows some jobs to be skipped if they are not needed.
-  ci-passed-rust:
-    needs: [ test, test-msrv ]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Result of the needed steps
-        run: echo "${{ toJSON(needs) }}"
-      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: exit 1
-
   build-release-binaries:
     name: Build release binaries for ${{ matrix.target }}
     strategy:
@@ -165,15 +153,26 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            ${{ matrix.artifact_name }}.tar.gz
-            ${{ matrix.artifact_name }}.zip
+            rust/target/${{ matrix.artifact_name }}
+
+  # This job checks if any of the previous jobs failed or were canceled.
+  # This approach also allows some jobs to be skipped if they are not needed.
+  ci-passed-rust:
+    needs: [ test, test-msrv, lint, check, build-release-binaries ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Result of the needed steps
+        run: echo "${{ toJSON(needs) }}"
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
 
   # Release unpublished packages or create a PR with changes
   release-plz:
     needs: [ ci-passed-rust ]
     if: |
       always()
-      && needs.done.result == 'success'
+      && needs.ci-passed-rust.result == 'success'
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
@@ -222,6 +221,7 @@ jobs:
           VERSION=$(just get-crate-field version mlt)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=rust-mlt-v$VERSION" >> $GITHUB_OUTPUT
+        working-directory: rust
       - name: Get mlt version for release tag (Windows)
         if: runner.os == 'Windows'
         id: get_version_windows
@@ -230,6 +230,7 @@ jobs:
           $VERSION = just get-crate-field version mlt
           echo "version=$VERSION" >> $env:GITHUB_OUTPUT
           echo "tag=rust-mlt-v$VERSION" >> $env:GITHUB_OUTPUT
+        working-directory: rust
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
