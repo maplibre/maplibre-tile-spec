@@ -28,7 +28,7 @@ import java.util.function.Supplier;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
 
-public class PMTilesHelper {
+public class PMTilesHelper extends ConversionHelper {
   /// Encode the MVT tiles in a PMTiles file
   static boolean encodePMTiles(URI inputURI, Path outputPath, EncodeConfig config)
       throws IOException {
@@ -236,7 +236,7 @@ public class PMTilesHelper {
 
       final var rawSize = tileData.length;
       try {
-        tileData = CliUtil.decompress(new ByteArrayInputStream(tileData));
+        tileData = decompress(new ByteArrayInputStream(tileData));
       } catch (IOException ex) {
         System.err.printf("ERROR : Failed to decompress tile %s: %s%n", tileLabel, ex.getMessage());
         if (state.encodeConfig().verboseLevel() > 1) {

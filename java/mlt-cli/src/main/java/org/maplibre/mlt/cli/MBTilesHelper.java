@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
-public class MBTilesHelper {
+public class MBTilesHelper extends ConversionHelper {
   static final String MetadataMIMEType = "application/vnd.maplibre-vector-tile";
 
   /// Encode the entire contents of an MBTile file of MVT tiles
@@ -89,8 +89,7 @@ public class MBTilesHelper {
                   .run(
                       () -> {
                         try {
-                          final var srcTileData =
-                              CliUtil.decompress(new ByteArrayInputStream(data));
+                          final var srcTileData = decompress(new ByteArrayInputStream(data));
                           final var didCompress = new MutableBoolean(false);
                           final var tileData =
                               Encode.convertTile(x, y, z, srcTileData, config, didCompress);

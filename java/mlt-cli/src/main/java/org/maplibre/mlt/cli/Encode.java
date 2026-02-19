@@ -459,7 +459,7 @@ public class Encode {
       if (config.compressionType() != null) {
         try (var outputStream = new ByteArrayOutputStream()) {
           try (var compressStream =
-              CliUtil.compressStream(outputStream, config.compressionType())) {
+              ConversionHelper.createCompressStream(outputStream, config.compressionType())) {
             compressStream.write(tileData);
           }
 

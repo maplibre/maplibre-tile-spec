@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.jetbrains.annotations.NotNull;
 
-public class OfflineDBHelper {
+public class OfflineDBHelper extends ConversionHelper {
   /// Encode the MVT tiles in an offline database file
   static boolean encodeOfflineDB(
       @NotNull Path inputPath, @Nullable Path outputPath, @NotNull EncodeConfig config)
@@ -76,7 +76,7 @@ public class OfflineDBHelper {
 
                     byte[] srcTileData;
                     try {
-                      srcTileData = CliUtil.decompress(new ByteArrayInputStream(data));
+                      srcTileData = decompress(new ByteArrayInputStream(data));
                     } catch (IOException | IllegalStateException ex) {
                       success.set(false);
                       System.err.printf(
@@ -137,7 +137,7 @@ public class OfflineDBHelper {
           var uniqueID = metadataResults.getLong("id");
           byte[] data;
           try {
-            data = CliUtil.decompress(metadataResults.getBinaryStream("data"));
+            data = decompress(metadataResults.getBinaryStream("data"));
           } catch (IOException | IllegalStateException ignore) {
             System.err.printf(
                 "WARNING: Failed to decompress Source resource '%d', skipping%n", uniqueID);
@@ -164,7 +164,7 @@ public class OfflineDBHelper {
           final boolean compressed;
           try (var outputStream = new ByteArrayOutputStream()) {
             try (var compressStream =
-                CliUtil.compressStream(outputStream, config.compressionType())) {
+                createCompressStream(outputStream, config.compressionType())) {
               compressed = (compressStream != outputStream);
               compressStream.write(jsonString.getBytes(StandardCharsets.UTF_8));
             }

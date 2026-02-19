@@ -1,27 +1,13 @@
 package org.maplibre.mlt.cli;
 
 import com.google.gson.GsonBuilder;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
-import org.apache.commons.compress.compressors.deflate.DeflateCompressorInputStream;
-import org.apache.commons.compress.compressors.deflate.DeflateCompressorOutputStream;
-import org.apache.commons.compress.compressors.deflate.DeflateParameters;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
-import org.apache.commons.compress.compressors.gzip.GzipParameters;
-import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
@@ -128,62 +114,6 @@ public class CliUtil {
   public static String printMVT(MapboxVectorTile mvTile) {
     final var gson = new GsonBuilder().setPrettyPrinting().create();
     return gson.toJson(Map.of("layers", mvTile.layers().stream().map(CliUtil::toJSON).toList()));
-  }
-
-  public static byte[] decompress(InputStream srcStream) throws IOException {
-    try {
-      InputStream decompressInputStream = null;
-      // Check for common compression formats by looking at the header bytes
-      // Buffered stream is not closed here because it would also close the underlying stream
-      final var readStream = new BufferedInputStream(srcStream);
-      if (readStream.available() > 3) {
-        readStream.mark(4);
-        final var header = readStream.readNBytes(4);
-        readStream.reset();
-
-        if (DeflateCompressorInputStream.matches(header, header.length)) {
-          // deflate with zlib header
-          final var inflater = new Inflater(/* nowrap= */ false);
-          decompressInputStream = new InflaterInputStream(readStream, inflater);
-        } else if (header[0] == 0x1f && header[1] == (byte) 0x8b) {
-          // TODO: why doesn't GZIPInputStream work here?
-          // decompressInputStream = new GZIPInputStream(readStream);
-          decompressInputStream = new GzipCompressorInputStream(readStream);
-        }
-      }
-
-      if (decompressInputStream != null) {
-        try (final var outputStream = new ByteArrayOutputStream()) {
-          decompressInputStream.transferTo(outputStream);
-          return outputStream.toByteArray();
-        }
-      }
-    } catch (IndexOutOfBoundsException | IOException ex) {
-      System.err.printf("Failed to decompress data: %s%n", ex.getMessage());
-    }
-
-    return srcStream.readAllBytes();
-  }
-
-  public static OutputStream compressStream(OutputStream src, @NotNull String compressionType) {
-    if (Objects.equals(compressionType, "gzip")) {
-      try {
-        var parameters = new GzipParameters();
-        parameters.setCompressionLevel(9);
-        return new GzipCompressorOutputStream(src, parameters);
-      } catch (IOException ex) {
-        System.err.println(
-            "Failed to create GzipCompressorOutputStream, falling back to uncompressed or alternative compression.");
-        ex.printStackTrace(System.err);
-      }
-    }
-    if (Objects.equals(compressionType, "deflate")) {
-      var parameters = new DeflateParameters();
-      parameters.setCompressionLevel(9);
-      parameters.setWithZlibHeader(false);
-      return new DeflateCompressorOutputStream(src);
-    }
-    return src;
   }
 
   static void createDir(Path path) {
