@@ -144,7 +144,7 @@ mod tests {
     use crate::metadata::tileset::read_metadata;
 
     #[test]
-    #[ignore = "tile format has changed, the decode function is no longer valid. See mlt-nom crate for updated parsing."]
+    #[ignore = "tile format has changed, the decode function is no longer valid. See mlt crate for updated parsing."]
     fn test_decode() {
         let raw = fs::read("../../test/expected/omt/2_2_2.mlt").expect("Failed to read file");
         let mut mlt = Decoder::new(raw, None);

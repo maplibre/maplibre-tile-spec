@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["mlt-legacy", "mlt-nom", "mlt-pyo3", "wasm-test"]
-exclude = ["mlt-nom/fuzz"]
-default-members = ["mlt-nom"]
+members = ["mlt", "mlt-legacy", "mlt-pyo3", "wasm-test"]
+exclude = ["mlt/fuzz"]
+default-members = ["mlt"]
 
 [workspace.package]
 repository = "https://github.com/nyurik/maplibre-tile-spec"
@@ -26,7 +26,6 @@ cast_possible_truncation = "allow"  # 24
 cast_possible_wrap = "allow"  # 20
 too_many_lines = "allow"  # 4
 missing_panics_doc = "allow"  # 4
-missing_errors_doc = "allow"  # 4
 must_use_candidate = "allow"
 
 # TODO: Implements test-ignores. Remove once https://github.com/binary-banter/test-each-file/pull/21 is merged
