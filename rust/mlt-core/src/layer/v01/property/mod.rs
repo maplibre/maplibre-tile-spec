@@ -9,7 +9,7 @@ use integer_encoding::VarIntWriter as _;
 use crate::MltError;
 use crate::MltError::IntegerOverflow;
 use crate::analyse::{Analyze, StatType};
-use crate::decodable::{FromRaw, impl_decodable};
+use crate::decode::{FromRaw, impl_decodable};
 use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
 use crate::v01::property::decode::{
     decode_shared_dictionary, decode_string_streams, resolve_offsets,
