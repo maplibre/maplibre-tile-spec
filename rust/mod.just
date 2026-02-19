@@ -86,7 +86,7 @@ fmt:
         cargo fmt --all
     fi
 
-# Reformat all Cargo.toml files (intslls `cargo sort`)
+# Reformat all Cargo.toml files (installs `cargo sort`)
 fmt-toml *args: (just 'cargo-install' 'cargo-sort')
     cargo sort --workspace --grouped {{args}}
 
