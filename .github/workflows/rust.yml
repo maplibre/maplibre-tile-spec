@@ -149,6 +149,8 @@ jobs:
       - name: Package Unix binary
         if: runner.os != 'Windows'
         run: |
+          ls -lah target/${{ matrix.target }}/release/
+          ls -lah target/${{ matrix.target }}/release/mlt
           cp target/${{ matrix.target }}/release/mlt mlt
           tar -czf ../${{ matrix.artifact_name }} mlt
           rm mlt
