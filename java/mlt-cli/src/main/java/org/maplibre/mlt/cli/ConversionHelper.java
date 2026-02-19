@@ -61,7 +61,6 @@ public class ConversionHelper {
       } catch (IOException ex) {
         System.err.println(
             "Failed to create GzipCompressorOutputStream, falling back to uncompressed or alternative compression.");
-        ex.printStackTrace(System.err);
       }
     }
     if (Objects.equals(compressionType, "deflate")) {
@@ -83,10 +82,14 @@ public class ConversionHelper {
       return true;
     } catch (SQLException ex) {
       System.err.println("ERROR: Failed to optimize database: " + ex.getMessage());
-      if (verboseLevel > 1) {
-        ex.printStackTrace(System.err);
-      }
+      logErrorStack(ex, verboseLevel);
     }
     return false;
+  }
+
+  public static void logErrorStack(@Nullable Throwable ex, int verboseLevel) {
+    if (ex != null && verboseLevel > 1) {
+      ex.printStackTrace(System.err);
+    }
   }
 }

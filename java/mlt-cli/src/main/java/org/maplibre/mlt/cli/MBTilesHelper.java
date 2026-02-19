@@ -100,9 +100,7 @@ public class MBTilesHelper extends ConversionHelper {
               System.err.printf(
                   "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
                   tile.getZoom(), tile.getColumn(), tile.getRow(), ex.getMessage());
-              if (config.verboseLevel() > 1) {
-                ex.printStackTrace(System.err);
-              }
+              logErrorStack(ex, config.verboseLevel());
             }
           }
 
@@ -145,9 +143,7 @@ public class MBTilesHelper extends ConversionHelper {
     } catch (MBTilesReadException | IOException | MBTilesWriteException | SQLException ex) {
       success.set(false);
       System.err.println("ERROR: MBTiles conversion failed: " + ex.getMessage());
-      if (config.verboseLevel() > 1) {
-        ex.printStackTrace(System.err);
-      }
+      logErrorStack(ex, config.verboseLevel());
     } finally {
       if (mbTilesReader != null) {
         mbTilesReader.close();
@@ -207,9 +203,7 @@ public class MBTilesHelper extends ConversionHelper {
       System.err.printf(
           "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
           tile.getZoom(), tile.getColumn(), tile.getRow(), e.getMessage());
-      if (config.verboseLevel() > 1) {
-        e.printStackTrace(System.err);
-      }
+      logErrorStack(e, config.verboseLevel());
     }
     return false;
   }

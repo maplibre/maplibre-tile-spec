@@ -97,9 +97,7 @@ public class OfflineDBHelper extends ConversionHelper {
       vacuumDatabase(dstConnection, config.verboseLevel());
     } catch (SQLException | IOException ex) {
       System.err.println("ERROR: Offline Database conversion failed: " + ex.getMessage());
-      if (config.verboseLevel() > 1) {
-        ex.printStackTrace(System.err);
-      }
+      logErrorStack(ex, config.verboseLevel());
       return false;
     }
     return success.get();
@@ -180,9 +178,7 @@ public class OfflineDBHelper extends ConversionHelper {
       srcTileData = decompress(new ByteArrayInputStream(data));
     } catch (IOException | IllegalStateException ex) {
       System.err.printf("ERROR: Failed to decompress tile '%d': %s%n", uniqueID, ex.getMessage());
-      if (config.verboseLevel() > 1) {
-        ex.printStackTrace(System.err);
-      }
+      logErrorStack(ex, config.verboseLevel());
       return false;
     }
 
@@ -203,9 +199,7 @@ public class OfflineDBHelper extends ConversionHelper {
         return true;
       } catch (SQLException ex) {
         System.err.printf("ERROR: Failed to convert tile '%d': %s%n", uniqueID, ex.getMessage());
-        if (config.verboseLevel() > 1) {
-          ex.printStackTrace(System.err);
-        }
+        logErrorStack(ex, config.verboseLevel());
       }
     }
     return false;

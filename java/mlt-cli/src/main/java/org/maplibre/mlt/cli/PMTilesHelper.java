@@ -149,9 +149,7 @@ public class PMTilesHelper extends ConversionHelper {
         return success.get();
       } catch (IOException ex) {
         System.err.println("ERROR: PMTiles conversion failed: " + ex.getMessage());
-        if (config.verboseLevel() > 1) {
-          ex.printStackTrace(System.err);
-        }
+        logErrorStack(ex, config.verboseLevel());
         return false;
       }
     }
@@ -239,9 +237,7 @@ public class PMTilesHelper extends ConversionHelper {
         tileData = decompress(new ByteArrayInputStream(tileData));
       } catch (IOException ex) {
         System.err.printf("ERROR : Failed to decompress tile %s: %s%n", tileLabel, ex.getMessage());
-        if (state.encodeConfig().verboseLevel() > 1) {
-          ex.printStackTrace(System.err);
-        }
+        logErrorStack(ex, state.encodeConfig().verboseLevel());
         return false;
       }
 

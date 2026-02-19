@@ -144,9 +144,7 @@ public class Encode {
         System.err.println(
             "Native FSST could not be loaded: "
                 + ((err != null) ? err.getMessage() : "(no error)"));
-        if (verboseLevel > 0 && err != null) {
-          err.printStackTrace(System.err);
-        }
+        ConversionHelper.logErrorStack(err, verboseLevel);
       }
     } else if (useFSSTJava) {
       FsstEncoder.useNative(false);
