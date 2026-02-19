@@ -48,7 +48,7 @@ public class ConversionHelper {
       }
     }
 
-    return srcStream.readAllBytes();
+    return readStream.readAllBytes();
   }
 
   public static OutputStream createCompressStream(
@@ -78,8 +78,8 @@ public class ConversionHelper {
       System.err.println("Optimizing database");
     }
     ;
-    try {
-      connection.nativeSQL("VACUUM");
+    try (final var stmt = connection.createStatement()) {
+      stmt.execute("VACUUM");
       return true;
     } catch (SQLException ex) {
       System.err.println("ERROR: Failed to optimize database: " + ex.getMessage());

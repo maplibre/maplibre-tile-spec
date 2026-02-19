@@ -189,7 +189,7 @@ public class CompareHelper {
       final var mltLayer = mltLayers.get(i);
       final var mvtLayer = mvtLayers.get(i);
       final var layerResult = compareLayer(mltLayer, mvtLayer, compareMode, i);
-      if (!layerResult.isPresent()) {
+      if (layerResult.isPresent()) {
         return layerResult;
       }
     }
@@ -221,7 +221,7 @@ public class CompareHelper {
       final var mltFeature = mltFeatures.get(j);
       final var featureResult =
           compareFeature(mltFeature, mvtFeature, compareMode, j, mvtLayer.name());
-      if (!featureResult.isPresent()) {
+      if (featureResult.isPresent()) {
         return featureResult;
       }
     }
@@ -244,13 +244,13 @@ public class CompareHelper {
     }
     if (compareMode == CompareMode.Geometry || compareMode == CompareMode.All) {
       final var geomResult = compareGeometry(mltFeature, mvtFeature, featureIndex, layerName);
-      if (!geomResult.isPresent()) {
+      if (geomResult.isPresent()) {
         return geomResult;
       }
     }
     if (compareMode == CompareMode.Properties || compareMode == CompareMode.All) {
       final var propResult = compareProperties(mltFeature, mvtFeature, featureIndex, layerName);
-      if (!propResult.isPresent()) {
+      if (propResult.isPresent()) {
         return propResult;
       }
     }
