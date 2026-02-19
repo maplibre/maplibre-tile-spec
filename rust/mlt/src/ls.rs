@@ -10,6 +10,7 @@ use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
+use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
     PhysicalDecoder, PhysicalStreamType, Stream,
@@ -241,15 +242,6 @@ pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, skip_gzip: bool) 
 #[must_use]
 pub fn row_cells(row: &LsRow) -> [String; 5] {
     let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
-    let fmt_pct = |v: f64| {
-        if v.abs() >= 10.0 {
-            format!("{v:.0}%")
-        } else if v.abs() >= 1.0 {
-            format!("{v:.1}%")
-        } else {
-            format!("{v:.2}%")
-        }
-    };
     match row {
         LsRow::Info(info) => [
             info.path().to_string(),
@@ -424,34 +416,23 @@ fn analyze_mvt_buffer(
 ) -> Result<MltFileInfo> {
     use mlt_core::geojson::Geometry as GjGeom;
 
-    let fc = mlt_core::mvt::mvt_to_feature_collection(buffer.to_vec())?;
+    let fc = mvt_to_feature_collection(buffer.to_vec())?;
 
     let mut layer_names = HashSet::new();
     let mut geom_types = HashSet::new();
     for feat in &fc.features {
+        // FIXME: we shouldn't use "magical" properties to pass values around
         if let Some(name) = feat.properties.get("_layer").and_then(|v| v.as_str()) {
             layer_names.insert(name.to_string());
         }
-        match &feat.geometry {
-            GjGeom::Point(_) => {
-                geom_types.insert("Pt");
-            }
-            GjGeom::MultiPoint(_) => {
-                geom_types.insert("MPt");
-            }
-            GjGeom::LineString(_) => {
-                geom_types.insert("Line");
-            }
-            GjGeom::MultiLineString(_) => {
-                geom_types.insert("MLine");
-            }
-            GjGeom::Polygon(_) => {
-                geom_types.insert("Poly");
-            }
-            GjGeom::MultiPolygon(_) => {
-                geom_types.insert("MPoly");
-            }
-        }
+        geom_types.insert(match &feat.geometry {
+            GjGeom::Point(_) => "Pt",
+            GjGeom::MultiPoint(_) => "MPt",
+            GjGeom::LineString(_) => "Line",
+            GjGeom::MultiLineString(_) => "MLine",
+            GjGeom::Polygon(_) => "Poly",
+            GjGeom::MultiPolygon(_) => "MPoly",
+        });
     }
 
     let (gzipped_size, gzip_pct) = if skip_gzip {
@@ -603,15 +584,6 @@ fn format_geometries(geometries: HashSet<GeometryType>) -> String {
 
 fn print_table(rows: &[LsRow], extended: bool) {
     let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
-    let fmt_pct = |v: f64| {
-        if v.abs() >= 10.0 {
-            format!("{v:.0}%")
-        } else if v.abs() >= 1.0 {
-            format!("{v:.1}%")
-        } else {
-            format!("{v:.2}%")
-        }
-    };
 
     let infos: Vec<&MltFileInfo> = rows
         .iter()
@@ -734,4 +706,14 @@ fn print_table(rows: &[LsRow], extended: bool) {
     }
 
     println!("{table}");
+}
+
+fn fmt_pct(v: f64) -> String {
+    if v.abs() >= 10.0 {
+        format!("{v:.0}%")
+    } else if v.abs() >= 1.0 {
+        format!("{v:.1}%")
+    } else {
+        format!("{v:.2}%")
+    }
 }

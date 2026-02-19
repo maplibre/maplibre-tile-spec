@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use geo_types as gt;
+use geo_types::Coord;
 use mvt_reader::Reader;
 use mvt_reader::feature::Value as MvtValue;
 use serde_json::{Number, Value};
@@ -23,7 +24,7 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, Mlt
             .get_features(layer.layer_index)
             .map_err(|e| MltError::MvtParse(e.to_string()))?;
         for mvt_feat in mvt_features {
-            let geometry = convert_geometry(&mvt_feat.geometry);
+            let geometry = convert_geometry(&mvt_feat.geometry)?;
             let id = mvt_feat.id.unwrap_or(0);
             let mut properties = mvt_feat
                 .properties
@@ -51,45 +52,48 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, Mlt
     })
 }
 
-fn coord(x: f32, y: f32) -> Coordinate {
+fn coord(coord: impl AsRef<Coord<f32>>) -> Coordinate {
+    let c = coord.as_ref();
     #[expect(clippy::cast_possible_truncation)]
-    [x.round() as i32, y.round() as i32]
+    [c.x.round() as i32, c.y.round() as i32]
 }
 
-fn convert_geometry(geom: &gt::Geometry<f32>) -> Geometry {
-    match geom {
-        gt::Geometry::Point(p) => Geometry::Point(coord(p.x(), p.y())),
-        gt::Geometry::MultiPoint(mp) => {
-            Geometry::MultiPoint(mp.iter().map(|p| coord(p.x(), p.y())).collect())
-        }
-        gt::Geometry::LineString(ls) => {
-            Geometry::LineString(ls.coords().map(|c| coord(c.x, c.y)).collect())
-        }
-        gt::Geometry::MultiLineString(mls) => Geometry::MultiLineString(
-            mls.iter()
-                .map(|ls| ls.coords().map(|c| coord(c.x, c.y)).collect())
+fn convert_geometry(geom: &gt::Geometry<f32>) -> Result<Geometry, MltError> {
+    Ok(match geom {
+        gt::Geometry::Point(v) => Geometry::Point(coord(v)),
+        gt::Geometry::MultiPoint(v) => Geometry::MultiPoint(v.iter().map(coord).collect()),
+        gt::Geometry::LineString(v) => Geometry::LineString(v.coords().map(coord).collect()),
+        gt::Geometry::MultiLineString(v) => Geometry::MultiLineString(
+            v.iter()
+                .map(|vv| vv.coords().map(coord).collect())
                 .collect(),
         ),
-        gt::Geometry::Polygon(poly) => Geometry::Polygon(convert_polygon(poly)),
-        gt::Geometry::MultiPolygon(mp) => {
-            Geometry::MultiPolygon(mp.iter().map(convert_polygon).collect())
+        gt::Geometry::Polygon(v) => Geometry::Polygon(convert_polygon(v)),
+        gt::Geometry::MultiPolygon(v) => {
+            Geometry::MultiPolygon(v.iter().map(convert_polygon).collect())
         }
-        gt::Geometry::GeometryCollection(gc) => {
-            if gc.len() == 1 {
-                convert_geometry(&gc[0])
+        gt::Geometry::GeometryCollection(v) => {
+            return if v.len() == 1 {
+                convert_geometry(&v[0])
             } else {
-                Geometry::Point([0, 0])
-            }
+                Err(MltError::BadMvtGeometry(
+                    "multiple geometries in a collection are not supported",
+                ))
+            };
         }
-        _ => Geometry::Point([0, 0]),
-    }
+        gt::Geometry::Line(_) => Err(MltError::BadMvtGeometry("Unsupported Line geo type"))?,
+        gt::Geometry::Rect(_) => Err(MltError::BadMvtGeometry("Unsupported Rect geo type"))?,
+        gt::Geometry::Triangle(_) => {
+            Err(MltError::BadMvtGeometry("Unsupported Triangle geo type"))?
+        }
+    })
 }
 
 fn convert_polygon(poly: &gt::Polygon<f32>) -> Vec<Vec<Coordinate>> {
     let mut rings = Vec::with_capacity(1 + poly.interiors().len());
-    rings.push(poly.exterior().coords().map(|c| coord(c.x, c.y)).collect());
+    rings.push(poly.exterior().coords().map(coord).collect());
     for interior in poly.interiors() {
-        rings.push(interior.coords().map(|c| coord(c.x, c.y)).collect());
+        rings.push(interior.coords().map(coord).collect());
     }
     rings
 }

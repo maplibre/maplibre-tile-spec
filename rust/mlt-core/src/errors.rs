@@ -226,6 +226,9 @@ pub enum MltError {
 
     #[error("Serde JSON error: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("MVT error: {0}")]
+    BadMvtGeometry(&'static str),
 }
 
 impl From<Infallible> for MltError {
