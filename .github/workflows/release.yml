@@ -13,7 +13,7 @@
 # Note that the GitHub Release will be created with a generated
 # title/body based on your changelogs.
 
-name: Release Rust
+name: Release
 permissions:
   "contents": "write"
 
