@@ -77,8 +77,9 @@ public class ConversionHelper {
     if (verboseLevel > 1) {
       System.err.println("Optimizing database");
     }
-    try (var statement = connection.prepareStatement("VACUUM")) {
-      statement.execute();
+    ;
+    try {
+      connection.nativeSQL("VACUUM");
       return true;
     } catch (SQLException ex) {
       System.err.println("ERROR: Failed to optimize database: " + ex.getMessage());

@@ -18,6 +18,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
@@ -42,23 +43,25 @@ public class PMTilesHelper extends ConversionHelper {
       // it uses a single `Channel` with separate `position` and `read` operations.
       // So use a separate instance for each thread, but share the underlying reader and cache.
       final var threadCount = config.taskRunner().getThreadCount();
-      final var readers = new ConcurrentHashMap<Long, ReadablePmtiles>(1 + threadCount);
-      final Supplier<ReadablePmtiles> readerSupplier =
+      final var readers = new ConcurrentHashMap<Long, Optional<ReadablePmtiles>>(1 + threadCount);
+      final Supplier<Optional<ReadablePmtiles>> readerSupplier =
           () ->
               readers.computeIfAbsent(
                   Thread.currentThread().threadId(),
                   ignored -> tryCreateReadablePmtiles(cachingReader));
-      final var mainReader = readerSupplier.get();
-      if (mainReader == null) {
+      final var maybeReader = readerSupplier.get();
+      if (maybeReader.isEmpty()) {
         System.err.printf("ERROR: Failed to read PMTiles from '%s'%n", inputURI);
         return false;
       }
+
+      final var reader = maybeReader.get();
 
       if (config.verboseLevel() > 1) {
         System.err.printf("Opened '%s'%n", inputURI);
       }
 
-      final var header = mainReader.getHeader();
+      final var header = reader.getHeader();
       if (header.tileType() != TileType.MVT) {
         System.err.printf(
             "ERROR: Input PMTiles tile type is %d, expected %d (MVT)%n",
@@ -76,7 +79,7 @@ public class PMTilesHelper extends ConversionHelper {
       final int actualMinZoom = Math.max(header.minZoom(), config.minZoom());
       final int actualMaxZoom = Math.min(header.maxZoom(), config.maxZoom());
 
-      final var oldMetadata = mainReader.metadata();
+      final var oldMetadata = reader.metadata();
       final var newMetadata =
           new TileArchiveMetadata(
               oldMetadata.name(),
@@ -158,16 +161,17 @@ public class PMTilesHelper extends ConversionHelper {
   private static void processTiles(
       @NotNull TaskRunner taskRunner,
       @NotNull final Function<TileCoord, Boolean> processTile,
-      @NotNull final Supplier<ReadablePmtiles> readerSupplier,
+      @NotNull final Supplier<Optional<ReadablePmtiles>> readerSupplier,
       @NotNull final ConversionState state,
       final int minZoom,
       final int maxZoom) {
-    final var reader = readerSupplier.get();
-    if (reader == null) {
+    final var maybeReader = readerSupplier.get();
+    if (maybeReader.isEmpty()) {
       System.err.println("ERROR: Failed to read PMTiles");
       state.success.set(false);
       return;
     }
+    final var reader = maybeReader.get();
     reader.getAllTileCoords().stream()
         .filter(tc -> minZoom <= tc.z() && tc.z() <= maxZoom)
         .forEach(
@@ -193,7 +197,7 @@ public class PMTilesHelper extends ConversionHelper {
   /// Produce a callable function for processing a single tile, capturing everything
   /// it needs, suitable for submitting to a thread pool
   private static Function<TileCoord, Boolean> getProcessTileFunction(
-      @NotNull final Supplier<ReadablePmtiles> readerSupplier,
+      @NotNull final Supplier<Optional<ReadablePmtiles>> readerSupplier,
       @NotNull final TileWriter writer,
       @NotNull final ConversionState state) {
     return (tileCoord) -> {
@@ -218,12 +222,13 @@ public class PMTilesHelper extends ConversionHelper {
         }
       }
 
-      final var reader = readerSupplier.get();
-      if (reader == null) {
+      final var maybeReader = readerSupplier.get();
+      if (maybeReader.isEmpty()) {
         System.err.println("ERROR: Failed to read PMTiles");
         return false;
       }
 
+      final var reader = maybeReader.get();
       byte[] tileData = reader.getTile(tileCoord);
       if (tileData == null) {
         if (state.encodeConfig().verboseLevel() > 1) {
@@ -279,12 +284,12 @@ public class PMTilesHelper extends ConversionHelper {
     };
   }
 
-  private static ReadablePmtiles tryCreateReadablePmtiles(RangeReader reader) {
+  private static Optional<ReadablePmtiles> tryCreateReadablePmtiles(RangeReader reader) {
     try {
-      return new ReadablePmtiles(reader.asByteChannel());
-    } catch (IOException e) {
-      return null;
+      return Optional.of(new ReadablePmtiles(reader.asByteChannel()));
+    } catch (IOException ignored) {
     }
+    return Optional.empty();
   }
 
   private record ConversionState(

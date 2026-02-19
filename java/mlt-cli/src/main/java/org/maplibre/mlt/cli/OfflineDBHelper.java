@@ -106,11 +106,12 @@ public class OfflineDBHelper extends ConversionHelper {
   private static void updateMetadata(@NonNull EncodeConfig config, Connection dstConnection)
       throws SQLException, IOException {
     var metadataKind = 2; // `mbgl::Resource::Kind::Source`
-    var metadataQuerySQL = "SELECT id,data FROM resources WHERE kind = " + metadataKind;
+    var metadataQuerySQL = "SELECT id,data FROM resources WHERE kind = ?";
     var metadataUpdateSQL = "UPDATE resources SET data = ?, compressed = ? WHERE id = ?";
-    try (var queryStatement = dstConnection.createStatement();
-        var metadataResults = queryStatement.executeQuery(metadataQuerySQL);
+    try (var queryStatement = dstConnection.prepareStatement(metadataQuerySQL);
         var updateStatement = dstConnection.prepareStatement(metadataUpdateSQL)) {
+      queryStatement.setInt(1, metadataKind);
+      final var metadataResults = queryStatement.executeQuery();
       while (metadataResults.next()) {
         var uniqueID = metadataResults.getLong("id");
         byte[] data;
