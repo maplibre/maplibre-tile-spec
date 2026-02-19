@@ -2,8 +2,7 @@
 allow_dirty = false
 changelog_update = true
 dependencies_update = true
-# we don't want release-plz to publish the release, instead we want cargo-dist to anounce the release
-git_release_enable = false
+git_release_enable = true
 git_tag_enable = true
 git_tag_name = "rust-{{ package }}-v{{ version }}"
 pr_branch_prefix = "release-plz-"
