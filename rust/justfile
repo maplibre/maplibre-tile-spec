@@ -1,6 +1,6 @@
 #!/usr/bin/env just --justfile
 
-main_crate := file_name(justfile_directory())
+main_crate := "mlt"
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
