@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["mlt", "mlt-core", "mlt-legacy"]
-exclude = ["mlt-core/fuzz"]
+exclude = ["mlt-fuzz"]
 default-members = ["mlt", "mlt-core"]
 
 [workspace.package]
