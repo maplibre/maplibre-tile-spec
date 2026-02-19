@@ -1,33 +1,33 @@
 #!/usr/bin/env just --justfile
 
-main_crate := "mlt"
+main_crate := 'mlt-core'
+# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+just := quote(just_executable())
+# cargo-binstall needs a workaround due to caching when used in CI
+binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
-# cargo-binstall needs a workaround due to caching
-# ci_mode might be manually set by user, so re-check the env var
-binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 @_default:
-    {{quote(just_executable())}} --list
+    {{just}} --list
 
 # Run integration tests and save its output as the new expected output
 bless *args:  (cargo-install 'cargo-insta')
-    # rm -rf tests/snapshots-*
     cargo insta test --accept --unreferenced=delete --all-features {{args}}
 
 # Build the project
 build:
-    cargo build -p mlt --all-features --all-targets
+    cargo build --all-targets --all-features
 
 # Quick compile without building a binary
 check:
-    cargo check -p mlt --all-features --all-targets
+    cargo check --all-targets --all-features
 
 # Generate code coverage report to upload to codecov.io
 ci-coverage: env-info gen-snippets && \
@@ -48,25 +48,21 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    cargo clippy -p mlt --all-features --all-targets {{args}}
+    cargo clippy --all-targets --all-features {{args}}
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov')
-    cargo llvm-cov -p mlt --all-features --all-targets --include-build-script {{args}}
-
-# Generate code coverage report for the synthetics test only
-coverage-synthetics *args='--open':  (cargo-install 'cargo-llvm-cov')
-    cargo llvm-cov -p mlt --test synthetics {{args}}
+    cargo llvm-cov --all-targets --all-features --include-build-script {{args}}
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} -p mlt --all-features
+    DOCS_RS=1 cargo doc --no-deps {{args}} --all-features
 
 # Print environment info
 env-info:
-    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD $(pwd)"
-    {{quote(just_executable())}} --version
+    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "PWD {{justfile_directory()}}"
+    {{just}} --version
     rustc --version
     cargo --version
     rustup --version
@@ -88,7 +84,7 @@ fmt:
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args:  (cargo-install 'cargo-sort')
-    cargo sort -p mlt --grouped {{args}}
+    cargo sort --workspace --grouped {{args}}
 
 # Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
 [working-directory: '../java']
@@ -96,9 +92,20 @@ gen-snippets:  (cargo-install 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
     ./gradlew cli
-    fd . ../test/fixtures -e pbf -x java -jar build/libs/encode.jar --mvt {} \
+    fd . ../test/fixtures -e pbf -x java -jar mlt-cli/build/libs/encode.jar --mvt {} \
         --mlt "$(tmp='{.}'; echo ${tmp/\/fixtures\///expected/}).mvt" \
-        --rawstreams --tessellate --outlines '\*' || echo "### Some snippets failed to generate ###"
+        --rawstreams --tessellate --outlines ALL || echo "### Some snippets failed to generate ###"
+
+# Build the Java snippet generator, and run it to generate snippets for all .pbf files in test/fixtures
+[working-directory: '../java']
+gen-tests:  (cargo-install 'fd' 'fd-find')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./gradlew cli
+    fd . ../test/fixtures -e pbf -x bash -c 'java -jar mlt-cli/build/libs/encode.jar --mvt {} \
+        --mlt "$(tmp={.}; echo ${tmp/fixtures/expected/tag0x01/}).mlt" \
+        --outlines "\*" --tessellate --coerce-mismatch --verbose || echo "### Some snippets failed to generate ###"'
+
 
 # Get any package's field from the metadata
 get-crate-field field package=main_crate:  (assert-cmd 'jq')
@@ -109,7 +116,7 @@ get-msrv package=main_crate:  (get-crate-field 'rust_version' package)
 
 # Find the minimum supported Rust version (MSRV) using cargo-msrv extension, and update Cargo.toml
 msrv:  (cargo-install 'cargo-msrv')
-    cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{quote(just_executable())}} ci-test-msrv
+    cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} ci-test-msrv
 
 # Run cargo-release
 release *args='':  (cargo-install 'release-plz')
@@ -121,14 +128,14 @@ semver *args:  (cargo-install 'cargo-semver-checks')
 
 # Run all tests
 test:
-    cargo test -p mlt --all-features --all-targets
-    cargo test --doc -p mlt --all-features
+    cargo test --all-targets --all-features
+    cargo test --doc --all-features
 
 # Test documentation generation
 test-doc:  (docs '')
 
 # Test code formatting
-test-fmt: # && (fmt-toml '--check' '--check-format')
+test-fmt: && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
 # Use the experimental workspace publishing with --dry-run. Requires nightly Rust.
@@ -137,7 +144,7 @@ test-publish:
 
 # Find unused dependencies. Install it with `cargo install cargo-udeps`
 udeps:  (cargo-install 'cargo-udeps')
-    cargo +nightly udeps -p mlt --all-features --all-targets
+    cargo +nightly udeps --all-targets --all-features
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:

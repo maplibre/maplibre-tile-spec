@@ -72,7 +72,7 @@ fmt-js:
 # Run formatting for Rust
 [working-directory: 'rust']
 fmt-rust:
-    {{just}} test
+    {{just}} fmt
 
 [working-directory: 'ts']
 install-js:
