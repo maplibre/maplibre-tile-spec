@@ -1,7 +1,7 @@
 # QGIS MLT Plugin
 
 A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
-`mlt-nom` parser exposed to Python via [PyO3](https://pyo3.rs).
+`mlt` parser exposed to Python via [PyO3](https://pyo3.rs).
 
 ## Architecture
 
@@ -17,8 +17,8 @@ A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
 └────────┬────────────┘
          │ depends on
 ┌────────▼────────────┐
-│   mlt-nom           │  Rust – zero-copy MLT binary parser
-│   (rust/mlt-nom)    │
+│   mlt               │  Rust – zero-copy MLT binary parser
+│   (rust/mlt)        │
 └─────────────────────┘
 ```
 
