@@ -5,7 +5,7 @@ use borrowme::borrowme;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
-use crate::decodable::{FromRaw, impl_decodable};
+use crate::decode::{FromRaw, impl_decodable};
 use crate::utils::{BinarySerializer as _, OptSeqOpt};
 use crate::v01::{ColumnType, Stream};
 

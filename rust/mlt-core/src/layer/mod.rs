@@ -1,3 +1,6 @@
+pub mod unknown;
+pub mod v01;
+
 use std::borrow::Cow;
 use std::io;
 use std::io::Write;
@@ -6,9 +9,9 @@ use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 use utils::BinarySerializer as _;
 
-use crate::unknown::Unknown;
+use crate::layer::unknown::Unknown;
+use crate::layer::v01::Layer01;
 use crate::utils::take;
-use crate::v01::Layer01;
 use crate::{MltError, MltRefResult, utils};
 
 /// A layer that can be one of the known types, or an unknown

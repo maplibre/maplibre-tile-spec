@@ -14,7 +14,7 @@ use crate::MltError::{
     NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
-use crate::decodable::{FromRaw, impl_decodable};
+use crate::decode::{FromRaw, impl_decodable};
 use crate::geojson::Geometry as GeoGeom;
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
