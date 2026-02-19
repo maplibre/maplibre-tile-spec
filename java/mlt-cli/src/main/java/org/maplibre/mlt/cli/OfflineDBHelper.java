@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -91,63 +92,7 @@ public class OfflineDBHelper extends ConversionHelper {
         return false;
       }
 
-      // Update metadata
-      var metadataKind = 2; // `mbgl::Resource::Kind::Source`
-      var metadataQuerySQL = "SELECT id,data FROM resources WHERE kind = " + metadataKind;
-      var metadataUpdateSQL = "UPDATE resources SET data = ?, compressed = ? WHERE id = ?";
-      try (var queryStatement = dstConnection.createStatement();
-          var metadataResults = queryStatement.executeQuery(metadataQuerySQL);
-          var updateStatement = dstConnection.prepareStatement(metadataUpdateSQL)) {
-        while (metadataResults.next()) {
-          var uniqueID = metadataResults.getLong("id");
-          byte[] data;
-          try {
-            data = decompress(metadataResults.getBinaryStream("data"));
-          } catch (IOException | IllegalStateException ignore) {
-            System.err.printf(
-                "WARNING: Failed to decompress Source resource '%d', skipping%n", uniqueID);
-            continue;
-          }
-
-          // Parse JSON
-          var jsonString = new String(data, StandardCharsets.UTF_8);
-          JsonObject json;
-          try {
-            json = new Gson().fromJson(jsonString, JsonObject.class);
-          } catch (JsonSyntaxException ex) {
-            System.err.printf("WARNING: Source resource '%d' is not JSON, skipping%n", uniqueID);
-            continue;
-          }
-
-          // Update the format field
-          json.addProperty("format", MBTilesHelper.MetadataMIMEType);
-
-          // Re-serialize
-          jsonString = json.toString();
-
-          // Re-compress
-          final boolean compressed;
-          try (var outputStream = new ByteArrayOutputStream()) {
-            try (var compressStream =
-                createCompressStream(outputStream, config.compressionType())) {
-              compressed = (compressStream != outputStream);
-              compressStream.write(jsonString.getBytes(StandardCharsets.UTF_8));
-            }
-            data = outputStream.toByteArray();
-          }
-
-          // Update the database
-          updateStatement.setBytes(1, data);
-          updateStatement.setBoolean(2, compressed);
-          updateStatement.setLong(3, uniqueID);
-          updateStatement.execute();
-
-          if (config.verboseLevel() > 1) {
-            System.err.printf(
-                "Updated source JSON format to '%s'%n", MBTilesHelper.MetadataMIMEType);
-          }
-        }
-      }
+      updateMetadata(config, dstConnection);
 
       vacuumDatabase(dstConnection, config.verboseLevel());
     } catch (SQLException | IOException ex) {
@@ -158,6 +103,64 @@ public class OfflineDBHelper extends ConversionHelper {
       return false;
     }
     return success.get();
+  }
+
+  private static void updateMetadata(@NonNull EncodeConfig config, Connection dstConnection)
+      throws SQLException, IOException {
+    var metadataKind = 2; // `mbgl::Resource::Kind::Source`
+    var metadataQuerySQL = "SELECT id,data FROM resources WHERE kind = " + metadataKind;
+    var metadataUpdateSQL = "UPDATE resources SET data = ?, compressed = ? WHERE id = ?";
+    try (var queryStatement = dstConnection.createStatement();
+        var metadataResults = queryStatement.executeQuery(metadataQuerySQL);
+        var updateStatement = dstConnection.prepareStatement(metadataUpdateSQL)) {
+      while (metadataResults.next()) {
+        var uniqueID = metadataResults.getLong("id");
+        byte[] data;
+        try {
+          data = decompress(metadataResults.getBinaryStream("data"));
+        } catch (IOException | IllegalStateException ignore) {
+          System.err.printf(
+              "WARNING: Failed to decompress Source resource '%d', skipping%n", uniqueID);
+          continue;
+        }
+
+        // Parse JSON
+        var jsonString = new String(data, StandardCharsets.UTF_8);
+        JsonObject json;
+        try {
+          json = new Gson().fromJson(jsonString, JsonObject.class);
+        } catch (JsonSyntaxException ex) {
+          System.err.printf("WARNING: Source resource '%d' is not JSON, skipping%n", uniqueID);
+          continue;
+        }
+
+        // Update the format field
+        json.addProperty("format", MBTilesHelper.MetadataMIMEType);
+
+        // Re-serialize
+        jsonString = json.toString();
+
+        // Re-compress
+        final boolean compressed;
+        try (var outputStream = new ByteArrayOutputStream()) {
+          try (var compressStream = createCompressStream(outputStream, config.compressionType())) {
+            compressed = (compressStream != outputStream);
+            compressStream.write(jsonString.getBytes(StandardCharsets.UTF_8));
+          }
+          data = outputStream.toByteArray();
+        }
+
+        // Update the database
+        updateStatement.setBytes(1, data);
+        updateStatement.setBoolean(2, compressed);
+        updateStatement.setLong(3, uniqueID);
+        updateStatement.execute();
+
+        if (config.verboseLevel() > 1) {
+          System.err.printf("Updated source JSON format to '%s'%n", MBTilesHelper.MetadataMIMEType);
+        }
+      }
+    }
   }
 
   private static boolean convertTile(
