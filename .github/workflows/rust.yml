@@ -117,6 +117,7 @@ jobs:
   build-release-binaries:
     name: Build release binaries for ${{ matrix.target }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
