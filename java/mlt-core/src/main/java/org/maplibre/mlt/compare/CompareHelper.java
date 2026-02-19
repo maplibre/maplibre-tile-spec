@@ -144,6 +144,20 @@ public class CompareHelper {
   /// @param mlTile The MLT tile
   /// @param mbTile The MVT tile
   /// @param compareMode Which parts of the tiles to compare
+  /// @return A description of the first difference found, or an empty Optional if the tiles are
+  // equal.
+  public static Optional<Difference> compareTiles(
+      @NotNull MapLibreTile mlTile,
+      @NotNull MapboxVectorTile mvTile,
+      @NotNull CompareMode compareMode) {
+    return compareTiles(mlTile, mvTile, compareMode, null, false);
+  }
+
+  /// Compare the content of MLT and MVT tiles.
+  /// Returns a single difference, stopping immediately when the first one is found.
+  /// @param mlTile The MLT tile
+  /// @param mbTile The MVT tile
+  /// @param compareMode Which parts of the tiles to compare
   /// @param layerFilter A regex pattern to filter layers by name. If null, all layers are compared.
   /// @param filterInvert If true, only layers *not*  matching the filter are compared.
   /// @return A description of the first difference found, or an empty Optional if the tiles are

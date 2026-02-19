@@ -14,6 +14,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.TestUtils;
+import org.maplibre.mlt.compare.CompareHelper;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
@@ -79,8 +80,10 @@ public class MltDecoderTest {
         (mlTile, tileMetadata, mvTile) -> {
           final var decodedTile = MltDecoder.decodeMlTile(mlTile);
           Assertions.assertNotNull(decodedTile);
-          // Compare currently doesn't account for type changes
-          // TestUtils.compareTilesSequential(decodedTile, mvTile);
+
+          final var compareResult =
+              CompareHelper.compareTiles(decodedTile, mvTile, CompareHelper.CompareMode.All);
+          Assertions.assertFalse(compareResult.isPresent());
         },
         TestUtils.Optimization.NONE,
         List.of(),
