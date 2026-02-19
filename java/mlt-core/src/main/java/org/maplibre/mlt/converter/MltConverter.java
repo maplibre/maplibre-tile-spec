@@ -35,7 +35,7 @@ public class MltConverter {
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       Map<Pattern, List<ColumnMapping>> columnMappings,
-      boolean isIdPresent,
+      boolean includeIdIfPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
 
@@ -49,7 +49,9 @@ public class MltConverter {
       final LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexPropertyColumnSchemas =
           new LinkedHashMap<>();
 
+      var hasId = false;
       var hasLongId = false;
+      var hasNullId = false;
       var featureIndex = 0;
       for (var feature : layer.features()) {
         final var currentFeatureIndex = featureIndex;
@@ -68,10 +70,16 @@ public class MltConverter {
                       enableElideOnMismatch);
                 });
 
-        if (isIdPresent
-            && feature.hasId()
-            && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
-          hasLongId = true;
+        if (includeIdIfPresent) {
+          if (feature.hasId()) {
+            hasId = true;
+            if (!hasLongId && feature.id() > Integer.MAX_VALUE
+                || feature.id() < Integer.MIN_VALUE) {
+              hasLongId = true;
+            }
+          } else {
+            hasNullId = true;
+          }
         }
         featureIndex++;
       }
@@ -96,11 +104,11 @@ public class MltConverter {
       if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
         throw new RuntimeException("Unexpected ID Column");
       }
-      if (isIdPresent) {
+      if (hasId) {
         final var newColumn =
             new MltMetadata.Column(
                 null, new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID));
-        newColumn.isNullable = layer.features().stream().anyMatch(feature -> !feature.hasId());
+        newColumn.isNullable = hasNullId;
         newColumn.columnScope = MltMetadata.ColumnScope.FEATURE;
         newColumn.scalarType.hasLongId = hasLongId;
         featureTableSchema.columns.add(newColumn);
