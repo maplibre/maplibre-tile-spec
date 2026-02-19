@@ -17,7 +17,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt }
+      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -31,7 +31,7 @@ jobs:
     name: Test MSRV
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt }
+      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -53,7 +53,7 @@ jobs:
     if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     defaults:
-      run: { working-directory: ./rust/mlt }
+      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v2
@@ -104,12 +104,12 @@ jobs:
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
         id: release
-        with: { command: release }
+        with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
         uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
-        with: { command: release-pr }
+        with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
