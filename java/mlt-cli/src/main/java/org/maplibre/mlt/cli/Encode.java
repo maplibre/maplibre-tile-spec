@@ -572,7 +572,16 @@ public class Encode {
       if (forceExt) {
         outputPath = Path.of(FilenameUtils.removeExtension(outputPath.toString()) + ext);
       }
-      CliUtil.createDir(outputPath.toAbsolutePath().getParent());
+
+      final var outputDir = outputPath.toAbsolutePath().getParent();
+      if (!Files.exists(outputDir)) {
+        try {
+          Files.createDirectories(outputDir);
+        } catch (IOException ex) {
+          System.err.printf("Failed to create directory '%s': %s", outputDir, ex.getMessage());
+          return null;
+        }
+      }
     }
     return outputPath;
   }
