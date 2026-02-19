@@ -2,7 +2,9 @@
 allow_dirty = false
 changelog_update = true
 dependencies_update = true
-git_release_enable = true
+# we don't want release-plz to publish the release, instead we want cargo-dist to anounce the release
+git_release_enable = false
+git_tag_enable = true
 pr_branch_prefix = "release-plz-"
 pr_labels = ["release"]
 publish_allow_dirty = false
