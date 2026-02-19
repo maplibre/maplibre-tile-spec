@@ -1,0 +1,12 @@
+name: mlt-setup-rust
+description: Setup Rust requirements
+
+inputs: {}
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Install protobuf compiler for MVT support
+      shell: bash
+      run: sudo apt-get install -y protobuf-compiler

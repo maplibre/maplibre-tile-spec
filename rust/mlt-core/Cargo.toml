@@ -12,8 +12,10 @@ rust-version.workspace = true
 [dependencies]
 borrowme = "0.0.15"
 fastpfor = "0.6"
+geo-types = "0.7.18"
 hex = "0.4.3"
 integer-encoding = "4.0.2"
+mvt-reader = "2.2.0"
 num-traits = "0.2.19"
 num_enum = "0.7.4"
 serde = { version = "1", features = ["derive"] }

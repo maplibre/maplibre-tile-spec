@@ -25,6 +25,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-rust
       - run: just -v ci-test
 
   test-msrv:
@@ -39,6 +40,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Read MSRV
         id: msrv
         run: echo "value=$(just get-msrv)" >> $GITHUB_OUTPUT
@@ -46,7 +48,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-      - run: cd ../.. && just -v assert-git-is-clean
+      - run: cd .. && just -v assert-git-is-clean
 
   coverage:
     name: Code Coverage
@@ -60,6 +62,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall,cargo-llvm-cov' }
       - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Generate code coverage
         run: just -v ci-coverage
       - name: Upload coverage to Codecov
@@ -67,7 +70,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/llvm-cov/codecov.info
-      - run: cd ../.. && just -v assert-git-is-clean
+      - run: cd .. && just -v assert-git-is-clean
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.

@@ -877,7 +877,7 @@ dependencies = [
  "geo-types",
  "geojson",
  "log",
- "prost",
+ "prost 0.14.3",
  "prost-build",
  "serde_json",
  "thiserror 2.0.18",
@@ -1282,10 +1282,12 @@ version = "0.1.0"
 dependencies = [
  "borrowme",
  "fastpfor",
+ "geo-types",
  "hex",
  "insta",
  "integer-encoding",
  "json5",
+ "mvt-reader",
  "num-traits",
  "num_enum",
  "pretty_assertions",
@@ -1313,7 +1315,7 @@ dependencies = [
  "morton-encoding",
  "num-traits",
  "num_enum",
- "prost",
+ "prost 0.14.3",
  "prost-build",
  "prost-types",
  "rayon",
@@ -1339,6 +1341,17 @@ name = "multimap"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
+
+[[package]]
+name = "mvt-reader"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edb7513017dc7b394c87fc13ce9f536233343b50bd036cbaffb2cbf7b83461e0"
+dependencies = [
+ "geo-types",
+ "prost 0.13.5",
+ "prost-build",
+]
 
 [[package]]
 name = "nix"
@@ -1742,12 +1755,22 @@ dependencies = [
 
 [[package]]
 name = "prost"
+version = "0.13.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2796faa41db3ec313a31f7624d9286acf277b52de526150b7e69f3debf891ee5"
+dependencies = [
+ "bytes",
+ "prost-derive 0.13.5",
+]
+
+[[package]]
+name = "prost"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2ea70524a2f82d518bce41317d0fae74151505651af45faf1ffbd6fd33f0568"
 dependencies = [
  "bytes",
- "prost-derive",
+ "prost-derive 0.14.3",
 ]
 
 [[package]]
@@ -1762,11 +1785,24 @@ dependencies = [
  "multimap",
  "petgraph",
  "prettyplease",
- "prost",
+ "prost 0.14.3",
  "prost-types",
  "regex",
  "syn 2.0.116",
  "tempfile",
+]
+
+[[package]]
+name = "prost-derive"
+version = "0.13.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
+dependencies = [
+ "anyhow",
+ "itertools 0.14.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.116",
 ]
 
 [[package]]
@@ -1788,7 +1824,7 @@ version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8991c4cbdb8bc5b11f0b074ffe286c30e523de90fee5ba8132f1399f23cb3dd7"
 dependencies = [
- "prost",
+ "prost 0.14.3",
 ]
 
 [[package]]
