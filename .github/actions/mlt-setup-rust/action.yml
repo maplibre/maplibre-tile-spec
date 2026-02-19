@@ -9,13 +9,13 @@ runs:
 
     - name: Install protobuf compiler (Ubuntu)
       if: runner.os == 'Linux'
-      shell: bash
       run: sudo apt-get install -y protobuf-compiler
+    - name: Install g++-aarch64-linux-gnu
+      if: runner.os == 'Linux' && runner.arch == 'arm64'
+      run: sudo apt-get install -y g++-aarch64-linux-gnu
     - name: Install protobuf compiler (macOS)
       if: runner.os == 'macOS'
-      shell: bash
       run: brew install protobuf
     - name: Install protobuf compiler (Windows)
       if: runner.os == 'Windows'
-      shell: pwsh
       run: choco install protobuf -y
