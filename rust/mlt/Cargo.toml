@@ -1,0 +1,47 @@
+[package]
+name = "mlt"
+description = "MapLibre Tile Tools"
+version = "0.1.0"
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+edition.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.5.58", features = ["derive"] }
+crossterm = "0.29.0"
+flate2 = "1"
+mlt-core = { path = "../mlt-core" }
+ratatui = "0.30.0"
+rayon = "1"
+rstar = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.149"
+size_format = { version = "1" }
+tabled = "0.20"
+thousands = "0.2"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# Restrictions
+panic_in_result_fn = "warn"
+todo = "warn"
+unused_trait_names = "warn"
+unimplemented = "warn"
+
+# Too noisy
+missing_errors_doc = "allow"
+multiple_crate_versions = "allow"
+missing_panics_doc = "allow"
+too_many_lines = "allow"
