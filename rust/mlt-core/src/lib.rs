@@ -4,16 +4,16 @@
 #![doc = include_str!("../README.md")]
 
 mod analyse;
-mod decodable;
+mod convert;
+mod decode;
 mod errors;
-pub mod geojson;
+pub use convert::{geojson, mvt};
 pub mod layer;
-mod unknown;
+pub use layer::{unknown, v01};
 mod utils;
-pub mod v01;
 
 pub use analyse::{Analyze, StatType};
-pub use decodable::*;
+pub use decode::*;
 pub use errors::{MltError, MltRefResult};
 pub use layer::{Layer, OwnedLayer};
 

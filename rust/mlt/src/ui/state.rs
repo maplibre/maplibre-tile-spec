@@ -118,6 +118,7 @@ pub struct App {
     pub(crate) last_properties_key: Option<(usize, usize)>,
     geometry_index: Option<RTree<GeometryIndexEntry>>,
     pub(crate) file_left_pct: u16,
+    pub(crate) ext_filters: HashSet<String>,
     pub(crate) geom_filters: HashSet<String>,
     pub(crate) algo_filters: HashSet<String>,
     pub(crate) filter_scroll: u16,
@@ -125,6 +126,7 @@ pub struct App {
     pub(crate) file_table_inner_height: usize,
     pub(crate) show_help: bool,
     pub(crate) help_scroll: u16,
+    pub(crate) error_popup: Option<(String, String)>,
 }
 
 impl Default for App {
@@ -163,6 +165,7 @@ impl Default for App {
             tree_inner_height: 0,
             geometry_index: None,
             file_left_pct: 70,
+            ext_filters: HashSet::new(),
             geom_filters: HashSet::new(),
             algo_filters: HashSet::new(),
             filter_scroll: 0,
@@ -170,6 +173,7 @@ impl Default for App {
             file_table_inner_height: 10,
             show_help: false,
             help_scroll: 0,
+            error_popup: None,
         }
     }
 }
@@ -394,15 +398,25 @@ impl App {
         }
     }
 
-    pub(crate) fn handle_enter(&mut self) -> anyhow::Result<()> {
+    pub(crate) fn handle_enter(&mut self) {
         match self.mode {
             ViewMode::FileBrowser => {
-                if let Some(path) = self
+                if let Some((path, row)) = self
                     .selected_file_real_index()
                     .and_then(|i| self.mlt_files.get(i))
-                    .map(|(p, _)| p.clone())
+                    .map(|(p, r)| (p.clone(), r))
                 {
-                    self.load_file(&path)?;
+                    let path_str = match row {
+                        LsRow::Info(info) => info.path().to_string(),
+                        LsRow::Error { path: p, .. } | LsRow::Loading { path: p } => p.clone(),
+                    };
+                    if let LsRow::Error { error, .. } = row {
+                        self.error_popup = Some((path_str, error.clone()));
+                        self.invalidate();
+                    } else if let Err(e) = self.load_file(&path) {
+                        self.error_popup = Some((path_str, e.to_string()));
+                        self.invalidate();
+                    }
                 }
             }
             ViewMode::LayerOverview => match self.tree_items.get(self.selected_index) {
@@ -427,7 +441,6 @@ impl App {
                 _ => {}
             },
         }
-        Ok(())
     }
 
     pub(crate) fn handle_plus(&mut self) {
@@ -571,16 +584,31 @@ impl App {
 
     pub(crate) fn rebuild_filtered_files(&mut self) {
         let prev = self.selected_file_real_index();
-        let has_filters = !self.geom_filters.is_empty() || !self.algo_filters.is_empty();
+        let has_filters = !self.ext_filters.is_empty()
+            || !self.geom_filters.is_empty()
+            || !self.algo_filters.is_empty();
         self.filtered_file_indices = (0..self.mlt_files.len())
             .filter(|&i| {
-                !has_filters
-                    || match &self.mlt_files[i].1 {
-                        LsRow::Info(info) => {
-                            file_matches_filters(info, &self.geom_filters, &self.algo_filters)
-                        }
-                        _ => true,
+                if !has_filters {
+                    return true;
+                }
+                let path = &self.mlt_files[i].0;
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(str::to_lowercase)
+                    .unwrap_or_default();
+                let ext_match = self.ext_filters.is_empty()
+                    || self.ext_filters.iter().any(|f| f.as_str() == ext);
+                if !ext_match {
+                    return false;
+                }
+                match &self.mlt_files[i].1 {
+                    LsRow::Info(info) => {
+                        file_matches_filters(info, &self.geom_filters, &self.algo_filters)
                     }
+                    _ => true,
+                }
             })
             .collect();
         let pos = prev

@@ -4,13 +4,14 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Args;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::parse_layers;
+use mlt_core::{MltError, parse_layers};
 
 use crate::OutputFormat;
+use crate::ls::is_mvt_extension;
 
 #[derive(Args)]
 pub struct DumpArgs {
-    /// Path to the MLT file
+    /// Path to a tile file (.mlt, .mvt, .pbf)
     file: PathBuf,
 
     /// Output format
@@ -26,7 +27,17 @@ pub enum AfterDump {
 
 pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
     let buffer = fs::read(&args.file)?;
-    let mut layers = parse_layers(&buffer)?;
+
+    if is_mvt_extension(&args.file) {
+        dump_mvt(args, buffer)?;
+    } else {
+        dump_mlt(args, decode, &buffer)?;
+    }
+    Ok(())
+}
+
+fn dump_mlt(args: &DumpArgs, decode: AfterDump, buffer: &[u8]) -> Result<(), MltError> {
+    let mut layers = parse_layers(buffer)?;
     if decode == AfterDump::Decode {
         for layer in &mut layers {
             layer.decode_all()?;
@@ -45,6 +56,21 @@ pub fn dump(args: &DumpArgs, decode: AfterDump) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&fc)?);
         }
     }
+    Ok(())
+}
 
+fn dump_mvt(args: &DumpArgs, buffer: Vec<u8>) -> Result<(), MltError> {
+    let fc = mlt_core::mvt::mvt_to_feature_collection(buffer)?;
+    match args.format {
+        OutputFormat::Text => {
+            for (i, feature) in fc.features.iter().enumerate() {
+                println!("=== Feature {i} ===");
+                println!("{feature:#?}");
+            }
+        }
+        OutputFormat::GeoJson => {
+            println!("{}", serde_json::to_string_pretty(&fc)?);
+        }
+    }
     Ok(())
 }
