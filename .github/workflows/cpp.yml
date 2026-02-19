@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - 'justfile'
-      - 'cpp.just'
+      - 'cpp/mod.just'
       - '.github/**'
       - 'cpp/**'
       - 'test/**'

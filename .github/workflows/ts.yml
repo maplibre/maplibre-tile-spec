@@ -7,7 +7,7 @@ on:
   pull_request:
     paths:
       - 'justfile'
-      - 'ts.just'
+      - 'ts/mod.just'
       - '.github/**'
       - 'ts/**'
       - 'test/**'
