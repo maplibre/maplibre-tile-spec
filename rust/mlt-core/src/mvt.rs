@@ -2,8 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use geo_types as gt;
 use mvt_reader::Reader;
-use serde_json::Value;
+use mvt_reader::feature::Value as MvtValue;
+use serde_json::{Number, Value};
 
 use crate::MltError;
 use crate::geojson::{Coordinate, Feature, FeatureCollection, Geometry};
@@ -54,25 +56,25 @@ fn coord(x: f32, y: f32) -> Coordinate {
     [x.round() as i32, y.round() as i32]
 }
 
-fn convert_geometry(geom: &geo_types::Geometry<f32>) -> Geometry {
+fn convert_geometry(geom: &gt::Geometry<f32>) -> Geometry {
     match geom {
-        geo_types::Geometry::Point(p) => Geometry::Point(coord(p.x(), p.y())),
-        geo_types::Geometry::MultiPoint(mp) => {
+        gt::Geometry::Point(p) => Geometry::Point(coord(p.x(), p.y())),
+        gt::Geometry::MultiPoint(mp) => {
             Geometry::MultiPoint(mp.iter().map(|p| coord(p.x(), p.y())).collect())
         }
-        geo_types::Geometry::LineString(ls) => {
+        gt::Geometry::LineString(ls) => {
             Geometry::LineString(ls.coords().map(|c| coord(c.x, c.y)).collect())
         }
-        geo_types::Geometry::MultiLineString(mls) => Geometry::MultiLineString(
+        gt::Geometry::MultiLineString(mls) => Geometry::MultiLineString(
             mls.iter()
                 .map(|ls| ls.coords().map(|c| coord(c.x, c.y)).collect())
                 .collect(),
         ),
-        geo_types::Geometry::Polygon(poly) => Geometry::Polygon(convert_polygon(poly)),
-        geo_types::Geometry::MultiPolygon(mp) => {
+        gt::Geometry::Polygon(poly) => Geometry::Polygon(convert_polygon(poly)),
+        gt::Geometry::MultiPolygon(mp) => {
             Geometry::MultiPolygon(mp.iter().map(convert_polygon).collect())
         }
-        geo_types::Geometry::GeometryCollection(gc) => {
+        gt::Geometry::GeometryCollection(gc) => {
             if gc.len() == 1 {
                 convert_geometry(&gc[0])
             } else {
@@ -83,7 +85,7 @@ fn convert_geometry(geom: &geo_types::Geometry<f32>) -> Geometry {
     }
 }
 
-fn convert_polygon(poly: &geo_types::Polygon<f32>) -> Vec<Vec<Coordinate>> {
+fn convert_polygon(poly: &gt::Polygon<f32>) -> Vec<Vec<Coordinate>> {
     let mut rings = Vec::with_capacity(1 + poly.interiors().len());
     rings.push(poly.exterior().coords().map(|c| coord(c.x, c.y)).collect());
     for interior in poly.interiors() {
@@ -92,20 +94,14 @@ fn convert_polygon(poly: &geo_types::Polygon<f32>) -> Vec<Vec<Coordinate>> {
     rings
 }
 
-fn convert_value(val: &mvt_reader::feature::Value) -> Value {
+fn convert_value(val: &MvtValue) -> Value {
     match val {
-        mvt_reader::feature::Value::String(s) => Value::String(s.clone()),
-        mvt_reader::feature::Value::Float(f) => {
-            serde_json::Number::from_f64(f64::from(*f)).map_or(Value::Null, Value::Number)
-        }
-        mvt_reader::feature::Value::Double(f) => {
-            serde_json::Number::from_f64(*f).map_or(Value::Null, Value::Number)
-        }
-        mvt_reader::feature::Value::Int(i) | mvt_reader::feature::Value::SInt(i) => {
-            Value::Number((*i).into())
-        }
-        mvt_reader::feature::Value::UInt(u) => Value::Number((*u).into()),
-        mvt_reader::feature::Value::Bool(b) => Value::Bool(*b),
-        mvt_reader::feature::Value::Null => Value::Null,
+        MvtValue::String(s) => Value::String(s.clone()),
+        MvtValue::Float(f) => Number::from_f64(f64::from(*f)).map_or(Value::Null, Value::Number),
+        MvtValue::Double(f) => Number::from_f64(*f).map_or(Value::Null, Value::Number),
+        MvtValue::Int(i) | MvtValue::SInt(i) => Value::Number((*i).into()),
+        MvtValue::UInt(u) => Value::Number((*u).into()),
+        MvtValue::Bool(b) => Value::Bool(*b),
+        MvtValue::Null => Value::Null,
     }
 }
