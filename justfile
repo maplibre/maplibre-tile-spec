@@ -37,8 +37,9 @@ bless: _clean-int-test _test-run-int
 clean: clean-java clean-js clean-rust
 
 # Delete build files for Java
+[working-directory: 'java']
 clean-java:
-    echo "TODO: Add java cleanup command"
+    ./gradlew clean
 
 # Delete build files for JavaScript
 [working-directory: 'ts']
