@@ -134,7 +134,7 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
       - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }} --package mlt
+        run: cargo build --target ${{ matrix.target }} --package mlt
       - name: Package Unix binary
         if: runner.os != 'Windows'
         run: |
@@ -153,7 +153,7 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            rust/target/${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
