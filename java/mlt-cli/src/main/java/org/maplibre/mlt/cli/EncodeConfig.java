@@ -4,7 +4,6 @@ import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -27,7 +26,7 @@ record EncodeConfig(
     boolean compareGeom,
     boolean willTime,
     boolean dumpStreams,
-    @Nullable ThreadPoolExecutor threadPool,
+    @NotNull TaskRunner taskRunner,
     boolean continueOnError,
     int verboseLevel) {
 
@@ -49,7 +48,7 @@ record EncodeConfig(
         .compareGeom(this.compareGeom)
         .willTime(this.willTime)
         .dumpStreams(this.dumpStreams)
-        .threadPool(this.threadPool)
+        .taskRunner(this.taskRunner)
         .continueOnError(this.continueOnError)
         .verboseLevel(this.verboseLevel);
   }
@@ -75,7 +74,7 @@ record EncodeConfig(
     private boolean compareGeom = false;
     private boolean willTime = false;
     private boolean dumpStreams = false;
-    private @Nullable ThreadPoolExecutor threadPool = null;
+    private @NotNull TaskRunner taskRunner;
     private boolean continueOnError = false;
     private int verboseLevel = 0;
 
@@ -159,8 +158,8 @@ record EncodeConfig(
       return this;
     }
 
-    public Builder threadPool(@Nullable ThreadPoolExecutor v) {
-      this.threadPool = v;
+    public Builder taskRunner(@NotNull TaskRunner v) {
+      this.taskRunner = v;
       return this;
     }
 
@@ -192,7 +191,7 @@ record EncodeConfig(
           compareGeom,
           willTime,
           dumpStreams,
-          threadPool,
+          (taskRunner != null) ? taskRunner : new SerialTaskRunner(),
           continueOnError,
           verboseLevel);
     }

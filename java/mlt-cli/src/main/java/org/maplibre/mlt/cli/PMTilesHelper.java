@@ -14,16 +14,13 @@ import com.onthegomap.planetiler.pmtiles.WriteablePmtiles;
 import io.tileverse.rangereader.RangeReader;
 import io.tileverse.rangereader.RangeReaderFactory;
 import io.tileverse.rangereader.cache.CachingRangeReader;
-import jakarta.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -44,7 +41,7 @@ public class PMTilesHelper {
       // Although `RangeReader` is thread-safe, `ReadablePmtiles` is not because
       // it uses a single `Channel` with separate `position` and `read` operations.
       // So use a separate instance for each thread, but share the underlying reader and cache.
-      final var threadCount = config.threadPool().getMaximumPoolSize();
+      final var threadCount = config.taskRunner().getThreadCount();
       final var readers = new ConcurrentHashMap<Long, ReadablePmtiles>(1 + threadCount);
       final Supplier<ReadablePmtiles> readerSupplier =
           () ->
@@ -102,7 +99,7 @@ public class PMTilesHelper {
           System.err.printf("Opened '%s'%n", outputPath);
         }
 
-        final var threadPool = config.threadPool();
+        final var taskRunner = config.taskRunner();
         final var success = new AtomicBoolean(true);
         final var tilesProcessed = new AtomicLong(0);
         final var totalTileCount = new AtomicLong(0);
@@ -117,11 +114,10 @@ public class PMTilesHelper {
 
         final var processTile = getProcessTileFunction(readerSupplier, tileWriter, state);
 
-        CliUtil.runTask(
-            threadPool,
+        taskRunner.run(
             () -> {
               processTiles(
-                  threadPool,
+                  taskRunner,
                   processTile,
                   readerSupplier,
                   state,
@@ -129,14 +125,12 @@ public class PMTilesHelper {
                   config.maxZoom());
             });
 
-        if (threadPool != null) {
-          try {
-            // Wait for all tasks to finish
-            threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-          } catch (InterruptedException e) {
-            System.err.println("ERROR : interrupted");
-            success.set(false);
-          }
+        try {
+          // Wait for all tasks to finish
+          taskRunner.awaitTermination();
+        } catch (InterruptedException e) {
+          System.err.println("ERROR : interrupted");
+          success.set(false);
         }
 
         if (success.get()) {
@@ -164,7 +158,7 @@ public class PMTilesHelper {
   }
 
   private static void processTiles(
-      @Nullable final ExecutorService threadPool,
+      @NotNull TaskRunner taskRunner,
       @NotNull final Function<TileCoord, Boolean> processTile,
       @NotNull final Supplier<ReadablePmtiles> readerSupplier,
       @NotNull final ConversionState state,
@@ -183,8 +177,7 @@ public class PMTilesHelper {
               state.totalTileCount.incrementAndGet();
               if (state.encodeConfig().continueOnError() || state.success.get()) {
                 try {
-                  CliUtil.runTask(
-                      threadPool,
+                  taskRunner.run(
                       () -> {
                         if (!processTile.apply(tileCoord)) {
                           state.success.set(false);
@@ -196,9 +189,7 @@ public class PMTilesHelper {
               }
             });
     state.directoryComplete.set(true);
-    if (threadPool != null) {
-      threadPool.shutdown();
-    }
+    taskRunner.shutdown();
   }
 
   /// Produce a callable function for processing a single tile, capturing everything

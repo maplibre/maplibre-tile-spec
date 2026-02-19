@@ -1,7 +1,6 @@
 package org.maplibre.mlt.cli;
 
 import com.google.gson.GsonBuilder;
-import jakarta.annotation.Nullable;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -13,10 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -133,23 +128,6 @@ public class CliUtil {
   public static String printMVT(MapboxVectorTile mvTile) {
     final var gson = new GsonBuilder().setPrettyPrinting().create();
     return gson.toJson(Map.of("layers", mvTile.layers().stream().map(CliUtil::toJSON).toList()));
-  }
-
-  ///  Execute the given task either directly or on the given thread pool
-  public static void runTask(@Nullable ExecutorService threadPool, @NotNull Runnable task) {
-    if (threadPool != null) {
-      threadPool.submit(() -> task.run());
-    } else {
-      task.run();
-    }
-  }
-
-  ///  Execute the given task either directly or on the given thread pool
-  public static <T> Future<T> runTask(
-      @Nullable ExecutorService threadPool, @NotNull Supplier<T> task) {
-    return (threadPool != null)
-        ? threadPool.submit(() -> task.get())
-        : CompletableFuture.completedFuture(task.get());
   }
 
   public static byte[] decompress(InputStream srcStream) throws IOException {

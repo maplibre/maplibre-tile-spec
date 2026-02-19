@@ -66,52 +66,59 @@ public class OfflineDBHelper {
           final var z = tileResults.getInt("z");
           final var data = tileResults.getBinaryStream("data").readAllBytes();
 
-          CliUtil.runTask(
-              config.threadPool(),
-              () -> {
-                if (config.verboseLevel() > 0) {
-                  System.err.printf("Converting %d:%d,%d%n", z, x, y);
-                }
-
-                byte[] srcTileData;
-                try {
-                  srcTileData = CliUtil.decompress(new ByteArrayInputStream(data));
-                } catch (IOException | IllegalStateException ex) {
-                  success.set(false);
-                  System.err.printf(
-                      "ERROR: Failed to decompress tile '%d': %s%n", uniqueID, ex.getMessage());
-                  if (config.verboseLevel() > 1) {
-                    ex.printStackTrace(System.err);
-                  }
-                  return;
-                }
-
-                var didCompress = new MutableBoolean(false);
-                var tileData = Encode.convertTile(x, y, z, srcTileData, config, didCompress);
-
-                if (tileData != null) {
-                  try {
-                    // Parallel writes are possible, but only by creating a separate connection for
-                    // each thread
-                    synchronized (updateStatement) {
-                      updateStatement.setBytes(1, tileData);
-                      updateStatement.setBoolean(2, didCompress.booleanValue());
-                      updateStatement.setLong(3, uniqueID);
-                      updateStatement.execute();
+          config
+              .taskRunner()
+              .run(
+                  () -> {
+                    if (config.verboseLevel() > 0) {
+                      System.err.printf("Converting %d:%d,%d%n", z, x, y);
                     }
-                  } catch (SQLException ex) {
-                    success.set(false);
-                    System.err.printf(
-                        "ERROR: Failed to convert tile '%d': %s%n", uniqueID, ex.getMessage());
-                    if (config.verboseLevel() > 1) {
-                      ex.printStackTrace(System.err);
+
+                    byte[] srcTileData;
+                    try {
+                      srcTileData = CliUtil.decompress(new ByteArrayInputStream(data));
+                    } catch (IOException | IllegalStateException ex) {
+                      success.set(false);
+                      System.err.printf(
+                          "ERROR: Failed to decompress tile '%d': %s%n", uniqueID, ex.getMessage());
+                      if (config.verboseLevel() > 1) {
+                        ex.printStackTrace(System.err);
+                      }
+                      return;
                     }
-                  }
-                }
-              });
+
+                    var didCompress = new MutableBoolean(false);
+                    var tileData = Encode.convertTile(x, y, z, srcTileData, config, didCompress);
+
+                    if (tileData != null) {
+                      try {
+                        // Parallel writes are possible, but only by creating a separate connection
+                        // for
+                        // each thread
+                        synchronized (updateStatement) {
+                          updateStatement.setBytes(1, tileData);
+                          updateStatement.setBoolean(2, didCompress.booleanValue());
+                          updateStatement.setLong(3, uniqueID);
+                          updateStatement.execute();
+                        }
+                      } catch (SQLException ex) {
+                        success.set(false);
+                        System.err.printf(
+                            "ERROR: Failed to convert tile '%d': %s%n", uniqueID, ex.getMessage());
+                        if (config.verboseLevel() > 1) {
+                          ex.printStackTrace(System.err);
+                        }
+                      }
+                    }
+                  });
         }
-        if (config.threadPool() != null) {
-          config.threadPool().close();
+
+        try {
+          config.taskRunner().shutdown();
+          config.taskRunner().awaitTermination();
+        } catch (InterruptedException ex) {
+          System.err.println("ERROR: Interrupted");
+          return false;
         }
       }
 

@@ -112,9 +112,9 @@ public class Encode {
             : 1;
     final var threadCount =
         (threadCountOption > 0) ? threadCountOption : Runtime.getRuntime().availableProcessors();
-    final var threadPool = createThreadPool(threadCount);
-    if (threadPool != null && verboseLevel > 0) {
-      System.err.println("Using " + threadPool.getMaximumPoolSize() + " threads");
+    final var taskRunner = createTaskRunner(threadCount);
+    if (taskRunner != null && verboseLevel > 0) {
+      System.err.println("Using " + taskRunner.getThreadCount() + " threads");
     }
 
     if (verboseLevel > 0 && !columnMappings.isEmpty()) {
@@ -179,7 +179,7 @@ public class Encode {
                     || cmd.hasOption(EncodeCommandLine.COMPARE_ALL_OPTION))
             .willTime(cmd.hasOption(EncodeCommandLine.TIMER_OPTION))
             .dumpStreams(cmd.hasOption(EncodeCommandLine.DUMP_STREAMS_OPTION))
-            .threadPool(threadPool)
+            .taskRunner(taskRunner)
             .continueOnError(continueOnError)
             .verboseLevel(verboseLevel)
             .build();
@@ -590,18 +590,21 @@ public class Encode {
     return outputPath;
   }
 
-  private static ThreadPoolExecutor createThreadPool(int threadCount) {
+  private static TaskRunner createTaskRunner(int threadCount) {
     if (threadCount <= 1) {
-      return null;
+      return new SerialTaskRunner();
     }
-    // Create a thread pool with a limited task queue that will not reject tasks when it's full
-    return new ThreadPoolExecutor(
-        threadCount,
-        threadCount,
-        1000L,
-        TimeUnit.MILLISECONDS,
-        new LinkedBlockingQueue<>(),
-        new ThreadPoolExecutor.CallerRunsPolicy());
+    // Create a thread pool with a limited task queue that will not reject tasks when it's full.
+    // Tasks beyond the limit will run on the calling thread, preventing OOM from too many tasks
+    // while allowing for parallelism when the pool is available.
+    return new ThreadPoolTaskRunner(
+        new ThreadPoolExecutor(
+            threadCount,
+            threadCount,
+            100L,
+            TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>(),
+            new ThreadPoolExecutor.CallerRunsPolicy()));
   }
 
   private static long totalCompressedInput = 0;

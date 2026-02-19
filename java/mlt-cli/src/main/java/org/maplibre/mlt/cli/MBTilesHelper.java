@@ -84,31 +84,33 @@ public class MBTilesHelper {
               final var data = tile.getData().readAllBytes();
 
               final var writerCapture = mbTilesWriter;
-              CliUtil.runTask(
-                  config.threadPool(),
-                  () -> {
-                    try {
-                      final var srcTileData = CliUtil.decompress(new ByteArrayInputStream(data));
-                      final var didCompress = new MutableBoolean(false);
-                      final var tileData =
-                          Encode.convertTile(x, y, z, srcTileData, config, didCompress);
+              config
+                  .taskRunner()
+                  .run(
+                      () -> {
+                        try {
+                          final var srcTileData =
+                              CliUtil.decompress(new ByteArrayInputStream(data));
+                          final var didCompress = new MutableBoolean(false);
+                          final var tileData =
+                              Encode.convertTile(x, y, z, srcTileData, config, didCompress);
 
-                      if (tileData != null) {
-                        synchronized (writerCapture) {
-                          writerCapture.addTile(tileData, z, x, y);
+                          if (tileData != null) {
+                            synchronized (writerCapture) {
+                              writerCapture.addTile(tileData, z, x, y);
+                            }
+                          }
+
+                        } catch (IOException | MBTilesWriteException e) {
+                          success.set(false);
+                          System.err.printf(
+                              "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
+                              tile.getZoom(), tile.getColumn(), tile.getRow(), e.getMessage());
+                          if (config.verboseLevel() > 1) {
+                            e.printStackTrace(System.err);
+                          }
                         }
-                      }
-
-                    } catch (IOException | MBTilesWriteException e) {
-                      success.set(false);
-                      System.err.printf(
-                          "ERROR: Failed to convert tile (%d:%d,%d) : %s%n",
-                          tile.getZoom(), tile.getColumn(), tile.getRow(), e.getMessage());
-                      if (config.verboseLevel() > 1) {
-                        e.printStackTrace(System.err);
-                      }
-                    }
-                  });
+                      });
             } catch (IllegalArgumentException ex) {
               success.set(false);
               System.err.printf(
@@ -120,8 +122,12 @@ public class MBTilesHelper {
             }
           }
 
-          if (config.threadPool() != null) {
-            config.threadPool().close();
+          try {
+            config.taskRunner().shutdown();
+            config.taskRunner().awaitTermination();
+          } catch (InterruptedException ex) {
+            System.err.println("ERROR: Interrupted");
+            return false;
           }
 
           if (!config.continueOnError() && !success.get()) {
