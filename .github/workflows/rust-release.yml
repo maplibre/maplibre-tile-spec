@@ -1,15 +1,9 @@
 name: Rust Release
 
 on:
-  pull_request:
-    paths:
-      - 'justfile'
-      - '.github/**'
-      - 'rust/**'
-      - 'test/**'
   push:
     tags:
-      - "v[0-9]+.*"
+      - "rust-mlt-v[0-9]+.*"
 
 jobs:
   create-release:
