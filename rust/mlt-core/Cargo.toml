@@ -2,7 +2,9 @@
 name = "mlt-core"
 description = "MapLibre Tile library code"
 version = "0.1.0"
+authors.workspace = true
 repository.workspace = true
+homepage.workspace = true
 edition.workspace = true
 license.workspace = true
 keywords.workspace = true

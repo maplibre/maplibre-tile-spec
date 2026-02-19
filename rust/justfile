@@ -26,8 +26,8 @@ build:
     cargo build --all-targets --all-features
 
 # Quick compile without building a binary
-check:
-    cargo check --all-targets --all-features
+check: (cargo-install 'cargo-hack')
+    cargo hack check --all-targets --each-feature --workspace
 
 # Generate code coverage report to upload to codecov.io
 ci-coverage: env-info gen-snippets && \
@@ -35,11 +35,17 @@ ci-coverage: env-info gen-snippets && \
     # ATTENTION: the full file path above is used in the CI workflow
     mkdir -p target/llvm-cov
 
+# Run minimal subset of tests to ensure compatibility with MSRV
+ci-check: env-info check
+
 # Run all tests as expected by CI
-ci-test: env-info test-fmt clippy gen-snippets test test-doc && assert-git-is-clean
+ci-lint: env-info test-fmt clippy && assert-git-is-clean
+
+# Run all tests as expected by CI
+ci-test: env-info gen-snippets test test-doc && assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info check gen-snippets test
+ci-test-msrv: env-info ci-check gen-snippets test
 
 # Clean all build artifacts
 clean:
