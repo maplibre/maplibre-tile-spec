@@ -839,7 +839,11 @@ fn geometry_color(geom: &Geom32) -> Color {
         }
         Geom32::Polygon(_) => CLR_POLYGON,
         Geom32::MultiPolygon(_) => CLR_MULTI_POLYGON,
-        _ => CLR_POINT,
+        Geom32::Point(_) |
+        Geom32::Line(_) |
+        Geom32::GeometryCollection(_) |
+        Geom32::Rect(_) |
+        Geom32::Triangle(_) => CLR_POINT,
     }
 }
 
