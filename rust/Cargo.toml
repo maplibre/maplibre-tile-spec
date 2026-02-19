@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["mlt-legacy", "mlt", "wasm-test"]
+members = ["mlt-legacy", "mlt"]
 exclude = ["mlt/fuzz"]
 default-members = ["mlt"]
 
