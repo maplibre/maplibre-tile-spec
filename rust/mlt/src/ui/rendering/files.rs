@@ -10,7 +10,7 @@ use crate::ls::{LsRow, MltFileInfo, row_cells};
 use crate::ui::state::App;
 use crate::ui::{
     CLR_DIMMED, CLR_HINT, CLR_HOVERED, STYLE_BOLD, STYLE_LABEL, STYLE_SELECTED, block_with_title,
-    collect_file_values, geom_abbrev_to_full,
+    collect_extensions, collect_file_values, geom_abbrev_to_full,
 };
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
@@ -73,10 +73,17 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 }
 
 pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let exts = collect_extensions(&app.mlt_files);
     let geoms = collect_file_values(&app.mlt_files, MltFileInfo::geometries);
     let algos = collect_file_values(&app.mlt_files, MltFileInfo::algorithms);
-    let has_any = !app.geom_filters.is_empty() || !app.algo_filters.is_empty();
+    let has_any =
+        !app.ext_filters.is_empty() || !app.geom_filters.is_empty() || !app.algo_filters.is_empty();
 
+    let sel_ext: Option<String> = app
+        .selected_file_real_index()
+        .and_then(|i| app.mlt_files.get(i))
+        .and_then(|(p, _)| p.extension().and_then(|e| e.to_str()))
+        .map(str::to_lowercase);
     let sel_info = app
         .selected_file_real_index()
         .and_then(|i| app.mlt_files.get(i))
@@ -104,7 +111,17 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let present_style =
         |yes: bool| -> Style { Style::default().fg(if yes { CLR_HOVERED } else { CLR_DIMMED }) };
 
+    if !exts.is_empty() {
+        lines.push(Line::from(Span::styled("Extensions:", STYLE_BOLD)));
+        for ext in &exts {
+            lines.push(Line::from(Span::styled(
+                format!("  {}{ext}", check(app.ext_filters.contains(ext))),
+                present_style(sel_ext.as_deref() == Some(ext.as_str())),
+            )));
+        }
+    }
     if !geoms.is_empty() {
+        lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("Geometry Types:", STYLE_BOLD)));
         for g in &geoms {
             lines.push(Line::from(Span::styled(

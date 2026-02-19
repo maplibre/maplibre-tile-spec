@@ -5,6 +5,7 @@ mod state;
 
 use std::collections::HashSet;
 use std::fs::canonicalize;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Instant;
@@ -18,6 +19,7 @@ use crossterm::event::{
 };
 use crossterm::execute;
 use mlt_core::geojson::{Coordinate, FeatureCollection, Geometry};
+use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::parse_layers;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -25,11 +27,13 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
-use crate::ls::{FileSortColumn, LsRow, MltFileInfo, analyze_mlt_files};
+use crate::ls::{
+    FileSortColumn, LsRow, MltFileInfo, analyze_tile_files, is_mvt_extension, is_tile_extension,
+};
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
 };
-use crate::ui::rendering::help::render_help_overlay;
+use crate::ui::rendering::help::{render_error_popup, render_help_overlay};
 use crate::ui::rendering::layers::{render_properties_panel, render_tree_panel};
 use crate::ui::rendering::map::render_map_panel;
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
@@ -57,16 +61,16 @@ pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 
 #[derive(Args)]
 pub struct UiArgs {
-    /// Path to the MLT file or directory
+    /// Path to a tile file (.mlt, .mvt, .pbf) or directory
     path: PathBuf,
 }
 
 pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
     let app = if args.path.is_dir() {
-        let paths = find_mlt_files(&args.path)?;
+        let paths = find_tile_files(&args.path)?;
         if paths.is_empty() {
             bail!(
-                "No .mlt files found in {}",
+                "No tile files found in {}",
                 canonicalize(&args.path)?.display()
             );
         }
@@ -84,7 +88,7 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
             .collect();
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
-            let _ = tx.send(analyze_mlt_files(&paths, &base, true));
+            let _ = tx.send(analyze_tile_files(&paths, &base, true));
         });
         App::new_file_browser(files, Some(rx))
     } else if args.path.is_file() {
@@ -99,11 +103,15 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
 
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
-    let mut layers = parse_layers(&buf)?;
-    for layer in &mut layers {
-        layer.decode_all()?;
+    if is_mvt_extension(path) {
+        Ok(mvt_to_feature_collection(buf)?)
+    } else {
+        let mut layers = parse_layers(&buf)?;
+        for layer in &mut layers {
+            layer.decode_all()?;
+        }
+        Ok(FeatureCollection::from_layers(&layers)?)
     }
-    Ok(FeatureCollection::from_layers(&layers)?)
 }
 
 fn group_by_layer(fc: &FeatureCollection) -> Vec<LayerGroup> {
@@ -136,14 +144,14 @@ fn auto_expand(groups: &[LayerGroup]) -> Vec<bool> {
     }
 }
 
-fn find_mlt_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+fn find_tile_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     fn visit(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
                 let p = entry?.path();
                 if p.is_dir() {
                     visit(&p, out)?;
-                } else if p.extension().and_then(|s| s.to_str()) == Some("mlt") {
+                } else if is_tile_extension(&p) {
                     out.push(p);
                 }
             }
@@ -250,13 +258,26 @@ fn divider_hit(col: u16, row: u16, left: Rect, tree: Rect) -> Option<ResizeHandl
 
 // --- App loop ---
 
+/// OSC 22: set mouse pointer shape
+fn set_pointer_cursor(pointer: bool) {
+    let seq: &[u8] = if pointer {
+        b"\x1b]22;default\x1b\\"
+    } else {
+        b"\x1b]22;\x1b\\"
+    };
+    let _ = std::io::stdout().write_all(seq);
+    let _ = std::io::stdout().flush();
+}
+
 fn run_app(mut app: App) -> anyhow::Result<()> {
     let mut terminal = ratatui::init();
+    set_pointer_cursor(true);
     let result = (|| {
         execute!(terminal.backend_mut(), EnableMouseCapture)?;
         run_app_loop(&mut terminal, &mut app)
     })();
     let _ = execute!(terminal.backend_mut(), DisableMouseCapture);
+    set_pointer_cursor(false);
     ratatui::restore();
     result
 }
@@ -340,7 +361,9 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         map_area = Some(cols[1]);
                     }
                 }
-                if app.show_help {
+                if app.error_popup.is_some() {
+                    render_error_popup(f, app);
+                } else if app.show_help {
                     render_help_overlay(f, app);
                 }
             })?;
@@ -353,6 +376,11 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         && key.code == KeyCode::Char('c')
                     {
                         break;
+                    }
+                    if app.error_popup.is_some() {
+                        app.error_popup = None;
+                        app.invalidate();
+                        continue;
                     }
                     if app.show_help {
                         match key.code {
@@ -382,7 +410,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         KeyCode::Char('h') if !key.modifiers.contains(KeyModifiers::CONTROL) => {
                             app.open_help();
                         }
-                        KeyCode::Enter => app.handle_enter()?,
+                        KeyCode::Enter => app.handle_enter(),
                         KeyCode::Char('+' | '=') | KeyCode::Right => app.handle_plus(),
                         KeyCode::Char('-') => app.handle_minus(),
                         KeyCode::Char('*') => app.handle_star(),
@@ -414,6 +442,12 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.invalidate();
                         }
                         _ => {}
+                    }
+                }
+                Event::Mouse(mouse) if app.error_popup.is_some() => {
+                    if matches!(mouse.kind, MouseEventKind::Down(_)) {
+                        app.error_popup = None;
+                        app.invalidate();
                     }
                 }
                 Event::Mouse(mouse) if app.show_help => match mouse.kind {
@@ -576,6 +610,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 {
                                     let row = (mouse.row.saturating_sub(ia.y + 1)) as usize;
                                     if row == 2 {
+                                        app.ext_filters.clear();
                                         app.geom_filters.clear();
                                         app.algo_filters.clear();
                                         app.rebuild_filtered_files();
@@ -613,7 +648,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                         app.file_list_state.select(Some(r));
                                         app.invalidate_bounds();
                                         if dbl {
-                                            app.handle_enter()?;
+                                            app.handle_enter();
                                         }
                                     }
                                 }
@@ -652,7 +687,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                         }
                                         app.invalidate_bounds();
                                         if dbl {
-                                            app.handle_enter()?;
+                                            app.handle_enter();
                                         }
                                     }
                                 }
@@ -693,17 +728,23 @@ fn scroll_by(val: u16, step: u16, up: bool) -> u16 {
 // --- Filtering ---
 
 fn handle_filter_click(app: &mut App, row: usize) {
+    let exts = collect_extensions(&app.mlt_files);
     let geoms = collect_file_values(&app.mlt_files, MltFileInfo::geometries);
     let algos = collect_file_values(&app.mlt_files, MltFileInfo::algorithms);
 
-    let geom_start = 3;
+    let ext_start = 3;
+    let ext_end = ext_start + exts.len();
+    let geom_start = ext_end + 2;
     let geom_end = geom_start + geoms.len();
     let algo_start = geom_end + 2;
     let algo_end = algo_start + algos.len();
 
     if row == 0 {
+        app.ext_filters.clear();
         app.geom_filters.clear();
         app.algo_filters.clear();
+    } else if row >= ext_start && row < ext_end {
+        toggle_set(&mut app.ext_filters, &exts[row - ext_start]);
     } else if row >= geom_start && row < geom_end {
         toggle_set(&mut app.geom_filters, &geoms[row - geom_start]);
     } else if row >= algo_start && row < algo_end {
@@ -741,6 +782,18 @@ fn collect_file_values(files: &[(PathBuf, LsRow)], field: fn(&MltFileInfo) -> &s
             {
                 set.insert(v.to_string());
             }
+        }
+    }
+    let mut v: Vec<_> = set.into_iter().collect();
+    v.sort();
+    v
+}
+
+fn collect_extensions(files: &[(PathBuf, LsRow)]) -> Vec<String> {
+    let mut set = HashSet::new();
+    for (path, _) in files {
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            set.insert(ext.to_lowercase());
         }
     }
     let mut v: Vec<_> = set.into_iter().collect();
