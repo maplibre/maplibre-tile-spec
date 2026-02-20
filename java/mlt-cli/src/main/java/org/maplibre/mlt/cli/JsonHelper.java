@@ -137,7 +137,7 @@ public class JsonHelper {
     return createGson(pretty).toJson(toJsonObjects(mvTile));
   }
 
-  private static Map<Object, Object> toJsonObjects(MapboxVectorTile mvTile) {
+  private static Map<String, Object> toJsonObjects(MapboxVectorTile mvTile) {
     return Map.of("layers", mvTile.layers().stream().map(JsonHelper::toJson).toList());
   }
 }
