@@ -183,11 +183,10 @@ impl Layer01<'_> {
                     }
                     if stream_count == 0 && column.typ.is_optional() {
                         return Err(MltError::MissingStringStream(
-                            "presence stream for optional data",
+                            "presence stream for optional strings",
                         ));
-                    } else {
-                        (input, optional) = parse_optional(column.typ, input)?;
                     }
+                    (input, optional) = parse_optional(column.typ, input)?;
                     stream_count -= usize::from(optional.is_some());
                     let value_vec;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
