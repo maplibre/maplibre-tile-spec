@@ -1,5 +1,5 @@
 mod encode;
-//pub(crate) use encode::*;
+pub use encode::*;
 mod serialize;
 pub use serialize::*;
 mod parse;

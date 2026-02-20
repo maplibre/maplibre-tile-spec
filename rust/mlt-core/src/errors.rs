@@ -20,6 +20,8 @@ pub enum MltError {
     DataWidthMismatch(&'static str, &'static str),
     #[error("{0} is not decoded")]
     NotDecoded(&'static str),
+    #[error("{0} is not in raw/encoded form")]
+    NotRaw(&'static str),
     #[error("missing string stream: {0}")]
     MissingStringStream(&'static str),
 

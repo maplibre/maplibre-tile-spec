@@ -1,5 +1,11 @@
 use crate::MltError;
 
+/// Trait for types that can be constructed from raw data
+pub trait FromRaw<'a>: Sized {
+    type Input: 'a;
+    fn from_raw(input: Self::Input) -> Result<Self, MltError>;
+}
+
 /// Trait for enums that can be in either raw or decoded form
 pub trait Decodable<'a>: Sized {
     type RawType;
@@ -18,19 +24,13 @@ pub trait Decodable<'a>: Sized {
         if self.is_raw() {
             // Temporarily replace self with a default value to take ownership of the raw data
             let Some(raw) = self.take_raw() else {
-                return Err(MltError::NotDecoded("expected raw data"))?;
+                return Err(MltError::NotDecoded("decoded data"))?;
             };
             let res = Self::DecodedType::from_raw(raw)?;
             *self = Self::new_decoded(res);
         }
         Ok(self)
     }
-}
-
-/// Trait for types that can be constructed from raw data
-pub trait FromRaw<'a>: Sized {
-    type Input: 'a;
-    fn from_raw(input: Self::Input) -> Result<Self, MltError>;
 }
 
 /// Macro to implement the Decodable trait for enum types with Raw and Decoded variants
