@@ -67,14 +67,16 @@ impl Analyze for Property<'_> {
 }
 
 impl OwnedProperty {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    #[doc(hidden)]
+    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(r) => r.write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    #[doc(hidden)]
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(r) => r.write_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),

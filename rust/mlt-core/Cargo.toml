@@ -36,6 +36,7 @@ test_each_file = "0.3.5"
 [lints.rust]
 unsafe_code = "forbid"
 unused_qualifications = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
 
 [lints.clippy]
 cargo = { level = "warn", priority = -1 }
