@@ -26,25 +26,23 @@ import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltConverter {
-  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
-  // mismatch policy.
+  /// Create tileset metadata from a MVT tile
   /// @param tile The MVT tile to create metadata from
   /// @param columnMappingConfig Optional column mapping configuration
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile, ColumnMappingConfig columnMappingConfig, boolean includeIdIfPresent) {
-    return createTilesetMetadata(tile, null, columnMappingConfig, includeIdIfPresent);
+    return createTilesetMetadata(
+        tile, ConversionConfig.TypeMismatchPolicy.FAIL, columnMappingConfig, includeIdIfPresent);
   }
 
-  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
-  // mismatch policy.
+  /// Create tileset metadata from a MVT tile
   /// @param tile The MVT tile to create metadata from
-  /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   /// @param enableCoerceOnMismatch Whether to coerce values to string on type mismatch
   /// @param enableElideOnMismatch Whether to elide values on type mismatch (for each property, the
-  // first type encountered is used)
+  /// first type encountered is used)
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       ColumnMappingConfig columnMappingConfig,
@@ -58,8 +56,24 @@ public class MltConverter {
     return createTilesetMetadata(tile, config, columnMappingConfig, includeIdIfPresent);
   }
 
-  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
-  // mismatch policy.
+  /// Create tileset metadata from a MVT tile
+  /// @param tile The MVT tile to create metadata from
+  /// @param config Optional configuration
+  /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
+  /// @param includeIdIfPresent Whether to include an ID column
+  public static MltMetadata.TileSetMetadata createTilesetMetadata(
+      MapboxVectorTile tile,
+      @Nullable ConversionConfig config,
+      ColumnMappingConfig columnMappingConfig,
+      boolean includeIdIfPresent) {
+    return createTilesetMetadata(
+        tile,
+        (config != null) ? config.getTypeMismatchPolicy() : null,
+        columnMappingConfig,
+        includeIdIfPresent);
+  }
+
+  /// Create tileset metadata from a MVT tile
   /// @param tile The MVT tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
@@ -71,20 +85,19 @@ public class MltConverter {
       boolean includeIdIfPresent) {
     return createTilesetMetadata(
         tile,
-        config,
+        (config != null) ? config.getTypeMismatchPolicy() : null,
         ColumnMappingConfig.of(Pattern.compile(".*"), columnMappingConfig),
         includeIdIfPresent);
   }
 
-  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
-  // mismatch policy.
+  /// Create tileset metadata from a MVT tile
   /// @param tile The MVT tile to create metadata from
-  /// @param config Optional configuration
+  /// @param typeMismatchPolicy Policy for handling type mismatches
   /// @param columnMappingConfig Optional column mapping configuration
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
-      @Nullable ConversionConfig config,
+      ConversionConfig.TypeMismatchPolicy typeMismatchPolicy,
       ColumnMappingConfig columnMappingConfig,
       boolean includeIdIfPresent) {
 
@@ -115,9 +128,7 @@ public class MltConverter {
                       columnMappingConfig,
                       columnSchemas,
                       complexPropertyColumnSchemas,
-                      (config != null)
-                          ? config.getTypeMismatchPolicy()
-                          : ConversionConfig.TypeMismatchPolicy.FAIL);
+                      typeMismatchPolicy);
                 });
 
         if (includeIdIfPresent) {

@@ -59,6 +59,8 @@ public class MltGenerator {
   private static final boolean DEFAULT_USE_POLYGON_TESSELLATION = false;
   private static final boolean DEFAULT_USE_MORTON_ENCODING = false;
   private static final boolean DEFAULT_INCLUDE_IDS = true;
+  private static final ConversionConfig.TypeMismatchPolicy DEFAULT_MISMATCH_POLICY =
+      ConversionConfig.TypeMismatchPolicy.FAIL;
   private static final List<String> OUTLINE_POLYGON_FEATURE_TABLE_NAMES = List.of("building");
 
   @Test
@@ -189,22 +191,27 @@ public class MltGenerator {
     return optimizations;
   }
 
+  private ConversionConfig.Builder defaultConfigBuilder() {
+    return ConversionConfig.builder()
+        .includeIds(DEFAULT_INCLUDE_IDS)
+        .mismatchPolicy(DEFAULT_MISMATCH_POLICY)
+        .useFastPFOR(DEFAULT_USE_FAST_PFOR)
+        .useFSST(DEFAULT_USE_FSST)
+        .useMortonEncoding(DEFAULT_USE_MORTON_ENCODING)
+        .outlineFeatureTableNames(OUTLINE_POLYGON_FEATURE_TABLE_NAMES);
+  }
+
   private byte[] convertMvtToMlt(
       Map<String, FeatureTableOptimizations> optimizations,
       boolean preTessellatePolygons,
       MapboxVectorTile mvTile,
       MltMetadata.TileSetMetadata tileMetadata)
       throws IOException {
-    var config =
-        new ConversionConfig(
-            DEFAULT_INCLUDE_IDS,
-            DEFAULT_USE_FAST_PFOR,
-            DEFAULT_USE_FSST,
-            ConversionConfig.TypeMismatchPolicy.FAIL,
-            optimizations,
-            preTessellatePolygons,
-            DEFAULT_USE_MORTON_ENCODING,
-            OUTLINE_POLYGON_FEATURE_TABLE_NAMES);
+    final var config =
+        defaultConfigBuilder()
+            .optimizations(optimizations)
+            .preTessellatePolygons(preTessellatePolygons)
+            .build();
     return MltConverter.convertMvt(mvTile, tileMetadata, config, null);
   }
 
