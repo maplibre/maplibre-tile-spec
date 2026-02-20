@@ -8,7 +8,7 @@ Fuzzing is a software testing technique that provides random or semi-random data
 This fuzzer tests the round-trip property of the MapLibre Tile parser:
 Any data that can be successfully parsed should be serializable back to bytes that match the original input.
 
-## Project Structure
+## Subproject Structure
 
 ```
 fuzz/

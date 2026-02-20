@@ -36,14 +36,14 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v21.1.6
+    rev: v21.1.8
     hooks:
       - id: clang-format
         types: [ c++ ]
         args: ["-style=file:.clang-format"]
 
   - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
-    rev: v1.7.9.24
+    rev: v1.7.10.24
     hooks:
       - id: actionlint
         additional_dependencies: [ shellcheck-py ]
@@ -59,6 +59,6 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/keith/pre-commit-buildifier
-    rev: 8.2.1
+    rev: 8.2.1.1
     hooks:
       - id: buildifier

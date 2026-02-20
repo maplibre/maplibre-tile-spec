@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 
 use geo_types as gt;
-use geo_types::Coord;
+use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use mvt_reader::Reader;
 use mvt_reader::feature::Value as MvtValue;
 use serde_json::{Number, Value};
 
 use crate::MltError;
-use crate::geojson::{Coordinate, Feature, FeatureCollection, Geometry};
+use crate::geojson::{Coord32, Feature, FeatureCollection, Geom32};
 
 /// Parse MVT binary data and convert to a [`FeatureCollection`].
 pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, MltError> {
@@ -25,7 +25,6 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, Mlt
             .map_err(|e| MltError::MvtParse(e.to_string()))?;
         for mvt_feat in mvt_features {
             let geometry = convert_geometry(&mvt_feat.geometry)?;
-            let id = mvt_feat.id.unwrap_or(0);
             let mut properties = mvt_feat
                 .properties
                 .as_ref()
@@ -39,7 +38,7 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, Mlt
             properties.insert("_extent".into(), Value::Number(layer.extent.into()));
             features.push(Feature {
                 geometry,
-                id,
+                id: mvt_feat.id,
                 properties,
                 ty: "Feature".into(),
             });
@@ -52,25 +51,32 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, Mlt
     })
 }
 
-fn coord(coord: impl AsRef<Coord<f32>>) -> Coordinate {
-    let c = coord.as_ref();
+fn coord(c: impl AsRef<Coord<f32>>) -> Coord32 {
+    let c = c.as_ref();
     #[expect(clippy::cast_possible_truncation)]
-    [c.x.round() as i32, c.y.round() as i32]
+    Coord {
+        x: c.x.round() as i32,
+        y: c.y.round() as i32,
+    }
 }
 
-fn convert_geometry(geom: &gt::Geometry<f32>) -> Result<Geometry, MltError> {
+fn convert_geometry(geom: &gt::Geometry<f32>) -> Result<Geom32, MltError> {
     Ok(match geom {
-        gt::Geometry::Point(v) => Geometry::Point(coord(v)),
-        gt::Geometry::MultiPoint(v) => Geometry::MultiPoint(v.iter().map(coord).collect()),
-        gt::Geometry::LineString(v) => Geometry::LineString(v.coords().map(coord).collect()),
-        gt::Geometry::MultiLineString(v) => Geometry::MultiLineString(
+        gt::Geometry::Point(v) => Geom32::Point(Point(coord(v))),
+        gt::Geometry::MultiPoint(v) => {
+            Geom32::MultiPoint(MultiPoint(v.iter().map(|p| Point(coord(p))).collect()))
+        }
+        gt::Geometry::LineString(v) => {
+            Geom32::LineString(LineString(v.coords().map(coord).collect()))
+        }
+        gt::Geometry::MultiLineString(v) => Geom32::MultiLineString(MultiLineString(
             v.iter()
-                .map(|vv| vv.coords().map(coord).collect())
+                .map(|ls| LineString(ls.coords().map(coord).collect()))
                 .collect(),
-        ),
-        gt::Geometry::Polygon(v) => Geometry::Polygon(convert_polygon(v)),
+        )),
+        gt::Geometry::Polygon(v) => Geom32::Polygon(convert_polygon(v)),
         gt::Geometry::MultiPolygon(v) => {
-            Geometry::MultiPolygon(v.iter().map(convert_polygon).collect())
+            Geom32::MultiPolygon(MultiPolygon(v.iter().map(convert_polygon).collect()))
         }
         gt::Geometry::GeometryCollection(v) => {
             return if v.len() == 1 {
@@ -89,13 +95,14 @@ fn convert_geometry(geom: &gt::Geometry<f32>) -> Result<Geometry, MltError> {
     })
 }
 
-fn convert_polygon(poly: &gt::Polygon<f32>) -> Vec<Vec<Coordinate>> {
-    let mut rings = Vec::with_capacity(1 + poly.interiors().len());
-    rings.push(poly.exterior().coords().map(coord).collect());
-    for interior in poly.interiors() {
-        rings.push(interior.coords().map(coord).collect());
-    }
-    rings
+fn convert_polygon(poly: &Polygon<f32>) -> Polygon<i32> {
+    let exterior = LineString(poly.exterior().coords().map(coord).collect());
+    let interiors = poly
+        .interiors()
+        .iter()
+        .map(|r| LineString(r.coords().map(coord).collect()))
+        .collect();
+    Polygon::new(exterior, interiors)
 }
 
 fn convert_value(val: &MvtValue) -> Value {

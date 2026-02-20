@@ -5,6 +5,7 @@ use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
+use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
@@ -15,7 +16,7 @@ use crate::MltError::{
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromRaw, impl_decodable};
-use crate::geojson::Geometry as GeoGeom;
+use crate::geojson::{Coord32, Geom32 as GeoGeom};
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
 use crate::v01::geometry::decode::{
@@ -50,14 +51,16 @@ impl Analyze for Geometry<'_> {
 }
 
 impl OwnedGeometry {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    #[doc(hidden)]
+    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(_) => OwnedRawGeometry::write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    #[doc(hidden)]
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::Raw(r) => r.write_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
@@ -168,7 +171,7 @@ impl DecodedGeometry {
             Ok(ring_off(s, i)?..ring_off(s, i + 1)?)
         };
 
-        let v = |idx: usize| -> Result<[i32; 2], MltError> {
+        let v = |idx: usize| -> Result<Coord32, MltError> {
             let vertex = match vo {
                 Some(vo) => *vo.get(idx).ok_or(GeometryOutOfBounds {
                     index,
@@ -184,20 +187,25 @@ impl DecodedGeometry {
                 vertex,
                 count: num_verts,
             })?;
-            Ok([s[0], s[1]])
+            Ok(Coord { x: s[0], y: s[1] })
         };
-        let line = |r: Range<usize>| -> Result<Vec<[i32; 2]>, MltError> { r.map(&v).collect() };
-        let closed_ring = |r: Range<usize>| -> Result<Vec<[i32; 2]>, MltError> {
+        let line = |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&v).collect() };
+        let closed_ring = |r: Range<usize>| -> Result<LineString<i32>, MltError> {
             let start = r.start;
-            let mut coords: Vec<[i32; 2]> = r.map(&v).collect::<Result<_, _>>()?;
+            let mut coords: Vec<Coord32> = r.map(&v).collect::<Result<_, _>>()?;
             coords.push(v(start)?);
-            Ok(coords)
+            Ok(LineString(coords))
         };
-        let rings_in = |part_range: Range<usize>, rings: &[u32]| {
-            part_range
-                .map(|r| closed_ring(ring_off_pair(rings, r)?))
-                .collect::<Result<_, _>>()
-        };
+        let rings_in =
+            |part_range: Range<usize>, rings: &[u32]| -> Result<Polygon<i32>, MltError> {
+                let ring_vecs: Vec<LineString<i32>> = part_range
+                    .map(|r| closed_ring(ring_off_pair(rings, r)?))
+                    .collect::<Result<_, _>>()?;
+                let mut iter = ring_vecs.into_iter();
+                let exterior = iter.next().unwrap_or_else(|| LineString(vec![]));
+                let interiors: Vec<LineString<i32>> = iter.collect();
+                Ok(Polygon::new(exterior, interiors))
+            };
 
         let geom_type = *self
             .vector_types
@@ -218,7 +226,7 @@ impl DecodedGeometry {
                         return Err(UnexpectedOffsetCombination { index, geom_type });
                     }
                 };
-                Ok(GeoGeom::point(pt))
+                Ok(GeoGeom::Point(Point(pt)))
             }
             GeometryType::LineString => {
                 let r = match (parts, rings) {
@@ -226,7 +234,7 @@ impl DecodedGeometry {
                     (Some(p), None) => part_off_pair(p, index)?,
                     _ => return Err(NoPartOffsets { index, geom_type }),
                 };
-                line(r).map(GeoGeom::line_string)
+                line(r).map(GeoGeom::LineString)
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
@@ -235,22 +243,22 @@ impl DecodedGeometry {
                     .map(|g| geom_off(g, index))
                     .transpose()?
                     .unwrap_or(index);
-                rings_in(part_off_pair(parts, i)?, rings).map(GeoGeom::polygon)
+                rings_in(part_off_pair(parts, i)?, rings).map(GeoGeom::Polygon)
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
                 geom_off_pair(geoms, index)?
                     .map(&v)
-                    .collect::<Result<_, _>>()
-                    .map(GeoGeom::multi_point)
+                    .collect::<Result<Vec<Coord32>, _>>()
+                    .map(|cs| GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
                 let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
                 geom_off_pair(geoms, index)?
                     .map(|p| line(part_off_pair(parts, p)?))
-                    .collect::<Result<_, _>>()
-                    .map(GeoGeom::multi_line_string)
+                    .collect::<Result<Vec<LineString<i32>>, _>>()
+                    .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
@@ -258,8 +266,8 @@ impl DecodedGeometry {
                 let rings = rings.ok_or(NoRingOffsets { index, geom_type })?;
                 geom_off_pair(geoms, index)?
                     .map(|p| rings_in(part_off_pair(parts, p)?, rings))
-                    .collect::<Result<_, _>>()
-                    .map(GeoGeom::multi_polygon)
+                    .collect::<Result<Vec<Polygon<i32>>, _>>()
+                    .map(|ps| GeoGeom::MultiPolygon(MultiPolygon(ps)))
             }
         }
     }
