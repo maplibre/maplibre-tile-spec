@@ -6,7 +6,7 @@ use borrowme::borrowme;
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromRaw, impl_decodable};
-use crate::encode::{ToRaw, impl_encodable};
+use crate::encode::{FromDecoded, impl_encodable};
 use crate::utils::{BinarySerializer as _, OptSeqOpt};
 use crate::v01::{
     ColumnType, DictionaryType, LogicalDecoder, OwnedDataRaw, OwnedDataVarInt, OwnedStream,
@@ -73,15 +73,7 @@ impl Default for OwnedRawId {
     fn default() -> Self {
         Self {
             optional: None,
-            value: OwnedRawIdValue::Id32(OwnedStream {
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: 0,
-                    logical_decoder: LogicalDecoder::None,
-                    physical_decoder: PhysicalDecoder::None,
-                },
-                data: OwnedStreamData::Raw(OwnedDataRaw { data: Vec::new() }),
-            }),
+            value: OwnedRawIdValue::Id32(OwnedStream::empty_without_decoder()),
         }
     }
 }
@@ -244,7 +236,7 @@ fn apply_present_bitset(
 
 /// How to encode IDs
 #[derive(Debug, Clone, Copy)]
-pub enum IdEncodingType {
+pub enum IdEncodingStrategy {
     /// 32-bit encoding
     Id32,
     /// 32-bit encoding with nulls
@@ -255,12 +247,12 @@ pub enum IdEncodingType {
     OptId64,
 }
 
-impl ToRaw<'_> for OwnedRawId {
-    type Output = DecodedId;
-    type Config = IdEncodingType;
+impl FromDecoded<'_> for OwnedRawId {
+    type Input = DecodedId;
+    type EncodingStrategy = IdEncodingStrategy;
 
-    fn to_raw(decoded: &DecodedId, config: IdEncodingType) -> Result<Self, MltError> {
-        use IdEncodingType as CFG;
+    fn from_decoded(decoded: &Self::Input, config: IdEncodingStrategy) -> Result<Self, MltError> {
+        use IdEncodingStrategy as CFG;
 
         // skipped one level higher
         let DecodedId(Some(ids)) = decoded else {
@@ -347,7 +339,7 @@ impl ToRaw<'_> for OwnedRawId {
 
 #[cfg(test)]
 mod tests {
-    use IdEncodingType::*;
+    use IdEncodingStrategy::*;
     use proptest::prelude::*;
     use rstest::rstest;
 
@@ -355,8 +347,8 @@ mod tests {
     use crate::{Decodable as _, Encodable as _};
 
     // Helper function to encode and decode for roundtrip testing
-    fn roundtrip(decoded: &DecodedId, config: IdEncodingType) -> DecodedId {
-        let raw = OwnedRawId::to_raw(decoded, config).expect("Failed to encode");
+    fn roundtrip(decoded: &DecodedId, config: IdEncodingStrategy) -> DecodedId {
+        let raw = OwnedRawId::from_decoded(decoded, config).expect("Failed to encode");
         let borrowed_raw = borrowme::borrow(&raw);
         DecodedId::from_raw(borrowed_raw).expect("Failed to decode")
     }
@@ -368,11 +360,11 @@ mod tests {
     #[case::id64(Id64, vec![Some(1), Some(2), Some(3)])]
     #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
     fn test_config_produces_correct_variant(
-        #[case] config: IdEncodingType,
+        #[case] config: IdEncodingStrategy,
         #[case] ids: Vec<Option<u64>>,
     ) {
         let input = DecodedId(Some(ids));
-        let raw = OwnedRawId::to_raw(&input, config).unwrap();
+        let raw = OwnedRawId::from_decoded(&input, config).unwrap();
 
         match config {
             OptId32 | Id32 => assert!(matches!(raw.value, OwnedRawIdValue::Id32(_))),
@@ -399,7 +391,7 @@ mod tests {
     #[case::opt_id64_with_nulls(OptId64, &[Some(1), None, Some(u64::from(u32::MAX) + 1), None, Some(u64::MAX)])]
     #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
     #[case::none(Id32, &[])]
-    fn test_roundtrip(#[case] config: IdEncodingType, #[case] ids: &[Option<u64>]) {
+    fn test_roundtrip(#[case] config: IdEncodingStrategy, #[case] ids: &[Option<u64>]) {
         let input = DecodedId(Some(ids.to_vec()));
         let output = roundtrip(&input, config);
         assert_eq!(output, input);
@@ -474,7 +466,7 @@ mod tests {
     /// Helper: Asserts that encoding and decoding with the given config produces the original data
     fn assert_roundtrip_succeeds(
         ids: Vec<Option<u64>>,
-        config: IdEncodingType,
+        config: IdEncodingStrategy,
     ) -> Result<(), TestCaseError> {
         let input = DecodedId(Some(ids.clone()));
         let output = roundtrip(&input, config);
@@ -485,7 +477,7 @@ mod tests {
     /// Helper: Asserts that the Encodable trait API works correctly (encode -> materialize -> decode)
     fn assert_encodable_api_works(
         ids: Vec<Option<u64>>,
-        config: IdEncodingType,
+        config: IdEncodingStrategy,
     ) -> Result<(), TestCaseError> {
         let decoded = DecodedId(Some(ids.clone()));
 
@@ -509,10 +501,10 @@ mod tests {
     /// Helper: Asserts that encoding produces the expected variant type for the given config
     fn assert_produces_correct_variant(
         ids: Vec<Option<u64>>,
-        config: IdEncodingType,
+        config: IdEncodingStrategy,
     ) -> Result<(), TestCaseError> {
         let input = DecodedId(Some(ids));
-        let raw = OwnedRawId::to_raw(&input, config).expect("Failed to encode");
+        let raw = OwnedRawId::from_decoded(&input, config).expect("Failed to encode");
 
         if matches!(config, Id32 | OptId32) {
             prop_assert!(

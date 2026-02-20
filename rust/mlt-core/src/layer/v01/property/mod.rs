@@ -6,7 +6,6 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError;
 use crate::MltError::IntegerOverflow;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromRaw, impl_decodable};
@@ -14,7 +13,8 @@ use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
 use crate::v01::property::decode::{
     decode_shared_dictionary, decode_string_streams, resolve_offsets,
 };
-use crate::v01::{ColumnType, Stream};
+use crate::v01::{ColumnType, OwnedStream, Stream};
+use crate::{FromDecoded, MltError, impl_encodable};
 
 /// Raw data for a Struct column with shared dictionary encoding
 #[borrowme]
@@ -220,6 +220,16 @@ impl OwnedRawProperty {
     }
 }
 
+impl Default for OwnedRawProperty {
+    fn default() -> Self {
+        Self {
+            name: String::default(),
+            optional: None,
+            value: OwnedRawPropValue::Bool(OwnedStream::empty_without_decoder()),
+        }
+    }
+}
+
 /// A sequence of encoded (raw) property values of various types
 #[borrowme]
 #[derive(Debug, PartialEq)]
@@ -370,6 +380,7 @@ impl PropValue {
 }
 
 impl_decodable!(Property<'a>, RawProperty<'a>, DecodedProperty);
+impl_encodable!(OwnedProperty, DecodedProperty, OwnedRawProperty);
 
 impl<'a> From<RawProperty<'a>> for Property<'a> {
     fn from(value: RawProperty<'a>) -> Self {
@@ -404,6 +415,22 @@ impl<'a> Property<'a> {
             },
             Self::Decoded(d) => Ok(vec![Self::Decoded(d)]),
         }
+    }
+}
+
+/// Geometry encoding configuration
+#[derive(Debug, Clone, Copy)]
+pub enum PropertyEncodingStrategy {}
+
+impl FromDecoded<'_> for OwnedRawProperty {
+    type Input = DecodedProperty;
+    type EncodingStrategy = PropertyEncodingStrategy;
+
+    fn from_decoded(
+        decoded: &Self::Input,
+        config: Self::EncodingStrategy,
+    ) -> Result<Self, MltError> {
+        Err(MltError::NotImplemented("property encoding"))
     }
 }
 
