@@ -14,7 +14,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 keywords = ["maplibre", "tile", "mlt", "mvt"]
 categories = ["science::geo"]
-rust-version = "1.87.0"
+rust-version = "1.88.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
