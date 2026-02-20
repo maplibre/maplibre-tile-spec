@@ -471,35 +471,6 @@ mod tests {
         }
     }
 
-    enum ExpectedVariant {
-        Id32,
-        OptionalId32,
-        Id64,
-        OptionalId64,
-    }
-
-    impl ExpectedVariant {
-        fn from_config(config: IdEncodingConfig) -> Self {
-            match config {
-                Id32 => ExpectedVariant::Id32,
-                OptId32 => ExpectedVariant::OptionalId32,
-                Id64 => ExpectedVariant::Id64,
-                OptId64 => ExpectedVariant::OptionalId64,
-            }
-        }
-
-        fn is_id32(&self) -> bool {
-            matches!(self, ExpectedVariant::Id32 | ExpectedVariant::OptionalId32)
-        }
-
-        fn has_optional(&self) -> bool {
-            matches!(
-                self,
-                ExpectedVariant::OptionalId32 | ExpectedVariant::OptionalId64
-            )
-        }
-    }
-
     /// Helper: Asserts that encoding and decoding with the given config produces the original data
     fn assert_roundtrip_succeeds(
         ids: Vec<Option<u64>>,
@@ -543,9 +514,7 @@ mod tests {
         let input = DecodedId(Some(ids));
         let raw = OwnedRawId::to_raw(&input, config).expect("Failed to encode");
 
-        let expected = ExpectedVariant::from_config(config);
-
-        if expected.is_id32() {
+        if matches!(config, Id32 | OptId32) {
             prop_assert!(
                 matches!(raw.value, OwnedRawIdValue::Id32(_)),
                 "Expected Id32 variant"
@@ -557,7 +526,7 @@ mod tests {
             );
         }
 
-        if expected.has_optional() {
+        if matches!(config, OptId32 | OptId64) {
             prop_assert!(
                 raw.optional.is_some(),
                 "Expected optional stream to be present"
