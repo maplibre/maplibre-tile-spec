@@ -237,15 +237,14 @@ impl App {
         self.file_sort = Some((col, asc));
         self.mlt_files.sort_by(|a, b| file_cmp(a, b, col, asc));
         self.rebuild_filtered_files();
-        if let Some(path) = prev {
-            if let Some(pos) = self
+        if let Some(path) = prev
+            && let Some(pos) = self
                 .filtered_file_indices
                 .iter()
                 .position(|&i| self.mlt_files[i].0 == path)
-            {
-                self.selected_file_index = pos;
-                self.file_list_state.select(Some(pos));
-            }
+        {
+            self.selected_file_index = pos;
+            self.file_list_state.select(Some(pos));
         }
     }
 
@@ -543,11 +542,11 @@ impl App {
                 return;
             }
         };
-        if let Some(idx) = target {
-            if idx != self.selected_index {
-                self.selected_index = idx;
-                self.invalidate_bounds();
-            }
+        if let Some(idx) = target
+            && idx != self.selected_index
+        {
+            self.selected_index = idx;
+            self.invalidate_bounds();
         }
     }
 
