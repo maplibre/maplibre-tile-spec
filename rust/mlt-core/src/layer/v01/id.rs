@@ -13,7 +13,7 @@ use crate::v01::{
     OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
 };
 
-/// ID column representation
+/// ID column representation, either raw or decoded, or none if there are no IDs
 #[borrowme]
 #[derive(Debug, Default, PartialEq)]
 pub enum Id<'a> {
