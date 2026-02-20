@@ -18,7 +18,7 @@ pub fn encode_zigzag<T: ZigZag>(data: &[T]) -> Vec<T::UInt> {
     data.iter().map(|&v| T::encode(v)).collect()
 }
 
-pub fn encode_delta<T: Copy + WrappingSub>(data: &[T]) -> Vec<T> {
+fn encode_delta<T: Copy + WrappingSub>(data: &[T]) -> Vec<T> {
     if data.is_empty() {
         return Vec::new();
     }
@@ -125,17 +125,13 @@ pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
-    use crate::utils::{decode_byte_rle, decode_bytes_to_u32s, decode_rle, decode_zigzag, decode_zigzag_delta};
+
     use super::*;
+    use crate::utils::{
+        decode_byte_rle, decode_bytes_to_u32s, decode_rle, decode_zigzag, decode_zigzag_delta,
+    };
 
     proptest! {
-        #[test]
-        fn test_zigzag_roundtrip_i32(data: Vec<i32>) {
-            let encoded = encode_zigzag(&data);
-            let decoded = decode_zigzag::<i32>(&encoded);
-            prop_assert_eq!(data, decoded);
-        }
-
         #[test]
         fn test_zigzag_roundtrip_i64(data: Vec<i64>) {
             let encoded = encode_zigzag(&data);
@@ -171,8 +167,41 @@ mod tests {
         #[test]
         fn test_u32_bytes_roundtrip(data: Vec<u32>) {
             let encoded = encode_u32s_to_bytes(&data);
-            let (_, decoded) = decode_bytes_to_u32s(&encoded, data.len() as u32).unwrap();
+            let (rem, decoded) = decode_bytes_to_u32s(&encoded, data.len() as u32).unwrap();
             prop_assert_eq!(data, decoded);
+            prop_assert!(rem.is_empty());
         }
+    }
+
+    #[test]
+    fn test_encode_zigzag_empty() {
+        assert!(encode_zigzag::<i32>(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_encode_delta_empty() {
+        assert!(encode_delta::<i32>(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_encode_zigzag_delta_empty() {
+        assert!(encode_zigzag_delta::<i32>(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_encode_rle_empty() {
+        let (runs, vals) = encode_rle::<u8>(&[]);
+        assert!(runs.is_empty());
+        assert!(vals.is_empty());
+    }
+
+    #[test]
+    fn test_encode_byte_rle_empty() {
+        assert!(encode_byte_rle(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_encode_u32s_to_bytes_empty() {
+        assert!(encode_u32s_to_bytes(&[]).is_empty());
     }
 }

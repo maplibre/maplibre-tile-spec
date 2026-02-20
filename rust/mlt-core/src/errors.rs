@@ -94,6 +94,8 @@ pub enum MltError {
     FastPforFfi(#[from] Exception),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
+    #[error("invalid RLE run length (cannot convert to usize): value={0}")]
+    RleRunCountInvalid(usize),
 
     // Schema & metadata validation
     #[error("missing required field `{0}`")]

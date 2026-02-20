@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
+use num_traits::{AsPrimitive, PrimInt, ToPrimitive, WrappingAdd};
 use zigzag::ZigZag;
 
 use crate::utils::take;
@@ -171,15 +171,45 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_zigzag() {
+    fn test_decode_zigzag_i32() {
         let encoded_u32 = [0u32, 1, 2, 3, 4, 5, u32::MAX];
         let expected_i32 = [0i32, -1, 1, -2, 2, -3, i32::MIN];
         let decoded_i32 = decode_zigzag::<i32>(&encoded_u32);
         assert_eq!(decoded_i32, expected_i32);
+    }
 
+    #[test]
+    fn test_decode_zigzag_i64() {
         let encoded_u64 = [0u64, 1, 2, 3, 4, 5, u64::MAX];
         let expected_i64 = [0i64, -1, 1, -2, 2, -3, i64::MIN];
         let decoded_i64 = decode_zigzag::<i64>(&encoded_u64);
         assert_eq!(decoded_i64, expected_i64);
+    }
+
+    #[test]
+    fn test_decode_zigzag_empty() {
+        assert!(decode_zigzag::<i32>(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_decode_zigzag_delta_empty() {
+        assert!(decode_zigzag_delta::<i32, i32>(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_decode_rle_empty() {
+        assert!(decode_rle::<u32>(&[], 0, 0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_decode_byte_rle_empty() {
+        assert!(decode_byte_rle(&[], 0).is_empty());
+    }
+
+    #[test]
+    fn test_decode_u32s_to_bytes_empty() {
+        let (input, decoded) = decode_bytes_to_u32s(&[], 0).unwrap();
+        assert!(decoded.is_empty());
+        assert!(input.is_empty());
     }
 }
