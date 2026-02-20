@@ -86,7 +86,7 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    cargo clippy --all-targets --all-features {{args}}
+    cargo clippy --workspace --all-targets --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
