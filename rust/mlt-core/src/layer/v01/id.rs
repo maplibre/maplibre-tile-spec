@@ -373,42 +373,28 @@ mod tests {
         let raw = OwnedRawId::to_raw(&input, config).unwrap();
 
         match config {
-            OptId32 | Id32 => {
-                assert!(matches!(raw.value, OwnedRawIdValue::Id32(_)))
-            }
-            Id64 | OptId64 => {
-                assert!(matches!(raw.value, OwnedRawIdValue::Id64(_)))
-            }
-        };
+            OptId32 | Id32 => assert!(matches!(raw.value, OwnedRawIdValue::Id32(_))),
+            Id64 | OptId64 => assert!(matches!(raw.value, OwnedRawIdValue::Id64(_))),
+        }
 
         match config {
-            OptId32 | OptId64 => {
-                assert!(raw.optional.is_some())
-            }
-            Id32 | Id64 => {
-                assert!(raw.optional.is_none())
-            }
-        };
+            OptId32 | OptId64 => assert!(raw.optional.is_some()),
+            Id32 | Id64 => assert!(raw.optional.is_none()),
+        }
     }
 
     #[rstest]
     #[case::id32_basic(Id32, &[Some(1), Some(2), Some(100), Some(1000)])]
     #[case::id32_single(Id32, &[Some(42)])]
-    #[case::id32_boundaries(Id32, &[Some(0), Some(u32::MAX as u64)])]
+    #[case::id32_boundaries(Id32, &[Some(0), Some(u64::from(u32::MAX))])]
     #[case::id64_basic(Id64, &[Some(1), Some(2), Some(100), Some(1000)])]
     #[case::id64_single(Id64, &[Some(u64::MAX)])]
     #[case::id64_boundaries(Id64, &[Some(0), Some(u64::MAX)])]
-    #[case::id64_large_values(
-        Id64,
-        &[Some(0), Some(u32::MAX as u64), Some(u32::MAX as u64 + 1), Some(u64::MAX)]
-    )]
+    #[case::id64_large_values(        Id64,        &[Some(0), Some(u64::from(u32::MAX)), Some(u64::from(u32::MAX) + 1), Some(u64::MAX)])]
     #[case::opt_id32_with_nulls(OptId32, &[Some(1), None, Some(100), None, Some(1000)])]
     #[case::opt_id32_no_nulls(OptId32, &[Some(1), Some(2), Some(3)])]
     #[case::opt_id32_single_null(OptId32, &[None])]
-    #[case::opt_id64_with_nulls(
-        OptId64,
-        &[Some(1), None, Some(u32::MAX as u64 + 1), None, Some(u64::MAX)]
-    )]
+    #[case::opt_id64_with_nulls(        OptId64,        &[Some(1), None, Some(u64::from(u32::MAX) + 1), None, Some(u64::MAX)]    )]
     #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
     #[case::none(Id32, &[])]
     fn test_roundtrip(#[case] config: IdEncodingConfig, #[case] ids: &[Option<u64>]) {
@@ -549,7 +535,7 @@ mod tests {
             if let Id::Decoded(decoded_back) = borrowed_id {
                 prop_assert_eq!(decoded_back, DecodedId(Some(ids)));
             } else {
-                panic!("Expected Decoded variant after materialization");
+                TestCaseError::fail("Expected Decoded variant after materialization");
             }
             Ok(())
         }
