@@ -52,16 +52,11 @@ public class ConversionHelper {
   }
 
   public static OutputStream createCompressStream(
-      OutputStream src, @Nullable String compressionType) {
+      OutputStream src, @Nullable String compressionType) throws IOException {
     if (Objects.equals(compressionType, "gzip")) {
-      try {
-        var parameters = new GzipParameters();
-        parameters.setCompressionLevel(9);
-        return new GzipCompressorOutputStream(src, parameters);
-      } catch (IOException ex) {
-        System.err.println(
-            "Failed to create GzipCompressorOutputStream, falling back to uncompressed or alternative compression.");
-      }
+      var parameters = new GzipParameters();
+      parameters.setCompressionLevel(9);
+      return new GzipCompressorOutputStream(src, parameters);
     }
     if (Objects.equals(compressionType, "deflate")) {
       var parameters = new DeflateParameters();
