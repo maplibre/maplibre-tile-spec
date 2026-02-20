@@ -50,6 +50,7 @@ ci-test: env-info (just 'java::gen-snippets') test test-doc
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: env-info ci-check (just 'java::gen-snippets') test
+    {{just}} assert-git-is-clean
 
 # Build the layer target (installs `cargo fuzz`)
 ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')

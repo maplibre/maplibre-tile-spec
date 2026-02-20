@@ -30,7 +30,7 @@ jobs:
       - run: just -v ts::test
       - run: just -v ts::build
       - name: Codecov upload
-        if: '!cancelled()'
+        if: "github.repository_owner == 'maplibre' && !cancelled()"
         uses: codecov/codecov-action@v5
         with:
           files: ts/coverage/coverage-final.json

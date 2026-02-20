@@ -19,11 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-check
@@ -34,11 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-test
@@ -55,13 +45,9 @@ jobs:
           - target: layer
     steps:
       - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
-      - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       # enable once we can reliably fuzz ourselves
       #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
@@ -71,11 +57,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - name: Read MSRV
@@ -85,7 +66,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-      - run: just -v assert-git-is-clean
+      - run: just -v rust::ci-test-msrv
 
   coverage:
     name: Code Coverage
@@ -93,15 +74,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: Swatinem/rust-cache@v2
-        with: { workspaces: rust }
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall,cargo-llvm-cov' }
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'cargo-llvm-cov' }
       - name: Generate code coverage
         run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
+        if: github.repository_owner == 'maplibre'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -132,11 +112,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-rust
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
+      - run: rustup target add ${{ matrix.target }}
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }} --package mlt --bin mlt
         working-directory: rust
