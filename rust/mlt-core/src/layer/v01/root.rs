@@ -169,10 +169,10 @@ impl Layer01<'_> {
                             remaining: input.len(),
                         });
                     }
-                    if stream_count > 0 {
-                        (input, optional) = parse_optional(column.typ, input)?;
+                    if stream_count == 0 && column.typ.is_optional() {
+                        return Err(MltError::MissingStringStream("presence stream for optional data"));
                     } else {
-                        optional = None;
+                        (input, optional) = parse_optional(column.typ, input)?;
                     }
                     stream_count -= usize::from(optional.is_some());
                     let value_vec;
