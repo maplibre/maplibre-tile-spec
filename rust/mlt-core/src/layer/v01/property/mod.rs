@@ -422,7 +422,7 @@ impl<'a> Property<'a> {
     }
 }
 
-/// Geometry encoding configuration
+/// How to encode propertys
 #[derive(Debug, Clone, Copy)]
 pub enum PropertyEncodingStrategy {}
 
