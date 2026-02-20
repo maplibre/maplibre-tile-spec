@@ -1,5 +1,5 @@
 [package]
-name = "mlt-fuzz"
+name = "fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -15,9 +15,7 @@ borrowme = "0.0.15"
 hex = "0.4.3"
 arbitrary = { version = "1.4.2", features = ["derive"] }
 pretty_assertions = "1.4"
-
-[dependencies.mlt]
-path = ".."
+mlt-core = { path = ".." }
 
 [[bin]]
 name = "layer"

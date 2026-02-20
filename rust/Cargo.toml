@@ -1,7 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["mlt", "mlt-core"]
-exclude = ["mlt-fuzz", "mlt-legacy"]
+# mlt-core/fuzz because cargo-fuzz does not have workspace support
+# mlt-legacy due to buildscript issues
+exclude = ["mlt-core/fuzz", "mlt-legacy"]
 default-members = ["mlt", "mlt-core"]
 
 [workspace.package]
