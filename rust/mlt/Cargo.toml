@@ -17,13 +17,13 @@ clap = { version = "4.5.58", features = ["derive"] }
 crossterm = "0.29.0"
 flate2 = "1"
 geo-types = "0.7.18"
-mlt-core = { path = "../mlt-core" }
+mlt-core = { version = "0.1.0", path = "../mlt-core" }
 ratatui = "0.30.0"
 rayon = "1"
 rstar = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
-size_format = { version = "1" }
+size_format = "1"
 tabled = "0.20"
 thousands = "0.2"
 
