@@ -9,13 +9,13 @@ use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Po
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
-use crate::MltError;
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
     NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromRaw, impl_decodable};
+use crate::encode::impl_encodable;
 use crate::geojson::{Coord32, Geom32 as GeoGeom};
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
@@ -24,7 +24,11 @@ use crate::v01::geometry::decode::{
     decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
     decode_root_length_stream,
 };
-use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
+use crate::v01::{
+    DictionaryType, LengthType, LogicalDecoder, OffsetType, OwnedDataRaw, OwnedStream,
+    OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
+};
+use crate::{FromDecoded, MltError};
 
 /// Geometry column representation, either raw or decoded
 #[borrowme]
@@ -74,6 +78,23 @@ impl OwnedGeometry {
 pub struct RawGeometry<'a> {
     pub meta: Stream<'a>,
     pub items: Vec<Stream<'a>>,
+}
+
+impl Default for OwnedRawGeometry {
+    fn default() -> Self {
+        Self {
+            meta: OwnedStream {
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                    num_values: 0,
+                    logical_decoder: LogicalDecoder::None,
+                    physical_decoder: PhysicalDecoder::None,
+                },
+                data: OwnedStreamData::Raw(OwnedDataRaw { data: Vec::new() }),
+            },
+            items: Vec::new(),
+        }
+    }
 }
 
 impl Analyze for RawGeometry<'_> {
@@ -311,6 +332,23 @@ impl Analyze for GeometryType {
 // }
 
 impl_decodable!(Geometry<'a>, RawGeometry<'a>, DecodedGeometry);
+impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedRawGeometry);
+
+/// How to encode Geometrys
+#[derive(Debug, Clone, Copy)]
+pub enum GeometryEncodingStrategy {}
+
+impl FromDecoded<'_> for OwnedRawGeometry {
+    type Input = DecodedGeometry;
+    type EncodingStrategy = GeometryEncodingStrategy;
+
+    fn from_decoded(
+        decoded: &Self::Input,
+        config: Self::EncodingStrategy,
+    ) -> Result<Self, MltError> {
+        Err(NotImplemented("geometry encoding"))
+    }
+}
 
 impl<'a> From<RawGeometry<'a>> for Geometry<'a> {
     fn from(value: RawGeometry<'a>) -> Self {

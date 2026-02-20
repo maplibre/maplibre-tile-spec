@@ -33,6 +33,19 @@ impl Analyze for Stream<'_> {
     }
 }
 
+impl OwnedStream {
+    pub fn empty_without_decoder() -> Self {
+        Self {
+            meta: StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values: 0,
+                logical_decoder: LogicalDecoder::None,
+                physical_decoder: PhysicalDecoder::None,
+            },
+            data: OwnedStreamData::Raw(OwnedDataRaw { data: Vec::new() }),
+        }
+    }
+}
 /// Metadata about a raw stream
 #[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {

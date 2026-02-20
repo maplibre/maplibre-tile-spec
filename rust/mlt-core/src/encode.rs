@@ -1,16 +1,16 @@
 use crate::MltError;
 
 /// Trait for types that can be converted back to raw data
-pub trait ToRaw<'a>: Sized {
-    type Output: 'a;
-    type Config;
-    fn to_raw(output: &Self::Output, config: Self::Config) -> Result<Self, MltError>;
+pub trait FromDecoded<'a>: Sized {
+    type Input: 'a;
+    type EncodingStrategy;
+    fn from_decoded(input: &Self::Input, config: Self::EncodingStrategy) -> Result<Self, MltError>;
 }
 
 /// Trait for enums that can be in either decoded or raw form
 pub trait Encodable<'a>: Sized {
     type DecodedType;
-    type RawType: ToRaw<'a, Output = Self::DecodedType>;
+    type RawType: FromDecoded<'a, Input = Self::DecodedType>;
 
     /// Check if the data is still in decoded form
     fn is_decoded(&self) -> bool;
@@ -23,17 +23,17 @@ pub trait Encodable<'a>: Sized {
 
     fn encode_with(
         &mut self,
-        config: <Self::RawType as ToRaw<'a>>::Config,
+        config: <Self::RawType as FromDecoded<'a>>::EncodingStrategy,
     ) -> Result<&Self, MltError>
     where
-        Self::RawType: ToRaw<'a>,
+        Self::RawType: FromDecoded<'a>,
     {
         if self.is_decoded() {
             // Temporarily replace self with a default value to take ownership of the decoded data
             let Some(decoded) = self.take_decoded() else {
                 return Err(MltError::NotRaw("raw data"))?;
             };
-            let res = Self::RawType::to_raw(&decoded, config)?;
+            let res = Self::RawType::from_decoded(&decoded, config)?;
             *self = Self::new_raw(res);
         }
         Ok(self)
