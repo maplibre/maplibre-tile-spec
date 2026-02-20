@@ -348,9 +348,11 @@ impl ToRaw<'_> for OwnedRawId {
 #[cfg(test)]
 mod tests {
     use IdEncodingConfig::*;
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use super::*;
+    use crate::{Decodable as _, Encodable as _};
 
     // Helper function to encode and decode for roundtrip testing
     fn roundtrip(decoded: &DecodedId, config: IdEncodingConfig) -> DecodedId {
@@ -411,166 +413,158 @@ mod tests {
         assert_eq!(output, input);
     }
 
-    #[cfg(test)]
-    mod proptests {
-        use proptest::prelude::*;
+    proptest! {
+        #[test]
+        fn test_roundtrip_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
+            let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
+            assert_roundtrip_succeeds(ids_u64, Id32)?;
+        }
 
-        use super::*;
-        use crate::{Decodable as _, Encodable as _};
+        #[test]
+        fn test_roundtrip_opt_id32(
+            ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100)
+        ) {
+            let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
+            assert_roundtrip_succeeds(ids_u64, OptId32)?;
+        }
 
-        proptest! {
-            #[test]
-            fn test_roundtrip_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
-                let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-                assert_roundtrip_succeeds(ids_u64, Id32)?;
-            }
+        #[test]
+        fn test_roundtrip_id64(ids in prop::collection::vec(any::<u64>(), 1..100)) {
+            let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
+            assert_roundtrip_succeeds(ids_u64, Id64)?;
+        }
 
-            #[test]
-            fn test_roundtrip_opt_id32(
-                ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100)
-            ) {
-                let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
-                assert_roundtrip_succeeds(ids_u64, OptId32)?;
-            }
+        #[test]
+        fn test_roundtrip_opt_id64(
+            ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
+        ) {
+            assert_roundtrip_succeeds(ids, OptId64)?;
+        }
 
-            #[test]
-            fn test_roundtrip_id64(ids in prop::collection::vec(any::<u64>(), 1..100)) {
-                let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-                assert_roundtrip_succeeds(ids_u64, Id64)?;
-            }
+        #[test]
+        fn test_encodable_trait_api_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
+            let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
+            assert_encodable_api_works(ids_u64, Id32)?;
+        }
 
-            #[test]
-            fn test_roundtrip_opt_id64(
-                ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
-            ) {
-                assert_roundtrip_succeeds(ids, OptId64)?;
-            }
+        #[test]
+        fn test_encodable_trait_api_opt_id64(
+            ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
+        ) {
+            assert_encodable_api_works(ids, OptId64)?;
+        }
 
-            #[test]
-            fn test_encodable_trait_api_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
-                let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-                assert_encodable_api_works(ids_u64, Id32)?;
-            }
+        #[test]
+        fn test_correct_variant_produced_id32(
+            ids in prop::collection::vec(1u32..1000u32, 1..50)
+        ) {
+            let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
+            assert_produces_correct_variant(ids_u64, Id32)?;
+        }
 
-            #[test]
-            fn test_encodable_trait_api_opt_id64(
-                ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
-            ) {
-                assert_encodable_api_works(ids, OptId64)?;
-            }
+        #[test]
+        fn test_correct_variant_produced_id64(
+            ids in prop::collection::vec(any::<u64>(), 1..50)
+        ) {
+            let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
+            assert_produces_correct_variant(ids_u64, Id64)?;
+        }
+    }
 
-            #[test]
-            fn test_correct_variant_produced_id32(
-                ids in prop::collection::vec(1u32..1000u32, 1..50)
-            ) {
-                let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-                assert_produces_correct_variant(ids_u64, Id32)?;
-            }
+    enum ExpectedVariant {
+        Id32,
+        OptionalId32,
+        Id64,
+        OptionalId64,
+    }
 
-            #[test]
-            fn test_correct_variant_produced_id64(
-                ids in prop::collection::vec(any::<u64>(), 1..50)
-            ) {
-                let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-                assert_produces_correct_variant(ids_u64, Id64)?;
+    impl ExpectedVariant {
+        fn from_config(config: IdEncodingConfig) -> Self {
+            match config {
+                Id32 => ExpectedVariant::Id32,
+                OptId32 => ExpectedVariant::OptionalId32,
+                Id64 => ExpectedVariant::Id64,
+                OptId64 => ExpectedVariant::OptionalId64,
             }
         }
 
-        enum ExpectedVariant {
-            Id32,
-            OptionalId32,
-            Id64,
-            OptionalId64,
+        fn is_id32(&self) -> bool {
+            matches!(self, ExpectedVariant::Id32 | ExpectedVariant::OptionalId32)
         }
 
-        impl ExpectedVariant {
-            fn from_config(config: IdEncodingConfig) -> Self {
-                match config {
-                    Id32 => ExpectedVariant::Id32,
-                    OptId32 => ExpectedVariant::OptionalId32,
-                    Id64 => ExpectedVariant::Id64,
-                    OptId64 => ExpectedVariant::OptionalId64,
-                }
-            }
+        fn has_optional(&self) -> bool {
+            matches!(
+                self,
+                ExpectedVariant::OptionalId32 | ExpectedVariant::OptionalId64
+            )
+        }
+    }
 
-            fn is_id32(&self) -> bool {
-                matches!(self, ExpectedVariant::Id32 | ExpectedVariant::OptionalId32)
-            }
+    /// Helper: Asserts that encoding and decoding with the given config produces the original data
+    fn assert_roundtrip_succeeds(
+        ids: Vec<Option<u64>>,
+        config: IdEncodingConfig,
+    ) -> Result<(), TestCaseError> {
+        let input = DecodedId(Some(ids.clone()));
+        let output = roundtrip(&input, config);
+        prop_assert_eq!(output, DecodedId(Some(ids)));
+        Ok(())
+    }
 
-            fn has_optional(&self) -> bool {
-                matches!(
-                    self,
-                    ExpectedVariant::OptionalId32 | ExpectedVariant::OptionalId64
-                )
-            }
+    /// Helper: Asserts that the Encodable trait API works correctly (encode -> materialize -> decode)
+    fn assert_encodable_api_works(
+        ids: Vec<Option<u64>>,
+        config: IdEncodingConfig,
+    ) -> Result<(), TestCaseError> {
+        let decoded = DecodedId(Some(ids.clone()));
+
+        let mut id_enum = OwnedId::Decoded(decoded);
+        id_enum.encode_with(config).expect("Failed to encode");
+
+        prop_assert!(!id_enum.is_decoded(), "Should be Raw after encoding");
+        prop_assert!(id_enum.borrow_raw().is_some(), "Raw variant should be Some");
+
+        let mut borrowed_id = borrowme::borrow(&id_enum);
+        borrowed_id.materialize().expect("Failed to materialize");
+
+        if let Id::Decoded(decoded_back) = borrowed_id {
+            prop_assert_eq!(decoded_back, DecodedId(Some(ids)));
+        } else {
+            TestCaseError::fail("Expected Decoded variant after materialization");
+        }
+        Ok(())
+    }
+
+    /// Helper: Asserts that encoding produces the expected variant type for the given config
+    fn assert_produces_correct_variant(
+        ids: Vec<Option<u64>>,
+        config: IdEncodingConfig,
+    ) -> Result<(), TestCaseError> {
+        let input = DecodedId(Some(ids));
+        let raw = OwnedRawId::to_raw(&input, config).expect("Failed to encode");
+
+        let expected = ExpectedVariant::from_config(config);
+
+        if expected.is_id32() {
+            prop_assert!(
+                matches!(raw.value, OwnedRawIdValue::Id32(_)),
+                "Expected Id32 variant"
+            );
+        } else {
+            prop_assert!(
+                matches!(raw.value, OwnedRawIdValue::Id64(_)),
+                "Expected Id64 variant"
+            );
         }
 
-        /// Helper: Asserts that encoding and decoding with the given config produces the original data
-        fn assert_roundtrip_succeeds(
-            ids: Vec<Option<u64>>,
-            config: IdEncodingConfig,
-        ) -> Result<(), TestCaseError> {
-            let input = DecodedId(Some(ids.clone()));
-            let output = roundtrip(&input, config);
-            prop_assert_eq!(output, DecodedId(Some(ids)));
-            Ok(())
+        if expected.has_optional() {
+            prop_assert!(
+                raw.optional.is_some(),
+                "Expected optional stream to be present"
+            );
+        } else {
+            prop_assert!(raw.optional.is_none(), "Expected no optional stream");
         }
-
-        /// Helper: Asserts that the Encodable trait API works correctly (encode -> materialize -> decode)
-        fn assert_encodable_api_works(
-            ids: Vec<Option<u64>>,
-            config: IdEncodingConfig,
-        ) -> Result<(), TestCaseError> {
-            let decoded = DecodedId(Some(ids.clone()));
-
-            let mut id_enum = OwnedId::Decoded(decoded);
-            id_enum.encode_with(config).expect("Failed to encode");
-
-            prop_assert!(!id_enum.is_decoded(), "Should be Raw after encoding");
-            prop_assert!(id_enum.borrow_raw().is_some(), "Raw variant should be Some");
-
-            let mut borrowed_id = borrowme::borrow(&id_enum);
-            borrowed_id.materialize().expect("Failed to materialize");
-
-            if let Id::Decoded(decoded_back) = borrowed_id {
-                prop_assert_eq!(decoded_back, DecodedId(Some(ids)));
-            } else {
-                TestCaseError::fail("Expected Decoded variant after materialization");
-            }
-            Ok(())
-        }
-
-        /// Helper: Asserts that encoding produces the expected variant type for the given config
-        fn assert_produces_correct_variant(
-            ids: Vec<Option<u64>>,
-            config: IdEncodingConfig,
-        ) -> Result<(), TestCaseError> {
-            let input = DecodedId(Some(ids));
-            let raw = OwnedRawId::to_raw(&input, config).expect("Failed to encode");
-
-            let expected = ExpectedVariant::from_config(config);
-
-            if expected.is_id32() {
-                prop_assert!(
-                    matches!(raw.value, OwnedRawIdValue::Id32(_)),
-                    "Expected Id32 variant"
-                );
-            } else {
-                prop_assert!(
-                    matches!(raw.value, OwnedRawIdValue::Id64(_)),
-                    "Expected Id64 variant"
-                );
-            }
-
-            if expected.has_optional() {
-                prop_assert!(
-                    raw.optional.is_some(),
-                    "Expected optional stream to be present"
-                );
-            } else {
-                prop_assert!(raw.optional.is_none(), "Expected no optional stream");
-            }
-            Ok(())
-        }
+        Ok(())
     }
 }
