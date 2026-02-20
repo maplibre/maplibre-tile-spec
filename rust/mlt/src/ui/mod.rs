@@ -495,37 +495,29 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 Some(TreeItem::Feature { layer, feat })
                                     if !app.expanded_features.contains(&(*layer, *feat))
                             );
-                            if hover_ok {
-                                if let Some(area) = tree_area {
-                                    if let Some(row) = click_row_in_area(
-                                        mouse.column,
-                                        mouse.row,
-                                        area,
-                                        app.tree_scroll as usize,
-                                    ) {
-                                        if let Some((l, f, p)) = app
-                                            .tree_items
-                                            .get(row)
-                                            .and_then(TreeItem::layer_feat_part)
-                                        {
-                                            app.hovered = Some(HoveredInfo::new(row, l, f, p));
-                                        }
-                                    }
-                                }
+                            if hover_ok
+                                && let Some(area) = tree_area
+                                && let Some(row) = click_row_in_area(
+                                    mouse.column,
+                                    mouse.row,
+                                    area,
+                                    app.tree_scroll as usize,
+                                )
+                                && let Some((l, f, p)) =
+                                    app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
+                            {
+                                app.hovered = Some(HoveredInfo::new(row, l, f, p));
                             }
-                            if app.hovered.is_none() {
-                                if let Some(area) = map_area {
-                                    if point_in_rect(mouse.column, mouse.row, area) {
-                                        let b = app.get_bounds();
-                                        let rx = f64::from(mouse.column - area.x)
-                                            / f64::from(area.width);
-                                        let ry =
-                                            f64::from(mouse.row - area.y) / f64::from(area.height);
-                                        let cx = b.0 + rx * (b.2 - b.0);
-                                        let cy = b.3 - ry * (b.3 - b.1);
-                                        app.find_hovered_feature(cx, cy, b);
-                                    }
-                                }
+                            if app.hovered.is_none()
+                                && let Some(area) = map_area
+                                && point_in_rect(mouse.column, mouse.row, area)
+                            {
+                                let b = app.get_bounds();
+                                let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                                let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                                let cx = b.0 + rx * (b.2 - b.0);
+                                let cy = b.3 - ry * (b.3 - b.1);
+                                app.find_hovered_feature(cx, cy, b);
                             }
                         }
                         if app.hovered != prev {
@@ -556,21 +548,19 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 app.invalidate();
                                 continue;
                             }
-                            if let Some(area) = tree_area {
-                                if point_in_rect(mouse.column, mouse.row, area) {
-                                    if up {
-                                        app.tree_scroll = app.tree_scroll.saturating_sub(step);
-                                    } else {
-                                        let inner = area.height.saturating_sub(2) as usize;
-                                        let max = u16::try_from(
-                                            app.tree_items.len().saturating_sub(inner),
-                                        )?;
-                                        app.tree_scroll =
-                                            app.tree_scroll.saturating_add(step).min(max);
-                                    }
-                                    app.invalidate();
-                                    continue;
+                            if let Some(area) = tree_area
+                                && point_in_rect(mouse.column, mouse.row, area)
+                            {
+                                if up {
+                                    app.tree_scroll = app.tree_scroll.saturating_sub(step);
+                                } else {
+                                    let inner = area.height.saturating_sub(2) as usize;
+                                    let max =
+                                        u16::try_from(app.tree_items.len().saturating_sub(inner))?;
+                                    app.tree_scroll = app.tree_scroll.saturating_add(step).min(max);
                                 }
+                                app.invalidate();
+                                continue;
                             }
                             if map_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a)) {
                                 continue;
@@ -596,114 +586,105 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
-                            if let Some(fa) = filter_area {
-                                if point_in_rect(mouse.column, mouse.row, fa) {
-                                    let row = (mouse.row.saturating_sub(fa.y + 1)) as usize
-                                        + app.filter_scroll as usize;
-                                    handle_filter_click(app, row);
-                                    continue;
-                                }
+                            if let Some(fa) = filter_area
+                                && point_in_rect(mouse.column, mouse.row, fa)
+                            {
+                                let row = (mouse.row.saturating_sub(fa.y + 1)) as usize
+                                    + app.filter_scroll as usize;
+                                handle_filter_click(app, row);
+                                continue;
                             }
-                            if let Some(ia) = info_area {
-                                if point_in_rect(mouse.column, mouse.row, ia)
-                                    && app.filtered_file_indices.is_empty()
-                                    && !app.mlt_files.is_empty()
-                                {
-                                    let row = (mouse.row.saturating_sub(ia.y + 1)) as usize;
-                                    if row == 2 {
-                                        app.ext_filters.clear();
-                                        app.geom_filters.clear();
-                                        app.algo_filters.clear();
-                                        app.rebuild_filtered_files();
-                                    }
-                                    continue;
+                            if let Some(ia) = info_area
+                                && point_in_rect(mouse.column, mouse.row, ia)
+                                && app.filtered_file_indices.is_empty()
+                                && !app.mlt_files.is_empty()
+                            {
+                                let row = (mouse.row.saturating_sub(ia.y + 1)) as usize;
+                                if row == 2 {
+                                    app.ext_filters.clear();
+                                    app.geom_filters.clear();
+                                    app.algo_filters.clear();
+                                    app.rebuild_filtered_files();
                                 }
+                                continue;
                             }
                             if let Some(area) = app.file_table_area {
-                                if app.data_loaded() {
-                                    if let Some(widths) = app.file_table_widths {
-                                        if let Some(c) = file_header_click_column(
-                                            area,
-                                            &widths,
-                                            mouse.column,
-                                            mouse.row,
-                                        ) {
-                                            app.handle_file_header_click(c);
-                                            continue;
-                                        }
-                                    }
+                                if app.data_loaded()
+                                    && let Some(widths) = app.file_table_widths
+                                    && let Some(c) = file_header_click_column(
+                                        area,
+                                        &widths,
+                                        mouse.column,
+                                        mouse.row,
+                                    )
+                                {
+                                    app.handle_file_header_click(c);
+                                    continue;
                                 }
                                 if let Some(row) = click_row_in_area(
                                     mouse.column,
                                     mouse.row,
                                     area,
                                     app.file_list_state.offset(),
-                                ) {
-                                    if row > 0 && row <= app.filtered_file_indices.len() {
-                                        let r = row - 1;
-                                        let dbl = last_file_click.is_some_and(|(t, prev)| {
-                                            prev == r && t.elapsed().as_millis() < 400
-                                        });
-                                        last_file_click = Some((Instant::now(), r));
-                                        app.selected_file_index = r;
-                                        app.file_list_state.select(Some(r));
-                                        app.invalidate_bounds();
-                                        if dbl {
-                                            app.handle_enter();
-                                        }
+                                ) && row > 0
+                                    && row <= app.filtered_file_indices.len()
+                                {
+                                    let r = row - 1;
+                                    let dbl = last_file_click.is_some_and(|(t, prev)| {
+                                        prev == r && t.elapsed().as_millis() < 400
+                                    });
+                                    last_file_click = Some((Instant::now(), r));
+                                    app.selected_file_index = r;
+                                    app.file_list_state.select(Some(r));
+                                    app.invalidate_bounds();
+                                    if dbl {
+                                        app.handle_enter();
                                     }
                                 }
                             }
                         } else if app.mode == ViewMode::LayerOverview {
-                            if let (Some(la), Some(ta)) = (left_area, tree_area) {
-                                if let Some(h) = divider_hit(mouse.column, mouse.row, la, ta) {
-                                    app.resizing = Some(h);
-                                    app.invalidate();
-                                    continue;
-                                }
+                            if let (Some(la), Some(ta)) = (left_area, tree_area)
+                                && let Some(h) = divider_hit(mouse.column, mouse.row, la, ta)
+                            {
+                                app.resizing = Some(h);
+                                app.invalidate();
+                                continue;
                             }
-                            if let Some(area) = tree_area {
-                                if let Some(row) = click_row_in_area(
+                            if let Some(area) = tree_area
+                                && let Some(row) = click_row_in_area(
                                     mouse.column,
                                     mouse.row,
                                     area,
                                     app.tree_scroll as usize,
-                                ) {
-                                    if row < app.tree_items.len() {
-                                        let dbl = last_tree_click.is_some_and(|(t, prev)| {
-                                            prev == row && t.elapsed().as_millis() < 400
-                                        });
-                                        last_tree_click = Some((Instant::now(), row));
-                                        if let Some((l, f, p)) = app
-                                            .tree_items
-                                            .get(row)
-                                            .and_then(TreeItem::layer_feat_part)
-                                        {
-                                            app.handle_feature_click(l, f, p, area.height);
-                                        } else {
-                                            app.selected_index = row;
-                                            app.scroll_selected_into_view(
-                                                area.height.saturating_sub(2) as usize,
-                                            );
-                                        }
-                                        app.invalidate_bounds();
-                                        if dbl {
-                                            app.handle_enter();
-                                        }
-                                    }
+                                )
+                                && row < app.tree_items.len()
+                            {
+                                let dbl = last_tree_click.is_some_and(|(t, prev)| {
+                                    prev == row && t.elapsed().as_millis() < 400
+                                });
+                                last_tree_click = Some((Instant::now(), row));
+                                if let Some((l, f, p)) =
+                                    app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
+                                {
+                                    app.handle_feature_click(l, f, p, area.height);
+                                } else {
+                                    app.selected_index = row;
+                                    app.scroll_selected_into_view(
+                                        area.height.saturating_sub(2) as usize
+                                    );
+                                }
+                                app.invalidate_bounds();
+                                if dbl {
+                                    app.handle_enter();
                                 }
                             }
-                            if let Some(ref h) = app.hovered {
-                                if let Some(ta) = tree_area {
-                                    if map_area
-                                        .is_some_and(|m| point_in_rect(mouse.column, mouse.row, m))
-                                    {
-                                        app.handle_feature_click(
-                                            h.layer, h.feat, h.part, ta.height,
-                                        );
-                                        app.invalidate_bounds();
-                                    }
-                                }
+                            if let Some(ref h) = app.hovered
+                                && let Some(ta) = tree_area
+                                && map_area
+                                    .is_some_and(|m| point_in_rect(mouse.column, mouse.row, m))
+                            {
+                                app.handle_feature_click(h.layer, h.feat, h.part, ta.height);
+                                app.invalidate_bounds();
                             }
                         }
                     }
