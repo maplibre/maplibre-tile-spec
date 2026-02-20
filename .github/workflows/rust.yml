@@ -75,9 +75,9 @@ jobs:
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
       - uses: ./.github/actions/mlt-setup-rust
-      - run: just -v ci-fuzz-build ${{ matrix.target }}
+      - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       # enable once we can reliably fuzz ourselves
-      #- run: just -v ci-fuzz-run ${{ matrix.target }}
+      #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
 
   test-msrv:
     name: Test MSRV
