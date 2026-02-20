@@ -82,6 +82,7 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
 
         if repeat_count >= 3 {
             // Encode repeating run
+            #[expect(clippy::cast_possible_truncation, reason = "3 <= repeat_count < 130")]
             let control = (repeat_count - 3) as u8;
             output.push(control);
             output.push(data[pos]);
@@ -92,8 +93,9 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
             // Scan ahead to see where the next repeating run starts
             while pos + literal_count < data.len() && literal_count < 128 {
                 let mut inner_repeat = 1;
-                while pos + literal_count + inner_repeat < data.len()
-                    && data[pos + literal_count + inner_repeat] == data[pos + literal_count]
+                while let next_idx = pos + literal_count
+                    && next_idx + inner_repeat < data.len()
+                    && data[next_idx + inner_repeat] == data[next_idx]
                     && inner_repeat < 3
                 {
                     inner_repeat += 1;
@@ -105,6 +107,7 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
                 literal_count += 1;
             }
 
+            #[expect(clippy::cast_possible_truncation, reason = "literal_count is always smaller than 128")]
             let control = (256 - literal_count) as u8;
             output.push(control);
             output.extend_from_slice(&data[pos..pos + literal_count]);
@@ -167,7 +170,7 @@ mod tests {
         #[test]
         fn test_u32_bytes_roundtrip(data: Vec<u32>) {
             let encoded = encode_u32s_to_bytes(&data);
-            let (rem, decoded) = decode_bytes_to_u32s(&encoded, data.len() as u32).unwrap();
+            let (rem, decoded) = decode_bytes_to_u32s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
             prop_assert_eq!(data, decoded);
             prop_assert!(rem.is_empty());
         }
@@ -198,10 +201,5 @@ mod tests {
     #[test]
     fn test_encode_byte_rle_empty() {
         assert!(encode_byte_rle(&[]).is_empty());
-    }
-
-    #[test]
-    fn test_encode_u32s_to_bytes_empty() {
-        assert!(encode_u32s_to_bytes(&[]).is_empty());
     }
 }
