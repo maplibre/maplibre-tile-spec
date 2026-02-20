@@ -53,7 +53,7 @@ macro_rules! impl_encodable {
             }
 
             fn new_encoded(encoded: Self::EncodedType) -> Self {
-                Self::Encoded(decoded)
+                Self::Encoded(encoded)
             }
 
             fn take_decoded(&mut self) -> Option<Self::DecodedType> {
