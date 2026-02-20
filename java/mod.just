@@ -16,7 +16,6 @@ ci-test: env-info lint test test-cli test-publish ci-check-synthetic-mlts
     {{just}} assert-git-is-clean
 
 # Verify synthetic MLT files are up to date
-[no-cd]
 ci-check-synthetic-mlts:
     {{just}} assert-git-is-clean
     {{just}} generate-synthetic-mlts

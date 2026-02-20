@@ -32,10 +32,10 @@ check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature --workspace
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: env-info _run-gen-snippets && \
-            (coverage '--codecov --output-path target/llvm-cov/codecov.info')
-    # ATTENTION: the full file path above is used in the CI workflow
+ci-coverage: env-info (just 'java::gen-snippets')
     mkdir -p target/llvm-cov
+    # ATTENTION: the output-path here is used in the CI workflow
+    {{just}} rust::coverage '--codecov --output-path target/llvm-cov/codecov.info'
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: env-info check
@@ -45,11 +45,11 @@ ci-lint: env-info test-fmt clippy
     {{just}} assert-git-is-clean
 
 # Run all tests as expected by CI
-ci-test: env-info _run-gen-snippets test test-doc
+ci-test: env-info (just 'java::gen-snippets') test test-doc
     {{just}} assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info ci-check _run-gen-snippets test
+ci-test-msrv: env-info ci-check (just 'java::gen-snippets') test
 
 # Clean all build artifacts
 clean:
@@ -95,8 +95,6 @@ fmt:
 # Reformat all Cargo.toml files (installs `cargo sort`)
 fmt-toml *args: (just 'cargo-install' 'cargo-sort')
     cargo sort --workspace --grouped {{args}}
-
-_run-gen-snippets: (just 'java::gen-snippets')
 
 # Get any package's field from the metadata
 get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
