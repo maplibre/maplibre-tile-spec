@@ -58,6 +58,27 @@ ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linu
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
 
+# Build and package release binary for CI
+ci-build-release target artifact_name:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    cargo build --release --target {{target}} --package mlt --bin mlt
+    cd target/{{target}}/release
+    if [ -f mlt.exe ]; then
+        7z a ../../../../{{artifact_name}} mlt.exe
+    else
+        tar -czf ../../../../{{artifact_name}} mlt
+    fi
+
+# Output version and tag for GITHUB_OUTPUT (append with >> $GITHUB_OUTPUT)
+ci-get-release-info package='mlt':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$({{just}} rust::get-crate-field version {{package}})
+    echo "version=$VERSION"
+    echo "tag=rust-{{package}}-v$VERSION"
+
 # Clean all build artifacts
 clean:
     cargo clean
