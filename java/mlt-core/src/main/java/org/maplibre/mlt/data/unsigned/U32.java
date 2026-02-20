@@ -25,7 +25,7 @@ public record U32(int value) implements Unsigned {
 
   @Override
   public Long longValue() {
-    return (long) value;
+    return Integer.toUnsignedLong(value);
   }
 
   @Override

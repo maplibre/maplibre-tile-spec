@@ -59,81 +59,70 @@ public class PropertyDecoder {
       presentStreamSize = 0;
     }
 
-    switch (scalarType.physicalType) {
-      case BOOLEAN:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var dataStream =
-              DecodingUtils.decodeBooleanRle(
-                  data, dataStreamMetadata.numValues(), dataStreamMetadata.byteLength(), offset);
-          return unpack(
-              dataStream, dataStreamMetadata.numValues(), presentStream, presentStreamSize);
-        }
-      case UINT_32:
-      case INT_32:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_32);
-          final var dataStream =
-              IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, signed);
+    return switch (scalarType.physicalType) {
+      case BOOLEAN -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var dataStream =
+            DecodingUtils.decodeBooleanRle(
+                data, dataStreamMetadata.numValues(), dataStreamMetadata.byteLength(), offset);
+        yield unpack(dataStream, dataStreamMetadata.numValues(), presentStream, presentStreamSize);
+      }
+      case UINT_32, INT_32 -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_32);
+        final var dataStream =
+            IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, signed);
 
-          // otherwise, we have u32.MAX -> -1
-          final var values =
-              signed
-                  ? dataStream
-                  : dataStream.stream()
-                      .map(i -> i == null ? null : Integer.toUnsignedLong(i))
-                      .toList();
+        // otherwise, we have u32.MAX -> -1
+        final var values =
+            signed
+                ? dataStream
+                : dataStream.stream()
+                    .map(i -> i == null ? null : Integer.toUnsignedLong(i))
+                    .toList();
 
-          return unpack(values, presentStream, presentStreamSize);
-        }
-      case UINT_64:
-      case INT_64:
-        {
-          final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-          final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_64);
-          final var dataStream =
-              IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
+        yield unpack(values, presentStream, presentStreamSize);
+      }
+      case UINT_64, INT_64 -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_64);
+        final var dataStream =
+            IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
 
-          // otherwise, we have u64.MAX -> -1
-          final var values =
-              signed
-                  ? dataStream
-                  : dataStream.stream()
-                      .map(i -> i == null ? null : toUnsignedBigInteger(i))
-                      .toList();
+        // otherwise, we have u64.MAX -> -1
+        final var values =
+            signed
+                ? dataStream
+                : dataStream.stream().map(i -> i == null ? null : toUnsignedBigInteger(i)).toList();
 
-          return unpack(values, presentStream, presentStreamSize);
-        }
-      case FLOAT:
+        yield unpack(values, presentStream, presentStreamSize);
+      }
+      case FLOAT -> {
+        final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
+        yield unpack(dataStream, presentStream, presentStreamSize);
+      }
+      case DOUBLE -> {
         {
           final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
           final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
-          return unpack(dataStream, presentStream, presentStreamSize);
+          yield unpack(dataStream, presentStream, presentStreamSize);
         }
-      case DOUBLE:
-        {
-          {
-            final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-            final var dataStream = FloatDecoder.decodeFloatStream(data, offset, dataStreamMetadata);
-            return unpack(dataStream, presentStream, presentStreamSize);
-          }
+      }
+      case STRING -> {
+        if (presentStream == null) {
+          throw new RuntimeException("Non-nullable string columns not currently supported");
         }
-      case STRING:
-        {
-          if (presentStream == null) {
-            throw new RuntimeException("Non-nullable string columns not currently supported");
-          }
 
-          // The present stream has already been decoded
-          final var strValues =
-              StringDecoder.decode(data, offset, numStreams - 1, presentStream, presentStreamSize);
-          return strValues.getRight();
-        }
-      default:
-        throw new IllegalArgumentException(
-            "The specified data type for the field is currently not supported: " + scalarType);
-    }
+        // The present stream has already been decoded
+        final var strValues =
+            StringDecoder.decode(data, offset, numStreams - 1, presentStream, presentStreamSize);
+        yield strValues.getRight();
+      }
+      case UINT_8, UNRECOGNIZED, INT_8 ->
+          throw new IllegalArgumentException(
+              "The specified data type for the field is currently not supported: " + scalarType);
+    };
   }
 
   private static BigInteger toUnsignedBigInteger(Long value) {

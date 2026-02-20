@@ -16,12 +16,12 @@ public record U8(byte value) implements Unsigned {
 
   @Override
   public Integer intValue() {
-    return (int) value;
+    return Byte.toUnsignedInt(value);
   }
 
   @Override
   public Long longValue() {
-    return (long) value;
+    return Byte.toUnsignedLong(value);
   }
 
   @Override
