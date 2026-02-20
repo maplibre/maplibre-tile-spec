@@ -12,11 +12,15 @@ check:
     ./gradlew check
 
 # Run all CI steps: lint, test, cli tests, coverage, synthetic MLT check
-ci-test: env-info lint test test-cli test-publish ci-check-synthetic-mlts (just 'assert-git-is-clean')
+ci-test: env-info lint test test-cli test-publish ci-check-synthetic-mlts
+    {{just}} assert-git-is-clean
 
 # Verify synthetic MLT files are up to date
 [no-cd]
-ci-check-synthetic-mlts: (just 'assert-git-is-clean') (just 'java::generate-synthetic-mlts') (just 'assert-git-is-clean')
+ci-check-synthetic-mlts:
+    {{just}} assert-git-is-clean
+    {{just}} generate-synthetic-mlts
+    {{just}} assert-git-is-clean
     @echo "Synthetic MLT check complete."
 
 # Print environment info

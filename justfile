@@ -87,12 +87,14 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
 
 # Make sure the git repo has no uncommitted changes
 assert-git-is-clean:
-    @if [ -n "$(git status --porcelain --untracked-files=all)" ]; then \
-        >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
-        >&2 echo "######### git status ##########" ;\
-        git status ;\
-        git --no-pager diff ;\
-        exit 1 ;\
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+        >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
+        >&2 echo "######### git status ##########"
+        git status
+        git --no-pager diff
+        exit 1
     fi
 
 _clean-int-test:

@@ -18,7 +18,8 @@ cmake-build: cmake-init
 check: cmake-build
 
 # Run all CI steps: test, coverage, bazel build
-ci-test: coverage bazel-build (just 'assert-git-is-clean')
+ci-test: coverage bazel-build
+    {{just}} assert-git-is-clean
 
 # Delete build artifacts
 clean:

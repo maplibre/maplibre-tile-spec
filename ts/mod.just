@@ -15,7 +15,8 @@ check: install
     npm run build
 
 # Run all CI steps: lint, test, build
-ci-test: lint test build (just 'assert-git-is-clean')
+ci-test: lint test build
+    {{just}} assert-git-is-clean
 
 # Delete build artifacts
 clean:

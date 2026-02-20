@@ -19,6 +19,10 @@ just *args:
 bless *args: (just 'cargo-install' 'cargo-insta')
     cargo insta test --accept --unreferenced=delete --all-features {{args}}
 
+# Run benchmarks
+bench:
+    cargo bench --all-targets --all-features
+
 # Build the project
 build:
     cargo build --all-targets --all-features
@@ -37,10 +41,12 @@ ci-coverage: env-info _run-gen-snippets && \
 ci-check: env-info check
 
 # Run linting as expected by CI
-ci-lint: env-info test-fmt clippy (just 'assert-git-is-clean')
+ci-lint: env-info test-fmt clippy
+    {{just}} assert-git-is-clean
 
 # Run all tests as expected by CI
-ci-test: env-info _run-gen-snippets test test-doc (just 'assert-git-is-clean')
+ci-test: env-info _run-gen-snippets test test-doc
+    {{just}} assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: env-info ci-check _run-gen-snippets test
