@@ -3,7 +3,7 @@ use std::io::Write;
 
 use borrowme::borrowme;
 
-/// Unknown layer data, stored as raw bytes
+/// Unknown layer data, stored as encoded bytes
 #[borrowme]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Unknown<'a> {

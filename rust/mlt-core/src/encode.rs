@@ -7,58 +7,58 @@ pub trait FromDecoded<'a>: Sized {
     fn from_decoded(input: &Self::Input, config: Self::EncodingStrategy) -> Result<Self, MltError>;
 }
 
-/// Trait for enums that can be in either decoded or raw form
+/// Trait for enums that can be in either decoded or encoded form
 pub trait Encodable<'a>: Sized {
     type DecodedType;
-    type RawType: FromDecoded<'a, Input = Self::DecodedType>;
+    type EncodedType: FromDecoded<'a, Input = Self::DecodedType>;
 
     /// Check if the data is still in decoded form
     fn is_decoded(&self) -> bool;
-    /// Create a new instance from raw data
-    fn new_raw(decoded: Self::RawType) -> Self;
+    /// Create a new instance from encoded data
+    fn new_encoded(encoded: Self::EncodedType) -> Self;
     /// Temporarily replace self with a default value to take ownership of the decoded data
     fn take_decoded(&mut self) -> Option<Self::DecodedType>;
-    /// Borrow the raw data if available
-    fn borrow_raw(&self) -> Option<&Self::RawType>;
+    /// Borrow the encoded data if available
+    fn borrow_encoded(&self) -> Option<&Self::EncodedType>;
 
     fn encode_with(
         &mut self,
-        config: <Self::RawType as FromDecoded<'a>>::EncodingStrategy,
+        config: <Self::EncodedType as FromDecoded<'a>>::EncodingStrategy,
     ) -> Result<&Self, MltError>
     where
-        Self::RawType: FromDecoded<'a>,
+        Self::EncodedType: FromDecoded<'a>,
     {
         if self.is_decoded() {
             // Temporarily replace self with a default value to take ownership of the decoded data
             let Some(decoded) = self.take_decoded() else {
-                return Err(MltError::NotRaw("raw data"))?;
+                return Err(MltError::NotEncoded("decoded data"))?;
             };
-            let res = Self::RawType::from_decoded(&decoded, config)?;
-            *self = Self::new_raw(res);
+            let res = Self::EncodedType::from_decoded(&decoded, config)?;
+            *self = Self::new_encoded(res);
         }
         Ok(self)
     }
 }
 
-/// Macro to implement the Encodable trait for enum types with Decoded and Raw variants
+/// Macro to implement the Encodable trait for enum types with Decoded and Encoded variants
 /// This macro is internal to the crate and not exposed to external users
 macro_rules! impl_encodable {
-    ($enum_type:ty, $decoded_type:ty, $raw_type:ty) => {
+    ($enum_type:ty, $decoded_type:ty, $encoded_type:ty) => {
         impl<'a> $crate::Encodable<'a> for $enum_type {
             type DecodedType = $decoded_type;
-            type RawType = $raw_type;
+            type EncodedType = $encoded_type;
 
             fn is_decoded(&self) -> bool {
                 matches!(self, Self::Decoded(_))
             }
 
-            fn new_raw(decoded: Self::RawType) -> Self {
-                Self::Raw(decoded)
+            fn new_encoded(encoded: Self::EncodedType) -> Self {
+                Self::Encoded(encoded)
             }
 
             fn take_decoded(&mut self) -> Option<Self::DecodedType> {
                 if let Self::Decoded(decoded) =
-                    std::mem::replace(self, Self::Raw(Self::RawType::default()))
+                    std::mem::replace(self, Self::Encoded(Self::EncodedType::default()))
                 {
                     Some(decoded)
                 } else {
@@ -66,9 +66,9 @@ macro_rules! impl_encodable {
                 }
             }
 
-            fn borrow_raw(&self) -> Option<&Self::RawType> {
-                if let Self::Raw(raw) = self {
-                    Some(raw)
+            fn borrow_encoded(&self) -> Option<&Self::EncodedType> {
+                if let Self::Encoded(enc) = self {
+                    Some(enc)
                 } else {
                     None
                 }

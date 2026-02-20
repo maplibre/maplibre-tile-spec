@@ -5,21 +5,21 @@ use borrowme::borrowme;
 
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
-use crate::decode::{FromRaw, impl_decodable};
+use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
 use crate::utils::{BinarySerializer as _, OptSeqOpt};
 use crate::v01::{
-    ColumnType, DictionaryType, LogicalDecoder, OwnedDataRaw, OwnedDataVarInt, OwnedStream,
+    ColumnType, DictionaryType, LogicalDecoder, OwnedDataVarInt, OwnedEncodedData, OwnedStream,
     OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
 };
 
-/// ID column representation, either raw or decoded, or none if there are no IDs
+/// ID column representation, either encoded or decoded, or none if there are no IDs
 #[borrowme]
 #[derive(Debug, Default, PartialEq)]
 pub enum Id<'a> {
     #[default]
     None,
-    Raw(RawId<'a>),
+    Encoded(EncodedId<'a>),
     Decoded(DecodedId),
 }
 
@@ -28,7 +28,7 @@ impl OwnedId {
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::None => Ok(()),
-            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Encoded(r) => r.write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -37,7 +37,7 @@ impl OwnedId {
     pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::None => Ok(()),
-            Self::Raw(r) => r.write_to(writer),
+            Self::Encoded(r) => r.write_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -47,7 +47,7 @@ impl Analyze for Id<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
             Self::None => 0,
-            Self::Raw(d) => d.collect_statistic(stat),
+            Self::Encoded(d) => d.collect_statistic(stat),
             Self::Decoded(d) => d.collect_statistic(stat),
         }
     }
@@ -55,7 +55,7 @@ impl Analyze for Id<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
             Self::None => {}
-            Self::Raw(d) => d.for_each_stream(cb),
+            Self::Encoded(d) => d.for_each_stream(cb),
             Self::Decoded(d) => d.for_each_stream(cb),
         }
     }
@@ -64,26 +64,26 @@ impl Analyze for Id<'_> {
 /// Unparsed ID data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct RawId<'a> {
+pub struct EncodedId<'a> {
     optional: Option<Stream<'a>>,
-    value: RawIdValue<'a>,
+    value: EncodedIdValue<'a>,
 }
 
-impl Default for OwnedRawId {
+impl Default for OwnedEncodedId {
     fn default() -> Self {
         Self {
             optional: None,
-            value: OwnedRawIdValue::Id32(OwnedStream::empty_without_decoder()),
+            value: OwnedEncodedIdValue::Id32(OwnedStream::empty_without_decoder()),
         }
     }
 }
-impl OwnedRawId {
+impl OwnedEncodedId {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match (&self.optional, &self.value) {
-            (None, OwnedRawIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
-            (None, OwnedRawIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
-            (Some(_), OwnedRawIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
-            (Some(_), OwnedRawIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
+            (None, OwnedEncodedIdValue::Id32(_)) => ColumnType::Id.write_to(writer)?,
+            (None, OwnedEncodedIdValue::Id64(_)) => ColumnType::LongId.write_to(writer)?,
+            (Some(_), OwnedEncodedIdValue::Id32(_)) => ColumnType::OptId.write_to(writer)?,
+            (Some(_), OwnedEncodedIdValue::Id64(_)) => ColumnType::OptLongId.write_to(writer)?,
         }
         Ok(())
     }
@@ -93,28 +93,30 @@ impl OwnedRawId {
             writer.write_boolean_stream(opt)?;
         }
         match &self.value {
-            OwnedRawIdValue::Id32(s) | OwnedRawIdValue::Id64(s) => writer.write_stream(s)?,
+            OwnedEncodedIdValue::Id32(s) | OwnedEncodedIdValue::Id64(s) => {
+                writer.write_stream(s)?;
+            }
         }
         Ok(())
     }
 }
 
-impl Analyze for RawId<'_> {
+impl Analyze for EncodedId<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.optional.for_each_stream(cb);
         self.value.for_each_stream(cb);
     }
 }
 
-/// A sequence of encoded (raw) ID values, either 32-bit or 64-bit unsigned integers
+/// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub enum RawIdValue<'a> {
+pub enum EncodedIdValue<'a> {
     Id32(Stream<'a>),
     Id64(Stream<'a>),
 }
 
-impl Analyze for RawIdValue<'_> {
+impl Analyze for EncodedIdValue<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
             Self::Id32(v) | Self::Id64(v) => v.for_each_stream(cb),
@@ -132,8 +134,8 @@ impl Analyze for DecodedId {
     }
 }
 
-impl_decodable!(Id<'a>, RawId<'a>, DecodedId);
-impl_encodable!(OwnedId, DecodedId, OwnedRawId);
+impl_decodable!(Id<'a>, EncodedId<'a>, DecodedId);
+impl_encodable!(OwnedId, DecodedId, OwnedEncodedId);
 
 impl Debug for DecodedId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -146,40 +148,40 @@ impl Debug for DecodedId {
     }
 }
 
-impl<'a> From<RawId<'a>> for Id<'a> {
-    fn from(value: RawId<'a>) -> Self {
-        Self::Raw(value)
+impl<'a> From<EncodedId<'a>> for Id<'a> {
+    fn from(value: EncodedId<'a>) -> Self {
+        Self::Encoded(value)
     }
 }
 
 impl<'a> Id<'a> {
     #[must_use]
-    pub fn raw(optional: Option<Stream<'a>>, value: RawIdValue<'a>) -> Self {
-        Self::Raw(RawId { optional, value })
+    pub fn new_encoded(optional: Option<Stream<'a>>, value: EncodedIdValue<'a>) -> Self {
+        Self::Encoded(EncodedId { optional, value })
     }
 
     #[inline]
     pub fn decode(self) -> Result<DecodedId, MltError> {
         Ok(match self {
-            Self::Raw(v) => DecodedId::from_raw(v)?,
+            Self::Encoded(v) => DecodedId::from_encoded(v)?,
             Self::Decoded(v) => v,
             Self::None => DecodedId(None),
         })
     }
 }
 
-impl<'a> FromRaw<'a> for DecodedId {
-    type Input = RawId<'a>;
+impl<'a> FromEncoded<'a> for DecodedId {
+    type Input = EncodedId<'a>;
 
-    fn from_raw(RawId { optional, value }: RawId<'_>) -> Result<Self, MltError> {
+    fn from_encoded(EncodedId { optional, value }: EncodedId<'_>) -> Result<Self, MltError> {
         // Decode the ID values first
         let ids_u64: Vec<u64> = match value {
-            RawIdValue::Id32(stream) => {
+            EncodedIdValue::Id32(stream) => {
                 // Decode 32-bit IDs as u32, then convert to u64
                 let ids: Vec<u32> = stream.decode_bits_u32()?.decode_u32()?;
                 ids.into_iter().map(u64::from).collect()
             }
-            RawIdValue::Id64(stream) => {
+            EncodedIdValue::Id64(stream) => {
                 // Decode 64-bit IDs directly as u64
                 stream.decode_u64()?
             }
@@ -247,7 +249,7 @@ pub enum IdEncodingStrategy {
     OptId64,
 }
 
-impl FromDecoded<'_> for OwnedRawId {
+impl FromDecoded<'_> for OwnedEncodedId {
     type Input = DecodedId;
     type EncodingStrategy = IdEncodingStrategy;
 
@@ -282,7 +284,7 @@ impl FromDecoded<'_> for OwnedRawId {
 
             Some(OwnedStream {
                 meta,
-                data: OwnedStreamData::Raw(OwnedDataRaw { data }),
+                data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
             })
         } else {
             None
@@ -301,9 +303,9 @@ impl FromDecoded<'_> for OwnedRawId {
                 physical_decoder: PhysicalDecoder::None,
             };
 
-            OwnedRawIdValue::Id32(OwnedStream {
+            OwnedEncodedIdValue::Id32(OwnedStream {
                 meta,
-                data: OwnedStreamData::Raw(OwnedDataRaw { data }),
+                data: OwnedStreamData::Encoded(OwnedEncodedData { data }),
             })
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
@@ -327,7 +329,7 @@ impl FromDecoded<'_> for OwnedRawId {
                 physical_decoder: PhysicalDecoder::VarInt,
             };
 
-            OwnedRawIdValue::Id64(OwnedStream {
+            OwnedEncodedIdValue::Id64(OwnedStream {
                 meta,
                 data: OwnedStreamData::VarInt(OwnedDataVarInt { data }),
             })
@@ -348,9 +350,9 @@ mod tests {
 
     // Helper function to encode and decode for roundtrip testing
     fn roundtrip(decoded: &DecodedId, config: IdEncodingStrategy) -> DecodedId {
-        let raw = OwnedRawId::from_decoded(decoded, config).expect("Failed to encode");
-        let borrowed_raw = borrowme::borrow(&raw);
-        DecodedId::from_raw(borrowed_raw).expect("Failed to decode")
+        let encoded = OwnedEncodedId::from_decoded(decoded, config).expect("Failed to encode");
+        let borrowed_encoded = borrowme::borrow(&encoded);
+        DecodedId::from_encoded(borrowed_encoded).expect("Failed to decode")
     }
 
     // Test that each config produces the correct variant and optional stream presence
@@ -364,16 +366,16 @@ mod tests {
         #[case] ids: Vec<Option<u64>>,
     ) {
         let input = DecodedId(Some(ids));
-        let raw = OwnedRawId::from_decoded(&input, config).unwrap();
+        let encoded = OwnedEncodedId::from_decoded(&input, config).unwrap();
 
         match config {
-            OptId32 | Id32 => assert!(matches!(raw.value, OwnedRawIdValue::Id32(_))),
-            Id64 | OptId64 => assert!(matches!(raw.value, OwnedRawIdValue::Id64(_))),
+            OptId32 | Id32 => assert!(matches!(encoded.value, OwnedEncodedIdValue::Id32(_))),
+            Id64 | OptId64 => assert!(matches!(encoded.value, OwnedEncodedIdValue::Id64(_))),
         }
 
         match config {
-            OptId32 | OptId64 => assert!(raw.optional.is_some()),
-            Id32 | Id64 => assert!(raw.optional.is_none()),
+            OptId32 | OptId64 => assert!(encoded.optional.is_some()),
+            Id32 | Id64 => assert!(encoded.optional.is_none()),
         }
     }
 
@@ -484,8 +486,11 @@ mod tests {
         let mut id_enum = OwnedId::Decoded(decoded);
         id_enum.encode_with(config).expect("Failed to encode");
 
-        prop_assert!(!id_enum.is_decoded(), "Should be Raw after encoding");
-        prop_assert!(id_enum.borrow_raw().is_some(), "Raw variant should be Some");
+        prop_assert!(!id_enum.is_decoded(), "Should be Encoded after encoding");
+        prop_assert!(
+            id_enum.borrow_encoded().is_some(),
+            "Encoded variant should be Some"
+        );
 
         let mut borrowed_id = borrowme::borrow(&id_enum);
         borrowed_id.materialize().expect("Failed to materialize");
@@ -504,27 +509,27 @@ mod tests {
         config: IdEncodingStrategy,
     ) -> Result<(), TestCaseError> {
         let input = DecodedId(Some(ids));
-        let raw = OwnedRawId::from_decoded(&input, config).expect("Failed to encode");
+        let encoded = OwnedEncodedId::from_decoded(&input, config).expect("Failed to encode");
 
         if matches!(config, Id32 | OptId32) {
             prop_assert!(
-                matches!(raw.value, OwnedRawIdValue::Id32(_)),
+                matches!(encoded.value, OwnedEncodedIdValue::Id32(_)),
                 "Expected Id32 variant"
             );
         } else {
             prop_assert!(
-                matches!(raw.value, OwnedRawIdValue::Id64(_)),
+                matches!(encoded.value, OwnedEncodedIdValue::Id64(_)),
                 "Expected Id64 variant"
             );
         }
 
         if matches!(config, OptId32 | OptId64) {
             prop_assert!(
-                raw.optional.is_some(),
+                encoded.optional.is_some(),
                 "Expected optional stream to be present"
             );
         } else {
-            prop_assert!(raw.optional.is_none(), "Expected no optional stream");
+            prop_assert!(encoded.optional.is_none(), "Expected no optional stream");
         }
         Ok(())
     }

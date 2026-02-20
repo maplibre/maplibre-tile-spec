@@ -96,7 +96,7 @@ pub fn resolve_offsets(dict: &[String], offsets: &[u32]) -> Result<Vec<String>, 
 
 fn raw_bytes(s: Stream<'_>) -> Vec<u8> {
     match s.data {
-        StreamData::Raw(d) => d.data.to_vec(),
+        StreamData::Encoded(d) => d.data.to_vec(),
         StreamData::VarInt(d) => d.data.to_vec(),
     }
 }

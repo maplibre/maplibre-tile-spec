@@ -39,21 +39,21 @@ impl FeatureCollection {
                 .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
             let geom = match &l.geometry {
                 MltGeometry::Decoded(g) => g,
-                MltGeometry::Raw(_) => {
+                MltGeometry::Encoded(_) => {
                     return Err(MltError::NotDecoded("geometry"));
                 }
             };
             let ids = match &l.id {
                 Id::Decoded(DecodedId(Some(v))) => Some(v.as_slice()),
                 Id::Decoded(DecodedId(None)) | Id::None => None,
-                Id::Raw(_) => return Err(MltError::NotDecoded("id")),
+                Id::Encoded(_) => return Err(MltError::NotDecoded("id")),
             };
             let props: Vec<&DecodedProperty> = l
                 .properties
                 .iter()
                 .map(|p| match p {
                     Property::Decoded(d) => Ok(d),
-                    Property::Raw(_) => Err(MltError::NotDecoded("property")),
+                    Property::Encoded(_) => Err(MltError::NotDecoded("property")),
                 })
                 .collect::<Result<_, _>>()?;
 

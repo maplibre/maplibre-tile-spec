@@ -24,7 +24,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
     {
         let byte_length = match &stream.data {
             OwnedStreamData::VarInt(d) => d.data.len(),
-            OwnedStreamData::Raw(r) => r.data.len(),
+            OwnedStreamData::Encoded(r) => r.data.len(),
         };
         let byte_length =
             u32::try_from(byte_length).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
@@ -39,7 +39,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
     {
         let byte_length = match &stream.data {
             OwnedStreamData::VarInt(d) => d.data.len(),
-            OwnedStreamData::Raw(r) => r.data.len(),
+            OwnedStreamData::Encoded(r) => r.data.len(),
         };
         let byte_length =
             u32::try_from(byte_length).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
