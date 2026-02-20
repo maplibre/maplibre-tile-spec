@@ -19,7 +19,7 @@ pub use crate::v01::stream::logical::{
 pub use crate::v01::stream::physical::{PhysicalDecoder, PhysicalStreamType};
 use crate::{MltError, MltRefResult, utils};
 
-/// Representation of a encoded stream
+/// Representation of an encoded stream
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Stream<'a> {
