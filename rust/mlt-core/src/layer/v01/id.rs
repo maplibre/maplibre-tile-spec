@@ -108,7 +108,7 @@ impl Analyze for EncodedId<'_> {
     }
 }
 
-/// A sequence of encoded (encoded) ID values, either 32-bit or 64-bit unsigned integers
+/// A sequence of encoded ID values, either 32-bit or 64-bit unsigned integers
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedIdValue<'a> {
