@@ -64,7 +64,11 @@ impl Layer01<'_> {
         // WARNING: make sure to never use `let (input, ...)` after this point: input var is reused
         let (mut input, (col_info, prop_count)) = parse_columns_meta(input, column_count)?;
         #[cfg(fuzzing)]
-        let layer_order = col_info.iter().map(LayerOrdering::from).collect();
+        let layer_order = col_info
+            .iter()
+            .map(|column| column.typ)
+            .map(LayerOrdering::from)
+            .collect();
 
         let mut properties = Vec::with_capacity(prop_count);
         let mut id_stream: Option<Id> = None;
@@ -368,7 +372,7 @@ impl OwnedLayer01 {
     }
     #[cfg(fuzzing)]
     fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        let mut props = &self.properties.iter();
+        let props = &mut self.properties.iter();
         for ord in &self.layer_order {
             match ord {
                 LayerOrdering::Id => self.id.write_columns_meta_to(writer)?,
@@ -394,7 +398,7 @@ impl OwnedLayer01 {
     }
     #[cfg(fuzzing)]
     fn write_columns_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        let mut props = &self.properties.iter();
+        let props = &mut self.properties.iter();
         for ord in &self.layer_order {
             match ord {
                 LayerOrdering::Id => self.id.write_to(writer)?,
@@ -413,7 +417,8 @@ impl OwnedLayer01 {
 
 #[cfg(fuzzing)]
 /// To make sure we serialize out in the same order as the original file, we need to store the order in which we parsed the columns
-enum LayerOrdering {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LayerOrdering {
     Id,
     Geometry,
     Property,
