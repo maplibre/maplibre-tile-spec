@@ -46,8 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/mlt-setup-rust
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+        with: { toolchain: nightly }
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       # enable once we can reliably fuzz ourselves
       #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
@@ -57,15 +56,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
-      - name: Read MSRV
-        id: msrv
-        run: echo "value=$(just rust::get-msrv)" >> $GITHUB_OUTPUT
-      - name: Install MSRV Rust ${{ steps.msrv.outputs.value }}
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ steps.msrv.outputs.value }}
+        with: { toolchain: msrv }
       - run: just -v rust::ci-test-msrv
 
   coverage:
@@ -74,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-java  # generate MLT test files
       - uses: ./.github/actions/mlt-setup-rust
       - uses: taiki-e/install-action@v2
         with: { tool: 'cargo-llvm-cov' }
@@ -118,8 +111,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: |
-            ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
@@ -182,11 +174,10 @@ jobs:
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
-        run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
+        run: just -v rust::get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
         uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+        with: { path: artifacts }
       - name: Add binaries to GitHub release
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
