@@ -56,9 +56,9 @@ public class CompareHelper {
                   + geometries.get().getRight())
               : "";
       return message
-          + itemStr
-          + propStr
-          + geomStr
+          + (itemStr.isEmpty() ? "" : " " + itemStr)
+          + (propStr.isEmpty() ? "" : " " + propStr)
+          + (geomStr.isEmpty() ? "" : "\n" + geomStr)
           + (layerIndex.isPresent() ? (" at layer index " + layerIndex.get()) : "")
           + (layerName.isPresent() ? (" in layer '" + layerName.get() + "': ") : "")
           + (featureIndex.isPresent() ? (" at feature index " + featureIndex.get()) : "");
