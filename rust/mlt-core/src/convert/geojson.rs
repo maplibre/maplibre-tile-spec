@@ -58,7 +58,6 @@ impl FeatureCollection {
                 .collect::<Result<_, _>>()?;
 
             for i in 0..geom.vector_types.len() {
-                let id = ids.and_then(|v| v.get(i).copied().flatten()).unwrap_or(0);
                 let geometry = geom.to_geojson(i)?;
                 let mut properties = BTreeMap::new();
                 for prop in &props {
@@ -70,7 +69,7 @@ impl FeatureCollection {
                 properties.insert("_extent".into(), Value::Number(l.extent.into()));
                 features.push(Feature {
                     geometry,
-                    id,
+                    id: ids.and_then(|v| v.get(i).copied().flatten()),
                     properties,
                     ty: "Feature".into(),
                 });
@@ -88,7 +87,8 @@ impl FeatureCollection {
 pub struct Feature {
     #[serde(with = "geom_serde")]
     pub geometry: Geom32,
-    pub id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<u64>,
     pub properties: BTreeMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,

@@ -4,44 +4,14 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          4,
-          47
+          13,
+          42
         ]
       },
+      "id": 100,
       "properties": {
         "_extent": 4096,
-        "_layer": "layer1",
-        "val": 42
-      },
-      "type": "Feature"
-    },
-    {
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          12,
-          53
-        ]
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1",
-        "val": 42
-      },
-      "type": "Feature"
-    },
-    {
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          18,
-          45
-        ]
-      },
-      "properties": {
-        "_extent": 4096,
-        "_layer": "layer1",
-        "val": 42
+        "_layer": "layer1"
       },
       "type": "Feature"
     },
@@ -50,13 +20,57 @@
         "type": "Point",
         "coordinates": [
           13,
-          48
+          42
+        ]
+      },
+      "id": 101,
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
         ]
       },
       "properties": {
         "_extent": 4096,
-        "_layer": "layer1",
-        "val": 42
+        "_layer": "layer1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      },
+      "id": 105,
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      },
+      "id": 106,
+      "properties": {
+        "_extent": 4096,
+        "_layer": "layer1"
       },
       "type": "Feature"
     }
