@@ -52,7 +52,7 @@ macro_rules! impl_encodable {
                 matches!(self, Self::Decoded(_))
             }
 
-            fn new_encoded(decoded: Self::EncodedType) -> Self {
+            fn new_encoded(encoded: Self::EncodedType) -> Self {
                 Self::Encoded(decoded)
             }
 
