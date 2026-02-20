@@ -347,6 +347,7 @@ impl ToRaw<'_> for OwnedRawId {
 
 #[cfg(test)]
 mod tests {
+    use IdEncodingConfig::*;
     use rstest::rstest;
 
     use super::*;
@@ -360,22 +361,10 @@ mod tests {
 
     // Test that each config produces the correct variant and optional stream presence
     #[rstest]
-    #[case::id32(
-        IdEncodingConfig::Id32,
-        vec![Some(1), Some(2), Some(3)]
-    )]
-    #[case::opt_id32(
-        IdEncodingConfig::OptId32,
-        vec![Some(1), None, Some(3)]
-    )]
-    #[case::id64(
-        IdEncodingConfig::Id64,
-        vec![Some(1), Some(2), Some(3)]
-    )]
-    #[case::opt_id64(
-        IdEncodingConfig::OptId64,
-        vec![Some(1), None, Some(3)]
-    )]
+    #[case::id32(Id32, vec![Some(1), Some(2), Some(3)])]
+    #[case::opt_id32(OptId32, vec![Some(1), None, Some(3)])]
+    #[case::id64(Id64, vec![Some(1), Some(2), Some(3)])]
+    #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
     fn test_config_produces_correct_variant(
         #[case] config: IdEncodingConfig,
         #[case] ids: Vec<Option<u64>>,
@@ -384,44 +373,44 @@ mod tests {
         let raw = OwnedRawId::to_raw(&input, config).unwrap();
 
         match config {
-            IdEncodingConfig::OptId32 | IdEncodingConfig::Id32 => {
+            OptId32 | Id32 => {
                 assert!(matches!(raw.value, OwnedRawIdValue::Id32(_)))
             }
-            IdEncodingConfig::Id64 | IdEncodingConfig::OptId64 => {
+            Id64 | OptId64 => {
                 assert!(matches!(raw.value, OwnedRawIdValue::Id64(_)))
             }
         };
 
         match config {
-            IdEncodingConfig::OptId32 | IdEncodingConfig::OptId64 => {
+            OptId32 | OptId64 => {
                 assert!(raw.optional.is_some())
             }
-            IdEncodingConfig::Id32 | IdEncodingConfig::Id64 => {
+            Id32 | Id64 => {
                 assert!(raw.optional.is_none())
             }
         };
     }
 
     #[rstest]
-    #[case::id32_basic(IdEncodingConfig::Id32, &[Some(1), Some(2), Some(100), Some(1000)])]
-    #[case::id32_single(IdEncodingConfig::Id32, &[Some(42)])]
-    #[case::id32_boundaries(IdEncodingConfig::Id32, &[Some(0), Some(u32::MAX as u64)])]
-    #[case::id64_basic(IdEncodingConfig::Id64, &[Some(1), Some(2), Some(100), Some(1000)])]
-    #[case::id64_single(IdEncodingConfig::Id64, &[Some(u64::MAX)])]
-    #[case::id64_boundaries(IdEncodingConfig::Id64, &[Some(0), Some(u64::MAX)])]
+    #[case::id32_basic(Id32, &[Some(1), Some(2), Some(100), Some(1000)])]
+    #[case::id32_single(Id32, &[Some(42)])]
+    #[case::id32_boundaries(Id32, &[Some(0), Some(u32::MAX as u64)])]
+    #[case::id64_basic(Id64, &[Some(1), Some(2), Some(100), Some(1000)])]
+    #[case::id64_single(Id64, &[Some(u64::MAX)])]
+    #[case::id64_boundaries(Id64, &[Some(0), Some(u64::MAX)])]
     #[case::id64_large_values(
-        IdEncodingConfig::Id64,
+        Id64,
         &[Some(0), Some(u32::MAX as u64), Some(u32::MAX as u64 + 1), Some(u64::MAX)]
     )]
-    #[case::opt_id32_with_nulls(IdEncodingConfig::OptId32, &[Some(1), None, Some(100), None, Some(1000)])]
-    #[case::opt_id32_no_nulls(IdEncodingConfig::OptId32, &[Some(1), Some(2), Some(3)])]
-    #[case::opt_id32_single_null(IdEncodingConfig::OptId32, &[None])]
+    #[case::opt_id32_with_nulls(OptId32, &[Some(1), None, Some(100), None, Some(1000)])]
+    #[case::opt_id32_no_nulls(OptId32, &[Some(1), Some(2), Some(3)])]
+    #[case::opt_id32_single_null(OptId32, &[None])]
     #[case::opt_id64_with_nulls(
-        IdEncodingConfig::OptId64,
+        OptId64,
         &[Some(1), None, Some(u32::MAX as u64 + 1), None, Some(u64::MAX)]
     )]
-    #[case::opt_id64_all_nulls(IdEncodingConfig::OptId64, &[None, None, None])]
-    #[case::none(IdEncodingConfig::Id32, &[])]
+    #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
+    #[case::none(Id32, &[])]
     fn test_roundtrip(#[case] config: IdEncodingConfig, #[case] ids: &[Option<u64>]) {
         let input = DecodedId(Some(ids.to_vec()));
         let output = roundtrip(&input, config);
@@ -432,7 +421,7 @@ mod tests {
     fn test_sequential_ids_for_delta_encoding() {
         // Sequential IDs should compress well with delta encoding
         let input = DecodedId(Some((1..=100).map(Some).collect()));
-        let output = roundtrip(&input, IdEncodingConfig::Id64);
+        let output = roundtrip(&input, Id64);
         assert_eq!(output, input);
     }
 
@@ -447,7 +436,7 @@ mod tests {
             #[test]
             fn test_roundtrip_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
                 let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-                assert_roundtrip_succeeds(ids_u64, IdEncodingConfig::Id32)?;
+                assert_roundtrip_succeeds(ids_u64, Id32)?;
             }
 
             #[test]
@@ -455,33 +444,33 @@ mod tests {
                 ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100)
             ) {
                 let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
-                assert_roundtrip_succeeds(ids_u64, IdEncodingConfig::OptId32)?;
+                assert_roundtrip_succeeds(ids_u64, OptId32)?;
             }
 
             #[test]
             fn test_roundtrip_id64(ids in prop::collection::vec(any::<u64>(), 1..100)) {
                 let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-                assert_roundtrip_succeeds(ids_u64, IdEncodingConfig::Id64)?;
+                assert_roundtrip_succeeds(ids_u64, Id64)?;
             }
 
             #[test]
             fn test_roundtrip_opt_id64(
                 ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
             ) {
-                assert_roundtrip_succeeds(ids, IdEncodingConfig::OptId64)?;
+                assert_roundtrip_succeeds(ids, OptId64)?;
             }
 
             #[test]
             fn test_encodable_trait_api_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
                 let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-                assert_encodable_api_works(ids_u64, IdEncodingConfig::Id32)?;
+                assert_encodable_api_works(ids_u64, Id32)?;
             }
 
             #[test]
             fn test_encodable_trait_api_opt_id64(
                 ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
             ) {
-                assert_encodable_api_works(ids, IdEncodingConfig::OptId64)?;
+                assert_encodable_api_works(ids, OptId64)?;
             }
 
             #[test]
@@ -489,7 +478,7 @@ mod tests {
                 ids in prop::collection::vec(1u32..1000u32, 1..50)
             ) {
                 let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-                assert_produces_correct_variant(ids_u64, IdEncodingConfig::Id32)?;
+                assert_produces_correct_variant(ids_u64, Id32)?;
             }
 
             #[test]
@@ -497,7 +486,7 @@ mod tests {
                 ids in prop::collection::vec(any::<u64>(), 1..50)
             ) {
                 let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-                assert_produces_correct_variant(ids_u64, IdEncodingConfig::Id64)?;
+                assert_produces_correct_variant(ids_u64, Id64)?;
             }
         }
 
@@ -511,10 +500,10 @@ mod tests {
         impl ExpectedVariant {
             fn from_config(config: IdEncodingConfig) -> Self {
                 match config {
-                    IdEncodingConfig::Id32 => ExpectedVariant::Id32,
-                    IdEncodingConfig::OptId32 => ExpectedVariant::OptionalId32,
-                    IdEncodingConfig::Id64 => ExpectedVariant::Id64,
-                    IdEncodingConfig::OptId64 => ExpectedVariant::OptionalId64,
+                    Id32 => ExpectedVariant::Id32,
+                    OptId32 => ExpectedVariant::OptionalId32,
+                    Id64 => ExpectedVariant::Id64,
+                    OptId64 => ExpectedVariant::OptionalId64,
                 }
             }
 
