@@ -160,5 +160,5 @@ update:
 
 [private]
 [working-directory: 'mlt-core']
-cargo-fuzz *args:  (cargo-install 'cargo-fuzz')
+cargo-fuzz *args:  (just 'cargo-install' 'cargo-fuzz')
     cargo +nightly fuzz {{args}}
