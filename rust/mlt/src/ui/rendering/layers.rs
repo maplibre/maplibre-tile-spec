@@ -1,5 +1,5 @@
-use mlt_core::geojson;
-use mlt_core::geojson::{Feature, Geometry};
+use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+use mlt_core::geojson::{Feature, Geom32};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Span, Style};
@@ -158,7 +158,7 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 (
                     "Properties".into(),
                     vec![Line::from(
-                        "Select a feature or hover over map to view properties",
+                        "Select or hover over a feature to view properties",
                     )],
                 )
             }
@@ -185,72 +185,96 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     f.render_widget(para, area);
 }
 
-fn geometry_stats_lines(geom: &Geometry) -> Vec<Line<'static>> {
+fn info_point(lines: &mut Vec<Line<'static>>, p: Point<i32>) {
+    lines.push(stat_line("Coords", &format!("{:?}", <[i32; 2]>::from(p))));
+}
+
+fn info_line_string(lines: &mut Vec<Line<'static>>, ls: &LineString<i32>) {
+    lines.push(stat_line("Vertices", &ls.0.len()));
+}
+
+fn info_polygon(lines: &mut Vec<Line<'static>>, poly: &Polygon<i32>) {
+    let total: usize =
+        poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>();
+    lines.push(stat_line("Vertices", &total));
+    lines.push(stat_line("Rings", &(1 + poly.interiors().len())));
+    let ext = &poly.exterior().0;
+    let w = if is_ring_ccw(ext) { "CCW" } else { "CW" };
+    lines.push(Line::from(format!("  Ring 0: {}v, {w}", ext.len())));
+    for (i, ring) in poly.interiors().iter().enumerate() {
+        let w = if is_ring_ccw(&ring.0) { "CCW" } else { "CW" };
+        lines.push(Line::from(format!(
+            "  Ring {}: {}v, {w}",
+            i + 1,
+            ring.0.len()
+        )));
+    }
+}
+
+fn info_multi_point(lines: &mut Vec<Line<'static>>, pts: &MultiPoint<i32>) {
+    lines.push(stat_line("Points", &pts.0.len()));
+}
+
+fn info_multi_line_string(lines: &mut Vec<Line<'static>>, mls: &MultiLineString<i32>) {
+    let total: usize = mls.iter().map(|ls| ls.0.len()).sum();
+    lines.push(stat_line("Parts", &mls.0.len()));
+    lines.push(stat_line("Vertices", &total));
+}
+
+fn info_multi_polygon(lines: &mut Vec<Line<'static>>, mpoly: &MultiPolygon<i32>) {
+    let total: usize = mpoly
+        .iter()
+        .flat_map(|p| {
+            std::iter::once(p.exterior().0.len()).chain(p.interiors().iter().map(|r| r.0.len()))
+        })
+        .sum();
+    let total_rings: usize = mpoly.iter().map(|p| 1 + p.interiors().len()).sum();
+    lines.push(stat_line("Parts", &mpoly.0.len()));
+    lines.push(stat_line("Total vertices", &total));
+    lines.push(stat_line("Total rings", &total_rings));
+}
+
+fn geometry_stats_lines(geom: &Geom32) -> Vec<Line<'static>> {
     let mut lines = vec![stat_line("Type", &geometry_type_name(geom))];
     match geom {
-        Geometry::Point(c) => {
-            lines.push(stat_line("Coords", &format!("[{}, {}]", c[0], c[1])));
-        }
-        Geometry::MultiPoint(pts) => {
-            lines.push(stat_line("Points", &pts.len()));
-        }
-        Geometry::LineString(c) => {
-            lines.push(stat_line("Vertices", &c.len()));
-        }
-        Geometry::MultiLineString(v) => {
-            lines.push(stat_line("Parts", &v.len()));
-            let total: usize = v.iter().map(Vec::len).sum();
-            lines.push(stat_line("Vertices", &total));
-        }
-        Geometry::Polygon(rings) => push_ring_stats(&mut lines, rings),
-        Geometry::MultiPolygon(polys) => {
-            lines.push(stat_line("Parts", &polys.len()));
-            let total: usize = polys.iter().flat_map(|p| p.iter()).map(Vec::len).sum();
-            lines.push(stat_line("Total vertices", &total));
-            let total_rings: usize = polys.iter().map(Vec::len).sum();
-            lines.push(stat_line("Total rings", &total_rings));
-        }
+        Geom32::Point(p) => info_point(&mut lines, *p),
+        Geom32::LineString(ls) => info_line_string(&mut lines, ls),
+        Geom32::Polygon(poly) => info_polygon(&mut lines, poly),
+        Geom32::MultiPoint(pts) => info_multi_point(&mut lines, pts),
+        Geom32::MultiLineString(mls) => info_multi_line_string(&mut lines, mls),
+        Geom32::MultiPolygon(mpoly) => info_multi_polygon(&mut lines, mpoly),
+        _ => unreachable!("Unexpected geometry type {geom:?}"),
     }
     lines
 }
 
-fn subpart_stats_lines(geom: &Geometry, part: usize) -> Vec<Line<'static>> {
+fn subpart_stats_lines(geom: &Geom32, part: usize) -> Vec<Line<'static>> {
     let mut lines = vec![stat_line(
-        "Part",
-        &format!("#{part} of {}", geometry_type_name(geom)),
+        "Component",
+        &format!("part #{} of a {}", part, geometry_type_name(geom)),
     )];
     match geom {
-        Geometry::MultiPoint(pts) => {
-            if let Some(&[x, y]) = pts.get(part) {
+        Geom32::MultiPoint(pts) => {
+            if let Some(p) = pts.0.get(part) {
                 lines.push(stat_line("Type", &"Point"));
-                lines.push(stat_line("Coords", &format!("[{x}, {y}]")));
+                info_point(&mut lines, *p);
             }
         }
-        Geometry::MultiLineString(v) => {
-            if let Some(line) = v.get(part) {
+        Geom32::MultiLineString(mls) => {
+            if let Some(ls) = mls.0.get(part) {
                 lines.push(stat_line("Type", &"LineString"));
-                lines.push(stat_line("Vertices", &line.len()));
+                info_line_string(&mut lines, ls);
             }
         }
-        Geometry::MultiPolygon(polys) => {
-            if let Some(rings) = polys.get(part) {
+        Geom32::MultiPolygon(mpoly) => {
+            if let Some(poly) = mpoly.0.get(part) {
                 lines.push(stat_line("Type", &"Polygon"));
-                push_ring_stats(&mut lines, rings);
+                info_polygon(&mut lines, poly);
             }
         }
         _ => {}
     }
     lines
-}
-
-fn push_ring_stats(lines: &mut Vec<Line<'static>>, rings: &[Vec<geojson::Coordinate>]) {
-    let total: usize = rings.iter().map(Vec::len).sum();
-    lines.push(stat_line("Vertices", &total));
-    lines.push(stat_line("Rings", &rings.len()));
-    for (i, ring) in rings.iter().enumerate() {
-        let w = if is_ring_ccw(ring) { "CCW" } else { "CW" };
-        lines.push(Line::from(format!("  Ring {i}: {}v, {w}", ring.len())));
-    }
 }
 
 fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
@@ -272,7 +296,9 @@ fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
                     None => geometry_stats_lines(geom),
                 }
             } else {
-                vec![Line::from("Select a feature to view geometry details")]
+                vec![Line::from(
+                    "Select or hover over a feature to view geometry info",
+                )]
             }
         }
     };

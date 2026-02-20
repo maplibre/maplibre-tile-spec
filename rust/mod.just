@@ -138,6 +138,9 @@ test:
     cargo test --all-targets --all-features
     cargo test --doc --all-features
 
+test-debug:
+    RUST_BACKTRACE=1 cargo test --test synthetics debug -- --ignored
+
 # Test documentation generation
 test-doc: (docs '')
 

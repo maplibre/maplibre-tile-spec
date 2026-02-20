@@ -18,7 +18,8 @@ use crossterm::event::{
     MouseEventKind,
 };
 use crossterm::execute;
-use mlt_core::geojson::{Coordinate, FeatureCollection, Geometry};
+use geo_types::Polygon;
+use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::parse_layers;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
@@ -803,60 +804,76 @@ fn collect_extensions(files: &[(PathBuf, LsRow)]) -> Vec<String> {
 
 // --- Geometry helpers ---
 
-fn geometry_type_name(geom: &Geometry) -> &'static str {
+fn geometry_type_name(geom: &Geom32) -> &'static str {
     match geom {
-        Geometry::Point(_) => "Point",
-        Geometry::LineString(_) => "LineString",
-        Geometry::Polygon(_) => "Polygon",
-        Geometry::MultiPoint(_) => "MultiPoint",
-        Geometry::MultiLineString(_) => "MultiLineString",
-        Geometry::MultiPolygon(_) => "MultiPolygon",
+        Geom32::Point(_) => "Point",
+        Geom32::Line(_) => "Line",
+        Geom32::LineString(_) => "LineString",
+        Geom32::Polygon(_) => "Polygon",
+        Geom32::MultiPoint(_) => "MultiPoint",
+        Geom32::MultiLineString(_) => "MultiLineString",
+        Geom32::MultiPolygon(_) => "MultiPolygon",
+        Geom32::GeometryCollection(_) => "GeometryCollection",
+        Geom32::Rect(_) => "Rect",
+        Geom32::Triangle(_) => "Triangle",
+        _ => "Unknown",
     }
 }
 
-fn sub_type_name(geom: &Geometry) -> &'static str {
+fn sub_type_name(geom: &Geom32) -> &'static str {
     match geom {
-        Geometry::MultiPoint(_) => "Point",
-        Geometry::MultiLineString(_) => "LineString",
-        Geometry::MultiPolygon(_) => "Polygon",
+        Geom32::MultiPoint(_) => "Point",
+        Geom32::MultiLineString(_) => "LineString",
+        Geom32::MultiPolygon(_) => "Polygon",
         _ => "Part",
     }
 }
 
-fn geometry_color(geom: &Geometry) -> Color {
+fn geometry_color(geom: &Geom32) -> Color {
     match geom {
-        Geometry::Point(_) => CLR_POINT,
-        Geometry::MultiPoint(_) => CLR_MULTI_POINT,
-        Geometry::LineString(_) => CLR_LINE,
-        Geometry::MultiLineString(_) => CLR_MULTI_LINE,
-        Geometry::Polygon(_) | Geometry::MultiPolygon(_) if has_nonstandard_winding(geom) => {
+        Geom32::MultiPoint(_) => CLR_MULTI_POINT,
+        Geom32::LineString(_) => CLR_LINE,
+        Geom32::MultiLineString(_) => CLR_MULTI_LINE,
+        Geom32::Polygon(_) | Geom32::MultiPolygon(_) if has_nonstandard_winding(geom) => {
             CLR_BAD_WINDING
         }
-        Geometry::Polygon(_) => CLR_POLYGON,
-        Geometry::MultiPolygon(_) => CLR_MULTI_POLYGON,
+        Geom32::Polygon(_) => CLR_POLYGON,
+        Geom32::MultiPolygon(_) => CLR_MULTI_POLYGON,
+        Geom32::Point(_)
+        | Geom32::Line(_)
+        | Geom32::GeometryCollection(_)
+        | Geom32::Rect(_)
+        | Geom32::Triangle(_) => CLR_POINT,
     }
 }
 
-fn multi_part_count(geom: &Geometry) -> usize {
+fn multi_part_count(geom: &Geom32) -> usize {
     match geom {
-        Geometry::MultiPoint(v) => v.len(),
-        Geometry::MultiLineString(v) => v.len(),
-        Geometry::MultiPolygon(v) => v.len(),
+        Geom32::MultiPoint(mp) => mp.0.len(),
+        Geom32::MultiLineString(mls) => mls.0.len(),
+        Geom32::MultiPolygon(mpoly) => mpoly.0.len(),
         _ => 0,
     }
 }
 
-fn feature_suffix(geom: &Geometry) -> String {
+fn poly_ring_stats(poly: &Polygon<i32>) -> (usize, usize) {
+    let ring_count = 1 + poly.interiors().len();
+    let total_verts =
+        poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>();
+    (total_verts, ring_count)
+}
+
+fn feature_suffix(geom: &Geom32) -> String {
     let n = multi_part_count(geom);
     if n > 0 {
         return format!(" ({n} parts)");
     }
     match geom {
-        Geometry::LineString(c) => format!(" ({}v)", c.len()),
-        Geometry::Polygon(rings) => {
-            let total: usize = rings.iter().map(Vec::len).sum();
-            if rings.len() > 1 {
-                format!(" ({total}v, {} rings)", rings.len())
+        Geom32::LineString(ls) => format!(" ({}v)", ls.0.len()),
+        Geom32::Polygon(poly) => {
+            let (total, ring_count) = poly_ring_stats(poly);
+            if ring_count > 1 {
+                format!(" ({total}v, {ring_count} rings)")
             } else {
                 format!(" ({total}v)")
             }
@@ -865,15 +882,16 @@ fn feature_suffix(geom: &Geometry) -> String {
     }
 }
 
-fn sub_feature_suffix(geom: &Geometry, part: usize) -> String {
+fn sub_feature_suffix(geom: &Geom32, part: usize) -> String {
     match geom {
-        Geometry::MultiLineString(v) => v
+        Geom32::MultiLineString(mls) => mls
+            .0
             .get(part)
-            .map_or(String::new(), |l| format!(" ({}v)", l.len())),
-        Geometry::MultiPolygon(v) => v.get(part).map_or(String::new(), |p| {
-            let total: usize = p.iter().map(Vec::len).sum();
-            if p.len() > 1 {
-                format!(" ({total}v, {} rings)", p.len())
+            .map_or(String::new(), |ls| format!(" ({}v)", ls.0.len())),
+        Geom32::MultiPolygon(mpoly) => mpoly.0.get(part).map_or(String::new(), |poly| {
+            let (total, ring_count) = poly_ring_stats(poly);
+            if ring_count > 1 {
+                format!(" ({total}v, {ring_count} rings)")
             } else {
                 format!(" ({total}v)")
             }
@@ -907,7 +925,7 @@ fn part_color(sel: Option<usize>, hov: Option<usize>, idx: usize, base: Color) -
 
 // --- Winding ---
 
-fn ring_signed_area(ring: &[Coordinate]) -> f64 {
+fn ring_signed_area(ring: &[Coord32]) -> f64 {
     let mut area = 0.0;
     for w in ring.windows(2) {
         let [x1, y1] = coord_f64(w[0]);
@@ -922,18 +940,17 @@ fn ring_signed_area(ring: &[Coordinate]) -> f64 {
     area
 }
 
-fn is_ring_ccw(ring: &[Coordinate]) -> bool {
+pub(crate) fn is_ring_ccw(ring: &[Coord32]) -> bool {
     ring_signed_area(ring) < 0.0
 }
 
-fn has_nonstandard_winding(geom: &Geometry) -> bool {
-    let check = |rings: &[Vec<Coordinate>]| {
-        rings.first().is_some_and(|r| !is_ring_ccw(r))
-            || rings.iter().skip(1).any(|r| is_ring_ccw(r))
+fn has_nonstandard_winding(geom: &Geom32) -> bool {
+    let check = |poly: &Polygon<i32>| {
+        !is_ring_ccw(&poly.exterior().0) || poly.interiors().iter().any(|r| is_ring_ccw(&r.0))
     };
     match geom {
-        Geometry::Polygon(rings) => check(rings),
-        Geometry::MultiPolygon(polys) => polys.iter().any(|p| check(p)),
+        Geom32::Polygon(poly) => check(poly),
+        Geom32::MultiPolygon(mpoly) => mpoly.iter().any(check),
         _ => false,
     }
 }
@@ -981,6 +998,6 @@ impl PointDistance for GeometryIndexEntry {
 }
 
 #[must_use]
-pub fn coord_f64(c: Coordinate) -> [f64; 2] {
-    [f64::from(c[0]), f64::from(c[1])]
+pub fn coord_f64(c: Coord32) -> [f64; 2] {
+    [f64::from(c.x), f64::from(c.y)]
 }
