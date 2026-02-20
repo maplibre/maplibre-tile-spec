@@ -50,10 +50,10 @@ macro_rules! impl_decodable {
             }
 
             fn take_encoded(&mut self) -> Option<Self::EncodedType> {
-                if let Self::Encoded(decoded) =
+                if let Self::Encoded(enc) =
                     std::mem::replace(self, Self::Decoded(Self::DecodedType::default()))
                 {
-                    Some(decoded)
+                    Some(enc)
                 } else {
                     None
                 }
