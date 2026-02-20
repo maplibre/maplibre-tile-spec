@@ -496,7 +496,9 @@ public class Encode {
                   "  Compression of %d:%d,%d not effective, saving uncompressed (%d vs %d bytes)%n",
                   z, x, y, tileData.length, outputStream.size());
             }
-            didCompress.setFalse();
+            if (didCompress != null) {
+              didCompress.setFalse();
+            }
           }
         }
       }
