@@ -597,7 +597,7 @@ public class Encode {
     if (threadCount <= 1) {
       return new SerialTaskRunner();
     }
-    // Create a thread pool with a limited task queue that will not reject tasks when it's full.
+    // Create a thread pool with a bounded task queue that will not reject tasks when it's full.
     // Tasks beyond the limit will run on the calling thread, preventing OOM from too many tasks
     // while allowing for parallelism when the pool is available.
     return new ThreadPoolTaskRunner(
@@ -606,7 +606,7 @@ public class Encode {
             threadCount,
             100L,
             TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(),
+            new LinkedBlockingQueue<>(4 * threadCount),
             new ThreadPoolExecutor.CallerRunsPolicy()));
   }
 

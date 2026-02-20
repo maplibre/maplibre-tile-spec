@@ -62,6 +62,13 @@ public class PMTilesHelper extends ConversionHelper {
       }
 
       final var header = reader.getHeader();
+      if (config.verboseLevel() > 0) {
+        System.err.printf(
+            "Addressed Tiles: %,d, Tile Contents: %,d (%.1f%%)%n",
+            header.numAddressedTiles(),
+            header.numTileContents(),
+            100.0 * header.numTileContents() / header.numAddressedTiles());
+      }
       if (header.tileType() != TileType.MVT) {
         System.err.printf(
             "ERROR: Input PMTiles tile type is %d, expected %d (MVT)%n",
@@ -191,6 +198,10 @@ public class PMTilesHelper extends ConversionHelper {
               }
             });
     state.directoryComplete.set(true);
+    if (state.encodeConfig().verboseLevel() > 0) {
+      System.err.printf(
+          "\rDirectory read complete. Processing %,d tiles.%n", state.totalTileCount.get());
+    }
     taskRunner.shutdown();
   }
 
@@ -208,7 +219,7 @@ public class PMTilesHelper extends ConversionHelper {
         if (!state.directoryComplete.get()) {
           // Still fetching tile coordinates
           if (tileCount < 2 || (tileCount % 1000 == 0)) {
-            System.err.printf("\rProcessing tile %d         \r", tileCount);
+            System.err.printf("\rProcessing tile %,d         \r", tileCount);
           }
         } else {
           final var totalTiles = state.totalTileCount.get();
@@ -217,7 +228,8 @@ public class PMTilesHelper extends ConversionHelper {
           if ((tileCount % 10000 == 0)
               || (int) Math.round(progress * 10.0) != (int) Math.round(prevProgress * 10.0)) {
             System.err.printf(
-                "\rProcessing tiles: %d / %d  (%.1f%%)       \r", tileCount, totalTiles, progress);
+                "\rProcessing tiles: %,d / %,d  (%.1f%%)       \r",
+                tileCount, totalTiles, progress);
           }
         }
       }
