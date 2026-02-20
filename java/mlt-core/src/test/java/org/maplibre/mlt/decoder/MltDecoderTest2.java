@@ -7,9 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.NotImplementedException;
@@ -23,7 +21,7 @@ import org.maplibre.mlt.TestUtils;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 
 enum DecoderType {
@@ -199,8 +197,9 @@ public class MltDecoderTest2 {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    final Map<Pattern, List<ColumnMapping>> columnMappings = Map.of();
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
+    final var columnMappings = new ColumnMappingConfig();
+    var tileMetadata =
+        MltConverter.createTilesetMetadata(mvTile, columnMappings, true, false, true);
 
     var allowIdRegeneration = false;
     var optimization = new FeatureTableOptimizations(allowSorting, allowIdRegeneration, List.of());

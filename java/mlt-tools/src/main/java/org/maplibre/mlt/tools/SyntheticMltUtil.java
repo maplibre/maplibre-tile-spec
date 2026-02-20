@@ -13,11 +13,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.locationtech.jts.geom.*;
-import org.maplibre.mlt.cli.CliUtil;
+import org.maplibre.mlt.cli.JsonHelper;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
@@ -70,7 +71,7 @@ class SyntheticMltUtil {
     }
 
     public Cfg coercePropValues() {
-      this.coercePropertyValues(true);
+      this.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
     }
 
@@ -113,7 +114,7 @@ class SyntheticMltUtil {
     c.includeIds(false);
     c.useFastPFOR(false);
     c.useFSST(false);
-    c.coercePropertyValues(false);
+    c.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.FAIL);
     // c.optimizations(null); // Map<String, FeatureTableOptimizations>
     c.preTessellatePolygons(false);
     c.useMortonEncoding(false);
@@ -232,7 +233,7 @@ class SyntheticMltUtil {
       var tile = new MapboxVectorTile(layers);
 
       // Extract column mappings from the config's optimizations
-      var columnMappings = new HashMap<Pattern, List<ColumnMapping>>();
+      final var columnMappings = new ColumnMappingConfig();
       if (config.getOptimizations() != null && !config.getOptimizations().isEmpty()) {
         var allColumnMappings =
             config.getOptimizations().values().stream()
@@ -248,7 +249,7 @@ class SyntheticMltUtil {
       var mlt = MltConverter.convertMvt(tile, metadata, config, null);
       Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
 
-      String json = CliUtil.printMltGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
+      final String json = JsonHelper.toGeoJson(MltDecoder.decodeMlTile(mlt)) + "\n";
       Files.writeString(jsonFile, json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);

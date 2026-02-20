@@ -8,6 +8,15 @@ repositories {
     maven {
         url = 'https://maven.ecc.no/releases'
     }
+    maven {
+        url = 'https://nexus.terrestris.de/repository/public/'
+        content {
+            includeGroup 'org.geotools'
+            includeGroup 'org.geotools.ogc'
+            includeGroup 'org.eclipse.imagen'
+            includeGroup 'it.geosolutions.jgridshift'
+        }
+    }
 }
 
 dependencies {

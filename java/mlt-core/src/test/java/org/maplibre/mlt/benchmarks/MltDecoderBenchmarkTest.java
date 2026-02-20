@@ -6,12 +6,14 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.TestSettings;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
 
@@ -20,6 +22,7 @@ import org.maplibre.mlt.decoder.MltDecoder;
  * MLT in-memory representations. Can be used for simple profiling. For more proper benchmarks based
  * on JMH see `OmtDecoderBenchmark`
  */
+@Tag("benchmark")
 public class MltDecoderBenchmarkTest {
 
   /**
@@ -169,9 +172,10 @@ public class MltDecoderBenchmarkTest {
 
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
-    var columnMapping = new ColumnMapping("name", ":", true);
-    var columnMappings = Map.of(Pattern.compile(".*"), List.of(columnMapping));
-    var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
+    final var columnMapping = new ColumnMapping("name", ":", true);
+    final var columnMappings =
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(columnMapping));
+    final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = true;
     var allowSorting = false;

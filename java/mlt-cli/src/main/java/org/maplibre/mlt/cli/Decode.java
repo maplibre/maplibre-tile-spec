@@ -73,7 +73,7 @@ public class Decode {
         var decodedTile = MltDecoder.decodeMlTile(mltTileBuffer);
         if (willTime) timer.stop("decoding");
         if (willPrintMLT) {
-          System.out.write(CliUtil.printMLT(decodedTile).getBytes(StandardCharsets.UTF_8));
+          System.out.write(JsonHelper.toJson(decodedTile).getBytes(StandardCharsets.UTF_8));
         }
       }
     } catch (Exception e) {
