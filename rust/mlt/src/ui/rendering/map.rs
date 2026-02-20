@@ -1,4 +1,5 @@
-use mlt_core::geojson::{Coordinate, Geometry};
+use geo_types::Polygon;
+use mlt_core::geojson::{Coord32, Geom32};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Span, Style};
@@ -69,7 +70,7 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
 
 fn draw_feature(
     ctx: &mut Context<'_>,
-    geom: &Geometry,
+    geom: &Geom32,
     base: Color,
     is_hov: bool,
     sel_part: Option<usize>,
@@ -77,34 +78,35 @@ fn draw_feature(
 ) {
     let color = if is_hov { CLR_HOVERED } else { base };
     match geom {
-        Geometry::Point(c) => draw_point(ctx, *c, color),
-        Geometry::LineString(v) => draw_line(ctx, v, color),
-        Geometry::Polygon(rings) => draw_polygon(ctx, rings, is_hov, color),
-        Geometry::MultiPoint(pts) => {
-            for (i, c) in pts.iter().enumerate() {
-                draw_point(ctx, *c, part_color(sel_part, hov_part, i, color));
+        Geom32::Point(p) => draw_point(ctx, p.0, color),
+        Geom32::LineString(ls) => draw_line(ctx, &ls.0, color),
+        Geom32::Polygon(poly) => draw_polygon(ctx, poly, is_hov, color),
+        Geom32::MultiPoint(pts) => {
+            for (i, p) in pts.iter().enumerate() {
+                draw_point(ctx, p.0, part_color(sel_part, hov_part, i, color));
             }
         }
-        Geometry::MultiLineString(lines) => {
-            for (i, v) in lines.iter().enumerate() {
-                draw_line(ctx, v, part_color(sel_part, hov_part, i, color));
+        Geom32::MultiLineString(lines) => {
+            for (i, ls) in lines.iter().enumerate() {
+                draw_line(ctx, &ls.0, part_color(sel_part, hov_part, i, color));
             }
         }
-        Geometry::MultiPolygon(polys) => {
-            for (i, rings) in polys.iter().enumerate() {
+        Geom32::MultiPolygon(polys) => {
+            for (i, poly) in polys.iter().enumerate() {
                 let pc = part_color(sel_part, hov_part, i, color);
-                draw_polygon(ctx, rings, matches!(pc, CLR_HOVERED | CLR_SELECTED), pc);
+                draw_polygon(ctx, poly, matches!(pc, CLR_HOVERED | CLR_SELECTED), pc);
             }
         }
+        _ => {}
     }
 }
 
-fn draw_point(ctx: &mut Context<'_>, c: Coordinate, color: Color) {
+fn draw_point(ctx: &mut Context<'_>, c: Coord32, color: Color) {
     let [x, y] = coord_f64(c);
     ctx.print(x, y, Span::styled("×", Style::default().fg(color)));
 }
 
-fn draw_line(ctx: &mut Context<'_>, coords: &[Coordinate], color: Color) {
+fn draw_line(ctx: &mut Context<'_>, coords: &[Coord32], color: Color) {
     for w in coords.windows(2) {
         let [x1, y1] = coord_f64(w[0]);
         let [x2, y2] = coord_f64(w[1]);
@@ -112,7 +114,7 @@ fn draw_line(ctx: &mut Context<'_>, coords: &[Coordinate], color: Color) {
     }
 }
 
-fn draw_ring(ctx: &mut Context<'_>, ring: &[Coordinate], color: Color) {
+fn draw_ring(ctx: &mut Context<'_>, ring: &[Coord32], color: Color) {
     draw_line(ctx, ring, color);
     if let (Some(&last), Some(&first)) = (ring.last(), ring.first()) {
         let [lx, ly] = coord_f64(last);
@@ -121,24 +123,24 @@ fn draw_ring(ctx: &mut Context<'_>, ring: &[Coordinate], color: Color) {
     }
 }
 
-fn draw_polygon(
-    ctx: &mut Context<'_>,
-    rings: &[Vec<Coordinate>],
-    highlighted: bool,
-    fallback: Color,
-) {
-    for ring in rings {
-        let color = if !highlighted {
-            if is_ring_ccw(ring) {
-                CLR_POLYGON
-            } else {
-                CLR_INNER_RING
-            }
-        } else if is_ring_ccw(ring) {
-            fallback
+fn ring_color(ring: &[Coord32], highlighted: bool, fallback: Color) -> Color {
+    if !highlighted {
+        if is_ring_ccw(ring) {
+            CLR_POLYGON
         } else {
-            CLR_INNER_RING_SEL
-        };
-        draw_ring(ctx, ring, color);
+            CLR_INNER_RING
+        }
+    } else if is_ring_ccw(ring) {
+        fallback
+    } else {
+        CLR_INNER_RING_SEL
+    }
+}
+
+fn draw_polygon(ctx: &mut Context<'_>, poly: &Polygon<i32>, highlighted: bool, fallback: Color) {
+    let ext = &poly.exterior().0;
+    draw_ring(ctx, ext, ring_color(ext, highlighted, fallback));
+    for ring in poly.interiors() {
+        draw_ring(ctx, &ring.0, ring_color(&ring.0, highlighted, fallback));
     }
 }

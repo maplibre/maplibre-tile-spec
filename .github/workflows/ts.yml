@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'justfile'
+      - 'ts/mod.just'
       - '.github/**'
       - 'ts/**'
       - 'test/**'
@@ -24,10 +25,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-node
-      - name: Lint JS code. If fails, run `just fmt-js` to reformat, and `just lint-js` to see issues locally
-        run: just -v lint-js
-      - run: just -v test-js
-      - run: just -v build-js
+      - name: Lint JS code. If fails, run `just ts::fmt` to reformat, and `just ts::lint` to see issues locally
+        run: just -v ts::lint
+      - run: just -v ts::test
+      - run: just -v ts::build
       - name: Codecov upload
         if: '!cancelled()'
         uses: codecov/codecov-action@v5
