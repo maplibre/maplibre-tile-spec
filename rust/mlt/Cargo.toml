@@ -2,7 +2,9 @@
 name = "mlt"
 description = "MapLibre Tile Tools"
 version = "0.1.0"
+authors.workspace = true
 repository.workspace = true
+homepage.workspace = true
 edition.workspace = true
 license.workspace = true
 keywords.workspace = true
@@ -14,6 +16,7 @@ anyhow = "1"
 clap = { version = "4.5.58", features = ["derive"] }
 crossterm = "0.29.0"
 flate2 = "1"
+geo-types = "0.7.18"
 mlt-core = { path = "../mlt-core" }
 ratatui = "0.30.0"
 rayon = "1"
