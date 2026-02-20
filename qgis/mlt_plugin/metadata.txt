@@ -1,0 +1,18 @@
+[general]
+name=MLT Provider
+qgisMinimumVersion=3.22
+description=Open MapLibre Tile (MLT) files in QGIS using high-performance Rust decoding via mlt-pyo3
+version=0.1.0
+author=MapLibre Contributors
+email=info@maplibre.org
+about=Adds native support for the MapLibre Tile (MLT) columnar vector tile format. Uses Rust-based decoding (mlt) exposed through PyO3 for fast, reliable parsing. Features include drag-and-drop .mlt file loading, per-layer vector display, and full attribute support.
+tracker=https://github.com/maplibre/maplibre-tile-spec/issues
+repository=https://github.com/maplibre/maplibre-tile-spec
+tags=vector tiles,mlt,maplibre,tiles
+homepage=https://github.com/maplibre/maplibre-tile-spec
+category=Vector
+icon=
+experimental=True
+deprecated=False
+changelog=
+    0.1.0 - Initial release with MLT file reading support

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mlt-pyo3"
+version = "0.1.0"
+description = "Python bindings for MapLibre Tile (MLT) format"
+requires-python = ">=3.9"
+license = { text = "MIT OR Apache-2.0" }
+keywords = ["maplibre", "tile", "mlt", "vector-tiles", "gis"]
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+module-name = "mlt_pyo3"
+features = ["extension-module"]
