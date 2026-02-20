@@ -1,3 +1,4 @@
+use std::f64::consts::E;
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 
@@ -6,10 +7,14 @@ use borrowme::borrowme;
 use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromRaw, impl_decodable};
+use crate::encode::{ToRaw, impl_encodable};
 use crate::utils::{BinarySerializer as _, OptSeqOpt};
-use crate::v01::{ColumnType, Stream};
+use crate::v01::{
+    ColumnType, DictionaryType, LogicalDecoder, OwnedDataRaw, OwnedDataVarInt, OwnedStream,
+    OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
+};
 
-/// ID column representation, either raw or decoded, or none if there are no IDs
+/// ID column representation
 #[borrowme]
 #[derive(Debug, Default, PartialEq)]
 pub enum Id<'a> {
@@ -63,6 +68,23 @@ impl Analyze for Id<'_> {
 pub struct RawId<'a> {
     optional: Option<Stream<'a>>,
     value: RawIdValue<'a>,
+}
+
+impl Default for OwnedRawId {
+    fn default() -> Self {
+        Self {
+            optional: None,
+            value: OwnedRawIdValue::Id32(OwnedStream {
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                    num_values: 0,
+                    logical_decoder: LogicalDecoder::None,
+                    physical_decoder: PhysicalDecoder::None,
+                },
+                data: OwnedStreamData::Raw(OwnedDataRaw { data: Vec::new() }),
+            }),
+        }
+    }
 }
 impl OwnedRawId {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
@@ -120,6 +142,7 @@ impl Analyze for DecodedId {
 }
 
 impl_decodable!(Id<'a>, RawId<'a>, DecodedId);
+impl_encodable!(OwnedId, DecodedId, OwnedRawId);
 
 impl Debug for DecodedId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -220,76 +243,314 @@ fn apply_present_bitset(
     Ok(result)
 }
 
+/// ID encoding configuration
+#[derive(Debug, Clone, Copy)]
+pub enum IdEncodingConfig {
+    /// 32-bit encoding
+    Id32,
+    /// 32-bit encoding with nulls
+    OptId32,
+    /// 64-bit encoding (delta + zigzag + varint)
+    Id64,
+    /// 64-bit encoding with nulls
+    OptId64,
+}
+
+impl ToRaw<'_> for OwnedRawId {
+    type Output = DecodedId;
+    type Config = IdEncodingConfig;
+
+    fn to_raw(decoded: &DecodedId, config: IdEncodingConfig) -> Result<Self, MltError> {
+        use IdEncodingConfig as CFG;
+
+        // skipped one level higher
+        let DecodedId(Some(ids)) = decoded else {
+            return Err(MltError::InvalidStreamData {
+                expected: "Some IDs to encode",
+                got: "None".to_string(),
+            });
+        };
+
+        let optional = if matches!(config, CFG::OptId32 | CFG::OptId64) {
+            let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
+            let num_values = u32::try_from(present.len()).map_err(|_| MltError::IntegerOverflow)?;
+
+            let num_bytes = present.len().div_ceil(8);
+            let mut bytes = vec![0u8; num_bytes];
+            for (i, _) in present.into_iter().enumerate().filter(|(_, bit)| *bit) {
+                bytes[i / 8] |= 1 << (i % 8);
+            }
+            let data = crate::utils::encode_byte_rle(&bytes);
+
+            let meta = StreamMeta {
+                physical_type: PhysicalStreamType::Present,
+                num_values,
+                logical_decoder: LogicalDecoder::None,
+                physical_decoder: PhysicalDecoder::None,
+            };
+
+            Some(OwnedStream {
+                meta,
+                data: OwnedStreamData::Raw(OwnedDataRaw { data }),
+            })
+        } else {
+            None
+        };
+
+        let value = if matches!(config, CFG::Id32 | CFG::OptId32) {
+            #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
+            let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
+            let num_values = u32::try_from(vals.len()).map_err(|_| MltError::IntegerOverflow)?;
+            let data: Vec<u8> = vals.iter().flat_map(|v| v.to_le_bytes()).collect();
+
+            let meta = StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values,
+                logical_decoder: LogicalDecoder::None,
+                physical_decoder: PhysicalDecoder::None,
+            };
+
+            OwnedRawIdValue::Id32(OwnedStream {
+                meta,
+                data: OwnedStreamData::Raw(OwnedDataRaw { data }),
+            })
+        } else {
+            let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
+
+            #[expect(
+                clippy::cast_possible_wrap,
+                reason = "Values > i64::MAX will wrap, but zigzag+delta handles this correctly"
+            )]
+            let vals_i64: Vec<i64> = vals.iter().map(|&v| v as i64).collect();
+            let encoded = crate::utils::encode_zigzag_delta(&vals_i64);
+
+            let mut data = Vec::new();
+            for &val in &encoded {
+                crate::utils::encode_varint(&mut data, val);
+            }
+
+            let meta = StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values: u32::try_from(vals.len()).map_err(|_| MltError::IntegerOverflow)?,
+                logical_decoder: LogicalDecoder::Delta,
+                physical_decoder: PhysicalDecoder::VarInt,
+            };
+
+            OwnedRawIdValue::Id64(OwnedStream {
+                meta,
+                data: OwnedStreamData::VarInt(OwnedDataVarInt { data }),
+            })
+        };
+
+        Ok(Self { optional, value })
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
-    use crate::v01::{DataRaw, LogicalDecoder, PhysicalDecoder, PhysicalStreamType, StreamMeta};
 
-    #[test]
-    fn test_decode_id32_simple() {
-        // Create a simple stream with 3 ID values:
-        let ids: Vec<u32> = vec![1, 2, 3];
-        let data = ids.iter().flat_map(|i| i.to_le_bytes()).collect::<Vec<_>>();
+    // Helper function to encode and decode for roundtrip testing
+    fn roundtrip(decoded: &DecodedId, config: IdEncodingConfig) -> DecodedId {
+        let raw = OwnedRawId::to_raw(decoded, config).expect("Failed to encode");
+        let borrowed_raw = borrowme::borrow(&raw);
+        DecodedId::from_raw(borrowed_raw).expect("Failed to decode")
+    }
 
-        let meta = StreamMeta {
-            physical_type: PhysicalStreamType::Data(crate::v01::DictionaryType::None),
-            num_values: 3,
-            logical_decoder: LogicalDecoder::None,
-            physical_decoder: PhysicalDecoder::None,
+    // Test that each config produces the correct variant and optional stream presence
+    #[rstest]
+    #[case::id32(
+        IdEncodingConfig::Id32,
+        vec![Some(1), Some(2), Some(3)]
+    )]
+    #[case::opt_id32(
+        IdEncodingConfig::OptId32,
+        vec![Some(1), None, Some(3)]
+    )]
+    #[case::id64(
+        IdEncodingConfig::Id64,
+        vec![Some(1), Some(2), Some(3)]
+    )]
+    #[case::opt_id64(
+        IdEncodingConfig::OptId64,
+        vec![Some(1), None, Some(3)]
+    )]
+    fn test_config_produces_correct_variant(
+        #[case] config: IdEncodingConfig,
+        #[case] ids: Vec<Option<u64>>,
+    ) {
+        let input = DecodedId(Some(ids));
+        let raw = OwnedRawId::to_raw(&input, config).unwrap();
+
+        match config {
+            IdEncodingConfig::OptId32 | IdEncodingConfig::Id32 => {
+                assert!(matches!(raw.value, OwnedRawIdValue::Id32(_)))
+            }
+            IdEncodingConfig::Id64 | IdEncodingConfig::OptId64 => {
+                assert!(matches!(raw.value, OwnedRawIdValue::Id64(_)))
+            }
         };
 
-        let stream = Stream::new(meta, DataRaw::new(&data));
-        let raw_id = RawId {
-            optional: None,
-            value: RawIdValue::Id32(stream),
+        match config {
+            IdEncodingConfig::OptId32 | IdEncodingConfig::OptId64 => {
+                assert!(raw.optional.is_some())
+            }
+            IdEncodingConfig::Id32 | IdEncodingConfig::Id64 => {
+                assert!(raw.optional.is_none())
+            }
         };
+    }
 
-        let decoded = DecodedId::from_raw(raw_id).expect("Failed to decode IDs");
-
-        assert_eq!(
-            decoded,
-            DecodedId(Some(ids.into_iter().map(u64::from).map(Some).collect())),
-            "Decoded IDs should match expected values"
-        );
+    #[rstest]
+    #[case::id32_basic(IdEncodingConfig::Id32, &[Some(1), Some(2), Some(100), Some(1000)])]
+    #[case::id32_single(IdEncodingConfig::Id32, &[Some(42)])]
+    #[case::id32_boundaries(IdEncodingConfig::Id32, &[Some(0), Some(u32::MAX as u64)])]
+    #[case::id64_basic(IdEncodingConfig::Id64, &[Some(1), Some(2), Some(100), Some(1000)])]
+    #[case::id64_single(IdEncodingConfig::Id64, &[Some(u64::MAX)])]
+    #[case::id64_boundaries(IdEncodingConfig::Id64, &[Some(0), Some(u64::MAX)])]
+    #[case::id64_large_values(
+        IdEncodingConfig::Id64,
+        &[Some(0), Some(u32::MAX as u64), Some(u32::MAX as u64 + 1), Some(u64::MAX)]
+    )]
+    #[case::opt_id32_with_nulls(IdEncodingConfig::OptId32, &[Some(1), None, Some(100), None, Some(1000)])]
+    #[case::opt_id32_no_nulls(IdEncodingConfig::OptId32, &[Some(1), Some(2), Some(3)])]
+    #[case::opt_id32_single_null(IdEncodingConfig::OptId32, &[None])]
+    #[case::opt_id64_with_nulls(
+        IdEncodingConfig::OptId64,
+        &[Some(1), None, Some(u32::MAX as u64 + 1), None, Some(u64::MAX)]
+    )]
+    #[case::opt_id64_all_nulls(IdEncodingConfig::OptId64, &[None, None, None])]
+    #[case::none(IdEncodingConfig::Id32, &[])]
+    fn test_roundtrip(#[case] config: IdEncodingConfig, #[case] ids: &[Option<u64>]) {
+        let input = DecodedId(Some(ids.to_vec()));
+        let output = roundtrip(&input, config);
+        assert_eq!(output, input);
     }
 
     #[test]
-    fn test_decode_id32_with_nulls() {
-        // Test IDs with a present bitmask:
-        let expected = vec![Some(10), None, Some(30)];
-        // Only 2 values in the ID stream (10 and 30), not 3!
-        let ids: Vec<u32> = vec![10, 30];
-        let data = ids.iter().flat_map(|i| i.to_le_bytes()).collect::<Vec<_>>();
-        let present_data: Vec<u8> = vec![1, 0x1 << 0 | 0x1 << 2]; // RLE: one time the bit pattern
+    fn test_sequential_ids_for_delta_encoding() {
+        // Sequential IDs should compress well with delta encoding
+        let input = DecodedId(Some((1..=100).map(Some).collect()));
+        let output = roundtrip(&input, IdEncodingConfig::Id64);
+        assert_eq!(output, input);
+    }
 
-        let id_meta = StreamMeta {
-            physical_type: PhysicalStreamType::Data(crate::v01::DictionaryType::None),
-            num_values: 2, // Only 2 actual values
-            logical_decoder: LogicalDecoder::None,
-            physical_decoder: PhysicalDecoder::None,
-        };
+    #[cfg(test)]
+    mod proptests {
+        use proptest::prelude::*;
 
-        let present_meta = StreamMeta {
-            physical_type: PhysicalStreamType::Present,
-            num_values: 3, // 3 features total
-            logical_decoder: LogicalDecoder::None,
-            physical_decoder: PhysicalDecoder::None,
-        };
+        use super::*;
+        use crate::{Decodable as _, Encodable as _};
 
-        let id_stream = Stream::new(id_meta, DataRaw::new(&data));
-        let present_stream = Stream::new(present_meta, DataRaw::new(&present_data));
+        proptest! {
+            #[test]
+            fn test_roundtrip_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
+                let original: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
+                let input = DecodedId(Some(original.clone()));
+                let output = roundtrip(&input, IdEncodingConfig::Id32);
+                prop_assert_eq!(output, DecodedId(Some(original)));
+            }
 
-        let raw_id = RawId {
-            optional: Some(present_stream),
-            value: RawIdValue::Id32(id_stream),
-        };
+            #[test]
+            fn test_roundtrip_opt_id32(
+                ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100)
+            ) {
+                let original: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
+                let input = DecodedId(Some(original.clone()));
+                let output = roundtrip(&input, IdEncodingConfig::OptId32);
+                prop_assert_eq!(output, DecodedId(Some(original)));
+            }
 
-        let decoded = DecodedId::from_raw(raw_id).expect("Failed to decode IDs with nulls");
+            #[test]
+            fn test_roundtrip_id64(ids in prop::collection::vec(any::<u64>(), 1..100)) {
+                let original: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
+                let input = DecodedId(Some(original.clone()));
+                let output = roundtrip(&input, IdEncodingConfig::Id64);
+                prop_assert_eq!(output, DecodedId(Some(original)));
+            }
 
-        assert_eq!(
-            decoded,
-            DecodedId(Some(expected)),
-            "Decoded IDs should respect the present bitmask"
-        );
+            #[test]
+            fn test_roundtrip_opt_id64(
+                ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
+            ) {
+                let original: Vec<Option<u64>> = ids;
+                let input = DecodedId(Some(original.clone()));
+                let output = roundtrip(&input, IdEncodingConfig::OptId64);
+                prop_assert_eq!(output, DecodedId(Some(original)));
+            }
+
+            #[test]
+            fn test_encodable_trait_api_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
+                let original: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
+                let decoded = DecodedId(Some(original.clone()));
+
+                let mut id_enum = OwnedId::Decoded(decoded);
+                id_enum.encode_with(IdEncodingConfig::Id32).expect("Failed to encode");
+
+                prop_assert!(!id_enum.is_decoded());
+                prop_assert!(id_enum.borrow_raw().is_some());
+
+                let mut borrowed_id = borrowme::borrow(&id_enum);
+                borrowed_id.materialize().expect("Failed to materialize");
+
+                if let Id::Decoded(decoded_back) = borrowed_id {
+                    prop_assert_eq!(decoded_back, DecodedId(Some(original)));
+                } else {
+                    return Err(TestCaseError::fail("Expected Decoded variant"));
+                }
+            }
+
+            #[test]
+            fn test_encodable_trait_api_opt_id64(
+                ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
+            ) {
+                let original: Vec<Option<u64>> = ids;
+                let decoded = DecodedId(Some(original.clone()));
+
+                let mut id_enum = OwnedId::Decoded(decoded);
+                id_enum.encode_with(IdEncodingConfig::OptId64).expect("Failed to encode");
+
+                prop_assert!(!id_enum.is_decoded());
+
+                let mut borrowed_id = borrowme::borrow(&id_enum);
+                borrowed_id.materialize().expect("Failed to materialize");
+
+                if let Id::Decoded(decoded_back) = borrowed_id {
+                    prop_assert_eq!(decoded_back, DecodedId(Some(original)));
+                } else {
+                    return Err(TestCaseError::fail("Expected Decoded variant"));
+                }
+            }
+
+            #[test]
+            fn test_correct_variant_produced_id32(
+                ids in prop::collection::vec(1u32..1000u32, 1..50)
+            ) {
+                let original: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
+                let input = DecodedId(Some(original));
+
+                let raw = OwnedRawId::to_raw(&input, IdEncodingConfig::Id32)
+                    .expect("Failed to encode");
+
+                prop_assert!(matches!(raw.value, OwnedRawIdValue::Id32(_)));
+                prop_assert!(raw.optional.is_none());
+            }
+
+            #[test]
+            fn test_correct_variant_produced_id64(
+                ids in prop::collection::vec(any::<u64>(), 1..50)
+            ) {
+                let original: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
+                let input = DecodedId(Some(original));
+
+                let raw = OwnedRawId::to_raw(&input, IdEncodingConfig::Id64)
+                    .expect("Failed to encode");
+
+                prop_assert!(matches!(raw.value, OwnedRawIdValue::Id64(_)));
+                prop_assert!(raw.optional.is_none());
+            }
+        }
     }
 }
