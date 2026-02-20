@@ -34,7 +34,7 @@ pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(data: &[T
     encode_zigzag(&encode_delta(data))
 }
 
-pub fn encode_rle<T: PrimInt + Debug>(data: &[T]) -> (Vec<u32>, Vec<T>) {
+pub fn encode_rle<T: PrimInt + Debug>(data: &[T]) -> (Vec<T>, Vec<T>) {
     if data.is_empty() {
         return (Vec::new(), Vec::new());
     }
@@ -43,16 +43,16 @@ pub fn encode_rle<T: PrimInt + Debug>(data: &[T]) -> (Vec<u32>, Vec<T>) {
     let mut values = Vec::new();
 
     let mut current_val = data[0];
-    let mut current_run = 1u32;
+    let mut current_run = T::one();
 
     for &val in &data[1..] {
         if val == current_val {
-            current_run += 1;
+            current_run = current_run.saturating_add(T::one());
         } else {
             runs.push(current_run);
             values.push(current_val);
             current_val = val;
-            current_run = 1;
+            current_run = T::one();
         }
     }
     runs.push(current_run);
