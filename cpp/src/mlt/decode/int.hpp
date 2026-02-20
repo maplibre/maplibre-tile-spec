@@ -86,13 +86,46 @@ public:
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
-    std::vector<std::uint8_t> buffer;
+    std::vector<std::vector<std::uint8_t>> buffer;
+    std::size_t bufferIndex = 0;
+
+    // Very simple RAII wrapper for temporary buffers.
+    // Buffers must be used only within a current method invocation.
+    struct BufWrapperBase : util::noncopyable {
+        BufWrapperBase(IntegerDecoder& decoder_, std::uint8_t* ptr_) noexcept
+            : decoder(decoder_),
+              ptr(ptr_) {
+            if (ptr) {
+                decoder.bufferIndex++;
+            }
+        }
+        BufWrapperBase(BufWrapperBase&& other) noexcept
+            : decoder(other.decoder),
+              ptr(other.ptr) {
+            other.ptr = nullptr;
+        }
+        ~BufWrapperBase() noexcept {
+            if (ptr) {
+                decoder.bufferIndex--;
+            }
+        }
+        IntegerDecoder& decoder;
+        std::uint8_t* ptr;
+    };
+    template <typename T>
+    struct BufWrapper : BufWrapperBase {
+        BufWrapper(IntegerDecoder& decoder_, std::uint8_t* ptr_) noexcept
+            : BufWrapperBase(decoder_, ptr_) {}
+        T* get() const noexcept { return reinterpret_cast<T*>(ptr); }
+        operator T*() const noexcept { return get(); }
+    };
 
     /// Get a buffer for intermediate values, which must not be retained beyond the current method invocation
     template <typename T>
-    T* getTempBuffer(std::size_t minSize) {
-        buffer.resize(std::max(buffer.size(), minSize * sizeof(T)));
-        return reinterpret_cast<T*>(buffer.data());
+    BufWrapper<T> getTempBuffer(std::size_t minSize) {
+        buffer.resize(std::max(buffer.size(), bufferIndex + 1));
+        buffer[bufferIndex].resize(std::max(buffer.size(), minSize * sizeof(T)));
+        return {*this, buffer[bufferIndex].data()};
     }
 
     /// Get the size of the buffer necessary for `decodeIntArray`
