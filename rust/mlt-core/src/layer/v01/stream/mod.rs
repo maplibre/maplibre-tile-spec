@@ -19,7 +19,7 @@ pub use crate::v01::stream::logical::{
 pub use crate::v01::stream::physical::{PhysicalDecoder, PhysicalStreamType};
 use crate::{MltError, MltRefResult, utils};
 
-/// Representation of a raw stream
+/// Representation of a encoded stream
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Stream<'a> {
@@ -44,11 +44,11 @@ impl OwnedStream {
                 logical_decoder: LogicalDecoder::None,
                 physical_decoder: PhysicalDecoder::None,
             },
-            data: OwnedStreamData::Raw(OwnedDataRaw { data: Vec::new() }),
+            data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
         }
     }
 }
-/// Metadata about a raw stream
+/// Metadata about a encoded stream
 #[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {
     pub physical_type: PhysicalStreamType,
@@ -297,14 +297,14 @@ macro_rules! stream_data {
 
 stream_data![
     VarInt: DataVarInt / OwnedDataVarInt,
-    Raw: DataRaw / OwnedDataRaw,
+    Encoded: EncodedData / OwnedEncodedData,
 ];
 
 impl OwnedStreamData {
     pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         match self {
             OwnedStreamData::VarInt(d) => writer.write_all(&d.data),
-            OwnedStreamData::Raw(d) => writer.write_all(&d.data),
+            OwnedStreamData::Encoded(d) => writer.write_all(&d.data),
         }
     }
 }
@@ -343,7 +343,7 @@ impl<'a> Stream<'a> {
         let (input, data) = take(input, usize::try_from(byte_length)?)?;
 
         let stream_data = match meta.physical_decoder {
-            PD::None | PD::FastPFOR => DataRaw::new(data),
+            PD::None | PD::FastPFOR => EncodedData::new(data),
             PD::VarInt => DataVarInt::new(data),
             PD::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
         };
@@ -384,17 +384,17 @@ impl<'a> Stream<'a> {
                     data.data,
                     self.meta.num_values,
                 )?),
-                StreamData::Raw(_) => {
+                StreamData::Encoded(_) => {
                     return Err(MltError::InvalidStreamData {
                         expected: "VarInt",
-                        got: "Raw".to_string(),
+                        got: "Encoded".to_string(),
                     });
                 }
             },
             PhysicalDecoder::None => {
                 // For raw data, we'd need to read 8 bytes per value
                 // But typically 64-bit IDs use VarInt encoding
-                return Err(MltError::UnsupportedPhysicalDecoder("Raw (u64)"));
+                return Err(MltError::UnsupportedPhysicalDecoder("Encoded (u64)"));
             }
             PhysicalDecoder::FastPFOR => {
                 return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"));
@@ -415,7 +415,7 @@ impl<'a> Stream<'a> {
         let num_values = self.meta.num_values as usize;
         let num_bytes = num_values.div_ceil(8);
         let raw = match &self.data {
-            StreamData::Raw(d) => d.data,
+            StreamData::Encoded(d) => d.data,
             StreamData::VarInt(d) => d.data,
         };
         let decoded = utils::decode_byte_rle(raw, num_bytes);
@@ -428,7 +428,7 @@ impl<'a> Stream<'a> {
     #[must_use]
     pub fn decode_f32s(self) -> Vec<f32> {
         let raw = match &self.data {
-            StreamData::Raw(d) => d.data,
+            StreamData::Encoded(d) => d.data,
             StreamData::VarInt(d) => d.data,
         };
         let num = self.meta.num_values as usize;
@@ -452,7 +452,7 @@ impl<'a> Stream<'a> {
                     data.data,
                     self.meta.num_values,
                 )?),
-                StreamData::Raw(_) => {
+                StreamData::Encoded(_) => {
                     return Err(MltError::InvalidStreamData {
                         expected: "VarInt",
                         got: format!("{:?}", self.data),
@@ -460,25 +460,25 @@ impl<'a> Stream<'a> {
                 }
             },
             PhysicalDecoder::None => match self.data {
-                StreamData::Raw(data) => all(utils::decode_bytes_to_u32s(
+                StreamData::Encoded(data) => all(utils::decode_bytes_to_u32s(
                     data.data,
                     self.meta.num_values,
                 )?),
                 StreamData::VarInt(_) => {
                     return Err(MltError::InvalidStreamData {
-                        expected: "Raw",
+                        expected: "Encoded",
                         got: format!("{:?}", self.data),
                     });
                 }
             },
             PhysicalDecoder::FastPFOR => match self.data {
-                StreamData::Raw(data) => Ok(decode_fastpfor_composite(
+                StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
                     data.data,
                     self.meta.num_values as usize,
                 )?),
                 StreamData::VarInt(_) => {
                     return Err(MltError::InvalidStreamData {
-                        expected: "Raw",
+                        expected: "Encoded",
                         got: format!("{:?}", self.data),
                     });
                 }
@@ -562,7 +562,7 @@ mod tests {
                 )),
                 expected_u64_logical_value: None,
             },
-            // Basic Raw test case
+            // Basic Encoded test case
             StreamTestCase {
                 name: "simple_raw_bytes_to_u32",
                 meta: StreamMeta {
@@ -589,7 +589,7 @@ mod tests {
     fn create_stream_from_test_case(test_case: &StreamTestCase) -> Stream<'_> {
         let data = match test_case.meta.physical_decoder {
             PhysicalDecoder::VarInt => DataVarInt::new(test_case.data),
-            PhysicalDecoder::None => DataRaw::new(test_case.data),
+            PhysicalDecoder::None => EncodedData::new(test_case.data),
             _ => panic!(
                 "Unsupported physical decoder in test: {:?}",
                 test_case.meta.physical_decoder
@@ -651,7 +651,7 @@ mod tests {
 
     #[rstest]
     #[case::empty(LogicalDecoder::None, vec![], vec![])]
-    #[case::raw(LogicalDecoder::None, vec![10, 20, 30, 40], vec![10, 20, 30, 40])]
+    #[case::new_encoded(LogicalDecoder::None, vec![10, 20, 30, 40], vec![10, 20, 30, 40])]
     #[case::rle(LogicalDecoder::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3, 2, 1, 10, 20, 30], vec![10, 10, 10, 20, 20, 30])]
     // ZigZag: [0,2,2,2,2] -> [0,1,1,1,1]
     // Delta: [0,1,1,1,1] -> [0,1,2,3,4]
@@ -668,9 +668,9 @@ mod tests {
 
     /// Test roundtrip: write -> parse -> equality for stream serialization
     #[rstest]
-    #[case::raw(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalDecoder::None, PhysicalDecoder::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
-    #[case::raw(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalDecoder::ComponentwiseDelta, PhysicalDecoder::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
-    #[case::raw(PhysicalStreamType::Offset(OffsetType::Vertex), 3, LogicalDecoder::None, PhysicalDecoder::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
+    #[case::new_encoded(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalDecoder::None, PhysicalDecoder::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
+    #[case::new_encoded(PhysicalStreamType::Data(DictionaryType::None), 2, LogicalDecoder::ComponentwiseDelta, PhysicalDecoder::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
+    #[case::new_encoded(PhysicalStreamType::Offset(OffsetType::Vertex), 3, LogicalDecoder::None, PhysicalDecoder::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
     #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 4, LogicalDecoder::None, PhysicalDecoder::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false)]
     #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 5, LogicalDecoder::Delta, PhysicalDecoder::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false)]
     #[case::varint(PhysicalStreamType::Data(DictionaryType::None), 3, LogicalDecoder::PseudoDecimal, PhysicalDecoder::VarInt, vec![0x01, 0x02, 0x03], false)]
@@ -691,7 +691,7 @@ mod tests {
 
         let stream_data = match physical_decoder {
             PhysicalDecoder::None | PhysicalDecoder::FastPFOR => {
-                OwnedStreamData::Raw(OwnedDataRaw { data: data_bytes })
+                OwnedStreamData::Encoded(OwnedEncodedData { data: data_bytes })
             }
             PhysicalDecoder::VarInt => {
                 OwnedStreamData::VarInt(OwnedDataVarInt { data: data_bytes })
@@ -727,7 +727,7 @@ mod tests {
         assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
 
         match (&stream.data, &parsed.data) {
-            (OwnedStreamData::Raw(exp), StreamData::Raw(act)) => {
+            (OwnedStreamData::Encoded(exp), StreamData::Encoded(act)) => {
                 assert_eq!(exp.data.as_slice(), act.data, "raw data mismatch");
             }
             (OwnedStreamData::VarInt(exp), StreamData::VarInt(act)) => {

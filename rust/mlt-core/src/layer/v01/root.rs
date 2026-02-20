@@ -7,8 +7,8 @@ use crate::analyse::{Analyze, StatType};
 use crate::utils::SetOptionOnce as _;
 use crate::v01::column::ColumnType;
 use crate::v01::{
-    Column, DictionaryType, Geometry, Id, OwnedId, PhysicalStreamType, Property, RawIdValue,
-    RawPropValue, RawStructChild, RawStructProp, Stream,
+    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStructChild,
+    EncodedStructProp, Geometry, Id, OwnedId, PhysicalStreamType, Property, Stream,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -96,12 +96,12 @@ impl Layer01<'_> {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::raw(optional, RawIdValue::Id32(value)))?;
+                    id_stream.set_once(Id::new_encoded(optional, EncodedIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::raw(optional, RawIdValue::Id64(value)))?;
+                    id_stream.set_once(Id::new_encoded(optional, EncodedIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     let value_vec;
@@ -125,52 +125,88 @@ impl Layer01<'_> {
                     (input, value) = Stream::parse(input)?;
                     // geometry items
                     (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
-                    geometry.set_once(Geometry::raw(value, value_vec))?;
+                    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse_bool(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::Bool(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::Bool(value),
+                    ));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::I8(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::I8(value),
+                    ));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::U8(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::U8(value),
+                    ));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::I32(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::I32(value),
+                    ));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::U32(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::U32(value),
+                    ));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::I64(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::I64(value),
+                    ));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::U64(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::U64(value),
+                    ));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::F32(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::F32(value),
+                    ));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::F64(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::F64(value),
+                    ));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     (input, stream_count) = utils::parse_varint::<usize>(input)?;
@@ -190,7 +226,11 @@ impl Layer01<'_> {
                     stream_count -= usize::from(optional.is_some());
                     let value_vec;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::Str(value_vec),
+                    ));
                 }
                 ColumnType::Struct => {
                     (input, stream_count) = utils::parse_varint::<usize>(input)?;
@@ -242,7 +282,7 @@ impl Layer01<'_> {
                         }
                         let child_data;
                         (input, child_data) = Stream::parse(input)?;
-                        children.push(RawStructChild {
+                        children.push(EncodedStructChild {
                             name: child.name.unwrap_or(""),
                             typ: child.typ,
                             optional: child_optional,
@@ -250,10 +290,10 @@ impl Layer01<'_> {
                         });
                     }
 
-                    properties.push(Property::raw(
+                    properties.push(Property::new_encoded(
                         name,
                         None,
-                        RawPropValue::Struct(RawStructProp {
+                        EncodedPropValue::Struct(EncodedStructProp {
                             dict_streams,
                             children,
                         }),

@@ -8,7 +8,7 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::MltError::IntegerOverflow;
 use crate::analyse::{Analyze, StatType};
-use crate::decode::{FromRaw, impl_decodable};
+use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
 use crate::v01::property::decode::{
     decode_shared_dictionary, decode_string_streams, resolve_offsets,
@@ -16,25 +16,25 @@ use crate::v01::property::decode::{
 use crate::v01::{ColumnType, OwnedStream, Stream};
 use crate::{FromDecoded, MltError, impl_encodable};
 
-/// Raw data for a Struct column with shared dictionary encoding
+/// Encoded data for a Struct column with shared dictionary encoding
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct RawStructProp<'a> {
+pub struct EncodedStructProp<'a> {
     pub dict_streams: Vec<Stream<'a>>,
-    pub children: Vec<RawStructChild<'a>>,
+    pub children: Vec<EncodedStructChild<'a>>,
 }
 
 /// A single child field within a Struct column
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct RawStructChild<'a> {
+pub struct EncodedStructChild<'a> {
     pub name: &'a str,
     pub typ: ColumnType,
     pub optional: Option<Stream<'a>>,
     pub data: Stream<'a>,
 }
 
-impl OwnedRawStructChild {
+impl OwnedEncodedStructChild {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         self.typ.write_to(writer)?;
         writer.write_string(&self.name)?;
@@ -42,25 +42,25 @@ impl OwnedRawStructChild {
     }
 }
 
-/// Property representation, either raw or decoded
+/// Property representation, either encoded or decoded
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum Property<'a> {
-    Raw(RawProperty<'a>),
+    Encoded(EncodedProperty<'a>),
     Decoded(DecodedProperty),
 }
 
 impl Analyze for Property<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::Raw(d) => d.collect_statistic(stat),
+            Self::Encoded(d) => d.collect_statistic(stat),
             Self::Decoded(d) => d.collect_statistic(stat),
         }
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
-            Self::Raw(d) => d.for_each_stream(cb),
+            Self::Encoded(d) => d.for_each_stream(cb),
             Self::Decoded(d) => d.for_each_stream(cb),
         }
     }
@@ -70,7 +70,7 @@ impl OwnedProperty {
     #[doc(hidden)]
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Raw(r) => r.write_columns_meta_to(writer),
+            Self::Encoded(r) => r.write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -78,7 +78,7 @@ impl OwnedProperty {
     #[doc(hidden)]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Raw(r) => r.write_to(writer),
+            Self::Encoded(r) => r.write_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -87,17 +87,17 @@ impl OwnedProperty {
 /// Unparsed property data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct RawProperty<'a> {
+pub struct EncodedProperty<'a> {
     name: &'a str,
     optional: Option<Stream<'a>>,
-    value: RawPropValue<'a>,
+    value: EncodedPropValue<'a>,
 }
 
-impl<'a> RawProperty<'a> {
+impl<'a> EncodedProperty<'a> {
     pub(crate) fn new(
         name: &'a str,
         optional: Option<Stream<'a>>,
-        value: RawPropValue<'a>,
+        value: EncodedPropValue<'a>,
     ) -> Self {
         Self {
             name,
@@ -107,39 +107,39 @@ impl<'a> RawProperty<'a> {
     }
 }
 
-impl Analyze for RawProperty<'_> {
+impl Analyze for EncodedProperty<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.optional.for_each_stream(cb);
         self.value.for_each_stream(cb);
     }
 }
 
-impl OwnedRawProperty {
+impl OwnedEncodedProperty {
     pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         // type
         match (&self.value, &self.optional) {
-            (OwnedRawPropValue::Bool(_), Some(_)) => ColumnType::OptBool.write_to(writer)?,
-            (OwnedRawPropValue::Bool(_), None) => ColumnType::Bool.write_to(writer)?,
-            (OwnedRawPropValue::I8(_), Some(_)) => ColumnType::OptI8.write_to(writer)?,
-            (OwnedRawPropValue::I8(_), None) => ColumnType::I8.write_to(writer)?,
-            (OwnedRawPropValue::U8(_), Some(_)) => ColumnType::OptU8.write_to(writer)?,
-            (OwnedRawPropValue::U8(_), None) => ColumnType::U8.write_to(writer)?,
-            (OwnedRawPropValue::I32(_), Some(_)) => ColumnType::OptI32.write_to(writer)?,
-            (OwnedRawPropValue::I32(_), None) => ColumnType::I32.write_to(writer)?,
-            (OwnedRawPropValue::U32(_), Some(_)) => ColumnType::OptU32.write_to(writer)?,
-            (OwnedRawPropValue::U32(_), None) => ColumnType::U32.write_to(writer)?,
-            (OwnedRawPropValue::I64(_), Some(_)) => ColumnType::OptI64.write_to(writer)?,
-            (OwnedRawPropValue::I64(_), None) => ColumnType::I64.write_to(writer)?,
-            (OwnedRawPropValue::U64(_), Some(_)) => ColumnType::OptU64.write_to(writer)?,
-            (OwnedRawPropValue::U64(_), None) => ColumnType::U64.write_to(writer)?,
-            (OwnedRawPropValue::F32(_), Some(_)) => ColumnType::OptF32.write_to(writer)?,
-            (OwnedRawPropValue::F32(_), None) => ColumnType::F32.write_to(writer)?,
-            (OwnedRawPropValue::F64(_), Some(_)) => ColumnType::OptF64.write_to(writer)?,
-            (OwnedRawPropValue::F64(_), None) => ColumnType::F64.write_to(writer)?,
-            (OwnedRawPropValue::Str(_), Some(_)) => ColumnType::OptStr.write_to(writer)?,
-            (OwnedRawPropValue::Str(_), None) => ColumnType::Str.write_to(writer)?,
-            (OwnedRawPropValue::Struct(_), None) => ColumnType::Struct.write_to(writer)?,
-            (OwnedRawPropValue::Struct(_), Some(_)) => {
+            (OwnedEncodedPropValue::Bool(_), Some(_)) => ColumnType::OptBool.write_to(writer)?,
+            (OwnedEncodedPropValue::Bool(_), None) => ColumnType::Bool.write_to(writer)?,
+            (OwnedEncodedPropValue::I8(_), Some(_)) => ColumnType::OptI8.write_to(writer)?,
+            (OwnedEncodedPropValue::I8(_), None) => ColumnType::I8.write_to(writer)?,
+            (OwnedEncodedPropValue::U8(_), Some(_)) => ColumnType::OptU8.write_to(writer)?,
+            (OwnedEncodedPropValue::U8(_), None) => ColumnType::U8.write_to(writer)?,
+            (OwnedEncodedPropValue::I32(_), Some(_)) => ColumnType::OptI32.write_to(writer)?,
+            (OwnedEncodedPropValue::I32(_), None) => ColumnType::I32.write_to(writer)?,
+            (OwnedEncodedPropValue::U32(_), Some(_)) => ColumnType::OptU32.write_to(writer)?,
+            (OwnedEncodedPropValue::U32(_), None) => ColumnType::U32.write_to(writer)?,
+            (OwnedEncodedPropValue::I64(_), Some(_)) => ColumnType::OptI64.write_to(writer)?,
+            (OwnedEncodedPropValue::I64(_), None) => ColumnType::I64.write_to(writer)?,
+            (OwnedEncodedPropValue::U64(_), Some(_)) => ColumnType::OptU64.write_to(writer)?,
+            (OwnedEncodedPropValue::U64(_), None) => ColumnType::U64.write_to(writer)?,
+            (OwnedEncodedPropValue::F32(_), Some(_)) => ColumnType::OptF32.write_to(writer)?,
+            (OwnedEncodedPropValue::F32(_), None) => ColumnType::F32.write_to(writer)?,
+            (OwnedEncodedPropValue::F64(_), Some(_)) => ColumnType::OptF64.write_to(writer)?,
+            (OwnedEncodedPropValue::F64(_), None) => ColumnType::F64.write_to(writer)?,
+            (OwnedEncodedPropValue::Str(_), Some(_)) => ColumnType::OptStr.write_to(writer)?,
+            (OwnedEncodedPropValue::Str(_), None) => ColumnType::Str.write_to(writer)?,
+            (OwnedEncodedPropValue::Struct(_), None) => ColumnType::Struct.write_to(writer)?,
+            (OwnedEncodedPropValue::Struct(_), Some(_)) => {
                 return Err(MltError::TriedToEncodeOptionalStruct);
             }
         }
@@ -148,7 +148,7 @@ impl OwnedRawProperty {
         writer.write_string(&self.name)?;
 
         // struct children
-        if let OwnedRawPropValue::Struct(s) = &self.value {
+        if let OwnedEncodedPropValue::Struct(s) = &self.value {
             // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
             let child_column_count =
                 u64::try_from(s.children.len()).map_err(|_| IntegerOverflow)?;
@@ -161,7 +161,7 @@ impl OwnedRawProperty {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        use OwnedRawPropValue as Val;
+        use OwnedEncodedPropValue as Val;
 
         match &self.value {
             Val::Bool(b) => {
@@ -220,12 +220,12 @@ impl OwnedRawProperty {
     }
 }
 
-impl Default for OwnedRawProperty {
+impl Default for OwnedEncodedProperty {
     fn default() -> Self {
         Self {
             name: String::default(),
             optional: None,
-            value: OwnedRawPropValue::Bool(OwnedStream::empty_without_decoder()),
+            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_decoder()),
         }
     }
 }
@@ -233,7 +233,7 @@ impl Default for OwnedRawProperty {
 /// A sequence of encoded (raw) property values of various types
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub enum RawPropValue<'a> {
+pub enum EncodedPropValue<'a> {
     Bool(Stream<'a>),
     I8(Stream<'a>),
     U8(Stream<'a>),
@@ -244,10 +244,10 @@ pub enum RawPropValue<'a> {
     F32(Stream<'a>),
     F64(Stream<'a>),
     Str(Vec<Stream<'a>>),
-    Struct(RawStructProp<'a>),
+    Struct(EncodedStructProp<'a>),
 }
 
-impl Analyze for RawPropValue<'_> {
+impl Analyze for EncodedPropValue<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
             Self::Bool(s)
@@ -379,19 +379,23 @@ impl PropValue {
     }
 }
 
-impl_decodable!(Property<'a>, RawProperty<'a>, DecodedProperty);
-impl_encodable!(OwnedProperty, DecodedProperty, OwnedRawProperty);
+impl_decodable!(Property<'a>, EncodedProperty<'a>, DecodedProperty);
+impl_encodable!(OwnedProperty, DecodedProperty, OwnedEncodedProperty);
 
-impl<'a> From<RawProperty<'a>> for Property<'a> {
-    fn from(value: RawProperty<'a>) -> Self {
-        Self::Raw(value)
+impl<'a> From<EncodedProperty<'a>> for Property<'a> {
+    fn from(value: EncodedProperty<'a>) -> Self {
+        Self::Encoded(value)
     }
 }
 
 impl<'a> Property<'a> {
     #[must_use]
-    pub fn raw(name: &'a str, optional: Option<Stream<'a>>, value: RawPropValue<'a>) -> Self {
-        Self::Raw(RawProperty {
+    pub fn new_encoded(
+        name: &'a str,
+        optional: Option<Stream<'a>>,
+        value: EncodedPropValue<'a>,
+    ) -> Self {
+        Self::Encoded(EncodedProperty {
             name,
             optional,
             value,
@@ -401,7 +405,7 @@ impl<'a> Property<'a> {
     #[inline]
     pub fn decode(self) -> Result<DecodedProperty, MltError> {
         Ok(match self {
-            Self::Raw(v) => DecodedProperty::from_raw(v)?,
+            Self::Encoded(v) => DecodedProperty::from_encoded(v)?,
             Self::Decoded(v) => v,
         })
     }
@@ -409,9 +413,9 @@ impl<'a> Property<'a> {
     /// Decode this property. Struct properties expand into multiple decoded properties.
     pub fn decode_expand(self) -> Result<Vec<Property<'a>>, MltError> {
         match self {
-            Self::Raw(raw) => match raw.value {
-                RawPropValue::Struct(v) => decode_struct_children(raw.name, v),
-                _ => Ok(vec![Self::Decoded(DecodedProperty::from_raw(raw)?)]),
+            Self::Encoded(enc) => match enc.value {
+                EncodedPropValue::Struct(v) => decode_struct_children(enc.name, v),
+                _ => Ok(vec![Self::Decoded(DecodedProperty::from_encoded(enc)?)]),
             },
             Self::Decoded(d) => Ok(vec![Self::Decoded(d)]),
         }
@@ -422,7 +426,7 @@ impl<'a> Property<'a> {
 #[derive(Debug, Clone, Copy)]
 pub enum PropertyEncodingStrategy {}
 
-impl FromDecoded<'_> for OwnedRawProperty {
+impl FromDecoded<'_> for OwnedEncodedProperty {
     type Input = DecodedProperty;
     type EncodingStrategy = PropertyEncodingStrategy;
 
@@ -434,49 +438,51 @@ impl FromDecoded<'_> for OwnedRawProperty {
     }
 }
 
-impl<'a> FromRaw<'a> for DecodedProperty {
-    type Input = RawProperty<'a>;
+impl<'a> FromEncoded<'a> for DecodedProperty {
+    type Input = EncodedProperty<'a>;
 
-    fn from_raw(v: RawProperty<'_>) -> Result<Self, MltError> {
+    fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
         let present = v.optional.map(Stream::decode_bools);
         let values = match v.value {
-            RawPropValue::Bool(s) => {
+            EncodedPropValue::Bool(s) => {
                 PropValue::Bool(apply_present(present.as_ref(), s.decode_bools()))
             }
-            RawPropValue::I8(s) => PropValue::I8(apply_present(
+            EncodedPropValue::I8(s) => PropValue::I8(apply_present(
                 present.as_ref(),
                 s.decode_signed_int_stream()?,
             )),
-            RawPropValue::U8(s) => PropValue::U8(apply_present(
+            EncodedPropValue::U8(s) => PropValue::U8(apply_present(
                 present.as_ref(),
                 s.decode_unsigned_int_stream()?,
             )),
-            RawPropValue::I32(s) => PropValue::I32(apply_present(
+            EncodedPropValue::I32(s) => PropValue::I32(apply_present(
                 present.as_ref(),
                 s.decode_signed_int_stream()?,
             )),
-            RawPropValue::U32(s) => PropValue::U32(apply_present(
+            EncodedPropValue::U32(s) => PropValue::U32(apply_present(
                 present.as_ref(),
                 s.decode_unsigned_int_stream()?,
             )),
-            RawPropValue::I64(s) => {
+            EncodedPropValue::I64(s) => {
                 PropValue::I64(apply_present(present.as_ref(), s.decode_i64()?))
             }
-            RawPropValue::U64(s) => {
+            EncodedPropValue::U64(s) => {
                 PropValue::U64(apply_present(present.as_ref(), s.decode_u64()?))
             }
-            RawPropValue::F32(s) => {
+            EncodedPropValue::F32(s) => {
                 PropValue::F32(apply_present(present.as_ref(), s.decode_f32s()))
             }
-            RawPropValue::F64(s) => PropValue::F64(apply_present(
+            EncodedPropValue::F64(s) => PropValue::F64(apply_present(
                 present.as_ref(),
                 s.decode_f32s().into_iter().map(f64::from).collect(),
             )),
-            RawPropValue::Str(streams) => PropValue::Str(apply_present(
+            EncodedPropValue::Str(streams) => PropValue::Str(apply_present(
                 present.as_ref(),
                 decode_string_streams(streams)?,
             )),
-            RawPropValue::Struct(_) => Err(MltError::NotDecoded("struct must use decode_expand"))?,
+            EncodedPropValue::Struct(_) => {
+                Err(MltError::NotDecoded("struct must use decode_expand"))?
+            }
         };
         Ok(DecodedProperty {
             name: v.name.to_string(),
@@ -488,7 +494,7 @@ impl<'a> FromRaw<'a> for DecodedProperty {
 /// Decode a struct with shared dictionary into one decoded property per child.
 fn decode_struct_children<'a>(
     parent_name: &str,
-    struct_data: RawStructProp<'_>,
+    struct_data: EncodedStructProp<'_>,
 ) -> Result<Vec<Property<'a>>, MltError> {
     let dict = decode_shared_dictionary(struct_data.dict_streams)?;
     struct_data
