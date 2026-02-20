@@ -18,7 +18,7 @@ public class ThreadPoolTaskRunner implements TaskRunner {
   @Override
   public void run(@Nullable Runnable task) {
     if (task != null) {
-      threadPool.submit(() -> task.run());
+      threadPool.execute(task);
     }
   }
 
