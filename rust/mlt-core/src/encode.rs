@@ -1,6 +1,6 @@
 use crate::MltError;
 
-/// Trait for types that can be converted back to raw data
+/// Trait for types that can be created from decoded data
 pub trait FromDecoded<'a>: Sized {
     type Input: 'a;
     type EncodingStrategy;
