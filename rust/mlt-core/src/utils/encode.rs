@@ -107,7 +107,10 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
                 literal_count += 1;
             }
 
-            #[expect(clippy::cast_possible_truncation, reason = "literal_count is always smaller than 128")]
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "literal_count is always smaller than 128"
+            )]
             let control = (256 - literal_count) as u8;
             output.push(control);
             output.extend_from_slice(&data[pos..pos + literal_count]);
