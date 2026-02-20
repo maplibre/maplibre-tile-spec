@@ -86,7 +86,7 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
         fi
     fi
 
-# Make sure the git repo has no uncommitted changes
+# Make sure the git repo has no uncommitted changes. Fails only if CI envvar is set.
 assert-git-is-clean:
     #!/usr/bin/env bash
     set -euo pipefail
