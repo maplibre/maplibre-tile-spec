@@ -25,7 +25,6 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, Mlt
             .map_err(|e| MltError::MvtParse(e.to_string()))?;
         for mvt_feat in mvt_features {
             let geometry = convert_geometry(&mvt_feat.geometry)?;
-            let id = mvt_feat.id.unwrap_or(0);
             let mut properties = mvt_feat
                 .properties
                 .as_ref()
@@ -39,7 +38,7 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> Result<FeatureCollection, Mlt
             properties.insert("_extent".into(), Value::Number(layer.extent.into()));
             features.push(Feature {
                 geometry,
-                id,
+                id: mvt_feat.id,
                 properties,
                 ty: "Feature".into(),
             });

@@ -8,7 +8,7 @@ use ratatui::widgets::{Paragraph, Wrap};
 use crate::ui::state::{App, TreeItem, ViewMode};
 use crate::ui::{
     CLR_HOVERED_TREE, STYLE_LABEL, STYLE_SELECTED, block_with_title, feature_suffix,
-    geometry_color, geometry_type_name, is_ring_ccw, stat_line, sub_feature_suffix, sub_type_name,
+    geometry_color, geometry_type_name, is_ring_ccw, stat_line, sub_feature_suffix,
 };
 
 pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
@@ -36,6 +36,7 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     } else {
                         "features".into()
                     };
+
                     (
                         format!("  Layer: {} ({n} {label}, extent {})", g.name, g.extent),
                         None,
@@ -54,22 +55,19 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 }
                 TreeItem::SubFeature { layer, feat, part } => {
                     let geom = &app.feature(*layer, *feat).geometry;
+                    let n = match geom {
+                        Geom32::MultiPoint(_) => "Point",
+                        Geom32::MultiLineString(_) => "LineString",
+                        Geom32::MultiPolygon(_) => "Polygon",
+                        _ => "Part",
+                    };
                     (
-                        format!(
-                            "      Part {part}: {}{}",
-                            sub_type_name(geom),
-                            sub_feature_suffix(geom, *part)
-                        ),
+                        format!("      Part {part}: {n}{}", sub_feature_suffix(geom, *part)),
                         Some(geometry_color(geom)),
                     )
                 }
             };
 
-            let prefix = if idx == app.selected_index {
-                ">> "
-            } else {
-                "   "
-            };
             let style = if idx == app.selected_index {
                 STYLE_SELECTED
             } else if app.hovered.as_ref().is_some_and(|h| h.tree_idx == idx) {
@@ -79,7 +77,14 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             } else {
                 base.map_or(Style::default(), |c| Style::default().fg(c))
             };
-            Line::from(vec![Span::raw(prefix), Span::styled(text, style)])
+            Line::from(vec![
+                Span::raw(if idx == app.selected_index {
+                    ">> "
+                } else {
+                    "   "
+                }),
+                Span::styled(text, style),
+            ])
         })
         .collect();
 
@@ -111,13 +116,12 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
         .iter()
         .filter(|(k, _)| *k != "_layer" && *k != "_extent")
         .map(|(k, v)| {
-            let val = match v {
-                serde_json::Value::String(s) => s.clone(),
-                _ => v.to_string(),
-            };
             Line::from(vec![
                 Span::styled(format!("{k}: "), STYLE_LABEL),
-                Span::raw(val),
+                Span::raw(match v {
+                    serde_json::Value::String(s) => s.clone(),
+                    _ => v.to_string(),
+                }),
             ])
         })
         .collect();

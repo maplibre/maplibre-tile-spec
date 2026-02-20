@@ -819,15 +819,6 @@ fn geometry_type_name(geom: &Geom32) -> &'static str {
     }
 }
 
-fn sub_type_name(geom: &Geom32) -> &'static str {
-    match geom {
-        Geom32::MultiPoint(_) => "Point",
-        Geom32::MultiLineString(_) => "LineString",
-        Geom32::MultiPolygon(_) => "Polygon",
-        _ => "Part",
-    }
-}
-
 fn geometry_color(geom: &Geom32) -> Color {
     match geom {
         Geom32::MultiPoint(_) => CLR_MULTI_POINT,
