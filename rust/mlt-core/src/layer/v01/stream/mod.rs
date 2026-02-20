@@ -34,6 +34,8 @@ impl Analyze for Stream<'_> {
 }
 
 impl OwnedStream {
+    /// Creates an empty stream
+    #[must_use]
     pub fn empty_without_decoder() -> Self {
         Self {
             meta: StreamMeta {
