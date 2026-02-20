@@ -11,6 +11,10 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: sudo apt-get install -y protobuf-compiler
+    - name: Install python development dependencys for mlt-pyo3 (Ubuntu)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get install -y python3-dev
     - name: Install g++-aarch64-linux-gnu
       if: runner.os == 'Linux' && runner.arch == 'ARM64'
       shell: bash
