@@ -72,7 +72,7 @@ public class MltConverter {
     return createTilesetMetadata(
         tile,
         config,
-        new ColumnMappingConfig(Pattern.compile(".*"), columnMappingConfig),
+        ColumnMappingConfig.of(Pattern.compile(".*"), columnMappingConfig),
         includeIdIfPresent);
   }
 

@@ -1,20 +1,23 @@
 package org.maplibre.mlt.converter.mvt;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 
 /// Specifies multiple column mappings for different layers based on regex patterns
-public class ColumnMappingConfig extends HashMap<Pattern, List<ColumnMapping>> {
+@SuppressWarnings("serial")
+public class ColumnMappingConfig extends LinkedHashMap<Pattern, List<ColumnMapping>> {
   public ColumnMappingConfig() {
     super();
   }
 
-  public ColumnMappingConfig(
+  public static ColumnMappingConfig of(
       @NotNull Pattern pattern, @NotNull List<ColumnMapping> columnMappings) {
-    this.put(pattern, columnMappings);
+    final var config = new ColumnMappingConfig();
+    config.put(pattern, columnMappings);
+    return config;
   }
 
   public @Override String toString() {

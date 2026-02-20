@@ -174,7 +174,7 @@ public class MltDecoderBenchmarkTest {
 
     final var columnMapping = new ColumnMapping("name", ":", true);
     final var columnMappings =
-        new ColumnMappingConfig(Pattern.compile(".*"), List.of(columnMapping));
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(columnMapping));
     final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
 
     var allowIdRegeneration = true;

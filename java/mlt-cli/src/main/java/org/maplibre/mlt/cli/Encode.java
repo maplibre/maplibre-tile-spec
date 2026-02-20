@@ -439,7 +439,7 @@ public class Encode {
       final var isIdPresent = true;
       final var metadata =
           MltConverter.createTilesetMetadata(
-              decodedMvTile, config.columnMappingConfig(), isIdPresent);
+              decodedMvTile, config.conversionConfig(), config.columnMappingConfig(), isIdPresent);
 
       // Print column mappings if verbosity level is high.
       if (config.verboseLevel() > 2) {

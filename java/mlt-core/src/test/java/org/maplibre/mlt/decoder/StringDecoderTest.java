@@ -257,7 +257,7 @@ public class StringDecoderTest {
 
     final var columnMapping = new ColumnMapping("name", ":", true);
     final var columnMappings =
-        new ColumnMappingConfig(Pattern.compile(".*"), List.of(columnMapping));
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(columnMapping));
     final var tileMetadata = MltConverter.createTilesetMetadata(mvTile, columnMappings, true);
     final var fieldMetadata =
         tileMetadata.featureTables.get(tableIndex).columns.stream()
@@ -309,7 +309,7 @@ public class StringDecoderTest {
     final var mapping1 = new ColumnMapping("name", ":", true);
     final var mapping2 = new ColumnMapping("name", "_", true);
     final var columnMappings =
-        new ColumnMappingConfig(Pattern.compile(".*"), List.of(mapping1, mapping2));
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(mapping1, mapping2));
 
     final var metadata =
         MltConverter.createTilesetMetadata(mvTile, columnMappings, /*isIdPresent*/ true);
@@ -348,7 +348,7 @@ public class StringDecoderTest {
     final var columnMapping =
         new ColumnMapping(List.of("name", "name:en", "name:latin", "name_en", "name_int"), true);
     final var columnMappings =
-        new ColumnMappingConfig(Pattern.compile(".*"), List.of(columnMapping));
+        ColumnMappingConfig.of(Pattern.compile(".*"), List.of(columnMapping));
 
     final var metadata =
         MltConverter.createTilesetMetadata(mvTile, columnMappings, /*isIdPresent*/ true);

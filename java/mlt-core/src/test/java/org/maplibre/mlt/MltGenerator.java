@@ -53,7 +53,7 @@ public class MltGenerator {
 
   private static final TestUtils.Optimization DEFAULT_OPTIMIZATION = TestUtils.Optimization.NONE;
   protected static final ColumnMappingConfig COLUMN_MAPPINGS =
-      new ColumnMappingConfig(Pattern.compile(".*"), List.of(new ColumnMapping("name", "_", true)));
+      ColumnMappingConfig.of(Pattern.compile(".*"), List.of(new ColumnMapping("name", "_", true)));
   private static final boolean DEFAULT_USE_FAST_PFOR = false;
   private static final boolean DEFAULT_USE_FSST = false;
   private static final boolean DEFAULT_USE_POLYGON_TESSELLATION = false;
