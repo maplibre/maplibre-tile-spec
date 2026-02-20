@@ -56,6 +56,27 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-test
 
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: ./rust }
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: layer
+    steps:
+      - uses: actions/checkout@v6
+      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: just -v ci-fuzz-build ${{ matrix.target }}
+      # enable once we can reliably fuzz ourselves
+      #- run: just -v ci-fuzz-run ${{ matrix.target }}
+
   test-msrv:
     name: Test MSRV
     runs-on: ubuntu-latest
