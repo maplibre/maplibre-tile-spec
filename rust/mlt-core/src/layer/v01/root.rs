@@ -13,6 +13,7 @@ use crate::v01::{
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
 /// Representation of a feature table layer encoded as MLT tag `0x01`
+#[cfg(not(fuzzing))]
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub struct Layer01<'a> {
@@ -21,7 +22,18 @@ pub struct Layer01<'a> {
     pub id: Id<'a>,
     pub geometry: Geometry<'a>,
     pub properties: Vec<Property<'a>>,
-    #[cfg(fuzzing)]
+}
+
+/// FIXME: fuzzing is only adding layer_order but this borrowme does not codegen correctly in this case
+#[cfg(fuzzing)]
+#[borrowme]
+#[derive(Debug, PartialEq)]
+pub struct Layer01<'a> {
+    pub name: &'a str,
+    pub extent: u32,
+    pub id: Id<'a>,
+    pub geometry: Geometry<'a>,
+    pub properties: Vec<Property<'a>>,
     pub layer_order: Vec<LayerOrdering>,
 }
 
