@@ -51,6 +51,12 @@ ci-test: env-info (just 'java::gen-snippets') test test-doc
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: env-info ci-check (just 'java::gen-snippets') test
 
+# Build the layer target (installs `cargo fuzz`)
+ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')
+
+# Fuzz the target for 90 seconds (installs `cargo fuzz`)
+ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+
 # Clean all build artifacts
 clean:
     cargo clean
@@ -95,6 +101,15 @@ fmt:
 # Reformat all Cargo.toml files (installs `cargo sort`)
 fmt-toml *args: (just 'cargo-install' 'cargo-sort')
     cargo sort --workspace --grouped {{args}}
+
+# Fuzz the layer target (installs `cargo fuzz`)
+fuzz *args: (cargo-fuzz 'run' 'layer' '--' args)
+
+# Minimize the size of the fuzzing corpus (installs `cargo fuzz`)
+fuzz-cmin file: (cargo-fuzz 'tmin' 'layer' file)
+
+# Minimize the crash in file (installs `cargo fuzz`)
+fuzz-tmin file: (cargo-fuzz 'tmin' 'layer' file)
 
 # Get any package's field from the metadata
 get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
@@ -142,3 +157,8 @@ udeps: (just 'cargo-install' 'cargo-udeps')
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+
+[private]
+[working-directory: 'mlt-core']
+cargo-fuzz *args:  (cargo-install 'cargo-fuzz')
+    cargo +nightly fuzz {{args}}
