@@ -4,7 +4,7 @@ members = ["mlt", "mlt-core", "mlt-pyo3"]
 # mlt-core/fuzz because cargo-fuzz does not have workspace support
 # mlt-legacy due to buildscript issues
 exclude = ["mlt-core/fuzz", "mlt-legacy"]
-default-members = ["mlt", "mlt-core"]
+default-members = ["mlt-core", "mlt", "mlt-pyo3"]
 
 [workspace.package]
 repository = "https://github.com/nyurik/maplibre-tile-spec"
@@ -12,7 +12,7 @@ homepage = "https://maplibre.org"
 authors = ["Maplibre Contributors"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-keywords = ["maplibre", "tile", "mlt", "mvt"]
+keywords = ["maplibre", "tile", "mlt", "mvt", "map"]
 categories = ["science::geo"]
 rust-version = "1.87.0"
 

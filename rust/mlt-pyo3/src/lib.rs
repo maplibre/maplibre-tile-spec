@@ -1,84 +1,24 @@
-use std::f64::consts::PI;
+mod feature;
+mod tile_transform;
 
+use std::iter::once;
+use std::ops::Deref;
+
+use geo_types::{LineString, Polygon};
+use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::v01::{
+    DecodedGeometry, DecodedId, DecodedProperty, Geometry as MltGeometry, Id, PropValue, Property,
+};
+use mlt_core::{MltError, parse_layers};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
+use tile_transform::TileTransform;
 
-use mlt::geojson::FeatureCollection;
-use mlt::v01::{DecodedGeometry, DecodedProperty, PropValue};
+use crate::feature::MltFeature;
 
-fn mlt_err(e: mlt::MltError) -> PyErr {
+fn mlt_err(e: MltError) -> PyErr {
     PyValueError::new_err(format!("MLT decode error: {e}"))
-}
-
-/// Affine transform from tile-local coords to EPSG:3857 meters.
-#[derive(Clone, Copy)]
-struct TileTransform {
-    x_origin: f64,
-    y_origin: f64,
-    x_scale: f64,
-    y_scale: f64,
-}
-
-impl TileTransform {
-    /// Build a transform from tile z/x/y coordinates.
-    ///
-    /// `tms`: if true, y uses TMS convention (y=0 at south, used by OpenMapTiles
-    /// and MBTiles). If false, y uses XYZ / slippy-map convention (y=0 at north,
-    /// used by OSM tile servers).
-    fn from_zxy(z: u32, x: u32, y: u32, extent: u32, tms: bool) -> Result<Self, PyErr> {
-        if z > 30 {
-            return Err(PyValueError::new_err(format!(
-                "zoom level {z} exceeds maximum of 30"
-            )));
-        }
-
-        let n = f64::from(1_u32 << z);
-        let circumference = 2.0 * PI * 6_378_137.0;
-        let tile_size = circumference / n;
-        let half = circumference / 2.0;
-
-        // Convert TMS y to XYZ y if needed (y_xyz = 2^z - 1 - y_tms)
-        let y_xyz = if tms {
-            (1_u32 << z).saturating_sub(1).saturating_sub(y)
-        } else {
-            y
-        };
-
-        // In XYZ convention: y=0 is the north edge of the map.
-        // The tile's north (top) edge in EPSG:3857 meters:
-        let x_origin = f64::from(x) * tile_size - half;
-        let y_origin = half - f64::from(y_xyz) * tile_size;
-
-        let scale = tile_size / f64::from(extent);
-
-        Ok(TileTransform {
-            x_origin,
-            y_origin,
-            x_scale: scale,
-            y_scale: -scale, // tile pixel-y grows downward, EPSG:3857 y grows upward
-        })
-    }
-
-    fn apply(self, coord: [i32; 2]) -> [f64; 2] {
-        [
-            self.x_origin + f64::from(coord[0]) * self.x_scale,
-            self.y_origin + f64::from(coord[1]) * self.y_scale,
-        ]
-    }
-}
-
-/// A decoded MLT feature with geometry, id, and properties.
-#[pyclass]
-struct MltFeature {
-    #[pyo3(get)]
-    id: Option<u64>,
-    #[pyo3(get)]
-    geometry_type: String,
-    #[pyo3(get)]
-    wkb: Py<PyBytes>,
-    #[pyo3(get)]
-    properties: Py<PyDict>,
 }
 
 /// A decoded MLT layer containing features.
@@ -114,86 +54,85 @@ fn push_u32(buf: &mut Vec<u8>, v: u32) {
     buf.extend_from_slice(&v.to_le_bytes());
 }
 
+fn push_rings(
+    buf: &mut Vec<u8>,
+    rings: impl IntoIterator<Item = impl Deref<Target = LineString<i32>>>,
+    xf: Option<TileTransform>,
+) {
+    for ring in rings {
+        push_u32(buf, ring.0.len() as u32);
+        for c in &ring.0 {
+            push_coord(buf, (*c).into(), xf);
+        }
+    }
+}
+
+fn push_linestring(
+    buf: &mut Vec<u8>,
+    line: impl Deref<Target = LineString<i32>>,
+    xf: Option<TileTransform>,
+) {
+    buf.push(0x01);
+    push_u32(buf, 2);
+    push_rings(buf, once(line), xf);
+}
+
+fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform>) {
+    buf.push(0x01);
+    push_u32(buf, 3);
+    push_u32(buf, (poly.interiors().len() + 1) as u32);
+    push_rings(buf, once(poly.exterior()).chain(poly.interiors()), xf);
+}
+
 fn geom_to_wkb(
     geom: &DecodedGeometry,
     index: usize,
     xf: Option<TileTransform>,
-) -> Result<Vec<u8>, mlt::MltError> {
-    use mlt::geojson::Geometry;
-
+) -> Result<Vec<u8>, MltError> {
     let gj = geom.to_geojson(index)?;
     let mut buf = Vec::with_capacity(128);
 
     match gj {
-        Geometry::Point(c) => {
+        Geom32::Point(c) => {
             buf.push(0x01);
             push_u32(&mut buf, 1);
-            push_coord(&mut buf, c, xf);
+            push_coord(&mut buf, c.into(), xf);
         }
-        Geometry::LineString(coords) => {
-            buf.push(0x01);
-            push_u32(&mut buf, 2);
-            push_u32(&mut buf, coords.len() as u32);
-            for c in &coords {
-                push_coord(&mut buf, *c, xf);
-            }
-        }
-        Geometry::Polygon(rings) => {
-            buf.push(0x01);
-            push_u32(&mut buf, 3);
-            push_u32(&mut buf, rings.len() as u32);
-            for ring in &rings {
-                push_u32(&mut buf, ring.len() as u32);
-                for c in ring {
-                    push_coord(&mut buf, *c, xf);
-                }
-            }
-        }
-        Geometry::MultiPoint(coords) => {
+        Geom32::LineString(coords) => push_linestring(&mut buf, &coords, xf),
+        Geom32::Polygon(poly) => push_polygon(&mut buf, &poly, xf),
+        Geom32::MultiPoint(coords) => {
             buf.push(0x01);
             push_u32(&mut buf, 4);
-            push_u32(&mut buf, coords.len() as u32);
-            for c in &coords {
+            push_u32(&mut buf, coords.0.len() as u32);
+            for c in &coords.0 {
                 buf.push(0x01);
                 push_u32(&mut buf, 1);
-                push_coord(&mut buf, *c, xf);
+                push_coord(&mut buf, (*c).into(), xf);
             }
         }
-        Geometry::MultiLineString(lines) => {
+        Geom32::MultiLineString(lines) => {
             buf.push(0x01);
             push_u32(&mut buf, 5);
-            push_u32(&mut buf, lines.len() as u32);
-            for line in &lines {
-                buf.push(0x01);
-                push_u32(&mut buf, 2);
-                push_u32(&mut buf, line.len() as u32);
-                for c in line {
-                    push_coord(&mut buf, *c, xf);
-                }
+            push_u32(&mut buf, lines.0.len() as u32);
+            for line in &lines.0 {
+                push_linestring(&mut buf, line, xf);
             }
         }
-        Geometry::MultiPolygon(polygons) => {
+        Geom32::MultiPolygon(polygons) => {
             buf.push(0x01);
             push_u32(&mut buf, 6);
-            push_u32(&mut buf, polygons.len() as u32);
-            for polygon in &polygons {
-                buf.push(0x01);
-                push_u32(&mut buf, 3);
-                push_u32(&mut buf, polygon.len() as u32);
-                for ring in polygon {
-                    push_u32(&mut buf, ring.len() as u32);
-                    for c in ring {
-                        push_coord(&mut buf, *c, xf);
-                    }
-                }
+            push_u32(&mut buf, polygons.0.len() as u32);
+            for polygon in &polygons.0 {
+                push_polygon(&mut buf, polygon, xf);
             }
         }
+        _ => return Err(MltError::NotImplemented("unsupported geometry type")),
     }
 
     Ok(buf)
 }
 
-fn prop_value_to_py(py: Python<'_>, pv: &PropValue, i: usize) -> PyObject {
+fn prop_value_to_py(py: Python<'_>, pv: &PropValue, i: usize) -> Py<PyAny> {
     match pv {
         PropValue::Bool(v) => match v[i] {
             Some(b) => b.into_pyobject(py).unwrap().to_owned().into_any().unbind(),
@@ -258,18 +197,12 @@ fn build_features(
 
         let prop_dict = PyDict::new(py);
         for p in props {
-            let val = prop_value_to_py(py, &p.values, i);
-            prop_dict.set_item(&p.name, val)?;
+            prop_dict.set_item(&p.name, prop_value_to_py(py, &p.values, i))?;
         }
 
         let feat = Py::new(
             py,
-            MltFeature {
-                id,
-                geometry_type: format!("{gt}"),
-                wkb,
-                properties: prop_dict.unbind(),
-            },
+            MltFeature::new(id, format!("{gt}"), wkb, prop_dict.unbind()),
         )?;
         features.push(feat);
     }
@@ -296,50 +229,46 @@ fn decode_mlt(
     y: Option<u32>,
     tms: bool,
 ) -> PyResult<Vec<MltLayer>> {
-    let mut layers = mlt::parse_layers(data).map_err(mlt_err)?;
-
+    let mut layers = parse_layers(data).map_err(mlt_err)?;
+    let mut result = Vec::with_capacity(layers.len());
     for layer in &mut layers {
         layer.decode_all().map_err(mlt_err)?;
-    }
 
-    let mut result = Vec::with_capacity(layers.len());
-
-    for layer in &layers {
-        let l = layer
+        let layer = layer
             .as_layer01()
             .ok_or_else(|| PyValueError::new_err("unsupported layer tag (expected 0x01)"))?;
 
         let xf = match (z, x, y) {
-            (Some(z), Some(x), Some(y)) => Some(TileTransform::from_zxy(z, x, y, l.extent, tms)?),
+            (Some(z), Some(x), Some(y)) => {
+                Some(TileTransform::from_zxy(z, x, y, layer.extent, tms)?)
+            }
             _ => None,
         };
 
-        let geom = match &l.geometry {
-            mlt::v01::Geometry::Decoded(g) => g,
+        let geom = match &layer.geometry {
+            MltGeometry::Decoded(g) => g,
             _ => return Err(PyValueError::new_err("geometry not decoded")),
         };
 
-        let ids = match &l.id {
-            mlt::v01::Id::Decoded(d) => d.0.as_deref(),
-            mlt::v01::Id::None => None,
+        let ids = match &layer.id {
+            Id::Decoded(DecodedId(v)) => v.as_deref(),
+            Id::None => None,
             _ => return Err(PyValueError::new_err("id not decoded")),
         };
 
-        let props: Vec<&DecodedProperty> = l
+        let props: Vec<&DecodedProperty> = layer
             .properties
             .iter()
             .map(|p| match p {
-                mlt::v01::Property::Decoded(d) => Ok(d),
+                Property::Decoded(d) => Ok(d),
                 _ => Err(PyValueError::new_err("property not decoded")),
             })
             .collect::<PyResult<_>>()?;
 
-        let features = build_features(py, geom, ids, &props, xf)?;
-
         result.push(MltLayer {
-            name: l.name.to_string(),
-            extent: l.extent,
-            features,
+            name: layer.name.to_string(),
+            extent: layer.extent,
+            features: build_features(py, geom, ids, &props, xf)?,
         });
     }
 
@@ -349,7 +278,7 @@ fn decode_mlt(
 /// Decode an MLT binary blob and return GeoJSON as a string.
 #[pyfunction]
 fn decode_mlt_to_geojson(data: &[u8]) -> PyResult<String> {
-    let mut layers = mlt::parse_layers(data).map_err(mlt_err)?;
+    let mut layers = parse_layers(data).map_err(mlt_err)?;
     for layer in &mut layers {
         layer.decode_all().map_err(mlt_err)?;
     }
@@ -360,7 +289,7 @@ fn decode_mlt_to_geojson(data: &[u8]) -> PyResult<String> {
 /// Return a list of layer names without fully decoding.
 #[pyfunction]
 fn list_layers(data: &[u8]) -> PyResult<Vec<String>> {
-    let layers = mlt::parse_layers(data).map_err(mlt_err)?;
+    let layers = parse_layers(data).map_err(mlt_err)?;
     Ok(layers
         .iter()
         .filter_map(|l| l.as_layer01().map(|l| l.name.to_string()))
@@ -379,16 +308,13 @@ fn mlt_pyo3(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::f64::consts::PI;
     use std::fs;
 
-    fn init_python() {
-        pyo3::prepare_freethreaded_python();
-    }
+    use super::*;
 
     #[test]
     fn tile_transform_rejects_zoom_above_30() {
-        init_python();
         let result = TileTransform::from_zxy(31, 0, 0, 4096, false);
         assert!(result.is_err(), "z=31 should be rejected");
 
@@ -401,7 +327,6 @@ mod tests {
 
     #[test]
     fn tile_transform_zoom_zero_covers_world() {
-        init_python();
         let xf = TileTransform::from_zxy(0, 0, 0, 4096, false).unwrap();
 
         let circumference = 2.0 * PI * 6_378_137.0;
@@ -429,7 +354,6 @@ mod tests {
 
     #[test]
     fn tile_transform_apply_maps_origin_and_extent() {
-        init_python();
         let xf = TileTransform::from_zxy(0, 0, 0, 4096, false).unwrap();
 
         let origin = xf.apply([0, 0]);
@@ -457,7 +381,6 @@ mod tests {
 
     #[test]
     fn tile_transform_tms_vs_xyz() {
-        init_python();
         let xyz = TileTransform::from_zxy(1, 0, 0, 4096, false).unwrap();
         let tms = TileTransform::from_zxy(1, 0, 1, 4096, true).unwrap();
 
@@ -477,7 +400,7 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
@@ -499,14 +422,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
-            mlt::v01::Geometry::Decoded(g) => g,
+            MltGeometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
         };
 
@@ -525,20 +448,18 @@ mod tests {
 
     #[test]
     fn fixture_geom_to_wkb_with_transform() {
-        init_python();
-
         let fixture_path = "../../test/synthetic/0x01/point.mlt";
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
-            mlt::v01::Geometry::Decoded(g) => g,
+            MltGeometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
         };
 
@@ -564,14 +485,14 @@ mod tests {
         let data = fs::read(fixture_path)
             .unwrap_or_else(|e| panic!("failed to read fixture {fixture_path}: {e}"));
 
-        let mut layers = mlt::parse_layers(&data).expect("parse_layers should succeed");
+        let mut layers = parse_layers(&data).expect("parse_layers should succeed");
         for layer in &mut layers {
             layer.decode_all().expect("decode_all should succeed");
         }
 
         let l = layers[0].as_layer01().expect("first layer should be v0.1");
         let geom = match &l.geometry {
-            mlt::v01::Geometry::Decoded(g) => g,
+            MltGeometry::Decoded(g) => g,
             _ => panic!("geometry not decoded"),
         };
 

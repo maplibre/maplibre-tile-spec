@@ -13,4 +13,4 @@ keywords = ["maplibre", "tile", "mlt", "vector-tiles", "gis"]
 [tool.maturin]
 manifest-path = "Cargo.toml"
 module-name = "mlt_pyo3"
-features = ["pyo3/extension-module"]
+features = ["extension-module"]

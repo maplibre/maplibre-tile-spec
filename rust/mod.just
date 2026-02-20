@@ -72,7 +72,7 @@ coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --all-features
+    DOCS_RS=1 cargo doc --no-deps {{args}} --all-features --package mlt-core
 
 # Print environment info
 env-info:
@@ -125,6 +125,12 @@ lint: clippy test-fmt
 msrv: (just 'cargo-install' 'cargo-msrv')
     cargo msrv find --write-msrv --ignore-lockfile --component rustfmt -- {{just}} rust::ci-test-msrv
 
+# Build mlt-pyo3 and launch a Python interpreter with mlt_pyo3 pre-imported
+[working-directory: 'mlt-pyo3']
+py: (just 'cargo-install' 'maturin')
+    maturin develop --features extension-module
+    python3 -i -c "import mlt_pyo3; print('mlt_pyo3 ready — try: mlt_pyo3.decode_mlt(data)')"
+
 # Run cargo-release
 release *args='': (just 'cargo-install' 'release-plz')
     release-plz {{args}}
@@ -135,8 +141,8 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks')
 
 # Run all tests
 test:
-    cargo test --all-targets --all-features
-    cargo test --doc --all-features
+    cargo test --workspace --all-targets
+    cargo test --doc --workspace --all-features
 
 test-debug:
     RUST_BACKTRACE=1 cargo test --test synthetics debug -- --ignored
