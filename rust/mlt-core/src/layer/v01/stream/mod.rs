@@ -48,7 +48,7 @@ impl OwnedStream {
         }
     }
 }
-/// Metadata about a encoded stream
+/// Metadata about an encoded stream
 #[derive(Clone, Copy, PartialEq)]
 pub struct StreamMeta {
     pub physical_type: PhysicalStreamType,
