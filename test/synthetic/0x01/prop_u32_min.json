@@ -6,17 +6,11 @@
         "coordinates": [
           13,
           42
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
-      "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": 0
       },
       "type": "Feature"

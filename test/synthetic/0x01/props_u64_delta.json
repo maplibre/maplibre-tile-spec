@@ -6,17 +6,11 @@
         "coordinates": [
           13,
           42
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
-      "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": 9000
       },
       "type": "Feature"
@@ -27,17 +21,11 @@
         "coordinates": [
           4,
           47
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
-      "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": 9000
       },
       "type": "Feature"
@@ -48,17 +36,11 @@
         "coordinates": [
           12,
           53
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
-      "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": 9000
       },
       "type": "Feature"
@@ -69,17 +51,11 @@
         "coordinates": [
           18,
           45
-        ],
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:0"
-          }
-        }
+        ]
       },
-      "id": 0,
       "properties": {
-        "layer": "layer1",
+        "_extent": 4096,
+        "_layer": "layer1",
         "val": 9000
       },
       "type": "Feature"
