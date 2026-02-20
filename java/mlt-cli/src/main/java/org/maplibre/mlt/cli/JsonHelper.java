@@ -44,7 +44,9 @@ public class JsonHelper {
 
   private static Map<String, Object> toJson(Feature feature) {
     final var map = new TreeMap<String, Object>();
-    map.put("id", feature.id());
+    if (feature.hasId()) {
+      map.put("id", feature.id());
+    }
     map.put("geometry", feature.geometry().toString());
     // Print properties sorted by key and drop those with null
     // values to facilitate direct comparison with MVT output.
@@ -84,7 +86,9 @@ public class JsonHelper {
   private static Map<String, Object> featureToGeoJson(Layer layer, Feature feature, Gson gson) {
     var f = new TreeMap<String, Object>();
     f.put("type", "Feature");
-    f.put("id", feature.id());
+    if (feature.hasId()) {
+      f.put("id", feature.id());
+    }
     var props = getSortedNonNullProperties(feature);
     props.put("_layer", layer.name());
     props.put("_extent", layer.tileExtent());

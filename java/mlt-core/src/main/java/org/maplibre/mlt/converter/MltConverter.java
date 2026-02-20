@@ -30,10 +30,10 @@ public class MltConverter {
   // mismatch policy.
   /// @param tile The MVT tile to create metadata from
   /// @param columnMappingConfig Optional column mapping configuration
-  /// @param isIdPresent Whether to include an ID column
+  /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
-      MapboxVectorTile tile, ColumnMappingConfig columnMappingConfig, boolean isIdPresent) {
-    return createTilesetMetadata(tile, null, columnMappingConfig, isIdPresent);
+      MapboxVectorTile tile, ColumnMappingConfig columnMappingConfig, boolean includeIdIfPresent) {
+    return createTilesetMetadata(tile, null, columnMappingConfig, includeIdIfPresent);
   }
 
   /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
@@ -41,21 +41,21 @@ public class MltConverter {
   /// @param tile The MVT tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
-  /// @param isIdPresent Whether to include an ID column
+  /// @param includeIdIfPresent Whether to include an ID column
   /// @param enableCoerceOnMismatch Whether to coerce values to string on type mismatch
   /// @param enableElideOnMismatch Whether to elide values on type mismatch (for each property, the
   // first type encountered is used)
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       ColumnMappingConfig columnMappingConfig,
-      boolean isIdPresent,
+      boolean includeIdIfPresent,
       boolean enableCoerceOnMismatch,
       boolean enableElideOnMismatch) {
     final var config =
         ConversionConfig.builder()
             .mismatchPolicy(enableCoerceOnMismatch, enableElideOnMismatch)
             .build();
-    return createTilesetMetadata(tile, config, columnMappingConfig, isIdPresent);
+    return createTilesetMetadata(tile, config, columnMappingConfig, includeIdIfPresent);
   }
 
   /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
@@ -63,17 +63,17 @@ public class MltConverter {
   /// @param tile The MVT tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
-  /// @param isIdPresent Whether to include an ID column
+  /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       @Nullable ConversionConfig config,
       List<ColumnMapping> columnMappingConfig,
-      boolean isIdPresent) {
+      boolean includeIdIfPresent) {
     return createTilesetMetadata(
         tile,
         config,
         new ColumnMappingConfig(Pattern.compile(".*"), columnMappingConfig),
-        isIdPresent);
+        includeIdIfPresent);
   }
 
   /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
@@ -81,12 +81,12 @@ public class MltConverter {
   /// @param tile The MVT tile to create metadata from
   /// @param config Optional configuration
   /// @param columnMappingConfig Optional column mapping configuration
-  /// @param isIdPresent Whether to include an ID column
+  /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       @Nullable ConversionConfig config,
       ColumnMappingConfig columnMappingConfig,
-      boolean isIdPresent) {
+      boolean includeIdIfPresent) {
 
     // TODO: Allow determining whether ID is present automatically
     // TODO: Allow nullable ID columns
@@ -98,7 +98,9 @@ public class MltConverter {
       final LinkedHashMap<ColumnMapping, MltMetadata.ComplexField> complexPropertyColumnSchemas =
           new LinkedHashMap<>();
 
+      var hasId = false;
       var hasLongId = false;
+      var hasNullId = false;
       var featureIndex = 0;
       for (var feature : layer.features()) {
         final var currentFeatureIndex = featureIndex;
@@ -118,8 +120,16 @@ public class MltConverter {
                           : ConversionConfig.TypeMismatchPolicy.FAIL);
                 });
 
-        if (isIdPresent && (feature.id() > Integer.MAX_VALUE || feature.id() < Integer.MIN_VALUE)) {
-          hasLongId = true;
+        if (includeIdIfPresent) {
+          if (feature.hasId()) {
+            hasId = true;
+            if (!hasLongId && feature.id() > Integer.MAX_VALUE
+                || feature.id() < Integer.MIN_VALUE) {
+              hasLongId = true;
+            }
+          } else {
+            hasNullId = true;
+          }
         }
         featureIndex++;
       }
@@ -144,11 +154,11 @@ public class MltConverter {
       if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
         throw new RuntimeException("Unexpected ID Column");
       }
-      if (isIdPresent) {
+      if (hasId) {
         final var newColumn =
             new MltMetadata.Column(
                 null, new MltMetadata.ScalarField(MltMetadata.LogicalScalarType.ID));
-        newColumn.isNullable = false;
+        newColumn.isNullable = hasNullId;
         newColumn.columnScope = MltMetadata.ColumnScope.FEATURE;
         newColumn.scalarType.hasLongId = hasLongId;
         featureTableSchema.columns.add(newColumn);
@@ -618,7 +628,7 @@ public class MltConverter {
       sortedFeatures = sortFeaturesById(mvtFeatures);
     }
 
-    var ids = sortedFeatures.stream().map(Feature::id).collect(Collectors.toList());
+    var ids = sortedFeatures.stream().map(Feature::idOrNull).collect(Collectors.toList());
     var geometries = sortedFeatures.stream().map(Feature::geometry).collect(Collectors.toList());
 
     if (geometries.isEmpty()) {
@@ -652,7 +662,12 @@ public class MltConverter {
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
           ids.stream()
-              .map(id -> mvtFeatures.stream().filter(fe -> fe.id() == id).findFirst().orElseThrow())
+              .map(
+                  id ->
+                      mvtFeatures.stream()
+                          .filter(fe -> Objects.equals(fe.idOrNull(), id))
+                          .findFirst()
+                          .orElseThrow())
               .collect(Collectors.toList());
     }
 
@@ -674,13 +689,13 @@ public class MltConverter {
 
   private static List<Feature> sortFeaturesById(List<Feature> features) {
     return features.stream()
-        .sorted(Comparator.comparingLong(Feature::id))
+        .sorted(Comparator.comparing(Feature::hasId).thenComparingLong(Feature::id))
         .collect(Collectors.toList());
   }
 
   private static List<Feature> generateSequenceIds(List<Feature> features) {
     var sortedFeatures = new ArrayList<Feature>();
-    var idCounter = 0;
+    long idCounter = 0;
     for (var feature : features) {
       sortedFeatures.add(new Feature(idCounter++, feature.geometry(), feature.properties()));
     }

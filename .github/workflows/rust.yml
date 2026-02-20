@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'justfile'
+      - 'rust/mod.just'
       - '.github/**'
       - 'rust/**'
       - 'test/**'
@@ -16,91 +17,96 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    defaults:
-      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
-      - run: just -v ci-lint
-
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    defaults:
-      run: { working-directory: ./rust }
-    steps:
-      - uses: actions/checkout@v6
-      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-binstall' }
-      - uses: ./.github/actions/mlt-setup-java
-      - uses: ./.github/actions/mlt-setup-rust
-      - run: just -v ci-check
+      - run: just -v rust::ci-check
+      - run: just -v rust::ci-lint
 
   test:
     name: Test
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just,cargo-binstall' }
+      - uses: ./.github/actions/mlt-setup-java
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: just -v rust::ci-test
+
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
     defaults:
       run: { working-directory: ./rust }
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: layer
     steps:
       - uses: actions/checkout@v6
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
-      - uses: ./.github/actions/mlt-setup-java
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
       - uses: ./.github/actions/mlt-setup-rust
-      - run: just -v ci-test
+      - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
+      # enable once we can reliably fuzz ourselves
+      #- run: just -v rust::ci-fuzz-run ${{ matrix.target }}
 
   test-msrv:
     name: Test MSRV
     runs-on: ubuntu-latest
-    defaults:
-      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - name: Read MSRV
         id: msrv
-        run: echo "value=$(just get-msrv)" >> $GITHUB_OUTPUT
+        run: echo "value=$(just rust::get-msrv)" >> $GITHUB_OUTPUT
       - name: Install MSRV Rust ${{ steps.msrv.outputs.value }}
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ steps.msrv.outputs.value }}
-      - run: cd .. && just -v assert-git-is-clean
+      - run: just -v assert-git-is-clean
 
   coverage:
     name: Code Coverage
     if: github.event_name != 'release' && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
-    defaults:
-      run: { working-directory: ./rust }
     steps:
       - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall,cargo-llvm-cov' }
       - uses: ./.github/actions/mlt-setup-java
       - uses: ./.github/actions/mlt-setup-rust
       - name: Generate code coverage
-        run: just -v ci-coverage
+        run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: target/llvm-cov/codecov.info
-      - run: cd .. && just -v assert-git-is-clean
+          files: rust/target/llvm-cov/codecov.info
+      - run: just -v assert-git-is-clean
 
   build-release-binaries:
     name: Build release binaries for ${{ matrix.target }}
@@ -133,7 +139,7 @@ jobs:
         run: rustup target add ${{ matrix.target }}
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }} --package mlt --bin mlt
-        working-directory: ./rust
+        working-directory: rust
       - name: Package Unix binary
         if: runner.os != 'Windows'
         run: tar -czf ../../../../${{ matrix.artifact_name }} mlt
@@ -152,7 +158,7 @@ jobs:
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
-    needs: [ test, test-msrv, lint, check, build-release-binaries ]
+    needs: [ test, test-msrv, lint, build-release-binaries ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -212,19 +218,17 @@ jobs:
         id: get_version_unix
         shell: bash
         run: |
-          VERSION=$(just get-crate-field version mlt)
+          VERSION=$(just rust::get-crate-field version mlt)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=rust-mlt-v$VERSION" >> $GITHUB_OUTPUT
-        working-directory: rust
       - name: Get mlt version for release tag (Windows)
         if: runner.os == 'Windows'
         id: get_version_windows
         shell: pwsh
         run: |
-          $VERSION = just get-crate-field version mlt
+          $VERSION = just rust::get-crate-field version mlt
           echo "version=$VERSION" >> $env:GITHUB_OUTPUT
           echo "tag=rust-mlt-v$VERSION" >> $env:GITHUB_OUTPUT
-        working-directory: rust
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:

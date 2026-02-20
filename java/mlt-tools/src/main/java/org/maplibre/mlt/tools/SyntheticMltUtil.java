@@ -187,11 +187,11 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom) {
-    return new Feature(0, geom, Map.of());
+    return new Feature(geom, Map.of());
   }
 
   static Feature feat(Geometry geom, Map<String, Object> props) {
-    return new Feature(0, geom, props);
+    return new Feature(geom, props);
   }
 
   /** for testing IDs - always use the same geometry */
@@ -201,8 +201,7 @@ class SyntheticMltUtil {
 
   /** for testing IDs - simulate missing ID */
   static Feature idFeat() {
-    // FIXME: once we support nullable IDs, change this code
-    throw new IllegalStateException("Cannot create feature with null ID in current implementation");
+    return new Feature(p0, Map.of());
   }
 
   static Layer layer(String name, Feature... features) {

@@ -248,7 +248,7 @@ public class CompareHelper {
       @NotNull CompareMode compareMode,
       int featureIndex,
       String layerName) {
-    if (mvtFeature.id() != mltFeature.id()) {
+    if (!Objects.equals(mvtFeature.idOrNull(), mltFeature.idOrNull())) {
       return Optional.of(
           Difference.builder("Feature IDs differ")
               .layerName(layerName)

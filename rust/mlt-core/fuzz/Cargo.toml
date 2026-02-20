@@ -1,0 +1,34 @@
+[package]
+name = "fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[lib]
+name = "mlt_fuzz"
+path = "src/lib.rs"
+
+[[bin]]
+name = "layer"
+path = "fuzz_targets/layer.rs"
+test = false
+doc = false
+bench = false
+
+[dependencies]
+arbitrary = { version = "1.4.2", features = ["derive"] }
+borrowme = "0.0.15"
+hex = "0.4.3"
+libfuzzer-sys = "0.4"
+mlt-core = { path = ".." }
+pretty_assertions = "1.4"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }

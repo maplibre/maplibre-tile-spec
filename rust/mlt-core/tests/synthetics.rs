@@ -70,8 +70,9 @@ fn normalize_tiny_floats(value: Value) -> Value {
 }
 
 #[test]
-fn test_plain() {
-    let path = "../../test/synthetic/0x01/point";
+#[ignore = "debug helper, run with `just test-debug`"]
+fn debug() {
+    let path = "../../test/synthetic/0x01/polygon";
     let mlt = Path::new(path).with_extension("mlt");
     let json = Path::new(path).with_extension("json");
     test_one(&mlt, &json);
