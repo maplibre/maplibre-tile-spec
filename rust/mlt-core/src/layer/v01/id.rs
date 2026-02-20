@@ -20,7 +20,8 @@ pub enum Id<'a> {
 }
 
 impl OwnedId {
-    pub(crate) fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    #[doc(hidden)]
+    pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::None => Ok(()),
             Self::Raw(r) => r.write_columns_meta_to(writer),
@@ -28,7 +29,8 @@ impl OwnedId {
         }
     }
 
-    pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
+    #[doc(hidden)]
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
             Self::None => Ok(()),
             Self::Raw(r) => r.write_to(writer),

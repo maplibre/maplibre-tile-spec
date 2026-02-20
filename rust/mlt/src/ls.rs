@@ -10,6 +10,7 @@ use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
+use mlt_core::geojson::Geom32;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
     DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
@@ -414,8 +415,6 @@ fn analyze_mvt_buffer(
     base_path: &Path,
     skip_gzip: bool,
 ) -> Result<MltFileInfo> {
-    use mlt_core::geojson::Geometry as GjGeom;
-
     let fc = mvt_to_feature_collection(buffer.to_vec())?;
 
     let mut layer_names = HashSet::new();
@@ -426,12 +425,13 @@ fn analyze_mvt_buffer(
             layer_names.insert(name.to_string());
         }
         geom_types.insert(match &feat.geometry {
-            GjGeom::Point(_) => "Pt",
-            GjGeom::MultiPoint(_) => "MPt",
-            GjGeom::LineString(_) => "Line",
-            GjGeom::MultiLineString(_) => "MLine",
-            GjGeom::Polygon(_) => "Poly",
-            GjGeom::MultiPolygon(_) => "MPoly",
+            Geom32::Point(_) => "Pt",
+            Geom32::MultiPoint(_) => "MPt",
+            Geom32::LineString(_) => "Line",
+            Geom32::MultiLineString(_) => "MLine",
+            Geom32::Polygon(_) => "Poly",
+            Geom32::MultiPolygon(_) => "MPoly",
+            _ => "Other",
         });
     }
 
