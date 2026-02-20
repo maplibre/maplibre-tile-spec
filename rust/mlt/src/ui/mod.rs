@@ -816,7 +816,6 @@ fn geometry_type_name(geom: &Geom32) -> &'static str {
         Geom32::GeometryCollection(_) => "GeometryCollection",
         Geom32::Rect(_) => "Rect",
         Geom32::Triangle(_) => "Triangle",
-        _ => "Unknown",
     }
 }
 
