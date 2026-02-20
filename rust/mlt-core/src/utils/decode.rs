@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use num_traits::{AsPrimitive, PrimInt, ToPrimitive, WrappingAdd};
+use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
 
 use crate::utils::take;
