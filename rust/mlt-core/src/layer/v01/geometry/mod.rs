@@ -334,7 +334,7 @@ impl Analyze for GeometryType {
 impl_decodable!(Geometry<'a>, RawGeometry<'a>, DecodedGeometry);
 impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedRawGeometry);
 
-/// How to encode Geometrys
+/// How to encode Geometries
 #[derive(Debug, Clone, Copy)]
 pub enum GeometryEncodingStrategy {}
 
