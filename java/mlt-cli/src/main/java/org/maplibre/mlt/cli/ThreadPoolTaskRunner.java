@@ -32,5 +32,5 @@ public class ThreadPoolTaskRunner implements TaskRunner {
     threadPool.shutdown();
   }
 
-  private @Nullable ThreadPoolExecutor threadPool;
+  private final @NotNull ThreadPoolExecutor threadPool;
 }

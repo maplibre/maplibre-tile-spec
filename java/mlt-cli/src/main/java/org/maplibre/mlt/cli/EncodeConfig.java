@@ -9,7 +9,7 @@ import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 
 record EncodeConfig(
     @NotNull ColumnMappingConfig columnMappingConfig,
-    @Nullable ConversionConfig conversionConfig,
+    @NotNull ConversionConfig conversionConfig,
     @Nullable URI tessellateSource,
     @Nullable Pattern sortFeaturesPattern,
     @Nullable Pattern regenIDsPattern,
@@ -56,7 +56,7 @@ record EncodeConfig(
   }
 
   public static final class Builder {
-    private @NotNull ColumnMappingConfig columnMappingConfig = new ColumnMappingConfig();
+    private @Nullable ColumnMappingConfig columnMappingConfig = null;
     private @Nullable ConversionConfig conversionConfig = null;
     private @Nullable URI tessellateSource = null;
     private @Nullable Pattern sortFeaturesPattern = null;
@@ -173,8 +173,8 @@ record EncodeConfig(
 
     public EncodeConfig build() {
       return new EncodeConfig(
-          columnMappingConfig,
-          conversionConfig,
+          (columnMappingConfig != null) ? columnMappingConfig : new ColumnMappingConfig(),
+          (conversionConfig != null) ? conversionConfig : new ConversionConfig(),
           tessellateSource,
           sortFeaturesPattern,
           regenIDsPattern,

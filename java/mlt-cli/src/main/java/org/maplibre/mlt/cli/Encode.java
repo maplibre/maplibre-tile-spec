@@ -410,13 +410,7 @@ public class Encode {
    * @param y The y-coordinate of the tile.
    * @param z The zoom level of the tile.
    * @param srcTileData The source tile data as a byte array.
-   * @param conversionConfig The configuration for the conversion process.
-   * @param columnMappings A map of patterns to column mappings for property transformations.
-   * @param tessellateSource The URI for a remote tessellation service
-   * @param sortFeaturesPattern A pattern for sorting features, or null if not applicable.
-   * @param regenIDsPattern A pattern for regenerating IDs, or null if not applicable.
-   * @param compressionType The type of compression to apply to the output, or null for no
-   *     compression.
+   * @param encodeConfig The configuration for the conversion process
    * @param compressionRatioThreshold An optional threshold for the compression ratio to determine
    *     whether compression is worth the need to decompress it. The compressed version will only be
    *     used if its size is less than the original size multiplied by this ratio. If not present, a
@@ -426,8 +420,6 @@ public class Encode {
    *     its size is at least this many bytes smaller than the original size. If not present, a
    *     compressed result will be used even if it's larger than the original.
    * @param didCompress A mutable boolean to indicate whether compression was applied
-   * @param enableElideOnMismatch A flag indicating whether to elide mismatched properties.
-   * @param verboseLevel The verbosity level for logging and debugging output.
    * @return The converted tile data as a byte array, or null if the conversion failed.
    */
   @Nullable

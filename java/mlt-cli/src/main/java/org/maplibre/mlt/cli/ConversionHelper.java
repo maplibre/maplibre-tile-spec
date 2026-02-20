@@ -72,7 +72,6 @@ public class ConversionHelper {
     if (verboseLevel > 1) {
       System.err.println("Optimizing database");
     }
-    ;
     try (final var stmt = connection.createStatement()) {
       stmt.execute("VACUUM");
       return true;

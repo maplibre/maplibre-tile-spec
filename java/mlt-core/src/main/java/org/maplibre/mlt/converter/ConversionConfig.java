@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class ConversionConfig {
   public enum TypeMismatchPolicy {
-    COERCE, // Coerce values to the first type encountered
+    COERCE, // Coerce values to string on type mismatch
     ELIDE, // Skip values that don't match the first type encountered
     FAIL // Throw an error if a type mismatch is detected (default)
   }
