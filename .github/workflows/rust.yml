@@ -72,6 +72,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with: { tool: 'just,cargo-binstall' }
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v ci-fuzz-build ${{ matrix.target }}
       # enable once we can reliably fuzz ourselves
