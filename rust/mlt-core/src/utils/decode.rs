@@ -207,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_u32s_to_bytes_empty() {
+    fn test_decode_bytes_to_u32s_empty() {
         let (input, decoded) = decode_bytes_to_u32s(&[], 0).unwrap();
         assert!(decoded.is_empty());
         assert!(input.is_empty());
