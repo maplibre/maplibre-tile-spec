@@ -9,13 +9,13 @@ use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Po
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
-use crate::MltError;
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
     NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
-use crate::decode::{FromRaw, impl_decodable};
+use crate::decode::{FromEncoded, impl_decodable};
+use crate::encode::impl_encodable;
 use crate::geojson::{Coord32, Geom32 as GeoGeom};
 use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
 use crate::v01::column::ColumnType;
@@ -24,27 +24,31 @@ use crate::v01::geometry::decode::{
     decode_level1_without_ring_buffer_length_stream, decode_level2_length_stream,
     decode_root_length_stream,
 };
-use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream};
+use crate::v01::{
+    DictionaryType, LengthType, LogicalDecoder, OffsetType, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
+};
+use crate::{FromDecoded, MltError};
 
-/// Geometry column representation, either raw or decoded
+/// Geometry column representation, either encoded or decoded
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum Geometry<'a> {
-    Raw(RawGeometry<'a>),
+    Encoded(EncodedGeometry<'a>),
     Decoded(DecodedGeometry),
 }
 
 impl Analyze for Geometry<'_> {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match self {
-            Self::Raw(g) => g.collect_statistic(stat),
+            Self::Encoded(g) => g.collect_statistic(stat),
             Self::Decoded(g) => g.collect_statistic(stat),
         }
     }
 
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         match self {
-            Self::Raw(g) => g.for_each_stream(cb),
+            Self::Encoded(g) => g.for_each_stream(cb),
             Self::Decoded(g) => g.for_each_stream(cb),
         }
     }
@@ -54,7 +58,7 @@ impl OwnedGeometry {
     #[doc(hidden)]
     pub fn write_columns_meta_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Raw(_) => OwnedRawGeometry::write_columns_meta_to(writer),
+            Self::Encoded(_) => OwnedEncodedGeometry::write_columns_meta_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -62,7 +66,7 @@ impl OwnedGeometry {
     #[doc(hidden)]
     pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
         match self {
-            Self::Raw(r) => r.write_to(writer),
+            Self::Encoded(r) => r.write_to(writer),
             Self::Decoded(_) => Err(MltError::NeedsEncodingBeforeWriting),
         }
     }
@@ -71,19 +75,36 @@ impl OwnedGeometry {
 /// Unparsed geometry data as read directly from the tile
 #[borrowme]
 #[derive(Debug, PartialEq)]
-pub struct RawGeometry<'a> {
+pub struct EncodedGeometry<'a> {
     pub meta: Stream<'a>,
     pub items: Vec<Stream<'a>>,
 }
 
-impl Analyze for RawGeometry<'_> {
+impl Default for OwnedEncodedGeometry {
+    fn default() -> Self {
+        Self {
+            meta: OwnedStream {
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                    num_values: 0,
+                    logical_decoder: LogicalDecoder::None,
+                    physical_decoder: PhysicalDecoder::None,
+                },
+                data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
+            },
+            items: Vec::new(),
+        }
+    }
+}
+
+impl Analyze for EncodedGeometry<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(&Stream<'_>)) {
         self.meta.for_each_stream(cb);
         self.items.for_each_stream(cb);
     }
 }
 
-impl OwnedRawGeometry {
+impl OwnedEncodedGeometry {
     pub(crate) fn write_columns_meta_to<W: Write>(writer: &mut W) -> Result<(), MltError> {
         ColumnType::Geometry.write_to(writer)?;
         Ok(())
@@ -310,24 +331,41 @@ impl Analyze for GeometryType {
 //     // FsstDictionary,
 // }
 
-impl_decodable!(Geometry<'a>, RawGeometry<'a>, DecodedGeometry);
+impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
+impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
-impl<'a> From<RawGeometry<'a>> for Geometry<'a> {
-    fn from(value: RawGeometry<'a>) -> Self {
-        Self::Raw(value)
+/// How to encode Geometry
+#[derive(Debug, Clone, Copy)]
+pub enum GeometryEncodingStrategy {}
+
+impl FromDecoded<'_> for OwnedEncodedGeometry {
+    type Input = DecodedGeometry;
+    type EncodingStrategy = GeometryEncodingStrategy;
+
+    fn from_decoded(
+        decoded: &Self::Input,
+        config: Self::EncodingStrategy,
+    ) -> Result<Self, MltError> {
+        Err(NotImplemented("geometry encoding"))
+    }
+}
+
+impl<'a> From<EncodedGeometry<'a>> for Geometry<'a> {
+    fn from(value: EncodedGeometry<'a>) -> Self {
+        Self::Encoded(value)
     }
 }
 
 impl<'a> Geometry<'a> {
     #[must_use]
-    pub fn raw(meta: Stream<'a>, items: Vec<Stream<'a>>) -> Self {
-        Self::Raw(RawGeometry { meta, items })
+    pub fn new_encoded(meta: Stream<'a>, items: Vec<Stream<'a>>) -> Self {
+        Self::Encoded(EncodedGeometry { meta, items })
     }
 
     #[inline]
     pub fn decode(self) -> Result<DecodedGeometry, MltError> {
         Ok(match self {
-            Self::Raw(v) => DecodedGeometry::from_raw(v)?,
+            Self::Encoded(v) => DecodedGeometry::from_encoded(v)?,
             Self::Decoded(v) => v,
         })
     }
@@ -351,10 +389,12 @@ impl Debug for DecodedGeometry {
     }
 }
 
-impl<'a> FromRaw<'a> for DecodedGeometry {
-    type Input = RawGeometry<'a>;
+impl<'a> FromEncoded<'a> for DecodedGeometry {
+    type Input = EncodedGeometry<'a>;
 
-    fn from_raw(RawGeometry { meta, items }: RawGeometry<'a>) -> Result<Self, MltError> {
+    fn from_encoded(
+        EncodedGeometry { meta, items }: EncodedGeometry<'a>,
+    ) -> Result<Self, MltError> {
         let vector_types = decode_geometry_types(meta)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
