@@ -230,7 +230,7 @@ impl Default for OwnedEncodedProperty {
     }
 }
 
-/// A sequence of encoded (raw) property values of various types
+/// A sequence of encoded property values of various types
 #[borrowme]
 #[derive(Debug, PartialEq)]
 pub enum EncodedPropValue<'a> {
