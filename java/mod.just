@@ -18,7 +18,7 @@ ci-test: env-info lint test test-cli test-publish ci-check-synthetic-mlts
 # Verify synthetic MLT files are up to date
 ci-check-synthetic-mlts:
     {{just}} assert-git-is-clean
-    {{just}} generate-synthetic-mlts
+    {{just}} java::generate-synthetic-mlts
     {{just}} assert-git-is-clean
     @echo "Synthetic MLT check complete."
 
