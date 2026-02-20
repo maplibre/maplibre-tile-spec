@@ -50,8 +50,16 @@ ci-test: env-info (just 'java::gen-snippets') test test-doc
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: env-info
-    {{just}} cargo-install cargo-hack  # Pre-install cargo-hack to avoid CI binstall issues
-    CI='' {{just}} rust::ci-check
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # For MSRV, relax all warnings to avoid different warnings per rust version
+    unset CI
+    unset RUSTFLAGS
+    unset RUSTDOCFLAGS
+    unset RUST_BACKTRACE
+    # Pre-install cargo-hack to avoid CI binstall issues
+    {{just}} cargo-install cargo-hack
+    {{just}} rust::ci-check
     {{just}} java::gen-snippets
     {{just}} rust::test
     {{just}} assert-git-is-clean
