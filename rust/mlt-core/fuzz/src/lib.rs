@@ -84,6 +84,8 @@ impl LayerInput {
             id,
             geometry,
             properties,
+            #[cfg(fuzzing)]
+            layer_order,
         } = input;
         assert_eq!(*name, output.name, "Layer01 name with different names");
         assert_eq!(
@@ -98,6 +100,11 @@ impl LayerInput {
         assert_eq!(
             *properties, output.properties,
             "Layer01 with different properties"
+        );
+        #[cfg(fuzzing)]
+        assert_eq!(
+            layer_order, &output.layer_order,
+            "Layer01 with different layer order"
         );
         unreachable!("all props are compared equal, but the outer does not compare equal");
     }
@@ -153,11 +160,23 @@ impl LayerInput {
         println!("IMPORTANT: ordering is arbitrary and does not match MLT");
         match layer {
             OwnedLayer::Tag01(l1) => {
-                let OwnedLayer01 { name, extent, id, geometry, properties }=l1;
-                println!("layer name {name} -> {}", name.as_bytes().encode_hex::<String>());
+                let OwnedLayer01 {
+                    name,
+                    extent,
+                    id,
+                    geometry,
+                    properties,
+                    #[cfg(fuzzing)]
+                    layer_order,
+                } = l1;
+                println!("layer_order: {layer_order:?}");
+                println!(
+                    "layer name {name} -> {}",
+                    name.as_bytes().encode_hex::<String>()
+                );
                 println!("layer extent: {extent} -> varint({extent})");
                 {
-                    println!("layer id: {id:?}", );
+                    println!("layer id: {id:?}",);
                     let mut metadata = Vec::new();
                     id.write_columns_meta_to(&mut metadata).unwrap();
                     println!("\tlayer id metadata: {}", metadata.encode_hex::<String>());
@@ -165,7 +184,7 @@ impl LayerInput {
                     id.write_to(&mut data).unwrap();
                     println!("\tlayer id data: {}", data.encode_hex::<String>());
                 }
-                for (i,prop) in properties.iter().enumerate() {
+                for (i, prop) in properties.iter().enumerate() {
                     println!("{i}. property -> {:?}", prop);
                     let mut metadata = Vec::new();
                     prop.write_columns_meta_to(&mut metadata).unwrap();

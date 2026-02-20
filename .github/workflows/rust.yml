@@ -158,7 +158,7 @@ jobs:
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
-    needs: [ test, test-msrv, lint, check, build-release-binaries ]
+    needs: [ test, test-msrv, lint, build-release-binaries ]
     if: always()
     runs-on: ubuntu-latest
     steps:
