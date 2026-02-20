@@ -5,7 +5,11 @@ import {
     encodeFastPforInt32,
     encodeFastPforInt32WithWorkspace,
 } from "../encoding/fastPforEncoder";
-import { decodeFastPforInt32 } from "./fastPforDecoder";
+import {
+    createFastPforWireDecodeWorkspace,
+    decodeFastPforInt32,
+    ensureFastPforWireEncodedWordsCapacity,
+} from "./fastPforDecoder";
 import { BLOCK_SIZE } from "./fastPforShared";
 
 describe("FastPFOR decoder", () => {
@@ -28,6 +32,27 @@ describe("FastPFOR decoder", () => {
         expect(decoded).toEqual(values);
     });
 
+    it("decodes an empty encoded buffer", () => {
+        const decoded = decodeFastPforInt32(new Int32Array(0), 0);
+        expect(decoded).toEqual(new Int32Array(0));
+    });
+
+    it("throws when wire decode workspace capacity is negative", () => {
+        expect(() => createFastPforWireDecodeWorkspace(-1)).toThrow(/must be >= 0/);
+    });
+
+    it("grows wire decode workspace encodedWords buffer on demand", () => {
+        const workspace = createFastPforWireDecodeWorkspace(1);
+        const initialCapacity = workspace.encodedWords.length;
+
+        const reused = ensureFastPforWireEncodedWordsCapacity(workspace, initialCapacity);
+        expect(reused).toBe(workspace.encodedWords);
+
+        const grown = ensureFastPforWireEncodedWordsCapacity(workspace, initialCapacity + 1);
+        expect(grown).toBe(workspace.encodedWords);
+        expect(grown.length).toBeGreaterThan(initialCapacity);
+    });
+
     it("round-trips VByte-only payload (<256 values)", () => {
         const values = new Int32Array(100);
         for (let i = 0; i < values.length; i++) values[i] = i * 7;
@@ -39,6 +64,14 @@ describe("FastPFOR decoder", () => {
     it("round-trips exactly one aligned block (256 values)", () => {
         const values = new Int32Array(BLOCK_SIZE);
         for (let i = 0; i < values.length; i++) values[i] = i * 31;
+        const encoded = encodeFastPforInt32(values);
+        const decoded = decodeFastPforInt32(encoded, values.length);
+        expect(decoded).toEqual(values);
+    });
+
+    it("round-trips full-width signed values", () => {
+        const values = new Int32Array(BLOCK_SIZE);
+        for (let i = 0; i < values.length; i++) values[i] = -(i + 1);
         const encoded = encodeFastPforInt32(values);
         const decoded = decodeFastPforInt32(encoded, values.length);
         expect(decoded).toEqual(values);
@@ -160,6 +193,19 @@ describe("FastPFOR decoder error cases", () => {
         corruptedEncoded[byteContainerStartWordIndex] = ((blockHeaderWord & 0xffffff00) | 33) | 0;
 
         expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/invalid bitWidth/);
+    });
+
+    it("throws on packed region mismatch when block metadata is inconsistent", () => {
+        const values = new Int32Array(BLOCK_SIZE);
+        for (let i = 0; i < values.length; i++) values[i] = i * 31;
+        const encoded = encodeFastPforInt32(values);
+        const { byteContainerStartWordIndex } = getSinglePageWordLayout(encoded);
+
+        const corruptedEncoded = encoded.slice();
+        const blockHeaderWord = corruptedEncoded[byteContainerStartWordIndex] >>> 0;
+        corruptedEncoded[byteContainerStartWordIndex] = (blockHeaderWord & 0xffffff00) | 0;
+
+        expect(() => decodeFastPforInt32(corruptedEncoded, values.length)).toThrow(/packed region mismatch/);
     });
 
     it("throws on invalid maxBits in exception metadata", () => {
