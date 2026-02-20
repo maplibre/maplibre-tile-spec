@@ -190,7 +190,7 @@ public class CompareHelper {
       @NotNull Predicate<Layer> layerFilter) {
     final var mvtLayers =
         mvTile.layers().stream().filter(x -> !x.features().isEmpty()).filter(layerFilter).toList();
-    final var mltLayers = mlTile.layers();
+    final var mltLayers = mlTile.layers().stream().filter(x -> !x.features().isEmpty()).filter(layerFilter).toList();
     if (mltLayers.size() != mvtLayers.size()) {
       final var mvtNames = mvtLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
       final var mltNames = mltLayers.stream().map(Layer::name).collect(Collectors.joining(", "));
