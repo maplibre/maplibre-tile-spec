@@ -10,6 +10,21 @@ public record U8(byte value) implements Unsigned {
   }
 
   @Override
+  public Byte byteValue() {
+    return value;
+  }
+
+  @Override
+  public Integer intValue() {
+    return (int) value;
+  }
+
+  @Override
+  public Long longValue() {
+    return (long) value;
+  }
+
+  @Override
   public String toString() {
     return "u8(" + Byte.toUnsignedInt(value) + ")";
   }

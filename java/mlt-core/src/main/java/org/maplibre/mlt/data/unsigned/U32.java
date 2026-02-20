@@ -10,6 +10,25 @@ public record U32(int value) implements Unsigned {
   }
 
   @Override
+  public Byte byteValue() {
+    final var v = value;
+    if ((byte) v == v) {
+      return (byte) v;
+    }
+    return null;
+  }
+
+  @Override
+  public Integer intValue() {
+    return value;
+  }
+
+  @Override
+  public Long longValue() {
+    return (long) value;
+  }
+
+  @Override
   public String toString() {
     return "u32(" + Integer.toUnsignedLong(value) + ")";
   }

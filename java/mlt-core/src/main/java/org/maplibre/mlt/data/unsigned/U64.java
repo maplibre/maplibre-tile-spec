@@ -12,6 +12,29 @@ public record U64(long value) implements Unsigned {
   }
 
   @Override
+  public Byte byteValue() {
+    final var v = value;
+    if ((byte) v == v) {
+      return (byte) v;
+    }
+    return null;
+  }
+
+  @Override
+  public Integer intValue() {
+    final var v = value;
+    if ((int) v == v) {
+      return (int) v;
+    }
+    return null;
+  }
+
+  @Override
+  public Long longValue() {
+    return value;
+  }
+
+  @Override
   public String toString() {
     return "u64(" + Long.toUnsignedString(value) + ")";
   }
