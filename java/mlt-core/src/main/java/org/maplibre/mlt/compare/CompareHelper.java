@@ -347,7 +347,7 @@ public class CompareHelper {
               .collect(Collectors.joining(", "));
       final var mltValues =
           unequalKeys.stream()
-              .map(key -> key + ", " + mltProperties.get(key))
+              .map(key -> key + ": " + mltProperties.get(key))
               .collect(Collectors.joining(", "));
       return Optional.of(
           Difference.builder("Property values do not match")
