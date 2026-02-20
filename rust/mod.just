@@ -49,7 +49,10 @@ ci-test: env-info (just 'java::gen-snippets') test test-doc
     {{just}} assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info ci-check (just 'java::gen-snippets') test
+ci-test-msrv: env-info
+    CI='' {{just}} rust::ci-check
+    {{just}} java::gen-snippets
+    {{just}} rust::test
     {{just}} assert-git-is-clean
 
 # Build the layer target (installs `cargo fuzz`)
