@@ -7,6 +7,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -25,11 +26,25 @@ import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltConverter {
+  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
+  // mismatch policy.
+  /// @param tile The MVT tile to create metadata from
+  /// @param columnMappingConfig Optional column mapping configuration
+  /// @param isIdPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile, ColumnMappingConfig columnMappingConfig, boolean isIdPresent) {
     return createTilesetMetadata(tile, null, columnMappingConfig, isIdPresent);
   }
 
+  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
+  // mismatch policy.
+  /// @param tile The MVT tile to create metadata from
+  /// @param config Optional configuration
+  /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
+  /// @param isIdPresent Whether to include an ID column
+  /// @param enableCoerceOnMismatch Whether to coerce values to string on type mismatch
+  /// @param enableElideOnMismatch Whether to elide values on type mismatch (for each property, the
+  // first type encountered is used)
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       ColumnMappingConfig columnMappingConfig,
@@ -43,6 +58,30 @@ public class MltConverter {
     return createTilesetMetadata(tile, config, columnMappingConfig, isIdPresent);
   }
 
+  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
+  // mismatch policy.
+  /// @param tile The MVT tile to create metadata from
+  /// @param config Optional configuration
+  /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
+  /// @param isIdPresent Whether to include an ID column
+  public static MltMetadata.TileSetMetadata createTilesetMetadata(
+      MapboxVectorTile tile,
+      @Nullable ConversionConfig config,
+      List<ColumnMapping> columnMappingConfig,
+      boolean isIdPresent) {
+    return createTilesetMetadata(
+        tile,
+        config,
+        new ColumnMappingConfig(Pattern.compile(".*"), columnMappingConfig),
+        isIdPresent);
+  }
+
+  /// Create tileset metadata from a MVT tile, with optional column mapping configuration and type
+  // mismatch policy.
+  /// @param tile The MVT tile to create metadata from
+  /// @param config Optional configuration
+  /// @param columnMappingConfig Optional column mapping configuration
+  /// @param isIdPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
       MapboxVectorTile tile,
       @Nullable ConversionConfig config,
