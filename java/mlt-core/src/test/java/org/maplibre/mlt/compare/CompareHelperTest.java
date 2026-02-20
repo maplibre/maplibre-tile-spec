@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import org.locationtech.jts.geom.Geometry;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.maplibre.mlt.compare.CompareHelper.CompareMode;
 import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
@@ -41,7 +41,10 @@ class CompareHelperTest {
   @Test
   void differentLayerCountIsDetected() {
     final var mlt = mltOf(createLayer("roads", createFeature(1, Map.of())));
-    final var mvt = mvtOf(createLayer("roads", createFeature(1, Map.of())), createLayer("water", createFeature(2, Map.of())));
+    final var mvt =
+        mvtOf(
+            createLayer("roads", createFeature(1, Map.of())),
+            createLayer("water", createFeature(2, Map.of())));
     final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.All);
     assertTrue(result.isPresent());
     assertTrue(result.get().toString().contains("Number of layers"));
@@ -68,7 +71,8 @@ class CompareHelperTest {
 
   @Test
   void differentFeatureCountInLayer() {
-    final var mlt = mltOf(createLayer("roads", createFeature(1, Map.of()), createFeature(2, Map.of())));
+    final var mlt =
+        mltOf(createLayer("roads", createFeature(1, Map.of()), createFeature(2, Map.of())));
     final var mvt = mvtOf(createLayer("roads", createFeature(1, Map.of())));
     final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.All);
     assertTrue(result.isPresent());
@@ -161,7 +165,10 @@ class CompareHelperTest {
   void nullPropertyValueInMltTreatedAsAbsent() {
     final Map<String, Object> mltProps = new java.util.HashMap<>();
     mltProps.put("name", null);
-    final var mlt = mltOf(createLayer("roads", new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), mltProps)));
+    final var mlt =
+        mltOf(
+            createLayer(
+                "roads", new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), mltProps)));
     final var mvt = mvtOf(createLayer("roads", createFeature(1, Map.of())));
     final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
     assertFalse(result.isPresent());
@@ -169,8 +176,10 @@ class CompareHelperTest {
 
   @Test
   void doubleInMvtMatchesEquivalentFloatInMlt() {
-    final var mltFeature = new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("speed", 1.5f));
-    final var mvtFeature = new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("speed", 1.5));
+    final var mltFeature =
+        new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("speed", 1.5f));
+    final var mvtFeature =
+        new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("speed", 1.5));
     final var mlt = mltOf(createLayer("roads", mltFeature));
     final var mvt = mvtOf(createLayer("roads", mvtFeature));
     final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
@@ -179,8 +188,10 @@ class CompareHelperTest {
 
   @Test
   void numericValuesWithSameStringRepresentationEqual() {
-    final var mltFeature = new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("pop", 42L));
-    final var mvtFeature = new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("pop", 42));
+    final var mltFeature =
+        new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("pop", 42L));
+    final var mvtFeature =
+        new Feature(1, FACTORY.createPoint(new Coordinate(1, 2)), Map.of("pop", 42));
     final var mlt = mltOf(createLayer("roads", mltFeature));
     final var mvt = mvtOf(createLayer("roads", mvtFeature));
     final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
@@ -195,8 +206,11 @@ class CompareHelperTest {
     final var waterMlt = createLayer("water", createFeature(2, Map.of("name", "wrong")));
     final var result =
         CompareHelper.compareTiles(
-            mltOf(roadsMlt, waterMlt), mvtOf(roadsMvt, waterMvt), CompareMode.All,
-            Pattern.compile("roads"), false);
+            mltOf(roadsMlt, waterMlt),
+            mvtOf(roadsMvt, waterMvt),
+            CompareMode.All,
+            Pattern.compile("roads"),
+            false);
     assertFalse(result.isPresent());
   }
 
@@ -208,8 +222,11 @@ class CompareHelperTest {
     final var waterMlt = createLayer("water", createFeature(2, Map.of("name", "wrong")));
     final var result =
         CompareHelper.compareTiles(
-            mltOf(roadsMlt, waterMlt), mvtOf(roadsMvt, waterMvt), CompareMode.All,
-            Pattern.compile("water"), true);
+            mltOf(roadsMlt, waterMlt),
+            mvtOf(roadsMvt, waterMvt),
+            CompareMode.All,
+            Pattern.compile("water"),
+            true);
     assertFalse(result.isPresent());
   }
 
@@ -219,7 +236,8 @@ class CompareHelperTest {
     final var roadsMvt = createLayer("roads", createFeature(1, Map.of("name", "Main St")));
     final var mlt = mltOf(roadsMlt);
     final var mvt = mvtOf(roadsMvt);
-    final var result = CompareHelper.compareTiles(mlt, mvt, CompareMode.All, Pattern.compile("roads"), false);
+    final var result =
+        CompareHelper.compareTiles(mlt, mvt, CompareMode.All, Pattern.compile("roads"), false);
     assertTrue(result.isPresent());
   }
 
@@ -227,7 +245,8 @@ class CompareHelperTest {
   void nullLayerFilterComparesAllLayers() {
     final var l1 = createLayer("roads", createFeature(1, Map.of("name", "Main St")));
     final var l2 = createLayer("water", createFeature(2, Map.of()));
-    final var result = CompareHelper.compareTiles(mltOf(l1, l2), mvtOf(l1, l2), CompareMode.All, null, false);
+    final var result =
+        CompareHelper.compareTiles(mltOf(l1, l2), mvtOf(l1, l2), CompareMode.All, null, false);
     assertFalse(result.isPresent());
   }
 
@@ -242,8 +261,18 @@ class CompareHelperTest {
 
   @Test
   void differenceMessageIncludesFeatureIndex() {
-    final var mlt = mltOf(createLayer("roads", createFeature(1, Map.of("x", "ok")), createFeature(2, Map.of("x", "bad"))));
-    final var mvt = mvtOf(createLayer("roads", createFeature(1, Map.of("x", "ok")), createFeature(2, Map.of("x", "good"))));
+    final var mlt =
+        mltOf(
+            createLayer(
+                "roads",
+                createFeature(1, Map.of("x", "ok")),
+                createFeature(2, Map.of("x", "bad"))));
+    final var mvt =
+        mvtOf(
+            createLayer(
+                "roads",
+                createFeature(1, Map.of("x", "ok")),
+                createFeature(2, Map.of("x", "good"))));
     final var diff = CompareHelper.compareTiles(mlt, mvt, CompareMode.Properties);
     assertTrue(diff.isPresent());
     assertTrue(diff.get().toString().contains("1"));
