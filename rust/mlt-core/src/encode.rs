@@ -15,7 +15,7 @@ pub trait Encodable<'a>: Sized {
     /// Check if the data is still in decoded form
     fn is_decoded(&self) -> bool;
     /// Create a new instance from encoded data
-    fn new_encoded(decoded: Self::EncodedType) -> Self;
+    fn new_encoded(encoded: Self::EncodedType) -> Self;
     /// Temporarily replace self with a default value to take ownership of the decoded data
     fn take_decoded(&mut self) -> Option<Self::DecodedType>;
     /// Borrow the encoded data if available
