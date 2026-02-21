@@ -510,7 +510,7 @@ fn format_algorithms(algorithms: HashSet<StreamStat>) -> String {
     sorted.sort();
     sorted
         .into_iter()
-        .map(|(phys_type, phys_dec, log_dec)| {
+        .map(|(phys_type, physical, logical)| {
             let phys_type = match phys_type {
                 PhysicalStreamType::Present => "Present",
                 PhysicalStreamType::Data(v) => match v {
@@ -537,13 +537,13 @@ fn format_algorithms(algorithms: HashSet<StreamStat>) -> String {
                     LengthType::Dictionary => "DictLen",
                 },
             };
-            let phys_dec = match phys_dec {
+            let physical = match physical {
                 PhysicalCodec::None => "",
                 PhysicalCodec::FastPFOR => "FastPFOR",
                 PhysicalCodec::VarInt => "VarInt",
                 PhysicalCodec::Alp => "Alp",
             };
-            let log_dec = match log_dec {
+            let logical = match logical {
                 StatLogicalCodec::None => "",
                 StatLogicalCodec::Delta => "Delta",
                 StatLogicalCodec::DeltaRle => "DeltaRle",
@@ -553,11 +553,11 @@ fn format_algorithms(algorithms: HashSet<StreamStat>) -> String {
                 StatLogicalCodec::PseudoDecimal => "PseudoDec",
             };
             let mut val = phys_type.to_owned();
-            if !phys_dec.is_empty() {
-                let _ = write!(val, "-{phys_dec}");
+            if !physical.is_empty() {
+                let _ = write!(val, "-{physical}");
             }
-            if !log_dec.is_empty() {
-                let _ = write!(val, "-{log_dec}");
+            if !logical.is_empty() {
+                let _ = write!(val, "-{logical}");
             }
             val
         })
