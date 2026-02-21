@@ -66,7 +66,7 @@ pub enum MltError {
     // Structural constraints (lengths, counts, shapes)
     #[error("geometry requires at least 1 stream, got 0")]
     GeometryWithoutStreams,
-    #[error("FastPFOR data byte length expected multiple of 4, got {0}")]
+    #[error("FastPFor data byte length expected multiple of 4, got {0}")]
     InvalidFastPforByteLength(usize),
     #[error("vec2 delta stream size expected to be non-empty and multiple of 2, got {0}")]
     InvalidPairStreamSize(usize),
