@@ -29,8 +29,9 @@ fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec
         let name = file_name.to_string_lossy();
         if name.starts_with(&prefix)
             && let Some(name) = name.strip_suffix(extension)
-            && let Ok(data) = fs::read(entry.path())
         {
+            let data = fs::read(entry.path())
+                .unwrap_or_else(|err| panic!("can't read {}: {err}", entry.path().display()));
             tiles.push((name.to_string(), data));
         }
     }
