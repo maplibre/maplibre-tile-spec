@@ -11,7 +11,7 @@ use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::{BinarySerializer as _, all, take};
+use crate::utils::{BinarySerializer as _, all, take, decode_bytes_to_bools};
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalDecoder, LogicalTechnique, LogicalValue,
@@ -419,9 +419,7 @@ impl<'a> Stream<'a> {
             StreamData::VarInt(d) => d.data,
         };
         let decoded = utils::decode_byte_rle(raw, num_bytes);
-        (0..num_values)
-            .map(|i| (decoded[i / 8] >> (i % 8)) & 1 == 1)
-            .collect()
+        decode_bytes_to_bools(&decoded, num_values)
     }
 
     /// Decode a stream of f32 values from raw little-endian bytes

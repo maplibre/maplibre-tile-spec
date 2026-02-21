@@ -7,7 +7,7 @@ use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
-use crate::utils::{BinarySerializer as _, OptSeqOpt, apply_present, pack_bools_to_bytes};
+use crate::utils::{BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle, encode_zigzag_delta, encode_varint};
 use crate::v01::{
     ColumnType, DictionaryType, LogicalDecoder, OwnedDataVarInt, OwnedEncodedData, OwnedStream,
     OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
@@ -225,7 +225,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
         let optional = if matches!(config, CFG::OptId32 | CFG::OptId64) {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len()).map_err(|_| MltError::IntegerOverflow)?;
-            let data = crate::utils::encode_byte_rle(&pack_bools_to_bytes(present));
+            let data = encode_byte_rle(&encode_bools_to_bytes(&present));
 
             let meta = StreamMeta {
                 physical_type: PhysicalStreamType::Present,
@@ -267,11 +267,11 @@ impl FromDecoded<'_> for OwnedEncodedId {
                 reason = "Values > i64::MAX will wrap, but zigzag+delta handles this correctly"
             )]
             let vals_i64: Vec<i64> = vals.iter().map(|&v| v as i64).collect();
-            let encoded = crate::utils::encode_zigzag_delta(&vals_i64);
+            let encoded = encode_zigzag_delta(&vals_i64);
 
             let mut data = Vec::new();
             for &val in &encoded {
-                crate::utils::encode_varint(&mut data, val);
+                encode_varint(&mut data, val);
             }
 
             let meta = StreamMeta {

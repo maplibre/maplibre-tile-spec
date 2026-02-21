@@ -129,10 +129,10 @@ pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
 }
 
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
-pub fn pack_bools_to_bytes(bools: Vec<bool>) -> Vec<u8> {
+pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
     let num_bytes = bools.len().div_ceil(8);
     let mut bytes = vec![0u8; num_bytes];
-    for (i, _) in bools.into_iter().enumerate().filter(|(_, bit)| *bit) {
+    for (i, _) in bools.into_iter().enumerate().filter(|(_, bit)| **bit) {
         bytes[i / 8] |= 1 << (i % 8);
     }
     bytes
@@ -143,11 +143,15 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::utils::{
-        decode_byte_rle, decode_bytes_to_u32s, decode_rle, decode_zigzag, decode_zigzag_delta,
-    };
+    use crate::utils::{decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_rle, decode_zigzag, decode_zigzag_delta};
 
     proptest! {
+        #[test]
+        fn encode_bools_to_bytes_roundtrip(bools: Vec<bool>) {
+            let bools_rountrip = decode_bytes_to_bools(&encode_bools_to_bytes(&bools), bools.len());
+            prop_assert_eq!(bools_rountrip, bools);
+        }
+
         #[test]
         fn test_zigzag_roundtrip_i64(data: Vec<i64>) {
             let encoded = encode_zigzag(&data);
