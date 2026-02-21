@@ -191,7 +191,7 @@ impl StreamMeta {
                 })
             }
             (LT::PseudoDecimal, LT::None) => LogicalDecoder::PseudoDecimal,
-            _ => Err(MltError::InvalidLogicalEncodingS(
+            _ => Err(MltError::InvalidLogicalEncodings(
                 logical1, logical2,
             ))?,
         };

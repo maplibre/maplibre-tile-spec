@@ -53,7 +53,7 @@ pub enum MltError {
     #[error("unsupported logical decoder {0:?} for {1}")]
     UnsupportedLogicalDecoder(LogicalDecoder, &'static str),
     #[error("unsupported combination of logical techniques: {0:?} + {1:?}")]
-    InvalidLogicalEncodingS(LogicalTechnique, LogicalTechnique),
+    InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
     #[error("layer has zero size")]
     ZeroLayerSize,
 
