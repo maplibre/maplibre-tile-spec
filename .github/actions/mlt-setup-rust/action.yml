@@ -29,7 +29,7 @@ runs:
       run: choco install protoc -y
 
     - uses: taiki-e/install-action@v2
-      with: { tool: 'just,cargo-binstall,cargo-hack' }
+      with: { tool: 'just,cargo-binstall,cargo-hack,fd-find,cargo-insta,cargo-sort' }
 
     # Install the requested toolchain (stable, nightly, or msrv)
     - if: ${{ inputs.toolchain == 'stable' }}
