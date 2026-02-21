@@ -1,0 +1,173 @@
+use std::hint::black_box;
+use std::path::Path;
+use std::fs;
+
+use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
+use mlt_core::parse_layers;
+
+const BENCHMARKED_ZOOM_LEVELS: [u8; 3] = [4, 7, 13];
+
+fn load_mlt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/expected/tag0x01/omt");
+    let prefix = format!("{zoom}_");
+    let mut tiles = Vec::new();
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return tiles;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with(&prefix) && name.ends_with(".mlt") {
+            if let Ok(data) = fs::read(entry.path()) {
+                let id = name.trim_end_matches(".mlt").to_string();
+                tiles.push((id, data));
+            }
+        }
+    }
+    tiles.sort_by(|a, b| a.0.cmp(&b.0));
+    tiles
+}
+
+fn load_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt");
+    let prefix = format!("{zoom}_");
+    let mut tiles = Vec::new();
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return tiles;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with(&prefix) && name.ends_with(".mvt") {
+            if let Ok(data) = fs::read(entry.path()) {
+                let id = name.trim_end_matches(".mvt").to_string();
+                tiles.push((id, data));
+            }
+        }
+    }
+    tiles.sort_by(|a, b| a.0.cmp(&b.0));
+    tiles
+}
+
+fn bench_mlt_parse(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mlt parse (no decode_all)");
+
+    for zoom in BENCHMARKED_ZOOM_LEVELS {
+        let tiles = load_mlt_tiles(zoom);
+        if tiles.is_empty() {
+            continue;
+        }
+
+        let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
+        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+
+        group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
+            b.iter(|| {
+                for (_, data) in tiles {
+                    let _ = parse_layers(black_box(data)).expect("mlt parse failed");
+                }
+            });
+        });
+    }
+
+    group.finish();
+}
+
+fn bench_mlt_decode_all(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mlt decode_all (no parse)");
+
+    for zoom in BENCHMARKED_ZOOM_LEVELS {
+        let tiles = load_mlt_tiles(zoom);
+        if tiles.is_empty() {
+            continue;
+        }
+
+        let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
+        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+
+        group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
+            for (_, data) in tiles {
+                let mut layers = parse_layers(black_box(data)).expect("mlt parse failed");
+                b.iter(|| {
+                    for layer in &mut layers {
+                        layer.decode_all().expect("mlt decode_all failed");
+                    }
+                });
+                black_box(layers);
+            }
+        });
+    }
+
+    group.finish();
+}
+
+fn bench_mvt_parse(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mvt parse");
+
+    for zoom in BENCHMARKED_ZOOM_LEVELS {
+        let tiles = load_mvt_tiles(zoom);
+
+        let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
+        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+
+        group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
+            for (_id, tile) in tiles {
+                b.iter_batched(
+                    || tile.clone(),
+                    |data| {
+                        let reader = mvt_reader::Reader::new(black_box(data))
+                            .expect("mvt reader construction failed");
+                        let _ = black_box(reader);
+                    },
+                    BatchSize::LargeInput,
+                );
+            }
+        });
+    }
+
+    group.finish();
+}
+
+fn bench_mvt_decode_all(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mvt decode_all (no parse)");
+
+    for zoom in BENCHMARKED_ZOOM_LEVELS {
+        let tiles = load_mvt_tiles(zoom);
+
+        let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
+        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+
+        group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
+            for (_id, tile) in tiles {
+                b.iter_batched(
+                    || {
+                        mvt_reader::Reader::new(tile.clone())
+                            .expect("mvt reader construction failed")
+                    },
+                    |reader| {
+                        let layers = reader
+                            .get_layer_metadata()
+                            .expect("mvt layer metadata failed");
+                        for layer in &layers {
+                            let features = reader
+                                .get_features(layer.layer_index)
+                                .expect("mvt get_features failed");
+                            let _ = black_box(features);
+                        }
+                        let _ = black_box(reader);
+                    },
+                    BatchSize::LargeInput,
+                );
+            }
+        });
+    }
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_mlt_parse,
+    bench_mlt_decode_all,
+    bench_mvt_parse,
+    bench_mvt_decode_all,
+);
+criterion_main!(benches);
