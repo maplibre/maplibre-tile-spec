@@ -8,39 +8,29 @@ use mlt_core::parse_layers;
 const BENCHMARKED_ZOOM_LEVELS: [u8; 3] = [4, 7, 13];
 
 fn load_mlt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/expected/tag0x01/omt");
-    let prefix = format!("{zoom}_");
-    let mut tiles = Vec::new();
-    let Ok(entries) = fs::read_dir(&dir) else {
-        return tiles;
-    };
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with(&prefix) && name.ends_with(".mlt") {
-            if let Ok(data) = fs::read(entry.path()) {
-                let id = name.trim_end_matches(".mlt").to_string();
-                tiles.push((id, data));
-            }
-        }
-    }
-    tiles.sort_by(|a, b| a.0.cmp(&b.0));
-    tiles
+    load_tiles(zoom, "expected/tag0x01/omt", "mlt")
 }
 
 fn load_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt");
+    load_tiles(zoom, "fixtures/omt", "mvt")
+}
+
+fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec<u8>)> {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test")
+        .join(test_subpath);
     let prefix = format!("{zoom}_");
     let mut tiles = Vec::new();
     let Ok(entries) = fs::read_dir(&dir) else {
         return tiles;
     };
     for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with(&prefix) && name.ends_with(".mvt") {
-            if let Ok(data) = fs::read(entry.path()) {
-                let id = name.trim_end_matches(".mvt").to_string();
-                tiles.push((id, data));
-            }
+        if let name = entry.file_name().to_string_lossy()
+            && name.starts_with(&prefix)
+            && let Some(name) = name.strip_suffix(extension)
+            && let Ok(data) = fs::read(entry.path())
+        {
+            tiles.push((name.to_string(), data));
         }
     }
     tiles.sort_by(|a, b| a.0.cmp(&b.0));
@@ -57,7 +47,7 @@ fn bench_mlt_parse(c: &mut Criterion) {
         }
 
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
-        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(total_bytes as u64));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
             b.iter(|| {
@@ -81,7 +71,7 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
         }
 
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
-        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(total_bytes as u64));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
             for (_, data) in tiles {
@@ -106,7 +96,7 @@ fn bench_mvt_parse(c: &mut Criterion) {
         let tiles = load_mvt_tiles(zoom);
 
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
-        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(total_bytes as u64));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
             for (_id, tile) in tiles {
@@ -133,7 +123,7 @@ fn bench_mvt_decode_all(c: &mut Criterion) {
         let tiles = load_mvt_tiles(zoom);
 
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
-        group.throughput(criterion::Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(total_bytes as u64));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
             for (_id, tile) in tiles {
