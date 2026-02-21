@@ -16,7 +16,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
         self.write_all(value.as_bytes())
     }
 
-    /// Reverses [`Stream::parse`](mlt::v01::stream::Stream::parse)
+    /// Reverses [`Stream::parse`](crate::v01::stream::Stream::parse)
     fn write_stream(&mut self, stream: &OwnedStream) -> io::Result<()>
     where
         Self: Sized,
@@ -30,7 +30,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
         stream.data.write_to(self)?;
         Ok(())
     }
-    /// Reverses [`Stream::parse_bool`](mlt::v01::stream::Stream::parse_bool)
+    /// Reverses [`Stream::parse_bool`](crate::v01::stream::Stream::parse_bool)
     fn write_boolean_stream(&mut self, stream: &OwnedStream) -> io::Result<()>
     where
         Self: Sized,
