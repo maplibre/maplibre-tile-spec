@@ -60,7 +60,7 @@ impl PhysicalStreamType {
 #[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
-pub enum PhysicalDecoder {
+pub enum PhysicalCodec {
     None = 0,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
@@ -72,8 +72,8 @@ pub enum PhysicalDecoder {
     Alp = 3,
 }
 
-impl PhysicalDecoder {
+impl PhysicalCodec {
     pub fn parse(value: u8) -> Result<Self, MltError> {
-        Self::try_from(value).or(Err(MltError::ParsingPhysicalDecoder(value)))
+        Self::try_from(value).or(Err(MltError::ParsingPhysicalCodec(value)))
     }
 }

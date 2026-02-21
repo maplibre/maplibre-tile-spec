@@ -13,8 +13,8 @@ use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::Geom32;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::v01::{
-    DictionaryType, Geometry, GeometryType, LengthType, LogicalDecoder, OffsetType,
-    PhysicalDecoder, PhysicalStreamType, Stream,
+    DictionaryType, Geometry, GeometryType, LengthType, LogicalCodec, OffsetType, PhysicalCodec,
+    PhysicalStreamType, Stream,
 };
 use mlt_core::{Analyze as _, parse_layers};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -462,11 +462,11 @@ fn analyze_mvt_buffer(
     })
 }
 
-type StreamStat = (PhysicalStreamType, PhysicalDecoder, StatLogicalDecoder);
+type StreamStat = (PhysicalStreamType, PhysicalCodec, StatLogicalCodec);
 
-/// Mirrors [`LogicalDecoder`] without associated metadata values.
+/// Mirrors [`LogicalCodec`] without associated metadata values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum StatLogicalDecoder {
+enum StatLogicalCodec {
     None,
     Delta,
     DeltaRle,
@@ -476,16 +476,16 @@ enum StatLogicalDecoder {
     PseudoDecimal,
 }
 
-impl From<LogicalDecoder> for StatLogicalDecoder {
-    fn from(ld: LogicalDecoder) -> Self {
+impl From<LogicalCodec> for StatLogicalCodec {
+    fn from(ld: LogicalCodec) -> Self {
         match ld {
-            LogicalDecoder::None => Self::None,
-            LogicalDecoder::Delta => Self::Delta,
-            LogicalDecoder::DeltaRle(_) => Self::DeltaRle,
-            LogicalDecoder::ComponentwiseDelta => Self::ComponentwiseDelta,
-            LogicalDecoder::Rle(_) => Self::Rle,
-            LogicalDecoder::Morton(_) => Self::Morton,
-            LogicalDecoder::PseudoDecimal => Self::PseudoDecimal,
+            LogicalCodec::None => Self::None,
+            LogicalCodec::Delta => Self::Delta,
+            LogicalCodec::DeltaRle(_) => Self::DeltaRle,
+            LogicalCodec::ComponentwiseDelta => Self::ComponentwiseDelta,
+            LogicalCodec::Rle(_) => Self::Rle,
+            LogicalCodec::Morton(_) => Self::Morton,
+            LogicalCodec::PseudoDecimal => Self::PseudoDecimal,
         }
     }
 }
@@ -493,8 +493,8 @@ impl From<LogicalDecoder> for StatLogicalDecoder {
 fn collect_stream_info(stream: &Stream, algo: &mut HashSet<StreamStat>) {
     algo.insert((
         stream.meta.physical_type,
-        stream.meta.physical_decoder,
-        StatLogicalDecoder::from(stream.meta.logical_decoder),
+        stream.meta.physical_codec,
+        StatLogicalCodec::from(stream.meta.logical_codec),
     ));
 }
 
@@ -538,19 +538,19 @@ fn format_algorithms(algorithms: HashSet<StreamStat>) -> String {
                 },
             };
             let phys_dec = match phys_dec {
-                PhysicalDecoder::None => "",
-                PhysicalDecoder::FastPFOR => "FastPFOR",
-                PhysicalDecoder::VarInt => "VarInt",
-                PhysicalDecoder::Alp => "Alp",
+                PhysicalCodec::None => "",
+                PhysicalCodec::FastPFOR => "FastPFOR",
+                PhysicalCodec::VarInt => "VarInt",
+                PhysicalCodec::Alp => "Alp",
             };
             let log_dec = match log_dec {
-                StatLogicalDecoder::None => "",
-                StatLogicalDecoder::Delta => "Delta",
-                StatLogicalDecoder::DeltaRle => "DeltaRle",
-                StatLogicalDecoder::Rle => "Rle",
-                StatLogicalDecoder::ComponentwiseDelta => "CwDelta",
-                StatLogicalDecoder::Morton => "Morton",
-                StatLogicalDecoder::PseudoDecimal => "PseudoDec",
+                StatLogicalCodec::None => "",
+                StatLogicalCodec::Delta => "Delta",
+                StatLogicalCodec::DeltaRle => "DeltaRle",
+                StatLogicalCodec::Rle => "Rle",
+                StatLogicalCodec::ComponentwiseDelta => "CwDelta",
+                StatLogicalCodec::Morton => "Morton",
+                StatLogicalCodec::PseudoDecimal => "PseudoDec",
             };
             let mut val = phys_type.to_owned();
             if !phys_dec.is_empty() {
