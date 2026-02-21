@@ -98,9 +98,9 @@ impl OwnedStream {
         Err(MltError::NotImplemented("encode_u8s"))
     }
     pub fn encode_i32s(
-        _values: &[i32],
-        _logical_codec: LogicalCodec,
-        _physical_codec: PhysicalCodec,
+        values: &[i32],
+        logical_codec: LogicalCodec,
+        physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u32s, computed_logical) = logical_codec.encode_i32(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -115,9 +115,9 @@ impl OwnedStream {
         })
     }
     pub fn encode_u32s(
-        _values: &[u32],
-        _logical_codec: LogicalCodec,
-        _physical_codec: PhysicalCodec,
+        values: &[u32],
+        logical_codec: LogicalCodec,
+        physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u32s, computed_logical) = logical_codec.encode_u32(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -133,9 +133,9 @@ impl OwnedStream {
     }
 
     pub fn encode_i64(
-        _values: &[i64],
-        _logical_codec: LogicalCodec,
-        _physical_codec: PhysicalCodec,
+        values: &[i64],
+        logical_codec: LogicalCodec,
+        physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u64s, computed_logical) = logical_codec.encode_i64(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
@@ -150,9 +150,9 @@ impl OwnedStream {
         })
     }
     pub fn encode_u64(
-        _values: &[u64],
-        _logical_codec: LogicalCodec,
-        _physical_codec: PhysicalCodec,
+        values: &[u64],
+        logical_codec: LogicalCodec,
+        physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u64s, computed_logical) = logical_codec.encode_u64(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
