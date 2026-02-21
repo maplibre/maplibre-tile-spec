@@ -128,6 +128,14 @@ pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
     output
 }
 
+pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(data.len() * 8);
+    for &val in data {
+        output.extend_from_slice(&val.to_le_bytes());
+    }
+    output
+}
+
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
     let num_bytes = bools.len().div_ceil(8);

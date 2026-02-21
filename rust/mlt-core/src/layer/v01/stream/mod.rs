@@ -13,7 +13,8 @@ use num_enum::TryFromPrimitive;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{
     BinarySerializer as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
-    encode_bools_to_bytes, encode_byte_rle, parse_u8, parse_varint, parse_varint_vec, take,
+    decode_bytes_to_u64s, encode_bools_to_bytes, encode_byte_rle, parse_u8, parse_varint,
+    parse_varint_vec, take,
 };
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
@@ -104,28 +105,69 @@ impl OwnedStream {
         logical_decoder: LogicalDecoder,
         physical_decoder: PhysicalDecoder,
     ) -> Result<Self, MltError> {
-        Err(MltError::NotImplemented("encode_i32s"))
+        let (physical_u32s, computed_logical) = logical_decoder.encode_i32(values)?;
+        let num_values = u32::try_from(physical_u32s.len())?;
+        Ok(Self {
+            meta: StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values,
+                logical_decoder: computed_logical,
+                physical_decoder,
+            },
+            data: physical_decoder.encode_u32s(physical_u32s)?,
+        })
     }
     pub fn encode_u32s(
         values: &[u32],
         logical_decoder: LogicalDecoder,
         physical_decoder: PhysicalDecoder,
     ) -> Result<Self, MltError> {
-        Err(MltError::NotImplemented("encode_u32s"))
+        let (physical_u32s, computed_logical) = logical_decoder.encode_u32(values)?;
+        let num_values = u32::try_from(physical_u32s.len())?;
+        Ok(Self {
+            meta: StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values,
+                logical_decoder: computed_logical,
+                physical_decoder,
+            },
+            data: physical_decoder.encode_u32s(physical_u32s)?,
+        })
     }
+
     pub fn encode_i64(
         values: &[i64],
         logical_decoder: LogicalDecoder,
         physical_decoder: PhysicalDecoder,
     ) -> Result<Self, MltError> {
-        Err(MltError::NotImplemented("encode_i64"))
+        let (physical_u64s, computed_logical) = logical_decoder.encode_i64(values)?;
+        let num_values = u32::try_from(physical_u64s.len())?;
+        Ok(Self {
+            meta: StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values,
+                logical_decoder: computed_logical,
+                physical_decoder,
+            },
+            data: physical_decoder.encode_u64s(physical_u64s)?,
+        })
     }
     pub fn encode_u64(
         values: &[u64],
         logical_decoder: LogicalDecoder,
         physical_decoder: PhysicalDecoder,
     ) -> Result<Self, MltError> {
-        Err(MltError::NotImplemented("encode_u64"))
+        let (physical_u64s, computed_logical) = logical_decoder.encode_u64(values)?;
+        let num_values = u32::try_from(physical_u64s.len())?;
+        Ok(Self {
+            meta: StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values,
+                logical_decoder: computed_logical,
+                physical_decoder,
+            },
+            data: physical_decoder.encode_u64s(physical_u64s)?,
+        })
     }
 }
 /// Metadata about an encoded stream
@@ -537,11 +579,17 @@ impl<'a> Stream<'a> {
                     });
                 }
             },
-            PhysicalDecoder::None => {
-                // For raw data, we'd need to read 8 bytes per value
-                // But typically 64-bit IDs use VarInt encoding
-                return Err(MltError::UnsupportedPhysicalDecoder("Encoded (u64)"));
-            }
+            PhysicalDecoder::None => match self.data {
+                StreamData::Encoded(data) => {
+                    all(decode_bytes_to_u64s(data.data, self.meta.num_values)?)
+                }
+                StreamData::VarInt(_) => {
+                    return Err(MltError::InvalidStreamData {
+                        expected: "Encoded",
+                        got: format!("{:?}", self.data),
+                    });
+                }
+            },
             PhysicalDecoder::FastPFOR => {
                 return Err(MltError::UnsupportedPhysicalDecoder("FastPFOR"));
             }
@@ -562,7 +610,7 @@ impl<'a> Stream<'a> {
         let num = self.meta.num_values as usize;
         Ok(raw
             .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]))
+            .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
             .take(num)
             .collect())
     }
@@ -843,7 +891,6 @@ mod tests {
 
     proptest! {
         #[test]
-        #[ignore = "OwnedStream::encode_u32s unimplemented"]
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
             logical_decoder in logical_decoders_strategy(),
@@ -863,7 +910,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_i32s unimplemented"]
         fn test_i32_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
             logical_decoder in logical_decoders_strategy(),
@@ -883,7 +929,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_u64s unimplemented"]
         fn test_u64_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical_decoder in logical_decoders_strategy(),
@@ -903,7 +948,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_i64s unimplemented"]
         fn test_i64_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical_decoder in logical_decoders_strategy(),
@@ -923,7 +967,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
             let owned_stream = OwnedStream::encode_f32(&values).unwrap();
 

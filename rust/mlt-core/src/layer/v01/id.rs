@@ -291,7 +291,6 @@ mod tests {
     #[case::opt_id32(OptId32, vec![Some(1), None, Some(3)])]
     #[case::id64(Id64, vec![Some(1), Some(2), Some(3)])]
     #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
-    #[ignore = "OwnedStream::encode_* unimplemented"]
     fn test_config_produces_correct_variant(
         #[case] config: IdEncodingStrategy,
         #[case] ids: Vec<Option<u64>>,
@@ -324,7 +323,6 @@ mod tests {
     #[case::opt_id64_with_nulls(OptId64, &[Some(1), None, Some(u64::from(u32::MAX) + 1), None, Some(u64::MAX)])]
     #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
     #[case::none(Id32, &[])]
-    #[ignore = "OwnedStream::encode_* unimplemented"]
     fn test_roundtrip(#[case] config: IdEncodingStrategy, #[case] ids: &[Option<u64>]) {
         let input = DecodedId(Some(ids.to_vec()));
         let output = roundtrip(&input, config);
@@ -332,7 +330,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "OwnedStream::encode_* unimplemented"]
     fn test_sequential_ids_for_delta_encoding() {
         // Sequential IDs should compress well with delta encoding
         let input = DecodedId(Some((1..=100).map(Some).collect()));
@@ -342,14 +339,12 @@ mod tests {
 
     proptest! {
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_roundtrip_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
             assert_roundtrip_succeeds(ids_u64, Id32)?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_roundtrip_opt_id32(
             ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100)
         ) {
@@ -358,14 +353,12 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_roundtrip_id64(ids in prop::collection::vec(any::<u64>(), 1..100)) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
             assert_roundtrip_succeeds(ids_u64, Id64)?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_roundtrip_opt_id64(
             ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
         ) {
@@ -373,14 +366,12 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_encodable_trait_api_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
             assert_encodable_api_works(ids_u64, Id32)?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_encodable_trait_api_opt_id64(
             ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
         ) {
@@ -388,7 +379,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_correct_variant_produced_id32(
             ids in prop::collection::vec(1u32..1000u32, 1..50)
         ) {
@@ -397,7 +387,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_correct_variant_produced_id64(
             ids in prop::collection::vec(any::<u64>(), 1..50)
         ) {
