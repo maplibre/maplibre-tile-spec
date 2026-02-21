@@ -100,8 +100,8 @@ export default function decodeTile(
                 }
 
                 const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
-                numFeatures = idDataStreamMetadata.decompressedCount;
-
+                numFeatures = nullabilityBuffer ? nullabilityBuffer.size() : idDataStreamMetadata.decompressedCount;
+                
                 idVector = decodeIdColumn(
                     tile,
                     columnMetadata,
@@ -185,6 +185,16 @@ function decodeIdColumn(
         switch (vectorType) {
             case VectorType.FLAT: {
                 const id = decodeIntStream(tile, offset, idDataStreamMetadata, false);
+                if (typeof sizeOrNullabilityBuffer !== "number" && id.length !== sizeOrNullabilityBuffer.size()) {
+                    const idExpanded = new Int32Array(sizeOrNullabilityBuffer.size());
+                    let currentIndex = 0;
+                    for (let i = 0; i < sizeOrNullabilityBuffer.size(); i++) {
+                        if (sizeOrNullabilityBuffer.get(i)) {
+                            idExpanded[i] = id[currentIndex++];
+                        }
+                    }
+                    return new IntFlatVector(columnName, idExpanded, sizeOrNullabilityBuffer);
+                }
                 return new IntFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {
@@ -208,8 +218,17 @@ function decodeIdColumn(
                     const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
                     return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
                 }
-
                 const id = decodeLongStream(tile, offset, idDataStreamMetadata, false);
+                if (typeof sizeOrNullabilityBuffer !== "number" && id.length !== sizeOrNullabilityBuffer.size()) {
+                    const idExpanded = new BigInt64Array(sizeOrNullabilityBuffer.size());
+                    let currentIndex = 0;
+                    for (let i = 0; i < sizeOrNullabilityBuffer.size(); i++) {
+                        if (sizeOrNullabilityBuffer.get(i)) {
+                            idExpanded[i] = id[currentIndex++];
+                        }
+                    }
+                    return new LongFlatVector(columnName, idExpanded, sizeOrNullabilityBuffer);
+                }
                 return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {

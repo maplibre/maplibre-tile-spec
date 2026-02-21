@@ -59,7 +59,6 @@ export default class FeatureTable implements Iterable<Feature> {
                     ? Number(this.idVector.getValue(index))
                     : this.idVector.getValue(index);
             }
-
             const geometry = geometryIterator?.next().value;
 
             const properties: { [key: string]: unknown } = {};
@@ -98,11 +97,11 @@ export default class FeatureTable implements Iterable<Feature> {
         for (let i = 0; i < this.numFeatures; i++) {
             let id;
             if (this.idVector) {
-                id = this.containsMaxSaveIntegerValues(this.idVector)
-                    ? Number(this.idVector.getValue(i))
-                    : this.idVector.getValue(i);
+                const idValue = this.idVector.getValue(i);
+                id = this.containsMaxSaveIntegerValues(this.idVector) && idValue !== null
+                    ? Number(idValue)
+                    : idValue
             }
-
             const geometry = {
                 coordinates: geometries[i],
                 type: this.geometryVector.geometryType(i),
