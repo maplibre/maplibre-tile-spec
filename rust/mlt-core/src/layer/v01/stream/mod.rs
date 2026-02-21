@@ -51,7 +51,7 @@ impl OwnedStream {
         }
     }
 
-    /// Crates a plain stream with values encoded literally
+    /// Creates a plain stream with values encoded literally
     #[must_use]
     fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
         let meta = StreamMeta {
