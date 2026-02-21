@@ -11,6 +11,10 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[[bench]]
+name = "decoding"
+harness = false
+
 [dependencies]
 borrowme.workspace = true
 fastpfor.workspace = true
@@ -27,6 +31,7 @@ thiserror.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 insta.workspace = true
 json5.workspace = true
 pretty_assertions.workspace = true

@@ -17,7 +17,7 @@ clap.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
 geo-types.workspace = true
-mlt-core = { version = "0.1.0", path = "../mlt-core" }
+mlt-core.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
 rstar.workspace = true
