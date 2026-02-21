@@ -1,5 +1,9 @@
 use crate::MltError;
-use crate::v01::{DictionaryType, LengthType, OffsetType, PhysicalStreamType, Stream, StreamData};
+use crate::utils::apply_present;
+use crate::v01::{
+    DecodedProperty, DictionaryType, EncodedStructProp, LengthType, OffsetType, PhysicalStreamType,
+    PropValue, Property, Stream, StreamData,
+};
 
 /// Classified string sub-streams, used by both regular string and shared dictionary decoding.
 #[derive(Default)]
@@ -78,12 +82,12 @@ pub fn decode_string_streams(streams: Vec<Stream<'_>>) -> Result<Vec<String>, Ml
 }
 
 /// Decode a shared dictionary from its streams, returning the dictionary entries.
-pub fn decode_shared_dictionary(streams: Vec<Stream<'_>>) -> Result<Vec<String>, MltError> {
+fn decode_shared_dictionary(streams: Vec<Stream<'_>>) -> Result<Vec<String>, MltError> {
     StringStreams::classify(streams)?.decode_dictionary()
 }
 
 /// Look up dictionary entries by index.
-pub fn resolve_offsets(dict: &[String], offsets: &[u32]) -> Result<Vec<String>, MltError> {
+fn resolve_offsets(dict: &[String], offsets: &[u32]) -> Result<Vec<String>, MltError> {
     offsets
         .iter()
         .map(|&idx| {
@@ -140,4 +144,24 @@ fn decode_fsst(symbols: &[u8], symbol_lengths: &[u32], compressed: &[u8]) -> Vec
         i += 1;
     }
     output
+}
+
+/// Decode a struct with shared dictionary into one decoded property per child.
+pub fn decode_struct_children<'a>(
+    parent_name: &str,
+    struct_data: EncodedStructProp<'_>,
+) -> Result<Vec<Property<'a>>, MltError> {
+    let dict = decode_shared_dictionary(struct_data.dict_streams)?;
+    struct_data
+        .children
+        .into_iter()
+        .map(|child| {
+            let present = child.optional.map(Stream::decode_bools);
+            let offsets = child.data.decode_bits_u32()?.decode_u32()?;
+            let strings = resolve_offsets(&dict, &offsets)?;
+            let name = format!("{parent_name}{}", child.name);
+            let values = PropValue::Str(apply_present(present, strings)?);
+            Ok(Property::Decoded(DecodedProperty { name, values }))
+        })
+        .collect()
 }
