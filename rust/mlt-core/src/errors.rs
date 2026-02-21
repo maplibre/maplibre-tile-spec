@@ -82,7 +82,7 @@ pub enum MltError {
     StructSharedDictRequiresStreams(usize),
     #[error("Structs are not allowed to be optional")]
     TriedToEncodeOptionalStruct,
-    #[error("struct child data streams expected exactly 1 values, got {0}")]
+    #[error("struct child data streams expected exactly 1 value, got {0}")]
     UnexpectedStructChildCount(usize),
     #[error("unsupported physical decoder: {0}")]
     UnsupportedPhysicalDecoder(&'static str),
