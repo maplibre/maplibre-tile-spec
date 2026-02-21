@@ -132,7 +132,7 @@ pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
     let num_bytes = bools.len().div_ceil(8);
     let mut bytes = vec![0u8; num_bytes];
-    for (i, _) in bools.into_iter().enumerate().filter(|(_, bit)| **bit) {
+    for (i, _) in bools.iter().enumerate().filter(|(_, bit)| **bit) {
         bytes[i / 8] |= 1 << (i % 8);
     }
     bytes
