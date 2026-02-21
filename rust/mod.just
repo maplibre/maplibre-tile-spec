@@ -177,6 +177,7 @@ test:
     cargo test --all-targets --all-features
     cargo test --doc --all-features
 
+# Run the ignored debug test by itself
 test-debug:
     RUST_BACKTRACE=1 cargo test --test synthetics debug -- --ignored
 
