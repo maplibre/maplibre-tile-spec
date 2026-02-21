@@ -78,15 +78,23 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
-            for (_, data) in tiles {
-                let mut layers = parse_layers(black_box(data)).expect("mlt parse failed");
-                b.iter(|| {
-                    for layer in &mut layers {
-                        layer.decode_all().expect("mlt decode_all failed");
+            b.iter_batched(
+                || {
+                    tiles
+                        .iter()
+                        .map(|(_, v)| parse_layers(black_box(v)).expect("mlt parse failed"))
+                        .collect::<Vec<_>>()
+                },
+                |mut mlt| {
+                    for layers in &mut mlt {
+                        for layer in layers.iter_mut() {
+                            layer.decode_all().expect("mlt decode_all failed");
+                        }
                     }
-                });
-                black_box(layers);
-            }
+                    black_box(mlt);
+                },
+                BatchSize::SmallInput,
+            );
         });
     }
 
@@ -103,17 +111,23 @@ fn bench_mvt_parse(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
-            for (_id, tile) in tiles {
-                b.iter_batched(
-                    || tile.clone(),
-                    |data| {
+            b.iter_batched(
+                || {
+                    tiles
+                        .iter()
+                        .map(|(_, tile)| black_box(tile))
+                        .cloned()
+                        .collect::<Vec<_>>()
+                },
+                |mvt| {
+                    for data in mvt {
                         let reader = mvt_reader::Reader::new(black_box(data))
                             .expect("mvt reader construction failed");
                         let _ = black_box(reader);
-                    },
-                    BatchSize::LargeInput,
-                );
-            }
+                    }
+                },
+                BatchSize::LargeInput,
+            );
         });
     }
 
@@ -130,13 +144,18 @@ fn bench_mvt_decode_all(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tiles, |b, tiles| {
-            for (_id, tile) in tiles {
-                b.iter_batched(
-                    || {
-                        mvt_reader::Reader::new(tile.clone())
-                            .expect("mvt reader construction failed")
-                    },
-                    |reader| {
+            b.iter_batched(
+                || {
+                    tiles
+                        .iter()
+                        .map(|(_, tile)| {
+                            mvt_reader::Reader::new(tile.clone())
+                                .expect("mvt reader construction failed")
+                        })
+                        .collect::<Vec<_>>()
+                },
+                |readers| {
+                    for reader in readers {
                         let layers = reader
                             .get_layer_metadata()
                             .expect("mvt layer metadata failed");
@@ -147,10 +166,10 @@ fn bench_mvt_decode_all(c: &mut Criterion) {
                             let _ = black_box(features);
                         }
                         let _ = black_box(reader);
-                    },
-                    BatchSize::LargeInput,
-                );
-            }
+                    }
+                },
+                BatchSize::LargeInput,
+            );
         });
     }
 
