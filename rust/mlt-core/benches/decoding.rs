@@ -32,6 +32,11 @@ fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec
             tiles.push((name.to_string(), data));
         }
     }
+    assert!(
+        !tiles.is_empty(),
+        "No tiles found for zoom level {zoom} in {}",
+        dir.display()
+    );
     tiles.sort_by(|a, b| a.0.cmp(&b.0));
     tiles
 }
