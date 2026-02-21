@@ -1,0 +1,38 @@
+[package]
+name = "mlt-core"
+description = "MapLibre Tile library code"
+version = "0.1.0"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+borrowme.workspace = true
+fastpfor.workspace = true
+geo-types.workspace = true
+hex.workspace = true
+integer-encoding.workspace = true
+mvt-reader.workspace = true
+num-traits.workspace = true
+num_enum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+strum.workspace = true
+thiserror.workspace = true
+zigzag.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+json5.workspace = true
+pretty_assertions.workspace = true
+proptest.workspace = true
+rstest.workspace = true
+test_each_file.workspace = true
+
+[lints]
+workspace = true

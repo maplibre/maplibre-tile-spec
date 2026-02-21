@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'justfile'
+      - 'cpp/mod.just'
       - '.github/**'
       - 'cpp/**'
       - 'test/**'
@@ -19,10 +20,6 @@ jobs:
       matrix:
         os: [macos-15, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
-
-    defaults:
-      run:
-        working-directory: cpp
 
     steps:
       - name: Checkout repository
@@ -43,7 +40,7 @@ jobs:
         run: pip3 install gcovr
 
       - name: Build, test and generate coverage report
-        run: just cpp-coverage
+        run: just -v cpp::coverage
 
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'
@@ -55,10 +52,10 @@ jobs:
           disable_search: true
           files: cpp/build/coverage.xml
 
-      - name: sanity test for mlt-cpp-json tool
-        run: build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
+      - name: Sanity test for mlt-cpp-json tool
+        run: just -v cpp::test-json
 
       - name: Build with Bazel
-        run: bazel build //cpp:mlt_cpp
+        run: just -v cpp::bazel-build
 
-      - run: cd .. && just -v assert-git-is-clean
+      - run: just -v assert-git-is-clean
