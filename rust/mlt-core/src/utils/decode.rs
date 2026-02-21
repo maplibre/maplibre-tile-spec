@@ -107,6 +107,14 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
     output
 }
 
+/// Helper to unpack a `Vec<u8>` into `Vec<bool>` where each byte represents 8 booleans.
+pub fn decode_bytes_to_bools(bytes: &[u8], num_bools: usize) -> Vec<bool> {
+    debug_assert!(num_bools <= bytes.len() * 8);
+    (0..num_bools)
+        .map(|i| (bytes[i / 8] >> (i % 8)) & 1 == 1)
+        .collect::<Vec<_>>()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
