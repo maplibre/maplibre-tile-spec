@@ -101,7 +101,7 @@ export default function decodeTile(
 
                 const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
                 numFeatures = nullabilityBuffer ? nullabilityBuffer.size() : idDataStreamMetadata.decompressedCount;
-                
+
                 idVector = decodeIdColumn(
                     tile,
                     columnMetadata,
