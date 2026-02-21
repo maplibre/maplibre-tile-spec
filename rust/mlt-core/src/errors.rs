@@ -52,8 +52,8 @@ pub enum MltError {
     UnexpectedStreamType(PhysicalStreamType),
     #[error("unsupported logical decoder {0:?} for {1}")]
     UnsupportedLogicalDecoder(LogicalDecoder, &'static str),
-    #[error("unsupported combination of logical techniques: {0:?} + {1:?}")]
-    UnsupportedLogicalTechniqueCombination(LogicalTechnique, LogicalTechnique),
+    #[error("invalid combination of logical encodings: {0:?} + {1:?}")]
+    InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
     #[error("layer has zero size")]
     ZeroLayerSize,
 

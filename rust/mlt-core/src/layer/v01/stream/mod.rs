@@ -191,9 +191,7 @@ impl StreamMeta {
                 })
             }
             (LT::PseudoDecimal, LT::None) => LogicalDecoder::PseudoDecimal,
-            _ => Err(MltError::UnsupportedLogicalTechniqueCombination(
-                logical1, logical2,
-            ))?,
+            _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
         };
 
         let meta = StreamMeta {
