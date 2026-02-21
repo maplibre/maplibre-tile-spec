@@ -61,10 +61,10 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
         ViewMode::FileBrowser => help_file_browser(),
         ViewMode::LayerOverview => help_layer_overview(),
     };
-    let height = (u16::try_from(lines.len())
+    let height = u16::try_from(lines.len())
         .unwrap_or(u16::MAX)
-        .saturating_add(2))
-    .min(area.height.saturating_sub(2));
+        .saturating_add(2)
+        .min(area.height.saturating_sub(2));
     let width = 62.min(area.width.saturating_sub(4));
     let popup = Rect::new(
         area.x + (area.width.saturating_sub(width)) / 2,
