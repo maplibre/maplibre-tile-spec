@@ -25,8 +25,8 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, LengthType, LogicalDecoder, OffsetType, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
+    DictionaryType, LengthType, LogicalCodec, OffsetType, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalCodec, PhysicalStreamType, Stream, StreamMeta,
 };
 use crate::{FromDecoded, MltError};
 
@@ -87,8 +87,8 @@ impl Default for OwnedEncodedGeometry {
                 meta: StreamMeta {
                     physical_type: PhysicalStreamType::Data(DictionaryType::None),
                     num_values: 0,
-                    logical_decoder: LogicalDecoder::None,
-                    physical_decoder: PhysicalDecoder::None,
+                    logical_codec: LogicalCodec::None,
+                    physical_codec: PhysicalCodec::None,
                 },
                 data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
             },
@@ -428,7 +428,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         LengthType::Triangles => &mut triangles,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
                     };
-                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamDecoder<T>
+                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamCodec<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
             }

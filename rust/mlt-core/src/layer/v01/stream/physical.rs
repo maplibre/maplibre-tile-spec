@@ -56,24 +56,24 @@ impl PhysicalStreamType {
     }
 }
 
-/// Physical decoder used for a column, as stored in the tile
+/// Physical codec used for a column, as stored in the tile
 #[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
-pub enum PhysicalDecoder {
+pub enum PhysicalCodec {
     None = 0,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
     FastPFOR = 1,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
-    /// Simple compression scheme where the decoder are easier to implement compared to `FastPfor`.
+    /// Simple compression scheme where the codec is easier to implement compared to `FastPfor`.
     VarInt = 2,
     /// Adaptive Lossless floating-Point Compression
     Alp = 3,
 }
 
-impl PhysicalDecoder {
+impl PhysicalCodec {
     pub fn parse(value: u8) -> Result<Self, MltError> {
-        Self::try_from(value).or(Err(MltError::ParsingPhysicalDecoder(value)))
+        Self::try_from(value).or(Err(MltError::ParsingPhysicalCodec(value)))
     }
 }

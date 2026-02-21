@@ -222,7 +222,7 @@ impl Default for OwnedEncodedProperty {
         Self {
             name: String::default(),
             optional: None,
-            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_decoder()),
+            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_codec()),
         }
     }
 }
