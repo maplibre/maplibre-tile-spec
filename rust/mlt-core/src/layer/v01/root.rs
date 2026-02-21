@@ -375,8 +375,7 @@ impl OwnedLayer01 {
         let has_id = !matches!(self.id, OwnedId::None);
         let id_columns_count = u64::from(has_id);
         let geometry_column_count = 1;
-        let property_column_count = u64::try_from(self.properties.len())
-            .map_err(|e| io::Error::other(MltError::TryFromIntError(e)))?;
+        let property_column_count = u64::try_from(self.properties.len()).map_err(MltError::from)?;
         let column_count = property_column_count + id_columns_count + geometry_column_count;
         writer.write_varint(column_count)?;
 

@@ -23,10 +23,12 @@ bless *args: (just 'cargo-install' 'cargo-insta')
 bench:
     cargo bench --all-targets --all-features
 
+alias b := build
 # Build the project
 build:
     cargo build --all-targets --all-features
 
+alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature --workspace
@@ -46,7 +48,7 @@ ci-lint: env-info test-fmt clippy
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
-ci-test: env-info (just 'java::gen-snippets') test test-doc
+ci-test: env-info (just 'java::gen-snippets') test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run minimal subset of tests to ensure compatibility with MSRV
@@ -121,6 +123,7 @@ env-info:
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
     @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
 
+alias f := fmt
 # Reformat code. If nightly is available, use it for better results.
 fmt:
     #!/usr/bin/env bash
@@ -168,16 +171,18 @@ release *args='': (just 'cargo-install' 'release-plz')
 semver *args: (just 'cargo-install' 'cargo-semver-checks')
     cargo semver-checks --all-features {{args}}
 
+alias t := test
 # Run all tests
-test:
+test: && test-doc
     cargo test --all-targets --all-features
-    cargo test --doc --all-features
 
+# Run the ignored debug test by itself
 test-debug:
     RUST_BACKTRACE=1 cargo test --test synthetics debug -- --ignored
 
 # Test documentation generation
-test-doc: (docs '')
+test-doc: (docs '--document-private-items')
+    cargo test --doc --all-features
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')

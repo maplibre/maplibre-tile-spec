@@ -25,8 +25,8 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, LengthType, LogicalDecoder, OffsetType, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
+    DictionaryType, LengthType, LogicalCodec, OffsetType, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalCodec, PhysicalStreamType, Stream, StreamMeta,
 };
 use crate::{FromDecoded, MltError};
 
@@ -87,8 +87,8 @@ impl Default for OwnedEncodedGeometry {
                 meta: StreamMeta {
                     physical_type: PhysicalStreamType::Data(DictionaryType::None),
                     num_values: 0,
-                    logical_decoder: LogicalDecoder::None,
-                    physical_decoder: PhysicalDecoder::None,
+                    logical_codec: LogicalCodec::None,
+                    physical_codec: PhysicalCodec::None,
                 },
                 data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
             },
@@ -166,7 +166,6 @@ impl DecodedGeometry {
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
         let vo = self.vertex_offsets.as_deref();
-        let num_verts = verts.len() / 2;
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
             match s.get(idx) {
@@ -179,9 +178,11 @@ impl DecodedGeometry {
                 }),
             }
         };
+
         let geom_off = |s: &[u32], idx: usize| off(s, idx, "geometry_offsets");
         let part_off = |s: &[u32], idx: usize| off(s, idx, "part_offsets");
         let ring_off = |s: &[u32], idx: usize| off(s, idx, "ring_offsets");
+
         let geom_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
             Ok(geom_off(s, i)?..geom_off(s, i + 1)?)
         };
@@ -194,20 +195,17 @@ impl DecodedGeometry {
 
         let v = |idx: usize| -> Result<Coord32, MltError> {
             let vertex = match vo {
-                Some(vo) => *vo.get(idx).ok_or(GeometryOutOfBounds {
-                    index,
-                    field: "vertex_offsets",
-                    idx,
-                    len: vo.len(),
-                })? as usize,
+                Some(vo) => off(vo, idx, "vertex_offsets")?,
                 None => idx,
             };
-            let i = vertex * 2;
-            let s = verts.get(i..i + 2).ok_or(GeometryVertexOutOfBounds {
-                index,
-                vertex,
-                count: num_verts,
-            })?;
+            let s = match verts.get(vertex * 2..(vertex * 2) + 2) {
+                Some(v) => v,
+                None => Err(GeometryVertexOutOfBounds {
+                    index,
+                    vertex,
+                    count: verts.len() / 2,
+                })?,
+            };
             Ok(Coord { x: s[0], y: s[1] })
         };
         let line = |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&v).collect() };
@@ -430,7 +428,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         LengthType::Triangles => &mut triangles,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
                     };
-                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamDecoder<T>
+                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamCodec<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
             }
