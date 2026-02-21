@@ -6,7 +6,7 @@ use std::io::Write;
 use borrowme::borrowme;
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltError::IntegerOverflow;
+use crate::MltError::{IntegerOverflow, TryFromIntError};
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json};
@@ -148,8 +148,7 @@ impl OwnedEncodedProperty {
         // struct children
         if let OwnedEncodedPropValue::Struct(s) = &self.value {
             // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
-            let child_column_count =
-                u64::try_from(s.children.len()).map_err(|_| IntegerOverflow)?;
+            let child_column_count = u64::try_from(s.children.len()).map_err(TryFromIntError)?;
             writer.write_varint(child_column_count)?;
             for child in &s.children {
                 child.write_columns_meta_to(writer)?;
@@ -182,7 +181,7 @@ impl OwnedEncodedProperty {
                 writer.write_stream(s)?;
             }
             Val::Str(streams) => {
-                let stream_count = u64::try_from(streams.len()).map_err(|_| IntegerOverflow)?;
+                let stream_count = u64::try_from(streams.len()).map_err(TryFromIntError)?;
                 let opt_stream_count = u64::from(self.optional.is_some());
                 let Some(stream_count) = stream_count.checked_add(opt_stream_count) else {
                     return Err(IntegerOverflow);
@@ -196,8 +195,8 @@ impl OwnedEncodedProperty {
                 }
             }
             Val::Struct(s) => {
-                let child_len = u64::try_from(s.children.len()).map_err(|_| IntegerOverflow)?;
-                let dict_cnt = u64::try_from(s.dict_streams.len()).map_err(|_| IntegerOverflow)?;
+                let child_len = u64::try_from(s.children.len()).map_err(TryFromIntError)?;
+                let dict_cnt = u64::try_from(s.dict_streams.len()).map_err(TryFromIntError)?;
                 let stream_count = child_len.checked_add(dict_cnt).ok_or(IntegerOverflow)?;
                 writer.write_varint(stream_count)?;
                 for dict in &s.dict_streams {

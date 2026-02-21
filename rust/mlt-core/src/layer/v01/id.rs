@@ -7,6 +7,7 @@ use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
+use crate::MltError::TryFromIntError;
 use crate::utils::{
     BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
 };
@@ -230,7 +231,8 @@ impl FromDecoded<'_> for OwnedEncodedId {
 
         let optional = if matches!(config, CFG::OptId32 | CFG::OptId64) {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
-            let num_values = u32::try_from(present.len()).map_err(|_| MltError::IntegerOverflow)?;
+            let num_values =
+                u32::try_from(present.len()).map_err(TryFromIntError)?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
 
             let meta = StreamMeta {
