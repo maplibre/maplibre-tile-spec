@@ -3,7 +3,7 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter;
 
-use crate::MltError;
+use crate::MltError::TryFromIntError;
 use crate::v01::{OwnedStream, OwnedStreamData};
 
 pub trait BinarySerializer: Write + VarIntWriter {
@@ -11,8 +11,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
         self.write_all(&[value])
     }
     fn write_string(&mut self, value: &str) -> io::Result<()> {
-        let size =
-            u64::try_from(value.len()).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        let size = u64::try_from(value.len()).map_err(|e| io::Error::other(TryFromIntError(e)))?;
         self.write_varint(size)?;
         self.write_all(value.as_bytes())
     }
@@ -27,7 +26,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
             OwnedStreamData::Encoded(r) => r.data.len(),
         };
         let byte_length =
-            u32::try_from(byte_length).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+            u32::try_from(byte_length).map_err(|e| io::Error::other(TryFromIntError(e)))?;
         stream.meta.write_to(self, false, byte_length)?;
         stream.data.write_to(self)?;
         Ok(())
@@ -42,7 +41,7 @@ pub trait BinarySerializer: Write + VarIntWriter {
             OwnedStreamData::Encoded(r) => r.data.len(),
         };
         let byte_length =
-            u32::try_from(byte_length).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+            u32::try_from(byte_length).map_err(|e| io::Error::other(TryFromIntError(e)))?;
         stream.meta.write_to(self, true, byte_length)?;
         stream.data.write_to(self)?;
         Ok(())
