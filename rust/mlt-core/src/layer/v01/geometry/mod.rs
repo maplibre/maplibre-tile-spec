@@ -341,8 +341,8 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     type EncodingStrategy = GeometryEncodingStrategy;
 
     fn from_decoded(
-        decoded: &Self::Input,
-        config: Self::EncodingStrategy,
+        _decoded: &Self::Input,
+        _config: Self::EncodingStrategy,
     ) -> Result<Self, MltError> {
         Err(NotImplemented("geometry encoding"))
     }

@@ -83,44 +83,44 @@ impl OwnedStream {
     }
 
     pub fn encode_i8s(
-        values: &[i8],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[i8],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_i8s"))
     }
     pub fn encode_u8s(
-        values: &[u8],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[u8],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_u8s"))
     }
     pub fn encode_i32s(
-        values: &[i32],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[i32],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_i32s"))
     }
     pub fn encode_u32s(
-        values: &[u32],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[u32],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_u32s"))
     }
     pub fn encode_i64(
-        values: &[i64],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[i64],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_i64"))
     }
     pub fn encode_u64(
-        values: &[u64],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[u64],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_u64"))
     }
@@ -547,7 +547,11 @@ impl<'a> Stream<'a> {
         let num = self.meta.num_values as usize;
         Ok(raw
             .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]))
+            .map(|chunk| {
+                // `chunks_exact(4)` guarantees `chunk` has length 4, so this is infallible.
+                let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                f32::from_le_bytes(bytes)
+            })
             .take(num)
             .collect())
     }
