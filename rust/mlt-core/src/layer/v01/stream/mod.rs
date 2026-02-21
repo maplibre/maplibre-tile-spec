@@ -11,13 +11,16 @@ use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::{BinarySerializer as _, all, decode_bytes_to_bools, take};
+use crate::utils::{
+    BinarySerializer as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
+    parse_u8, parse_varint, parse_varint_vec, take,
+};
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalDecoder, LogicalTechnique, LogicalValue,
 };
 pub use crate::v01::stream::physical::{PhysicalDecoder, PhysicalStreamType};
-use crate::{MltError, MltRefResult, utils};
+use crate::{MltError, MltRefResult};
 
 /// Representation of an encoded stream
 #[borrowme]
@@ -67,13 +70,13 @@ impl StreamMeta {
         use crate::v01::LogicalTechnique as LT;
 
         let (input, physical_type) = PhysicalStreamType::parse(input)?;
-        let (input, val) = utils::parse_u8(input)?;
+        let (input, val) = parse_u8(input)?;
         let logical1 = LT::parse(val >> 5)?;
         let logical2 = LT::parse((val >> 2) & 0x7)?;
         let physical_decoder = PhysicalDecoder::parse(val & 0x3)?;
 
-        let (input, num_values) = utils::parse_varint::<u32>(input)?;
-        let (input, byte_length) = utils::parse_varint::<u32>(input)?;
+        let (input, num_values) = parse_varint::<u32>(input)?;
+        let (input, byte_length) = parse_varint::<u32>(input)?;
 
         let mut input = input;
         let logical_decoder = match (logical1, logical2) {
@@ -87,8 +90,8 @@ impl StreamMeta {
                     runs = num_values.div_ceil(8);
                     num_rle_values = byte_length;
                 } else {
-                    (input, runs) = utils::parse_varint::<u32>(input)?;
-                    (input, num_rle_values) = utils::parse_varint::<u32>(input)?;
+                    (input, runs) = parse_varint::<u32>(input)?;
+                    (input, num_rle_values) = parse_varint::<u32>(input)?;
                 }
                 let rle = RleMeta {
                     runs,
@@ -103,8 +106,8 @@ impl StreamMeta {
             (LT::Morton, LT::None) => {
                 let num_bits;
                 let coordinate_shift;
-                (input, num_bits) = utils::parse_varint::<u32>(input)?;
-                (input, coordinate_shift) = utils::parse_varint::<u32>(input)?;
+                (input, num_bits) = parse_varint::<u32>(input)?;
+                (input, coordinate_shift) = parse_varint::<u32>(input)?;
                 LogicalDecoder::Morton(MortonMeta {
                     num_bits,
                     coordinate_shift,
@@ -380,7 +383,7 @@ impl<'a> Stream<'a> {
     pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.physical_decoder {
             PhysicalDecoder::VarInt => match self.data {
-                StreamData::VarInt(data) => all(utils::parse_varint_vec::<u64, u64>(
+                StreamData::VarInt(data) => all(parse_varint_vec::<u64, u64>(
                     data.data,
                     self.meta.num_values,
                 )?),
@@ -418,7 +421,7 @@ impl<'a> Stream<'a> {
             StreamData::Encoded(d) => d.data,
             StreamData::VarInt(d) => d.data,
         };
-        let decoded = utils::decode_byte_rle(raw, num_bytes);
+        let decoded = decode_byte_rle(raw, num_bytes);
         decode_bytes_to_bools(&decoded, num_values)
     }
 
@@ -446,7 +449,7 @@ impl<'a> Stream<'a> {
     pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
         let value = match self.meta.physical_decoder {
             PhysicalDecoder::VarInt => match self.data {
-                StreamData::VarInt(data) => all(utils::parse_varint_vec::<u32, u32>(
+                StreamData::VarInt(data) => all(parse_varint_vec::<u32, u32>(
                     data.data,
                     self.meta.num_values,
                 )?),
@@ -458,10 +461,9 @@ impl<'a> Stream<'a> {
                 }
             },
             PhysicalDecoder::None => match self.data {
-                StreamData::Encoded(data) => all(utils::decode_bytes_to_u32s(
-                    data.data,
-                    self.meta.num_values,
-                )?),
+                StreamData::Encoded(data) => {
+                    all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
+                }
                 StreamData::VarInt(_) => {
                     return Err(MltError::InvalidStreamData {
                         expected: "Encoded",

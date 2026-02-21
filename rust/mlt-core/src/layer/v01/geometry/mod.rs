@@ -231,7 +231,7 @@ impl DecodedGeometry {
         let geom_type = *self
             .vector_types
             .get(index)
-            .ok_or(GeometryIndexOutOfBounds { index })?;
+            .ok_or(GeometryIndexOutOfBounds(index))?;
 
         match geom_type {
             GeometryType::Point => {
@@ -244,7 +244,7 @@ impl DecodedGeometry {
                     (None, Some(p), None) => v(part_off(p, index)?)?,
                     (None, None, None) => v(index)?,
                     _ => {
-                        return Err(UnexpectedOffsetCombination { index, geom_type });
+                        return Err(UnexpectedOffsetCombination(index, geom_type));
                     }
                 };
                 Ok(GeoGeom::Point(Point(pt)))
@@ -253,13 +253,13 @@ impl DecodedGeometry {
                 let r = match (parts, rings) {
                     (Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
                     (Some(p), None) => part_off_pair(p, index)?,
-                    _ => return Err(NoPartOffsets { index, geom_type }),
+                    _ => return Err(NoPartOffsets(index, geom_type)),
                 };
                 line(r).map(GeoGeom::LineString)
             }
             GeometryType::Polygon => {
-                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
-                let rings = rings.ok_or(NoRingOffsets { index, geom_type })?;
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
                 let i = geoms
                     .map(|g| geom_off(g, index))
                     .transpose()?
@@ -267,24 +267,24 @@ impl DecodedGeometry {
                 rings_in(part_off_pair(parts, i)?, rings).map(GeoGeom::Polygon)
             }
             GeometryType::MultiPoint => {
-                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
                 geom_off_pair(geoms, index)?
                     .map(&v)
                     .collect::<Result<Vec<Coord32>, _>>()
                     .map(|cs| GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
             }
             GeometryType::MultiLineString => {
-                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
-                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 geom_off_pair(geoms, index)?
                     .map(|p| line(part_off_pair(parts, p)?))
                     .collect::<Result<Vec<LineString<i32>>, _>>()
                     .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
             }
             GeometryType::MultiPolygon => {
-                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
-                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
-                let rings = rings.ok_or(NoRingOffsets { index, geom_type })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
                 geom_off_pair(geoms, index)?
                     .map(|p| rings_in(part_off_pair(parts, p)?, rings))
                     .collect::<Result<Vec<Polygon<i32>>, _>>()

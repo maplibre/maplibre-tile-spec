@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use geo_types as gt;
-use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+use geo_types::{
+    Coord, Geometry as Geom, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+};
 use mvt_reader::Reader;
 use mvt_reader::feature::Value as MvtValue;
 use serde_json::{Number, Value};
@@ -60,25 +61,23 @@ fn coord(c: impl AsRef<Coord<f32>>) -> Coord32 {
     }
 }
 
-fn convert_geometry(geom: &gt::Geometry<f32>) -> Result<Geom32, MltError> {
+fn convert_geometry(geom: &Geom<f32>) -> Result<Geom32, MltError> {
     Ok(match geom {
-        gt::Geometry::Point(v) => Geom32::Point(Point(coord(v))),
-        gt::Geometry::MultiPoint(v) => {
+        Geom::Point(v) => Geom32::Point(Point(coord(v))),
+        Geom::MultiPoint(v) => {
             Geom32::MultiPoint(MultiPoint(v.iter().map(|p| Point(coord(p))).collect()))
         }
-        gt::Geometry::LineString(v) => {
-            Geom32::LineString(LineString(v.coords().map(coord).collect()))
-        }
-        gt::Geometry::MultiLineString(v) => Geom32::MultiLineString(MultiLineString(
+        Geom::LineString(v) => Geom32::LineString(LineString(v.coords().map(coord).collect())),
+        Geom::MultiLineString(v) => Geom32::MultiLineString(MultiLineString(
             v.iter()
                 .map(|ls| LineString(ls.coords().map(coord).collect()))
                 .collect(),
         )),
-        gt::Geometry::Polygon(v) => Geom32::Polygon(convert_polygon(v)),
-        gt::Geometry::MultiPolygon(v) => {
+        Geom::Polygon(v) => Geom32::Polygon(convert_polygon(v)),
+        Geom::MultiPolygon(v) => {
             Geom32::MultiPolygon(MultiPolygon(v.iter().map(convert_polygon).collect()))
         }
-        gt::Geometry::GeometryCollection(v) => {
+        Geom::GeometryCollection(v) => {
             return if v.len() == 1 {
                 convert_geometry(&v[0])
             } else {
@@ -87,11 +86,9 @@ fn convert_geometry(geom: &gt::Geometry<f32>) -> Result<Geom32, MltError> {
                 ))
             };
         }
-        gt::Geometry::Line(_) => Err(MltError::BadMvtGeometry("Unsupported Line geo type"))?,
-        gt::Geometry::Rect(_) => Err(MltError::BadMvtGeometry("Unsupported Rect geo type"))?,
-        gt::Geometry::Triangle(_) => {
-            Err(MltError::BadMvtGeometry("Unsupported Triangle geo type"))?
-        }
+        Geom::Line(_) => Err(MltError::BadMvtGeometry("Unsupported Line geo type"))?,
+        Geom::Rect(_) => Err(MltError::BadMvtGeometry("Unsupported Rect geo type"))?,
+        Geom::Triangle(_) => Err(MltError::BadMvtGeometry("Unsupported Triangle geo type"))?,
     })
 }
 

@@ -4,10 +4,12 @@ use std::fmt::Debug;
 use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
+use crate::MltError;
 use crate::MltError::{DataWidthMismatch, ParsingLogicalTechnique, UnsupportedLogicalDecoder};
-use crate::utils::{decode_componentwise_delta_vec2s, decode_rle, decode_zigzag_delta};
+use crate::utils::{
+    decode_componentwise_delta_vec2s, decode_rle, decode_zigzag, decode_zigzag_delta,
+};
 use crate::v01::{MortonMeta, RleMeta, StreamMeta};
-use crate::{MltError, utils};
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[borrowme]
@@ -78,14 +80,14 @@ impl LogicalValue {
     pub fn decode_i32(self) -> Result<Vec<i32>, MltError> {
         match self.meta.logical_decoder {
             LogicalDecoder::None => match self.data {
-                LogicalData::VecU32(data) => Ok(utils::decode_zigzag::<i32>(&data)),
+                LogicalData::VecU32(data) => Ok(decode_zigzag::<i32>(&data)),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
             LogicalDecoder::Rle(rle) => match self.data {
                 LogicalData::VecU32(data) => {
                     let decoded =
                         decode_rle(&data, rle.runs as usize, rle.num_rle_values as usize)?;
-                    Ok(utils::decode_zigzag::<i32>(&decoded))
+                    Ok(decode_zigzag::<i32>(&decoded))
                 }
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
@@ -152,7 +154,7 @@ impl LogicalValue {
     pub fn decode_i64(self) -> Result<Vec<i64>, MltError> {
         match self.meta.logical_decoder {
             LogicalDecoder::None => match self.data {
-                LogicalData::VecU64(data) => Ok(utils::decode_zigzag::<i64>(&data)),
+                LogicalData::VecU64(data) => Ok(decode_zigzag::<i64>(&data)),
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
             LogicalDecoder::Delta => match self.data {
@@ -174,7 +176,7 @@ impl LogicalValue {
                 LogicalData::VecU64(data) => {
                     let decoded =
                         decode_rle(&data, value.runs as usize, value.num_rle_values as usize)?;
-                    Ok(utils::decode_zigzag::<i64>(&decoded))
+                    Ok(decode_zigzag::<i64>(&decoded))
                 }
                 LogicalData::VecU32(_) => Err(DataWidthMismatch("u32", "i64")),
             },
