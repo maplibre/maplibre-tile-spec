@@ -60,7 +60,7 @@ pub(crate) fn fmt_byte_array(data: &[u8], f: &mut Formatter<'_>) -> std::fmt::Re
     }
 }
 
-/// Format `Option` values on a spingle line each, even in alternate/pretty mode.
+/// Format `Option` values on a single line each, even in alternate/pretty mode.
 pub(crate) struct FmtOptVec<'a, T>(pub &'a [Option<T>]);
 
 impl<T: Debug> Debug for FmtOptVec<'_, T> {
