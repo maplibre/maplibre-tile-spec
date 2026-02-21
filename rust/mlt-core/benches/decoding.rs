@@ -21,7 +21,7 @@ fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec
         .join(test_subpath);
     let prefix = format!("{zoom}_");
     let mut tiles = Vec::new();
-    let entries = fs::read_dir(&dir).unwrap_or_else(|| panic!("failed to read directory {dir:?}"));
+    let entries = fs::read_dir(&dir).unwrap_or_else(|_| panic!("can't read {}", dir.display()));
     for entry in entries.flatten() {
         let file_name = entry.file_name();
         let name = file_name.to_string_lossy();
