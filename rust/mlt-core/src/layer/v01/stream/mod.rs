@@ -102,16 +102,16 @@ impl OwnedStream {
         logical_codec: LogicalCodec,
         physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
-        let (physical_u32s, computed_logical) = logical_decoder.encode_i32(values)?;
+        let (physical_u32s, computed_logical) = logical_codec.encode_i32(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
                 num_values,
-                logical_decoder: computed_logical,
-                physical_decoder,
+                logical_codec: computed_logical,
+                physical_codec,
             },
-            data: physical_decoder.encode_u32s(physical_u32s)?,
+            data: physical_codec.encode_u32s(physical_u32s)?,
         })
     }
     pub fn encode_u32s(
@@ -119,16 +119,16 @@ impl OwnedStream {
         logical_codec: LogicalCodec,
         physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
-        let (physical_u32s, computed_logical) = logical_decoder.encode_u32(values)?;
+        let (physical_u32s, computed_logical) = logical_codec.encode_u32(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
                 num_values,
-                logical_decoder: computed_logical,
-                physical_decoder,
+                logical_codec: computed_logical,
+                physical_codec,
             },
-            data: physical_decoder.encode_u32s(physical_u32s)?,
+            data: physical_codec.encode_u32s(physical_u32s)?,
         })
     }
 
@@ -137,16 +137,16 @@ impl OwnedStream {
         logical_codec: LogicalCodec,
         physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
-        let (physical_u64s, computed_logical) = logical_decoder.encode_i64(values)?;
+        let (physical_u64s, computed_logical) = logical_codec.encode_i64(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
                 num_values,
-                logical_decoder: computed_logical,
-                physical_decoder,
+                logical_codec: computed_logical,
+                physical_codec,
             },
-            data: physical_decoder.encode_u64s(physical_u64s)?,
+            data: physical_codec.encode_u64s(physical_u64s)?,
         })
     }
     pub fn encode_u64(
@@ -154,16 +154,16 @@ impl OwnedStream {
         logical_codec: LogicalCodec,
         physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
-        let (physical_u64s, computed_logical) = logical_decoder.encode_u64(values)?;
+        let (physical_u64s, computed_logical) = logical_codec.encode_u64(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
                 num_values,
-                logical_decoder: computed_logical,
-                physical_decoder,
+                logical_codec: computed_logical,
+                physical_codec,
             },
-            data: physical_decoder.encode_u64s(physical_u64s)?,
+            data: physical_codec.encode_u64s(physical_u64s)?,
         })
     }
 }
@@ -569,10 +569,7 @@ impl<'a> Stream<'a> {
                     all(decode_bytes_to_u64s(data.data, self.meta.num_values)?)
                 }
                 StreamData::VarInt(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "Encoded",
-                        got: format!("{:?}", self.data),
-                    });
+                    return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
             PhysicalCodec::FastPFOR => {

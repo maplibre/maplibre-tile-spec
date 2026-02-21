@@ -43,7 +43,7 @@ pub enum LogicalCodec {
     PseudoDecimal,
 }
 
-impl LogicalDecoder {
+impl LogicalCodec {
     /// Logically encode `u32` values, returning the physically-stored sequence and the concrete decoder.
     ///
     /// [`RleMeta`] is derived from the actual data.
@@ -220,7 +220,7 @@ impl LogicalValue {
                 LogicalData::VecU32(data) => Ok(decode_zigzag_delta::<i32, _>(data.as_slice())),
                 LogicalData::VecU64(_) => Err(DataWidthMismatch("u64", "i32")),
             },
-            LogicalCodec::DeltaRle(rle_meta) => match self.data {
+            LogicalCodec::DeltaRle(rle) => match self.data {
                 LogicalData::VecU32(data) => {
                     let runs = usize::try_from(rle.runs)?;
                     let num_rle_values = usize::try_from(rle.num_rle_values)?;
@@ -334,31 +334,31 @@ mod tests {
 
     use super::*;
     use crate::v01::DictionaryType;
-    use crate::v01::stream::physical::{PhysicalDecoder, PhysicalStreamType};
+    use crate::v01::stream::physical::{PhysicalCodec, PhysicalStreamType};
 
-    fn logical_decoder_strategy() -> impl Strategy<Value = LogicalDecoder> {
+    fn logical_codec_strategy() -> impl Strategy<Value = LogicalCodec> {
         prop_oneof![
-            Just(LogicalDecoder::None),
-            Just(LogicalDecoder::Delta),
-            Just(LogicalDecoder::Rle(RleMeta {
+            Just(LogicalCodec::None),
+            Just(LogicalCodec::Delta),
+            Just(LogicalCodec::Rle(RleMeta {
                 runs: 0,
                 num_rle_values: 0
             })),
-            Just(LogicalDecoder::DeltaRle(RleMeta {
+            Just(LogicalCodec::DeltaRle(RleMeta {
                 runs: 0,
                 num_rle_values: 0
             })),
         ]
     }
 
-    fn make_meta(logical_decoder: LogicalDecoder, num_values: usize) -> StreamMeta {
+    fn make_meta(logical_codec: LogicalCodec, num_values: usize) -> StreamMeta {
         let num_values =
             u32::try_from(num_values).expect("proptest to not generate that large of a vec");
         StreamMeta {
             physical_type: PhysicalStreamType::Data(DictionaryType::None),
             num_values,
-            logical_decoder,
-            physical_decoder: PhysicalDecoder::None,
+            logical_codec,
+            physical_codec: PhysicalCodec::None,
         }
     }
 
@@ -366,7 +366,7 @@ mod tests {
         #[test]
         fn test_u32_logical_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
-            logical in logical_decoder_strategy(),
+            logical in logical_codec_strategy(),
         ) {
             let (encoded, computed) = logical.encode_u32(&values).unwrap();
             let meta = make_meta(computed, values.len());
@@ -379,7 +379,7 @@ mod tests {
         #[test]
         fn test_i32_logical_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
-            logical in logical_decoder_strategy(),
+            logical in logical_codec_strategy(),
         ) {
             let (encoded, computed) = logical.encode_i32(&values).unwrap();
             let meta = make_meta(computed, values.len());
@@ -392,7 +392,7 @@ mod tests {
         #[test]
         fn test_u64_logical_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
-            logical in logical_decoder_strategy(),
+            logical in logical_codec_strategy(),
         ) {
             let (encoded, computed) = logical.encode_u64(&values).unwrap();
             let meta = make_meta(computed, values.len());
@@ -405,7 +405,7 @@ mod tests {
         #[test]
         fn test_i64_logical_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
-            logical in logical_decoder_strategy(),
+            logical in logical_codec_strategy(),
         ) {
             let (encoded, computed) = logical.encode_i64(&values).unwrap();
             let meta = make_meta(computed, values.len());
