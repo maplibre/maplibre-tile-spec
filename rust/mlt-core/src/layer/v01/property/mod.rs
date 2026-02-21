@@ -427,19 +427,23 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
 
     fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
         use {EncodedPropValue as EncVal, PropValue as Val};
-        let present = v.optional.map(Stream::decode_bools);
+        let present = if let Some(c) = v.optional {
+            Some(c.decode_bools()?)
+        } else {
+            None
+        };
         let values = match v.value {
-            EncVal::Bool(s) => Val::Bool(apply_present(present, s.decode_bools())?),
-            EncVal::I8(s) => Val::I8(apply_present(present, s.decode_signed_int_stream()?)?),
-            EncVal::U8(s) => Val::U8(apply_present(present, s.decode_unsigned_int_stream()?)?),
-            EncVal::I32(s) => Val::I32(apply_present(present, s.decode_signed_int_stream()?)?),
-            EncVal::U32(s) => Val::U32(apply_present(present, s.decode_unsigned_int_stream()?)?),
+            EncVal::Bool(s) => Val::Bool(apply_present(present, s.decode_bools()?)?),
+            EncVal::I8(s) => Val::I8(apply_present(present, s.decode_i8s()?)?),
+            EncVal::U8(s) => Val::U8(apply_present(present, s.decode_u8s()?)?),
+            EncVal::I32(s) => Val::I32(apply_present(present, s.decode_i32s()?)?),
+            EncVal::U32(s) => Val::U32(apply_present(present, s.decode_u32s()?)?),
             EncVal::I64(s) => Val::I64(apply_present(present, s.decode_i64()?)?),
             EncVal::U64(s) => Val::U64(apply_present(present, s.decode_u64()?)?),
-            EncVal::F32(s) => Val::F32(apply_present(present, s.decode_f32s())?),
+            EncVal::F32(s) => Val::F32(apply_present(present, s.decode_f32()?)?),
             EncVal::F64(s) => Val::F64(apply_present(
                 present,
-                s.decode_f32s().into_iter().map(f64::from).collect(),
+                s.decode_f32()?.into_iter().map(f64::from).collect(),
             )?),
             EncVal::Str(streams) => {
                 Val::Str(apply_present(present, decode_string_streams(streams)?)?)
