@@ -7,7 +7,10 @@ use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
-use crate::utils::{BinarySerializer as _, OptSeqOpt};
+use crate::utils::{
+    BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
+    encode_varint, encode_zigzag_delta,
+};
 use crate::v01::{
     ColumnType, DictionaryType, LogicalDecoder, OwnedDataVarInt, OwnedEncodedData, OwnedStream,
     OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
@@ -187,53 +190,11 @@ impl<'a> FromEncoded<'a> for DecodedId {
             }
         };
 
-        // Apply the offsets of these IDs via an optional/present bitmask
-        let ids_optional: Vec<Option<u64>> = if let Some(optional_stream) = optional {
-            let present_bits = optional_stream.decode_bools();
-
-            apply_present_bitset(&present_bits, &ids_u64)?
-        } else {
-            // No optional stream, so all IDs are present
-            ids_u64.into_iter().map(Some).collect()
-        };
+        let presence = optional.map(Stream::decode_bools);
+        let ids_optional = apply_present(presence, ids_u64)?;
 
         Ok(DecodedId(Some(ids_optional)))
     }
-}
-/// The `ids_u64` vector only contains values for features where the bit is set
-///
-/// We need to iterate through the bitset and pull from `ids_u64` when the bit is set.
-fn apply_present_bitset(
-    present_bits: &Vec<bool>,
-    ids_u64: &[u64],
-) -> Result<Vec<Option<u64>>, MltError> {
-    let present_bit_count = present_bits.iter().filter(|b| **b).count();
-    if present_bit_count != ids_u64.len() {
-        return Err(MltError::InvalidStreamData {
-            expected: "Number of ID values in the presence stream does not match the number of provided IDs",
-            got: format!(
-                "{present_bit_count} bits set in the present stream, but {} values for IDs",
-                ids_u64.len()
-            ),
-        });
-    }
-    debug_assert!(
-        ids_u64.len() <= present_bits.len(),
-        "Since present_bits.len() <= present_bit_count (upper bound: all bits set) and ids_u64.len() == present_bit_count, there cannot be more IDs than features"
-    );
-
-    let mut result = vec![None; present_bits.len()];
-    // todo: Currently, optional ids are not well supported by encoders
-    // Once this is the case, benchmark for real world usage if using a packed_bitset and possibly nextSetBit
-    // See present_bitset.cpp is faster
-    let present_ids = result
-        .iter_mut()
-        .zip(present_bits)
-        .filter_map(|(id, is_present)| if *is_present { Some(id) } else { None });
-    for (target_id, id_in_stream) in present_ids.zip(ids_u64) {
-        target_id.replace(*id_in_stream);
-    }
-    Ok(result)
 }
 
 /// How to encode IDs
@@ -267,13 +228,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
         let optional = if matches!(config, CFG::OptId32 | CFG::OptId64) {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len()).map_err(|_| MltError::IntegerOverflow)?;
-
-            let num_bytes = present.len().div_ceil(8);
-            let mut bytes = vec![0u8; num_bytes];
-            for (i, _) in present.into_iter().enumerate().filter(|(_, bit)| *bit) {
-                bytes[i / 8] |= 1 << (i % 8);
-            }
-            let data = crate::utils::encode_byte_rle(&bytes);
+            let data = encode_byte_rle(&encode_bools_to_bytes(&present));
 
             let meta = StreamMeta {
                 physical_type: PhysicalStreamType::Present,
@@ -315,11 +270,11 @@ impl FromDecoded<'_> for OwnedEncodedId {
                 reason = "Values > i64::MAX will wrap, but zigzag+delta handles this correctly"
             )]
             let vals_i64: Vec<i64> = vals.iter().map(|&v| v as i64).collect();
-            let encoded = crate::utils::encode_zigzag_delta(&vals_i64);
+            let encoded = encode_zigzag_delta(&vals_i64);
 
             let mut data = Vec::new();
             for &val in &encoded {
-                crate::utils::encode_varint(&mut data, val);
+                encode_varint(&mut data, val);
             }
 
             let meta = StreamMeta {

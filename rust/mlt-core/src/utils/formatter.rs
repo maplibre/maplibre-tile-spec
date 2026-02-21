@@ -59,3 +59,17 @@ pub(crate) fn fmt_byte_array(data: &[u8], f: &mut Formatter<'_>) -> std::fmt::Re
         )
     }
 }
+
+/// Format `Option` values on a single line each, even in alternate/pretty mode.
+pub(crate) struct FmtOptVec<'a, T>(pub &'a [Option<T>]);
+
+impl<T: Debug> Debug for FmtOptVec<'_, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut list = f.debug_list();
+        for item in self.0 {
+            // Always format each element in compact (non-alternate) mode
+            list.entry(&format_args!("{item:?}"));
+        }
+        list.finish()
+    }
+}
