@@ -251,7 +251,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
         let value = if matches!(config, CFG::Id32 | CFG::OptId32) {
             #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
-            OwnedEncodedIdValue::Id64(OwnedStream::encode_u32s(
+            OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
                 LogicalDecoder::None,
                 PhysicalDecoder::None,
