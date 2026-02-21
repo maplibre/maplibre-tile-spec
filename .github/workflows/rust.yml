@@ -36,8 +36,6 @@ jobs:
   fuzz:
     name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
-    defaults:
-      run: { working-directory: ./rust }
     strategy:
       fail-fast: false
       matrix:

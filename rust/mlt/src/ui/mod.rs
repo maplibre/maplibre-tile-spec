@@ -805,9 +805,7 @@ fn geometry_color(geom: &Geom32) -> Color {
         Geom32::MultiPoint(_) => CLR_MULTI_POINT,
         Geom32::LineString(_) => CLR_LINE,
         Geom32::MultiLineString(_) => CLR_MULTI_LINE,
-        Geom32::Polygon(_) | Geom32::MultiPolygon(_) if has_nonstandard_winding(geom) => {
-            CLR_BAD_WINDING
-        }
+        Geom32::Polygon(_) | Geom32::MultiPolygon(_) if has_bad_winding(geom) => CLR_BAD_WINDING,
         Geom32::Polygon(_) => CLR_POLYGON,
         Geom32::MultiPolygon(_) => CLR_MULTI_POLYGON,
         Geom32::Point(_)
@@ -915,7 +913,7 @@ pub(crate) fn is_ring_ccw(ring: &[Coord32]) -> bool {
     ring_signed_area(ring) < 0.0
 }
 
-fn has_nonstandard_winding(geom: &Geom32) -> bool {
+fn has_bad_winding(geom: &Geom32) -> bool {
     let check = |poly: &Polygon<i32>| {
         !is_ring_ccw(&poly.exterior().0) || poly.interiors().iter().any(|r| is_ring_ccw(&r.0))
     };

@@ -17,7 +17,7 @@ impl LayerInput {
             return;
         };
         if layer.as_layer01().is_none() {
-            return; // FIXME: not interesting to debug, but has roundtrippability issues
+            return; // FIXME: not interesting to debug, but has roundtrip-ability issues
         }
         if !remaining.is_empty() {
             return; // not interesting to debug
@@ -29,25 +29,25 @@ impl LayerInput {
 
         // Write the layer to a buffer
         let mut buffer = Vec::<u8>::with_capacity(consumed_input_bytes_size);
-        let Ok(_) = owned_layer.write_to(&mut buffer) else {
+        let Ok(()) = owned_layer.write_to(&mut buffer) else {
             return; // FIXME: implement full layer writes
         };
 
         // Compare without printing to avoid printing lots of data
         if consumed_input != buffer.as_slice() {
-            Self::panic_with_helpful_diff(consumed_input, buffer.as_slice(), owned_layer)
+            Self::panic_with_helpful_diff(consumed_input, buffer.as_slice(), &owned_layer)
         }
     }
 
-    fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: OwnedLayer) -> ! {
+    fn panic_with_helpful_diff(input: &[u8], output: &[u8], parsed_input: &OwnedLayer) -> ! {
         Self::print_hex_diff(input, output);
         let (_, out) = Layer::parse(input).unwrap_or_else(|e| {
             panic!("After parsing the input and writing it to disk, it cannot be read again because {e}\n\
             Input parsed to a layer and debug printed:\n{parsed_input:#?}");
         });
         let written_owned = out.to_owned();
-        Self::try_panic_if_debug_is_different(&parsed_input, &written_owned);
-        if parsed_input == written_owned {
+        Self::try_panic_if_debug_is_different(parsed_input, &written_owned);
+        if *parsed_input == written_owned {
             // this will not be fun to debug :(
             Self::print_corresponding_bytes(written_owned);
             panic!(
@@ -58,7 +58,7 @@ impl LayerInput {
             println!(
                 "input and output are also NOT equal => significant state not debug-printed or not written to disk"
             );
-            Self::minimize_inequal_but_debug_equal(&parsed_input, &written_owned)
+            Self::minimize_inequal_but_debug_equal(parsed_input, &written_owned)
         }
     }
 
@@ -140,10 +140,10 @@ impl LayerInput {
         for i in 0..input_hex.len().max(output_hex.len()) {
             match (input_hex.get(i..=i), output_hex.get(i..=i)) {
                 (Some(i), Some(o)) => {
-                    diff_arrows_hex.push(if i != o { '^' } else { ' ' });
+                    diff_arrows_hex.push(if i == o { ' ' } else { '^' });
                 }
                 (None, None) => unreachable!(),
-                _ => diff_arrows_hex.push_str(" "),
+                _ => diff_arrows_hex.push(' '),
             }
         }
 
@@ -152,7 +152,7 @@ impl LayerInput {
             {input_hex} <- parsed input\n\
             {output_hex} <- written output\n\
             {diff_arrows_hex}\n",
-        )
+        );
     }
 
     fn print_corresponding_bytes(layer: OwnedLayer) {
@@ -169,6 +169,7 @@ impl LayerInput {
                     #[cfg(fuzzing)]
                     layer_order,
                 } = l1;
+                #[cfg(fuzzing)]
                 println!("layer_order: {layer_order:?}");
                 println!(
                     "layer name {name} -> {}",
@@ -185,7 +186,7 @@ impl LayerInput {
                     println!("\tlayer id data: {}", data.encode_hex::<String>());
                 }
                 for (i, prop) in properties.iter().enumerate() {
-                    println!("{i}. property -> {:?}", prop);
+                    println!("{i}. property -> {prop:?}");
                     let mut metadata = Vec::new();
                     prop.write_columns_meta_to(&mut metadata).unwrap();
                     println!("\tprop metadata: {}", metadata.encode_hex::<String>());
@@ -194,7 +195,7 @@ impl LayerInput {
                     println!("\tprop data: {}", buf.encode_hex::<String>());
                 }
                 {
-                    println!("{:?}", geometry);
+                    println!("{geometry:?}");
                     let mut metadata = Vec::new();
                     geometry.write_columns_meta_to(&mut metadata).unwrap();
                     println!("\tprop metadata: {}", metadata.encode_hex::<String>());
