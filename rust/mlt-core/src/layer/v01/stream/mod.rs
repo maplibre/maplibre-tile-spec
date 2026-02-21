@@ -84,23 +84,23 @@ impl OwnedStream {
     }
 
     pub fn encode_i8s(
-        values: &[i8],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[i8],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_i8s"))
     }
     pub fn encode_u8s(
-        values: &[u8],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[u8],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("encode_u8s"))
     }
     pub fn encode_i32s(
-        values: &[i32],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[i32],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u32s, computed_logical) = logical_codec.encode_i32(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -115,9 +115,9 @@ impl OwnedStream {
         })
     }
     pub fn encode_u32s(
-        values: &[u32],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[u32],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u32s, computed_logical) = logical_codec.encode_u32(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -133,9 +133,9 @@ impl OwnedStream {
     }
 
     pub fn encode_i64(
-        values: &[i64],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[i64],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u64s, computed_logical) = logical_codec.encode_i64(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
@@ -150,9 +150,9 @@ impl OwnedStream {
         })
     }
     pub fn encode_u64(
-        values: &[u64],
-        logical_codec: LogicalCodec,
-        physical_codec: PhysicalCodec,
+        _values: &[u64],
+        _logical_codec: LogicalCodec,
+        _physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
         let (physical_u64s, computed_logical) = logical_codec.encode_u64(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
@@ -592,7 +592,11 @@ impl<'a> Stream<'a> {
         let num = self.meta.num_values as usize;
         Ok(raw
             .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+            .map(|chunk| {
+                // `chunks_exact(4)` guarantees `chunk` has length 4, so this is infallible.
+                let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                f32::from_le_bytes(bytes)
+            })
             .take(num)
             .collect())
     }
