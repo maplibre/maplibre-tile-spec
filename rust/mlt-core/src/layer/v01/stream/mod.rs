@@ -227,7 +227,7 @@ impl StreamMeta {
         writer.write_varint(self.num_values)?;
         writer.write_varint(byte_length)?;
 
-        // some decoders have settings inside them
+        // some codecs have settings inside them
         match self.logical_codec {
             LogicalCodec::DeltaRle(r) | LogicalCodec::Rle(r) => {
                 if !is_bool {
@@ -654,7 +654,7 @@ mod tests {
             PhysicalCodec::VarInt => DataVarInt::new(test_case.data),
             PhysicalCodec::None => EncodedData::new(test_case.data),
             _ => panic!(
-                "Unsupported physical decoder in test: {:?}",
+                "Unsupported physical codec in test: {:?}",
                 test_case.meta.physical_codec
             ),
         };

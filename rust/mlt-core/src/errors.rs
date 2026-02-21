@@ -38,7 +38,7 @@ pub enum MltError {
     ParsingColumnType(u8),
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
-    #[error("error parsing physical decoder: code={0}")]
+    #[error("error parsing physical codec: code={0}")]
     ParsingPhysicalCodec(u8),
     #[error("error parsing physical stream type: code={0}")]
     ParsingPhysicalStreamType(u8),
@@ -48,7 +48,7 @@ pub enum MltError {
     UnableToTake(usize),
     #[error("unexpected stream type {0:?}")]
     UnexpectedStreamType(PhysicalStreamType),
-    #[error("unsupported logical decoder {0:?} for {1}")]
+    #[error("unsupported logical codec {0:?} for {1}")]
     UnsupportedLogicalCodec(LogicalCodec, &'static str),
     #[error("invalid combination of logical encodings: {0:?} + {1:?}")]
     InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
@@ -88,9 +88,9 @@ pub enum MltError {
     TriedToEncodeOptionalStruct,
     #[error("struct child data streams expected exactly 1 value, got {0}")]
     UnexpectedStructChildCount(usize),
-    #[error("unsupported physical decoder: {0}")]
+    #[error("unsupported physical codec: {0}")]
     UnsupportedPhysicalCodec(&'static str),
-    #[error("unsupported physical decoder: {0:?} for {1}")]
+    #[error("unsupported physical codec: {0:?} for {1}")]
     UnsupportedPhysicalCodecForType(PhysicalCodec, &'static str),
 
     // Geometry decode errors (field = variable name, geom_type for context)

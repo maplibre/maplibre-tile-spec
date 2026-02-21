@@ -56,7 +56,7 @@ impl PhysicalStreamType {
     }
 }
 
-/// Physical decoder used for a column, as stored in the tile
+/// Physical codec used for a column, as stored in the tile
 #[borrowme]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
@@ -66,7 +66,7 @@ pub enum PhysicalCodec {
     /// But currently limited to 32-bit integer.
     FastPFOR = 1,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
-    /// Simple compression scheme where the decoder are easier to implement compared to `FastPfor`.
+    /// Simple compression scheme where the codec is easier to implement compared to `FastPfor`.
     VarInt = 2,
     /// Adaptive Lossless floating-Point Compression
     Alp = 3,

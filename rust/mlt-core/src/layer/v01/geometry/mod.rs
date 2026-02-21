@@ -428,7 +428,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         LengthType::Triangles => &mut triangles,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
                     };
-                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamDecoder<T>
+                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamCodec<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
             }
