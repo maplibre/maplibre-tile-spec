@@ -30,6 +30,7 @@ build:
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
     cargo hack check --all-targets --each-feature --workspace
+    cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
 ci-coverage: env-info (just 'java::gen-snippets')
@@ -42,21 +43,18 @@ ci-check: env-info check
 
 # Run linting as expected by CI
 ci-lint: env-info test-fmt clippy
-    {{just}} assert-git-is-clean
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
 ci-test: env-info (just 'java::gen-snippets') test test-doc
-    {{just}} assert-git-is-clean
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: env-info
     #!/usr/bin/env bash
     set -euo pipefail
     # For MSRV, relax all warnings to avoid different warnings per rust version
-    unset CI
-    unset RUSTFLAGS
-    unset RUSTDOCFLAGS
-    unset RUST_BACKTRACE
+    unset CI RUSTFLAGS RUSTDOCFLAGS RUST_BACKTRACE
     # Pre-install cargo-hack to avoid CI binstall issues
     {{just}} cargo-install cargo-hack
     {{just}} rust::ci-check
@@ -99,6 +97,7 @@ clean:
 # Run cargo clippy to lint the code
 clippy *args:
     cargo clippy --workspace --all-targets --all-features {{args}}
+    cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')

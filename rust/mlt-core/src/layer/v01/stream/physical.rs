@@ -25,7 +25,7 @@ impl PhysicalStreamType {
         let low4 = value & 0x0F;
         Some(match high4 {
             #[cfg(fuzzing)]
-            // when fuzzing, we cannot have ignored bits, to preserve roundtripa-biltiy
+            // when fuzzing, we cannot have ignored bits, to preserve roundtrip-abiltiy
             0 if low4 == 0 => PhysicalStreamType::Present,
             #[cfg(not(fuzzing))]
             0 => PhysicalStreamType::Present,
