@@ -549,7 +549,11 @@ impl<'a> Stream<'a> {
         let num = self.meta.num_values as usize;
         Ok(raw
             .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+            .map(|chunk| {
+                // `chunks_exact(4)` guarantees `chunk` has length 4, so this is infallible.
+                let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                f32::from_le_bytes(bytes)
+            })
             .take(num)
             .collect())
     }
