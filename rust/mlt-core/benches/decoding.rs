@@ -8,11 +8,11 @@ use mlt_core::parse_layers;
 const BENCHMARKED_ZOOM_LEVELS: [u8; 3] = [4, 7, 13];
 
 fn load_mlt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
-    load_tiles(zoom, "expected/tag0x01/omt", "mlt")
+    load_tiles(zoom, "expected/tag0x01/omt", ".mlt")
 }
 
 fn load_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
-    load_tiles(zoom, "fixtures/omt", "mvt")
+    load_tiles(zoom, "fixtures/omt", ".mvt")
 }
 
 fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec<u8>)> {
@@ -21,8 +21,10 @@ fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec
         .join(test_subpath);
     let prefix = format!("{zoom}_");
     let mut tiles = Vec::new();
-    let entries = fs::read_dir(&dir).unwrap_or_else(|_| panic!("can't read {}", dir.display()));
-    for entry in entries.flatten() {
+    let entries =
+        fs::read_dir(&dir).unwrap_or_else(|err| panic!("can't read {}: {err}", dir.display()));
+    for entry in entries {
+        let entry = entry.unwrap_or_else(|err| panic!("can't read entry {}: {err}", dir.display()));
         let file_name = entry.file_name();
         let name = file_name.to_string_lossy();
         if name.starts_with(&prefix)
@@ -46,10 +48,6 @@ fn bench_mlt_parse(c: &mut Criterion) {
 
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let tiles = load_mlt_tiles(zoom);
-        if tiles.is_empty() {
-            continue;
-        }
-
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
@@ -70,10 +68,6 @@ fn bench_mlt_decode_all(c: &mut Criterion) {
 
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let tiles = load_mlt_tiles(zoom);
-        if tiles.is_empty() {
-            continue;
-        }
-
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(total_bytes as u64));
 
