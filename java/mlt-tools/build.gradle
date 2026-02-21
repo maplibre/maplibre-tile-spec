@@ -1,6 +1,6 @@
 plugins {
+    alias(libs.plugins.diffplug.spotless)
     id 'java-library'
-    id('com.diffplug.spotless') version '8.1.0'
 }
 
 repositories {
@@ -11,9 +11,9 @@ repositories {
 }
 
 dependencies {
-    implementation project(':mlt-core')
     implementation project(':mlt-cli')
-    implementation 'org.locationtech.jts:jts-core:1.20.0'
+    implementation project(':mlt-core')
+    implementation(libs.jts.core)
 }
 
 java {

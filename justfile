@@ -6,6 +6,7 @@ mod ts
 mod cpp
 
 just := quote(just_executable())
+ci_mode := if env('CI', '') != '' {'1'} else {''}
 
 # By default, show the list of all available commands
 @_default:
@@ -85,16 +86,20 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
         fi
     fi
 
-# Make sure the git repo has no uncommitted changes
+# Make sure the git repo has no uncommitted changes. Fails only if CI envvar is set.
 assert-git-is-clean:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
         >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
-        >&2 echo "######### git status ##########"
-        git status
-        git --no-pager diff
-        exit 1
+        if [[ "{{ci_mode}}" == "1" ]]; then
+            >&2 echo "######### git status ##########"
+            git status
+            git --no-pager diff
+            exit 1
+        else
+            >&2 echo "git repo is not clean, but not failing because CI mode is not enabled."
+        fi
     fi
 
 _clean-int-test:

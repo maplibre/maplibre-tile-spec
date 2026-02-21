@@ -1,8 +1,8 @@
 plugins {
     id 'java-library'
-    id('com.diffplug.spotless') version '8.2.1'
     id 'jacoco'
-    id 'com.gradleup.shadow' version '9.3.1'
+    alias(libs.plugins.diffplug.spotless)
+    alias(libs.plugins.gradleup.shadow)
 }
 
 repositories {
@@ -17,27 +17,28 @@ dependencies {
     implementation project(':mlt-core')
 
     // CLI-specific dependencies
-    implementation 'commons-cli:commons-cli:1.11.0'
-    implementation 'org.apache.commons:commons-compress:1.28.0'
-    implementation 'org.imintel:mbtiles4j:1.0.6'
-    implementation 'org.xerial:sqlite-jdbc:3.51.2.0'
+    implementation(libs.commons.cli)
+    implementation(libs.commons.compress)
+
+    implementation(libs.mbtiles4j)
+    implementation(libs.sqlite.jdbc)
 
     // Additional dependencies needed by CLI classes
-    implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.google.protobuf:protobuf-java:4.33.5'
-    implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
-    implementation 'org.jetbrains:annotations:26.0.2-1'
-    implementation 'org.locationtech.jts:jts-core:1.20.0'
-    implementation 'org.locationtech.jts.io:jts-io-common:1.20.0'
+    implementation(libs.gson)
+    implementation(libs.protobuf.java)
+    implementation(libs.jakarta.annotation.api)
+    implementation(libs.jetbrains.annotations)
+    implementation(libs.jts.core)
+    implementation(libs.jts.io.common)
 
     // pmtiles support
-    implementation platform('io.tileverse:tileverse-bom:1.1.0')
-    implementation 'io.tileverse.rangereader:tileverse-rangereader-all'
-    implementation 'io.tileverse.pmtiles:tileverse-pmtiles'
+    implementation(platform(libs.tileverse.io))
+    implementation(libs.tileverse.rangereader.all)
+    implementation(libs.tileverse.pmtiles)
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.2'
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testImplementation(libs.junit.jupiter.params)
 }
 
 test {

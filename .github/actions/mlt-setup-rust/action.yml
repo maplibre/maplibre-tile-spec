@@ -1,7 +1,11 @@
 name: mlt-setup-rust
 description: Setup Rust requirements
 
-inputs: {}
+inputs:
+  toolchain:
+    description: 'Rust toolchain to install: stable (default), nightly, or msrv'
+    required: false
+    default: 'stable'
 
 runs:
   using: "composite"
@@ -23,3 +27,29 @@ runs:
       if: runner.os == 'Windows'
       shell: powershell
       run: choco install protoc -y
+
+    - uses: taiki-e/install-action@v2
+      with: { tool: 'just,cargo-binstall' }
+
+    # Install the requested toolchain (stable, nightly, or msrv)
+    - if: ${{ inputs.toolchain == 'stable' }}
+      name: Install Rust stable
+      uses: dtolnay/rust-toolchain@stable
+    - if: ${{ inputs.toolchain == 'nightly' }}
+      name: Install Rust nightly
+      uses: dtolnay/rust-toolchain@nightly
+    - if: ${{ inputs.toolchain == 'msrv' }}
+      name: Read MSRV
+      id: msrv
+      shell: bash
+      run: echo "value=$(just rust::get-msrv)" >> $GITHUB_OUTPUT
+    - if: ${{ inputs.toolchain == 'msrv' }}
+      name: Install Rust MSRV ${{ steps.msrv.outputs.value }}
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ steps.msrv.outputs.value }}
+
+    - name: Cache Cargo registry and build artifacts
+      if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      uses: Swatinem/rust-cache@v2
+      with: { workspaces: rust }

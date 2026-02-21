@@ -49,13 +49,47 @@ ci-test: env-info (just 'java::gen-snippets') test test-doc
     {{just}} assert-git-is-clean
 
 # Run minimal subset of tests to ensure compatibility with MSRV
-ci-test-msrv: env-info ci-check (just 'java::gen-snippets') test
+ci-test-msrv: env-info
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # For MSRV, relax all warnings to avoid different warnings per rust version
+    unset CI
+    unset RUSTFLAGS
+    unset RUSTDOCFLAGS
+    unset RUST_BACKTRACE
+    # Pre-install cargo-hack to avoid CI binstall issues
+    {{just}} cargo-install cargo-hack
+    {{just}} rust::ci-check
+    {{just}} java::gen-snippets
+    {{just}} rust::test
+    {{just}} assert-git-is-clean
 
 # Build the layer target (installs `cargo fuzz`)
 ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+
+# Build and package release binary for CI
+ci-build-release target artifact_name:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    cargo build --release --target {{target}} --package mlt --bin mlt
+    cd target/{{target}}/release
+    if [ -f mlt.exe ]; then
+        7z a ../../../../{{artifact_name}} mlt.exe
+    else
+        tar -czf ../../../../{{artifact_name}} mlt
+    fi
+
+# Output version and tag for GITHUB_OUTPUT (append with >> $GITHUB_OUTPUT)
+ci-get-release-info package='mlt':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VERSION=$({{just}} rust::get-crate-field version {{package}})
+    echo "version=$VERSION"
+    echo "tag=rust-{{package}}-v$VERSION"
 
 # Clean all build artifacts
 clean:
@@ -64,7 +98,7 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
-    cargo clippy --all-targets --all-features {{args}}
+    cargo clippy --workspace --all-targets --all-features {{args}}
 
 # Generate code coverage report. Installs `cargo llvm-cov`
 coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-llvm-cov')
