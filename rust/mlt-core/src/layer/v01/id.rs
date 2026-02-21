@@ -222,10 +222,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
 
         // skipped one level higher
         let DecodedId(Some(ids)) = decoded else {
-            return Err(MltError::InvalidStreamData {
-                expected: "Some IDs to encode",
-                got: "None".to_string(),
-            });
+            return Err(MltError::IdsMissingForEncoding);
         };
 
         let optional = if matches!(config, CFG::OptId32 | CFG::OptId64) {
