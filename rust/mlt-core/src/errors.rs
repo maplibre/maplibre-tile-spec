@@ -3,7 +3,9 @@ use std::convert::Infallible;
 use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
-use crate::v01::{GeometryType, LogicalDecoder, LogicalTechnique, PhysicalStreamType};
+use crate::v01::{
+    GeometryType, LogicalDecoder, LogicalTechnique, PhysicalDecoder, PhysicalStreamType,
+};
 
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
@@ -50,8 +52,8 @@ pub enum MltError {
     UnexpectedStreamType(PhysicalStreamType),
     #[error("unsupported logical decoder {0:?} for {1}")]
     UnsupportedLogicalDecoder(LogicalDecoder, &'static str),
-    #[error("unsupported combination of logical techniques: {0:?} + {1:?}")]
-    UnsupportedLogicalTechnique(LogicalTechnique, LogicalTechnique),
+    #[error("invalid combination of logical encodings: {0:?} + {1:?}")]
+    InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
     #[error("layer has zero size")]
     ZeroLayerSize,
 
@@ -70,8 +72,12 @@ pub enum MltError {
     InvalidFastPforByteLength(usize),
     #[error("vec2 delta stream size expected to be non-empty and multiple of 2, got {0}")]
     InvalidPairStreamSize(usize),
-    #[error("invalid stream data: expected {expected}, got {got}")]
-    InvalidStreamData { expected: &'static str, got: String },
+    #[error("stream data mismatch: expected {0}, got {1}")]
+    StreamDataMismatch(&'static str, &'static str),
+    #[error("IDs missing for encoding (expected Some IDs, got None)")]
+    IdsMissingForEncoding,
+    #[error("presence stream has {0} bits set but {1} values provided")]
+    PresenceValueCountMismatch(usize, usize),
     #[error("MVT parse error: {0}")]
     MvtParse(String),
     #[error("need to encode before being able to write")]
@@ -86,6 +92,8 @@ pub enum MltError {
     UnexpectedStructChildCount(usize),
     #[error("unsupported physical decoder: {0}")]
     UnsupportedPhysicalDecoder(&'static str),
+    #[error("unsupported physical decoder: {0:?} for {1}")]
+    UnsupportedPhysicalDecoderForType(PhysicalDecoder, &'static str),
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]
@@ -132,5 +140,14 @@ pub enum MltError {
 impl From<Infallible> for MltError {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+impl From<MltError> for std::io::Error {
+    fn from(value: MltError) -> Self {
+        match value {
+            MltError::Io(e) => e,
+            other => std::io::Error::other(other),
+        }
     }
 }

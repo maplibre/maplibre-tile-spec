@@ -13,7 +13,7 @@ use num_enum::TryFromPrimitive;
 use crate::analyse::{Analyze, StatType};
 use crate::utils::{
     BinarySerializer as _, all, decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s,
-    parse_u8, parse_varint, parse_varint_vec, take,
+    encode_bools_to_bytes, encode_byte_rle, parse_u8, parse_varint, parse_varint_vec, take,
 };
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
@@ -49,6 +49,82 @@ impl OwnedStream {
             },
             data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
         }
+    }
+
+    /// Creates a plain stream with values encoded literally
+    #[must_use]
+    fn new_plain(data: Vec<u8>, num_values: u32) -> OwnedStream {
+        let meta = StreamMeta {
+            physical_type: PhysicalStreamType::Data(DictionaryType::None),
+            num_values,
+            logical_decoder: LogicalDecoder::None,
+            physical_decoder: PhysicalDecoder::None,
+        };
+        let data = OwnedStreamData::Encoded(OwnedEncodedData { data });
+        Self { meta, data }
+    }
+
+    /// Encode a boolean stream: byte-RLE <- packed bitmap <- `Vec<bool>`
+    pub fn encode_bools(values: &[bool]) -> Result<Self, MltError> {
+        let num_values = u32::try_from(values.len())?;
+        let bytes = encode_bools_to_bytes(values);
+        let data = encode_byte_rle(&bytes);
+        // byte RLE is how bits are always encoded, not rle -> plain
+        Ok(Self::new_plain(data, num_values))
+    }
+
+    /// Encodes `f32`s into a stream
+    pub fn encode_f32(values: &[f32]) -> Result<Self, MltError> {
+        let num_values = u32::try_from(values.len())?;
+        let data = values
+            .iter()
+            .flat_map(|f| f.to_le_bytes())
+            .collect::<Vec<u8>>();
+
+        Ok(Self::new_plain(data, num_values))
+    }
+
+    pub fn encode_i8s(
+        values: &[i8],
+        logical_decoder: LogicalDecoder,
+        physical_decoder: PhysicalDecoder,
+    ) -> Result<Self, MltError> {
+        Err(MltError::NotImplemented("encode_i8s"))
+    }
+    pub fn encode_u8s(
+        values: &[u8],
+        logical_decoder: LogicalDecoder,
+        physical_decoder: PhysicalDecoder,
+    ) -> Result<Self, MltError> {
+        Err(MltError::NotImplemented("encode_u8s"))
+    }
+    pub fn encode_i32s(
+        values: &[i32],
+        logical_decoder: LogicalDecoder,
+        physical_decoder: PhysicalDecoder,
+    ) -> Result<Self, MltError> {
+        Err(MltError::NotImplemented("encode_i32s"))
+    }
+    pub fn encode_u32s(
+        values: &[u32],
+        logical_decoder: LogicalDecoder,
+        physical_decoder: PhysicalDecoder,
+    ) -> Result<Self, MltError> {
+        Err(MltError::NotImplemented("encode_u32s"))
+    }
+    pub fn encode_i64(
+        values: &[i64],
+        logical_decoder: LogicalDecoder,
+        physical_decoder: PhysicalDecoder,
+    ) -> Result<Self, MltError> {
+        Err(MltError::NotImplemented("encode_i64"))
+    }
+    pub fn encode_u64(
+        values: &[u64],
+        logical_decoder: LogicalDecoder,
+        physical_decoder: PhysicalDecoder,
+    ) -> Result<Self, MltError> {
+        Err(MltError::NotImplemented("encode_u64"))
     }
 }
 /// Metadata about an encoded stream
@@ -114,7 +190,7 @@ impl StreamMeta {
                 })
             }
             (LT::PseudoDecimal, LT::None) => LogicalDecoder::PseudoDecimal,
-            _ => Err(MltError::UnsupportedLogicalTechnique(logical1, logical2))?,
+            _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
         };
 
         let meta = StreamMeta {
@@ -318,6 +394,10 @@ impl<'a> Stream<'a> {
         Self { meta, data }
     }
 
+    pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Self> {
+        Self::parse_internal(input, false)
+    }
+
     pub fn parse_multiple(mut input: &'a [u8], count: usize) -> MltRefResult<'a, Vec<Self>> {
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
@@ -330,10 +410,6 @@ impl<'a> Stream<'a> {
 
     pub fn parse_bool(input: &'a [u8]) -> MltRefResult<'a, Self> {
         Self::parse_internal(input, true)
-    }
-
-    pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Self> {
-        Self::parse_internal(input, false)
     }
 
     /// Parse stream from the input
@@ -354,30 +430,87 @@ impl<'a> Stream<'a> {
         Ok((input, Stream::new(meta, stream_data)))
     }
 
-    pub fn decode_signed_int_stream<T>(self) -> Result<Vec<T>, MltError>
-    where
-        T: TryFrom<i32>,
-        MltError: From<<T as TryFrom<i32>>::Error>,
-    {
+    /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`
+    pub fn decode_bools(self) -> Result<Vec<bool>, MltError> {
+        let num_values = self.meta.num_values as usize;
+        let num_bytes = num_values.div_ceil(8);
+        let raw = match &self.data {
+            StreamData::Encoded(d) => d.data,
+            StreamData::VarInt(_) => {
+                return Err(MltError::NotImplemented("varint bool decoding"));
+            }
+        };
+        let decoded = decode_byte_rle(raw, num_bytes);
+        Ok(decode_bytes_to_bools(&decoded, num_values))
+    }
+
+    pub fn decode_i8s(self) -> Result<Vec<i8>, MltError> {
         self.decode_bits_u32()?
             .decode_i32()?
             .into_iter()
-            .map(T::try_from)
-            .collect::<Result<Vec<T>, _>>()
+            .map(i8::try_from)
+            .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
     }
 
-    pub fn decode_unsigned_int_stream<T>(self) -> Result<Vec<T>, MltError>
-    where
-        T: TryFrom<u32>,
-        MltError: From<<T as TryFrom<u32>>::Error>,
-    {
-        self.decode_bits_u32()?
+    pub fn decode_u8s(self) -> Result<Vec<u8>, MltError> {
+        let decoded = self
+            .decode_bits_u32()?
             .decode_u32()?
             .into_iter()
-            .map(T::try_from)
-            .collect::<Result<Vec<T>, _>>()
-            .map_err(Into::into)
+            .map(u8::try_from)
+            .collect::<Result<Vec<u8>, _>>()?;
+        Ok(decoded)
+    }
+
+    pub fn decode_i32s(self) -> Result<Vec<i32>, MltError> {
+        self.decode_bits_u32()?.decode_i32()
+    }
+
+    pub fn decode_u32s(self) -> Result<Vec<u32>, MltError> {
+        self.decode_bits_u32()?.decode_u32()
+    }
+
+    pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
+        let value = match self.meta.physical_decoder {
+            PhysicalDecoder::VarInt => match self.data {
+                StreamData::VarInt(data) => all(parse_varint_vec::<u32, u32>(
+                    data.data,
+                    self.meta.num_values,
+                )?),
+                StreamData::Encoded(_) => {
+                    return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
+                }
+            },
+            PhysicalDecoder::None => match self.data {
+                StreamData::Encoded(data) => {
+                    all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
+                }
+                StreamData::VarInt(_) => {
+                    return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
+                }
+            },
+            PhysicalDecoder::FastPFOR => match self.data {
+                StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
+                    data.data,
+                    self.meta.num_values as usize,
+                )?),
+                StreamData::VarInt(_) => {
+                    return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
+                }
+            },
+            PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
+        }?;
+
+        Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
+    }
+
+    pub fn decode_u64(self) -> Result<Vec<u64>, MltError> {
+        self.decode_bits_u64()?.decode_u64()
+    }
+    /// Decode a signed i64 stream
+    pub fn decode_i64(self) -> Result<Vec<i64>, MltError> {
+        self.decode_bits_u64()?.decode_i64()
     }
 
     pub fn decode_bits_u64(self) -> Result<LogicalValue, MltError> {
@@ -388,10 +521,7 @@ impl<'a> Stream<'a> {
                     self.meta.num_values,
                 )?),
                 StreamData::Encoded(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "VarInt",
-                        got: "Encoded".to_string(),
-                    });
+                    return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
             PhysicalDecoder::None => {
@@ -408,85 +538,20 @@ impl<'a> Stream<'a> {
         Ok(LogicalValue::new(self.meta, LogicalData::VecU64(value)))
     }
 
-    pub fn decode_u64(self) -> Result<Vec<u64>, MltError> {
-        self.decode_bits_u64()?.decode_u64()
-    }
-
-    /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`
-    #[must_use]
-    pub fn decode_bools(self) -> Vec<bool> {
-        let num_values = self.meta.num_values as usize;
-        let num_bytes = num_values.div_ceil(8);
-        let raw = match &self.data {
-            StreamData::Encoded(d) => d.data,
-            StreamData::VarInt(d) => d.data,
-        };
-        let decoded = decode_byte_rle(raw, num_bytes);
-        decode_bytes_to_bools(&decoded, num_values)
-    }
-
     /// Decode a stream of f32 values from raw little-endian bytes
-    #[must_use]
-    pub fn decode_f32s(self) -> Vec<f32> {
+    pub fn decode_f32(self) -> Result<Vec<f32>, MltError> {
         let raw = match &self.data {
             StreamData::Encoded(d) => d.data,
-            StreamData::VarInt(d) => d.data,
+            StreamData::VarInt(_) => {
+                return Err(MltError::NotImplemented("varint f32 decoding"));
+            }
         };
         let num = self.meta.num_values as usize;
-        (0..num)
-            .map(|i| {
-                let o = i * 4;
-                f32::from_le_bytes([raw[o], raw[o + 1], raw[o + 2], raw[o + 3]])
-            })
-            .collect()
-    }
-
-    /// Decode a signed i64 stream
-    pub fn decode_i64(self) -> Result<Vec<i64>, MltError> {
-        self.decode_bits_u64()?.decode_i64()
-    }
-
-    pub fn decode_bits_u32(self) -> Result<LogicalValue, MltError> {
-        let value = match self.meta.physical_decoder {
-            PhysicalDecoder::VarInt => match self.data {
-                StreamData::VarInt(data) => all(parse_varint_vec::<u32, u32>(
-                    data.data,
-                    self.meta.num_values,
-                )?),
-                StreamData::Encoded(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "VarInt",
-                        got: format!("{:?}", self.data),
-                    });
-                }
-            },
-            PhysicalDecoder::None => match self.data {
-                StreamData::Encoded(data) => {
-                    all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
-                }
-                StreamData::VarInt(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "Encoded",
-                        got: format!("{:?}", self.data),
-                    });
-                }
-            },
-            PhysicalDecoder::FastPFOR => match self.data {
-                StreamData::Encoded(data) => Ok(decode_fastpfor_composite(
-                    data.data,
-                    self.meta.num_values as usize,
-                )?),
-                StreamData::VarInt(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "Encoded",
-                        got: format!("{:?}", self.data),
-                    });
-                }
-            },
-            PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
-        }?;
-
-        Ok(LogicalValue::new(self.meta, LogicalData::VecU32(value)))
+        Ok(raw
+            .chunks_exact(4)
+            .map(|chunk| f32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]))
+            .take(num)
+            .collect())
     }
 
     // pub fn decode<'a, T, U>(&'_ self) -> Result<Vec<U>, MltError>
@@ -734,6 +799,129 @@ mod tests {
                 assert_eq!(exp.data.as_slice(), act.data, "varint data mismatch");
             }
             _ => panic!("data type mismatch"),
+        }
+    }
+    use proptest::prelude::*;
+
+    fn logical_decoders_strategy() -> impl Strategy<Value = LogicalDecoder> {
+        prop_oneof![
+            (1..100u32, 1..100u32).prop_map(|(runs, num_rle_values)| LogicalDecoder::Rle(
+                RleMeta {
+                    runs,
+                    num_rle_values
+                }
+            )),
+            (1..100u32, 1..100u32).prop_map(|(runs, num_rle_values)| LogicalDecoder::DeltaRle(
+                RleMeta {
+                    runs,
+                    num_rle_values
+                }
+            )),
+        ]
+    }
+
+    fn physical_decoders_strategy() -> impl Strategy<Value = PhysicalDecoder> {
+        prop_oneof![
+            Just(PhysicalDecoder::None),
+            Just(PhysicalDecoder::VarInt),
+            // FastPFOR and Alp are not supported for encoding yet
+        ]
+    }
+
+    proptest! {
+        #[test]
+        #[ignore = "OwnedStream::encode_u32s unimplemented"]
+        fn test_u32_roundtrip(
+            values in prop::collection::vec(any::<u32>(), 0..100),
+            logical_decoder in logical_decoders_strategy(),
+            physical_decoder in physical_decoders_strategy()
+        ) {
+            let owned_stream = OwnedStream::encode_u32s(&values, logical_decoder, physical_decoder).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_u32().unwrap();
+
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        #[ignore = "OwnedStream::encode_i32s unimplemented"]
+        fn test_i32_roundtrip(
+            values in prop::collection::vec(any::<i32>(), 0..100),
+            logical_decoder in logical_decoders_strategy(),
+            physical_decoder in physical_decoders_strategy()
+        ) {
+            let owned_stream = OwnedStream::encode_i32s(&values, logical_decoder, physical_decoder).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_bits_u32().unwrap().decode_i32().unwrap();
+
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        #[ignore = "OwnedStream::encode_u64s unimplemented"]
+        fn test_u64_roundtrip(
+            values in prop::collection::vec(any::<u64>(), 0..100),
+            logical_decoder in logical_decoders_strategy(),
+            physical_decoder in physical_decoders_strategy()
+        ) {
+            let owned_stream = OwnedStream::encode_u64(&values, logical_decoder, physical_decoder).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_u64().unwrap();
+
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        #[ignore = "OwnedStream::encode_i64s unimplemented"]
+        fn test_i64_roundtrip(
+            values in prop::collection::vec(any::<i64>(), 0..100),
+            logical_decoder in logical_decoders_strategy(),
+            physical_decoder in physical_decoders_strategy()
+        ) {
+            let owned_stream = OwnedStream::encode_i64(&values, logical_decoder, physical_decoder).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_i64().unwrap();
+
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        #[ignore = "OwnedStream::encode_* unimplemented"]
+        fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
+            let owned_stream = OwnedStream::encode_f32(&values).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_f32().unwrap();
+            assert_eq!(decoded_values, values);
         }
     }
 }
