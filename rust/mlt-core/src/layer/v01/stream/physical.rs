@@ -2,8 +2,9 @@ use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingPhysicalStreamType;
+use crate::utils::parse_u8;
 use crate::v01::{DictionaryType, LengthType, OffsetType};
-use crate::{MltError, MltRefResult, utils};
+use crate::{MltError, MltRefResult};
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -15,7 +16,7 @@ pub enum PhysicalStreamType {
 }
 impl PhysicalStreamType {
     pub fn parse(input: &'_ [u8]) -> MltRefResult<'_, Self> {
-        let (input, value) = utils::parse_u8(input)?;
+        let (input, value) = parse_u8(input)?;
         let pt = Self::from_u8(value).ok_or(ParsingPhysicalStreamType(value))?;
         Ok((input, pt))
     }

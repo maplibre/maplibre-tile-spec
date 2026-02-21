@@ -4,7 +4,7 @@ use std::io::Write;
 use borrowme::borrowme;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::SetOptionOnce as _;
+use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
     Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStructChild,
@@ -60,9 +60,9 @@ impl Analyze for Layer01<'_> {
 impl Layer01<'_> {
     /// Parse `v01::Layer` metadata
     pub fn parse(input: &[u8]) -> Result<Layer01<'_>, MltError> {
-        let (input, layer_name) = utils::parse_string(input)?;
-        let (input, extent) = utils::parse_varint::<u32>(input)?;
-        let (input, column_count) = utils::parse_varint::<usize>(input)?;
+        let (input, layer_name) = parse_string(input)?;
+        let (input, extent) = parse_varint::<u32>(input)?;
+        let (input, column_count) = parse_varint::<usize>(input)?;
 
         // Each column requires at least 1 byte (column type)
         if input.len() < column_count {
@@ -105,19 +105,15 @@ impl Layer01<'_> {
                 }
                 ColumnType::Geometry => {
                     let value_vec;
-                    (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    (input, stream_count) = parse_varint::<usize>(input)?;
+                    if stream_count == 0 {
+                        return Err(MltError::GeometryWithoutStreams);
+                    }
                     // Each stream requires at least 1 byte (physical stream type)
                     if input.len() < stream_count {
                         return Err(MltError::BufferUnderflow {
                             needed: stream_count,
                             remaining: input.len(),
-                        });
-                    }
-                    if stream_count == 0 {
-                        return Err(MltError::MinLength {
-                            ctx: "geometry type, but without streams",
-                            min: 1,
-                            got: 0,
                         });
                     }
 
@@ -209,7 +205,7 @@ impl Layer01<'_> {
                     ));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
-                    (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    (input, stream_count) = parse_varint::<usize>(input)?;
                     // Each stream requires at least 1 byte (physical stream type)
                     if input.len() < stream_count {
                         return Err(MltError::BufferUnderflow {
@@ -233,13 +229,9 @@ impl Layer01<'_> {
                     ));
                 }
                 ColumnType::Struct => {
-                    (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    (input, stream_count) = parse_varint::<usize>(input)?;
                     if stream_count < 2 {
-                        return Err(MltError::MinLength {
-                            ctx: "struct shared dictionary",
-                            min: 2,
-                            got: stream_count,
-                        });
+                        return Err(MltError::StructSharedDictRequiresStreams(stream_count));
                     }
 
                     // Parse shared dictionary streams
@@ -267,18 +259,14 @@ impl Layer01<'_> {
                     // Parse each child field (present stream + dictionary index stream)
                     let mut children = Vec::with_capacity(column.children.len());
                     for child in &column.children {
-                        (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                        (input, stream_count) = parse_varint::<usize>(input)?;
                         let child_optional;
                         (input, child_optional) = parse_optional(child.typ, input)?;
                         let optional_stream_count = usize::from(child_optional.is_some());
                         if let Some(data_count) = stream_count.checked_sub(optional_stream_count)
                             && data_count != 1
                         {
-                            return Err(MltError::ExpectedValues {
-                                ctx: "struct child data streams",
-                                expected: 1,
-                                got: data_count,
-                            });
+                            return Err(MltError::UnexpectedStructChildCount(data_count));
                         }
                         let child_data;
                         (input, child_data) = Stream::parse(input)?;
@@ -355,7 +343,7 @@ fn parse_columns_meta(
             Struct => {
                 // Yes, we need to parse children right here, otherwise this messes up the next column
                 let child_column_count;
-                (input, child_column_count) = utils::parse_varint::<usize>(input)?;
+                (input, child_column_count) = parse_varint::<usize>(input)?;
 
                 // Each column requires at least 1 byte (ColumnType without name)
                 if input.len() < child_column_count {
