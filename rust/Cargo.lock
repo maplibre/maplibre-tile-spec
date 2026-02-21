@@ -1162,7 +1162,6 @@ dependencies = [
  "insta",
  "integer-encoding",
  "json5",
- "log",
  "mvt-reader",
  "num-traits",
  "num_enum",
