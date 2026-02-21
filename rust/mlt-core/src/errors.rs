@@ -72,8 +72,12 @@ pub enum MltError {
     InvalidFastPforByteLength(usize),
     #[error("vec2 delta stream size expected to be non-empty and multiple of 2, got {0}")]
     InvalidPairStreamSize(usize),
-    #[error("invalid stream data: expected {expected}, got {got}")]
-    InvalidStreamData { expected: &'static str, got: String },
+    #[error("stream data mismatch: expected {0}, got {1}")]
+    StreamDataMismatch(&'static str, &'static str),
+    #[error("IDs missing for encoding (expected Some IDs, got None)")]
+    IdsMissingForEncoding,
+    #[error("presence stream has {0} bits set but {1} values provided")]
+    PresenceValueCountMismatch(usize, usize),
     #[error("MVT parse error: {0}")]
     MvtParse(String),
     #[error("need to encode before being able to write")]

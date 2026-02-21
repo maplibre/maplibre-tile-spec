@@ -43,13 +43,10 @@ pub fn apply_present<T>(
     };
     let present_bit_count = present.iter().filter(|&&b| b).count();
     if present_bit_count != values.len() {
-        return Err(MltError::InvalidStreamData {
-            expected: "Number of expected values by the presence stream does not match the provided values",
-            got: format!(
-                "{present_bit_count} bits set in the present stream, but {} values",
-                values.len()
-            ),
-        });
+        return Err(MltError::PresenceValueCountMismatch(
+            present_bit_count,
+            values.len(),
+        ));
     }
     debug_assert!(
         values.len() <= present.len(),

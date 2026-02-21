@@ -480,10 +480,7 @@ impl<'a> Stream<'a> {
                     self.meta.num_values,
                 )?),
                 StreamData::Encoded(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "VarInt",
-                        got: format!("{:?}", self.data),
-                    });
+                    return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
             PhysicalDecoder::None => match self.data {
@@ -491,10 +488,7 @@ impl<'a> Stream<'a> {
                     all(decode_bytes_to_u32s(data.data, self.meta.num_values)?)
                 }
                 StreamData::VarInt(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "Encoded",
-                        got: format!("{:?}", self.data),
-                    });
+                    return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
             PhysicalDecoder::FastPFOR => match self.data {
@@ -503,10 +497,7 @@ impl<'a> Stream<'a> {
                     self.meta.num_values as usize,
                 )?),
                 StreamData::VarInt(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "Encoded",
-                        got: format!("{:?}", self.data),
-                    });
+                    return Err(MltError::StreamDataMismatch("Encoded", "VarInt"));
                 }
             },
             PhysicalDecoder::Alp => return Err(MltError::UnsupportedPhysicalDecoder("ALP")),
@@ -531,10 +522,7 @@ impl<'a> Stream<'a> {
                     self.meta.num_values,
                 )?),
                 StreamData::Encoded(_) => {
-                    return Err(MltError::InvalidStreamData {
-                        expected: "VarInt",
-                        got: "Encoded".to_string(),
-                    });
+                    return Err(MltError::StreamDataMismatch("VarInt", "Encoded"));
                 }
             },
             PhysicalDecoder::None => {
