@@ -1,6 +1,6 @@
+use std::fs;
 use std::hint::black_box;
 use std::path::Path;
-use std::fs;
 
 use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
 use mlt_core::parse_layers;
