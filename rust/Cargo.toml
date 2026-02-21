@@ -13,7 +13,7 @@ edition = "2024"
 homepage = "https://maplibre.org"
 keywords = ["maplibre", "tile", "mlt", "mvt"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/nyurik/maplibre-tile-spec"
+repository = "https://github.com/maplibre/maplibre-tile-spec"
 rust-version = "1.88.0"
 
 [workspace.dependencies]
