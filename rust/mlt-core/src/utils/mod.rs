@@ -53,7 +53,7 @@ pub fn apply_present<T>(
     }
     debug_assert!(
         values.len() <= present.len(),
-        "Since present_bits.len() <= present_bit_count (upper bound: all bits set) and ids_u64.len() == present_bit_count, there cannot be more IDs than features"
+        "Since the number of present bits is an upper bound on the number of values and equals values.len(), there cannot be more values than entries in the present bitmap"
     );
 
     let mut result = Vec::with_capacity(present.len());
