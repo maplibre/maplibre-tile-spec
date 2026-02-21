@@ -66,10 +66,7 @@ impl Layer01<'_> {
 
         // Each column requires at least 1 byte (column type)
         if input.len() < column_count {
-            return Err(MltError::BufferUnderflow {
-                needed: column_count,
-                remaining: input.len(),
-            });
+            return Err(MltError::BufferUnderflow(column_count, input.len()));
         }
 
         // !!!!!!!
@@ -111,10 +108,7 @@ impl Layer01<'_> {
                     }
                     // Each stream requires at least 1 byte (physical stream type)
                     if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow {
-                            needed: stream_count,
-                            remaining: input.len(),
-                        });
+                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
                     }
 
                     // metadata
@@ -208,10 +202,7 @@ impl Layer01<'_> {
                     (input, stream_count) = parse_varint::<usize>(input)?;
                     // Each stream requires at least 1 byte (physical stream type)
                     if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow {
-                            needed: stream_count,
-                            remaining: input.len(),
-                        });
+                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
                     }
                     if stream_count == 0 && column.typ.is_optional() {
                         return Err(MltError::MissingStringStream(
@@ -347,10 +338,7 @@ fn parse_columns_meta(
 
                 // Each column requires at least 1 byte (ColumnType without name)
                 if input.len() < child_column_count {
-                    return Err(MltError::BufferUnderflow {
-                        needed: child_column_count,
-                        remaining: input.len(),
-                    });
+                    return Err(MltError::BufferUnderflow(child_column_count, input.len()));
                 }
                 let mut children = Vec::with_capacity(child_column_count);
                 for _ in 0..child_column_count {

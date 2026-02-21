@@ -1,4 +1,7 @@
 use crate::MltError;
+use crate::MltError::{
+    BufferUnderflow, DictIndexOutOfBounds, MissingStringStream, UnexpectedStreamType,
+};
 use crate::utils::apply_present;
 use crate::v01::{
     DecodedProperty, DictionaryType, EncodedStructProp, LengthType, OffsetType, PhysicalStreamType,
@@ -44,7 +47,7 @@ impl StringStreams {
                 PST::Offset(OffsetType::String) => {
                     result.offsets = Some(s.decode_bits_u32()?.decode_u32()?);
                 }
-                _ => Err(MltError::UnexpectedStreamType(s.meta.physical_type))?,
+                _ => Err(UnexpectedStreamType(s.meta.physical_type))?,
             }
         }
         Ok(result)
@@ -53,9 +56,9 @@ impl StringStreams {
     /// Decode dictionary entries from length + data streams, with optional FSST decompression.
     fn decode_dictionary(&self) -> Result<Vec<String>, MltError> {
         let dl = self.dict_lengths.as_deref();
-        let dl = dl.ok_or(MltError::MissingStringStream("dictionary lengths"))?;
+        let dl = dl.ok_or(MissingStringStream("dictionary lengths"))?;
         let dd = self.dict_bytes.as_deref();
-        let dd = dd.ok_or(MltError::MissingStringStream("dictionary data"))?;
+        let dd = dd.ok_or(MissingStringStream("dictionary data"))?;
         if let (Some(sym_lens), Some(sym_data)) = (&self.symbol_lengths, &self.symbol_bytes) {
             split_to_strings(dl, &decode_fsst(sym_data, sym_lens, dd))
         } else {
@@ -72,12 +75,12 @@ pub fn decode_string_streams(streams: Vec<Stream<'_>>) -> Result<Vec<String>, Ml
         resolve_offsets(&ss.decode_dictionary()?, offsets)
     } else if let Some(lengths) = &ss.var_binary_lengths {
         let data = ss.data_bytes.as_deref().or(ss.dict_bytes.as_deref());
-        let data = data.ok_or(MltError::MissingStringStream("string data"))?;
+        let data = data.ok_or(MissingStringStream("string data"))?;
         split_to_strings(lengths, data)
     } else if ss.dict_lengths.is_some() {
         ss.decode_dictionary()
     } else {
-        Err(MltError::MissingStringStream("any usable combination"))
+        Err(MissingStringStream("any usable combination"))
     }
 }
 
@@ -93,7 +96,7 @@ fn resolve_offsets(dict: &[String], offsets: &[u32]) -> Result<Vec<String>, MltE
         .map(|&idx| {
             dict.get(idx as usize)
                 .cloned()
-                .ok_or(MltError::DictIndexOutOfBounds(idx, dict.len()))
+                .ok_or(DictIndexOutOfBounds(idx, dict.len()))
         })
         .collect()
 }
@@ -112,10 +115,7 @@ fn split_to_strings(lengths: &[u32], data: &[u8]) -> Result<Vec<String>, MltErro
     for &len in lengths {
         let len = len as usize;
         let Some(v) = data.get(offset..offset + len) else {
-            return Err(MltError::BufferUnderflow {
-                needed: len,
-                remaining: data.len().saturating_sub(offset),
-            });
+            return Err(BufferUnderflow(len, data.len().saturating_sub(offset)));
         };
         strings.push(str::from_utf8(v)?.to_owned());
         offset += len;
