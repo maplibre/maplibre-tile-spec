@@ -96,6 +96,8 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
     cargo clippy --workspace --all-targets --all-features {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
