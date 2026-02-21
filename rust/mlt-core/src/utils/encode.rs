@@ -152,8 +152,8 @@ mod tests {
 
     use super::*;
     use crate::utils::{
-        decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_rle, decode_zigzag,
-        decode_zigzag_delta,
+        decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
+        decode_rle, decode_zigzag, decode_zigzag_delta,
     };
 
     proptest! {
@@ -199,6 +199,14 @@ mod tests {
         fn test_u32_bytes_roundtrip(data: Vec<u32>) {
             let encoded = encode_u32s_to_bytes(&data);
             let (rem, decoded) = decode_bytes_to_u32s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
+            prop_assert_eq!(data, decoded);
+            prop_assert!(rem.is_empty());
+        }
+
+        #[test]
+        fn test_u64_bytes_roundtrip(data: Vec<u64>) {
+            let encoded = encode_u64s_to_bytes(&data);
+            let (rem, decoded) = decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
             prop_assert_eq!(data, decoded);
             prop_assert!(rem.is_empty());
         }
