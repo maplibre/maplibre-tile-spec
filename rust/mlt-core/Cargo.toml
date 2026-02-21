@@ -11,6 +11,10 @@ keywords.workspace = true
 categories.workspace = true
 rust-version.workspace = true
 
+[[bench]]
+name = "decoding"
+harness = false
+
 [dependencies]
 borrowme = "0.0.15"
 fastpfor = "0.6"
@@ -34,10 +38,6 @@ pretty_assertions = "1.4"
 proptest = "1.6"
 rstest = "0.26.1"
 test_each_file = "0.3.5"
-
-[[bench]]
-name = "decoding"
-harness = false
 
 [lints.rust]
 unsafe_code = "forbid"

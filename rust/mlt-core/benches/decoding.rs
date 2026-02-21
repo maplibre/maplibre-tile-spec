@@ -2,7 +2,7 @@ use std::fs;
 use std::hint::black_box;
 use std::path::Path;
 
-use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::parse_layers;
 
 const BENCHMARKED_ZOOM_LEVELS: [u8; 3] = [4, 7, 13];
@@ -25,8 +25,9 @@ fn load_tiles(zoom: u8, test_subpath: &str, extension: &str) -> Vec<(String, Vec
         return tiles;
     };
     for entry in entries.flatten() {
-        if let name = entry.file_name().to_string_lossy()
-            && name.starts_with(&prefix)
+        let file_name = entry.file_name();
+        let name = file_name.to_string_lossy();
+        if name.starts_with(&prefix)
             && let Some(name) = name.strip_suffix(extension)
             && let Ok(data) = fs::read(entry.path())
         {
