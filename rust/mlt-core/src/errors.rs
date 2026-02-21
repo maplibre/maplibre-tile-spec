@@ -138,3 +138,9 @@ impl From<Infallible> for MltError {
         unreachable!()
     }
 }
+
+impl From<MltError> for std::io::Error {
+    fn from(value: MltError) -> Self {
+        std::io::Error::other(value)
+    }
+}

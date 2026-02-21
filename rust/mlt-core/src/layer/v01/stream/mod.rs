@@ -66,8 +66,7 @@ impl OwnedStream {
 
     /// Encode a boolean stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     pub fn encode_bools(values: &[bool]) -> Result<Self, MltError> {
-        let num_values = u32::try_from(values.len())
-            .map_err(|e| io::Error::other(MltError::TryFromIntError(e)))?;
+        let num_values = u32::try_from(values.len()).map_err(MltError::from)?;
         let bytes = encode_bools_to_bytes(values);
         let data = encode_byte_rle(&bytes);
         // byte RLE is how bits are always encoded, not rle -> plain
