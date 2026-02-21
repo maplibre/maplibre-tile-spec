@@ -11,7 +11,7 @@ use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::{BinarySerializer as _, all, take, decode_bytes_to_bools};
+use crate::utils::{BinarySerializer as _, all, decode_bytes_to_bools, take};
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
     LogicalData, LogicalDecoder, LogicalTechnique, LogicalValue,

@@ -143,7 +143,10 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::utils::{decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_rle, decode_zigzag, decode_zigzag_delta};
+    use crate::utils::{
+        decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_rle, decode_zigzag,
+        decode_zigzag_delta,
+    };
 
     proptest! {
         #[test]

@@ -7,7 +7,10 @@ use crate::MltError;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::{FromDecoded, impl_encodable};
-use crate::utils::{BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle, encode_zigzag_delta, encode_varint};
+use crate::utils::{
+    BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
+    encode_varint, encode_zigzag_delta,
+};
 use crate::v01::{
     ColumnType, DictionaryType, LogicalDecoder, OwnedDataVarInt, OwnedEncodedData, OwnedStream,
     OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
