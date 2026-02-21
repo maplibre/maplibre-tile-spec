@@ -80,7 +80,8 @@ impl OwnedLayer {
             .len()
             .checked_add(1)
             .ok_or(io::Error::other(MltError::IntegerOverflow))?;
-        let size = u64::try_from(size).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        let size =
+            u64::try_from(size).map_err(|e| io::Error::other(MltError::TryFromIntError(e)))?;
         writer.write_varint(size)?;
         writer.write_u8(tag)?;
         writer.write_all(&buffer)

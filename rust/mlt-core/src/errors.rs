@@ -3,7 +3,9 @@ use std::convert::Infallible;
 use fastpfor::cpp::Exception;
 use num_enum::TryFromPrimitiveError;
 
-use crate::v01::{GeometryType, LogicalDecoder, LogicalTechnique, PhysicalStreamType};
+use crate::v01::{
+    GeometryType, LogicalDecoder, LogicalTechnique, PhysicalDecoder, PhysicalStreamType,
+};
 
 pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
@@ -51,7 +53,7 @@ pub enum MltError {
     #[error("unsupported logical decoder {0:?} for {1}")]
     UnsupportedLogicalDecoder(LogicalDecoder, &'static str),
     #[error("unsupported combination of logical techniques: {0:?} + {1:?}")]
-    UnsupportedLogicalTechnique(LogicalTechnique, LogicalTechnique),
+    UnsupportedLogicalTechniqueCombination(LogicalTechnique, LogicalTechnique),
     #[error("layer has zero size")]
     ZeroLayerSize,
 
@@ -86,6 +88,8 @@ pub enum MltError {
     UnexpectedStructChildCount(usize),
     #[error("unsupported physical decoder: {0}")]
     UnsupportedPhysicalDecoder(&'static str),
+    #[error("unsupported physical decoder: {0:?} for {1}")]
+    UnsupportedPhysicalDecoderForType(PhysicalDecoder, &'static str),
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]
