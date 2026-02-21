@@ -73,9 +73,8 @@ impl OwnedStream {
         // byte RLE is how bits are always encoded, not rle -> plain
         Ok(Self::new_plain(data, num_values))
     }
+
     /// Encodes `f32`s into a stream
-    ///
-    /// Since ALP is not currently supported by us, just plain decoding
     pub fn encode_f32(values: &[f32]) -> Result<Self, MltError> {
         let num_values =
             u32::try_from(values.len()).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
@@ -86,6 +85,7 @@ impl OwnedStream {
 
         Ok(Self::new_plain(data, num_values))
     }
+
     pub fn encode_i8s(
         values: &[i8],
         logical_decoder: LogicalDecoder,
@@ -192,7 +192,9 @@ impl StreamMeta {
                 })
             }
             (LT::PseudoDecimal, LT::None) => LogicalDecoder::PseudoDecimal,
-            _ => Err(MltError::UnsupportedLogicalTechnique(logical1, logical2))?,
+            _ => Err(MltError::UnsupportedLogicalTechniqueCombination(
+                logical1, logical2,
+            ))?,
         };
 
         let meta = StreamMeta {

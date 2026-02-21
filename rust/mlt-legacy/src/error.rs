@@ -76,7 +76,7 @@ pub enum MltError {
     #[error("unsupported physical technique: {0:?}")]
     UnsupportedPhysicalTechnique(PhysicalLevelTechnique),
     #[error("unsupported logical technique: {0:?}")]
-    UnsupportedLogicalTechnique(LogicalLevelTechnique),
+    UnsupportedLogicalTechniqueCombination(LogicalLevelTechnique),
     #[error("partial decode not supported for {0:?}")]
     PartialDecodeWrongTechnique(LogicalLevelTechnique),
 

@@ -25,6 +25,7 @@ serde_json.workspace = true
 strum.workspace = true
 thiserror.workspace = true
 zigzag.workspace = true
+log = "0.4.29"
 
 [dev-dependencies]
 insta.workspace = true

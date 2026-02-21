@@ -99,7 +99,7 @@ fn decode_logical(
             decode_morton_u64_to_i32_vec2s_flat(values, morton_metadata.coordinate_shift)
         }
         Some(LogicalLevelTechnique::ComponentwiseDelta) => decode_componentwise_delta_vec2s(values),
-        Some(LogicalLevelTechnique::Pde) => Err(MltError::UnsupportedLogicalTechnique(
+        Some(LogicalLevelTechnique::Pde) => Err(MltError::UnsupportedLogicalTechniqueCombination(
             LogicalLevelTechnique::Pde,
         )),
         None => Err(MltError::MissingField("logical.technique1")),
