@@ -11,8 +11,7 @@ use num_enum::TryFromPrimitive;
 
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, IntegerOverflow,
-    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented,
-    UnexpectedOffsetCombination,
+    NoGeometryOffsets, NoPartOffsets, NoRingOffsets, NotImplemented, UnexpectedOffsetCombination,
 };
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
