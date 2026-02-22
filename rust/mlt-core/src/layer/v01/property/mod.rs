@@ -439,7 +439,9 @@ pub struct PropertyEncodingStrategy {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PresenceStream {
+    /// Attaches a nullability stream
     Present,
+    /// If there are nulls, drop them
     Absent,
 }
 
