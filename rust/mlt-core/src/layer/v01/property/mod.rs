@@ -449,7 +449,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
         use {OwnedEncodedPropValue as EncVal, PropValue as Val};
         let optional = if config.optional == PresenceSteamStrategy::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
-            let num_values = u32::try_from(present_vec.len()).map_err(|_| IntegerOverflow)?;
+            let num_values = u32::try_from(present_vec.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present_vec));
             Some(OwnedStream {
                 meta: StreamMeta {
