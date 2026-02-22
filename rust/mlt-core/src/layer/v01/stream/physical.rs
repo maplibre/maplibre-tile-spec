@@ -78,42 +78,55 @@ impl PhysicalCodec {
     pub fn parse(value: u8) -> Result<Self, MltError> {
         Self::try_from(value).or(Err(MltError::ParsingPhysicalCodec(value)))
     }
+}
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PhysicalEncoding {
+    None,
+    /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
+    /// Simple compression scheme where the codec is easier to implement compared to `FastPFOR`.
+    VarInt,
+    // FIXME: implement more physical techniques
+}
+
+impl PhysicalEncoding {
     /// Physically encode a `u32` sequence into the appropriate `OwnedStreamData` variant.
-    pub fn encode_u32s(self, values: Vec<u32>) -> Result<OwnedStreamData, MltError> {
+    #[must_use]
+    pub fn encode_u32s(self, values: Vec<u32>) -> (OwnedStreamData, PhysicalCodec) {
         match self {
-            Self::None => Ok(OwnedStreamData::Encoded(OwnedEncodedData {
-                data: encode_u32s_to_bytes(&values),
-            })),
-            Self::VarInt => {
-                let mut bytes = Vec::new();
-                for v in values {
-                    encode_varint(&mut bytes, u64::from(v));
-                }
-                Ok(OwnedStreamData::VarInt(OwnedDataVarInt { data: bytes }))
+            Self::None => {
+                let data = encode_u32s_to_bytes(&values);
+                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                (stream, PhysicalCodec::None)
             }
-            _ => Err(MltError::NotImplemented(
-                "encode_u32s: unsupported physical decoder",
-            )),
+            Self::VarInt => {
+                let mut data = Vec::new();
+                for v in values {
+                    encode_varint(&mut data, u64::from(v));
+                }
+                let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
+                (stream, PhysicalCodec::VarInt)
+            }
         }
     }
 
     /// Physically encode a `u64` sequence into the appropriate `OwnedStreamData` variant.
-    pub fn encode_u64s(self, values: Vec<u64>) -> Result<OwnedStreamData, MltError> {
+    #[must_use]
+    pub fn encode_u64s(self, values: Vec<u64>) -> (OwnedStreamData, PhysicalCodec) {
         match self {
-            Self::None => Ok(OwnedStreamData::Encoded(OwnedEncodedData {
-                data: encode_u64s_to_bytes(&values),
-            })),
-            Self::VarInt => {
-                let mut bytes = Vec::new();
-                for v in values {
-                    encode_varint(&mut bytes, v);
-                }
-                Ok(OwnedStreamData::VarInt(OwnedDataVarInt { data: bytes }))
+            Self::None => {
+                let data = encode_u64s_to_bytes(&values);
+                let stream = OwnedStreamData::Encoded(OwnedEncodedData { data });
+                (stream, PhysicalCodec::None)
             }
-            _ => Err(MltError::NotImplemented(
-                "encode_u64s: unsupported physical decoder",
-            )),
+            Self::VarInt => {
+                let mut data = Vec::new();
+                for v in values {
+                    encode_varint(&mut data, v);
+                }
+                let stream = OwnedStreamData::VarInt(OwnedDataVarInt { data });
+                (stream, PhysicalCodec::VarInt)
+            }
         }
     }
 }

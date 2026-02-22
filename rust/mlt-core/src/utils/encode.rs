@@ -134,8 +134,6 @@ pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
     output
 }
 
-<<<<<<< property-encoding
-=======
 /// Encode signed integer vec2 values using componentwise delta + zigzag encoding.
 ///
 /// Input: `[x0, y0, x1, y1, ...]`
@@ -158,7 +156,6 @@ where
     result
 }
 
->>>>>>> main
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
     let num_bytes = bools.len().div_ceil(8);
@@ -176,11 +173,7 @@ mod tests {
     use super::*;
     use crate::utils::{
         decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
-<<<<<<< property-encoding
-        decode_rle, decode_zigzag, decode_zigzag_delta,
-=======
         decode_componentwise_delta_vec2s, decode_rle, decode_zigzag, decode_zigzag_delta,
->>>>>>> main
     };
 
     proptest! {
@@ -231,8 +224,6 @@ mod tests {
         }
 
         #[test]
-<<<<<<< property-encoding
-=======
         fn test_componentwise_delta_vec2s(data: Vec<i32>) {
             if data.len() <= 1 {
                 return Err(TestCaseError::reject("data not valid vertices"))
@@ -249,7 +240,6 @@ mod tests {
         }
 
         #[test]
->>>>>>> main
         fn test_u64_bytes_roundtrip(data: Vec<u64>) {
             let encoded = encode_u64s_to_bytes(&data);
             let (rem, decoded) = decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
