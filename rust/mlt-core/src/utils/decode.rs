@@ -219,6 +219,20 @@ mod tests {
     }
 
     #[test]
+    fn test_decode_u64() {
+        let bytes = [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0];
+        let expected = (&[][..], vec![1, 2]);
+        assert_eq!(decode_bytes_to_u64s(&bytes, 2).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_decode_u32() {
+        let bytes = [1, 0, 0, 0, 2, 0, 0, 0];
+        let expected = (&[][..], vec![1, 2]);
+        assert_eq!(decode_bytes_to_u32s(&bytes, 2).unwrap(), expected);
+    }
+
+    #[test]
     fn test_decode_zigzag_empty() {
         assert!(decode_zigzag::<i32>(&[]).is_empty());
     }
