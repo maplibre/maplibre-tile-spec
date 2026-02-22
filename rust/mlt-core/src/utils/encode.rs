@@ -228,13 +228,13 @@ mod tests {
         #[test]
         fn test_componentwise_delta_vec2s(data: Vec<i32>) {
             if data.len() <= 1 {
-              return Err(TestCaseError::reject("data not valid verticies"))
+                return Err(TestCaseError::reject("data not valid verticies"))
             }
             // done this way to not have to reject less
             let data_slice = if data.len().is_multiple_of(2) {
-              &data
+                &data
             } else {
-              &data[.. data.len()-1]
+                &data[.. data.len()-1]
             };
             let encoded = encode_componentwise_delta_vec2s(data_slice);
             let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded).unwrap();
