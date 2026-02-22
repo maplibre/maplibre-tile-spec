@@ -5,10 +5,10 @@ use zigzag::ZigZag as _;
 
 use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
-use crate::v01::geometry::GeometryType;
 use crate::v01::{
-    DictionaryType, LengthType, LogicalCodec, OwnedEncodedData, OwnedStream, OwnedStreamData,
-    PhysicalCodec, PhysicalStreamType, RleMeta, StreamMeta,
+    DictionaryType, GeometryType, LengthType, LogicalCodec, OffsetType, OwnedDataVarInt,
+    OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalStreamType, RleMeta,
+    StreamMeta,
 };
 
 /// Configuration for geometry encoding
@@ -170,7 +170,7 @@ fn encode_u32_stream_auto(
             logical_codec: best_logical,
             physical_codec: PhysicalCodec::VarInt,
         },
-        data: OwnedStreamData::VarInt(crate::v01::OwnedDataVarInt { data: best_data }),
+        data: OwnedStreamData::VarInt(OwnedDataVarInt { data: best_data }),
     })
 }
 
@@ -202,7 +202,7 @@ fn encode_u32_stream(
     let num_values = u32::try_from(values.len())?;
 
     let stream_data = match physical_codec {
-        PhysicalCodec::VarInt => OwnedStreamData::VarInt(crate::v01::OwnedDataVarInt { data }),
+        PhysicalCodec::VarInt => OwnedStreamData::VarInt(OwnedDataVarInt { data }),
         PhysicalCodec::None => OwnedStreamData::Encoded(OwnedEncodedData { data }),
         _ => return Err(MltError::NotImplemented("unsupported physical decoder")),
     };
@@ -238,7 +238,7 @@ fn encode_vertex_buffer(vertices: &[i32]) -> Result<OwnedStream, MltError> {
             logical_codec: LogicalCodec::ComponentwiseDelta,
             physical_codec: PhysicalCodec::VarInt,
         },
-        data: OwnedStreamData::VarInt(crate::v01::OwnedDataVarInt { data: encoded }),
+        data: OwnedStreamData::VarInt(OwnedDataVarInt { data: encoded }),
     })
 }
 
@@ -581,7 +581,9 @@ pub fn encode_geometry(
     } = decoded;
 
     if vector_types.is_empty() {
-        return Ok(OwnedEncodedGeometry::default());
+        let meta = OwnedStream::empty_without_codec();
+        let items = Vec::new();
+        return Ok(OwnedEncodedGeometry { meta, items });
     }
 
     // Encode geometry types (meta stream)
@@ -695,7 +697,7 @@ pub fn encode_geometry(
     if let Some(idx_buf) = index_buffer {
         items.push(encode_u32_stream(
             idx_buf,
-            PhysicalStreamType::Offset(crate::v01::OffsetType::Index),
+            PhysicalStreamType::Offset(OffsetType::Index),
             LogicalCodec::None,
             config.physical_codec,
         )?);
@@ -705,7 +707,7 @@ pub fn encode_geometry(
     if let Some(v_offs) = vertex_offsets {
         items.push(encode_u32_stream(
             v_offs,
-            PhysicalStreamType::Offset(crate::v01::OffsetType::Vertex),
+            PhysicalStreamType::Offset(OffsetType::Vertex),
             LogicalCodec::None,
             config.physical_codec,
         )?);
@@ -722,6 +724,7 @@ pub fn encode_geometry(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::v01::{LogicalCodec, PhysicalStreamType};
 
     #[test]
     fn test_encode_varints_u32() {

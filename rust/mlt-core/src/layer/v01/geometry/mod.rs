@@ -27,9 +27,8 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType, OwnedEncodedData,
-    OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream,
-    StreamMeta,
+    DictionaryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType, OwnedStream,
+    PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
 };
 use crate::{FromDecoded, MltError};
 
@@ -86,15 +85,7 @@ pub struct EncodedGeometry<'a> {
 impl Default for OwnedEncodedGeometry {
     fn default() -> Self {
         Self {
-            meta: OwnedStream {
-                meta: StreamMeta {
-                    physical_type: PhysicalStreamType::Data(DictionaryType::None),
-                    num_values: 0,
-                    logical_codec: LogicalCodec::None,
-                    physical_codec: PhysicalCodec::None,
-                },
-                data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
-            },
+            meta: OwnedStream::empty_without_codec(),
             items: Vec::new(),
         }
     }
