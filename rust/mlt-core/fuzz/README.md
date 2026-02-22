@@ -89,7 +89,7 @@ When the fuzzer finds an issue, you can reproduce it using the test infrastructu
 1. The failing input is saved to `artifacts/layer/crash-<hash>`
 2. Minimize the input using `cargo fuzz tmin layer artifacts/layer/crash-<hash>`
 3. Edit `tests/reproduce.rs` and update the filename:
-   ```rust
+   ```rust,no_compile
    let bytes = include_bytes!("../artifacts/layer/minimized-from-<hash>");
    ```
 4. Run the test:

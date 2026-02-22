@@ -5,8 +5,8 @@ use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingColumnType;
-use crate::utils::BinarySerializer as _;
-use crate::{MltRefResult, utils};
+use crate::MltRefResult;
+use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 
 /// Column definition
 #[borrowme]
@@ -22,7 +22,7 @@ impl Column<'_> {
     pub fn parse(input: &[u8]) -> MltRefResult<'_, Column<'_>> {
         let (mut input, typ) = ColumnType::parse(input)?;
         let name = if typ.has_name() {
-            let pair = utils::parse_string(input)?;
+            let pair = parse_string(input)?;
             input = pair.0;
             Some(pair.1)
         } else {
@@ -75,7 +75,7 @@ pub enum ColumnType {
 impl ColumnType {
     /// Parse a column type from u8
     pub fn parse(input: &[u8]) -> MltRefResult<'_, Self> {
-        let (input, value) = utils::parse_u8(input)?;
+        let (input, value) = parse_u8(input)?;
         let value = Self::try_from(value).or(Err(ParsingColumnType(value)))?;
         Ok((input, value))
     }

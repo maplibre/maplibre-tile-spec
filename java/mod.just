@@ -34,6 +34,7 @@ fmt:
 # Clean build artifacts
 clean:
     ./gradlew clean
+
 # Build Java encoder and generate .mlt files for all fixtures
 generate-expected-mlt: (just 'cargo-install' 'fd' 'fd-find')
     ./gradlew cli

@@ -9,10 +9,8 @@ use integer_encoding::VarIntWriter as _;
 use crate::MltError::IntegerOverflow;
 use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
-use crate::utils::{BinarySerializer as _, apply_present, f32_to_json};
-use crate::v01::property::decode::{
-    decode_shared_dictionary, decode_string_streams, resolve_offsets,
-};
+use crate::utils::{BinarySerializer as _, FmtOptVec, apply_present, f32_to_json};
+use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{ColumnType, OwnedStream, Stream};
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -150,8 +148,7 @@ impl OwnedEncodedProperty {
         // struct children
         if let OwnedEncodedPropValue::Struct(s) = &self.value {
             // Yes, we need to write the children right here, otherwise this messes up the next columns metadata
-            let child_column_count =
-                u64::try_from(s.children.len()).map_err(|_| IntegerOverflow)?;
+            let child_column_count = u64::try_from(s.children.len())?;
             writer.write_varint(child_column_count)?;
             for child in &s.children {
                 child.write_columns_meta_to(writer)?;
@@ -184,7 +181,7 @@ impl OwnedEncodedProperty {
                 writer.write_stream(s)?;
             }
             Val::Str(streams) => {
-                let stream_count = u64::try_from(streams.len()).map_err(|_| IntegerOverflow)?;
+                let stream_count = u64::try_from(streams.len())?;
                 let opt_stream_count = u64::from(self.optional.is_some());
                 let Some(stream_count) = stream_count.checked_add(opt_stream_count) else {
                     return Err(IntegerOverflow);
@@ -198,8 +195,8 @@ impl OwnedEncodedProperty {
                 }
             }
             Val::Struct(s) => {
-                let child_len = u64::try_from(s.children.len()).map_err(|_| IntegerOverflow)?;
-                let dict_cnt = u64::try_from(s.dict_streams.len()).map_err(|_| IntegerOverflow)?;
+                let child_len = u64::try_from(s.children.len())?;
+                let dict_cnt = u64::try_from(s.dict_streams.len())?;
                 let stream_count = child_len.checked_add(dict_cnt).ok_or(IntegerOverflow)?;
                 writer.write_varint(stream_count)?;
                 for dict in &s.dict_streams {
@@ -225,7 +222,7 @@ impl Default for OwnedEncodedProperty {
         Self {
             name: String::default(),
             optional: None,
-            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_decoder()),
+            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_codec()),
         }
     }
 }
@@ -324,20 +321,6 @@ impl Analyze for PropValue {
     }
 }
 
-/// Format `Option` values on a single line each, even in alternate/pretty mode.
-struct FmtOptVec<'a, T>(&'a [Option<T>]);
-
-impl<T: Debug> Debug for FmtOptVec<'_, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut list = f.debug_list();
-        for item in self.0 {
-            // Always format each element in compact (non-alternate) mode
-            list.entry(&format_args!("{item:?}"));
-        }
-        list.finish()
-    }
-}
-
 impl Debug for PropValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -431,8 +414,8 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type EncodingStrategy = PropertyEncodingStrategy;
 
     fn from_decoded(
-        decoded: &Self::Input,
-        config: Self::EncodingStrategy,
+        _decoded: &Self::Input,
+        _config: Self::EncodingStrategy,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("property encoding"))
     }
@@ -442,71 +425,33 @@ impl<'a> FromEncoded<'a> for DecodedProperty {
     type Input = EncodedProperty<'a>;
 
     fn from_encoded(v: EncodedProperty<'_>) -> Result<Self, MltError> {
-        let present = v.optional.map(Stream::decode_bools);
+        use {EncodedPropValue as EncVal, PropValue as Val};
+        let present = if let Some(c) = v.optional {
+            Some(c.decode_bools()?)
+        } else {
+            None
+        };
         let values = match v.value {
-            EncodedPropValue::Bool(s) => {
-                PropValue::Bool(apply_present(present.as_ref(), s.decode_bools()))
+            EncVal::Bool(s) => Val::Bool(apply_present(present, s.decode_bools()?)?),
+            EncVal::I8(s) => Val::I8(apply_present(present, s.decode_i8s()?)?),
+            EncVal::U8(s) => Val::U8(apply_present(present, s.decode_u8s()?)?),
+            EncVal::I32(s) => Val::I32(apply_present(present, s.decode_i32s()?)?),
+            EncVal::U32(s) => Val::U32(apply_present(present, s.decode_u32s()?)?),
+            EncVal::I64(s) => Val::I64(apply_present(present, s.decode_i64()?)?),
+            EncVal::U64(s) => Val::U64(apply_present(present, s.decode_u64()?)?),
+            EncVal::F32(s) => Val::F32(apply_present(present, s.decode_f32()?)?),
+            EncVal::F64(s) => Val::F64(apply_present(
+                present,
+                s.decode_f32()?.into_iter().map(f64::from).collect(),
+            )?),
+            EncVal::Str(streams) => {
+                Val::Str(apply_present(present, decode_string_streams(streams)?)?)
             }
-            EncodedPropValue::I8(s) => PropValue::I8(apply_present(
-                present.as_ref(),
-                s.decode_signed_int_stream()?,
-            )),
-            EncodedPropValue::U8(s) => PropValue::U8(apply_present(
-                present.as_ref(),
-                s.decode_unsigned_int_stream()?,
-            )),
-            EncodedPropValue::I32(s) => PropValue::I32(apply_present(
-                present.as_ref(),
-                s.decode_signed_int_stream()?,
-            )),
-            EncodedPropValue::U32(s) => PropValue::U32(apply_present(
-                present.as_ref(),
-                s.decode_unsigned_int_stream()?,
-            )),
-            EncodedPropValue::I64(s) => {
-                PropValue::I64(apply_present(present.as_ref(), s.decode_i64()?))
-            }
-            EncodedPropValue::U64(s) => {
-                PropValue::U64(apply_present(present.as_ref(), s.decode_u64()?))
-            }
-            EncodedPropValue::F32(s) => {
-                PropValue::F32(apply_present(present.as_ref(), s.decode_f32s()))
-            }
-            EncodedPropValue::F64(s) => PropValue::F64(apply_present(
-                present.as_ref(),
-                s.decode_f32s().into_iter().map(f64::from).collect(),
-            )),
-            EncodedPropValue::Str(streams) => PropValue::Str(apply_present(
-                present.as_ref(),
-                decode_string_streams(streams)?,
-            )),
-            EncodedPropValue::Struct(_) => {
-                Err(MltError::NotDecoded("struct must use decode_expand"))?
-            }
+            EncVal::Struct(_) => Err(MltError::NotDecoded("struct must use decode_expand"))?,
         };
         Ok(DecodedProperty {
             name: v.name.to_string(),
             values,
         })
     }
-}
-
-/// Decode a struct with shared dictionary into one decoded property per child.
-fn decode_struct_children<'a>(
-    parent_name: &str,
-    struct_data: EncodedStructProp<'_>,
-) -> Result<Vec<Property<'a>>, MltError> {
-    let dict = decode_shared_dictionary(struct_data.dict_streams)?;
-    struct_data
-        .children
-        .into_iter()
-        .map(|child| {
-            let present = child.optional.map(Stream::decode_bools);
-            let offsets = child.data.decode_bits_u32()?.decode_u32()?;
-            let strings = resolve_offsets(&dict, &offsets)?;
-            let name = format!("{parent_name}{}", child.name);
-            let values = PropValue::Str(apply_present(present.as_ref(), strings));
-            Ok(Property::Decoded(DecodedProperty { name, values }))
-        })
-        .collect()
 }

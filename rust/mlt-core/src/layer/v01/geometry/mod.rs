@@ -25,8 +25,8 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, LengthType, LogicalDecoder, OffsetType, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalDecoder, PhysicalStreamType, Stream, StreamMeta,
+    DictionaryType, LengthType, LogicalCodec, OffsetType, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalCodec, PhysicalStreamType, Stream, StreamMeta,
 };
 use crate::{FromDecoded, MltError};
 
@@ -87,8 +87,8 @@ impl Default for OwnedEncodedGeometry {
                 meta: StreamMeta {
                     physical_type: PhysicalStreamType::Data(DictionaryType::None),
                     num_values: 0,
-                    logical_decoder: LogicalDecoder::None,
-                    physical_decoder: PhysicalDecoder::None,
+                    logical_codec: LogicalCodec::None,
+                    physical_codec: PhysicalCodec::None,
                 },
                 data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
             },
@@ -111,7 +111,7 @@ impl OwnedEncodedGeometry {
     }
 
     pub(crate) fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), MltError> {
-        let items_len = u64::try_from(self.items.len()).map_err(|_| IntegerOverflow)?;
+        let items_len = u64::try_from(self.items.len())?;
         let items_len = items_len.checked_add(1).ok_or(IntegerOverflow)?;
         writer.write_varint(items_len)?;
         writer.write_stream(&self.meta)?;
@@ -166,7 +166,6 @@ impl DecodedGeometry {
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
         let vo = self.vertex_offsets.as_deref();
-        let num_verts = verts.len() / 2;
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> Result<usize, MltError> {
             match s.get(idx) {
@@ -179,9 +178,11 @@ impl DecodedGeometry {
                 }),
             }
         };
+
         let geom_off = |s: &[u32], idx: usize| off(s, idx, "geometry_offsets");
         let part_off = |s: &[u32], idx: usize| off(s, idx, "part_offsets");
         let ring_off = |s: &[u32], idx: usize| off(s, idx, "ring_offsets");
+
         let geom_off_pair = |s: &[u32], i: usize| -> Result<Range<usize>, MltError> {
             Ok(geom_off(s, i)?..geom_off(s, i + 1)?)
         };
@@ -194,20 +195,17 @@ impl DecodedGeometry {
 
         let v = |idx: usize| -> Result<Coord32, MltError> {
             let vertex = match vo {
-                Some(vo) => *vo.get(idx).ok_or(GeometryOutOfBounds {
-                    index,
-                    field: "vertex_offsets",
-                    idx,
-                    len: vo.len(),
-                })? as usize,
+                Some(vo) => off(vo, idx, "vertex_offsets")?,
                 None => idx,
             };
-            let i = vertex * 2;
-            let s = verts.get(i..i + 2).ok_or(GeometryVertexOutOfBounds {
-                index,
-                vertex,
-                count: num_verts,
-            })?;
+            let s = match verts.get(vertex * 2..(vertex * 2) + 2) {
+                Some(v) => v,
+                None => Err(GeometryVertexOutOfBounds {
+                    index,
+                    vertex,
+                    count: verts.len() / 2,
+                })?,
+            };
             Ok(Coord { x: s[0], y: s[1] })
         };
         let line = |r: Range<usize>| -> Result<LineString<i32>, MltError> { r.map(&v).collect() };
@@ -231,7 +229,7 @@ impl DecodedGeometry {
         let geom_type = *self
             .vector_types
             .get(index)
-            .ok_or(GeometryIndexOutOfBounds { index })?;
+            .ok_or(GeometryIndexOutOfBounds(index))?;
 
         match geom_type {
             GeometryType::Point => {
@@ -244,7 +242,7 @@ impl DecodedGeometry {
                     (None, Some(p), None) => v(part_off(p, index)?)?,
                     (None, None, None) => v(index)?,
                     _ => {
-                        return Err(UnexpectedOffsetCombination { index, geom_type });
+                        return Err(UnexpectedOffsetCombination(index, geom_type));
                     }
                 };
                 Ok(GeoGeom::Point(Point(pt)))
@@ -253,13 +251,13 @@ impl DecodedGeometry {
                 let r = match (parts, rings) {
                     (Some(p), Some(r)) => ring_off_pair(r, part_off(p, index)?)?,
                     (Some(p), None) => part_off_pair(p, index)?,
-                    _ => return Err(NoPartOffsets { index, geom_type }),
+                    _ => return Err(NoPartOffsets(index, geom_type)),
                 };
                 line(r).map(GeoGeom::LineString)
             }
             GeometryType::Polygon => {
-                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
-                let rings = rings.ok_or(NoRingOffsets { index, geom_type })?;
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
                 let i = geoms
                     .map(|g| geom_off(g, index))
                     .transpose()?
@@ -267,24 +265,24 @@ impl DecodedGeometry {
                 rings_in(part_off_pair(parts, i)?, rings).map(GeoGeom::Polygon)
             }
             GeometryType::MultiPoint => {
-                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
                 geom_off_pair(geoms, index)?
                     .map(&v)
                     .collect::<Result<Vec<Coord32>, _>>()
                     .map(|cs| GeoGeom::MultiPoint(MultiPoint(cs.into_iter().map(Point).collect())))
             }
             GeometryType::MultiLineString => {
-                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
-                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 geom_off_pair(geoms, index)?
                     .map(|p| line(part_off_pair(parts, p)?))
                     .collect::<Result<Vec<LineString<i32>>, _>>()
                     .map(|ls| GeoGeom::MultiLineString(MultiLineString(ls)))
             }
             GeometryType::MultiPolygon => {
-                let geoms = geoms.ok_or(NoGeometryOffsets { index, geom_type })?;
-                let parts = parts.ok_or(NoPartOffsets { index, geom_type })?;
-                let rings = rings.ok_or(NoRingOffsets { index, geom_type })?;
+                let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
+                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
+                let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
                 geom_off_pair(geoms, index)?
                     .map(|p| rings_in(part_off_pair(parts, p)?, rings))
                     .collect::<Result<Vec<Polygon<i32>>, _>>()
@@ -343,8 +341,8 @@ impl FromDecoded<'_> for OwnedEncodedGeometry {
     type EncodingStrategy = GeometryEncodingStrategy;
 
     fn from_decoded(
-        decoded: &Self::Input,
-        config: Self::EncodingStrategy,
+        _decoded: &Self::Input,
+        _config: Self::EncodingStrategy,
     ) -> Result<Self, MltError> {
         Err(NotImplemented("geometry encoding"))
     }
@@ -430,7 +428,7 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
                         LengthType::Triangles => &mut triangles,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.physical_type))?,
                     };
-                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamDecoder<T>
+                    // LogicalStream2<U> -> LogicalStream -> trait LogicalStreamCodec<T>
                     target.set_once(stream.decode_bits_u32()?.decode_u32()?)?;
                 }
             }

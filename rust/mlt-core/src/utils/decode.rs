@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd};
 use zigzag::ZigZag;
 
+use crate::MltError::{BufferUnderflow, InvalidPairStreamSize, RleRunLenInvalid};
 use crate::utils::take;
 use crate::{MltError, MltRefResult};
 
@@ -12,7 +13,7 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
     data: &[T::UInt],
 ) -> Result<Vec<T>, MltError> {
     if data.is_empty() || !data.len().is_multiple_of(2) {
-        return Err(MltError::InvalidPairStreamSize(data.len()));
+        return Err(InvalidPairStreamSize(data.len()));
     }
 
     let mut result = Vec::with_capacity(data.len());
@@ -53,7 +54,7 @@ pub fn decode_rle<T: PrimInt + Debug>(
     for (&run, &val) in run_lens.iter().zip(values.iter()) {
         let run_len = run
             .to_usize()
-            .ok_or_else(|| MltError::RleRunLenInvalid(run.to_i128().unwrap_or_default()))?;
+            .ok_or_else(|| RleRunLenInvalid(run.to_i128().unwrap_or_default()))?;
         result.extend(std::iter::repeat_n(val, run_len));
     }
     Ok(result)
@@ -62,10 +63,7 @@ pub fn decode_rle<T: PrimInt + Debug>(
 pub fn decode_bytes_to_u32s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u32>> {
     let expected_bytes = num_values as usize * 4;
     if input.len() < expected_bytes {
-        return Err(MltError::BufferUnderflow {
-            needed: expected_bytes,
-            remaining: input.len(),
-        });
+        return Err(BufferUnderflow(expected_bytes, input.len()));
     }
 
     let mut values = Vec::with_capacity(num_values as usize);
@@ -105,6 +103,14 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize) -> Vec<u8> {
         }
     }
     output
+}
+
+/// Helper to unpack a `Vec<u8>` into `Vec<bool>` where each byte represents 8 booleans.
+pub fn decode_bytes_to_bools(bytes: &[u8], num_bools: usize) -> Vec<bool> {
+    debug_assert!(num_bools <= bytes.len() * 8);
+    (0..num_bools)
+        .map(|i| (bytes[i / 8] >> (i % 8)) & 1 == 1)
+        .collect::<Vec<_>>()
 }
 
 #[cfg(test)]

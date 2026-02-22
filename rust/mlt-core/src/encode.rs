@@ -31,7 +31,7 @@ pub trait Encodable<'a>: Sized {
         if self.is_decoded() {
             // Temporarily replace self with a default value to take ownership of the decoded data
             let Some(decoded) = self.take_decoded() else {
-                return Err(MltError::NotEncoded("decoded data"))?;
+                return Err(MltError::NotEncoded)?;
             };
             let res = Self::EncodedType::from_decoded(&decoded, config)?;
             *self = Self::new_encoded(res);
