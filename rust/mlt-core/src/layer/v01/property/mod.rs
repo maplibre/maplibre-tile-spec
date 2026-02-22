@@ -476,7 +476,6 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
                 let values = unapply_presence(u);
                 EncVal::U8(OwnedStream::encode_u8s(&values, config.logical, physical)?)
             }
-
             Val::I32(i) => {
                 let vals = unapply_presence(i);
                 EncVal::I32(OwnedStream::encode_i32s(&vals, config.logical, physical)?)
