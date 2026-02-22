@@ -11,9 +11,8 @@ use crate::utils::{
     BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
 };
 use crate::v01::{
-    ColumnType, LogicalCodec, LogicalEncoderStrategy, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalCodec, PhysicalEncoderStrategy, PhysicalStreamType, Stream,
-    StreamMeta,
+    ColumnType, LogicalCodec, LogicalEncoding, OwnedEncodedData, OwnedStream, OwnedStreamData,
+    PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
 };
 
 /// ID column representation, either encoded or decoded, or none if there are no IDs
@@ -204,7 +203,7 @@ impl<'a> FromEncoded<'a> for DecodedId {
 /// How to encode IDs
 #[derive(Debug, Clone, Copy)]
 pub struct IdEncodingStrategy {
-    logical: LogicalEncoderStrategy,
+    logical: LogicalEncoding,
     id_width: IdWithStrategy,
 }
 
@@ -259,14 +258,14 @@ impl FromDecoded<'_> for OwnedEncodedId {
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
                 config.logical,
-                PhysicalEncoderStrategy::None,
+                PhysicalEncoding::None,
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64s(
                 &vals,
                 config.logical,
-                PhysicalEncoderStrategy::VarInt,
+                PhysicalEncoding::VarInt,
             )?)
         };
 
@@ -302,7 +301,7 @@ mod tests {
     ) {
         let input = DecodedId(Some(ids));
         let config = IdEncodingStrategy {
-            logical: LogicalEncoderStrategy::None,
+            logical: LogicalEncoding::None,
             id_width,
         };
         let encoded = OwnedEncodedId::from_decoded(&input, config).unwrap();
@@ -335,7 +334,7 @@ mod tests {
     fn test_roundtrip(#[case] id_width: IdWithStrategy, #[case] ids: &[Option<u64>]) {
         let input = DecodedId(Some(ids.to_vec()));
         let config = IdEncodingStrategy {
-            logical: LogicalEncoderStrategy::None,
+            logical: LogicalEncoding::None,
             id_width,
         };
         let output = roundtrip(&input, config);
@@ -344,7 +343,7 @@ mod tests {
 
     #[rstest]
     fn test_sequential_ids(
-        #[values(LogicalEncoderStrategy::None)] logical: LogicalEncoderStrategy,
+        #[values(LogicalEncoding::None)] logical: LogicalEncoding,
         #[values(Id32, OptId32, Id64, OptId64)] id_width: IdWithStrategy,
     ) {
         let input = DecodedId(Some((1..=100).map(Some).collect()));
@@ -353,8 +352,8 @@ mod tests {
         assert_eq!(output, input);
     }
 
-    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
-        use LogicalEncoderStrategy as Enc;
+    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoding> {
+        use LogicalEncoding as Enc;
         prop_oneof![
             Just(Enc::None),
             Just(Enc::Delta),

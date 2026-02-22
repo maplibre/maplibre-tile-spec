@@ -18,11 +18,9 @@ use crate::utils::{
 };
 use crate::v01::stream::decode::decode_fastpfor_composite;
 pub use crate::v01::stream::logical::{
-    LogicalCodec, LogicalData, LogicalEncoderStrategy, LogicalTechnique, LogicalValue,
+    LogicalCodec, LogicalData, LogicalEncoding, LogicalTechnique, LogicalValue,
 };
-pub use crate::v01::stream::physical::{
-    PhysicalCodec, PhysicalEncoderStrategy, PhysicalStreamType,
-};
+pub use crate::v01::stream::physical::{PhysicalCodec, PhysicalEncoding, PhysicalStreamType};
 use crate::{MltError, MltRefResult};
 
 /// Representation of an encoded stream
@@ -89,8 +87,8 @@ impl OwnedStream {
 
     pub fn encode_i8s(
         values: &[i8],
-        logical: LogicalEncoderStrategy,
-        physical: PhysicalEncoderStrategy,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
         let (physical_u32s, logical_codec) = logical.encode_i32s(&as_i32)?;
@@ -108,8 +106,8 @@ impl OwnedStream {
     }
     pub fn encode_u8s(
         values: &[u8],
-        logical: LogicalEncoderStrategy,
-        physical: PhysicalEncoderStrategy,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
         let (physical_u32s, logical_codec) = logical.encode_u32s(&as_u32)?;
@@ -127,8 +125,8 @@ impl OwnedStream {
     }
     pub fn encode_i32s(
         values: &[i32],
-        logical: LogicalEncoderStrategy,
-        physical: PhysicalEncoderStrategy,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_codec) = logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -145,8 +143,8 @@ impl OwnedStream {
     }
     pub fn encode_u32s(
         values: &[u32],
-        logical: LogicalEncoderStrategy,
-        physical: PhysicalEncoderStrategy,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let (physical_u32s, logical_codec) = logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
@@ -164,8 +162,8 @@ impl OwnedStream {
 
     pub fn encode_i64s(
         values: &[i64],
-        logical: LogicalEncoderStrategy,
-        physical: PhysicalEncoderStrategy,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let (physical_u64s, logical_codec) = logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
@@ -182,8 +180,8 @@ impl OwnedStream {
     }
     pub fn encode_u64s(
         values: &[u64],
-        logical: LogicalEncoderStrategy,
-        physical: PhysicalEncoderStrategy,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let (physical_u64s, logical_codec) = logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
@@ -880,19 +878,19 @@ mod tests {
     }
     use proptest::prelude::*;
 
-    fn logical_encoders_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
+    fn logical_encoders_strategy() -> impl Strategy<Value = LogicalEncoding> {
         prop_oneof![
-            Just(LogicalEncoderStrategy::None),
-            Just(LogicalEncoderStrategy::Rle),
-            Just(LogicalEncoderStrategy::Delta),
-            Just(LogicalEncoderStrategy::DeltaRle),
+            Just(LogicalEncoding::None),
+            Just(LogicalEncoding::Rle),
+            Just(LogicalEncoding::Delta),
+            Just(LogicalEncoding::DeltaRle),
         ]
     }
 
-    fn physical_encoder_strategy() -> impl Strategy<Value = PhysicalEncoderStrategy> {
+    fn physical_encoder_strategy() -> impl Strategy<Value = PhysicalEncoding> {
         prop_oneof![
-            Just(PhysicalEncoderStrategy::None),
-            Just(PhysicalEncoderStrategy::VarInt),
+            Just(PhysicalEncoding::None),
+            Just(PhysicalEncoding::VarInt),
             // FastPFOR and Alp are not supported for encoding yet
         ]
     }

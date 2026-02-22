@@ -81,7 +81,7 @@ impl PhysicalCodec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PhysicalEncoderStrategy {
+pub enum PhysicalEncoding {
     None,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the codec is easier to implement compared to `FastPFOR`.
@@ -89,7 +89,7 @@ pub enum PhysicalEncoderStrategy {
     // FIXME: implement more physical techniques
 }
 
-impl PhysicalEncoderStrategy {
+impl PhysicalEncoding {
     /// Physically encode a `u32` sequence into the appropriate `OwnedStreamData` variant.
     #[must_use]
     pub fn encode_u32s(self, values: Vec<u32>) -> (OwnedStreamData, PhysicalCodec) {

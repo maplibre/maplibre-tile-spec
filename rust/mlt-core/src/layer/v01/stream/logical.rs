@@ -227,14 +227,14 @@ impl LogicalValue {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum LogicalEncoderStrategy {
+pub enum LogicalEncoding {
     None,
     Delta,
     DeltaRle,
     Rle,
     // FIXME: add more of the LogicalCodec strategies
 }
-impl LogicalEncoderStrategy {
+impl LogicalEncoding {
     /// Logically encode `u32` values, returning the physically-stored sequence and the concrete decoder.
     ///
     /// [`LogicalCodec`] is derived from the actual data.
@@ -332,8 +332,8 @@ mod tests {
     use crate::v01::DictionaryType;
     use crate::v01::stream::physical::{PhysicalCodec, PhysicalStreamType};
 
-    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
-        use LogicalEncoderStrategy as Enc;
+    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoding> {
+        use LogicalEncoding as Enc;
         prop_oneof![
             Just(Enc::None),
             Just(Enc::Delta),

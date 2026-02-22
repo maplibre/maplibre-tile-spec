@@ -15,9 +15,8 @@ use crate::utils::{
 };
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
 use crate::v01::{
-    ColumnType, LogicalCodec, LogicalEncoderStrategy, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalCodec, PhysicalEncoderStrategy, PhysicalStreamType, Stream,
-    StreamMeta,
+    ColumnType, LogicalCodec, LogicalEncoding, OwnedEncodedData, OwnedStream, OwnedStreamData,
+    PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream, StreamMeta,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -433,8 +432,8 @@ impl<'a> Property<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct PropertyEncodingStrategy {
     optional: PresenceStreamStrategy,
-    logical: LogicalEncoderStrategy,
-    physical: PhysicalEncoderStrategy,
+    logical: LogicalEncoding,
+    physical: PhysicalEncoding,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -588,20 +587,17 @@ mod tests {
 
     use super::*;
 
-    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
+    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoding> {
         prop_oneof![
-            Just(LogicalEncoderStrategy::None),
-            Just(LogicalEncoderStrategy::Delta),
-            Just(LogicalEncoderStrategy::Rle),
-            Just(LogicalEncoderStrategy::DeltaRle),
+            Just(LogicalEncoding::None),
+            Just(LogicalEncoding::Delta),
+            Just(LogicalEncoding::Rle),
+            Just(LogicalEncoding::DeltaRle),
         ]
     }
 
-    fn physical_codec_strategy() -> impl Strategy<Value = PhysicalEncoderStrategy> {
-        prop_oneof![
-            Just(PhysicalEncoderStrategy::None),
-            Just(PhysicalEncoderStrategy::VarInt),
-        ]
+    fn physical_codec_strategy() -> impl Strategy<Value = PhysicalEncoding> {
+        prop_oneof![Just(PhysicalEncoding::None), Just(PhysicalEncoding::VarInt),]
     }
 
     /// Encode a `DecodedProperty` and immediately decode it back.
@@ -621,8 +617,8 @@ mod tests {
             let decoded = DecodedProperty { name, values: PropValue::Bool(values) };
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceStreamStrategy::Present,
-                logical: LogicalEncoderStrategy::None,
-                physical: PhysicalEncoderStrategy::None,
+                logical: LogicalEncoding::None,
+                physical: PhysicalEncoding::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -636,8 +632,8 @@ mod tests {
             let decoded = DecodedProperty { name, values: PropValue::Bool(opt_values) };
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceStreamStrategy::Absent,
-                logical: LogicalEncoderStrategy::None,
-                physical: PhysicalEncoderStrategy::None,
+                logical: LogicalEncoding::None,
+                physical: PhysicalEncoding::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -853,8 +849,8 @@ mod tests {
             let decoded = DecodedProperty { name, values: PropValue::F32(values) };
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceStreamStrategy::Present,
-                logical: LogicalEncoderStrategy::None,
-                physical: PhysicalEncoderStrategy::None,
+                logical: LogicalEncoding::None,
+                physical: PhysicalEncoding::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -871,8 +867,8 @@ mod tests {
             let decoded = DecodedProperty { name, values: PropValue::F32(opt_values) };
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceStreamStrategy::Absent,
-                logical: LogicalEncoderStrategy::None,
-                physical: PhysicalEncoderStrategy::None,
+                logical: LogicalEncoding::None,
+                physical: PhysicalEncoding::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -893,8 +889,8 @@ mod tests {
             let decoded = DecodedProperty { name, values: PropValue::F64(values) };
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceStreamStrategy::Present,
-                logical: LogicalEncoderStrategy::None,
-                physical: PhysicalEncoderStrategy::None,
+                logical: LogicalEncoding::None,
+                physical: PhysicalEncoding::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -913,8 +909,8 @@ mod tests {
             let decoded = DecodedProperty { name, values: PropValue::F64(opt_values) };
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceStreamStrategy::Absent,
-                logical: LogicalEncoderStrategy::None,
-                physical: PhysicalEncoderStrategy::None,
+                logical: LogicalEncoding::None,
+                physical: PhysicalEncoding::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
