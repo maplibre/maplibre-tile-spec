@@ -52,12 +52,12 @@ test: test-int
 # Run integration tests, ensuring that the output matches the expected output
 test-int: _clean-int-test _test-run-int (_diff-dirs "test/output" "test/expected")
 
-[working-directory: 'mkdocs']
-mkdocs:
+[working-directory: 'docs']
+docs:
 	docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
 
-[working-directory: 'mkdocs']
-mkdocs-build:
+[working-directory: 'docs']
+docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
 # Extract version from a tag by removing language prefix and 'v' prefix
