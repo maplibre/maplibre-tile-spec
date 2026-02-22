@@ -11,7 +11,7 @@ use utils::BinarySerializer as _;
 
 use crate::layer::unknown::Unknown;
 use crate::layer::v01::Layer01;
-use crate::utils::take;
+use crate::utils::{parse_u8, parse_varint, take};
 use crate::{MltError, MltRefResult, utils};
 
 /// A layer that can be one of the known types, or an unknown
@@ -37,11 +37,11 @@ impl<'a> Layer<'a> {
 
     /// Parse a single tuple that consists of `size (varint)`, `tag (varint)`, and `value (bytes)`
     pub fn parse(input: &'a [u8]) -> MltRefResult<'a, Layer<'a>> {
-        let (input, size) = utils::parse_varint::<usize>(input)?;
+        let (input, size) = parse_varint::<usize>(input)?;
 
         // tag is a varint, but we know fewer than 127 tags for now,
         // so we can use a faster u8 and fail if it is bigger than 127.
-        let (input, tag) = utils::parse_u8(input)?;
+        let (input, tag) = parse_u8(input)?;
         // 1 byte must be parsed for the tag, so if size is 0, it's invalid
         let size = size.checked_sub(1).ok_or(MltError::ZeroLayerSize)?;
         let (input, value) = take(input, size)?;
@@ -80,7 +80,7 @@ impl OwnedLayer {
             .len()
             .checked_add(1)
             .ok_or(io::Error::other(MltError::IntegerOverflow))?;
-        let size = u64::try_from(size).map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        let size = u64::try_from(size).map_err(MltError::from)?;
         writer.write_varint(size)?;
         writer.write_u8(tag)?;
         writer.write_all(&buffer)

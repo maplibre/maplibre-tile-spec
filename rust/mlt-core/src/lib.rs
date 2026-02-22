@@ -1,11 +1,10 @@
 #![expect(dead_code)]
-#![expect(unused_assignments)]
-#![expect(unused_variables)]
 #![doc = include_str!("../README.md")]
 
 mod analyse;
 mod convert;
 mod decode;
+mod encode;
 mod errors;
 pub use convert::{geojson, mvt};
 pub mod layer;
@@ -14,6 +13,7 @@ mod utils;
 
 pub use analyse::{Analyze, StatType};
 pub use decode::*;
+pub use encode::*;
 pub use errors::{MltError, MltRefResult};
 pub use layer::{Layer, OwnedLayer};
 

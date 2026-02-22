@@ -32,3 +32,13 @@ pretty_assertions = "1.4"
 unsafe_code = "forbid"
 unused_qualifications = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+# Restrictions
+panic_in_result_fn = "warn"
+todo = "warn"
+unimplemented = "warn"
+unused_trait_names = "warn"

@@ -4,11 +4,11 @@ use std::io::Write;
 use borrowme::borrowme;
 
 use crate::analyse::{Analyze, StatType};
-use crate::utils::SetOptionOnce as _;
+use crate::utils::{SetOptionOnce as _, parse_string, parse_varint};
 use crate::v01::column::ColumnType;
 use crate::v01::{
-    Column, DictionaryType, Geometry, Id, OwnedId, PhysicalStreamType, Property, RawIdValue,
-    RawPropValue, RawStructChild, RawStructProp, Stream,
+    Column, DictionaryType, EncodedIdValue, EncodedPropValue, EncodedStructChild,
+    EncodedStructProp, Geometry, Id, OwnedId, PhysicalStreamType, Property, Stream,
 };
 use crate::{Decodable as _, MltError, MltRefResult, utils};
 
@@ -60,16 +60,13 @@ impl Analyze for Layer01<'_> {
 impl Layer01<'_> {
     /// Parse `v01::Layer` metadata
     pub fn parse(input: &[u8]) -> Result<Layer01<'_>, MltError> {
-        let (input, layer_name) = utils::parse_string(input)?;
-        let (input, extent) = utils::parse_varint::<u32>(input)?;
-        let (input, column_count) = utils::parse_varint::<usize>(input)?;
+        let (input, layer_name) = parse_string(input)?;
+        let (input, extent) = parse_varint::<u32>(input)?;
+        let (input, column_count) = parse_varint::<usize>(input)?;
 
         // Each column requires at least 1 byte (column type)
         if input.len() < column_count {
-            return Err(MltError::BufferUnderflow {
-                needed: column_count,
-                remaining: input.len(),
-            });
+            return Err(MltError::BufferUnderflow(column_count, input.len()));
         }
 
         // !!!!!!!
@@ -96,90 +93,116 @@ impl Layer01<'_> {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::raw(optional, RawIdValue::Id32(value)))?;
+                    id_stream.set_once(Id::new_encoded(optional, EncodedIdValue::Id32(value)))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    id_stream.set_once(Id::raw(optional, RawIdValue::Id64(value)))?;
+                    id_stream.set_once(Id::new_encoded(optional, EncodedIdValue::Id64(value)))?;
                 }
                 ColumnType::Geometry => {
                     let value_vec;
-                    (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    (input, stream_count) = parse_varint::<usize>(input)?;
+                    if stream_count == 0 {
+                        return Err(MltError::GeometryWithoutStreams);
+                    }
                     // Each stream requires at least 1 byte (physical stream type)
                     if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow {
-                            needed: stream_count,
-                            remaining: input.len(),
-                        });
-                    }
-                    if stream_count == 0 {
-                        return Err(MltError::MinLength {
-                            ctx: "geometry type, but without streams",
-                            min: 1,
-                            got: 0,
-                        });
+                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
                     }
 
                     // metadata
                     (input, value) = Stream::parse(input)?;
                     // geometry items
                     (input, value_vec) = Stream::parse_multiple(input, stream_count - 1)?;
-                    geometry.set_once(Geometry::raw(value, value_vec))?;
+                    geometry.set_once(Geometry::new_encoded(value, value_vec))?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse_bool(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::Bool(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::Bool(value),
+                    ));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::I8(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::I8(value),
+                    ));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::U8(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::U8(value),
+                    ));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::I32(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::I32(value),
+                    ));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::U32(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::U32(value),
+                    ));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::I64(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::I64(value),
+                    ));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::U64(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::U64(value),
+                    ));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::F32(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::F32(value),
+                    ));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, optional) = parse_optional(column.typ, input)?;
                     (input, value) = Stream::parse(input)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::F64(value)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::F64(value),
+                    ));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
-                    (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    (input, stream_count) = parse_varint::<usize>(input)?;
                     // Each stream requires at least 1 byte (physical stream type)
                     if input.len() < stream_count {
-                        return Err(MltError::BufferUnderflow {
-                            needed: stream_count,
-                            remaining: input.len(),
-                        });
+                        return Err(MltError::BufferUnderflow(stream_count, input.len()));
                     }
                     if stream_count == 0 && column.typ.is_optional() {
                         return Err(MltError::MissingStringStream(
@@ -190,16 +213,16 @@ impl Layer01<'_> {
                     stream_count -= usize::from(optional.is_some());
                     let value_vec;
                     (input, value_vec) = Stream::parse_multiple(input, stream_count)?;
-                    properties.push(Property::raw(name, optional, RawPropValue::Str(value_vec)));
+                    properties.push(Property::new_encoded(
+                        name,
+                        optional,
+                        EncodedPropValue::Str(value_vec),
+                    ));
                 }
                 ColumnType::Struct => {
-                    (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                    (input, stream_count) = parse_varint::<usize>(input)?;
                     if stream_count < 2 {
-                        return Err(MltError::MinLength {
-                            ctx: "struct shared dictionary",
-                            min: 2,
-                            got: stream_count,
-                        });
+                        return Err(MltError::StructSharedDictRequiresStreams(stream_count));
                     }
 
                     // Parse shared dictionary streams
@@ -227,22 +250,18 @@ impl Layer01<'_> {
                     // Parse each child field (present stream + dictionary index stream)
                     let mut children = Vec::with_capacity(column.children.len());
                     for child in &column.children {
-                        (input, stream_count) = utils::parse_varint::<usize>(input)?;
+                        (input, stream_count) = parse_varint::<usize>(input)?;
                         let child_optional;
                         (input, child_optional) = parse_optional(child.typ, input)?;
                         let optional_stream_count = usize::from(child_optional.is_some());
                         if let Some(data_count) = stream_count.checked_sub(optional_stream_count)
                             && data_count != 1
                         {
-                            return Err(MltError::ExpectedValues {
-                                ctx: "struct child data streams",
-                                expected: 1,
-                                got: data_count,
-                            });
+                            return Err(MltError::UnexpectedStructChildCount(data_count));
                         }
                         let child_data;
                         (input, child_data) = Stream::parse(input)?;
-                        children.push(RawStructChild {
+                        children.push(EncodedStructChild {
                             name: child.name.unwrap_or(""),
                             typ: child.typ,
                             optional: child_optional,
@@ -250,10 +269,10 @@ impl Layer01<'_> {
                         });
                     }
 
-                    properties.push(Property::raw(
+                    properties.push(Property::new_encoded(
                         name,
                         None,
-                        RawPropValue::Struct(RawStructProp {
+                        EncodedPropValue::Struct(EncodedStructProp {
                             dict_streams,
                             children,
                         }),
@@ -315,14 +334,11 @@ fn parse_columns_meta(
             Struct => {
                 // Yes, we need to parse children right here, otherwise this messes up the next column
                 let child_column_count;
-                (input, child_column_count) = utils::parse_varint::<usize>(input)?;
+                (input, child_column_count) = parse_varint::<usize>(input)?;
 
                 // Each column requires at least 1 byte (ColumnType without name)
                 if input.len() < child_column_count {
-                    return Err(MltError::BufferUnderflow {
-                        needed: child_column_count,
-                        remaining: input.len(),
-                    });
+                    return Err(MltError::BufferUnderflow(child_column_count, input.len()));
                 }
                 let mut children = Vec::with_capacity(child_column_count);
                 for _ in 0..child_column_count {
@@ -359,8 +375,7 @@ impl OwnedLayer01 {
         let has_id = !matches!(self.id, OwnedId::None);
         let id_columns_count = u64::from(has_id);
         let geometry_column_count = 1;
-        let property_column_count = u64::try_from(self.properties.len())
-            .map_err(|_| io::Error::other(MltError::IntegerOverflow))?;
+        let property_column_count = u64::try_from(self.properties.len()).map_err(MltError::from)?;
         let column_count = property_column_count + id_columns_count + geometry_column_count;
         writer.write_varint(column_count)?;
 

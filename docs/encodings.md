@@ -39,12 +39,11 @@ The data stream contains dictionary indices encoded as `UInt32`.
 A dictionary-encoded nullable string column consists of the following streams in order:
 `Present`, `Length`, `Dictionary`, `Data`
 
-> [!NOTE]
-> TODO: Is "can" (=> MAY) here the right terminoligy?
-> This implies that streams might be encoded by one of the options below, but also other options.
->
-> If yes, what is the alternative options?
-> If no, clarify this misunderstanding.
+!!! TODO
+    Is "can" (⇒ MAY) here the right terminology?
+    This implies that streams might be encoded by one of the options below, but also other options.
+    If yes, what is the alternative options?
+    If no, clarify this misunderstanding.
 
 All streams can be further compressed using lightweight encodings:
 
@@ -121,7 +120,7 @@ Null suppression techniques are used to compress integer arrays by reducing the 
 Used for encoding unsigned integers in null suppression techniques.
 [ZigZag encoding](https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding) uses the least significant bit to represent the sign.
 
-### Varint Encoding
+### VarInt Encoding
 
 A byte-aligned null suppression technique that compresses integers using a minimal number of bytes.
 For implementation details, refer to [Protobuf](https://protobuf.dev/programming-guides/encoding/#varints).

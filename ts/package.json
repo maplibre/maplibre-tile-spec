@@ -37,6 +37,7 @@
     "bytebuffer": "^5.0.1",
     "earcut": "^3.0.2",
     "eslint": "^9.39.1",
+    "json5": "^2.2.3",
     "pbf": "^4.0.1",
     "prettier": "^3.7.4",
     "typescript": "^5.9.3",

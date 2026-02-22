@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use integer_encoding::VarInt as _;
 use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
@@ -34,7 +32,7 @@ pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(data: &[T
     encode_zigzag(&encode_delta(data))
 }
 
-pub fn encode_rle<T: PrimInt + Debug>(data: &[T]) -> (Vec<T>, Vec<T>) {
+pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
     if data.is_empty() {
         return (Vec::new(), Vec::new());
     }
@@ -128,16 +126,63 @@ pub fn encode_u32s_to_bytes(data: &[u32]) -> Vec<u8> {
     output
 }
 
+pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
+    let mut output = Vec::with_capacity(data.len() * 8);
+    for &val in data {
+        output.extend_from_slice(&val.to_le_bytes());
+    }
+    output
+}
+
+/// Encode signed integer vec2 values using componentwise delta + zigzag encoding.
+///
+/// Input: `[x0, y0, x1, y1, ...]`
+/// Output: `[zigzag(x0-0), zigzag(y0-0), zigzag(x1-x0), zigzag(y1-y0), ...]`
+///
+/// This is the inverse of `decode_componentwise_delta_vec2s`.
+pub fn encode_componentwise_delta_vec2s<T>(data: &[T]) -> Vec<T::UInt>
+where
+    T: ZigZag + WrappingSub,
+{
+    let mut result = Vec::with_capacity(data.len());
+    let mut prev_x = T::zero();
+    let mut prev_y = T::zero();
+    for chunk in data.chunks_exact(2) {
+        let (x, y) = (chunk[0], chunk[1]);
+        result.push(T::encode(x.wrapping_sub(&prev_x)));
+        result.push(T::encode(y.wrapping_sub(&prev_y)));
+        (prev_x, prev_y) = (x, y);
+    }
+    result
+}
+
+/// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
+pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
+    let num_bytes = bools.len().div_ceil(8);
+    let mut bytes = vec![0u8; num_bytes];
+    for (i, _) in bools.iter().enumerate().filter(|(_, bit)| **bit) {
+        bytes[i / 8] |= 1 << (i % 8);
+    }
+    bytes
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
 
     use super::*;
     use crate::utils::{
-        decode_byte_rle, decode_bytes_to_u32s, decode_rle, decode_zigzag, decode_zigzag_delta,
+        decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
+        decode_componentwise_delta_vec2s, decode_rle, decode_zigzag, decode_zigzag_delta,
     };
 
     proptest! {
+        #[test]
+        fn encode_bools_to_bytes_roundtrip(bools: Vec<bool>) {
+            let bools_rountrip = decode_bytes_to_bools(&encode_bools_to_bytes(&bools), bools.len());
+            prop_assert_eq!(bools_rountrip, bools);
+        }
+
         #[test]
         fn test_zigzag_roundtrip_i64(data: Vec<i64>) {
             let encoded = encode_zigzag(&data);
@@ -174,6 +219,30 @@ mod tests {
         fn test_u32_bytes_roundtrip(data: Vec<u32>) {
             let encoded = encode_u32s_to_bytes(&data);
             let (rem, decoded) = decode_bytes_to_u32s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
+            prop_assert_eq!(data, decoded);
+            prop_assert!(rem.is_empty());
+        }
+
+        #[test]
+        fn test_componentwise_delta_vec2s(data: Vec<i32>) {
+            if data.len() <= 1 {
+                return Err(TestCaseError::reject("data not valid vertices"))
+            }
+            // done this way to not have to reject less
+            let data_slice = if data.len().is_multiple_of(2) {
+                &data
+            } else {
+                &data[.. data.len()-1]
+            };
+            let encoded = encode_componentwise_delta_vec2s(data_slice);
+            let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded).unwrap();
+            prop_assert_eq!(data_slice, &decoded);
+        }
+
+        #[test]
+        fn test_u64_bytes_roundtrip(data: Vec<u64>) {
+            let encoded = encode_u64s_to_bytes(&data);
+            let (rem, decoded) = decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
             prop_assert_eq!(data, decoded);
             prop_assert!(rem.is_empty());
         }

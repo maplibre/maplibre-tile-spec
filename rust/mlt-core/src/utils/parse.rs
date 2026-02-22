@@ -14,10 +14,7 @@ pub fn all<T>((input, value): (&[u8], T)) -> Result<T, MltError> {
     if input.is_empty() {
         Ok(value)
     } else {
-        Err(MltError::BufferUnderflow {
-            needed: input.len(),
-            remaining: 0,
-        })
+        Err(MltError::BufferUnderflow(input.len(), 0))
     }
 }
 
@@ -39,10 +36,7 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
             }
             Ok((&input[consumed..], value))
         }
-        None => Err(MltError::BufferUnderflow {
-            needed: input.len() + 1,
-            remaining: input.len(),
-        }),
+        None => Err(MltError::BufferUnderflow(input.len() + 1, input.len())),
     }
 }
 
@@ -104,7 +98,7 @@ mod tests {
     #[case::non_canonical_two(&[0x82, 0x00], Err(MltError::NonCanonicalVarInt))]
     #[case::non_canonical_three_byte(&[0x80, 0x80, 0x00], Err(MltError::NonCanonicalVarInt))]
     #[case::single_byte_with_trailing(&[0x01, 0x02, 0x03], Ok((vec![2, 3], 1)))]
-    #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow { needed: 4, remaining: 3 }))]
+    #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow(4, 3)))]
     fn test_varint_parsing(
         #[case] bytes: &[u8],
         #[case] expected: Result<(Vec<u8>, usize), MltError>,
