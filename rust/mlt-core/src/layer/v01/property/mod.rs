@@ -222,7 +222,7 @@ impl Default for OwnedEncodedProperty {
         Self {
             name: String::default(),
             optional: None,
-            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_decoder()),
+            value: OwnedEncodedPropValue::Bool(OwnedStream::empty_without_codec()),
         }
     }
 }
@@ -414,8 +414,8 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
     type EncodingStrategy = PropertyEncodingStrategy;
 
     fn from_decoded(
-        decoded: &Self::Input,
-        config: Self::EncodingStrategy,
+        _decoded: &Self::Input,
+        _config: Self::EncodingStrategy,
     ) -> Result<Self, MltError> {
         Err(MltError::NotImplemented("property encoding"))
     }

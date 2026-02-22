@@ -47,7 +47,6 @@ pub fn decode_level1_without_ring_buffer_length_stream(
     let mut level1_buffer_offsets = Vec::with_capacity(final_size);
     level1_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
-    let mut level1_offset_buffer_counter = 1_usize;
     let mut level1_length_counter = 0_usize;
 
     for (i, &geometry_type) in geometry_types.iter().enumerate() {
@@ -61,14 +60,12 @@ pub fn decode_level1_without_ring_buffer_length_stream(
                 previous_offset += level1_length_buffer[level1_length_counter];
                 level1_length_counter += 1;
                 level1_buffer_offsets.push(previous_offset);
-                level1_offset_buffer_counter += 1;
             }
         } else {
             // For MultiPoint and Point no value in level1LengthBuffer exists
             for _j in 0..num_geometries {
                 previous_offset += 1;
                 level1_buffer_offsets.push(previous_offset);
-                level1_offset_buffer_counter += 1;
             }
         }
     }
@@ -86,7 +83,6 @@ pub fn decode_level1_length_stream(
     let mut level1_buffer_offsets = Vec::with_capacity(final_size);
     level1_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
-    let mut level1_buffer_counter = 1_usize;
     let mut level1_length_buffer_counter = 0_usize;
 
     for (i, &geometry_type) in geometry_types.iter().enumerate() {
@@ -104,7 +100,6 @@ pub fn decode_level1_length_stream(
                 previous_offset += level1_length_buffer[level1_length_buffer_counter];
                 level1_length_buffer_counter += 1;
                 level1_buffer_offsets.push(previous_offset);
-                level1_buffer_counter += 1;
             }
         } else {
             // For MultiPoint and Point and in some cases for MultiLineString and LineString
@@ -112,7 +107,6 @@ pub fn decode_level1_length_stream(
             for _j in 0..num_geometries {
                 previous_offset += 1;
                 level1_buffer_offsets.push(previous_offset);
-                level1_buffer_counter += 1;
             }
         }
     }
@@ -131,7 +125,6 @@ pub fn decode_level2_length_stream(
     level2_buffer_offsets.push(0);
     let mut previous_offset = 0_u32;
     let mut level1_offset_buffer_counter = 1_usize;
-    let mut level2_offset_buffer_counter = 1_usize;
     let mut level2_length_buffer_counter = 0_usize;
 
     for (i, &geometry_type) in geometry_types.iter().enumerate() {
@@ -149,7 +142,6 @@ pub fn decode_level2_length_stream(
                     previous_offset += level2_length_buffer[level2_length_buffer_counter];
                     level2_length_buffer_counter += 1;
                     level2_buffer_offsets.push(previous_offset);
-                    level2_offset_buffer_counter += 1;
                 }
             }
         } else {
@@ -157,7 +149,6 @@ pub fn decode_level2_length_stream(
             for _j in 0..num_geometries {
                 previous_offset += 1;
                 level2_buffer_offsets.push(previous_offset);
-                level2_offset_buffer_counter += 1;
                 level1_offset_buffer_counter += 1;
             }
         }

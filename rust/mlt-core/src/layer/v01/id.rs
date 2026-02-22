@@ -11,7 +11,7 @@ use crate::utils::{
     BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
 };
 use crate::v01::{
-    ColumnType, LogicalDecoder, OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalDecoder,
+    ColumnType, LogicalCodec, OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec,
     PhysicalStreamType, Stream, StreamMeta,
 };
 
@@ -75,7 +75,7 @@ impl Default for OwnedEncodedId {
     fn default() -> Self {
         Self {
             optional: None,
-            value: OwnedEncodedIdValue::Id32(OwnedStream::empty_without_decoder()),
+            value: OwnedEncodedIdValue::Id32(OwnedStream::empty_without_codec()),
         }
     }
 }
@@ -233,8 +233,8 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let meta = StreamMeta {
                 physical_type: PhysicalStreamType::Present,
                 num_values,
-                logical_decoder: LogicalDecoder::None,
-                physical_decoder: PhysicalDecoder::None,
+                logical_codec: LogicalCodec::None,
+                physical_codec: PhysicalCodec::None,
             };
 
             Some(OwnedStream {
@@ -250,15 +250,15 @@ impl FromDecoded<'_> for OwnedEncodedId {
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
-                LogicalDecoder::None,
-                PhysicalDecoder::None,
+                LogicalCodec::None,
+                PhysicalCodec::None,
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64(
                 &vals,
-                LogicalDecoder::Delta,
-                PhysicalDecoder::VarInt,
+                LogicalCodec::Delta,
+                PhysicalCodec::VarInt,
             )?)
         };
 
