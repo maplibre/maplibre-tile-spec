@@ -136,7 +136,7 @@ pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
     output
 }
 
-/// Encode `i32` vec2 values using componentwise delta + zigzag encoding.
+/// Encode signed integer vec2 values using componentwise delta + zigzag encoding.
 ///
 /// Input: `[x0, y0, x1, y1, ...]`
 /// Output: `[zigzag(x0-0), zigzag(y0-0), zigzag(x1-x0), zigzag(y1-y0), ...]`
@@ -228,7 +228,7 @@ mod tests {
         #[test]
         fn test_componentwise_delta_vec2s(data: Vec<i32>) {
             if data.len() <= 1 {
-                return Err(TestCaseError::reject("data not valid verticies"))
+                return Err(TestCaseError::reject("data not valid vertices"))
             }
             // done this way to not have to reject less
             let data_slice = if data.len().is_multiple_of(2) {
