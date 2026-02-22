@@ -4,6 +4,7 @@ use std::fmt::{self, Debug};
 use std::io::Write;
 
 use borrowme::borrowme;
+use derive_builder::Builder;
 use integer_encoding::VarIntWriter as _;
 
 use crate::MltError::{IntegerOverflow, NotImplemented};
@@ -429,7 +430,7 @@ impl<'a> Property<'a> {
 }
 
 /// How to encode properties
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct PropertyEncodingStrategy {
     optional: PresenceStream,
     logical: LogicalEncoding,
