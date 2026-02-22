@@ -88,20 +88,22 @@ function safeNumber<T>(val: bigint | T): T | number {
 function getGeometry(geometry: Geometry): GeoJSON.Geometry {
     const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
 
-    const mapping: Record<number, () => GeoJSON.Geometry> = {
-        [GEOMETRY_TYPE.POINT]: () => ({ type: "Point", coordinates: coords[0][0] }) as GeoJSON.Point,
-        [GEOMETRY_TYPE.LINESTRING]: () => ({ type: "LineString", coordinates: coords[0] }) as GeoJSON.LineString,
-        [GEOMETRY_TYPE.POLYGON]: () => ({ type: "Polygon", coordinates: coords }) as GeoJSON.Polygon,
-        [GEOMETRY_TYPE.MULTIPOINT]: () => ({ type: "MultiPoint", coordinates: coords.map((r) => r[0]) }) as GeoJSON.MultiPoint,
-        [GEOMETRY_TYPE.MULTILINESTRING]: () => ({ type: "MultiLineString", coordinates: coords }) as GeoJSON.MultiLineString,
-        [GEOMETRY_TYPE.MULTIPOLYGON]: () =>
-            ({ type: "MultiPolygon", coordinates: coords.map((r) => [r]) }) as GeoJSON.MultiPolygon,
-    };
-
-    const result = mapping[geometry.type]?.();
-    if (!result) throw new Error(`Unsupported geometry type: ${geometry.type}`);
-
-    return result;
+    switch (geometry.type) {
+        case GEOMETRY_TYPE.POINT:
+            return { type: "Point", coordinates: coords[0][0] };
+        case GEOMETRY_TYPE.LINESTRING:
+            return { type: "LineString", coordinates: coords[0] };
+        case GEOMETRY_TYPE.POLYGON:
+            return { type: "Polygon", coordinates: coords };
+        case GEOMETRY_TYPE.MULTIPOINT:
+            return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
+        case GEOMETRY_TYPE.MULTILINESTRING:
+            return { type: "MultiLineString", coordinates: coords };
+        case GEOMETRY_TYPE.MULTIPOLYGON:
+            return { type: "MultiPolygon", coordinates: coords.map((r) => [r]) };
+        default:
+            throw new Error(`Unsupported geometry type: ${geometry.type}`)
+    }
 }
 
 type MatchableValue = string | number | boolean | null | MatchableValue[] | { [key: string]: MatchableValue };
