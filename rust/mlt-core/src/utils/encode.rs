@@ -141,7 +141,7 @@ pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
 /// Input: `[x0, y0, x1, y1, ...]`
 /// Output: `[zigzag(x0-0), zigzag(y0-0), zigzag(x1-x0), zigzag(y1-y0), ...]`
 ///
-/// This is the inverse of ``decode_componentwise_delta_vec2s`.
+/// This is the inverse of `decode_componentwise_delta_vec2s`.
 pub fn encode_componentwise_delta_vec2s<T>(data: &[T]) -> Vec<T::UInt>
 where
     T: ZigZag + WrappingSub,
