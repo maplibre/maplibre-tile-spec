@@ -1,19 +1,11 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, parse, resolve } from "node:path";
-import type {
-    LineString,
-    MultiLineString,
-    MultiPoint,
-    MultiPolygon,
-    Point,
-    Polygon,
-    Geometry as GeoJSONGeometry,
-} from "geojson";
 import JSON5 from "json5";
 import { describe, expect, it } from "vitest";
 import decodeTile from "./mltDecoder";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 import type { Geometry } from "./vector/geometry/geometryVector";
+import type FeatureTable from "./vector/featureTable";
 
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
 const ABSOLUTE_FLOAT_TOLERANCE = Number.EPSILON;
@@ -48,54 +40,62 @@ const skippedTests = testNames
     .map((name) => [name, UNIMPLEMENTED_SYNTHETICS.get(name)] as const);
 
 describe("MLT Decoder - Synthetic tests", () => {
-    it.each(activeList)("should decode %s", async (testName) => {
-        const [mltBuffer, jsonRaw] = await Promise.all([
-            readFile(join(syntheticDir, `${testName}.mlt`)),
-            readFile(join(syntheticDir, `${testName}.json`), "utf-8"),
-        ]);
+    for (let testName of activeList) {
+        it(`should decode ${testName}`, async () => {
+            const [mltBuffer, jsonRaw] = await Promise.all([
+                readFile(join(syntheticDir, `${testName}.mlt`)),
+                readFile(join(syntheticDir, `${testName}.json`), "utf-8"),
+            ]);
 
-        const featureTables = decodeTile(mltBuffer, null, false);
-        const expectedJson = wrapWithMatchers(JSON5.parse(jsonRaw));
+            const featureTables = decodeTile(mltBuffer, null, false);
+            const actualJson = featureTablesToFeatureCollection(featureTables);
+            const expectedJson = wrapWithMatchers(JSON5.parse(jsonRaw));
+            expect(actualJson).toEqual(expectedJson);
+        });
+    }
 
-        const actualFeatures = featureTables.flatMap((table) =>
-            table.getFeatures().map((f) => {
-                const feature: GeoJSON.Feature = {
-                    type: "Feature",
-                    geometry: getGeometry(f.geometry),
-                    properties: {
-                        _layer: table.name,
-                        _extent: table.extent,
-                        ...Object.fromEntries(Object.entries(f.properties).map(([k, v]) => [k, safeNumber(v)])),
-                    },
-                };
-                if (safeNumber(f.id) !== null) {
-                    feature.id = safeNumber(f.id);
-                }
-                return feature;
-            }),
-        );
-        //console.log("From file:\n" + JSON.stringify(expectedJson, null, 2));
-        //console.log("From test:\n" + JSON.stringify({ type: "FeatureCollection", features: actualFeatures }, null, 2));
-        expect({ type: "FeatureCollection", features: actualFeatures }).toEqual(expectedJson);
-    });
-    it.skip.each(skippedTests)("should decode %s (skipped because: %s)", () => {});
+    for (let skipTest of skippedTests) {
+        it.skip(`should decode ${skipTest[0]} (skipped because: ${skipTest[1]})`, () => {});
+    }
 });
+
+function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
+    const features: GeoJSON.Feature[] = [];
+    for (let table of featureTables) {
+        for (let feature of table.getFeatures()) {
+            const geojsonFeature: GeoJSON.Feature = {
+                type: "Feature",
+                geometry: getGeometry(feature.geometry),
+                properties: {
+                    _layer: table.name,
+                    _extent: table.extent,
+                    ...Object.fromEntries(Object.entries(feature.properties).map(([k, v]) => [k, safeNumber(v)])),
+                },
+            };
+            if (safeNumber(feature.id) !== null) {
+                feature.id = safeNumber(feature.id);
+            }
+            features.push(geojsonFeature);
+        }
+    }
+    return { type: "FeatureCollection", features };
+}
 
 function safeNumber<T>(val: bigint | T): T | number {
     return typeof val === "bigint" ? Number(val) : val;
 }
 
-function getGeometry(geometry: Geometry): GeoJSONGeometry {
+function getGeometry(geometry: Geometry): GeoJSON.Geometry {
     const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
 
-    const mapping: Record<number, () => GeoJSONGeometry> = {
-        [GEOMETRY_TYPE.POINT]: () => ({ type: "Point", coordinates: coords[0][0] }) as Point,
-        [GEOMETRY_TYPE.LINESTRING]: () => ({ type: "LineString", coordinates: coords[0] }) as LineString,
-        [GEOMETRY_TYPE.POLYGON]: () => ({ type: "Polygon", coordinates: coords }) as Polygon,
-        [GEOMETRY_TYPE.MULTIPOINT]: () => ({ type: "MultiPoint", coordinates: coords.map((r) => r[0]) }) as MultiPoint,
-        [GEOMETRY_TYPE.MULTILINESTRING]: () => ({ type: "MultiLineString", coordinates: coords }) as MultiLineString,
+    const mapping: Record<number, () => GeoJSON.Geometry> = {
+        [GEOMETRY_TYPE.POINT]: () => ({ type: "Point", coordinates: coords[0][0] }) as GeoJSON.Point,
+        [GEOMETRY_TYPE.LINESTRING]: () => ({ type: "LineString", coordinates: coords[0] }) as GeoJSON.LineString,
+        [GEOMETRY_TYPE.POLYGON]: () => ({ type: "Polygon", coordinates: coords }) as GeoJSON.Polygon,
+        [GEOMETRY_TYPE.MULTIPOINT]: () => ({ type: "MultiPoint", coordinates: coords.map((r) => r[0]) }) as GeoJSON.MultiPoint,
+        [GEOMETRY_TYPE.MULTILINESTRING]: () => ({ type: "MultiLineString", coordinates: coords }) as GeoJSON.MultiLineString,
         [GEOMETRY_TYPE.MULTIPOLYGON]: () =>
-            ({ type: "MultiPolygon", coordinates: coords.map((r) => [r]) }) as MultiPolygon,
+            ({ type: "MultiPolygon", coordinates: coords.map((r) => [r]) }) as GeoJSON.MultiPolygon,
     };
 
     const result = mapping[geometry.type]?.();
