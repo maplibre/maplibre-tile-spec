@@ -239,7 +239,7 @@ impl LogicalEncoderStrategy {
     ///
     /// [`LogicalCodec`] is derived from the actual data.
     /// See [`LogicalValue::decode_u32`] for the reverse operation.
-    pub fn encode_u32(self, values: &[u32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
+    pub fn encode_u32s(self, values: &[u32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
         match self {
             Self::None => Ok((values.to_vec(), LogicalCodec::None)),
             Self::Delta => {
@@ -264,7 +264,7 @@ impl LogicalEncoderStrategy {
     ///
     /// [`LogicalCodec`] is derived from the actual data.
     /// See [`LogicalValue::decode_i32`] for the reverse operation.
-    pub fn encode_i32(self, values: &[i32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
+    pub fn encode_i32s(self, values: &[i32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
         match self {
             Self::None => Ok((encode_zigzag(values), LogicalCodec::None)),
             Self::Delta => Ok((encode_zigzag_delta(values), LogicalCodec::Delta)),
@@ -283,7 +283,7 @@ impl LogicalEncoderStrategy {
     ///
     /// [`LogicalCodec`] is derived from the actual data.
     /// See [`LogicalValue::decode_u64`] for the reverse operation.
-    pub fn encode_u64(self, values: &[u64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
+    pub fn encode_u64s(self, values: &[u64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
         match self {
             Self::None => Ok((values.to_vec(), LogicalCodec::None)),
             Self::Delta => Ok((
@@ -308,7 +308,7 @@ impl LogicalEncoderStrategy {
     ///
     /// [`LogicalCodec`] is derived from the actual data.
     /// See [`LogicalValue::decode_i64`] for the reverse operation.
-    pub fn encode_i64(self, values: &[i64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
+    pub fn encode_i64s(self, values: &[i64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
         match self {
             Self::None => Ok((encode_zigzag(values), LogicalCodec::None)),
             Self::Delta => Ok((encode_zigzag_delta(values), LogicalCodec::Delta)),
@@ -359,7 +359,7 @@ mod tests {
             values in prop::collection::vec(any::<u32>(), 0..100),
             logical in logical_codec_strategy(),
         ) {
-            let (encoded, computed) = logical.encode_u32(&values).unwrap();
+            let (encoded, computed) = logical.encode_u32s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU32(encoded))
                 .decode_u32()
@@ -372,7 +372,7 @@ mod tests {
             values in prop::collection::vec(any::<i32>(), 0..100),
             logical in logical_codec_strategy(),
         ) {
-            let (encoded, computed) = logical.encode_i32(&values).unwrap();
+            let (encoded, computed) = logical.encode_i32s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU32(encoded))
                 .decode_i32()
@@ -385,7 +385,7 @@ mod tests {
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical in logical_codec_strategy(),
         ) {
-            let (encoded, computed) = logical.encode_u64(&values).unwrap();
+            let (encoded, computed) = logical.encode_u64s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU64(encoded))
                 .decode_u64()
@@ -398,7 +398,7 @@ mod tests {
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical in logical_codec_strategy(),
         ) {
-            let (encoded, computed) = logical.encode_i64(&values).unwrap();
+            let (encoded, computed) = logical.encode_i64s(&values).unwrap();
             let meta = make_meta(computed, values.len());
             let decoded = LogicalValue::new(meta, LogicalData::VecU64(encoded))
                 .decode_i64()

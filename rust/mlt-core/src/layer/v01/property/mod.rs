@@ -14,12 +14,11 @@ use crate::utils::{
     BinarySerializer as _, FmtOptVec, apply_present, encode_bools_to_bytes, encode_byte_rle,
     f32_to_json,
 };
-use crate::v01::logical::LogicalEncoderStrategy;
 use crate::v01::property::decode::{decode_string_streams, decode_struct_children};
-use crate::v01::property::encode::{PhysicalCodecStrategy, PresenceSteamStrategy};
 use crate::v01::{
-    ColumnType, LogicalCodec, OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec,
-    PhysicalStreamType, Stream, StreamMeta,
+    ColumnType, LogicalCodec, LogicalEncoderStrategy, OwnedEncodedData, OwnedStream,
+    OwnedStreamData, PhysicalCodec, PhysicalEncoderStrategy, PhysicalStreamType, Stream,
+    StreamMeta,
 };
 use crate::{FromDecoded, MltError, impl_encodable};
 
@@ -436,8 +435,15 @@ impl<'a> Property<'a> {
 pub struct PropertyEncodingStrategy {
     optional: PresenceSteamStrategy,
     logical: LogicalEncoderStrategy,
-    physical: PhysicalCodecStrategy,
+    physical: PhysicalEncoderStrategy,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresenceSteamStrategy {
+    Present,
+    Absent,
+}
+
 impl FromDecoded<'_> for OwnedEncodedProperty {
     type Input = DecodedProperty;
     type EncodingStrategy = PropertyEncodingStrategy;
@@ -463,33 +469,55 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
             None
         };
 
-        let physical = PhysicalCodec::from(config.physical);
-
         let value = match &decoded.values {
             Val::Bool(b) => EncVal::Bool(OwnedStream::encode_bools(&unapply_presence(b))?),
             Val::I8(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I8(OwnedStream::encode_i8s(&vals, config.logical, physical)?)
+                EncVal::I8(OwnedStream::encode_i8s(
+                    &vals,
+                    config.logical,
+                    config.physical,
+                )?)
             }
             Val::U8(u) => {
                 let values = unapply_presence(u);
-                EncVal::U8(OwnedStream::encode_u8s(&values, config.logical, physical)?)
+                EncVal::U8(OwnedStream::encode_u8s(
+                    &values,
+                    config.logical,
+                    config.physical,
+                )?)
             }
             Val::I32(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I32(OwnedStream::encode_i32s(&vals, config.logical, physical)?)
+                EncVal::I32(OwnedStream::encode_i32s(
+                    &vals,
+                    config.logical,
+                    config.physical,
+                )?)
             }
             Val::U32(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U32(OwnedStream::encode_u32s(&vals, config.logical, physical)?)
+                EncVal::U32(OwnedStream::encode_u32s(
+                    &vals,
+                    config.logical,
+                    config.physical,
+                )?)
             }
             Val::I64(i) => {
                 let vals = unapply_presence(i);
-                EncVal::I64(OwnedStream::encode_i64(&vals, config.logical, physical)?)
+                EncVal::I64(OwnedStream::encode_i64s(
+                    &vals,
+                    config.logical,
+                    config.physical,
+                )?)
             }
             Val::U64(u) => {
                 let vals = unapply_presence(u);
-                EncVal::U64(OwnedStream::encode_u64(&vals, config.logical, physical)?)
+                EncVal::U64(OwnedStream::encode_u64s(
+                    &vals,
+                    config.logical,
+                    config.physical,
+                )?)
             }
             Val::F32(f) => {
                 let vals = unapply_presence(f);
@@ -560,7 +588,6 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::layer::v01::property::encode::{PhysicalCodecStrategy, PresenceSteamStrategy};
 
     fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
         prop_oneof![
@@ -570,10 +597,10 @@ mod tests {
         ]
     }
 
-    fn physical_codec_strategy() -> impl Strategy<Value = PhysicalCodecStrategy> {
+    fn physical_codec_strategy() -> impl Strategy<Value = PhysicalEncoderStrategy> {
         prop_oneof![
-            Just(PhysicalCodecStrategy::None),
-            Just(PhysicalCodecStrategy::VarInt),
+            Just(PhysicalEncoderStrategy::None),
+            Just(PhysicalEncoderStrategy::VarInt),
         ]
     }
 
@@ -595,7 +622,7 @@ mod tests {
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceSteamStrategy::Present,
                 logical: LogicalEncoderStrategy::None,
-                physical: PhysicalCodecStrategy::None,
+                physical: PhysicalEncoderStrategy::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -610,7 +637,7 @@ mod tests {
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceSteamStrategy::Absent,
                 logical: LogicalEncoderStrategy::None,
-                physical: PhysicalCodecStrategy::None,
+                physical: PhysicalEncoderStrategy::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -827,7 +854,7 @@ mod tests {
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceSteamStrategy::Present,
                 logical: LogicalEncoderStrategy::None,
-                physical: PhysicalCodecStrategy::None,
+                physical: PhysicalEncoderStrategy::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -845,7 +872,7 @@ mod tests {
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceSteamStrategy::Absent,
                 logical: LogicalEncoderStrategy::None,
-                physical: PhysicalCodecStrategy::None,
+                physical: PhysicalEncoderStrategy::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -867,7 +894,7 @@ mod tests {
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceSteamStrategy::Present,
                 logical: LogicalEncoderStrategy::None,
-                physical: PhysicalCodecStrategy::None,
+                physical: PhysicalEncoderStrategy::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
@@ -887,7 +914,7 @@ mod tests {
             let strategy = PropertyEncodingStrategy {
                 optional: PresenceSteamStrategy::Absent,
                 logical: LogicalEncoderStrategy::None,
-                physical: PhysicalCodecStrategy::None,
+                physical: PhysicalEncoderStrategy::None,
             };
             prop_assert_eq!(roundtrip(&decoded, strategy), decoded);
         }
