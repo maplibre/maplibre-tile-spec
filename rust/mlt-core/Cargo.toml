@@ -17,11 +17,11 @@ harness = false
 
 [dependencies]
 borrowme.workspace = true
+derive_builder.workspace = true
 fastpfor.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 integer-encoding.workspace = true
-derive_builder.workspace = true
 mvt-reader.workspace = true
 num-traits.workspace = true
 num_enum.workspace = true
