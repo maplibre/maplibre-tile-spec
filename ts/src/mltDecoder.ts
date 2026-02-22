@@ -100,6 +100,7 @@ export default function decodeTile(
                 }
 
                 const idDataStreamMetadata = decodeStreamMetadata(tile, offset);
+                // decompressedCount is the count WITHOUT nulls, but we may have nulls
                 numFeatures = nullabilityBuffer ? nullabilityBuffer.size() : idDataStreamMetadata.decompressedCount;
 
                 idVector = decodeIdColumn(
