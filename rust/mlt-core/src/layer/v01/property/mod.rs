@@ -431,13 +431,13 @@ impl<'a> Property<'a> {
 /// How to encode properties
 #[derive(Debug, Clone, Copy)]
 pub struct PropertyEncodingStrategy {
-    optional: PresenceStreamStrategy,
+    optional: PresenceStream,
     logical: LogicalEncoding,
     physical: PhysicalEncoding,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PresenceStreamStrategy {
+pub enum PresenceStream {
     Present,
     Absent,
 }
@@ -451,7 +451,7 @@ impl FromDecoded<'_> for OwnedEncodedProperty {
         config: Self::EncodingStrategy,
     ) -> Result<Self, MltError> {
         use {OwnedEncodedPropValue as EncVal, PropValue as Val};
-        let optional = if config.optional == PresenceStreamStrategy::Present {
+        let optional = if config.optional == PresenceStream::Present {
             let present_vec: Vec<bool> = decoded.values.as_presence_stream()?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present_vec));
             Some(OwnedStream {
@@ -616,7 +616,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::Bool(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical: LogicalEncoding::None,
                 physical: PhysicalEncoding::None,
             };
@@ -631,7 +631,7 @@ mod tests {
             let opt_values: Vec<Option<bool>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::Bool(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical: LogicalEncoding::None,
                 physical: PhysicalEncoding::None,
             };
@@ -647,7 +647,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I8(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical,
                 physical,
             };
@@ -664,7 +664,7 @@ mod tests {
             let opt_values: Vec<Option<i8>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I8(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical,
                 physical,
             };
@@ -680,7 +680,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U8(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical,
                 physical,
             };
@@ -697,7 +697,7 @@ mod tests {
             let opt_values: Vec<Option<u8>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U8(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical,
                 physical,
             };
@@ -713,7 +713,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I32(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical,
                 physical,
             };
@@ -730,7 +730,7 @@ mod tests {
             let opt_values: Vec<Option<i32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I32(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical,
                 physical,
             };
@@ -746,7 +746,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U32(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical,
                 physical,
             };
@@ -763,7 +763,7 @@ mod tests {
             let opt_values: Vec<Option<u32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U32(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical,
                 physical,
             };
@@ -779,7 +779,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::I64(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical,
                 physical,
             };
@@ -796,7 +796,7 @@ mod tests {
             let opt_values: Vec<Option<i64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::I64(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical,
                 physical,
             };
@@ -812,7 +812,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::U64(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical,
                 physical,
             };
@@ -829,7 +829,7 @@ mod tests {
             let opt_values: Vec<Option<u64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::U64(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical,
                 physical,
             };
@@ -848,7 +848,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::F32(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical: LogicalEncoding::None,
                 physical: PhysicalEncoding::None,
             };
@@ -866,7 +866,7 @@ mod tests {
             let opt_values: Vec<Option<f32>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F32(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical: LogicalEncoding::None,
                 physical: PhysicalEncoding::None,
             };
@@ -888,7 +888,7 @@ mod tests {
         ) {
             let decoded = DecodedProperty { name, values: PropValue::F64(values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Present,
+                optional: PresenceStream::Present,
                 logical: LogicalEncoding::None,
                 physical: PhysicalEncoding::None,
             };
@@ -908,7 +908,7 @@ mod tests {
             let opt_values: Vec<Option<f64>> = values.into_iter().map(Some).collect();
             let decoded = DecodedProperty { name, values: PropValue::F64(opt_values) };
             let strategy = PropertyEncodingStrategy {
-                optional: PresenceStreamStrategy::Absent,
+                optional: PresenceStream::Absent,
                 logical: LogicalEncoding::None,
                 physical: PhysicalEncoding::None,
             };
