@@ -134,6 +134,31 @@ pub fn encode_u64s_to_bytes(data: &[u64]) -> Vec<u8> {
     output
 }
 
+<<<<<<< property-encoding
+=======
+/// Encode signed integer vec2 values using componentwise delta + zigzag encoding.
+///
+/// Input: `[x0, y0, x1, y1, ...]`
+/// Output: `[zigzag(x0-0), zigzag(y0-0), zigzag(x1-x0), zigzag(y1-y0), ...]`
+///
+/// This is the inverse of `decode_componentwise_delta_vec2s`.
+pub fn encode_componentwise_delta_vec2s<T>(data: &[T]) -> Vec<T::UInt>
+where
+    T: ZigZag + WrappingSub,
+{
+    let mut result = Vec::with_capacity(data.len());
+    let mut prev_x = T::zero();
+    let mut prev_y = T::zero();
+    for chunk in data.chunks_exact(2) {
+        let (x, y) = (chunk[0], chunk[1]);
+        result.push(T::encode(x.wrapping_sub(&prev_x)));
+        result.push(T::encode(y.wrapping_sub(&prev_y)));
+        (prev_x, prev_y) = (x, y);
+    }
+    result
+}
+
+>>>>>>> main
 /// Helper to pack a `Vec<bool>` into `Vec<u8>` where each byte represents 8 booleans.
 pub fn encode_bools_to_bytes(bools: &[bool]) -> Vec<u8> {
     let num_bytes = bools.len().div_ceil(8);
@@ -151,7 +176,11 @@ mod tests {
     use super::*;
     use crate::utils::{
         decode_byte_rle, decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s,
+<<<<<<< property-encoding
         decode_rle, decode_zigzag, decode_zigzag_delta,
+=======
+        decode_componentwise_delta_vec2s, decode_rle, decode_zigzag, decode_zigzag_delta,
+>>>>>>> main
     };
 
     proptest! {
@@ -202,6 +231,25 @@ mod tests {
         }
 
         #[test]
+<<<<<<< property-encoding
+=======
+        fn test_componentwise_delta_vec2s(data: Vec<i32>) {
+            if data.len() <= 1 {
+                return Err(TestCaseError::reject("data not valid vertices"))
+            }
+            // done this way to not have to reject less
+            let data_slice = if data.len().is_multiple_of(2) {
+                &data
+            } else {
+                &data[.. data.len()-1]
+            };
+            let encoded = encode_componentwise_delta_vec2s(data_slice);
+            let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded).unwrap();
+            prop_assert_eq!(data_slice, &decoded);
+        }
+
+        #[test]
+>>>>>>> main
         fn test_u64_bytes_roundtrip(data: Vec<u64>) {
             let encoded = encode_u64s_to_bytes(&data);
             let (rem, decoded) = decode_bytes_to_u64s(&encoded, u32::try_from(data.len()).unwrap()).unwrap();
