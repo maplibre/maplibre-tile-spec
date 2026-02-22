@@ -59,6 +59,25 @@ pub fn decode_rle<T: PrimInt + Debug>(
     }
     Ok(result)
 }
+/// Decode a slice of bytes into a vector of u64 values assuming little-endian encoding
+pub fn decode_bytes_to_u64s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u64>> {
+    let expected_bytes = num_values as usize * 8;
+    if input.len() < expected_bytes {
+        return Err(BufferUnderflow(expected_bytes, input.len()));
+    }
+
+    let mut values = Vec::with_capacity(num_values as usize);
+    for _ in 0..num_values {
+        let (new_input, bytes) = take(input, 8)?;
+        let value = u64::from_le_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        ]);
+        values.push(value);
+        input = new_input;
+    }
+    Ok((input, values))
+}
+
 /// Decode a slice of bytes into a vector of u32 values assuming little-endian encoding
 pub fn decode_bytes_to_u32s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u32>> {
     let expected_bytes = num_values as usize * 4;
