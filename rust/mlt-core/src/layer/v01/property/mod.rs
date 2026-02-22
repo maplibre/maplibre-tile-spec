@@ -593,6 +593,7 @@ mod tests {
             Just(LogicalEncoderStrategy::None),
             Just(LogicalEncoderStrategy::Delta),
             Just(LogicalEncoderStrategy::Rle),
+            Just(LogicalEncoderStrategy::DeltaRle),
         ]
     }
 
