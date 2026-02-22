@@ -84,18 +84,40 @@ impl OwnedStream {
     }
 
     pub fn encode_i8s(
-        _values: &[i8],
-        _logical_codec: LogicalCodec,
-        _physical_codec: PhysicalCodec,
+        values: &[i8],
+        logical_codec: LogicalCodec,
+        physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
-        Err(MltError::NotImplemented("encode_i8s"))
+        let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
+        let (physical_u32s, computed_logical) = logical_codec.encode_i32(&as_i32)?;
+        let num_values = u32::try_from(physical_u32s.len())?;
+        Ok(Self {
+            meta: StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values,
+                logical_codec: computed_logical,
+                physical_codec,
+            },
+            data: physical_codec.encode_u32s(physical_u32s)?,
+        })
     }
     pub fn encode_u8s(
-        _values: &[u8],
-        _logical_codec: LogicalCodec,
-        _physical_codec: PhysicalCodec,
+        values: &[u8],
+        logical_codec: LogicalCodec,
+        physical_codec: PhysicalCodec,
     ) -> Result<Self, MltError> {
-        Err(MltError::NotImplemented("encode_u8s"))
+        let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
+        let (physical_u32s, computed_logical) = logical_codec.encode_u32(&as_u32)?;
+        let num_values = u32::try_from(physical_u32s.len())?;
+        Ok(Self {
+            meta: StreamMeta {
+                physical_type: PhysicalStreamType::Data(DictionaryType::None),
+                num_values,
+                logical_codec: computed_logical,
+                physical_codec,
+            },
+            data: physical_codec.encode_u32s(physical_u32s)?,
+        })
     }
     pub fn encode_i32s(
         values: &[i32],
@@ -945,6 +967,42 @@ mod tests {
 
             let decoded_values = parsed_stream.decode_bits_u64().unwrap().decode_i64().unwrap();
 
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        fn test_i8_roundtrip(
+            values in prop::collection::vec(any::<i8>(), 0..100),
+            logical_codec in logical_codecs_strategy(),
+            physical_codec in physical_codecs_strategy()
+        ) {
+            let owned_stream = OwnedStream::encode_i8s(&values, logical_codec, physical_codec).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_i8s().unwrap();
+            assert_eq!(decoded_values, values);
+        }
+
+        #[test]
+        fn test_u8_roundtrip(
+            values in prop::collection::vec(any::<u8>(), 0..100),
+            logical_codec in logical_codecs_strategy(),
+            physical_codec in physical_codecs_strategy()
+        ) {
+            let owned_stream = OwnedStream::encode_u8s(&values, logical_codec, physical_codec).unwrap();
+
+            let mut buffer = Vec::new();
+            buffer.write_stream(&owned_stream).unwrap();
+
+            let (remaining, parsed_stream) = Stream::parse(&buffer).unwrap();
+            assert!(remaining.is_empty());
+
+            let decoded_values = parsed_stream.decode_u8s().unwrap();
             assert_eq!(decoded_values, values);
         }
 
