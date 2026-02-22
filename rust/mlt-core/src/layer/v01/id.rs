@@ -10,6 +10,7 @@ use crate::encode::{FromDecoded, impl_encodable};
 use crate::utils::{
     BinarySerializer as _, OptSeqOpt, apply_present, encode_bools_to_bytes, encode_byte_rle,
 };
+use crate::v01::logical::LogicalEncoderStrategy;
 use crate::v01::{
     ColumnType, LogicalCodec, OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec,
     PhysicalStreamType, Stream, StreamMeta,
@@ -202,7 +203,14 @@ impl<'a> FromEncoded<'a> for DecodedId {
 
 /// How to encode IDs
 #[derive(Debug, Clone, Copy)]
-pub enum IdEncodingStrategy {
+pub struct IdEncodingStrategy {
+    logical: LogicalEncoderStrategy,
+    id_width: IdWithStrategy,
+}
+
+/// How wide are the IDs
+#[derive(Debug, Clone, Copy)]
+pub enum IdWithStrategy {
     /// 32-bit encoding
     Id32,
     /// 32-bit encoding with nulls
@@ -218,14 +226,14 @@ impl FromDecoded<'_> for OwnedEncodedId {
     type EncodingStrategy = IdEncodingStrategy;
 
     fn from_decoded(decoded: &Self::Input, config: IdEncodingStrategy) -> Result<Self, MltError> {
-        use IdEncodingStrategy as CFG;
+        use IdWithStrategy as CFG;
 
         // skipped one level higher
         let DecodedId(Some(ids)) = decoded else {
             return Err(MltError::IdsMissingForEncoding);
         };
 
-        let optional = if matches!(config, CFG::OptId32 | CFG::OptId64) {
+        let optional = if matches!(config.id_width, CFG::OptId32 | CFG::OptId64) {
             let present: Vec<bool> = ids.iter().map(Option::is_some).collect();
             let num_values = u32::try_from(present.len())?;
             let data = encode_byte_rle(&encode_bools_to_bytes(&present));
@@ -245,19 +253,19 @@ impl FromDecoded<'_> for OwnedEncodedId {
             None
         };
 
-        let value = if matches!(config, CFG::Id32 | CFG::OptId32) {
+        let value = if matches!(config.id_width, CFG::Id32 | CFG::OptId32) {
             #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
             let vals: Vec<u32> = ids.iter().filter_map(|&id| id).map(|v| v as u32).collect();
             OwnedEncodedIdValue::Id32(OwnedStream::encode_u32s(
                 &vals,
-                LogicalCodec::None,
+                config.logical,
                 PhysicalCodec::None,
             )?)
         } else {
             let vals: Vec<u64> = ids.iter().filter_map(|&id| id).collect();
             OwnedEncodedIdValue::Id64(OwnedStream::encode_u64(
                 &vals,
-                LogicalCodec::Delta,
+                config.logical,
                 PhysicalCodec::VarInt,
             )?)
         };
@@ -268,7 +276,7 @@ impl FromDecoded<'_> for OwnedEncodedId {
 
 #[cfg(test)]
 mod tests {
-    use IdEncodingStrategy::*;
+    use IdWithStrategy::*;
     use proptest::prelude::*;
     use rstest::rstest;
 
@@ -288,20 +296,23 @@ mod tests {
     #[case::opt_id32(OptId32, vec![Some(1), None, Some(3)])]
     #[case::id64(Id64, vec![Some(1), Some(2), Some(3)])]
     #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
-    #[ignore = "OwnedStream::encode_* unimplemented"]
     fn test_config_produces_correct_variant(
-        #[case] config: IdEncodingStrategy,
+        #[case] id_width: IdWithStrategy,
         #[case] ids: Vec<Option<u64>>,
     ) {
         let input = DecodedId(Some(ids));
+        let config = IdEncodingStrategy {
+            logical: LogicalEncoderStrategy::None,
+            id_width,
+        };
         let encoded = OwnedEncodedId::from_decoded(&input, config).unwrap();
 
-        match config {
+        match id_width {
             OptId32 | Id32 => assert!(matches!(encoded.value, OwnedEncodedIdValue::Id32(_))),
             Id64 | OptId64 => assert!(matches!(encoded.value, OwnedEncodedIdValue::Id64(_))),
         }
 
-        match config {
+        match id_width {
             OptId32 | OptId64 => assert!(encoded.optional.is_some()),
             Id32 | Id64 => assert!(encoded.optional.is_none()),
         }
@@ -321,85 +332,106 @@ mod tests {
     #[case::opt_id64_with_nulls(OptId64, &[Some(1), None, Some(u64::from(u32::MAX) + 1), None, Some(u64::MAX)])]
     #[case::opt_id64_all_nulls(OptId64, &[None, None, None])]
     #[case::none(Id32, &[])]
-    #[ignore = "OwnedStream::encode_* unimplemented"]
-    fn test_roundtrip(#[case] config: IdEncodingStrategy, #[case] ids: &[Option<u64>]) {
+    fn test_roundtrip(#[case] id_width: IdWithStrategy, #[case] ids: &[Option<u64>]) {
         let input = DecodedId(Some(ids.to_vec()));
+        let config = IdEncodingStrategy {
+            logical: LogicalEncoderStrategy::None,
+            id_width,
+        };
         let output = roundtrip(&input, config);
         assert_eq!(output, input);
     }
 
-    #[test]
-    #[ignore = "OwnedStream::encode_* unimplemented"]
-    fn test_sequential_ids_for_delta_encoding() {
-        // Sequential IDs should compress well with delta encoding
+    #[rstest]
+    fn test_sequential_ids(
+        #[values(LogicalEncoderStrategy::None)] logical: LogicalEncoderStrategy,
+        #[values(Id32, OptId32, Id64, OptId64)] id_width: IdWithStrategy,
+    ) {
         let input = DecodedId(Some((1..=100).map(Some).collect()));
-        let output = roundtrip(&input, Id64);
+        let config = IdEncodingStrategy { logical, id_width };
+        let output = roundtrip(&input, config);
         assert_eq!(output, input);
+    }
+
+    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
+        use LogicalEncoderStrategy as Enc;
+        prop_oneof![
+            Just(Enc::None),
+            Just(Enc::Delta),
+            Just(Enc::Rle),
+            Just(Enc::DeltaRle),
+        ]
     }
 
     proptest! {
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
-        fn test_roundtrip_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
+        fn test_roundtrip_id32(
+            ids in prop::collection::vec(any::<u32>(), 1..100),
+            logical in logical_codec_strategy()
+        ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-            assert_roundtrip_succeeds(ids_u64, Id32)?;
+            assert_roundtrip_succeeds(ids_u64, IdEncodingStrategy{ id_width: Id32,logical})?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_roundtrip_opt_id32(
-            ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100)
+            ids in prop::collection::vec(prop::option::of(any::<u32>()), 1..100),
+            logical in logical_codec_strategy()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| id.map(u64::from)).collect();
-            assert_roundtrip_succeeds(ids_u64, OptId32)?;
+            assert_roundtrip_succeeds(ids_u64, IdEncodingStrategy{ id_width: OptId32,logical})?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
-        fn test_roundtrip_id64(ids in prop::collection::vec(any::<u64>(), 1..100)) {
+        fn test_roundtrip_id64(
+            ids in prop::collection::vec(any::<u64>(), 1..100),
+            logical in logical_codec_strategy()
+        ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-            assert_roundtrip_succeeds(ids_u64, Id64)?;
+            assert_roundtrip_succeeds(ids_u64, IdEncodingStrategy{ id_width: Id64, logical})?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_roundtrip_opt_id64(
-            ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
+            ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100),
+            logical in logical_codec_strategy()
         ) {
-            assert_roundtrip_succeeds(ids, OptId64)?;
+            assert_roundtrip_succeeds(ids, IdEncodingStrategy{ id_width: OptId64, logical})?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
-        fn test_encodable_trait_api_id32(ids in prop::collection::vec(any::<u32>(), 1..100)) {
+        fn test_encodable_trait_api_id32(
+            ids in prop::collection::vec(any::<u32>(), 1..100),
+            logical in logical_codec_strategy()
+        ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-            assert_encodable_api_works(ids_u64, Id32)?;
+            assert_encodable_api_works(ids_u64, IdEncodingStrategy{ id_width: Id32,logical})?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_encodable_trait_api_opt_id64(
-            ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100)
+            ids in prop::collection::vec(prop::option::of(any::<u64>()), 1..100),
+            logical in logical_codec_strategy()
         ) {
-            assert_encodable_api_works(ids, OptId64)?;
+            assert_encodable_api_works(ids, IdEncodingStrategy{ id_width: OptId64,logical})?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_correct_variant_produced_id32(
-            ids in prop::collection::vec(1u32..1000u32, 1..50)
+            ids in prop::collection::vec(1u32..1000u32, 1..50),
+            logical in logical_codec_strategy()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(u64::from(id))).collect();
-            assert_produces_correct_variant(ids_u64, Id32)?;
+            assert_produces_correct_variant(ids_u64, IdEncodingStrategy{ id_width: Id32,logical})?;
         }
 
         #[test]
-        #[ignore = "OwnedStream::encode_* unimplemented"]
         fn test_correct_variant_produced_id64(
-            ids in prop::collection::vec(any::<u64>(), 1..50)
+            ids in prop::collection::vec(any::<u64>(), 1..50),
+            logical in logical_codec_strategy()
         ) {
             let ids_u64: Vec<Option<u64>> = ids.iter().map(|&id| Some(id)).collect();
-            assert_produces_correct_variant(ids_u64, Id64)?;
+            assert_produces_correct_variant(ids_u64, IdEncodingStrategy{ id_width: Id64,logical})?;
         }
     }
 
@@ -449,7 +481,7 @@ mod tests {
         let input = DecodedId(Some(ids));
         let encoded = OwnedEncodedId::from_decoded(&input, config).expect("Failed to encode");
 
-        if matches!(config, Id32 | OptId32) {
+        if matches!(config.id_width, Id32 | OptId32) {
             prop_assert!(
                 matches!(encoded.value, OwnedEncodedIdValue::Id32(_)),
                 "Expected Id32 variant"
@@ -461,7 +493,7 @@ mod tests {
             );
         }
 
-        if matches!(config, OptId32 | OptId64) {
+        if matches!(config.id_width, OptId32 | OptId64) {
             prop_assert!(
                 encoded.optional.is_some(),
                 "Expected optional stream to be present"
