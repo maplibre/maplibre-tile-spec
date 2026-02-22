@@ -2,8 +2,10 @@ use borrowme::borrowme;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingPhysicalStreamType;
-use crate::utils::parse_u8;
-use crate::v01::{DictionaryType, LengthType, OffsetType};
+use crate::utils::{encode_u32s_to_bytes, encode_u64s_to_bytes, encode_varint, parse_u8};
+use crate::v01::{
+    DictionaryType, LengthType, OffsetType, OwnedDataVarInt, OwnedEncodedData, OwnedStreamData,
+};
 use crate::{MltError, MltRefResult};
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
@@ -75,5 +77,43 @@ pub enum PhysicalCodec {
 impl PhysicalCodec {
     pub fn parse(value: u8) -> Result<Self, MltError> {
         Self::try_from(value).or(Err(MltError::ParsingPhysicalCodec(value)))
+    }
+
+    /// Physically encode a `u32` sequence into the appropriate `OwnedStreamData` variant.
+    pub fn encode_u32s(self, values: Vec<u32>) -> Result<OwnedStreamData, MltError> {
+        match self {
+            Self::None => Ok(OwnedStreamData::Encoded(OwnedEncodedData {
+                data: encode_u32s_to_bytes(&values),
+            })),
+            Self::VarInt => {
+                let mut bytes = Vec::new();
+                for v in values {
+                    encode_varint(&mut bytes, u64::from(v));
+                }
+                Ok(OwnedStreamData::VarInt(OwnedDataVarInt { data: bytes }))
+            }
+            _ => Err(MltError::NotImplemented(
+                "encode_u32s: unsupported physical decoder",
+            )),
+        }
+    }
+
+    /// Physically encode a `u64` sequence into the appropriate `OwnedStreamData` variant.
+    pub fn encode_u64s(self, values: Vec<u64>) -> Result<OwnedStreamData, MltError> {
+        match self {
+            Self::None => Ok(OwnedStreamData::Encoded(OwnedEncodedData {
+                data: encode_u64s_to_bytes(&values),
+            })),
+            Self::VarInt => {
+                let mut bytes = Vec::new();
+                for v in values {
+                    encode_varint(&mut bytes, v);
+                }
+                Ok(OwnedStreamData::VarInt(OwnedDataVarInt { data: bytes }))
+            }
+            _ => Err(MltError::NotImplemented(
+                "encode_u64s: unsupported physical decoder",
+            )),
+        }
     }
 }
