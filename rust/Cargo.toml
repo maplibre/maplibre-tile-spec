@@ -17,12 +17,12 @@ repository = "https://github.com/maplibre/maplibre-tile-spec"
 rust-version = "1.88.0"
 
 [workspace.dependencies]
-derive_builder = "0.20"
 anyhow = "1"
 borrowme = "0.0.15"
 clap = { version = "4.5.58", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
+derive_builder = "0.20"
 fastpfor = "0.6"
 flate2 = "1"
 geo-types = "0.7.18"
