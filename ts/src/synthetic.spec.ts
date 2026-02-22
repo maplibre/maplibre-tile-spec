@@ -73,7 +73,7 @@ function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSO
                 },
             };
             if (safeNumber(feature.id) !== null) {
-                feature.id = safeNumber(feature.id);
+                geojsonFeature.id = safeNumber(feature.id);
             }
             features.push(geojsonFeature);
         }
@@ -102,7 +102,7 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
         case GEOMETRY_TYPE.MULTIPOLYGON:
             return { type: "MultiPolygon", coordinates: coords.map((r) => [r]) };
         default:
-            throw new Error(`Unsupported geometry type: ${geometry.type}`)
+            throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
 }
 

@@ -185,7 +185,14 @@ function decodeIdColumn(
     if (idDataType === ScalarType.UINT_32) {
         switch (vectorType) {
             case VectorType.FLAT: {
-                const id = decodeIntStream(tile, offset, idDataStreamMetadata, false, undefined, typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined);
+                const id = decodeIntStream(
+                    tile,
+                    offset,
+                    idDataStreamMetadata,
+                    false,
+                    undefined,
+                    typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
+                );
                 return new IntFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {
@@ -209,7 +216,13 @@ function decodeIdColumn(
                     const id = decodeLongFloat64Stream(tile, offset, idDataStreamMetadata, false);
                     return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
                 }
-                const id = decodeLongStream(tile, offset, idDataStreamMetadata, false, typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined);
+                const id = decodeLongStream(
+                    tile,
+                    offset,
+                    idDataStreamMetadata,
+                    false,
+                    typeof sizeOrNullabilityBuffer !== "number" ? sizeOrNullabilityBuffer : undefined,
+                );
                 return new LongFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             case VectorType.SEQUENCE: {
