@@ -113,45 +113,33 @@ All integers in metadata sections are `Varint`-encoded (for u32) or bit-packed (
 
 ```mermaid
 ---
-title: FeatureTableSchema
 config:
   class:
     hideEmptyMembersBox: true
+title: FeatureTableSchema
 ---
 classDiagram
-    note for LogicalScalarType "[EXPERIMENTAL]"
-    note for ComplexColumn "[EXPERIMENTAL]"
-    note for ComplexField "[EXPERIMENTAL]"
-    note for ComplexType "[EXPERIMENTAL]"
-    note for LogicalComplexType "[EXPERIMENTAL]"
-    note for Field "[EXPERIMENTAL]"
-    note for ScalarField "[EXPERIMENTAL]"
-
-    %% ---------------- Tile ----------------
+direction TB
     class Tile {
       +LayerGroup[] groups
     }
 
-    %% ---------------- LayerGroup ----------------
     class LayerGroup {
-	  +VarInt metadataSize
-	  +TileMetadata metadata
+      +VarInt metadataSize
+      +TileMetadata metadata
       +u8[] tileData
     }
 
-    %% ---------------- TileMetadata ----------------
     class TileMetadata {
       +FeatureTable[] featureTables
     }
 
-    %% ---------------- FeatureTable ----------------
     class FeatureTable {
       +String name
       +VarInt columnCount
       +Column[] columns
     }
 
-    %% ---------------- Column ----------------
     class Column {
       +ColumnOptions options %% VarInt
       +String name
@@ -159,52 +147,78 @@ classDiagram
       +ComplexColumn complexType
     }
 
-    %% ---------------- ScalarColumn ----------------
+    Tile --> LayerGroup : groups
+    LayerGroup --> TileMetadata : metadata
+    TileMetadata --> FeatureTable : featureTables
+    FeatureTable --> Column : columns
+```
+
+Strings are encoded as UTF-8 sequences of characters with a length header:
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+title: StringsSchema
+---
+classDiagram
+direction TB
+    class String {
+      +VarInt length
+      +u8 bytes[length] %% encoding is always UTF-8
+    }
+```
+
+Columns can be thought of as a union of scalar and complex columns and can have these options:
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+title: ColumnsSchema
+---
+classDiagram
+direction TB
+    class FieldOptions {
+      NULLABLE = 1, %% Property is nullable
+      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType [EXPERIMENTAL]
+      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type [EXPERIMENTAL]
+      CHILD_TYPES = 8, %% 1: Child types are present [EXPERIMENTAL]
+    }
+
+    class ColumnOptions {
+      VERTEX_SCOPE = 16, %% Property is vertex-scope if set, else feature-scope
+    }
+
+    <<enumeration>> FieldOptions
+    <<enumeration>> ColumnOptions
+
+    FieldOptions <|-- ColumnOptions
+```
+
+Scalar columns are laid out as follows:
+
+```mermaid
+---
+config:
+  class:
+    hideEmptyMembersBox: true
+title: ScalarColumnsSchema
+---
+classDiagram
+direction TB
+    class Column {
+    }
+
     class ScalarColumn {
       +ScalarColumnOptions options %% VarInt
       +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalScalarType logicalType
     }
 
-    %% ---------------- ComplexColumn [EXPERIMENTAL] ----------------
-    class ComplexColumn {
-      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
-      +LogicalComplexType logicalType
-      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
-      +Field[] children
-    }
-
-    %% ---------------- Field ----------------
-    class Field {
-      +FieldOptions options %% VarInt
-      +String name
-      +ScalarField scalarField %% oneof i.e., scalarField XOR complexField
-      +ComplexField complexField
-    }
-
-    %% ---------------- ScalarField ----------------
-    class ScalarField {
-      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
-      +LogicalScalarType logicalType
-    }
-
-    %% ---------------- ComplexField [EXPERIMENTAL] ----------------
-    class ComplexField {
-      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
-      +LogicalComplexType logicalType
-      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
-      +Field[] children
-    }
-
-    %% ---------------- String ------------------
-    class String {
-      +VarInt length
-      +u8 bytes[length] %% encoding is always UTF-8
-    }
-
-    %% ---------------- Enumerations ----------------
     class ScalarType {
-      <<enumeration>>
       BOOLEAN = 0
       INT_8 = 1
       UINT_8 = 2
@@ -220,14 +234,59 @@ classDiagram
     }
 
     class LogicalScalarType {
-      <<enumeration>>
       TIMESTAMP = 0
       DATE = 1
       JSON = 2
     }
 
+    <<enumeration>> ScalarType
+    <<enumeration>> LogicalScalarType
+
+    note for LogicalScalarType "[EXPERIMENTAL]"
+
+    Column --> ScalarColumn : scalarType
+    ScalarColumn --> ScalarType : physicalType
+    ScalarColumn --> LogicalScalarType : logicalType
+```
+
+And `ComplexColumns` like this:
+
+```mermaid
+---
+title: ComplexColumnsSchema
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+direction TB
+    class ComplexColumn {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
+    class Field {
+      +FieldOptions options %% VarInt
+      +String name
+      +ScalarField scalarField %% oneof i.e., scalarField XOR complexField
+      +ComplexField complexField
+    }
+
+    class ScalarField {
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalScalarType logicalType
+    }
+
+    class ComplexField {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
     class ComplexType {
-      <<enumeration>>
       VEC_2 = 0
       VEC_3 = 1
       GEOMETRY = 2
@@ -238,31 +297,23 @@ classDiagram
     }
 
     class LogicalComplexType {
-      <<enumeration>>
       BINARY = 0
       RANGE_MAP = 1
     }
 
-    class FieldOptions {
-      <<enumeration>>
-      NULLABLE = 1, %% Property is nullable
-      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType [EXPERIMENTAL]
-      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type [EXPERIMENTAL]
-      CHILD_TYPES = 8, %% 1: Child types are present [EXPERIMENTAL]
+    class Column {
     }
 
-    class ColumnOptions {
-      <<enumeration>>
-      VERTEX_SCOPE = 16, %% Property is vertex-scope if set, else feature-scope
-    }
+    <<enumeration>> ComplexType
+    <<enumeration>> LogicalComplexType
 
-    %% ---------------- Associations ----------------
-    FieldOptions <|-- ColumnOptions
-    Tile --> LayerGroup : groups
-	LayerGroup --> TileMetadata : metadata
-    TileMetadata --> FeatureTable : featureTables
-    FeatureTable --> Column : columns
-    Column --> ScalarColumn : scalarType
+    note for ComplexColumn "[EXPERIMENTAL]"
+    note for ComplexField "[EXPERIMENTAL]"
+    note for ComplexType "[EXPERIMENTAL]"
+    note for LogicalComplexType "[EXPERIMENTAL]"
+    note for Field "[EXPERIMENTAL]"
+    note for ScalarField "[EXPERIMENTAL]"
+
     Column --> ComplexColumn : complexType
     ComplexColumn --> Field : children
     ComplexField --> Field : children
@@ -287,23 +338,23 @@ Fixed-size binaries have a consistent bit (boolean) or byte width and thus requi
 
 Each scalar type uses a specific encoding scheme for its data stream.
 
-| Data Type                                   | Logical Types                   | Description                          | Layout        |
-| ------------------------------------------- | ------------------------------- | ------------------------------------ | ------------- |
-| Boolean                                     |                                 |                                      | Fixed-Size    |
-| Int8, UInt8, Int32, UInt32, Int64, UInt64  | Date (int32), Timestamp (int64) |                                      | Fixed-Size    |
-| Float, Double                               |                                 |                                      | Fixed-Size    |
-| String                                      | JSON                            | UTF-8 encoded sequence of characters | Variable-Size |
+| Data Type                         | Logical Types               | Description                    | Layout      |
+|-------------------------------------------|---------------------------------|--------------------------------------|---------------|
+| Boolean                           |                         |                              | Fixed-Size    |
+| Int8, UInt8, Int32, UInt32, Int64, UInt64 | Date (int32), Timestamp (int64) |                              | Fixed-Size    |
+| Float, Double                       |                         |                              | Fixed-Size    |
+| String                            | JSON                      | UTF-8 encoded sequence of characters | Variable-Size |
 
 **Complex Types <span class="experimental"></span>**
 
 Complex types are composed of scalar types.
 
-| Data Type | Logical Types        | Description                                        | Layout        |
-| --------- | -------------------- | -------------------------------------------------- | ------------- |
-| List      | Binary (List<UInt8>) |                                                    | Variable-Size |
-| Map       | Map<vec2d, T>        | Additional key stream -> length, key, data streams | Variable-Size |
-| Struct    |                      |                                                    |               |
-| Vec2<T>, Vec3<T> | Geometry, GeometryZ |                                                    | Fixed-Size    |
+| Data Type      | Logical Types      | Description                              | Layout      |
+|------------------|----------------------|----------------------------------------------------|---------------|
+| List           | Binary (List<UInt8>) |                                        | Variable-Size |
+| Map            | Map<vec2d, T>      | Additional key stream -> length, key, data streams | Variable-Size |
+| Struct         |                  |                                        |             |
+| Vec2<T>, Vec3<T> | Geometry, GeometryZ  |                                        | Fixed-Size    |
 
 ### Logical Types <span class="experimental"></span>
 
@@ -313,15 +364,15 @@ Complex types are composed of scalar types.
 
 Logical types add semantics on top of physical types, enabling code reuse and simplifying encoder/decoder implementation.
 
-| Logical Type | Physical Type             | Description                                |
-| ------------ | ------------------------- | ------------------------------------------ |
-| Date         | Int32                     | Number of days since Unix epoch            |
-| Timestamp    | Int64                     | Number of milliseconds since Unix epoch    |
-| RangeMap     | Map<vec2<Double>, T>      | For storing linear referencing information |
-| Binary       | List<UInt8>               |                                            |
-| JSON         | String                    |                                            |
-| Geometry     | vec2<Int32>               |                                            |
-| GeometryZ    | vec3<Int32>               |                                            |
+| Logical Type | Physical Type      | Description                        |
+|--------------|----------------------|--------------------------------------------|
+| Date       | Int32            | Number of days since Unix epoch          |
+| Timestamp    | Int64            | Number of milliseconds since Unix epoch    |
+| RangeMap     | Map<vec2<Double>, T> | For storing linear referencing information |
+| Binary       | List<UInt8>        |                                  |
+| JSON       | String             |                                  |
+| Geometry     | vec2<Int32>        |                                  |
+| GeometryZ    | vec3<Int32>        |                                  |
 
 ### Nested Fields Encoding
 
@@ -347,7 +398,7 @@ For example, integer columns resulting from dictionary encoding can be further c
 
 The following encoding pool was selected based on analysis of compression ratio and decoding speed on test datasets like OpenMapTiles and Bing Maps tilesets.
 
-| Data Type | Logical Level Technique      | Physical Level Technique            | Description |
+| Data Type | Logical Level Technique      | Physical Level Technique          | Description |
 | --------- | ---------------------------- | ----------------------------------- | ----------- |
 | Boolean   | [Boolean RLE](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) | | |
 | Integer   | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](https://arxiv.org/pdf/1209.2137.pdf), [Varint](https://protobuf.dev/programming-guides/encoding/#varints) | |
@@ -388,15 +439,15 @@ Pre-tessellated polygon meshes can also be stored directly to avoid runtime tria
 
 A geometry column can consist of the following streams:
 
-| Stream Name    | Data Type | Encoding           | Mandatory |
+| Stream Name    | Data Type | Encoding         | Mandatory |
 | -------------- | :-------: | ------------------ | :-------: |
 | GeometryType  |   Byte    | Integer |     ✓     |
-| NumGeometries |   UInt32  | Integer |           |
-| NumParts      |   UInt32  | Integer |           |
-| NumRings      |   UInt32  | Integer |           |
-| NumTriangles  |   UInt32  | Integer |           |
-| IndexBuffer   |   UInt32  | Integer |           |
-| VertexOffsets |   UInt32  | Integer |           |
+| NumGeometries |   UInt32  | Integer |         |
+| NumParts      |   UInt32  | Integer |         |
+| NumRings      |   UInt32  | Integer |         |
+| NumTriangles  |   UInt32  | Integer |         |
+| IndexBuffer   |   UInt32  | Integer |         |
+| VertexOffsets |   UInt32  | Integer |         |
 | VertexBuffer  | Int32 or Vertex[] | Plain, Dictionary, Morton |     ✓     |
 
 Depending on the geometry type, the following streams are used in addition to `GeometryType`:
