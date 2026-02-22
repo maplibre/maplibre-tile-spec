@@ -177,6 +177,13 @@ mod tests {
     }
 
     #[test]
+    fn test_decode_componentwise_delta_vec2s() {
+        let values = &[1_u32, 2, 3, 4];
+        let decoded = decode_componentwise_delta_vec2s::<i32>(values).unwrap();
+        assert_eq!(&decoded, &[-1_i32,1,-3,3])
+    }
+
+    #[test]
     fn test_decode_zigzag_i32() {
         let encoded_u32 = [0u32, 1, 2, 3, 4, 5, u32::MAX];
         let expected_i32 = [0i32, -1, 1, -2, 2, -3, i32::MIN];
