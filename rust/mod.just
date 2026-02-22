@@ -169,6 +169,9 @@ py: (just 'cargo-install' 'maturin')
     maturin develop --features extension-module
     python3 -i -c "import mlt_pyo3; print('mlt_pyo3 ready — try: mlt_pyo3.decode_mlt(data)')"
 
+py-publish:
+    docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
+
 # Run cargo-release
 release *args='': (just 'cargo-install' 'release-plz')
     release-plz {{args}}
