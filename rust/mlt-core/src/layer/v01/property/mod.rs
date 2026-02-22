@@ -1,5 +1,4 @@
 mod decode;
-mod encode;
 
 use std::fmt::{self, Debug};
 use std::io::Write;
