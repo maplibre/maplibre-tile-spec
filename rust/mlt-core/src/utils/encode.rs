@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use integer_encoding::VarInt as _;
 use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
@@ -34,7 +32,7 @@ pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(data: &[T
     encode_zigzag(&encode_delta(data))
 }
 
-pub fn encode_rle<T: PrimInt + Debug>(data: &[T]) -> (Vec<T>, Vec<T>) {
+pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
     if data.is_empty() {
         return (Vec::new(), Vec::new());
     }
