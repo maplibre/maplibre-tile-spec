@@ -40,6 +40,29 @@ const skippedTests = testNames
     .map((name) => [name, UNIMPLEMENTED_SYNTHETICS.get(name)] as const);
 
 describe("MLT Decoder - Synthetic tests", () => {
+    /**
+     * This adds number handing comparison logic to vitest for number which are close enough, but would fail the regular comparison.
+     */
+    expect.addEqualityTesters([
+        (received, expected) => {
+            if (typeof received === "number" && typeof expected === "number") {
+                // Handle Infinity/NaN
+                if (!Number.isFinite(expected)) return Object.is(received, expected);
+
+                // Handle Close to Zero
+                if (Math.abs(expected) < ABSOLUTE_FLOAT_TOLERANCE) {
+                    return Math.abs(received) <= ABSOLUTE_FLOAT_TOLERANCE;
+                }
+
+                // Handle Relative Tolerance
+                const relativeError = Math.abs(received - expected) / Math.abs(expected);
+                return relativeError <= RELATIVE_FLOAT_TOLERANCE;
+            }
+            // Return undefined to let Vitest handle non-number types normally
+            return undefined;
+        },
+    ]);
+
     for (const testName of activeList) {
         it(`should decode ${testName}`, async () => {
             const [mltBuffer, jsonRaw] = await Promise.all([
@@ -49,7 +72,7 @@ describe("MLT Decoder - Synthetic tests", () => {
 
             const featureTables = decodeTile(mltBuffer, null, false);
             const actualJson = featureTablesToFeatureCollection(featureTables);
-            const expectedJson = wrapWithMatchers(JSON5.parse(jsonRaw));
+            const expectedJson = JSON5.parse(jsonRaw);
             expect(actualJson).toEqual(expectedJson);
         });
     }
@@ -105,50 +128,3 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
 }
-
-type MatchableValue = string | number | boolean | null | MatchableValue[] | { [key: string]: MatchableValue };
-function wrapWithMatchers<T extends MatchableValue>(value: T): T {
-    if (typeof value === "number" && Number.isFinite(value) && !Number.isSafeInteger(value)) {
-        // We cast to T because Vitest matchers are designed to be
-        return (expect as any).toBeRelativelyClose(value) as T;
-    }
-    if (Array.isArray(value)) {
-        return value.map(wrapWithMatchers) as unknown as T;
-    }
-    if (value !== null && typeof value === "object") {
-        return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, wrapWithMatchers(v)])) as unknown as T;
-    }
-    return value;
-}
-
-/** Custom Vitest Matcher */
-expect.extend({
-    toBeRelativelyClose(received: number, expected: number) {
-        // Handle Infinity, -Infinity, and NaN
-        if (!Number.isFinite(expected)) {
-            const pass = Object.is(received, expected); // Object.is handles NaN correctly
-            return {
-                pass,
-                message: () => `expected ${received} to be exactly ${expected}`,
-            };
-        }
-
-        const isCloseToZero = Math.abs(expected) < ABSOLUTE_FLOAT_TOLERANCE;
-        if (isCloseToZero) {
-            const pass = Math.abs(received) <= ABSOLUTE_FLOAT_TOLERANCE;
-            return {
-                pass,
-                message: () => `expected ${received} to be close to 0 (precision: ${ABSOLUTE_FLOAT_TOLERANCE})`,
-            };
-        }
-
-        const relativeError = Math.abs(received - expected) / Math.abs(expected);
-        const pass = relativeError <= RELATIVE_FLOAT_TOLERANCE;
-
-        return {
-            pass,
-            message: () =>
-                `expected ${received} to be close to ${expected} (error: ${(relativeError * 100).toFixed(6)}%)`,
-        };
-    },
-});
