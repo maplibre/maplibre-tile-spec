@@ -62,7 +62,35 @@ MLT defines the following stream types:
 
 These physical streams are further categorized into logical streams that define how to interpret the data:
 
-![](assets/spec/LogicalStreams.png)
+```mermaid
+classDiagram
+    class DictionaryLogicalStreamType {
+        <<enumeration>>
+        Single
+        Shared
+        Vertex
+        Morton
+        FSST
+    }
+
+    class OffsetLogicalStreamType {
+        <<enumeration>>
+        Vertex
+        Index
+        String
+        Key
+    }
+
+    class LengthLogicalStreamType {
+        <<enumeration>>
+        Geometries
+        Parts
+        Rings
+        Triangles
+        Symbol
+        Dictionary
+    }
+```
 
 ## Metadata
 

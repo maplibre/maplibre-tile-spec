@@ -59,6 +59,25 @@ pub fn decode_rle<T: PrimInt + Debug>(
     }
     Ok(result)
 }
+/// Decode a slice of bytes into a vector of u64 values assuming little-endian encoding
+pub fn decode_bytes_to_u64s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u64>> {
+    let expected_bytes = num_values as usize * 8;
+    if input.len() < expected_bytes {
+        return Err(BufferUnderflow(expected_bytes, input.len()));
+    }
+
+    let mut values = Vec::with_capacity(num_values as usize);
+    for _ in 0..num_values {
+        let (new_input, bytes) = take(input, 8)?;
+        let value = u64::from_le_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        ]);
+        values.push(value);
+        input = new_input;
+    }
+    Ok((input, values))
+}
+
 /// Decode a slice of bytes into a vector of u32 values assuming little-endian encoding
 pub fn decode_bytes_to_u32s(mut input: &[u8], num_values: u32) -> MltRefResult<'_, Vec<u32>> {
     let expected_bytes = num_values as usize * 4;
@@ -177,6 +196,13 @@ mod tests {
     }
 
     #[test]
+    fn test_decode_componentwise_delta_vec2s() {
+        let values = &[1_u32, 2, 3, 4];
+        let decoded = decode_componentwise_delta_vec2s::<i32>(values).unwrap();
+        assert_eq!(&decoded, &[-1_i32, 1, -3, 3]);
+    }
+
+    #[test]
     fn test_decode_zigzag_i32() {
         let encoded_u32 = [0u32, 1, 2, 3, 4, 5, u32::MAX];
         let expected_i32 = [0i32, -1, 1, -2, 2, -3, i32::MIN];
@@ -190,6 +216,20 @@ mod tests {
         let expected_i64 = [0i64, -1, 1, -2, 2, -3, i64::MIN];
         let decoded_i64 = decode_zigzag::<i64>(&encoded_u64);
         assert_eq!(decoded_i64, expected_i64);
+    }
+
+    #[test]
+    fn test_decode_u64() {
+        let bytes = [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0];
+        let expected = (&[][..], vec![1, 2]);
+        assert_eq!(decode_bytes_to_u64s(&bytes, 2).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_decode_u32() {
+        let bytes = [1, 0, 0, 0, 2, 0, 0, 0];
+        let expected = (&[][..], vec![1, 2]);
+        assert_eq!(decode_bytes_to_u32s(&bytes, 2).unwrap(), expected);
     }
 
     #[test]

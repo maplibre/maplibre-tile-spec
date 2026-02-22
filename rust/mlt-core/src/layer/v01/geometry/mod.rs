@@ -5,6 +5,7 @@ use std::io::Write;
 use std::ops::Range;
 
 use borrowme::borrowme;
+use derive_builder::Builder;
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
@@ -17,7 +18,9 @@ use crate::analyse::{Analyze, StatType};
 use crate::decode::{FromEncoded, impl_decodable};
 use crate::encode::impl_encodable;
 use crate::geojson::{Coord32, Geom32 as GeoGeom};
-use crate::utils::{BinarySerializer as _, OptSeq, SetOptionOnce as _};
+use crate::utils::{
+    BinarySerializer as _, OptSeq, SetOptionOnce as _, encode_componentwise_delta_vec2s,
+};
 use crate::v01::column::ColumnType;
 use crate::v01::geometry::decode::{
     decode_geometry_types, decode_level1_length_stream,
@@ -25,8 +28,9 @@ use crate::v01::geometry::decode::{
     decode_root_length_stream,
 };
 use crate::v01::{
-    DictionaryType, LengthType, LogicalCodec, OffsetType, OwnedEncodedData, OwnedStream,
-    OwnedStreamData, PhysicalCodec, PhysicalStreamType, Stream, StreamMeta,
+    DictionaryType, LengthType, LogicalCodec, LogicalEncoding, OffsetType, OwnedEncodedData,
+    OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalEncoding, PhysicalStreamType, Stream,
+    StreamMeta,
 };
 use crate::{FromDecoded, MltError};
 
@@ -333,18 +337,59 @@ impl_decodable!(Geometry<'a>, EncodedGeometry<'a>, DecodedGeometry);
 impl_encodable!(OwnedGeometry, DecodedGeometry, OwnedEncodedGeometry);
 
 /// How to encode Geometry
-#[derive(Debug, Clone, Copy)]
-pub enum GeometryEncodingStrategy {}
+#[derive(Debug, Clone, Copy, Builder)]
+pub struct GeometryEncodingStrategy {
+    /// Logical encoding for the geometry types (meta) stream.
+    meta_logical: LogicalEncoding,
+    /// Physical codec for the geometry types (meta) stream.
+    meta_physical: PhysicalEncoding,
+    /// Physical codec for the vertex data stream.
+    ///
+    /// The logical codec is always [`LogicalCodec::ComponentwiseDelta`]
+    vertex_physical: PhysicalEncoding,
+}
 
 impl FromDecoded<'_> for OwnedEncodedGeometry {
     type Input = DecodedGeometry;
     type EncodingStrategy = GeometryEncodingStrategy;
 
     fn from_decoded(
-        _decoded: &Self::Input,
-        _config: Self::EncodingStrategy,
+        decoded: &Self::Input,
+        config: Self::EncodingStrategy,
     ) -> Result<Self, MltError> {
-        Err(NotImplemented("geometry encoding"))
+        for &vt in &decoded.vector_types {
+            if vt != GeometryType::Point {
+                // FIXME: We have more than just GeometryType::Point !!!
+                return Err(NotImplemented("geometry encoding for non-Point types"));
+            }
+        }
+
+        // Meta stream
+        let types_as_u32: Vec<u32> = decoded.vector_types.iter().map(|&t| t as u32).collect();
+        let meta =
+            OwnedStream::encode_u32s(&types_as_u32, config.meta_logical, config.meta_physical)?;
+
+        // Vertex stream: componentwise delta + zigzag
+        let vertices = decoded.vertices.as_deref().unwrap_or(&[]);
+        let items = if vertices.is_empty() {
+            vec![]
+        } else {
+            let encoded = encode_componentwise_delta_vec2s(vertices);
+            let num_values = u32::try_from(encoded.len())?;
+            let (data, physical_codec) = config.vertex_physical.encode_u32s(encoded);
+            let vertex_stream = OwnedStream {
+                meta: StreamMeta {
+                    physical_type: PhysicalStreamType::Data(DictionaryType::Vertex),
+                    num_values,
+                    logical_codec: LogicalCodec::ComponentwiseDelta,
+                    physical_codec,
+                },
+                data,
+            };
+            vec![vertex_stream]
+        };
+
+        Ok(Self { meta, items })
     }
 }
 
@@ -531,3 +576,72 @@ impl<'a> FromEncoded<'a> for DecodedGeometry {
 //         }
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    fn logical_encoding_strategy() -> impl Strategy<Value = LogicalEncoding> {
+        prop_oneof![
+            Just(LogicalEncoding::None),
+            Just(LogicalEncoding::Delta),
+            Just(LogicalEncoding::Rle),
+            Just(LogicalEncoding::DeltaRle),
+        ]
+    }
+
+    fn physical_encoding_strategy() -> impl Strategy<Value = PhysicalEncoding> {
+        prop_oneof![Just(PhysicalEncoding::None), Just(PhysicalEncoding::VarInt),]
+    }
+
+    fn geometry_encoding_strategy() -> impl Strategy<Value = GeometryEncodingStrategy> {
+        (
+            logical_encoding_strategy(),
+            physical_encoding_strategy(),
+            physical_encoding_strategy(),
+        )
+            .prop_map(|(meta_logical, meta_physical, vertex_physical)| {
+                GeometryEncodingStrategy {
+                    meta_logical,
+                    meta_physical,
+                    vertex_physical,
+                }
+            })
+    }
+
+    fn geometry_roundtrip(
+        decoded: &DecodedGeometry,
+        strategy: GeometryEncodingStrategy,
+    ) -> DecodedGeometry {
+        let encoded =
+            OwnedEncodedGeometry::from_decoded(decoded, strategy).expect("encoding failed");
+        let borrowed = borrowme::borrow(&encoded);
+        DecodedGeometry::from_encoded(borrowed).expect("decoding failed")
+    }
+
+    proptest! {
+        #[test]
+        fn test_point_roundtrip(
+            coords in prop::collection::vec([any::<i32>(), any::<i32>()], 0..100),
+            strategy in geometry_encoding_strategy(),
+        ) {
+            let vector_types = vec![GeometryType::Point; coords.len()];
+            let vertices: Vec<i32> = coords.into_iter().flatten().collect();
+
+            let decoded = DecodedGeometry {
+                vector_types,
+                vertices: if vertices.is_empty() { None } else { Some(vertices) },
+                geometry_offsets: None,
+                part_offsets: None,
+                ring_offsets: None,
+                vertex_offsets: None,
+                index_buffer: None,
+                triangles: None,
+            };
+
+            prop_assert_eq!(geometry_roundtrip(&decoded, strategy), decoded);
+        }
+    }
+}
