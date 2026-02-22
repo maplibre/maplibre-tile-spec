@@ -287,7 +287,7 @@ Decode:
 
 ```
 Streams:
-  META: types = [2]          // Polygon  
+  META: types = [2]          // Polygon
   LENGTH/PARTS: [2]          // 2 rings (exterior + 1 hole)
   LENGTH/RINGS: [4, 4]       // 4 vertices each ring
   DATA/VERTEX: [...]         // 8 vertices total
@@ -329,7 +329,7 @@ A single column can contain mixed geometry types. The decoding logic handles thi
 Streams:
   META: types = [0, 1, 2]
   LENGTH/PARTS: [3, 1]       // LineString: 3 verts, Polygon: 1 ring
-  LENGTH/RINGS: [4]          // Polygon ring: 4 verts  
+  LENGTH/RINGS: [4]          // Polygon ring: 4 verts
   DATA/VERTEX: [...]         // 1 + 3 + 4 = 8 vertices
 
 Decode:
