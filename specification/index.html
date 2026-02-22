@@ -567,45 +567,33 @@ All integers in metadata sections are <code>Varint</code>-encoded (for u32) or b
 </button>
     </nav>
     <pre class="mermaid"><code>---
-title: FeatureTableSchema
 config:
   class:
     hideEmptyMembersBox: true
+title: FeatureTableSchema
 ---
 classDiagram
-    note for LogicalScalarType "[EXPERIMENTAL]"
-    note for ComplexColumn "[EXPERIMENTAL]"
-    note for ComplexField "[EXPERIMENTAL]"
-    note for ComplexType "[EXPERIMENTAL]"
-    note for LogicalComplexType "[EXPERIMENTAL]"
-    note for Field "[EXPERIMENTAL]"
-    note for ScalarField "[EXPERIMENTAL]"
-
-    %% ---------------- Tile ----------------
+direction TB
     class Tile {
       +LayerGroup[] groups
     }
 
-    %% ---------------- LayerGroup ----------------
     class LayerGroup {
       +VarInt metadataSize
       +TileMetadata metadata
       +u8[] tileData
     }
 
-    %% ---------------- TileMetadata ----------------
     class TileMetadata {
       +FeatureTable[] featureTables
     }
 
-    %% ---------------- FeatureTable ----------------
     class FeatureTable {
       +String name
       +VarInt columnCount
       +Column[] columns
     }
 
-    %% ---------------- Column ----------------
     class Column {
       +ColumnOptions options %% VarInt
       +String name
@@ -613,52 +601,117 @@ classDiagram
       +ComplexColumn complexType
     }
 
-    %% ---------------- ScalarColumn ----------------
+    Tile --&gt; LayerGroup : groups
+    LayerGroup --&gt; TileMetadata : metadata
+    TileMetadata --&gt; FeatureTable : featureTables
+    FeatureTable --&gt; Column : columns</code></pre> 
+    <div class="panzoom-info-box panzoom-info-box-bottom panzoom-hidden">
+Hold "Alt" / "Option" to enable pan &amp; zoom
+</div>
+</div>
+<p>Strings are encoded as UTF-8 sequences of characters with a length header:</p>
+<div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
+    
+    <nav class="panzoom-nav">
+    <button class="panzoom-info panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"></path>
+    </svg>
+</button><button class="panzoom-reset panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M125.7 160l50.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L48 224c-17.7 0-32-14.3-32-32L16 64c0-17.7 14.3-32 32-32s32 14.3 32 32l0 51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"></path>
+    </svg>
+</button>
+    </nav>
+    <pre class="mermaid"><code>---
+config:
+  class:
+    hideEmptyMembersBox: true
+title: StringsSchema
+---
+classDiagram
+direction TB
+    class String {
+      +VarInt length
+      +u8 bytes[length] %% encoding is always UTF-8
+    }</code></pre> 
+    <div class="panzoom-info-box panzoom-info-box-bottom panzoom-hidden">
+Hold "Alt" / "Option" to enable pan &amp; zoom
+</div>
+</div>
+<p>Columns can be thought of as a union of scalar and complex columns and can have these options:</p>
+<div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
+    
+    <nav class="panzoom-nav">
+    <button class="panzoom-info panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"></path>
+    </svg>
+</button><button class="panzoom-reset panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M125.7 160l50.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L48 224c-17.7 0-32-14.3-32-32L16 64c0-17.7 14.3-32 32-32s32 14.3 32 32l0 51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"></path>
+    </svg>
+</button>
+    </nav>
+    <pre class="mermaid"><code>---
+config:
+  class:
+    hideEmptyMembersBox: true
+title: ColumnsSchema
+---
+classDiagram
+direction TB
+    class FieldOptions {
+      NULLABLE = 1, %% Property is nullable
+      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType [EXPERIMENTAL]
+      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type [EXPERIMENTAL]
+      CHILD_TYPES = 8, %% 1: Child types are present [EXPERIMENTAL]
+    }
+
+    class ColumnOptions {
+      VERTEX_SCOPE = 16, %% Property is vertex-scope if set, else feature-scope
+    }
+
+    &lt;&lt;enumeration&gt;&gt; FieldOptions
+    &lt;&lt;enumeration&gt;&gt; ColumnOptions
+
+    FieldOptions &lt;|-- ColumnOptions</code></pre> 
+    <div class="panzoom-info-box panzoom-info-box-bottom panzoom-hidden">
+Hold "Alt" / "Option" to enable pan &amp; zoom
+</div>
+</div>
+<p>Scalar columns are laid out as follows:</p>
+<div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
+    
+    <nav class="panzoom-nav">
+    <button class="panzoom-info panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"></path>
+    </svg>
+</button><button class="panzoom-reset panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M125.7 160l50.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L48 224c-17.7 0-32-14.3-32-32L16 64c0-17.7 14.3-32 32-32s32 14.3 32 32l0 51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"></path>
+    </svg>
+</button>
+    </nav>
+    <pre class="mermaid"><code>---
+config:
+  class:
+    hideEmptyMembersBox: true
+title: ScalarColumnsSchema
+---
+classDiagram
+direction TB
+    class Column {
+    }
+
     class ScalarColumn {
       +ScalarColumnOptions options %% VarInt
       +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
       +LogicalScalarType logicalType
     }
 
-    %% ---------------- ComplexColumn [EXPERIMENTAL] ----------------
-    class ComplexColumn {
-      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
-      +LogicalComplexType logicalType
-      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
-      +Field[] children
-    }
-
-    %% ---------------- Field ----------------
-    class Field {
-      +FieldOptions options %% VarInt
-      +String name
-      +ScalarField scalarField %% oneof i.e., scalarField XOR complexField
-      +ComplexField complexField
-    }
-
-    %% ---------------- ScalarField ----------------
-    class ScalarField {
-      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
-      +LogicalScalarType logicalType
-    }
-
-    %% ---------------- ComplexField [EXPERIMENTAL] ----------------
-    class ComplexField {
-      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
-      +LogicalComplexType logicalType
-      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
-      +Field[] children
-    }
-
-    %% ---------------- String ------------------
-    class String {
-      +VarInt length
-      +u8 bytes[length] %% encoding is always UTF-8
-    }
-
-    %% ---------------- Enumerations ----------------
     class ScalarType {
-      &lt;&lt;enumeration&gt;&gt;
       BOOLEAN = 0
       INT_8 = 1
       UINT_8 = 2
@@ -674,14 +727,72 @@ classDiagram
     }
 
     class LogicalScalarType {
-      &lt;&lt;enumeration&gt;&gt;
       TIMESTAMP = 0
       DATE = 1
       JSON = 2
     }
 
+    &lt;&lt;enumeration&gt;&gt; ScalarType
+    &lt;&lt;enumeration&gt;&gt; LogicalScalarType
+
+    note for LogicalScalarType "[EXPERIMENTAL]"
+
+    Column --&gt; ScalarColumn : scalarType
+    ScalarColumn --&gt; ScalarType : physicalType
+    ScalarColumn --&gt; LogicalScalarType : logicalType</code></pre> 
+    <div class="panzoom-info-box panzoom-info-box-bottom panzoom-hidden">
+Hold "Alt" / "Option" to enable pan &amp; zoom
+</div>
+</div>
+<p>And <code>ComplexColumns</code> like this:</p>
+<div class="panzoom-box" data-key="alt" id="panzoom0" oncontextmenu="return false;">
+    
+    <nav class="panzoom-nav">
+    <button class="panzoom-info panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm169.8-90.7c7.9-22.3 29.1-37.3 52.8-37.3l58.3 0c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24l0-13.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1l-58.3 0c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"></path>
+    </svg>
+</button><button class="panzoom-reset panzoom-button">
+    <svg class="panzoom-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <path d="M125.7 160l50.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L48 224c-17.7 0-32-14.3-32-32L16 64c0-17.7 14.3-32 32-32s32 14.3 32 32l0 51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"></path>
+    </svg>
+</button>
+    </nav>
+    <pre class="mermaid"><code>---
+title: ComplexColumnsSchema
+config:
+  class:
+    hideEmptyMembersBox: true
+---
+classDiagram
+direction TB
+    class ComplexColumn {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
+    class Field {
+      +FieldOptions options %% VarInt
+      +String name
+      +ScalarField scalarField %% oneof i.e., scalarField XOR complexField
+      +ComplexField complexField
+    }
+
+    class ScalarField {
+      +ScalarType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalScalarType logicalType
+    }
+
+    class ComplexField {
+      +ComplexType physicalType %% oneof i.e., physicalType XOR logicalType
+      +LogicalComplexType logicalType
+      +VarInt childCount %% Present only if CHILD_TYPES is set in columnOptions
+      +Field[] children
+    }
+
     class ComplexType {
-      &lt;&lt;enumeration&gt;&gt;
       VEC_2 = 0
       VEC_3 = 1
       GEOMETRY = 2
@@ -692,31 +803,23 @@ classDiagram
     }
 
     class LogicalComplexType {
-      &lt;&lt;enumeration&gt;&gt;
       BINARY = 0
       RANGE_MAP = 1
     }
 
-    class FieldOptions {
-      &lt;&lt;enumeration&gt;&gt;
-      NULLABLE = 1, %% Property is nullable
-      COMPLEX_TYPE = 2, %% A complexType follows if set, else a scalarType [EXPERIMENTAL]
-      LOGICAL_TYPE = 4, %% A logical type follows if set, else a physical type [EXPERIMENTAL]
-      CHILD_TYPES = 8, %% 1: Child types are present [EXPERIMENTAL]
+    class Column {
     }
 
-    class ColumnOptions {
-      &lt;&lt;enumeration&gt;&gt;
-      VERTEX_SCOPE = 16, %% Property is vertex-scope if set, else feature-scope
-    }
+    &lt;&lt;enumeration&gt;&gt; ComplexType
+    &lt;&lt;enumeration&gt;&gt; LogicalComplexType
 
-    %% ---------------- Associations ----------------
-    FieldOptions &lt;|-- ColumnOptions
-    Tile --&gt; LayerGroup : groups
-    LayerGroup --&gt; TileMetadata : metadata
-    TileMetadata --&gt; FeatureTable : featureTables
-    FeatureTable --&gt; Column : columns
-    Column --&gt; ScalarColumn : scalarType
+    note for ComplexColumn "[EXPERIMENTAL]"
+    note for ComplexField "[EXPERIMENTAL]"
+    note for ComplexType "[EXPERIMENTAL]"
+    note for LogicalComplexType "[EXPERIMENTAL]"
+    note for Field "[EXPERIMENTAL]"
+    note for ScalarField "[EXPERIMENTAL]"
+
     Column --&gt; ComplexColumn : complexType
     ComplexColumn --&gt; Field : children
     ComplexField --&gt; Field : children
