@@ -26,8 +26,8 @@ Each feature must have
 While geometries are not restricted to a single type, using one type per table is recommended for efficiency.
 As in MVT, geometry coordinates are encoded as integers within vector tile grid coordinates.
 
-> [!NOTE]
-> The terms `column`, `field`, and `property` are used interchangeably in this document.
+!!! NOTE
+    The terms `column`, `field`, and `property` are used interchangeably in this document.
 
 # Tile Layout
 
@@ -96,9 +96,9 @@ classDiagram
 
 ### Tileset Metadata <span class="experimental"></span>
 
-> [!NOTE]
-> Tileset metadata was initially implemented as a size reduction experiment.
-> This feature is not currently supported.
+!!! NOTE
+    Tileset metadata was initially implemented as a size reduction experiment.
+    This feature is not currently supported.
 
 Global metadata for the entire tileset is stored separately in a [JSON file](assets/spec/mlt_tileset_metadata.json).
 
@@ -112,10 +112,10 @@ There is no global tile header.  Each `FeatureTable` has its own metadata.
 
 Each `FeatureTable` is preceded by a `FeatureTableMetadata` section describing it.
 
-> [!CAUTION]
-> This is not clear, and possibly incorrect.
-> Why any number?
-> Should the size of the upcoming metadata and table be part of that structure?
+!!! CAUTION
+    This is not clear, and possibly incorrect.
+    Why any number?
+    Should the size of the upcoming metadata and table be part of that structure?
 
 A FeatureTable consists of any number of the following sequences:
 - The size of the upcoming `FeatureTableMetadata` (varint-encoded).
@@ -386,9 +386,9 @@ Complex types are composed of scalar types.
 
 ### Logical Types <span class="experimental"></span>
 
-> [!CAUTION]
-> Original text had `encodings can be reused` text which is unclear.
-> What is "encodings" in this context?
+!!! CAUTION
+    Original text had `encodings can be reused` text which is unclear.
+    What is "encodings" in this context?
 
 Logical types add semantics on top of physical types, enabling code reuse and simplifying encoder/decoder implementation.
 
@@ -434,8 +434,8 @@ The following encoding pool was selected based on analysis of compression ratio 
 | String    | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry  | Plain, Dictionary, Morton-Dictionary | | |
 
-> [!NOTE]
-> `ALP`, `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
+!!! NOTE
+    `ALP`, `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
 
 SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed.
 Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.
@@ -495,9 +495,9 @@ Feature properties are divided into `feature-scoped` and `vertex-scoped` propert
 - **Feature-scoped**: One value per feature.
 - **Vertex-scoped**: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).
 
-> [!NOTE]
-> TODO: Would it make sense to place vertex-scoped properties AFTER feature scoped ones?
-> I suspect some implementations may act of feature-scoped properties first, and possibly even ignore vertex-scoped, at least for now (esp since vertex-scoped ones are still experimental)
+!!! TODO
+    Would it make sense to place vertex-scoped properties AFTER feature scoped ones?
+    I suspect some implementations may act of feature-scoped properties first, and possibly even ignore vertex-scoped, at least for now (esp since vertex-scoped ones are still experimental)
 
 Vertex-scoped properties must be grouped together and placed before feature-scoped properties in the FeatureTable.
 A property's scope is defined in the tileset metadata using the `ColumnScope` enum.
@@ -550,15 +550,15 @@ See recommended heuristic in the [encoding schemes](#encoding-schemes).
 
 # Encodings
 
-> [!NOTE]
-> TODO: inline encodings here
+!!! TODO
+    inline encodings here
 
 Encoding details are specified in [a separate document](encodings.md).
 
 # In-Memory Format
 
-> [!NOTE]
-> The following is a high-level overview; the in-memory format will be explained in more detail later.
+!!! NOTE
+    The following is a high-level overview; the in-memory format will be explained in more detail later.
 
 The record-oriented, array-of-structures in-memory model used by libraries processing Mapbox Vector Tiles incurs considerable overhead.
 This includes creating many small objects (increasing memory allocation load) and placing additional strain on garbage collectors in browsers.
@@ -589,8 +589,8 @@ The MLT in-memory format supports the following vector types:
 - Shared Dictionary Vectors <span class="experimental"></span>
 - [Run-End Encoded (REE) Vectors](https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout)
 
-> [!NOTE]
-> Further evaluation is needed to determine if [recent research](https://arxiv.org/pdf/2306.15374.pdf) can enable random access on delta-encoded values.
+!!! NOTE
+    Further evaluation is needed to determine if [recent research](https://arxiv.org/pdf/2306.15374.pdf) can enable random access on delta-encoded values.
 
 Using a compressed vector where possible makes the conversion from storage to in-memory format essentially a zero-copy operation.
 
