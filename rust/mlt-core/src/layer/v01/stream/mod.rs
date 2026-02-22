@@ -1,5 +1,5 @@
 mod decode;
-pub(crate) mod logical;
+mod logical;
 mod physical;
 
 use std::fmt::Debug;
@@ -16,10 +16,11 @@ use crate::utils::{
     decode_bytes_to_u64s, encode_bools_to_bytes, encode_byte_rle, parse_u8, parse_varint,
     parse_varint_vec, take,
 };
-use crate::v01::logical::LogicalEncoderStrategy;
 use crate::v01::stream::decode::decode_fastpfor_composite;
-pub use crate::v01::stream::logical::{LogicalCodec, LogicalData, LogicalTechnique, LogicalValue};
-pub use crate::v01::stream::physical::{PhysicalCodec, PhysicalStreamType};
+pub use crate::v01::stream::logical::{
+    LogicalCodec, LogicalData, LogicalEncoding, LogicalTechnique, LogicalValue,
+};
+pub use crate::v01::stream::physical::{PhysicalCodec, PhysicalEncoding, PhysicalStreamType};
 use crate::{MltError, MltRefResult};
 
 /// Representation of an encoded stream
@@ -86,12 +87,13 @@ impl OwnedStream {
 
     pub fn encode_i8s(
         values: &[i8],
-        logical: LogicalEncoderStrategy,
-        physical_codec: PhysicalCodec,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let as_i32: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-        let (physical_u32s, logical_codec) = logical.encode_i32(&as_i32)?;
+        let (physical_u32s, logical_codec) = logical.encode_i32s(&as_i32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -99,17 +101,18 @@ impl OwnedStream {
                 logical_codec,
                 physical_codec,
             },
-            data: physical_codec.encode_u32s(physical_u32s)?,
+            data,
         })
     }
     pub fn encode_u8s(
         values: &[u8],
-        logical: LogicalEncoderStrategy,
-        physical_codec: PhysicalCodec,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
         let as_u32: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-        let (physical_u32s, logical_codec) = logical.encode_u32(&as_u32)?;
+        let (physical_u32s, logical_codec) = logical.encode_u32s(&as_u32)?;
         let num_values = u32::try_from(physical_u32s.len())?;
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -117,16 +120,17 @@ impl OwnedStream {
                 logical_codec,
                 physical_codec,
             },
-            data: physical_codec.encode_u32s(physical_u32s)?,
+            data,
         })
     }
     pub fn encode_i32s(
         values: &[i32],
-        logical: LogicalEncoderStrategy,
-        physical_codec: PhysicalCodec,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
-        let (physical_u32s, logical_codec) = logical.encode_i32(values)?;
+        let (physical_u32s, logical_codec) = logical.encode_i32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -134,16 +138,17 @@ impl OwnedStream {
                 logical_codec,
                 physical_codec,
             },
-            data: physical_codec.encode_u32s(physical_u32s)?,
+            data,
         })
     }
     pub fn encode_u32s(
         values: &[u32],
-        logical: LogicalEncoderStrategy,
-        physical_codec: PhysicalCodec,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
-        let (physical_u32s, logical_codec) = logical.encode_u32(values)?;
+        let (physical_u32s, logical_codec) = logical.encode_u32s(values)?;
         let num_values = u32::try_from(physical_u32s.len())?;
+        let (data, physical_codec) = physical.encode_u32s(physical_u32s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -151,17 +156,18 @@ impl OwnedStream {
                 logical_codec,
                 physical_codec,
             },
-            data: physical_codec.encode_u32s(physical_u32s)?,
+            data,
         })
     }
 
-    pub fn encode_i64(
+    pub fn encode_i64s(
         values: &[i64],
-        logical: LogicalEncoderStrategy,
-        physical_codec: PhysicalCodec,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
-        let (physical_u64s, logical_codec) = logical.encode_i64(values)?;
+        let (physical_u64s, logical_codec) = logical.encode_i64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
+        let (data, physical_codec) = physical.encode_u64s(physical_u64s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -169,16 +175,17 @@ impl OwnedStream {
                 logical_codec,
                 physical_codec,
             },
-            data: physical_codec.encode_u64s(physical_u64s)?,
+            data,
         })
     }
-    pub fn encode_u64(
+    pub fn encode_u64s(
         values: &[u64],
-        logical: LogicalEncoderStrategy,
-        physical_codec: PhysicalCodec,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
     ) -> Result<Self, MltError> {
-        let (physical_u64s, logical_codec) = logical.encode_u64(values)?;
+        let (physical_u64s, logical_codec) = logical.encode_u64s(values)?;
         let num_values = u32::try_from(physical_u64s.len())?;
+        let (data, physical_codec) = physical.encode_u64s(physical_u64s);
         Ok(Self {
             meta: StreamMeta {
                 physical_type: PhysicalStreamType::Data(DictionaryType::None),
@@ -186,7 +193,7 @@ impl OwnedStream {
                 logical_codec,
                 physical_codec,
             },
-            data: physical_codec.encode_u64s(physical_u64s)?,
+            data,
         })
     }
 }
@@ -871,19 +878,19 @@ mod tests {
     }
     use proptest::prelude::*;
 
-    fn logical_encoders_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
+    fn logical_encoders_strategy() -> impl Strategy<Value = LogicalEncoding> {
         prop_oneof![
-            Just(LogicalEncoderStrategy::None),
-            Just(LogicalEncoderStrategy::Rle),
-            Just(LogicalEncoderStrategy::Delta),
-            Just(LogicalEncoderStrategy::DeltaRle),
+            Just(LogicalEncoding::None),
+            Just(LogicalEncoding::Rle),
+            Just(LogicalEncoding::Delta),
+            Just(LogicalEncoding::DeltaRle),
         ]
     }
 
-    fn physical_codecs_strategy() -> impl Strategy<Value = PhysicalCodec> {
+    fn physical_encoder_strategy() -> impl Strategy<Value = PhysicalEncoding> {
         prop_oneof![
-            Just(PhysicalCodec::None),
-            Just(PhysicalCodec::VarInt),
+            Just(PhysicalEncoding::None),
+            Just(PhysicalEncoding::VarInt),
             // FastPFOR and Alp are not supported for encoding yet
         ]
     }
@@ -893,7 +900,7 @@ mod tests {
         fn test_u32_roundtrip(
             values in prop::collection::vec(any::<u32>(), 0..100),
             logical_encoder in logical_encoders_strategy(),
-            physical_codec in physical_codecs_strategy()
+            physical_codec in physical_encoder_strategy()
         ) {
             let owned_stream = OwnedStream::encode_u32s(&values, logical_encoder, physical_codec).unwrap();
 
@@ -912,7 +919,7 @@ mod tests {
         fn test_i32_roundtrip(
             values in prop::collection::vec(any::<i32>(), 0..100),
             logical_encoder in logical_encoders_strategy(),
-            physical_codec in physical_codecs_strategy()
+            physical_codec in physical_encoder_strategy()
         ) {
             let owned_stream = OwnedStream::encode_i32s(&values, logical_encoder, physical_codec).unwrap();
 
@@ -931,9 +938,9 @@ mod tests {
         fn test_u64_roundtrip(
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical_encoder in logical_encoders_strategy(),
-            physical_codec in physical_codecs_strategy()
+            physical_codec in physical_encoder_strategy()
         ) {
-            let owned_stream = OwnedStream::encode_u64(&values, logical_encoder, physical_codec).unwrap();
+            let owned_stream = OwnedStream::encode_u64s(&values, logical_encoder, physical_codec).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -950,9 +957,9 @@ mod tests {
         fn test_i64_roundtrip(
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical_encoder in logical_encoders_strategy(),
-            physical_codec in physical_codecs_strategy()
+            physical_codec in physical_encoder_strategy()
         ) {
-            let owned_stream = OwnedStream::encode_i64(&values, logical_encoder, physical_codec).unwrap();
+            let owned_stream = OwnedStream::encode_i64s(&values, logical_encoder, physical_codec).unwrap();
 
             let mut buffer = Vec::new();
             buffer.write_stream(&owned_stream).unwrap();
@@ -969,7 +976,7 @@ mod tests {
         fn test_i8_roundtrip(
             values in prop::collection::vec(any::<i8>(), 0..100),
             logical_encoder in logical_encoders_strategy(),
-            physical_codec in physical_codecs_strategy()
+            physical_codec in physical_encoder_strategy()
         ) {
             let owned_stream = OwnedStream::encode_i8s(&values, logical_encoder, physical_codec).unwrap();
 
@@ -987,7 +994,7 @@ mod tests {
         fn test_u8_roundtrip(
             values in prop::collection::vec(any::<u8>(), 0..100),
             logical_encoder in logical_encoders_strategy(),
-            physical_codec in physical_codecs_strategy()
+            physical_codec in physical_encoder_strategy()
         ) {
             let owned_stream = OwnedStream::encode_u8s(&values, logical_encoder, physical_codec).unwrap();
 
