@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-core"]
+members = ["mlt", "mlt-core", "mlt-pyo3"]
 default-members = ["mlt", "mlt-core"]
 # Excluding mlt-core/fuzz because cargo-fuzz does not have workspace support
 # Excluding mlt-legacy due to buildscript issues
@@ -36,6 +36,7 @@ num-traits = "0.2.19"
 num_enum = "0.7.4"
 pretty_assertions = "1.4"
 proptest = "1.6"
+pyo3 = "0.28.2"
 ratatui = "0.30.0"
 rayon = "1"
 rstar = "0.12"
