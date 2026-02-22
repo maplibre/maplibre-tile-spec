@@ -180,7 +180,7 @@ mod tests {
     fn test_decode_componentwise_delta_vec2s() {
         let values = &[1_u32, 2, 3, 4];
         let decoded = decode_componentwise_delta_vec2s::<i32>(values).unwrap();
-        assert_eq!(&decoded, &[-1_i32, 1, -3, 3]);
+        assert_eq!(&decoded, &[-1_i32,1,-3,3])
     }
 
     #[test]
