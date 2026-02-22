@@ -40,7 +40,7 @@ const skippedTests = testNames
     .map((name) => [name, UNIMPLEMENTED_SYNTHETICS.get(name)] as const);
 
 describe("MLT Decoder - Synthetic tests", () => {
-    for (let testName of activeList) {
+    for (const testName of activeList) {
         it(`should decode ${testName}`, async () => {
             const [mltBuffer, jsonRaw] = await Promise.all([
                 readFile(join(syntheticDir, `${testName}.mlt`)),
@@ -54,15 +54,15 @@ describe("MLT Decoder - Synthetic tests", () => {
         });
     }
 
-    for (let skipTest of skippedTests) {
+    for (const skipTest of skippedTests) {
         it.skip(`should decode ${skipTest[0]} (skipped because: ${skipTest[1]})`, () => {});
     }
 });
 
 function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
     const features: GeoJSON.Feature[] = [];
-    for (let table of featureTables) {
-        for (let feature of table.getFeatures()) {
+    for (const table of featureTables) {
+        for (const feature of table.getFeatures()) {
             const geojsonFeature: GeoJSON.Feature = {
                 type: "Feature",
                 geometry: getGeometry(feature.geometry),
