@@ -43,108 +43,6 @@ pub enum LogicalCodec {
     PseudoDecimal,
 }
 
-impl LogicalCodec {
-    /// Logically encode `u32` values, returning the physically-stored sequence and the concrete decoder.
-    ///
-    /// [`RleMeta`] is derived from the actual data.
-    /// See [`LogicalValue::decode_u32`] for the reverse operation.
-    pub fn encode_u32(self, values: &[u32]) -> Result<(Vec<u32>, Self), MltError> {
-        match self {
-            Self::None => Ok((values.to_vec(), self)),
-            Self::Delta => Ok((
-                encode_zigzag_delta(&values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>()),
-                Self::Delta,
-            )),
-            Self::Rle(_) => {
-                let (u32s, meta) = apply_rle(values, values.len())?;
-                Ok((u32s, Self::Rle(meta)))
-            }
-            Self::DeltaRle(_) => {
-                let delta = encode_zigzag_delta(
-                    &values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>(),
-                );
-                let (u32s, meta) = apply_rle(&delta, values.len())?;
-                Ok((u32s, Self::DeltaRle(meta)))
-            }
-            _ => Err(MltError::NotImplemented(
-                "encode_u32: unsupported logical decoder",
-            )),
-        }
-    }
-
-    /// Logically encode `i32` values into the `u32` physical representation.
-    ///
-    /// [`RleMeta`] is derived from the actual data.
-    /// See [`LogicalValue::decode_i32`] for the reverse operation.
-    pub fn encode_i32(self, values: &[i32]) -> Result<(Vec<u32>, Self), MltError> {
-        match self {
-            Self::None => Ok((encode_zigzag(values), self)),
-            Self::Delta => Ok((encode_zigzag_delta(values), Self::Delta)),
-            Self::Rle(_) => {
-                let (u32s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
-                Ok((u32s, Self::Rle(meta)))
-            }
-            Self::DeltaRle(_) => {
-                let (u32s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
-                Ok((u32s, Self::DeltaRle(meta)))
-            }
-            _ => Err(MltError::NotImplemented(
-                "encode_i32: unsupported logical decoder",
-            )),
-        }
-    }
-
-    /// Logically encode `u64` values into the `u64` physical representation.
-    ///
-    /// [`RleMeta`] is derived from the actual data.
-    /// See [`LogicalValue::decode_u64`] for the reverse operation.
-    pub fn encode_u64(self, values: &[u64]) -> Result<(Vec<u64>, Self), MltError> {
-        match self {
-            Self::None => Ok((values.to_vec(), self)),
-            Self::Delta => Ok((
-                encode_zigzag_delta(&values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>()),
-                Self::Delta,
-            )),
-            Self::Rle(_) => {
-                let (u64s, meta) = apply_rle(values, values.len())?;
-                Ok((u64s, Self::Rle(meta)))
-            }
-            Self::DeltaRle(_) => {
-                let delta = encode_zigzag_delta(
-                    &values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>(),
-                );
-                let (u64s, meta) = apply_rle(&delta, values.len())?;
-                Ok((u64s, Self::DeltaRle(meta)))
-            }
-            _ => Err(MltError::NotImplemented(
-                "encode_u64: unsupported logical decoder",
-            )),
-        }
-    }
-
-    /// Logically encode `i64` values into the `u64` physical representation.
-    ///
-    /// [`RleMeta`] is derived from the actual data.
-    /// See [`LogicalValue::decode_i64`] for the reverse operation.
-    pub fn encode_i64(self, values: &[i64]) -> Result<(Vec<u64>, Self), MltError> {
-        match self {
-            Self::None => Ok((encode_zigzag(values), self)),
-            Self::Delta => Ok((encode_zigzag_delta(values), Self::Delta)),
-            Self::Rle(_) => {
-                let (u64s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
-                Ok((u64s, Self::Rle(meta)))
-            }
-            Self::DeltaRle(_) => {
-                let (u64s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
-                Ok((u64s, Self::DeltaRle(meta)))
-            }
-            _ => Err(MltError::NotImplemented(
-                "encode_i64: unsupported logical decoder",
-            )),
-        }
-    }
-}
-
 /// RLE-encode a sequence into `[run-lengths | unique-values]` and return the matching `RleMeta`.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
 fn apply_rle<T: PrimInt + Debug>(
@@ -328,6 +226,104 @@ impl LogicalValue {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum LogicalEncoderStrategy {
+    None,
+    Delta,
+    DeltaRle,
+    Rle,
+    // FIXME: add more of the LogicalCodec strategies
+}
+impl LogicalEncoderStrategy {
+    /// Logically encode `u32` values, returning the physically-stored sequence and the concrete decoder.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_u32`] for the reverse operation.
+    pub fn encode_u32(self, values: &[u32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((values.to_vec(), LogicalCodec::None)),
+            Self::Delta => {
+                let values = values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>();
+                let u32s = encode_zigzag_delta(&values);
+                Ok((u32s, LogicalCodec::Delta))
+            }
+            Self::Rle => {
+                let (u32s, meta) = apply_rle(values, values.len())?;
+                Ok((u32s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let values = values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>();
+                let delta = encode_zigzag_delta(&values);
+                let (u32s, meta) = apply_rle(&delta, values.len())?;
+                Ok((u32s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+
+    /// Logically encode `i32` values into the `u32` physical representation.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_i32`] for the reverse operation.
+    pub fn encode_i32(self, values: &[i32]) -> Result<(Vec<u32>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((encode_zigzag(values), LogicalCodec::None)),
+            Self::Delta => Ok((encode_zigzag_delta(values), LogicalCodec::Delta)),
+            Self::Rle => {
+                let (u32s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
+                Ok((u32s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let (u32s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
+                Ok((u32s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+
+    /// Logically encode `u64` values into the `u64` physical representation.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_u64`] for the reverse operation.
+    pub fn encode_u64(self, values: &[u64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((values.to_vec(), LogicalCodec::None)),
+            Self::Delta => Ok((
+                encode_zigzag_delta(&values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>()),
+                LogicalCodec::Delta,
+            )),
+            Self::Rle => {
+                let (u64s, meta) = apply_rle(values, values.len())?;
+                Ok((u64s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let delta = encode_zigzag_delta(
+                    &values.iter().map(|&v| v.cast_signed()).collect::<Vec<_>>(),
+                );
+                let (u64s, meta) = apply_rle(&delta, values.len())?;
+                Ok((u64s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+
+    /// Logically encode `i64` values into the `u64` physical representation.
+    ///
+    /// [`LogicalCodec`] is derived from the actual data.
+    /// See [`LogicalValue::decode_i64`] for the reverse operation.
+    pub fn encode_i64(self, values: &[i64]) -> Result<(Vec<u64>, LogicalCodec), MltError> {
+        match self {
+            Self::None => Ok((encode_zigzag(values), LogicalCodec::None)),
+            Self::Delta => Ok((encode_zigzag_delta(values), LogicalCodec::Delta)),
+            Self::Rle => {
+                let (u64s, meta) = apply_rle(&encode_zigzag(values), values.len())?;
+                Ok((u64s, LogicalCodec::Rle(meta)))
+            }
+            Self::DeltaRle => {
+                let (u64s, meta) = apply_rle(&encode_zigzag_delta(values), values.len())?;
+                Ok((u64s, LogicalCodec::DeltaRle(meta)))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -336,18 +332,13 @@ mod tests {
     use crate::v01::DictionaryType;
     use crate::v01::stream::physical::{PhysicalCodec, PhysicalStreamType};
 
-    fn logical_codec_strategy() -> impl Strategy<Value = LogicalCodec> {
+    fn logical_codec_strategy() -> impl Strategy<Value = LogicalEncoderStrategy> {
+        use LogicalEncoderStrategy as Enc;
         prop_oneof![
-            Just(LogicalCodec::None),
-            Just(LogicalCodec::Delta),
-            Just(LogicalCodec::Rle(RleMeta {
-                runs: 0,
-                num_rle_values: 0
-            })),
-            Just(LogicalCodec::DeltaRle(RleMeta {
-                runs: 0,
-                num_rle_values: 0
-            })),
+            Just(Enc::None),
+            Just(Enc::Delta),
+            Just(Enc::Rle),
+            Just(Enc::DeltaRle),
         ]
     }
 
