@@ -1,9 +1,9 @@
 #!/usr/bin/env just --justfile
 
-mod rust
-mod java
-mod ts
 mod cpp
+mod java
+mod rust
+mod ts
 
 just := quote(just_executable())
 ci_mode := if env('CI', '') != '' {'1'} else {''}
@@ -52,13 +52,13 @@ test: test-int
 # Run integration tests, ensuring that the output matches the expected output
 test-int: _clean-int-test _test-run-int (_diff-dirs "test/output" "test/expected")
 
+[working-directory: 'mkdocs']
 mkdocs:
-	docker build -t squidfunk/mkdocs-material mkdocs
-	cd mkdocs && docker run --rm -it -p 8000:8000 -v ${PWD}:/docs squidfunk/mkdocs-material
+	docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
 
+[working-directory: 'mkdocs']
 mkdocs-build:
-    docker build -t squidfunk/mkdocs-material mkdocs
-    cd mkdocs && docker run --rm -v ${PWD}:/docs squidfunk/mkdocs-material build --strict
+    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
 # Extract version from a tag by removing language prefix and 'v' prefix
 extract-version language tag:
@@ -66,9 +66,11 @@ extract-version language tag:
 
 # Ensure a command is available
 assert-cmd command:
-    @if ! type {{command}} > /dev/null; then \
-        echo "Command '{{command}}' could not be found. Please make sure it has been installed on your computer." ;\
-        exit 1 ;\
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! type {{command}} > /dev/null; then
+        echo "Command '{{command}}' could not be found. Please make sure it has been installed on your computer."
+        exit 1
     fi
 
 # Install a Cargo tool if missing (uses cargo-binstall when available)
