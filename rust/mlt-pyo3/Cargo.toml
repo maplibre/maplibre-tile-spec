@@ -25,6 +25,3 @@ serde_json.workspace = true
 
 [dev-dependencies]
 pyo3 = { workspace = true, features = ["auto-initialize"] }
-
-[lints.rust]
-unsafe_code = "allow"
