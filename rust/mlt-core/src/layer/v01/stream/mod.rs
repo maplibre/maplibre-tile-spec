@@ -644,7 +644,7 @@ impl<'a> Stream<'a> {
     //         StreamType::ComponentwiseDeltaVarInt(data) => {
     //             // let physical_decode = all(parse_varint_vec::<T, U>(self.data, self.num_values)?)?;
     //             todo!();
-    //             // decode_componentwise_delta_vec2(physical_decode.as_slice())
+    //             // decode_componentwise_delta_vec2s(physical_decode.as_slice())
     //         }
     //         _ => panic!("Unsupported physical type: {:?}", self.stream),
     //     }
