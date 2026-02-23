@@ -38,12 +38,8 @@ impl GeometryEncodingStrategy {
 
 /// Encode geometry types stream using RLE if beneficial
 fn encode_geometry_types(types: &[GeometryType]) -> Result<OwnedStream, MltError> {
-    if types.is_empty() {
-        Ok(OwnedStream::empty_without_codec())
-    } else {
-        let values: Vec<u32> = types.iter().map(|t| *t as u32).collect();
-        encode_u32_stream_auto(&values, PhysicalStreamType::Data(DictionaryType::None))
-    }
+    let values: Vec<u32> = types.iter().map(|t| *t as u32).collect();
+    encode_u32_stream_auto(&values, PhysicalStreamType::Data(DictionaryType::None))
 }
 
 /// Encode a length stream (for geometries, parts, rings)
