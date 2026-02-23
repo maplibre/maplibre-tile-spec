@@ -78,9 +78,9 @@ fn encode_length_stream(
 
     encode_u32_stream(
         lengths,
-        PhysicalStreamType::Length(length_type),
         LogicalCodec::None,
         physical_codec,
+        PhysicalStreamType::Length(length_type),
     )
 }
 
@@ -177,9 +177,9 @@ fn encode_u32_stream_auto(
 /// Encode a u32 stream with specified encoding
 fn encode_u32_stream(
     values: &[u32],
-    physical_type: PhysicalStreamType,
     logical_codec: LogicalCodec,
     physical_codec: PhysicalCodec,
+    physical_type: PhysicalStreamType,
 ) -> Result<OwnedStream, MltError> {
     if values.is_empty() {
         return Ok(OwnedStream {
@@ -697,9 +697,9 @@ pub fn encode_geometry(
     if let Some(idx_buf) = index_buffer {
         items.push(encode_u32_stream(
             idx_buf,
-            PhysicalStreamType::Offset(OffsetType::Index),
             LogicalCodec::None,
             config.physical_codec,
+            PhysicalStreamType::Offset(OffsetType::Index),
         )?);
     }
 
@@ -707,9 +707,9 @@ pub fn encode_geometry(
     if let Some(v_offs) = vertex_offsets {
         items.push(encode_u32_stream(
             v_offs,
-            PhysicalStreamType::Offset(OffsetType::Vertex),
             LogicalCodec::None,
             config.physical_codec,
+            PhysicalStreamType::Offset(OffsetType::Vertex),
         )?);
     }
 
@@ -863,9 +863,9 @@ mod tests {
     fn test_encode_empty_u32_stream() {
         let result = encode_u32_stream(
             &[],
-            PhysicalStreamType::Data(DictionaryType::None),
             LogicalCodec::None,
             PhysicalCodec::VarInt,
+            PhysicalStreamType::Data(DictionaryType::None),
         );
         assert!(result.is_ok());
         let stream = result.unwrap();
@@ -885,9 +885,9 @@ mod tests {
         let values = vec![100, 101, 102, 103];
         let result = encode_u32_stream(
             &values,
-            PhysicalStreamType::Data(DictionaryType::None),
             LogicalCodec::Delta,
             PhysicalCodec::VarInt,
+            PhysicalStreamType::Data(DictionaryType::None),
         );
         assert!(result.is_ok());
         let stream = result.unwrap();
@@ -899,9 +899,9 @@ mod tests {
         let values = vec![1, 2, 3];
         let result = encode_u32_stream(
             &values,
-            PhysicalStreamType::Data(DictionaryType::None),
             LogicalCodec::None,
             PhysicalCodec::None,
+            PhysicalStreamType::Data(DictionaryType::None),
         );
         assert!(result.is_ok());
         let stream = result.unwrap();
