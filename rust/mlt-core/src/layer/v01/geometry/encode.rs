@@ -5,10 +5,11 @@ use zigzag::ZigZag as _;
 
 use super::{DecodedGeometry, OwnedEncodedGeometry};
 use crate::MltError;
+use crate::utils::encode_componentwise_delta_vec2s;
 use crate::v01::{
     DictionaryType, GeometryType, LengthType, LogicalCodec, OffsetType, OwnedDataVarInt,
-    OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalStreamType, RleMeta,
-    StreamMeta,
+    OwnedEncodedData, OwnedStream, OwnedStreamData, PhysicalCodec, PhysicalEncoding,
+    PhysicalStreamType, RleMeta, StreamMeta,
 };
 
 /// Configuration for geometry encoding
@@ -193,19 +194,22 @@ fn encode_u32_stream(
 }
 
 /// Encode vertex buffer using componentwise delta encoding
-fn encode_vertex_buffer(vertices: &[i32]) -> Result<OwnedStream, MltError> {
-    // Componentwise delta encoding: delta X and Y separately
-    let encoded = encode_componentwise_delta_zigzag_varints(vertices);
+fn encode_vertex_buffer(
+    vertices: &[i32],
+    physical: PhysicalEncoding,
+) -> Result<OwnedStream, MltError> {
     let num_values = u32::try_from(vertices.len())?;
-
+    // Componentwise delta encoding: delta X and Y separately
+    let physical_u32 = encode_componentwise_delta_vec2s(vertices);
+    let (data, physical_codec) = physical.encode_u32s(physical_u32);
     Ok(OwnedStream {
         meta: StreamMeta {
             physical_type: PhysicalStreamType::Data(DictionaryType::Vertex),
             num_values,
             logical_codec: LogicalCodec::ComponentwiseDelta,
-            physical_codec: PhysicalCodec::VarInt,
+            physical_codec,
         },
-        data: OwnedStreamData::VarInt(OwnedDataVarInt { data: encoded }),
+        data,
     })
 }
 
@@ -354,36 +358,6 @@ fn encode_delta_rle_varints(values: &[u32]) -> (Vec<u8>, u32, u32) {
     }
 
     (result, num_runs, num_rle_values)
-}
-
-/// Encode vertex buffer with componentwise delta + zigzag + varint
-/// Input is interleaved [x0, y0, x1, y1, ...] coordinates
-fn encode_componentwise_delta_zigzag_varints(vertices: &[i32]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(vertices.len() * 2);
-    let mut prev_x = 0i32;
-    let mut prev_y = 0i32;
-
-    for pair in vertices.chunks_exact(2) {
-        let x = pair[0];
-        let y = pair[1];
-
-        // Delta encoding per component
-        let delta_x = x.wrapping_sub(prev_x);
-        let delta_y = y.wrapping_sub(prev_y);
-
-        // Zigzag encoding
-        let zigzag_x = i32::encode(delta_x);
-        let zigzag_y = i32::encode(delta_y);
-
-        // Varint encoding
-        result.extend_from_slice(&zigzag_x.encode_var_vec());
-        result.extend_from_slice(&zigzag_y.encode_var_vec());
-
-        prev_x = x;
-        prev_y = y;
-    }
-
-    result
 }
 
 /// Convert geometry offsets to length stream for encoding
@@ -682,7 +656,7 @@ pub fn encode_geometry(
 
     // Encode vertex buffer
     if let Some(verts) = vertices {
-        items.push(encode_vertex_buffer(verts)?);
+        items.push(encode_vertex_buffer(verts, PhysicalEncoding::VarInt)?);
     }
 
     Ok(OwnedEncodedGeometry { meta, items })
@@ -705,16 +679,6 @@ mod tests {
         let values = vec![0, 1, 2, 3, 4];
         let encoded = encode_delta_zigzag_varints(&values);
         // Delta: [0, 1, 1, 1, 1] -> zigzag: [0, 2, 2, 2, 2]
-        assert!(!encoded.is_empty());
-    }
-
-    #[test]
-    fn test_componentwise_delta() {
-        let vertices = vec![0, 0, 10, 20, 15, 25];
-        let encoded = encode_componentwise_delta_zigzag_varints(&vertices);
-        // Pairs: (0,0), (10,20), (15,25)
-        // Delta X: 0, 10, 5
-        // Delta Y: 0, 20, 5
         assert!(!encoded.is_empty());
     }
 
@@ -806,7 +770,7 @@ mod tests {
 
     #[test]
     fn test_varint_constructor() {
-        let config = GeometryEncodingStrategy{
+        let config = GeometryEncodingStrategy {
             physical_codec: PhysicalCodec::VarInt,
         };
         assert!(matches!(config.physical_codec, PhysicalCodec::VarInt));
@@ -843,7 +807,7 @@ mod tests {
 
     #[test]
     fn test_encode_empty_vertex_buffer() {
-        let result = encode_vertex_buffer(&[]);
+        let result = encode_vertex_buffer(&[], PhysicalEncoding::None);
         assert!(result.is_ok());
         let stream = result.unwrap();
         assert_eq!(stream.meta.num_values, 0);
