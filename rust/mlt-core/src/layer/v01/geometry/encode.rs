@@ -39,22 +39,10 @@ impl GeometryEncodingStrategy {
 /// Encode geometry types stream using RLE if beneficial
 fn encode_geometry_types(types: &[GeometryType]) -> Result<OwnedStream, MltError> {
     if types.is_empty() {
-        Ok(empty_stream(DictionaryType::None, LogicalCodec::None))
+        Ok(OwnedStream::empty_without_codec())
     } else {
         let values: Vec<u32> = types.iter().map(|t| *t as u32).collect();
         encode_u32_stream_auto(&values, PhysicalStreamType::Data(DictionaryType::None))
-    }
-}
-
-fn empty_stream(dict_type: DictionaryType, logical: LogicalCodec) -> OwnedStream {
-    OwnedStream {
-        meta: StreamMeta {
-            physical_type: PhysicalStreamType::Data(dict_type),
-            num_values: 0,
-            logical_codec: logical,
-            physical_codec: PhysicalCodec::None,
-        },
-        data: OwnedStreamData::Encoded(OwnedEncodedData { data: Vec::new() }),
     }
 }
 
@@ -220,13 +208,6 @@ fn encode_u32_stream(
 
 /// Encode vertex buffer using componentwise delta encoding
 fn encode_vertex_buffer(vertices: &[i32]) -> Result<OwnedStream, MltError> {
-    if vertices.is_empty() {
-        return Ok(empty_stream(
-            DictionaryType::Vertex,
-            LogicalCodec::ComponentwiseDelta,
-        ));
-    }
-
     // Componentwise delta encoding: delta X and Y separately
     let encoded = encode_componentwise_delta_zigzag_varints(vertices);
     let num_values = u32::try_from(vertices.len())?;
